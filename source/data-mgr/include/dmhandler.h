@@ -19,11 +19,11 @@
     static_cast<CLASS*>(dataMgr->handlers.at(IOTYPE))
 
 #define REGISTER_DM_MSG_HANDLER(FDSPMsgT, func) \
-    REGISTER_FDSP_MSG_HANDLER_GENERIC(MODULEPROVIDER()->getSvcMgr()->getSvcRequestHandler(), \
+    REGISTER_FDSP_MSG_HANDLER_GENERIC(dataManager.getModuleProvider()->getSvcMgr()->getSvcRequestHandler(), \
             FDSPMsgT, func)
 
 #define DM_SEND_ASYNC_RESP(...) \
-    MODULEPROVIDER()->getSvcMgr()->getSvcRequestHandler()->sendAsyncResp(__VA_ARGS__)
+    dataManager.getModuleProvider()->getSvcMgr()->getSvcRequestHandler()->sendAsyncResp(__VA_ARGS__)
 
 #define HANDLE_INVALID_TX_ID_VAL(val) \
     if (BlobTxId::txIdInvalid == (val)) { \
@@ -49,6 +49,31 @@
         handleResponse(asyncHdr, message, ERR_OK, nullptr); \
         return; \
     }
+
+#define VOLUME_IO_VERSION_CHECK(io, helper)
+
+/* Ensure IO is ordered */
+#define ENSURE_IO_ORDER(io, helper) \
+do { \
+    if (!dataManager.features.isVolumegroupingEnabled()) { \
+        break; \
+    } \
+    auto volMeta = dataManager.getVolumeMeta(io->getVolId()); \
+    if (io->opId != volMeta->getOpId()+1) { \
+        LOGWARN << "OpId mismatch.  Current opId: " \
+            << volMeta->getOpId() << " incoming opId: " << io->opId; \
+        fds_assert(!"opid mismatch"); \
+        helper.err = ERR_IO_OPID_MISMATCH; \
+        return; \
+    } \
+    /* Ideally we should increment this op id after write makes it to commit log \
+     * In the current code base commit log is modified for non-coordinator issued \
+     * io as well.  This makes it difficult do it there.  Since OpId is only \
+     * in memory state and during resync/restarts is discarded, incrementing here \
+     * should be ok \
+     */ \
+    volMeta->incrementOpId(); \
+} while (false)
 
 namespace fds {
 
@@ -88,6 +113,11 @@ struct Handler: HasLogger {
     // do not need queuing
     virtual void handleQueueItem(DmRequest *dmRequest);
     virtual void addToQueue(DmRequest *dmRequest);
+    Error preEnqueueWriteOpHandling(const fds_volid_t &volId,
+                                    const int64_t &opId,
+                                    const fpi::AsyncHdrPtr &hdr,
+                                    const SHPTR<std::string> &payload);
+
     virtual ~Handler();
 protected:
     DataMgr& dataManager;
@@ -290,6 +320,18 @@ struct VolumeOpenHandler : Handler {
 };
 
 /**
+ * Message from coordinator notifying the active state of the group
+ */
+struct VolumegroupUpdateHandler : Handler {
+    explicit VolumegroupUpdateHandler(DataMgr& dataManager);
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::VolumeGroupInfoUpdateCtrlMsg>& message);
+    void handleQueueItem(DmRequest* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        Error const& e, DmRequest* dmRequest);
+};
+
+/**
  * Close an existing access token for the given volume
  */
 struct VolumeCloseHandler : Handler {
@@ -384,6 +426,16 @@ struct DmMigrationTxStateHandler : Handler {
     void handleQueueItem(DmRequest* dmRequest);
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::CtrlNotifyTxStateMsg>& message,
+                        Error const& e, DmRequest* dmRequest);
+};
+
+struct DmMigrationRequestTxStateHandler : Handler {
+    explicit DmMigrationRequestTxStateHandler(DataMgr& dataManager);
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::CtrlNotifyRequestTxStateMsg>& message);
+    void handleQueueItem(DmRequest* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifyRequestTxStateMsg>& message,
                         Error const& e, DmRequest* dmRequest);
 };
 

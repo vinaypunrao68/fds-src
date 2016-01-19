@@ -49,15 +49,22 @@ void ScstConnector::start(std::weak_ptr<AmProcessor> processor) {
 }
 
 void ScstConnector::stop() {
-    // TODO(bszmyd): Sat 12 Sep 2015 03:56:58 PM GMT
-    // Implement
+    if (instance_) {
+        instance_->shutdown();
+    }
+}
+
+void ScstConnector::shutdown() {
+    std::lock_guard<std::mutex> lk(target_lock_);
+    stopping = true;
+    stopping_condition_.notify_all();
+    for (auto& target_pair : targets_) {
+        target_pair.second->shutdown();
+    }
 }
 
 void ScstConnector::volumeAdded(VolumeDesc const& volDesc) {
-    // TODO(bszmyd): Tue 08 Dec 2015 02:40:23 PM MST
-    // Block volumes have the first low order bit set today, this
-    // should be more explicit
-    if ((1 == volDesc.volType || 3 == volDesc.volType)
+    if ((fpi::FDSP_VOL_BLKDEV_TYPE == volDesc.volType || fpi::FDSP_VOL_ISCSI_TYPE == volDesc.volType)
         && !volDesc.isSnapshot()
         && instance_) {
         instance_->addTarget(volDesc);
@@ -70,27 +77,57 @@ void ScstConnector::volumeRemoved(VolumeDesc const& volDesc) {
     }
 }
 
-void ScstConnector::addTarget(VolumeDesc const& volDesc) {
-    std::lock_guard<std::mutex> lg(target_lock_);
+void ScstConnector::targetDone(const std::string target_name) {
+    std::lock_guard<std::mutex> lk(target_lock_);
+    if (0 < targets_.erase(target_name)) {
+        LOGNOTIFY << "Connector has removed target: " << target_name;
+    }
+}
 
+void ScstConnector::addTarget(VolumeDesc const& volDesc) {
+    std::lock_guard<std::mutex> lk(target_lock_);
+    if (!stopping) {
+        _addTarget(volDesc);
+    }
+}
+
+void ScstConnector::_addTarget(VolumeDesc const& volDesc) {
     // Create target if it does not already exist
-    ScstTarget* target = nullptr;
-    auto it = targets_.find(volDesc.name);
+    auto target_name = target_prefix + volDesc.name;
+    bool happened {false};
+    auto it = targets_.end();
+    std::tie(it, happened) = targets_.emplace(target_name, nullptr);
+    if (happened) {
+        try {
+            it->second.reset(new ScstTarget(this,
+                                            target_name,
+                                            threads,
+                                            amProcessor));
+        } catch (ScstError& e) {
+            LOGERROR << "Failed to initialize target [" << target_name << "], ensure that SCST is installed and running.";
+            return;
+        }
+        it->second->addDevice(volDesc);
+    }
     if (targets_.end() == it) {
-        target = new ScstTarget(target_prefix + volDesc.name, threads, amProcessor);
-        targets_[volDesc.name].reset(target);
-        target->addDevice(volDesc.name);
-    } else {
-      target = it->second.get();
+        LOGERROR << "Failed to insert target into target map...";
+        return;
+    }
+    auto& target = *it->second;
+
+    // If we already had a target, and it's shutdown...wait for it to complete
+    // before trying to apply the apparently new descriptor
+    if (!happened && !target.enabled()) {
+        LOGNOTIFY << "Waiting for existing target to complete shutdown: " << target_name;
+        return;
     }
 
     // Setup initiator masking
-    std::vector<std::string> initiator_list;
+    std::set<std::string> initiator_list;
     for (auto const& ini : volDesc.iscsiSettings.initiators) {
-        GLOGDEBUG << "Initiator mask: " << ini.wwn_mask;
-        initiator_list.emplace_back(ini.wwn_mask);
+        initiator_list.emplace(ini.wwn_mask);
     }
-    target->setInitiatorMasking(initiator_list);
+    target.setInitiatorMasking(initiator_list);
 
     // Setup CHAP
     std::unordered_map<std::string, std::string> credentials;
@@ -101,23 +138,24 @@ void ScstConnector::addTarget(VolumeDesc const& volDesc) {
                      << "] where the minimum length is " << minimum_chap_password_len;
             continue;
         }
-        auto it = credentials.end();
+        auto cred_it = credentials.end();
         bool happened;
-        std::tie(it, happened) = credentials.emplace(cred.name, cred.passwd);
+        std::tie(cred_it, happened) = credentials.emplace(cred.name, cred.passwd);
         if (!happened) {
             GLOGWARN << "Duplicate user: [" << cred.name << "]";
             continue;
         }
     }
-    target->setCHAPCreds(credentials);
+    target.setCHAPCreds(credentials);
 
-    target->enable();
+    target.enable();
 }
 
 void ScstConnector::removeTarget(VolumeDesc const& volDesc) {
     std::lock_guard<std::mutex> lg(target_lock_);
+    auto target_name = target_prefix + volDesc.name;
 
-    auto it = targets_.find(volDesc.name);
+    auto it = targets_.find(target_name);
     if (targets_.end() == it) return;
 
     it->second->removeDevice(volDesc.name);
@@ -132,25 +170,29 @@ ScstConnector::ScstConnector(std::string const& prefix,
     threads = conf.get<uint32_t>("threads", threads);
 }
 
+static auto const rediscovery_delay = std::chrono::seconds(15);
+
 void
 ScstConnector::discoverTargets() {
-    auto amProc = amProcessor.lock();
-    if (!amProc) {
-        GLOGERROR << "No processing layer, no targets.";
-        return;
-    }
-    GLOGNORMAL << "Discovering iSCSI volumes to export.";
-    std::vector<VolumeDesc> volumes;
-    amProc->getVolumes(volumes);
+    // We need to poll OM for the volume list every so often, as it isn't
+    // guaranteed to be complete when initializing.
+    std::unique_lock<std::mutex> lk(target_lock_);
+    while (!stopping) {
+        auto amProc = amProcessor.lock();
+        if (!amProc) {
+            GLOGERROR << "No processing layer, no targets.";
+            break;
+        }
+        GLOGTRACE << "Discovering iSCSI volumes to export.";
+        std::vector<VolumeDesc> volumes;
+        amProc->getVolumes(volumes);
 
-    for (auto const& vol : volumes) {
-        // FIXME(bszmyd): Mon 23 Nov 2015 05:27:02 PM MST
-        // This is a magic value from thrift that i don't want to include
-        // headers from
-        if ((1 != vol.volType && 3 != vol.volType)
-            || vol.isSnapshot()) continue;
-        GLOGNORMAL << "Adding target for volume: " << vol;
-        addTarget(vol);
+        for (auto const& vol : volumes) {
+            if ((fpi::FDSP_VOL_BLKDEV_TYPE != vol.volType && fpi::FDSP_VOL_ISCSI_TYPE != vol.volType)
+                || vol.isSnapshot()) continue;
+            _addTarget(vol);
+        }
+        stopping_condition_.wait_for(lk, rediscovery_delay);
     }
 }
 

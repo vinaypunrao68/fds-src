@@ -157,21 +157,39 @@ class DomainContext(Context):
         am = False
 
         # Which Services, if any, are specified?
+        num_services = 0
         if services != "":
             service_list = services.split(",")
             for service in service_list:
                 if service.lower() == "sm":
                     sm = True
+                    num_services += 1
                 elif service.lower() == "dm":
                     dm = True
+                    num_services += 1
                 elif service.lower() == "am":
                     am = True
+                    num_services += 1
                 else:
                     return "Services should appear as a comma-separated list of some combination of " \
                            "SM, DM, and AM. {} is incorrect".format(services)
-
+        numpms = len(self.config.getServiceApi().getServiceIds("pm"))
+        total_expected_services = 1 + numpms + numpms * num_services
+        print 'num nodes: {} - total services:{}'.format(numpms, total_expected_services)
         try:
-            return self.restApi().activateLocalDomainServices(domain_name, sm, dm, am)
+            condition = True
+            count = 0
+            while condition:
+                retVal = self.restApi().activateLocalDomainServices(domain_name, sm, dm, am)
+                num_services = len(self.config.getServiceApi().getServiceList(True))
+                count += 1                
+                print '{} : expected services:{} and {} showed up'.format(count, total_expected_services, num_services)
+                condition = (count < 40) and (num_services < total_expected_services)
+                if condition:
+                    time.sleep(1)
+
+            if num_services < total_expected_services:
+                print 'please check .. expected services:{} but only {} showed up'.format(total_expected_services, num_services)
         except Exception, e:
             log.exception(e)
             return 'Unable to activate Services on Local Domain: {}'.format(domain_name)

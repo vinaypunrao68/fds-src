@@ -71,6 +71,9 @@ class FakeDataStore {
 public:
     kvstore::ConfigDB::ReturnType getLocalDomain(fds_ldomid_t id, LocalDomain& localDomain);
     bool getSvcMap(std::vector<fpi::SvcInfo>& records);
+    bool setCapacityUsedNode(const int64_t svcUuid, const unsigned long usedCapacityInBytes) {
+        return true;
+    }
 };
 
 kvstore::ConfigDB::ReturnType FakeDataStore::getLocalDomain(int32_t id, LocalDomain& ld) {

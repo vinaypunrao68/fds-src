@@ -7,9 +7,10 @@
 
 namespace fds {
 
-DmMigrationBase::DmMigrationBase(int64_t migrationId, DataMgr& _dataMgr)
+DmMigrationBase::DmMigrationBase(int64_t migrationId, DataMgr &_dataMgr)
 : dataMgr(_dataMgr)
 {
+    requestMgr = dataMgr.getModuleProvider()->getSvcMgr()->getSvcRequestMgr();
     this->migrationId = migrationId;
     std::stringstream ss;
     ss << " migrationid: " << migrationId << " ";

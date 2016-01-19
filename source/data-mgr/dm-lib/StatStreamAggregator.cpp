@@ -245,14 +245,16 @@ void VolumeStats::updateStdev(const std::vector<StatSlot>& slots,
 }
 
 
-StatStreamAggregator::StatStreamAggregator(char const *const name,
+StatStreamAggregator::StatStreamAggregator(CommonModuleProviderIf *modProvider,
+                                           char const *const name,
                                            boost::shared_ptr<FdsConfig> fds_config,
                                            DataMgr& dataManager)
-        : Module(name),
+        : HasModuleProvider(modProvider),
+          Module(name),
           dataManager_(dataManager),
           aggregate_stats_(MODULEPROVIDER()->getTimer()),
           aggregate_stats_task_(new VolStatsTimerTask(*aggregate_stats_, this)) {
-    const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
 
     // default config
     hist_config.finestat_slotsec_ = StatConstants::singleton()->FdsStatFGPeriodSec;
@@ -502,7 +504,7 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
     Error err(ERR_OK);
     char buf[50];
 
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir* root = MODULEPROVIDER()->proc_fdsroot();
     const std::string fileName = root->dir_sys_repo_stats() + std::to_string(vol_id.get()) +
             std::string("/") + (isMin ? "stat_min.log" : "stat_hour.log");
 
@@ -556,7 +558,7 @@ StatStreamAggregator::writeStatsLog(const fpi::volumeDataPoints& volStatData,
 Error
 StatStreamAggregator::volStatSync(NodeUuid dm_uuid, fds_volid_t vol_id) {
     Error err(ERR_OK);
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir* root = MODULEPROVIDER()->proc_fdsroot();
     const std::string src_dir = root->dir_sys_repo_stats() + std::to_string(vol_id.get()) +
                                               std::string("/");
     const fpi::SvcUuid & dmSvcUuid = dm_uuid.toSvcUuid();
@@ -881,10 +883,12 @@ void StatStreamTimerTask::runTimerTask() {
 
             if (logLocal) {
                 /**
-                 * We have local logging hard-coded to 1 minute and 1 hour.
+                 * We have local logging hard-coded to 1 minute and 1 hour. We recognize which
+                 * we are working with by checking whether the sample frequency is set to the
+                 * smallest allowed value.
                  */
                 statStreamAggr_.writeStatsLog(volDataPoint, volId,
-                        60 == reg_->sample_freq_seconds);
+                        (StatConstants::singleton()->FdsStatFGStreamPeriodFactorSec*1 == reg_->sample_freq_seconds));
             }
             dataPoints.push_back(volDataPoint);
         }

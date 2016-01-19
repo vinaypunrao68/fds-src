@@ -5,6 +5,7 @@
 #include "AmAsyncDataApi.h"
 
 #include <map>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -23,7 +24,7 @@ namespace fds {
 template<typename T, typename C>
 CallbackPtr
 create_async_handler(C&& c)
-{ return boost::make_shared<AsyncResponseHandler<T, C>>(std::forward<C>(c)); }
+{ return std::make_shared<AsyncResponseHandler<T, C>>(std::forward<C>(c)); }
 
 AmAsyncDataApi::AmAsyncDataApi(processor_type processor,
                                   response_ptr response_api)
@@ -368,7 +369,7 @@ void AmAsyncDataApi::updateBlobOnce(RequestHandle const& requestId,
 
     // Closure for response call
     auto closure = [p = responseApi, requestId](UpdateBlobCallback* cb, fpi::ErrorCode const& e) mutable -> void {
-        p->updateBlobResp(e, requestId);
+        p->updateBlobOnceResp(e, requestId);
     };
 
     // Quick check, if these don't match reject!

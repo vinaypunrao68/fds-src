@@ -26,7 +26,7 @@ void SamplerTask::runTimerTask()
  ****************************************************************************/
 FdsCountersMgr::FdsCountersMgr(const std::string &id)
     : id_(id),
-      lock_("Counters mutex"),
+      counters_lock_("Counters mutex"),
       timer_()
 {
     defaultCounters = new FdsCounters("process", this);
@@ -46,7 +46,7 @@ FdsCounters* FdsCountersMgr::get_default_counters() {
  */
 void FdsCountersMgr::add_for_export(FdsCounters *counters)
 {
-    fds_mutex::scoped_lock lock(lock_);
+    fds_mutex::scoped_lock lock(counters_lock_);
     exp_counters_.push_back(counters);
 }
 
@@ -68,7 +68,7 @@ void FdsCountersMgr::remove_from_export(FdsCounters *counters)
  */
 FdsCounters* FdsCountersMgr::get_counters(const std::string &id)
 {
-    fds_mutex::scoped_lock lock(lock_);
+    fds_mutex::scoped_lock lock(counters_lock_);
     /* Iterate till we find the counters we care about.
      * NOTE: When we have a lot of exported counters this is
      * inefficient.  For now this should be fine.
@@ -91,7 +91,7 @@ std::string FdsCountersMgr::export_as_graphite()
 {
     std::ostringstream oss;
 
-    fds_mutex::scoped_lock lock(lock_);
+    fds_mutex::scoped_lock lock(counters_lock_);
 
     std::time_t ts = std::time(NULL);
 
@@ -121,7 +121,7 @@ std::string FdsCountersMgr::export_as_graphite()
  */
 void FdsCountersMgr::export_to_ostream(std::ostream &stream)  // NOLINT
 {
-    fds_mutex::scoped_lock lock(lock_);
+    fds_mutex::scoped_lock lock(counters_lock_);
 
     for (auto counters : exp_counters_) {
         std::string counters_id = counters->id();
@@ -148,7 +148,7 @@ void FdsCountersMgr::export_to_ostream(std::ostream &stream)  // NOLINT
  */
 void FdsCountersMgr::toMap(std::map<std::string, int64_t>& m)
 {
-    fds_mutex::scoped_lock lock(lock_);
+    fds_mutex::scoped_lock lock(counters_lock_);
 
     for (auto counters : exp_counters_) {
         std::string counters_id = counters->id();
@@ -164,11 +164,36 @@ void FdsCountersMgr::toMap(std::map<std::string, int64_t>& m)
  */
 void FdsCountersMgr::reset()
 {
-    fds_mutex::scoped_lock lock(lock_);
+    fds_mutex::scoped_lock lock(counters_lock_);
     for (auto counters : exp_counters_) {
         counters->reset();
     }
 }
+
+void FdsCountersMgr::add_for_export(StateProvider *provider)
+{
+    fds_mutex::scoped_lock lock(stateproviders_lock_);
+    stateproviders_tbl_[provider->getStateProviderId()] = provider;
+}
+
+void FdsCountersMgr::remove_from_export(StateProvider *provider)
+{
+    fds_mutex::scoped_lock lock(stateproviders_lock_);
+    stateproviders_tbl_.erase(provider->getStateProviderId());
+}
+
+bool FdsCountersMgr::getStateInfo(const std::string &id,
+                                  std::string &state)
+{
+    fds_mutex::scoped_lock lock(stateproviders_lock_);
+    auto itr = stateproviders_tbl_.find(id);
+    if (itr == stateproviders_tbl_.end()) {
+        return false;
+    }
+    state = itr->second->getStateInfo();
+    return true;
+}
+
 
 /*****************************************************************************
  * Counters
@@ -279,7 +304,6 @@ void FdsCounters::remove_from_export(FdsBaseCounter* cp)
 {
     fds_verify(!"Not implemented yet");
 }
-
 
 /*****************************************************************************
  * Base Counter

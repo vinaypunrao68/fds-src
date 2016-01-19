@@ -1,7 +1,6 @@
 package com.formationds.sc;
 
 import com.formationds.apis.ConfigurationService;
-import com.formationds.apis.XdiService;
 import com.formationds.protocol.am.AMSvc;
 import com.formationds.protocol.om.OMSvc;
 import com.formationds.protocol.svc.PlatNetSvc;

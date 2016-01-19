@@ -9,10 +9,13 @@ import com.formationds.apis.VolumeDescriptor;
 import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.SnapshotPolicy;
 import com.formationds.client.v08.model.Volume;
+import com.formationds.client.v08.model.VolumeSettingsISCSI;
+import com.formationds.client.v08.model.VolumeSettingsNfs;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
+import com.formationds.protocol.NfsOption;
 import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
@@ -20,12 +23,13 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
+import com.google.common.base.CharMatcher;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -76,10 +80,16 @@ public class CreateVolume
             throw new ApiException( "Badly formatted volume", ErrorCode.BAD_REQUEST );
         }
 
+        if( CharMatcher.WHITESPACE.matchesAnyOf( newVolume.getName() ) )
+        {
+            throw new ApiException( "Badly formatted volume, name cannot contain spaces",
+                                    ErrorCode.BAD_REQUEST );
+        }
+
         VolumeDescriptor internalVolume =
             ExternalModelConverter.convertToInternalVolumeDescriptor( newVolume );
 
-        logger.trace( "INTERNAL MODEL::" + ObjectModelHelper.toJSON( internalVolume ) );
+        dumpVolume( internalVolume );
 
         final String domainName = "";
 
@@ -143,8 +153,8 @@ public class CreateVolume
 
         VolumeDescriptor vd = getConfigApi( ).statVolume( domainName, internalVolume.getName( ) );
 
-        List<Volume> volumes = ExternalModelConverter.convertToExternalVolumes(
-            Arrays.asList( vd ) );
+        List<Volume> volumes =
+            ExternalModelConverter.convertToExternalVolumes( Collections.singletonList( vd ) );
         Volume myVolume = null;
 
         for ( Volume volume : volumes )
@@ -225,7 +235,6 @@ public class CreateVolume
         for ( SnapshotPolicy policy : externalVolume.getDataProtectionPolicy( )
                                                     .getSnapshotPolicies( ) )
         {
-
             createEndpoint.createSnapshotPolicy( externalVolume.getId( ), policy );
         }
     }
@@ -278,6 +287,33 @@ public class CreateVolume
             volume.getQosPolicy( )
                   .getIopsMax( ) );
 
+        switch( volume.getSettings().getVolumeType() )
+        {
+            case BLOCK:
+                break;
+            case OBJECT:
+                break;
+            case SYSTEM:
+                break;
+            case ISCSI:
+                final VolumeSettingsISCSI volumeSettingsISCSI =
+                    ( VolumeSettingsISCSI ) volume.getSettings();
+                logger.trace( "Validate ( {}:{} ) -- iSCSI(target={})",
+                              volume.getId( ),
+                              volume.getName( ),
+                              volumeSettingsISCSI.getTarget() );
+                break;
+            case NFS:
+                final VolumeSettingsNfs volumeSettingsNfs =
+                    ( VolumeSettingsNfs ) volume.getSettings();
+                logger.trace( "Validate ( {}:{} ) -- NFS(client={}, options={})",
+                              volume.getId( ),
+                              volume.getName( ),
+                              volumeSettingsNfs.getClients(),
+                              volumeSettingsNfs.getOptions() );
+                break;
+        }
+
         if ( !( ( volume.getQosPolicy( )
                         .getIopsMax( ) == 0 ) ||
             ( volume.getQosPolicy( )
@@ -318,5 +354,39 @@ public class CreateVolume
         }
 
         return configApi;
+    }
+
+    private void dumpVolume( final VolumeDescriptor volume )
+    {
+        final StringBuilder sb = new StringBuilder( );
+
+        sb.append( " name: " ).append( volume.getName() )
+          .append( " created: " ).append( volume.getDateCreated() )
+          .append( " state: " ).append( volume.getState() )
+          .append( " tenantId: " ).append( volume.getTenantId() )
+          .append( " volumeId: " ).append( volume.getVolId() );
+
+        final com.formationds.apis.VolumeSettings volumeSettings = volume.getPolicy();
+        switch( volumeSettings.getVolumeType() )
+        {
+            case OBJECT:
+                break;
+            case BLOCK:
+                break;
+            case ISCSI:
+                break;
+            case NFS:
+                final NfsOption options = volumeSettings.getNfsOptions( );
+                if( options != null )
+                {
+                    sb.append( " client " )
+                      .append( options.getClient( ) )
+                      .append( " options " )
+                      .append( options.getOptions( ) );
+                }
+                break;
+        }
+
+        logger.trace( "INTERNAL VOLUME:: {}", sb.toString() );
     }
 }

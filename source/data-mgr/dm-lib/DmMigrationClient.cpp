@@ -4,15 +4,13 @@
 
 #include <DataMgr.h>
 #include <DmMigrationClient.h>
-#include <DmMigrationBase.h>
 
 namespace fds {
 
 extern std::string logString(const fpi::CtrlNotifyDeltaBlobDescMsg &msg);
 extern std::string logString(const fpi::CtrlNotifyDeltaBlobsMsg &msg);
 
-DmMigrationClient::DmMigrationClient(DmIoReqHandler* _DmReqHandle,
-                                     DataMgr& _dataMgr,
+DmMigrationClient::DmMigrationClient(DataMgr& _dataMgr,
                                      const NodeUuid& _myUuid,
                                      NodeUuid& _destDmUuid,
                                      int64_t migrationId,
@@ -22,7 +20,7 @@ DmMigrationClient::DmMigrationClient(DmIoReqHandler* _DmReqHandle,
                                      uint64_t _maxDeltaBlobs,
                                      uint64_t _maxDeltaBlobDescs)
     : DmMigrationBase(migrationId, _dataMgr),
-      DmReqHandler(_DmReqHandle), migrDoneHandler(_handle),
+      migrDoneHandler(_handle),
       mySvcUuid(_myUuid),
 	  destDmUuid(_destDmUuid),
 	  ribfsm(_ribfsm),
@@ -34,10 +32,10 @@ DmMigrationClient::DmMigrationClient(DmIoReqHandler* _DmReqHandle,
 	  abortFlag(false),
 	  cleanUp(_cleanup)
 {
-	volId = fds_volid_t(_ribfsm->volumeId);
+	volId = fds_volid_t(_ribfsm->volume_id);
     seqNumBlobs = ATOMIC_VAR_INIT(0UL);
     seqNumBlobDescs = ATOMIC_VAR_INIT(0UL);
-    dmtVersion = MODULEPROVIDER()->getSvcMgr()->getDMTVersion();
+    dmtVersion = dataMgr.getModuleProvider()->getSvcMgr()->getDMTVersion();
 }
 
 DmMigrationClient::~DmMigrationClient()
@@ -52,7 +50,7 @@ DmMigrationClient::run()
         err = processBlobFilterSet();
         if (ERR_OK != err) {
             LOGERROR << logString() << " Processing filter set failed: " << err << ". Exiting run thread";
-            dataMgr.dmMigrationMgr->abortMigration();
+            routeAbortMigration();
             return;
         }
 
@@ -60,7 +58,7 @@ DmMigrationClient::run()
         if (ERR_OK != err) {
             // This one doesn't have an async callback to decrement so we fail it manually
             LOGERROR << logString() << " Processing blob diff failed: " << err << ". Exiting run thread";
-            dataMgr.dmMigrationMgr->abortMigration();
+            routeAbortMigration();
             return;
         }
     }));
@@ -243,11 +241,13 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
     deltaBlobsMsg->volume_id = volId.get();
     deltaBlobsMsg->DMT_version = migrationId;
     deltaBlobsMsg->msg_seq_id = getSeqNumBlobs();
+    deltaBlobsMsg->version = version;
 
     fpi::CtrlNotifyDeltaBlobDescMsgPtr deltaBlobDescMsg(new fpi::CtrlNotifyDeltaBlobDescMsg());
     deltaBlobDescMsg->volume_id = volId.get();
     deltaBlobDescMsg->DMT_version = migrationId;
     deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
+    deltaBlobDescMsg->version = version;
 
     for (const auto & blobName: updateBlobs) {
         if (abortFlag) {
@@ -301,6 +301,7 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
             deltaBlobDescMsg->volume_id = volId.get();
             deltaBlobDescMsg->DMT_version = migrationId;
             deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
+            deltaBlobDescMsg->version = version;
         }
 
         if (deltaBlobsMsg->blob_obj_list.size() >= maxNumBlobs) {
@@ -319,6 +320,7 @@ DmMigrationClient::generateUpdateBlobDeltaSets(const std::vector<std::string>& u
             deltaBlobsMsg->volume_id = volId.get();
             deltaBlobsMsg->DMT_version = migrationId;
             deltaBlobsMsg->msg_seq_id = getSeqNumBlobs();
+            deltaBlobsMsg->version = version;
         }
     }
 
@@ -356,6 +358,7 @@ DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<std::string>& d
     deltaBlobDescMsg->volume_id = volId.get();
     deltaBlobDescMsg->DMT_version = migrationId;
     deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
+    deltaBlobDescMsg->version = version;
 
     /**
      * Loop and generate delta desc msg for the delete blobs.
@@ -393,6 +396,7 @@ DmMigrationClient::generateDeleteBlobDeltaSets(const std::vector<std::string>& d
             deltaBlobDescMsg->volume_id = volId.get();
             deltaBlobDescMsg->DMT_version = migrationId;
             deltaBlobDescMsg->msg_seq_id = getSeqNumBlobDescs();
+            deltaBlobDescMsg->version = version;
         }
     }
 
@@ -521,7 +525,7 @@ DmMigrationClient::sendDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& blobsMsg)
         << " " << fds::logString(*blobsMsg);
 
     fds_verify(static_cast<fds_volid_t>(blobsMsg->volume_id) == volId);
-    auto asyncDeltaBlobsMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
+    auto asyncDeltaBlobsMsg = requestMgr->newEPSvcRequest(destDmUuid.toSvcUuid());
     asyncDeltaBlobsMsg->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     asyncDeltaBlobsMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobsMsg),
                                    blobsMsg);
@@ -545,7 +549,7 @@ DmMigrationClient::sendDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& blobDe
         << " " << fds::logString(*blobDescMsg);
 
     fds_verify(static_cast<fds_volid_t>(blobDescMsg->volume_id) == volId);
-    auto asyncDeltaBlobDescMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
+    auto asyncDeltaBlobDescMsg = requestMgr->newEPSvcRequest(destDmUuid.toSvcUuid());
     asyncDeltaBlobDescMsg->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     asyncDeltaBlobDescMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobDescMsg),
                                       blobDescMsg);
@@ -589,8 +593,8 @@ DmMigrationClient::forwardCatalogUpdate(DmIoCommitBlobTx *commitBlobReq,
 
     // send forward cat update, and pass commitBlobReq as context so we can
     // reply to AM on fwd cat update response
-    // auto asyncCatUpdReq = gSvcRequestPool->newEPSvcRequest(this->node_uuid.toSvcUuid());
-    auto asyncCatUpdReq = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
+    // auto asyncCatUpdReq = requestMgr->newEPSvcRequest(this->node_uuid.toSvcUuid());
+    auto asyncCatUpdReq = requestMgr->newEPSvcRequest(destDmUuid.toSvcUuid());
     asyncCatUpdReq->setPayload(FDSP_MSG_TYPEID(fpi::ForwardCatalogMsg), fwdMsg);
     asyncCatUpdReq->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     asyncCatUpdReq->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationClient::fwdCatalogUpdateMsgResp,
@@ -678,7 +682,7 @@ DmMigrationClient::sendFinishFwdMsg()
 	finMsg->blob_name = "";
 	finMsg->lastForward = true;
 
-	auto thriftMsg = gSvcRequestPool->newEPSvcRequest(destDmUuid.toSvcUuid());
+	auto thriftMsg = requestMgr->newEPSvcRequest(destDmUuid.toSvcUuid());
 	thriftMsg->setPayload(FDSP_MSG_TYPEID(fpi::ForwardCatalogMsg), finMsg);
     thriftMsg->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
     std::function<void()> abortBind = std::bind(&DmMigrationClient::asyncMsgFailed, this);

@@ -24,6 +24,7 @@ import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.StatOperation;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
+import com.formationds.om.redis.RedisSingleton;
 import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
@@ -43,6 +44,8 @@ import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -118,22 +121,13 @@ public class SystemHealthStatus implements RequestHandler {
     private HealthState getOverallState(HealthState serviceState, HealthState capacityState, HealthState firebreakState) {
 
         // figure out the overall state of the system
-        HealthState overallHealth = HealthState.GOOD;
-
-        // if services are bad - system is bad.
-        if (serviceState.equals(HealthState.BAD)) {
-            overallHealth = HealthState.LIMITED;
-        }
-        // if capacity is bad, system is marginal
-        else if (capacityState.equals(HealthState.BAD)) {
-            overallHealth = HealthState.MARGINAL;
-        }
+        HealthState overallHealth;
 
         // now that the immediate status are done, the rest is determined
         // by how many areas are in certain conditions.  We'll do it
         // by points.  okay = 1pt, bad = 2pts.  
         //
-        // good is <= 1pts.  accetable <=3 marginal > 3
+        // good is <= 1pts.  acceptable <=3 marginal > 3
         int points = 0;
         points += getPointsForState(serviceState);
         points += getPointsForState(capacityState);
@@ -167,6 +161,7 @@ public class SystemHealthStatus implements RequestHandler {
 
         int points = 0;
 
+        //noinspection Duplicates
         switch (state) {
             case OKAY:
                 points = 1;
@@ -221,7 +216,7 @@ public class SystemHealthStatus implements RequestHandler {
             return status;
         }
 
-        long volumesWithRecentFirebreak = 0;
+        long volumesWithRecentFirebreak;
         if ( !FdsFeatureToggles.FS_2660_METRIC_FIREBREAK_EVENT_QUERY.isActive() ) {
 
             // The Volume object already has a status from when loaded, so there is no need to
@@ -250,6 +245,7 @@ public class SystemHealthStatus implements RequestHandler {
             @SuppressWarnings("unchecked")
             final List<IVolumeDatapoint> queryResults = (List<IVolumeDatapoint>) metricsRepository.query( query );
 
+            //noinspection Duplicates
             try {
 
                 FirebreakHelper fbh = new FirebreakHelper();
@@ -305,11 +301,16 @@ public class SystemHealthStatus implements RequestHandler {
         // TODO: for capacity time-to-full we need enough history to calculate the regression
         // This was previously querying from 0 for all possible datapoints.  I think reducing to
         // the last 30 days is sufficient, but will need to validate that.
-        DateRange range = DateRange.last( 30L, TimeUnit.DAYS );
+        Instant now = Instant.now();
+        Instant then = now.minus( 30L, ChronoUnit.DAYS );
+        
+        DateRange range = DateRange.between( then.getEpochSecond(), now.getEpochSecond() );
         MetricQueryCriteria query = queryBuilder.withContexts(volumes)
-                .withSeriesType(Metrics.PBYTES)
+                .withSeriesType(Metrics.UBYTES)
                 .withRange(range)
                 .build();
+        
+        query.setColumns( new ArrayList<>() );
 
         final MetricRepository metricsRepository = SingletonRepositoryManager.instance()
                                                                              .getMetricsRepository();
@@ -320,16 +321,52 @@ public class SystemHealthStatus implements RequestHandler {
         // has some helper functions we can use for calculations
         QueryHelper qh = new QueryHelper();
 
-        Double systemCapacity = 0D;
+        /*
+         * NOTE!!
+         *
+         * With the old partitioning scheme the capacity is reported in MB.
+         *
+         * With the new partitioning scheme the capacity is reported in GB.
+         */
+        final Size systemCapacity;
+        final Size systemCapacityUsed;
         try {
-        	systemCapacity = (double)configApi.getDiskCapacityTotal(); 
+        	final Double _systemCapacity = ( double ) configApi.getDiskCapacityTotal();
+            // switch to bytes for now
+            if( FdsFeatureToggles.NEW_SUPERBLOCK.isActive() )
+            {
+                // normalize to bytes
+                systemCapacity =
+                    Size.of( Size.gb( _systemCapacity.longValue() ).getValue( SizeUnit.B ),
+                             SizeUnit.B );
+            }
+            else
+            {
+                // normalize to bytes
+                systemCapacity =
+                    Size.of( Size.mb( _systemCapacity.longValue() ).getValue( SizeUnit.B ),
+                             SizeUnit.B );
+            }
+
+            // This number will be in bytes!!! <-- RTFC!
+            systemCapacityUsed =
+                Size.of( RedisSingleton.INSTANCE
+                                       .api()
+                                       .getDomainUsedCapacity()
+                                       .getValue()
+                                       .longValue(),
+                         SizeUnit.B );
+
+            logger.trace( "Total Capacity: {} ( {} ) Total Used Capacity: {}",
+                          systemCapacity.getValue( SizeUnit.B ),
+                          _systemCapacity,
+                          systemCapacityUsed.toString() );
         } catch (TException te) {
-        	throw new IllegalStateException("Failed to retrieve system capacity", te);
+        	throw new IllegalStateException( "Failed to retrieve system capacity", te );
         }
 
         final CapacityConsumed consumed = new CapacityConsumed();
-        consumed.setTotal( metricsRepository
-                               .sumPhysicalBytes() );
+        consumed.setTotal( systemCapacityUsed.getValue().doubleValue() );
 
         List<Series> series = new SeriesHelper().getRollupSeries( queryResults,
                                                                   query.getRange(),
@@ -337,29 +374,45 @@ public class SystemHealthStatus implements RequestHandler {
                                                                   StatOperation.SUM );
 
         // use the helper to get the key metrics we'll use to ascertain the stat of our capacity
-        CapacityFull capacityFull = qh.percentageFull(consumed, systemCapacity);
-        CapacityToFull timeToFull = qh.toFull(series.get(0), systemCapacity);
+        CapacityFull capacityFull =
+            qh.percentageFull( consumed, systemCapacity.getValue( SizeUnit.B ).doubleValue() );
+        CapacityToFull timeToFull =
+            qh.toFull( series.get ( 0 ), systemCapacity.getValue( SizeUnit.B ).doubleValue() );
 
-        Long daysToFull = TimeUnit.SECONDS.toDays(timeToFull.getToFull());
+        Long daysToFull = TimeUnit.SECONDS.toDays( timeToFull.getToFull() );
 
-        if (daysToFull <= 7) {
-            status.setState(HealthState.BAD);
-            status.setMessage(CAPACITY_BAD_RATE);
-        } else if (capacityFull.getPercentage() >= 90) {
-            status.setState(HealthState.BAD);
-            status.setMessage(CAPACITY_BAD_THRESHOLD);
-        } else if (daysToFull <= 30) {
-            status.setState(HealthState.OKAY);
-            status.setMessage(CAPACITY_OKAY_RATE);
-        } else if (capacityFull.getPercentage() >= 80) {
-            status.setState(HealthState.OKAY);
-            status.setMessage(CAPACITY_OKAY_THRESHOLD);
-        } else {
-            status.setState(HealthState.GOOD);
-            status.setMessage(CAPACITY_GOOD);
+        //noinspection Duplicates
+        if ( daysToFull <= 7 )
+        {
+            status.setState( HealthState.BAD );
+            status.setMessage( CAPACITY_BAD_RATE );
+        }
+        else if ( capacityFull.getPercentage( ) >= 90 )
+        {
+            status.setState( HealthState.BAD );
+            status.setMessage( CAPACITY_BAD_THRESHOLD );
+        }
+        else if ( daysToFull <= 30 )
+        {
+            status.setState( HealthState.OKAY );
+            status.setMessage( CAPACITY_OKAY_RATE );
+        }
+        else if ( capacityFull.getPercentage( ) >= 80 )
+        {
+            status.setState( HealthState.OKAY );
+            status.setMessage( CAPACITY_OKAY_THRESHOLD );
+        }
+        else
+        {
+            status.setState( HealthState.GOOD );
+            status.setMessage( CAPACITY_GOOD );
         }
 
-        logger.debug( "Capacity status is: {}:{}.", status.getState().name(), status.getMessage() );
+        logger.debug( "Capacity status is: {}:{}; Days to Full {} Percent Full {}%",
+                      status.getState().name(),
+                      status.getMessage(),
+                      daysToFull,
+                      capacityFull.getPercentage( ) );
         
         return status;
     }
@@ -380,7 +433,7 @@ public class SystemHealthStatus implements RequestHandler {
         List<Node> nodes = (new ListNodes()).getNodes();
         
         List<Service> downServices = new ArrayList<>();
-        Map<String, Boolean> criteria = new HashMap<String, Boolean>();
+        Map<String, Boolean> criteria = new HashMap<>();
         
         String ONE_OM = "ONE_OM";
         String ONE_AM = "ONE_AM";
@@ -394,44 +447,44 @@ public class SystemHealthStatus implements RequestHandler {
         criteria.put( ALL_SMS,  true );
         criteria.put( ALL_PMS, true );
         
-        nodes.stream().forEach( (node) -> {
+        nodes.stream().forEach( (node) -> node.getServices( )
+                                          .keySet()
+                                          .stream()
+                                          .forEach( (serviceType) -> node.getServices( )
+                                                                         .get( serviceType )
+                                                                         .stream( )
+                                                                         .forEach( ( service ) -> {
 
-            node.getServices().keySet().stream().forEach( (serviceType) -> {
+            if ( !service.getStatus().getServiceState().equals( ServiceState.RUNNING ) ) {
 
-                node.getServices().get( serviceType ).stream().forEach( (service) -> {
+                downServices.add( service );
 
-                    if ( !service.getStatus().getServiceState().equals( ServiceState.RUNNING ) ) {
+                switch( service.getType() ){
+                    case PM:
+                        criteria.put( ALL_PMS, false );
+                        break;
+                    case SM:
+                        criteria.put( ALL_SMS, false );
+                        break;
+                    case DM:
+                        criteria.put( ALL_DMS, false );
+                        break;
+                    default:
+                        break;
+                }
+            } else {
 
-        				downServices.add( service );
-
-                        switch( service.getType() ){
-        					case PM:
-        						criteria.put( ALL_PMS, false );
-        						break;
-        					case SM:
-        						criteria.put( ALL_SMS, false );
-        						break;
-        					case DM:
-        						criteria.put( ALL_DMS, false );
-        						break;
-        					default:
-        						break;
-        				}
-                    } else {
-
-                        switch ( service.getType() ) {
-                            case OM:
-        						criteria.put( ONE_OM, true );
-        						break;
-        					case AM: 
-        						criteria.put( ONE_AM, true );
-        					default:
-        						break;
-        				}
-        			}
-        		});
-        	});
-        });
+                switch ( service.getType() ) {
+                    case OM:
+                        criteria.put( ONE_OM, true );
+                        break;
+                    case AM:
+                        criteria.put( ONE_AM, true );
+                    default:
+                        break;
+                }
+            }
+        } ) ) );
 
         // if every service we know about is up, then we're going to report good to go
         if ( downServices.size() == 0 ) {
@@ -460,8 +513,8 @@ public class SystemHealthStatus implements RequestHandler {
      * Simple helper to convert a list of descriptors
      * into actual volume objects
      *
-     * @param volDescs
-     * @return
+     * @param volDescs the list of volume descriptors
+     * @return Returns the list of external volumes
      */
     private List<Volume> convertVolDescriptors(List<VolumeDescriptor> volDescs) {
 

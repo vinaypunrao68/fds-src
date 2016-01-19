@@ -6,11 +6,13 @@
 #define SOURCE_DATA_MGR_INCLUDE_DMMIGRATIONCLIENT_H_
 
 #include <dmhandler.h>
+#include <DmMigrationBase.h>
+#include <lib/Catalog.h>
+#include "dm-tvc/CommitLog.h"
 
 namespace fds {
 
 // Forward declaration.
-class DmIoReqHandler;
 class DataMgr;
 
 /**
@@ -23,8 +25,7 @@ using incrementCountFunc = std::function<void()>;
 
 class DmMigrationClient : public DmMigrationBase {
   public:
-    explicit DmMigrationClient(DmIoReqHandler* DmReqHandle,
-            DataMgr& _dataMgr,
+    explicit DmMigrationClient(DataMgr& _dataMgr,
             const NodeUuid& _myUuid,
             NodeUuid& _destDmUuid,
             int64_t migrationId,
@@ -50,18 +51,18 @@ class DmMigrationClient : public DmMigrationBase {
     /**
      * "Main" of this client
      */
-    void run();
+    virtual void run();
 
     /**
      * Whether or not I/O to this volume needs to be forwarded
      * as part of Active Migration.
      * Input: dmtVersion - the version of DMT that the commit log belongs to
      */
-    fds_bool_t shouldForwardIO(fds_uint64_t dmtVersion);
+    virtual fds_bool_t shouldForwardIO(fds_uint64_t dmtVersion);
 
     /* Forwarding Modifiers */
-    void turnOnForwarding();
-    void turnOffForwarding();
+    virtual void turnOnForwarding();
+    virtual void turnOffForwarding();
     void turnOffForwardingInternal(); // No sending of finish messages
 
     /**
@@ -108,14 +109,12 @@ class DmMigrationClient : public DmMigrationBase {
     void routeAbortMigration() override;
 
     // Called by MigrationMgr to clean up any ongoing residue due to migration
-    void abortMigration();
+    virtual void abortMigration();
 
     // Wait for the run thread to rejoin
     void finish();
 
- private:
-    DmIoReqHandler* DmReqHandler;
-
+ protected:
     /**
      * local svc uuid
      */
@@ -237,6 +236,8 @@ class DmMigrationClient : public DmMigrationBase {
 
     // Removes the DmIoRequests
 	migrationCb cleanUp;
+
+	bool volumeGroupMode;
 };  // DmMigrationClient
 
 

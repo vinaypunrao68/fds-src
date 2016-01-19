@@ -71,8 +71,7 @@ class VolumeDesc : public HasState {
     // Advanced settings
     int                    writeQuorum;  // Quorum number of writes for success
     int                    readQuorum;  // This will be 1 for now
-    FDS_ProtocolInterface::FDSP_ConsisProtoType
-    consisProtocol;  // Read-Write consistency protocol
+    FDS_ProtocolInterface::FDSP_ConsisProtoType consisProtocol;  // Read-Write consistency protocol
     // Other policies
     int                    volPolicyId;
     int                    archivePolicyId;
@@ -172,6 +171,12 @@ class VolumeDesc : public HasState {
     inline int32_t getCoordinatorVersion() const {
         return coordinator.version;
     }
+    inline void setCoordinatorId(fpi::SvcUuid id) {
+        coordinator.id = id;
+    }
+    inline void setCoordinatorVersion(int32_t version) {
+        coordinator.version = version;
+    }
     inline bool isCoordinatorSet() const {
         return coordinator.id.svc_uuid != 0;
     }
@@ -196,7 +201,7 @@ class FDS_Volume {
         else
             return false;
     }
-    ~FDS_Volume();
+    virtual ~FDS_Volume();
 };
 
 /**

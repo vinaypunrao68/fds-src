@@ -2,10 +2,6 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  * vim: noai:ts=8:sw=2:tw=100:syntax=cpp:et
  */
-/**
- *
- */
-
 namespace c_glib FDS_ProtocolInterface
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol
@@ -103,7 +99,7 @@ struct IScsiTarget {
 /** NFS Options Map */
 struct NfsOption {
     /** nfs option */
-    1: optional list<string> options
+    1: optional string options
     /** ip filters */
-    2: optional list<string> ipfilters
+    2: optional string client
 }

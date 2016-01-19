@@ -2,7 +2,9 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
     
     $scope.disableName = true;
     $scope.disableTiering = true;
+    $scope.enableDc = false;
     $scope.thisVolume = {};
+    $scope.connectorSettings = {};
     
     var initQosSettings = function(){
         $scope.editQos.iopsMin = $scope.thisVolume.qosPolicy.iopsMin;
@@ -32,6 +34,11 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
             commitLogRetention: $scope.thisVolume.dataProtectionPolicy.commitLogRetention,
             snapshotPolicies: timelinePolicies
         };
+    };
+    
+    var initConnectorSettings = function(){
+        
+        $scope.connectorSettings = $scope.thisVolume.settings;
     };
     
     $scope.deleteVolume = function(){
@@ -67,6 +74,7 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
             $scope.thisVolume = $scope.volumeVars.selectedVolume;
             initQosSettings();
             initSnapshotSettings();
+            initConnectorSettings();
             
             $scope.$broadcast('fds::fui-slider-refresh' );
             $scope.$broadcast( 'fds::qos-reinit' );
@@ -81,6 +89,8 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
     
     $scope.commitChanges = function(){
         
+        $scope.$broadcast( 'fds::refresh' );
+        
         $scope.thisVolume.qosPolicy = {
             priority: $scope.editQos.priority,
             iopsMax: $scope.editQos.iopsMax,
@@ -88,6 +98,8 @@ angular.module( 'volumes' ).controller( 'editVolumeController', ['$scope', '$vol
         };
         
         $scope.thisVolume.dataProtectionPolicy = $scope.timelinePolicies;
+        
+        $scope.thisVolume.settings = $scope.connectorSettings;
         
         $volume_api.save( $scope.thisVolume, function( volume ){
             $scope.volumeVars.selectedVolume = volume;

@@ -18,10 +18,13 @@ from tabulate import tabulate
 import sys
 from contexts.svchelper import ServiceMap
 # import needed contexts
+
+from contexts import root
 from contexts import domain
 from contexts import volume
 from contexts import snapshot
 from contexts import snapshotpolicy
+from contexts import volumegroup
 from contexts import QoSPolicy
 from contexts import service
 from contexts import user
@@ -74,7 +77,7 @@ class FDSConsole(cmd.Cmd):
         ServiceMap.config = self.config
         if fInit:
             self.config.init()
-            self.set_root_context(context.RootContext(self.config))
+            self.set_root_context(root.RootContext(self.config))
 
     def get_access_level(self):
         if self.debugTool:
@@ -83,7 +86,7 @@ class FDSConsole(cmd.Cmd):
             return AccessLevel.ADMIN
 
     def set_root_context(self, ctx):
-        if isinstance(ctx, context.Context):
+        if not isinstance(ctx, context.ContextInfo):
             ctx = context.ContextInfo(ctx)
         self.root = ctx
         self.set_context(ctx)
@@ -483,6 +486,7 @@ class FDSConsole(cmd.Cmd):
         vol = self.root.add_sub_context(volume.VolumeContext(self.config,'volume'))
         snap = vol.add_sub_context(snapshot.SnapshotContext(self.config,'snapshot'))
         snap.add_sub_context(snapshotpolicy.SnapshotPolicyContext(self.config,'policy'))
+        group = vol.add_sub_context(volumegroup.VolumeGroupContext(self.config,'group'))
         self.root.add_sub_context(QoSPolicy.QoSPolicyContext(self.config,'qospolicy'))
 
         self.root.add_sub_context(service.ServiceContext(self.config,'service'))

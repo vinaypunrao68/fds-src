@@ -17,14 +17,11 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTCONNECTION_H_
-#define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTCONNECTION_H_
+#ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTDEVICE_H_
+#define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTDEVICE_H_
 
-#include <array>
-#include <atomic>
 #include <memory>
 #include <string>
-#include <utility>
 #include <boost/shared_ptr.hpp>
 #include <boost/lockfree/queue.hpp>
 
@@ -43,16 +40,16 @@ namespace fds
 struct AmProcessor;
 struct ScstTarget;
 struct ScstTask;
+struct InquiryHandler;
+struct ModeHandler;
 
 struct ScstDevice : public BlockOperations::ResponseIFace {
-    ScstDevice(std::string const& vol_name,
+    ScstDevice(VolumeDesc const& vol_desc,
                ScstTarget* target,
                std::shared_ptr<AmProcessor> processor);
     ScstDevice(ScstDevice const& rhs) = delete;
     ScstDevice(ScstDevice const&& rhs) = delete;
-    ScstDevice operator=(ScstDevice const& rhs) = delete;
-    ScstDevice operator=(ScstDevice const&& rhs) = delete;
-    ~ScstDevice();
+    virtual ~ScstDevice();
 
     // implementation of BlockOperations::ResponseIFace
     void respondTask(BlockTask* response) override;
@@ -62,12 +59,39 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
 
     std::string getName() const { return volumeName; }
 
+    void registerDevice(uint8_t const device_type, uint32_t const logical_block_size);
     void start(std::shared_ptr<ev::dynamic_loop> loop);
 
-  private:
+  protected:
     template<typename T>
     using unique = std::unique_ptr<T>;
 
+    BlockOperations::shared_ptr scstOps;
+    boost::lockfree::queue<ScstTask*> readyResponses;
+
+    scst_user_get_cmd cmd {};
+    scst_user_reply_cmd fast_reply {};
+    uint32_t logical_block_size;
+
+    // Utility functions to build Inquiry Pages...etc
+    unique<InquiryHandler> inquiry_handler;
+    void setupModePages();
+
+    // Utility functions to build Mode Pages...etc
+    unique<ModeHandler> mode_handler;
+    void setupInquiryPages(uint64_t const volume_id);
+
+    void deferredReply() {
+        cmd.preply = 0ull;
+    }
+
+    void fastReply() {
+        fast_reply.cmd_h = cmd.cmd_h;
+        fast_reply.subcode = cmd.subcode;
+        cmd.preply = (unsigned long)&fast_reply;
+    }
+
+  private:
     /// Constants
     static constexpr uint64_t invalid_session_id {UINT64_MAX};
 
@@ -82,21 +106,11 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
 
     std::string const volumeName;
     int scstDev {-1};
-    size_t volume_size {0};
-    char serial_number[17];
-    uint64_t volume_id {0};
 
     std::shared_ptr<AmProcessor> amProcessor;
     ScstTarget* scst_target;
-    BlockOperations::shared_ptr scstOps;
-
-    scst_user_get_cmd cmd {};
-    scst_user_reply_cmd fast_reply {};
-    uint32_t logical_block_size;
-    uint32_t physical_block_size {0};
     uint64_t reservation_session_id {invalid_session_id};
 
-    boost::lockfree::queue<ScstTask*> readyResponses;
     std::unordered_map<uint32_t, unique<ScstTask>> repliedResponses;
 
     unique<ev::io> ioWatcher;
@@ -117,17 +131,10 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     void execCompleteCmd();
     void execTaskMgmtCmd();
     void execParseCmd();
-
-    // Utility functions to build Inquiry Pages...etc
-    size_t inquiry_page_dev_id(size_t cursor, size_t const bulen, uint8_t* buffer) const;
-
-    void fastReply() {
-        fast_reply.cmd_h = cmd.cmd_h;
-        fast_reply.subcode = cmd.subcode;
-        cmd.preply = (unsigned long)&fast_reply;
-    }
+    virtual void execDeviceCmd(ScstTask* task) = 0;
+    virtual void respondDeviceTask(ScstTask* task) = 0;
 };
 
 }  // namespace fds
 
-#endif  // SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTCONNECTION_H_
+#endif  // SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTDEVICE_H_

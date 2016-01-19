@@ -28,7 +28,7 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
       ctrl_port_num(0),
       test_mode(false),
       deleteScheduler(this),
-      enableSnapshotSchedule(true)
+      enableTimeline(true)
 {
     om_mutex = new fds_mutex("OrchMgrMutex");
     fds::gl_orch_mgr = this;
@@ -53,9 +53,11 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
         "om.log",         // default log file
         omVec);           // collection of modules
 
-    enableSnapshotSchedule = MODULEPROVIDER()->get_fds_config()->get<bool>(
-            "fds.om.enable_snapshot_schedule", true);
-    if (enableSnapshotSchedule) {
+    enableTimeline = MODULEPROVIDER()->get_fds_config()->get<bool>(
+            "fds.feature_toggle.common.enable_timeline", true);
+    counters.reset(new fds::om::Counters(MODULEPROVIDER()->get_cntrs_mgr().get()));
+
+    if (enableTimeline) {
         snapshotMgr.reset(new fds::snapshot::Manager(this));
     }
 
@@ -144,7 +146,7 @@ void OrchMgr::proc_pre_startup()
 
 void OrchMgr::proc_pre_service()
 {
-    if ( enableSnapshotSchedule ) 
+    if ( enableTimeline ) 
     {
         snapshotMgr->init();
     }
@@ -220,21 +222,27 @@ void OrchMgr::svcStartMonitor()
 
         constructMsgParams(uuid, node_uuid, domainRestart);
 
-        domain->om_activate_known_services(domainRestart, node_uuid );
+        bool issuedStart = domain->om_activate_known_services(domainRestart, node_uuid );
 
         // Remove from the toSend queue
         toSendMsgQueue.pop_back();
 
-        // Unlock here since we will acquire sentQ lock further
-        // down, best to avoid holding a lock within a lock
-        // When we loop back, the wait will reacquire toSendQLock
-        // if needed
-        toSendQLock.unlock();
-        // Update the timestamp on the message
-        msg.second = util::getTimeStampSeconds();
+        if ( issuedStart )
+        {
+            // Unlock here since we will acquire sentQ lock further
+            // down, best to avoid holding a lock within a lock
+            // When we loop back, the wait will reacquire toSendQLock
+            // if needed
+            toSendQLock.unlock();
+            // Update the timestamp on the message
+            msg.second = util::getTimeStampSeconds();
 
-        // Add to the sentQueue
-        addToSentQ(msg);
+            // Add to the sentQueue
+            addToSentQ(msg);
+        } else {
+            LOGWARN << "PM:" << std::hex << uuid << std::dec
+                    << " removed from all start queues, no eligible svcs to start";
+        }
     }
 }
 
@@ -282,7 +290,8 @@ void OrchMgr::svcStartRetryMonitor()
             fpi::SvcInfo svcInfo;
 
             if (MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo)) {
-                if (svcInfo.svc_status == fpi::SVC_STATUS_INACTIVE) {
+                if ( svcInfo.svc_status == fpi::SVC_STATUS_INACTIVE_STOPPED ||
+                     svcInfo.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED ) {
 
                     LOGWARN <<"PM:" << std::hex << svcUuid.svc_uuid << std::dec
                              << " appears to be unreachable, will not retry services"
@@ -383,6 +392,8 @@ void OrchMgr::addToSentQ(PmMsg msg) {
 }
 
 bool OrchMgr::isInSentQ(int64_t uuid) {
+
+    uuid &= ~DOMAINRESTART_MASK;
 
     bool present = false;
     std::vector<PmMsg>::iterator iter;
@@ -581,7 +592,7 @@ bool OrchMgr::loadFromConfigDB() {
     OM_Module::om_singleton()->om_volplace_mod()->setConfigDB(getConfigDB());
 
     // load the snapshot policies
-    if (enableSnapshotSchedule) {
+    if (enableTimeline) {
         snapshotMgr->loadFromConfigDB();
     }
 

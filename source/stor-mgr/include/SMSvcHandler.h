@@ -7,6 +7,7 @@
 #include <fdsp/svc_types_types.h>
 #include <net/PlatNetSvcHandler.h>
 #include <fdsp/SMSvc.h>
+#include <fdsp/pm_service_types.h>
 
 namespace FDS_ProtocolInterface {
 struct CtrlNotifyDMTUpdate;
@@ -46,6 +47,7 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
+    DECL_ASYNC_HANDLER(genericCommand         , GenericCommandMsg);
     DECL_ASYNC_HANDLER(getObject              , GetObjectMsg);
     DECL_ASYNC_HANDLER(putObject              , PutObjectMsg);
     DECL_ASYNC_HANDLER(deleteObject           , DeleteObjectMsg);
@@ -75,6 +77,7 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     DECL_ASYNC_HANDLER(NotifySMCheck          , CtrlNotifySMCheck);
     DECL_ASYNC_HANDLER(querySMCheckStatus     , CtrlNotifySMCheckStatus);
     DECL_ASYNC_HANDLER(activeObjects          , ActiveObjectsMsg);
+    DECL_ASYNC_HANDLER(diskMapChange          , NotifyDiskMapChange);
 
     void getObjectCb(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
                      const Error &err,

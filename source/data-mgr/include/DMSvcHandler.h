@@ -17,6 +17,19 @@ struct CtrlNotifyDLTUpdate;
 
 namespace fds {
 
+/* Helpers to retrieve volume id from fdsp messages */
+template <class MsgT>
+fds_volid_t getVolumeId(MsgT& msg)
+{
+    return fds_volid_t(msg.volume_id);
+}
+
+template<>
+inline fds_volid_t getVolumeId(fpi::VolumeGroupInfoUpdateCtrlMsg &msg)
+{
+    return fds_volid_t(msg.group.groupId);
+}
+
 class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
  public:
     explicit DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManager);
@@ -143,6 +156,41 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
     void
     StartDMMetaMigrationCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                            const Error &err);
+
+    void handleDbgForceVolumeSyncMsg(SHPTR<fpi::AsyncHdr>& hdr,
+                                     SHPTR<fpi::DbgForceVolumeSyncMsg> &queryMsg);
+    template <class DmVolumeReqT>
+    void registerDmVolumeReqHandler()
+    {
+        asyncReqHandlers_[DmVolumeReqT::reqMsgTypeId] =
+            [this] (SHPTR<fpi::AsyncHdr>& asyncHdr,
+                    SHPTR<std::string>& payloadBuf)
+            {
+                /* Caching payloadBuf as threadlocal for any later use such as buffering the
+                 * op while volume is syncing
+                 */
+                PlatNetSvcHandler::threadLocalPayloadBuf = payloadBuf;
+
+                SHPTR<typename DmVolumeReqT::ReqMsgT> payload;
+                fds::deserializeFdspMsg(payloadBuf, payload);
+
+                LOGDEBUG << "DmVolumeRequest: " << fds::logString(*payload);
+
+                fds_volid_t volId(fds::getVolumeId(*payload));
+                auto dmIo = new DmVolumeReqT(volId, payload);
+                dmIo->cb = [this, asyncHdr](const Error &e, DmRequest *dmRequest) {
+                    dmRequest->respStatus = e;
+                    dmRequest->sendSvcResponse(this, asyncHdr); 
+                    delete dmRequest;
+                };
+
+                auto enqRet = dataManager_.qosCtrl->enqueueIO(volId, dmIo);
+                if (enqRet != ERR_OK) {
+                    dmIo->cb(enqRet, dmIo);
+                    return;
+                }
+            };
+    }
 
  private:
 

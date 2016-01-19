@@ -116,6 +116,29 @@ std::string ConfigDB::getConfigVersion() {
     return "";
 }
 
+bool ConfigDB::setCapacityUsedNode( const int64_t svcUuid, const unsigned long usedCapacityInBytes )
+{
+    bool bRetCode = false;
+
+    std::stringstream uuid;
+    uuid << svcUuid;
+    std::stringstream used;
+    used << usedCapacityInBytes;
+
+    try
+    {
+        LOGDEBUG << "Setting used capacity for uuid [ " << std::hex << svcUuid << std::dec << " ]";
+        bRetCode = kv_store.hset( "used.capacity", uuid.str( ).c_str( ), used.str( ) );
+    }
+    catch(const RedisException& e)
+    {
+        LOGERROR << "Failed to persist node capacity for node [ "
+                 << std::hex << svcUuid << std::dec << " ], error: " << e.what();
+    };
+
+    return bRetCode;
+}
+
 /**
  * Compare the passed version to the current version.
  *
@@ -837,6 +860,7 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               " placement.policy.id %d"
                               " app.workload %d"
                               " media.policy %d"
+                              " continuous.commit.log.retention %d"
                               " backup.vol.id %ld"
                               " iops.min %d"
                               " iops.max %d"
@@ -863,6 +887,7 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               vol.placementPolicy,
                               vol.appWorkload,
                               vol.mediaPolicy,
+                              vol.contCommitlogRetention,
                               vol.backupVolume,
                               vol.iops_assured,
                               vol.iops_throttle,
@@ -1074,6 +1099,7 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             else if (key == "placement.policy.id") {vol.placementPolicy = atoi(value.c_str());}
             else if (key == "app.workload") {vol.appWorkload = (fpi::FDSP_AppWorkload)atoi(value.c_str());} //NOLINT
             else if (key == "media.policy") {vol.mediaPolicy = (fpi::FDSP_MediaPolicy)atoi(value.c_str());} //NOLINT
+            else if (key == "continuous.commit.log.retention") {vol.contCommitlogRetention = strtoull(value.c_str(), NULL, 10);} //NOLINT
             else if (key == "backup.vol.id") {vol.backupVolume = atol(value.c_str());}
             else if (key == "iops.min") {vol.iops_assured = strtod (value.c_str(), NULL);}
             else if (key == "iops.max") {vol.iops_throttle = strtod (value.c_str(), NULL);}
@@ -1084,15 +1110,15 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             else if (key == "create.time") {vol.createTime = strtoull(value.c_str(), NULL, 10);} //NOLINT
             else
             { //NOLINT
-                LOGWARN << "unknown key for volume [" << volumeId <<"] - " << key;
+                LOGWARN << "unknown key for volume [ " << volumeId << " ] - [ " << key << " ]";
 
             }
         }
 
-        LOGDEBUG << "volume TYPE[ " << vol.volType << " ] ID[ " << vol.volUUID << " ]";
+        LOGDEBUG << "volume TYPE [ " << vol.volType << " ] ID [ " << vol.volUUID << " ]";
         if ( vol.volType ==  fpi::FDSP_VOL_ISCSI_TYPE )
         {
-            LOGDEBUG << "iSCSI: getting the volume settings for volume ID[ " << volId << " ]";
+            LOGDEBUG << "iSCSI: getting the volume settings for volume ID [ " << volId << " ]";
 
             auto iscsi = boost::make_shared<fpi::IScsiTarget>( );
             fds::deserializeFdspMsg( ( boost::shared_ptr<std::string> ) getVolumeSettings( vol.volUUID.get() ), iscsi );
@@ -1101,15 +1127,22 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             LOGDEBUG << "iSCSI["
                      << " luns size() == " << vol.iscsiSettings.luns.size()
                      << " initiators size() == " << vol.iscsiSettings.initiators.size()
+                     << " incoming users size() == " << vol.iscsiSettings.incomingUsers.size()
+                     << " outgoing users size() == " << vol.iscsiSettings.outgoingUsers.size()
                      << " ]";
         }
         else if ( vol.volType ==  fpi::FDSP_VOL_NFS_TYPE )
         {
-            LOGDEBUG << "NFS: getting the volume settings for volume ID[ \" << volId << \" ]\"";
+            LOGDEBUG << "NFS: getting the volume settings for volume ID [ " << volId << " ]";
 
             auto nfs = boost::make_shared<fpi::NfsOption>( );
             fds::deserializeFdspMsg( ( boost::shared_ptr<std::string> ) getVolumeSettings( vol.volUUID.get() ), nfs );
             vol.nfsSettings = *nfs;
+
+            LOGDEBUG << "NFS["
+                     << " clients == " << vol.nfsSettings.client
+                     << " options == " << vol.nfsSettings.options
+                     << " ]";
         }
 
         return true;
@@ -1124,11 +1157,11 @@ boost::shared_ptr<std::string> ConfigDB::getVolumeSettings( long unsigned int vo
 {
     try
     {
-        LOGDEBUG << "Volume settings for volume ID[ " << volumeId << " ] ( GET )";
+        LOGDEBUG << "Volume settings for volume ID [ " << volumeId << " ] ( GET )";
         Reply reply = kv_store.sendCommand( "get vol:%ld:settings", volumeId );
         if ( !reply.isNil() )
         {
-            LOGDEBUG << "Successful retrieved Volume Settings for volume ID[ " << volumeId << " ]";
+            LOGDEBUG << "Successful retrieved Volume Settings for volume ID [ " << volumeId << " ]";
             return boost::make_shared<std::string>( reply.getString( ) );
         }
     }
@@ -1137,7 +1170,7 @@ boost::shared_ptr<std::string> ConfigDB::getVolumeSettings( long unsigned int vo
         LOGERROR << "error with Redis: " << e.what();
     }
 
-    LOGDEBUG << "Failed to retrieved Volume Settings for volume ID[ " << volumeId << " ]";
+    LOGDEBUG << "Failed to retrieved Volume Settings for volume ID [ " << volumeId << " ]";
     return nullptr;
 }
 
@@ -2353,7 +2386,7 @@ bool ConfigDB::updateSnapshot(const fpi::Snapshot& snapshot) {
     TRACKMOD();
     try {
         // check if the snapshot exists
-        if ( kv_store.hexists(format("volume:%ld:snapshots", snapshot.volumeId), snapshot.snapshotId)) {
+        if (! kv_store.hexists(format("volume:%ld:snapshots", snapshot.volumeId), snapshot.snapshotId)) {
             LOGWARN << "snapshot does not exist : " << snapshot.snapshotId
                     << " vol:" << snapshot.volumeId;
             NOMOD();
@@ -2636,7 +2669,14 @@ bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
             std::string& value = strings[i+1];
 
             fds::deserializeFdspMsg(value, svcInfo);
-            svcMap.push_back(svcInfo);
+            if( ( svcInfo.svc_type == FDS_ProtocolInterface::FDSP_PLATFORM ) ||
+                ( svcInfo.svc_type == FDS_ProtocolInterface::FDSP_STOR_MGR ) ||
+                ( svcInfo.svc_type == FDS_ProtocolInterface::FDSP_DATA_MGR ) ||
+                ( svcInfo.svc_type == FDS_ProtocolInterface::FDSP_ACCESS_MGR ) ||
+                ( svcInfo.svc_type == FDS_ProtocolInterface::FDSP_ORCH_MGR ) )
+            {
+                svcMap.push_back( svcInfo );
+            }
         }
     } 
     catch ( const RedisException& e ) 

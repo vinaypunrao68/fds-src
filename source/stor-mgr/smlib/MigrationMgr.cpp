@@ -101,8 +101,7 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
         return err;
     }
 
-    retryTokenMigrationTask.reset(new FdsTimerFunctionTask(mTimer,
-                                                           std::bind(
+    retryTokenMigrationTask.reset(new FdsTimerFunctionTask(std::bind(
                                                              &MigrationMgr::checkAndRetryMigration,
                                                              this)));
     int retryTimePeriod = 2;
@@ -1453,7 +1452,6 @@ MigrationMgr::abortMigration(const Error& error)
      * running executors to exit and then abort the migration.
      */
      tryAbortingMigrationTask.reset(new FdsTimerFunctionTask(
-                                                    abortTimer,
                                                     std::bind(&MigrationMgr::tryAbortingMigration,
                                                               this)));
     int tryAbortInterval = 1;

@@ -16,6 +16,8 @@
 #include <dm-vol-cat/DmPersistVolFile.h>
 #include <dm-vol-cat/DmVolumeCatalog.h>
 
+#include <VolumeMeta.h>
+
 #define ENSURE_SEQUENCE_ADV(seq_a, seq_b, volId, blobName) \
         auto const seq_ev_a = (seq_a); auto const seq_ev_b = (seq_b); \
         if (seq_ev_a >= seq_ev_b) { \
@@ -50,7 +52,10 @@
 
 namespace fds {
 
-DmVolumeCatalog::DmVolumeCatalog(char const * const name) : Module(name), expungeCb_(0) {}
+DmVolumeCatalog::DmVolumeCatalog(CommonModuleProviderIf* modProvider,
+                                 char const * const name)
+    : HasModuleProvider(modProvider),
+    Module(name), expungeCb_(0) {}
 
 DmVolumeCatalog::~DmVolumeCatalog() {}
 
@@ -78,7 +83,8 @@ Error DmVolumeCatalog::addCatalog(const VolumeDesc & voldesc) {
      * TODO(umesh): commented out for beta for commit log and consistent hot snapshot features
     if (fpi::FDSP_VOL_S3_TYPE == voldesc.volType) {
     */
-        vol.reset(new DmPersistVolDB(voldesc.volUUID, voldesc.maxObjSizeInBytes,
+        vol.reset(new DmPersistVolDB(MODULEPROVIDER(),
+                    voldesc.volUUID, voldesc.maxObjSizeInBytes,
                     voldesc.isSnapshot(), voldesc.isSnapshot(), voldesc.isClone(),
                     voldesc.isSnapshot() ? voldesc.srcVolumeId : invalid_vol_id));
     /*
@@ -110,7 +116,7 @@ Error DmVolumeCatalog::copyVolume(const VolumeDesc & voldesc) {
         volType = iter->second->getVolType();
     }
 
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir* root = MODULEPROVIDER()->proc_fdsroot();
     std::ostringstream oss;
     oss << root->dir_sys_repo_dm() << voldesc.srcVolumeId << "/" << voldesc.srcVolumeId
             << "_vcat.ldb";
@@ -141,7 +147,8 @@ Error DmVolumeCatalog::copyVolume(const VolumeDesc & voldesc) {
          * TODO(umesh): commented out for beta for commit log and consistent hot snapshot features
         if (fpi::FDSP_VOL_S3_TYPE == volType) {
         */
-            vol.reset(new DmPersistVolDB(voldesc.volUUID, objSize, voldesc.isSnapshot(),
+            vol.reset(new DmPersistVolDB(MODULEPROVIDER(),
+                    voldesc.volUUID, objSize, voldesc.isSnapshot(),
                     voldesc.isSnapshot(), voldesc.isClone(), voldesc.srcVolumeId));
         /*
         } else {
@@ -893,7 +900,8 @@ Error DmVolumeCatalog::syncCatalog(fds_volid_t volId, const NodeUuid& dmUuid) {
 
 Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
                                          const std::string& blobName,
-                                         const std::string& blobData){
+                                         const std::string& blobData,
+                                         VolumeMeta& volMeta){
     GET_VOL_N_CHECK_DELETED(volId);
     Error err;
     bool fTruncate = true;
@@ -949,6 +957,8 @@ Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
 
     BlobMetaDesc newBlob;
     err = newBlob.loadSerialized(blobData);
+
+    volMeta.setSequenceId(newBlob.desc.sequence_id);
 
     if (!err.ok()) {
         LOGERROR << "Failed to deserialize migrated blob: " << blobName
@@ -1043,6 +1053,13 @@ Error DmVolumeCatalog::freeVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &s
 Error DmVolumeCatalog::forEachObject(fds_volid_t volId, std::function<void(const ObjectID&)> func) {
     GET_VOL_N_CHECK_DELETED(volId);
     vol->forEachObject(func);
+    return ERR_OK;
+}
+
+Error DmVolumeCatalog::getVersion(fds_volid_t volId, int32_t &version)
+{
+    GET_VOL_N_CHECK_DELETED(volId);
+    version = vol->getVersion();
     return ERR_OK;
 }
 

@@ -6,6 +6,7 @@ KEY_PORT = 'port'
 KEY_USER = 'username'
 KEY_PASS = 'password'
 KEY_GRIDOUTPUT = 'gridoutput'
+KEY_FDSROOT = 'fdsroot'
 PROTECTED_KEYS = [KEY_SYSTEM, KEY_ACCESSLEVEL]
 
 from fdslib import restendpoint
@@ -60,6 +61,9 @@ def addHumanInfo(datamap, nozero = False):
             value = '{}'.format(humanize.naturalsize(datamap[key]))
             datamap[key + ".human"] = value
 
+def printHeader(data):
+    print ('\n{}\n{}'.format(data, '-'*60))
+
 class AccessLevel:
     '''
     Defines different access levels for users
@@ -109,6 +113,7 @@ class ConfigData:
             KEY_PORT : 7020,
             KEY_USER : 'admin',
             KEY_PASS : 'admin',
+            KEY_FDSROOT : '/fds',
             KEY_GRIDOUTPUT : False
         }
 
@@ -197,6 +202,12 @@ class ConfigData:
 
     def setHost(self, host):
         self.setSystem(KEY_HOST, host)
+
+    def setFdsRoot(self, fdsroot):
+        self.setSystem(KEY_FDSROOT, fdsroot)
+
+    def getFdsRoot(self):
+        return self.getSystem(KEY_FDSROOT)
 
     def getPort(self):
         return int(self.get(KEY_PORT, KEY_SYSTEM))

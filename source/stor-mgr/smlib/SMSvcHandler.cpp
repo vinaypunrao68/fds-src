@@ -18,6 +18,8 @@
 #include <fds_timestamp.h>
 #include <util/path.h>
 
+DECL_EXTERN_OUTPUT_FUNCS(GenericCommandMsg);
+
 namespace fds {
 
 extern ObjectStorMgr    *objStorMgr;
@@ -81,6 +83,11 @@ SMSvcHandler::SMSvcHandler(CommonModuleProviderIf *provider)
 
     /* Active Object Messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::ActiveObjectsMsg, activeObjects);
+
+    REGISTER_FDSP_MSG_HANDLER(fpi::GenericCommandMsg, genericCommand);
+
+    /* disk-map update message */
+    REGISTER_FDSP_MSG_HANDLER(fpi::NotifyDiskMapChange, diskMapChange);
 }
 
 int
@@ -1293,4 +1300,20 @@ SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::ActiveObjectsRspMsg), *resp);
 }
 
+void SMSvcHandler::genericCommand(ASYNC_HANDLER_PARAMS(GenericCommandMsg)) {
+    if (msg->command == "refscan.done") {
+        // start the scavenger if we have enough data.
+        if (objStorMgr->objectStore->haveAllObjectSets()) {
+            LOGNORMAL << "auto starting scavenger due to enough data to process";
+            SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_START, SM_CMD_INITIATOR_NOT_SET);
+            Error err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
+        }
+    } else {
+        LOGCRITICAL << "unexpected command received : " << msg;
+    }
+}
+
+    void SMSvcHandler::diskMapChange(ASYNC_HANDLER_PARAMS(NotifyDiskMapChange)) {
+        LOGDEBUG << "Received a disk-map change notification";
+    }
 }  // namespace fds

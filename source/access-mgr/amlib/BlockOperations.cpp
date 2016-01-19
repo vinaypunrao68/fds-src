@@ -5,8 +5,10 @@
 #include "connector/BlockOperations.h"
 
 #include <algorithm>
+#include <deque>
 #include <map>
 #include <string>
+#include <thread>
 #include <utility>
 
 #include "fds_volume.h"
@@ -47,7 +49,7 @@ BlockOperations::init(boost::shared_ptr<std::string> vol_name,
     }
 
     {   // add response that we will fill in with data
-        std::lock_guard<std::mutex> l(respLock);
+        std::unique_lock<std::mutex> l(respLock);
         if (false == responses.emplace(std::make_pair(resp->getHandle(), resp)).second)
             { throw BlockError::connection_closed; }
     }
@@ -72,7 +74,7 @@ BlockOperations::attachVolumeResp(const fpi::ErrorCode& error,
     BlockTask* resp = NULL;
 
     {
-        std::lock_guard<std::mutex> l(respLock);
+        std::unique_lock<std::mutex> l(respLock);
         // if we are not waiting for this response, we probably already
         // returned an error
         auto it = responses.find(handle);
@@ -142,7 +144,7 @@ BlockOperations::read(BlockTask* resp) {
     auto offset = resp->getOffset();
 
     {   // add response that we will fill in with data
-        std::lock_guard<std::mutex> l(respLock);
+        std::unique_lock<std::mutex> l(respLock);
         if (false == responses.emplace(std::make_pair(resp->getHandle(), resp)).second)
             { throw BlockError::connection_closed; }
     }
@@ -179,7 +181,7 @@ BlockOperations::write(typename req_api_type::shared_buffer_type& bytes, task_ty
     resp->setObjectCount(objCount);
 
     {   // add response that we will fill in with data
-        std::lock_guard<std::mutex> l(respLock);
+        std::unique_lock<std::mutex> l(respLock);
         if (false == responses.emplace(std::make_pair(resp->getHandle(), resp)).second)
             { throw BlockError::connection_closed; }
     }
@@ -260,7 +262,7 @@ BlockOperations::getBlobResp(const fpi::ErrorCode &error,
              << " seqId " << seqId;
 
     {
-        std::lock_guard<std::mutex> l(respLock);
+        std::unique_lock<std::mutex> l(respLock);
         // if we are not waiting for this response, we probably already
         // returned an error
         auto it = responses.find(handle);
@@ -298,17 +300,18 @@ BlockOperations::getBlobResp(const fpi::ErrorCode &error,
 }
 
 void
-BlockOperations::updateBlobResp(const fpi::ErrorCode &error, handle_type const& requestId) {
+BlockOperations::updateBlobOnceResp(const fpi::ErrorCode &error, handle_type const& requestId) {
     BlockTask* resp = nullptr;
-    auto handle = requestId.handle;
-    auto seqId = requestId.seq;
+    auto const& handle = requestId.handle;
+    auto const& seqId = requestId.seq;
+    uint64_t offset {0};
 
-    LOGDEBUG << "Reponse for updateBlobOnce, "
-             << error << ", handle " << handle
-             << " seqId " << seqId;
+    LOGDEBUG << "Reponse for updateBlobOnce, " << error
+             << ", handle 0x" << std::hex << handle
+             << " seqId " << std::dec << seqId;
 
     {
-        std::lock_guard<std::mutex> l(respLock);
+        std::unique_lock<std::mutex> l(respLock);
         // if we are not waiting for this response, we probably already
         // returned an error
         auto it = responses.find(handle);
@@ -320,19 +323,19 @@ BlockOperations::updateBlobResp(const fpi::ErrorCode &error, handle_type const& 
         // get response
         resp = it->second;
         fds_assert(resp);
+
+        offset = resp->getOffset(seqId);
     }
 
     // Unblock other updates on the same object if they exist
-    auto offset = resp->getOffset(seqId);
     drainUpdateChain(offset, resp->getBuffer(seqId), nullptr, error);
 
     // respond to all chained requests FIRST
-    auto chain_it = resp->chained_responses.find(seqId);
-    if (resp->chained_responses.end() != chain_it) {
-        for (auto chained_resp : chain_it->second) {
-            if (chained_resp->handleWriteResponse(error)) {
-                finishResponse(chained_resp);
-            }
+    std::deque<BlockTask*> chained_responses;
+    resp->getChain(seqId, chained_responses);
+    for (auto chained_resp : chained_responses) {
+        if (chained_resp->handleWriteResponse(error)) {
+            finishResponse(chained_resp);
         }
     }
 
@@ -365,7 +368,7 @@ BlockOperations::drainUpdateChain(uint64_t const offset,
     while (update_queued) {
         BlockTask* queued_resp = nullptr;
         {
-            std::lock_guard<std::mutex> l(respLock);
+            std::unique_lock<std::mutex> l(respLock);
             auto it = responses.find(queued_handle.handle);
             if (responses.end() != it) {
                 queued_resp = it->second;
@@ -398,7 +401,7 @@ BlockOperations::drainUpdateChain(uint64_t const offset,
             fds_panic("Missing response vector for update!");
         }
         handle_type next_handle;
-        std::tie(update_queued, next_handle) = sector_map.pop(offset);
+        std::tie(update_queued, next_handle) = sector_map.pop(offset, nullptr == last_chained);
         // Leave queued_handle pointing to the last handle
         if (update_queued) {
             queued_handle = next_handle;
@@ -407,7 +410,7 @@ BlockOperations::drainUpdateChain(uint64_t const offset,
 
     // Update the blob if we have updates to make
     if (nullptr != last_chained) {
-        last_chained->chained_responses[queued_handle.seq].swap(chain);
+        last_chained->setChain(queued_handle.seq, std::move(chain));
         auto objLength = boost::make_shared<int32_t>(maxObjectSizeInBytes);
         auto off = boost::make_shared<apis::ObjectOffset>();
         off->value = offset;
@@ -429,7 +432,7 @@ BlockOperations::finishResponse(BlockTask* response) {
     // block connector will free resp, just accounting here
     bool done_responding, response_removed;
     {
-        std::lock_guard<std::mutex> l(respLock);
+        std::unique_lock<std::mutex> l(respLock);
         response_removed = (1 == responses.erase(response->getHandle()));
         done_responding = responses.empty();
     }
@@ -451,7 +454,7 @@ BlockOperations::finishResponse(BlockTask* response) {
 void
 BlockOperations::shutdown()
 {
-    std::lock_guard<std::mutex> l(respLock);
+    std::unique_lock<std::mutex> l(respLock);
     if (shutting_down) return;
     shutting_down = true;
     // If we don't have any outstanding requests, we're done

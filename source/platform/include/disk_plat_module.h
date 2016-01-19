@@ -20,6 +20,10 @@ namespace fds
     class DiskPlatModule : public Module
     {
         protected:
+            static constexpr ssize_t FD_COUNT = 2; // udev and inotify
+            static constexpr ssize_t FD_UDEV_IDX = 0;
+            static constexpr ssize_t FD_INOTIFY_IDX = 1;
+
             PmDiskInventory::pointer    dsk_devices;
             PmDiskInventory::pointer    dsk_inuse;
             struct udev                *dsk_ctrl;
@@ -28,7 +32,7 @@ namespace fds
             FileDiskInventory          *dsk_sim;
             DiskLabelMgr               *label_manager;
             DiskCapabilitiesMgr        *capabilities_manager;
-            struct pollfd               pollfds[1];
+            struct pollfd               pollfds[FD_COUNT];
 
             void dsk_discover_mount_pts();
 
@@ -60,6 +64,7 @@ namespace fds
             void dsk_rescan();
             void dsk_monitor_hotplug();
             void dsk_commit_label();
+            void scan_and_discover_disks();
 
             // Module methods.
             ///

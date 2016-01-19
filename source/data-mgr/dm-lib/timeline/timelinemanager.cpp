@@ -15,7 +15,7 @@ TimelineManager::TimelineManager(fds::DataMgr* dm): dm(dm) {
         return;
     }
     timelineDB.reset(new TimelineDB());
-    Error err = timelineDB->open();
+    Error err = timelineDB->open(dm->getModuleProvider()->proc_fdsroot());
     if (!err.ok()) {
         LOGERROR << "unable to open timeline db";
     }
@@ -65,6 +65,11 @@ Error TimelineManager::deleteSnapshot(fds_volid_t volId, fds_volid_t snapshotId)
     return err;
 }
 
+Error TimelineManager::getSnapshotsForVolume(fds_volid_t volId, std::vector<fds_volid_t>& vecVolIds) {
+    TIMELINE_FEATURE_CHECK();
+    return timelineDB->getSnapshotsForVolume(volId, vecVolIds);
+}
+
 Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
     TIMELINE_FEATURE_CHECK();
     // get the list of snapshots.
@@ -74,11 +79,12 @@ Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
 
     if (invalid_vol_id == snapshotid) {
         // load all snapshots
-        snapDir  = dmutil::getSnapshotDir(volid);
+        snapDir  = dmutil::getSnapshotDir(dm->getModuleProvider()->proc_fdsroot(), volid);
         util::getSubDirectories(snapDir, vecDirs);
     } else {
         // load only a particluar snapshot
-        snapDir = dmutil::getVolumeDir(volid, snapshotid);
+        snapDir = dmutil::getVolumeDir(dm->getModuleProvider()->proc_fdsroot(),
+                                       volid, snapshotid);
         if (!util::dirExists(snapDir)) {
             LOGERROR << "unable to locate snapshot [" << snapshotid << "]"
                      << " for vol:" << volid
@@ -109,10 +115,12 @@ Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
         desc->setState(fpi::Active);
         desc->name = util::strformat("snaphot_%ld_%ld",
                                      volid.get(), snapId.get());
-        VolumeMeta *meta = new(std::nothrow) VolumeMeta(desc->name,
+        VolumeMeta *meta = new(std::nothrow) VolumeMeta(dm->getModuleProvider(),
+                                                        desc->name,
                                                         snapId,
                                                         GetLog(),
-                                                        desc);
+                                                        desc,
+                                                        dm);
         {
             FDSGUARD(dm->vol_map_mtx);
             if (dm->vol_meta_map.find(snapId) != dm->vol_meta_map.end()) {
@@ -285,7 +293,7 @@ Error TimelineManager::createClone(VolumeDesc *vdesc) {
             }
             // XXX: Here we are creating and activating clone without copying src
             // volume, directory needs to exist for activation
-            const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+            const FdsRootDir *root = dm->getModuleProvider()->proc_fdsroot();
             const std::string dirPath = root->dir_sys_repo_dm() +
                     std::to_string(vdesc->volUUID.get());
             root->fds_mkdir(dirPath.c_str());
@@ -334,7 +342,8 @@ bool TimelineManager::isObjectInSnapshot(const ObjectID& objId, fds_volid_t volI
 }
 
 std::string TimelineManager::getSnapshotBloomFile(fds_volid_t snapshotId) {
-    std::string metaDir=dmutil::getVolumeMetaDir(snapshotId);
+    std::string metaDir=dmutil::getVolumeMetaDir(dm->getModuleProvider()->proc_fdsroot(),
+                                                 snapshotId);
     FdsRootDir::fds_mkdir(metaDir.c_str());
 
     return util::strformat("%s/objectset.bf",metaDir.c_str());

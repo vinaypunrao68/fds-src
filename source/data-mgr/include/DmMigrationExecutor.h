@@ -24,7 +24,7 @@ typedef std::function<void (NodeUuid srcNodeUuid,
 
 class DmMigrationExecutor : public DmMigrationBase {
   public:
-    explicit DmMigrationExecutor(DataMgr& _dataMgr,
+    explicit DmMigrationExecutor(DataMgr &_dataMgr,
     							 const NodeUuid& _srcDmUuid,
 								 fpi::FDSP_VolumeDescType& _volDesc,
                                  int64_t migrationId,
@@ -111,7 +111,7 @@ class DmMigrationExecutor : public DmMigrationBase {
     /**
      * Called by MigrationMgr to clean up any mess that this executor has caused
      */
-    void abortMigration();
+    virtual void abortMigration();
 
     inline bool isMigrationComplete() {
     	return (migrationProgress == MIGRATION_COMPLETE);
@@ -125,7 +125,7 @@ class DmMigrationExecutor : public DmMigrationBase {
         return lastUpdateFromClientTsSec_;
     }
 
-  private:
+  protected:
     /** Uuid of source DM
      */
     NodeUuid srcDmSvcUuid;
@@ -184,7 +184,7 @@ class DmMigrationExecutor : public DmMigrationBase {
      * and the actual call to this function, i.e. safe to call even after the state machine has moved
      * beyond static migration.
      */
-    void testStaticMigrationComplete();
+    virtual void testStaticMigrationComplete();
 
     /**
      * Mutex for blob offset list and blob descriptor list coordination
