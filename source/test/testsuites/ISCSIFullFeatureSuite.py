@@ -27,8 +27,8 @@ def suiteConstruction(self):
     # Create iSCSI volume
     suite.addTest(testcases.TestISCSIIntFace.TestISCSICrtVolume())
 
-    # Test a list volumes to a block device
-#    suite.addTest(testcases.TestISCSIIntFace.TestISCSIListVolumes())
+    # Test a list volumes
+    suite.addTest(testcases.TestISCSIIntFace.TestISCSIListVolumes(None, 'volISCSI'))
 
     # Save target name to fixture
     suite.addTest(testcases.TestISCSIIntFace.TestISCSIDiscoverVolume())

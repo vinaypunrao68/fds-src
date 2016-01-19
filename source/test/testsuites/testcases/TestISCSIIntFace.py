@@ -10,6 +10,7 @@ import TestCase
 from testcases.iscsifixture import ISCSIFixture
 
 # Module-specific requirements
+import os
 import sys
 from fdscli.model.volume.settings.iscsi_settings import ISCSISettings
 from fdscli.model.volume.settings.lun_permission import LunPermissions
@@ -145,6 +146,52 @@ class TestISCSIDiscoverVolume(ISCSIFixture):
         return False
 
 
+class TestISCSIListVolumes(ISCSIFixture):
+    """FDS test case to list volumes
+
+    """
+    def __init__(self, parameters=None, volume_name=None):
+        """
+        Parameters
+        ----------
+        volume_name : str
+            FDS volume name
+        """
+
+        super(self.__class__, self).__init__(parameters,
+                self.__class__.__name__,
+                self.test_list_volumes,
+                "List volumes using CLI")
+
+        self.volume_name = volume_name
+
+    def test_list_volumes(self):
+        """
+        Attempt to list FDS volumes, look for our iSCSI volume
+
+        Returns
+        -------
+        bool
+            True if successful, False otherwise
+        """
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
+        vol_service = get_volume_service(self,om_node.nd_conf_dict['ip'])
+        volumes = vol_service.list_volumes()
+        for v in volumes:
+            if v.name != self.volume_name:
+                continue
+            s = v.settings
+            if s.type != 'ISCSI':
+                self.log.info("Require ISCSI type")
+            return True
+
+        self.log.info("Missing volume!")
+        return True
+
+
 class TestISCSIAttachVolume(ISCSIFixture):
     """FDS test case to login to an iSCSI target
 
@@ -244,6 +291,13 @@ class TestISCSIAttachVolume(ISCSIFixture):
                     self.setGenericDevice(elem, self.volume_name)
                     self.log.info("Added generic device %s" % elem)
 
+        if not self.sd_device:
+            self.log.error("Missing disk device for %s" % self.volume_name)
+            return False
+        if not self.sg_device:
+            self.log.error("Missing generic device for %s" % self.volume_name)
+            return False
+
         return True
 
 
@@ -251,11 +305,10 @@ class TestISCSIMakeFilesystem(ISCSIFixture):
     """FDS test case to make file system on disk device
     """
     def __init__(self, parameters=None, sd_device=None, volume_name=None):
-        """Only one of sd_device or volume_name is required
-
+        """
         Parameters
         ----------
-        sd_device : str
+        sd_device : Optional[str]
             The disk device (example: '/dev/sd2')
         volume_name : str
             FDS volume name
@@ -277,19 +330,21 @@ class TestISCSIMakeFilesystem(ISCSIFixture):
         bool
             True if successful, False otherwise
         """
+        # Volume name is required even when sd_device is present.
+        # This method uses volume name in the /mnt child directory name.
+        if not self.volume_name:
+            self.log.error("Missing required iSCSI volume name")
+            return False
+
         if not self.sd_device:
-            if not self.volume_name:
-                self.log.error("Missing required iSCSI target name")
-                return False
-            else:
-                # Use fixture target name
-                self.sd_device = self.getDriveDevice(self.volume_name)
+            # Use fixture target name
+            self.sd_device = self.getDriveDevice(self.volume_name)
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
 
-        device = self.sd_device[0:8]
+        device = self.sd_device[:8]
         # Uses a partition table of type 'gpt'
         cmd = 'parted -s -a optimal %s mklabel gpt -- mkpart primary ext4 1 -1' % device
         # Parameter return_stdin is set to return stdout. ... Don't ask me!
@@ -299,20 +354,27 @@ class TestISCSIMakeFilesystem(ISCSIFixture):
             self.log.info("Failed to make file system for device %s." % device)
             return False
 
-        # format
+        # build file system
         cmd2 = 'mkfs.ext4 %s1' % device
         # Parameter return_stdin is set to return stdout. ... Don't ask me!
         status, stdout = om_node.nd_agent.exec_wait(cmd2, return_stdin=True)
-        # Nominally returns -1, why?
+        # Nominally returns -1 because mkfs.ext4 is ill-behaved. It writes
+        # to stderr.
         if status > 0:
             self.log.info("Failed to format file system")
             return False
 
         # mount
-        cmd3 = 'mkdir /fds/t0187'
-        status, stdout = om_node.nd_agent.exec_wait(cmd3, return_stdin=True)
+        path = '/mnt/%s' % self.volume_name
 
-        cmd4 = 'mount %s1 /fds/t0187' % device
+        if not os.path.isdir(path):
+            cmd3 = 'mkdir %s' % path
+            status, stdout = om_node.nd_agent.exec_wait(cmd3, return_stdin=True)
+            if status != 0:
+                self.log.error("Failed to create mount directory %s" % path)
+                return False
+
+        cmd4 = 'mount %s1 %s' % (device, path)
         status, stdout = om_node.nd_agent.exec_wait(cmd4, return_stdin=True)
 
         self.log.info("Made ext4 file system on device %s." % device)
@@ -356,21 +418,20 @@ class TestISCSIUnitReady(ISCSIFixture):
         """
         if not self.sg_device:
             if not self.volume_name:
-                self.log.error("Missing required iSCSI target name")
+                self.log.error("Missing required iSCSI device")
                 return False
             else:
                 # Use fixture target name
                 self.sg_device = self.getGenericDevice(self.volume_name)
-# Code below throws an exception using the mounted FormationOne
-# iSCSI device.
-# But works fine with other devices such as my VBOX HARDDISK
-# TODO: Needs investigation. Initial investigation shows that
-# the file system is Read-only and has the wrong size.
-        return True
 
+        if not self.sg_device:
+            self.log.error("Missing required iCSSI generic device")
+            return False
+
+        # If test case not run as root, creating the SCSIDevice throws!
         try:
             # untrusted execute
-            sd = SCSIDevice(self.sg_device)
+            sd = SCSIDevice(self.sg_device, True)
             s = SCSI(sd)
             r = s.testunitready().result
             if not r:
