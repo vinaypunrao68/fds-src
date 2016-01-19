@@ -32,6 +32,7 @@ extern "C" {
 
 #include <ev++.h>
 
+#include "connector/scst/ScstConnector.h"
 #include "connector/scst/ScstDisk.h"
 #include "connector/scst/ScstCommon.h"
 #include "util/Log.h"
@@ -161,10 +162,12 @@ void setQueueDepth(std::string const& target_name, uint8_t const queue_depth) {
 }
 
 
-ScstTarget::ScstTarget(std::string const& name, 
+ScstTarget::ScstTarget(ScstConnector* parent_connector,
+                       std::string const& name,
                        size_t const followers,
                        std::weak_ptr<AmProcessor> processor) :
     LeaderFollower(followers, false), 
+    connector(parent_connector),
     amProcessor(processor),
     target_name(name)
 {
@@ -261,7 +264,8 @@ ScstTarget::deviceDone(std::string const& volume_name) {
     device_map.erase(it);
     if (device_map.empty()) {
         toggle_state(false);
-        asyncWatcher->send();
+        asyncWatcher->stop();
+        evLoop->break_loop();
     }
 }
 
@@ -438,9 +442,6 @@ void
 ScstTarget::wakeupCb(ev::async &watcher, int revents) {
     if (running) {
         startNewDevices();
-    } else if (device_map.empty()) {
-        asyncWatcher->stop();
-        evLoop->break_loop();
     }
 }
 
@@ -448,6 +449,7 @@ void
 ScstTarget::lead() {
     evLoop->run(0);
     LOGNORMAL <<  "SCST Target has shutdown " << target_name;
+    connector->targetDone(target_name);
 }
 
 }  // namespace fds
