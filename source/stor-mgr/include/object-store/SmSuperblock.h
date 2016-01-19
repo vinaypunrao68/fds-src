@@ -21,7 +21,8 @@ namespace fds {
 typedef std::unordered_map<fds_uint16_t, bool> DiskHealthMap;
 typedef uint32_t fds_checksum32_t;
 
-typedef std::function<void (const DiskId& removedDiskId,
+typedef std::function<void (const bool &added,
+                            const DiskId& diskId,
                             const diskio::DataTier&,
                             const std::set<std::pair<fds_token_id, fds_uint16_t>>&
                             )> DiskChangeFnObj;
@@ -278,13 +279,18 @@ class SmSuperblockMgr {
                          DiskIdSet& ssdIds,
                          const DiskLocMap & latestDiskMap,
                          const DiskLocMap & latestDiskDevMap = DiskLocMap());
+    void removeDisksFromSuperblock(DiskIdSet &removedHDDs,
+                                   DiskIdSet &removedSSDs);
     Error syncSuperblock();
     Error syncSuperblock(const std::set<uint16_t>& badSuperblock);
+
+    Error redistributeTokens(DiskIdSet &hddIds, DiskIdSet &ssdIds,
+                             const DiskLocMap &latestDiskMap,
+                             const DiskLocMap &latestDiskDevMap);
 
     void recomputeTokensForLostDisk(const DiskId& diskId,
                                     DiskIdSet& hddIds,
                                     DiskIdSet& ssdIds);
-
     /**
      * Reconcile superblocks, if there is inconsistency.
      */
@@ -363,6 +369,9 @@ class SmSuperblockMgr {
     std::string
     getSuperblockPath(const std::string& dir_path);
 
+    void initMaps(const DiskLocMap& latestDiskMap,
+                  const DiskLocMap& latestDiskDevMap);
+
     bool
     checkPristineState(DiskIdSet& newHDDs, DiskIdSet& newSSDs);
 
@@ -375,7 +384,7 @@ class SmSuperblockMgr {
     size_t
     countUniqChecksum(const std::multimap<fds_checksum32_t, uint16_t>& checksumMap);
 
-    void
+    Error 
     checkDiskTopology(DiskIdSet& newHDDs, DiskIdSet& newSSDs);
 
     void

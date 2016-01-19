@@ -51,8 +51,9 @@ ObjectPersistData::openObjectDataFiles(SmDiskMap::ptr& diskMap,
              ++cit) {
             DiskIdSet disks = diskMap->getDiskIds(*cit, tierNum);
             for (auto diskId : disks) {
-                LOGDEBUG << "Will open token data file for SM token " << *cit
-                         << ", on tier " << tierNum << ", if not opened yet.";
+                LOGDEBUG << "Will open token data file for SM token: " << *cit
+                         << " on disk: " << diskId << " tier: " << tierNum
+                         << ", if not opened yet.";
 
                 // Get write file id and disk id from SM superblock.
                 fds_uint16_t fileId = diskMap->superblock->getWriteFileId(diskId, *cit, tierNum);
@@ -618,7 +619,7 @@ ObjectPersistData::scavengerControlCmd(SmScavengerCmd* scavCmd) {
             scavenger->stopScavengeProcess();
             break;
         case SmScavengerCmd::SCAV_ENABLE_DISK:
-            // Case not handled as of now.
+            scavenger->updateDiskScavenger(smDiskMap, scavCmd->diskId, true);
             break;
         case SmScavengerCmd::SCAV_DISABLE_DISK:
             scavenger->updateDiskScavenger(smDiskMap, scavCmd->diskId, false);

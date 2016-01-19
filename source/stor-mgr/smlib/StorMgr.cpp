@@ -116,7 +116,8 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
                                                           std::bind(&ObjectStorMgr::handleDiskChanges, this,
                                                                     std::placeholders::_1,
                                                                     std::placeholders::_2,
-                                                                    std::placeholders::_3),
+                                                                    std::placeholders::_3,
+                                                                    std::placeholders::_4),
                                                           std::bind(&ObjectStorMgr::changeTokensState, this,
                                                                     std::placeholders::_1)));
 
@@ -136,21 +137,22 @@ void ObjectStorMgr::changeTokensState(const std::set<fds_token_id>& dltTokens) {
 }
 
 void ObjectStorMgr::handleNewDiskMap() {
-/*
-    auto tokens = objectStore->diskMap->getSmTokens();
+
+    auto tokens = objectStore->getSmTokens();
     std::vector<nullary_always> token_locks;
     for (auto& token: tokens) {
         token_locks.push_back(getTokenLock(token, true));
     }
 
     objStorMgr->objectStore->handleNewDiskMap();
-*/
 }
 
-void ObjectStorMgr::handleDiskChanges(const DiskId& removedDiskId,
+void ObjectStorMgr::handleDiskChanges(const bool &added,
+                                      const DiskId& diskId,
                                       const diskio::DataTier& tierType,
                                       const TokenDiskIdPairSet& tokenDiskPairs) {
-    objStorMgr->objectStore->handleDiskChanges(removedDiskId, tierType, tokenDiskPairs);
+    objStorMgr->objectStore->handleDiskChanges(added, diskId,
+                                               tierType, tokenDiskPairs);
 }
 
 void ObjectStorMgr::handleResyncDoneOrPending(fds_bool_t startResync, fds_bool_t resyncDone) {

@@ -159,31 +159,29 @@ ScavControl::updateDiskScavenger(const SmDiskMap::const_ptr& diskMap,
                                  const DiskId& diskId,
                                  const bool& added) {
     if (!diskMap) {
-        LOGERROR << "Scavenger cannot create disk scavenger(s) without a disk map";
+        LOGERROR << "Cannot create disk scavenger(s) without a disk map";
         return ERR_NOT_READY;
     }
 
     fds_mutex::scoped_lock l(scav_lock);
     if (added) {
+        if (diskScavTbl.count(diskId) != 0) {
+            LOGNOTIFY << "Scavenger already exists for disk: " << diskId;
+            return ERR_OK;
+        }
         DiskScavenger *diskScav = new DiskScavenger(diskId,
                                                     diskMap->diskMediaType(diskId),
                                                     dataStoreReqHandler,
                                                     persistStoreGcHandler,
                                                     diskMap,
                                                     noPersistScavStats);
-        fds_assert(diskScavTbl.count(diskId) == 0);
-        if (diskScavTbl.count(diskId) != 0) {
-            LOGERROR << "Scavenger already exists for disk=" << diskId;
-            delete diskScav;
-            return ERR_DUPLICATE;
-        }
         diskScavTbl[diskId] = diskScav;
-        LOGNORMAL << "Added scavenger for Disk " << diskId;
+        LOGNOTIFY << "Added scavenger for disk: " << diskId;
     } else {
         DiskScavenger *diskScav = diskScavTbl[diskId];
         if (diskScav) {
             diskScav->handleScavengeError(ERR_SM_NO_DISK);
-            LOGNORMAL << "Disabled scavenger for disk=" << diskId;
+            LOGNOTIFY << "Disabled scavenger for disk: " << diskId;
         }
     }
 
@@ -200,7 +198,7 @@ ScavControl::updateDiskScavengers(const SmDiskMap::const_ptr& diskMap,
                                   const bool& added) {
     Error err(ERR_OK);
     if (!diskMap) {
-        LOGERROR << "Scavenger cannot create disk scavenger(s) without a disk map";
+        LOGERROR << "Cannot create disk scavenger(s) without a disk map";
         return ERR_NOT_READY;
     }
 

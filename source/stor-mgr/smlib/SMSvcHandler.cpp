@@ -1300,6 +1300,11 @@ SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::ActiveObjectsRspMsg), *resp);
 }
 
+void SMSvcHandler::diskMapChange(ASYNC_HANDLER_PARAMS(NotifyDiskMapChange)) {
+    LOGNOTIFY << "Received a disk-map change notification";
+    objStorMgr->handleNewDiskMap();
+}
+
 void SMSvcHandler::genericCommand(ASYNC_HANDLER_PARAMS(GenericCommandMsg)) {
     if (msg->command == "refscan.done") {
         // start the scavenger if we have enough data.
@@ -1313,7 +1318,4 @@ void SMSvcHandler::genericCommand(ASYNC_HANDLER_PARAMS(GenericCommandMsg)) {
     }
 }
 
-    void SMSvcHandler::diskMapChange(ASYNC_HANDLER_PARAMS(NotifyDiskMapChange)) {
-        LOGDEBUG << "Received a disk-map change notification";
-    }
 }  // namespace fds
