@@ -105,7 +105,7 @@ void DmMigrationBlobFilterHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr
     LOGMIGRATE << logString(*asyncHdr) << logString(*message);
 
     NodeUuid tmpUuid;
-    fds_volid_t volId = fds_volid_t(message->volumeId);
+    fds_volid_t volId = fds_volid_t(message->volume_id);
     tmpUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
     auto dmReq = new DmIoResyncInitialBlob(volId, message, tmpUuid);
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationBlobFilterHandler::handleResponse, asyncHdr, message);
@@ -113,6 +113,7 @@ void DmMigrationBlobFilterHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr
                                 this,
                                 std::placeholders::_1,
                                 dmReq);
+    dmReq->version = message->version;
 
     // fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
     fds_verify(dmReq->io_type == FDS_DM_RESYNC_INIT_BLOB);
@@ -164,6 +165,7 @@ void DmMigrationDeltaBlobDescHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
     srcUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
     auto dmReq = new DmIoMigrationDeltaBlobDesc(srcUuid, message, !dataManager.features.isVolumegroupingEnabled());
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltaBlobDescHandler::handleResponse, asyncHdr, message);
+    dmReq->version = message->version;
 
     dmReq->localCb = std::bind(&DmMigrationDeltaBlobDescHandler::handleResponseReal,
     							this,
@@ -181,8 +183,11 @@ void DmMigrationDeltaBlobDescHandler::handleQueueItem(DmRequest* dmRequest) {
     DmIoMigrationDeltaBlobDesc* typedRequest = static_cast<DmIoMigrationDeltaBlobDesc*>(dmRequest);
     if (dataManager.features.isVolumegroupingEnabled()) {
         auto volMeta = dataManager.getVolumeMeta(typedRequest->volId);
-        // Volume Group handle says that this guy is the source. It must have volMeta.
-        fds_assert(volMeta != nullptr);
+        if (volMeta == nullptr) {
+            helper.err = ERR_VOLMETA_NOT_FOUND;
+            // Let handleResponse delete the request
+            return;
+        }
         helper.err = volMeta->handleMigrationDeltaBlobDescs(dmRequest);
     } else {
         helper.err = dataManager.dmMigrationMgr->applyDeltaBlobDescs(typedRequest);
@@ -225,6 +230,7 @@ void DmMigrationDeltaBlobHandler::handleRequest(
     auto dmReq = new DmIoMigrationDeltaBlobs(srcUuid, message, !dataManager.features.isVolumegroupingEnabled());
 
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationDeltaBlobHandler::handleResponse, asyncHdr, message);
+    dmReq->version = message->version;
     fds_verify(dmReq->io_type == FDS_DM_MIG_DELTA_BLOB);
 
     LOGMIGRATE << "Enqueued delta blob migration  request " << logString(*asyncHdr)
@@ -242,8 +248,10 @@ void DmMigrationDeltaBlobHandler::handleQueueItem(DmRequest* dmRequest) {
 
     if (dataManager.features.isVolumegroupingEnabled()) {
         auto volMeta = dataManager.getVolumeMeta(typedRequest->volId);
-        // Volume Group handle says that this guy is the source. It must have volMeta.
-        fds_assert(volMeta != nullptr);
+        if (volMeta == nullptr) {
+            // overload this error to mean that we'll delete the dmrequest
+            helper.err = ERR_INVALID_VOLUME_VERSION;
+        }
         helper.err = volMeta->handleMigrationDeltaBlobs(dmRequest);
     } else {
         helper.err = dataManager.dmMigrationMgr->applyDeltaBlobs(typedRequest);
@@ -262,7 +270,13 @@ void DmMigrationDeltaBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobsRspMsg),
                        fpi::CtrlNotifyDeltaBlobsRspMsg());
 
-	// LOGMIGRATE << "Finished deleting request for volume " << message->volume_id;
+    if (e == ERR_INVALID_VOLUME_VERSION) {
+        /**
+         * This mean that the migration never got to the queue-ing point. Safe to delete
+         * here to prevent leaks.
+         */
+        delete(dmRequest);
+    }
 }
 
 DmMigrationTxStateHandler::DmMigrationTxStateHandler(DataMgr& dataManager)
@@ -282,7 +296,6 @@ void DmMigrationTxStateHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
 
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationTxStateHandler::handleResponse, asyncHdr, message);
 
-    // fds_verify(dmReq->io_vol_id == FdsDmSysTaskId);
     fds_verify(dmReq->io_type == FDS_DM_MIG_TX_STATE);
 
     LOGMIGRATE << "Enqueued TxState migration request " << logString(*asyncHdr)

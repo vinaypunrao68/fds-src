@@ -23,6 +23,7 @@ DmMigrationDest::DmMigrationDest(int64_t _migrId,
                       _timeout)
 {
     logStr = util::strformat("[DmMigrationDest volId: %ld]", volumeUuid.get());
+    version = VolumeGroupConstants::VERSION_INVALID;
 }
 
 Error
@@ -85,4 +86,23 @@ DmMigrationDest::abortMigration()
                                                               ERR_DM_MIGRATION_ABORTED);
     }
 }
+Error
+DmMigrationDest::checkVolmetaVersion(const int32_t version)
+{
+    Error err(ERR_OK);
+    auto volMeta = dataMgr.getVolumeMeta(volumeUuid);
+    if (volMeta == nullptr) {
+        err = ERR_INVALID_VOLUME_VERSION;
+    } else if (version == VolumeGroupConstants::VERSION_INVALID) {
+        LOGDEBUG << "Received version: " << version;
+        fds_assert(!"Source shouldn't send invalid version");
+        err = ERR_INVALID;
+    } else if (volMeta->getVersion() != version) {
+        LOGDEBUG << logString() << " invalid version mismatch: " << version <<
+                " expecting: " << volMeta->getVersion();
+        err = ERR_INVALID_VOLUME_VERSION;
+    }
+    return err;
+}
+
 } // namespace fds
