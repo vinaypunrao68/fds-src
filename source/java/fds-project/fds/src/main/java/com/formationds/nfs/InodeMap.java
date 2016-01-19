@@ -9,7 +9,6 @@ import org.dcache.nfs.vfs.Stat;
 import javax.security.auth.Subject;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Map;
 import java.util.Optional;
 
 public class InodeMap {
@@ -48,12 +47,13 @@ public class InodeMap {
         String blobName = blobName(inode);
         String volumeName = volumeName(inode);
 
-        Optional<Map<String, String>> currentValue = io.mapMetadata(XdiVfs.DOMAIN, volumeName, blobName, (name, x) -> x);
-        if (currentValue.isPresent() && currentValue.get().size() == 0) {
-            LOG.error("Metadata for inode-" + InodeMetadata.fileId(inode) + " is empty!");
-            throw new NoEntException();
-        }
-        return currentValue.map(m -> new InodeMetadata(m));
+        return io.mapMetadata(XdiVfs.DOMAIN, volumeName, blobName, (name, om) -> {
+            if (om.isPresent() && om.get().size() == 0) {
+                LOG.error("Metadata for inode-" + InodeMetadata.fileId(inode) + " is empty!");
+                throw new NoEntException();
+            }
+            return om.map(m -> new InodeMetadata(m));
+        });
     }
 
     public static String blobName(Inode inode) {
