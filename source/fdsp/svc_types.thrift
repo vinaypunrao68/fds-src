@@ -154,7 +154,7 @@ enum ResourceState {
 
 /* Volumegroup coordinator information */
 struct VolumeGroupCoordinatorInfo {
-    1: required svc_types.SvcUuid		id;
+    1: required SvcUuid		                id;
     2: i32				        version;
 }
 
