@@ -40,8 +40,7 @@ namespace leveldb {
 namespace {
 
 // Print contents of a log file. (*func)() is called on every record.
-bool PrintLogContents(Env* env, const std::string& fname,
-                      void (*func)(Slice)) {
+bool PrintLogContents(Env* env, const std::string& fname, void (*func)(Slice)) {
     SequentialFile* file;
     Status s = env->NewSequentialFile(fname, &file);
     if (!s.ok()) {
@@ -70,58 +69,53 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
     virtual void Put(const Slice& key, const Slice& value) {
 #ifdef USE_NEW_LDB_STRUCTURES
         fds::CatalogKeyType keyType = *reinterpret_cast<fds::CatalogKeyType const*>(key.data());
-        switch (keyType) 
-        {
+        switch (keyType) {
             case fds::CatalogKeyType::JOURNAL_TIMESTAMP:
-            std::cout << "=> Timestamp: " << *reinterpret_cast<fds_uint64_t const*>(value.data())
-                      << "\n";
-            break;
-        case fds::CatalogKeyType::BLOB_OBJECTS:
-        {
-            BlobObjectKey blobObjectKey { key };
-            std::cout << "=> put [blob=" << blobObjectKey.getBlobName()
-                      << " index=" << blobObjectKey.getObjectIndex()
-                      << " obj=" << fds::ObjectID(reinterpret_cast<uint8_t const*>(value.data()),
-                                                  value.size()).ToHex()
-                      << "]\n";
-            break;
-        }
-        case fds::CatalogKeyType::BLOB_METADATA:
-        {
-            fds::BlobMetaDesc blobMeta;
-            blobMeta.loadSerialized(std::string{value.data(), value.size()});
-
-            std::cout << "=> put meta [blob=" << blobMeta.desc.blob_name
-                      << " size=" << blobMeta.desc.blob_size
-                      << " version=" << blobMeta.desc.version
-                      << " seq=" << blobMeta.desc.sequence_id
-                      << "]\n";
-
-            std::cout << "  [ ";
-            for (auto const& it : blobMeta.meta_list) {
-                std::cout << it.first << "=" << it.second << " ";
+                std::cout << "=> Timestamp: " << *reinterpret_cast<fds_uint64_t const*>(value.data())
+                          << "\n";
+                break;
+            case fds::CatalogKeyType::BLOB_OBJECTS: {
+                BlobObjectKey blobObjectKey { key };
+                std::cout << "=> put [blob=" << blobObjectKey.getBlobName()
+                          << " index=" << blobObjectKey.getObjectIndex()
+                          << " obj=" << fds::ObjectID(reinterpret_cast<uint8_t const*>(value.data()),
+                                                      value.size()).ToHex()
+                          << "]\n";
+                break;
             }
-            std::cout << "]\n";
+            case fds::CatalogKeyType::BLOB_METADATA: {
+                fds::BlobMetaDesc blobMeta;
+                blobMeta.loadSerialized(std::string{value.data(), value.size()});
 
-            break;
-        }
-        case fds::CatalogKeyType::VOLUME_METADATA: 
-        {
-            const fpi::FDSP_MetaDataList metadataList;
-            const sequence_id_t seq_id=0;
-            VolumeMetaDesc volDesc(metadataList, seq_id);
-            volDesc.loadSerialized(std::string{value.data(), value.size()});
-            std::cout << "=> put volume meta: " ;
-            std::cout << "[seqid=" << volDesc.sequence_id << " " ;
-            for (const auto& item : volDesc.meta_list) {
-                std::cout << item.first << "=" << item.second << " ";
+                std::cout << "=> put meta [blob=" << blobMeta.desc.blob_name
+                          << " size=" << blobMeta.desc.blob_size
+                          << " version=" << blobMeta.desc.version
+                          << " seq=" << blobMeta.desc.sequence_id
+                          << "]\n";
+
+                std::cout << "  [ ";
+                for (auto const& it : blobMeta.meta_list) {
+                    std::cout << it.first << "=" << it.second << " ";
+                }
+                std::cout << "]\n";
+
+                break;
             }
-            std::cout << "]\n";
-            break;
-        }
-        default:
-            throw std::runtime_error{"Unrecognized key type: "
-                                     + std::to_string(static_cast<unsigned int>(keyType)) + "."};
+            case fds::CatalogKeyType::VOLUME_METADATA: {
+                const fpi::FDSP_MetaDataList metadataList;
+                const sequence_id_t seq_id=0;
+                VolumeMetaDesc volDesc(metadataList, seq_id);
+                volDesc.loadSerialized(std::string{value.data(), value.size()});
+                std::cout << "=> put volume meta: " ;
+                std::cout << "[seqid=" << volDesc.sequence_id << " " ;
+                for (const auto& item : volDesc.meta_list) {
+                    std::cout << item.first << "=" << item.second << " ";
+                }
+                std::cout << "]\n";
+                break;
+            }
+            default:
+                throw std::runtime_error{"Unrecognized key type: " + std::to_string(static_cast<unsigned int>(keyType)) + "."};
         }
 #else
         std::string keyStr(key.data(), key.size());
@@ -152,33 +146,29 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
     virtual void Delete(const Slice& key) {
 #ifdef USE_NEW_LDB_STRUCTURES
         fds::CatalogKeyType keyType = *reinterpret_cast<fds::CatalogKeyType const*>(key.data());
-        switch (keyType)
-        {
-        case fds::CatalogKeyType::JOURNAL_TIMESTAMP:
-            std::cout << "=> del JournalTimestampKey\n";
-            break;
-        case fds::CatalogKeyType::BLOB_OBJECTS:
-        {
-            BlobObjectKey blobObjectKey { key };
-            std::cout << "=> del [blob=" << blobObjectKey.getBlobName()
-                      << " index=" << blobObjectKey.getObjectIndex() << "]\n";
-            break;
-        }
-        case fds::CatalogKeyType::BLOB_METADATA:
-        {
-            BlobMetadataKey blobMetaKey { key };
-            std::cout << "=> del [blobmeta=" << blobMetaKey.getBlobName() << "]\n";
-            break;
-        }
-        case fds::CatalogKeyType::VOLUME_METADATA: 
-        {
-            std::cout << "=> del [volumeMeta]\n";
-            break;
-        }
+        switch (keyType) {
+            case fds::CatalogKeyType::JOURNAL_TIMESTAMP:
+                std::cout << "=> del JournalTimestampKey\n";
+                break;
+            case fds::CatalogKeyType::BLOB_OBJECTS: {
+                BlobObjectKey blobObjectKey { key };
+                std::cout << "=> del [blob=" << blobObjectKey.getBlobName()
+                          << " index=" << blobObjectKey.getObjectIndex() << "]\n";
+                break;
+            }
+            case fds::CatalogKeyType::BLOB_METADATA: {
+                BlobMetadataKey blobMetaKey { key };
+                std::cout << "=> del [blobmeta=" << blobMetaKey.getBlobName() << "]\n";
+                break;
+            }
+            case fds::CatalogKeyType::VOLUME_METADATA: {
+                std::cout << "=> del [volumeMeta]\n";
+                break;
+            }
 
-        default:
-            throw std::runtime_error{"Unrecognized key type: "
-                                     + std::to_string(static_cast<unsigned int>(keyType)) + "."};
+            default:
+                throw std::runtime_error{"Unrecognized key type: "
+                            + std::to_string(static_cast<unsigned int>(keyType)) + "."};
         }
 #else
         std::string keyStr(key.data(), key.size());
@@ -227,7 +217,7 @@ bool HandleDumpCommand(Env* env, char** files, int num) {
 }  // namespace leveldb
 
 static void Usage() {
-    std::cerr << "Usage: journal-dump files...\n"
+    std::cout << "Usage: journal-dump <files>...\n"
               << "   files...         -- dump contents of specified journal files\n";
 }
 
