@@ -39,7 +39,7 @@
 
 -   name: install simpleamqpclient-0.7.1 deb from remote
     when: (skip_stats is not defined or skip_stats == "no") and (fds_deploy_local_deps is not defined or fds_deploy_local_deps != "yes")
-    apt: name=simpleamqpclient force=yes state=latest update_cache=yes
+    apt: name=simpleamqpclient-0.7.1 force=yes state=latest update_cache=yes
 
 -   name: copy the simpleamqpclient-0.7.1 into the offline install
     when: (skip_stats is not defined or skip_stats == "no") and (fds_deploy_local_deps is defined and fds_deploy_local_deps == "yes")
@@ -58,7 +58,7 @@
 
 -   name: install the fds-stats-client-c-1.0.0 from remote
     when: (skip_stats is not defined or skip_stats == "no") and (fds_deploy_local_deps is not defined or fds_deploy_local_deps != "yes")
-    apt: name=fds-stats-client-c force=yes state=latest update_cache=yes
+    apt: name=fds-stats-client-c-1.0.0 force=yes state=latest update_cache=yes
 
 -   name: copy the fds-stats-client-c-1.0.0 into the offline install
     when: (skip_stats is not defined or skip_stats == "no") and (fds_deploy_local_deps is defined and fds_deploy_local_deps == "yes")
