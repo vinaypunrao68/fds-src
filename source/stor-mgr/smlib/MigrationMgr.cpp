@@ -174,7 +174,7 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
     }
 
     // TODO: limit this and make it configurable
-    LOGNORMAL << "Number of executors: " << migrExecutors.size();
+    LOGNORMAL << "Number of executors(sm tokens) going to do data migration: " << migrExecutors.size();
 
     fds_verify(smTokenInProgress.size() == 0);
     // (Matteo) migrExecutorLock and smTokenInProgressMutex

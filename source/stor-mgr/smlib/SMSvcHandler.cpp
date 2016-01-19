@@ -277,7 +277,10 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 {
     Error err(ERR_OK);
     bool fault_enabled = false;
-    LOGDEBUG << "Initiate Object Sync";
+    LOGNORMAL << "Migration source request for token: " << filterObjSet->tokenId
+              << " executor Id: " << std::hex << filterObjSet->executorID
+              << " migration dest: " << asyncHdr->msg_src_uuid.svc_uuid
+              << std::dec << " target dlt version: " << filterObjSet->targetDltVersion;
 
     // first disable GC and Tier Migration. If this SM is also a destination and
     // we already disabled GC and Tier Migration, disabling them again is a noop
@@ -307,7 +310,7 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         err = ERR_SM_NOT_READY_AS_MIGR_SRC;
         LOGDEBUG << "SM not ready as Migration source " << std::hex
                  << objStorMgr->getUuid() << std::dec
-                 << " for dlt token: " << filterObjSet->tokenId << std::hex
+                 << " for token: " << filterObjSet->tokenId << std::hex
                  << " executor: " << filterObjSet->executorID;
         fiu_disable("resend.dlt.token.filter.set");
     } else {
