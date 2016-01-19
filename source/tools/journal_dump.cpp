@@ -34,7 +34,7 @@
 #include "DmBlobTypes.h"
 
 #define USE_NEW_LDB_STRUCTURES
-
+uint count;
 namespace leveldb {
 
 namespace {
@@ -71,7 +71,7 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
         fds::CatalogKeyType keyType = *reinterpret_cast<fds::CatalogKeyType const*>(key.data());
         switch (keyType) {
             case fds::CatalogKeyType::JOURNAL_TIMESTAMP:
-                std::cout << "=> Timestamp: " << *reinterpret_cast<fds_uint64_t const*>(value.data())
+                std::cout << "=> [" << ++count << "] timestamp: " << *reinterpret_cast<fds_uint64_t const*>(value.data())
                           << "\n";
                 break;
             case fds::CatalogKeyType::BLOB_OBJECTS: {
@@ -217,8 +217,8 @@ bool HandleDumpCommand(Env* env, char** files, int num) {
 }  // namespace leveldb
 
 static void Usage() {
-    std::cout << "Usage: journal-dump <files>...\n"
-              << "   files...         -- dump contents of specified journal files\n";
+    std::cout << "Usage: journal-dump <file>...\n"
+              << "   file...         -- dump contents of specified journal files\n";
 }
 
 int main(int argc, char** argv) {
@@ -233,6 +233,7 @@ int main(int argc, char** argv) {
             // ok = leveldb::HandleDumpCommand(env, argv+1, argc-1);
             leveldb::CatJournalIterator iter(argv[1]);
             leveldb::WriteBatchItemPrinter batch_item_printer;
+            count = 0;
             for (; iter.isValid(); iter.Next()) {
                 const leveldb::WriteBatch &wb = iter.GetBatch();
                 leveldb::Status s = wb.Iterate(&batch_item_printer);
