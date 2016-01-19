@@ -23,7 +23,7 @@ import sm_api as smapi
 import sm_types as smtypes
 from sm_api.ttypes import *
 from sm_api.constants import *
-
+from pm_service.ttypes import *
 
 log = logging.getLogger(__name__)
 
@@ -292,6 +292,10 @@ def newShutdownMODMsg():
 
 def newCtrlStartHybridTierCtrlrMsg():
     msg = CtrlStartHybridTierCtrlrMsg()
+    return msg
+
+def newNotifyDiskMapChangeMsg():
+    msg = NotifyDiskMapChange()
     return msg
 
 def newStartSmchkMsg(targetTokens):
