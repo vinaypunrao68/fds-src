@@ -68,6 +68,7 @@ TESTS["restart-simple"]="SimpleRestartMultiNodeTest"
 TESTS["restart"]="SimpleRestartTest"
 TESTS["smoke"]="BuildSmokeTest_onpr"
 TESTS["4node"]="FourNodeStart"
+TESTS["2node"]="TwoNodeStart"
 TESTS["unit"]="unit tests"
 
 function usage() {
@@ -75,6 +76,7 @@ function usage() {
     log " cmd : "
     log "   - $(yellow start)     : start the app "
     log "   - $(yellow stop)      : stop  the app "
+    log "   - $(yellow start[2/4]): start 2/4 node cluster "
     log "   - $(yellow restart)   : stop & start  the app "
     log "   - $(yellow status)    : print status of the apps"
     log "   - $(yellow clogs)     : remove the logs"
@@ -851,7 +853,7 @@ do
             exit 0
             ;;
         # detect commands
-        kill|start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*|top)
+        kill|start?|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*|top)
             CMD=$opt
             ;;
         test)
@@ -909,6 +911,12 @@ case "${CMD}" in
     start) startApp $APP
         [[ $APP == "all" ]] && waitForAll
         statusApp $APP
+        ;;
+    start4)
+        runTest 4node
+        ;;
+    start2)
+        runTest 2node
         ;;
     kill) stopApp  $APP;;
     stop) stopApp  $APP;;
