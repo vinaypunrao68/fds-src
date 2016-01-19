@@ -1518,7 +1518,7 @@ namespace fds
                     break;
                 }
 
-                LOGNORMAL << "dev " << dev << ", path " << path << ", uuid " << uuid << ", idx " << idx;
+                LOGTRACE << "dev " << dev << ", path " << path << ", uuid " << uuid << ", idx " << idx;
                 if ( strstr( path.c_str(), "hdd" ) != NULL && strstr( path.c_str(), "ssd" ) != NULL )
                 {
                     LOGWARN << "Unknown path: " << path.c_str() ;
