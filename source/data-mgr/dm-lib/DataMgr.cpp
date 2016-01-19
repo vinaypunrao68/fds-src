@@ -745,7 +745,7 @@ Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
                                          voldesc.iops_throttle,
                                          voldesc.relativePrio);
     vol_map_mtx->unlock();
-
+    vm->vol_desc->contCommitlogRetention = voldesc.contCommitlogRetention;
     LOGNOTIFY << "Modify policy for volume "
               << voldesc.name << " RESULT: " << err.GetErrstr();
 
