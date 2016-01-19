@@ -70,19 +70,19 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
     virtual void Put(const Slice& key, const Slice& value) {
 #ifdef USE_NEW_LDB_STRUCTURES
         fds::CatalogKeyType keyType = *reinterpret_cast<fds::CatalogKeyType const*>(key.data());
-        switch (keyType)
+        switch (keyType) 
         {
-        case fds::CatalogKeyType::JOURNAL_TIMESTAMP:
-            std::cout << "= >Timestamp: '" << *reinterpret_cast<fds_uint64_t const*>(value.data())
-                      << "'\n";
+            case fds::CatalogKeyType::JOURNAL_TIMESTAMP:
+            std::cout << "=> Timestamp: " << *reinterpret_cast<fds_uint64_t const*>(value.data())
+                      << "\n";
             break;
         case fds::CatalogKeyType::BLOB_OBJECTS:
         {
             BlobObjectKey blobObjectKey { key };
-            std::cout << "= >put Blob: '" << blobObjectKey.getBlobName()
-                      << "' [Index: " << blobObjectKey.getObjectIndex()
-                      << " -> " << fds::ObjectID(reinterpret_cast<uint8_t const*>(value.data()),
-                                                                                  value.size())
+            std::cout << "=> put [blob=" << blobObjectKey.getBlobName()
+                      << " index=" << blobObjectKey.getObjectIndex()
+                      << " obj=" << fds::ObjectID(reinterpret_cast<uint8_t const*>(value.data()),
+                                                  value.size()).ToHex()
                       << "]\n";
             break;
         }
@@ -91,18 +91,32 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
             fds::BlobMetaDesc blobMeta;
             blobMeta.loadSerialized(std::string{value.data(), value.size()});
 
-            std::cout << "= >put Blob Name: '" << blobMeta.desc.blob_name
-                      << "' Size: '" << blobMeta.desc.blob_size
-                      << "' Version: '" << blobMeta.desc.version
-                      << "'\n";
+            std::cout << "=> put meta [blob=" << blobMeta.desc.blob_name
+                      << " size=" << blobMeta.desc.blob_size
+                      << " version=" << blobMeta.desc.version
+                      << " seq=" << blobMeta.desc.sequence_id
+                      << "]\n";
 
             std::cout << "  [ ";
-            for (auto const& it : blobMeta.meta_list)
-            {
-                std::cout << it.first << ":" << it.second << " ";
+            for (auto const& it : blobMeta.meta_list) {
+                std::cout << it.first << "=" << it.second << " ";
             }
             std::cout << "]\n";
 
+            break;
+        }
+        case fds::CatalogKeyType::VOLUME_METADATA: 
+        {
+            const fpi::FDSP_MetaDataList metadataList;
+            const sequence_id_t seq_id=0;
+            VolumeMetaDesc volDesc(metadataList, seq_id);
+            volDesc.loadSerialized(std::string{value.data(), value.size()});
+            std::cout << "=> put volume meta: " ;
+            std::cout << "[seqid=" << volDesc.sequence_id << " " ;
+            for (const auto& item : volDesc.meta_list) {
+                std::cout << item.first << "=" << item.second << " ";
+            }
+            std::cout << "]\n";
             break;
         }
         default:
@@ -125,7 +139,7 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
 
         extent->loadSerialized(dataStr);
 
-        std::cout << "\n= >put 'Blob:" << extKey.blob_name << ", Extent:" << extKey.extent_id
+        std::cout << "\n=> put 'Blob=" << extKey.blob_name << ", Extent=" << extKey.extent_id
                   << "'" << std::endl;
         std::vector<fds::ObjectID> oids;
         extent->getAllObjects(oids);
@@ -141,21 +155,27 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
         switch (keyType)
         {
         case fds::CatalogKeyType::JOURNAL_TIMESTAMP:
-            std::cout << "= >del JournalTimestampKey\n";
+            std::cout << "=> del JournalTimestampKey\n";
             break;
         case fds::CatalogKeyType::BLOB_OBJECTS:
         {
             BlobObjectKey blobObjectKey { key };
-            std::cout << "= >del BlobObject: '" << blobObjectKey.getBlobName()
-                      << "' Index: '" << blobObjectKey.getObjectIndex() << "'\n";
+            std::cout << "=> del [blob=" << blobObjectKey.getBlobName()
+                      << " index=" << blobObjectKey.getObjectIndex() << "]\n";
             break;
         }
         case fds::CatalogKeyType::BLOB_METADATA:
         {
             BlobMetadataKey blobMetaKey { key };
-            std::cout << "= >del BlobMeta: '" << blobMetaKey.getBlobName() << "'\n";
+            std::cout << "=> del [blobmeta=" << blobMetaKey.getBlobName() << "]\n";
             break;
         }
+        case fds::CatalogKeyType::VOLUME_METADATA: 
+        {
+            std::cout << "=> del [volumeMeta]\n";
+            break;
+        }
+
         default:
             throw std::runtime_error{"Unrecognized key type: "
                                      + std::to_string(static_cast<unsigned int>(keyType)) + "."};
@@ -164,7 +184,7 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
         std::string keyStr(key.data(), key.size());
         fds::ExtentKey extKey;
         extKey.loadSerialized(keyStr);
-        std::cout << "  del 'Blob:" << extKey.blob_name << ", Extent:" << extKey.extent_id
+        std::cout << "  del 'Blob=" << extKey.blob_name << ", Extent=" << extKey.extent_id
                   << "'" << std::endl;
 #endif
     }
