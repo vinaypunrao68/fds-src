@@ -23,6 +23,7 @@
 #include <kvstore/configdb.h>
 #include <concurrency/RwLock.h>
 #include <DltDmtUtil.h>
+#include <fds_timer.h>
 
 namespace FDS_ProtocolInterface {
     struct CtrlNotifyDMAbortMigration;
@@ -1121,6 +1122,11 @@ class OM_NodeDomainMod : public Module
     bool isNodeShuttingDown(int64_t uuid);
 
     void removeNodeComplete(NodeUuid uuid);
+
+    bool isScheduled(FdsTimerTaskPtr&, int64_t id);
+    void addToTaskMap(FdsTimerTaskPtr task, int64_t id);
+    void removeFromTaskMap(int64_t id);
+
   protected:
     bool isPlatformSvc(fpi::SvcInfo svcInfo);
     bool isAccessMgrSvc( fpi::SvcInfo svcInfo );
@@ -1158,6 +1164,10 @@ class OM_NodeDomainMod : public Module
 
     bool                          domainDown;
     std::vector<int64_t>          shuttingDownNodes;
+
+    std::mutex                    taskMapMutex;
+    std::unordered_map<int64_t, FdsTimerTaskPtr> setupNewNodeTaskMap;
+
 
 };
 

@@ -470,6 +470,7 @@ def convertor(volume, fdscfg):
 
     return new_volume
 
+
 def get_inventory_value(inventory_file, key_name):
     '''
     Parse the given Ansible inventory file given as argument to this
@@ -509,6 +510,7 @@ def get_inventory_value(inventory_file, key_name):
                 result = record.strip().split("=")[1]
                 break
     return result
+
 
 def get_volume_service(self,om_ip):
     getAuth(self, om_ip)
@@ -636,5 +638,39 @@ def connect_fabric(self,node_ip):
     self.log.error('Node %s unreachable after 10 mins retry time'%node_ip)
     return False
 
+
 def disconnect_fabric():
     fabric.network.disconnect_all()
+
+
+# This method returns occurrences of 'log_entry' in `service*.log` on node `node_ip`
+def read_remote_log(self, node_ip, service, log_entry):
+    assert connect_fabric(self, node_ip) is True
+    with cd('/fds/var/logs'):
+        files = run('ls').split()
+    log_files = [item for item in files if item.startswith(service + '.log')]
+
+    log_counts = 0
+    io = StringIO()
+    for log_file in log_files:
+        get('/fds/var/logs/' + log_file, io)
+        content = io.getvalue()
+        search_lines = content.split('\n')
+        for line in search_lines:
+            if log_entry in line:
+                log_counts += 1
+                io.truncate(0)
+
+    disconnect_fabric()
+    return log_counts
+
+
+# This method returns dictionary of passed log_entry_list with respective occurence count
+# on given node_ip. Will search in respective service in service_list
+def get_log_count_dict(self, om_node_ip, node_ip, service_list, log_entry_list):
+    log_count_dict = {}
+    for index, log_entry in enumerate(log_entry_list):
+        node_ip = om_node_ip if service_list[index] == 'om' else node_ip
+        val = read_remote_log(self, node_ip, service_list[index], log_entry)
+        log_count_dict[log_entry] = val
+    return log_count_dict

@@ -94,6 +94,7 @@ namespace fds {
     ADD(ERR_UNAVAILABLE, = 74, "Resource is unavialable"),\
     ADD(ERR_ABORTED, = 75, "Service/module aborted"),\
     ADD(ERR_SYNC_INPROGRESS, = 76, "Sync is in progress"),\
+    ADD(ERR_VOLMETA_NOT_FOUND, = 77, "Volume Metadata not found"),\
     \
     /* I/O error range */            \
     ADD(ERR_IO_DLT_MISMATCH,= 100," "), \

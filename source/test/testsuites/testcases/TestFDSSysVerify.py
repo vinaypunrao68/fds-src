@@ -19,8 +19,6 @@ import time
 import re
 from fabric.contrib.files import *
 from fabric.context_managers import cd
-from StringIO import StringIO
-from fabric.api import get
 from fdslib.TestUtils import disconnect_fabric
 from fdslib.TestUtils import connect_fabric
 
@@ -772,113 +770,6 @@ class TestCanonMatch(TestCase.FDSTestCase):
         else:
             self.log.error("Canon match failed.")
             return False
-
-
-# This class contains the attributes and methods to test
-# rebooting node (I.e. node shuts down and comes back up again)
-class TestNodeReboot(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None, service=None, logentry=None, om_node=None):
-        super(self.__class__, self).__init__(parameters,
-                                             self.__class__.__name__,
-                                             self.test_NodeReboot,
-                                             "Reboot a node")
-
-        self.passedNode = node
-        self.passedService = service
-        self.passedLogentry = logentry
-        self.passedOMnode = om_node
-
-    def test_NodeReboot(self):
-        """
-        Test Case:
-        Attempt to reboot a given node.
-        """
-        service_list = self.passedService.split(',')
-        log_entry_list = self.passedLogentry.split(',')
-        node_ip = self.passedNode.nd_conf_dict['ip']
-        dict_log_count = {}
-        global pre_reboot_count
-        pre_reboot_count = {}
-
-        for idx, log_entry in enumerate(log_entry_list):
-            # If service is OM then search OM logs on om node
-            node = self.passedOMnode if service_list[idx] == 'om' else self.passedNode
-            val = count_remote_logs(self, node, service_list[idx], log_entry)
-            dict_log_count[log_entry] = val
-        pre_reboot_count = dict_log_count
-
-        self.log.info("%s is going down for reboot NOW!" % self.passedNode.nd_conf_dict['ip'])
-        assert connect_fabric(self, node_ip) is True
-        run('reboot')
-        disconnect_fabric()
-        # This assert will confirm that node is back up again after reboot
-        if not connect_fabric(self, node_ip):
-            return False
-        else:
-            return True
-
-
-# This class contains the attributes and methods to verify if node is in good state for IO after reboot
-# by confirming passed log entry count has increased after reboot.
-
-class TestRebootVerify(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None, service=None, logentry=None, maxwait=None):
-        super(self.__class__, self).__init__(parameters,
-                                             self.__class__.__name__,
-                                             self.test_RebootVerify,
-                                             "Verify node state after reboot")
-
-        self.passedNode = node
-        self.passedService = service
-        self.passedLogentry = logentry
-        self.passedMaxwait = maxwait
-
-    def test_RebootVerify(self):
-        node_ip = self.passedNode.nd_conf_dict['ip']
-        assert connect_fabric(self, node_ip) is True
-        wait_for_log_time = self.passedMaxwait  # It's in minutes
-        post_reboot_log_entries = 0
-
-        # Given wait time is in minutes, if logs after reboot are not greater than logs before reboot then
-        # we sleep for 30 secs and check again, hence wait_for_log_time is multiplied by 2
-        for i in range(0, wait_for_log_time * 2):
-            post_reboot_log_entries = count_remote_logs(self, self.passedNode, self.passedService, self.passedLogentry)
-            if not (post_reboot_log_entries > pre_reboot_count[self.passedLogentry]):
-                # before rechecking logs wait for 30 sec
-                time.sleep(30)
-                continue
-            else:
-                self.log.info("Node reboot success: `%s` entry count before reboot: %d, "
-                              " after reboot: %d ."
-                              % (self.passedLogentry, pre_reboot_count[self.passedLogentry], post_reboot_log_entries))
-                disconnect_fabric()
-                return True
-
-        if not (post_reboot_log_entries > pre_reboot_count[self.passedLogentry]):
-            self.log.error("Waited for %s minutes on node %s after reboot, still %s count didn't increase"
-                           % (wait_for_log_time, node_ip, self.passedLogentry))
-            return False
-
-
-def count_remote_logs(self, node, service, log_entry):
-    assert connect_fabric(self, node.nd_conf_dict['ip']) is True
-    with cd('/fds/var/logs'):
-        files = run('ls').split()
-    log_files = [item for item in files if item.startswith(service + '.log')]
-
-    log_counts = 0
-    io = StringIO()
-    for log_file in log_files:
-        get('/fds/var/logs/' + log_file, io)
-        content = io.getvalue()
-        search_lines = content.split('\n')
-        for line in search_lines:
-            if log_entry in line:
-                log_counts += 1
-                io.truncate(0)
-
-    disconnect_fabric()
-    return log_counts
 
 
 if __name__ == '__main__':
