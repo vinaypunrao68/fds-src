@@ -574,6 +574,11 @@ Error DataMgr::addVolume(const std::string& vol_name,
 
     if (err.ok() && vdesc->isClone() && fPrimary && !fOldVolume) {
         err = copyVolumeToOtherDMs(vdesc->volUUID);
+        if (!err.ok()) {
+            LOGERROR << "failed to sync clone to other DMs. failing clone: " << vdesc->volUUID
+                     << " of src:" << vdesc->srcVolumeId;
+            return err;
+        }
     }
 
     if (!vdesc->isSnapshot()) {
@@ -696,14 +701,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
         volmeta->setVersion(version);
     }
 
-    /*
-     * XXX: The logic below will use source volume id to collect stats for clone,
-     *      but it will now stream the stats to AM because amIPrimary() check is
-     *      done there. Effective we are going to collect stats for clone but not
-     *      stream it.
-     * TODO(xxx): Migrate clone and then stream stats
-     */
-    if (err.ok() && amIPrimary(vdesc->isClone() ? vdesc->srcVolumeId : vol_uuid)) {
+    if (err.ok() && amIPrimary(vol_uuid)) {
         // will aggregate stats for this volume and log them
         statStreamAggr_->attachVolume(vol_uuid);
         // create volume stat  directory.
@@ -1560,6 +1558,7 @@ Error DataMgr::copyVolumeToOtherDMs(fds_volid_t volId) {
     boost::filesystem::remove(archiveFile);
 
     if (failed >= (1.0*total/2.0)) {
+        LOGERROR << "volume copy failed : " << volId;
         return ERR_INVALID;
     }
     return ERR_OK;
