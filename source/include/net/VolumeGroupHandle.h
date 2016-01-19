@@ -11,9 +11,9 @@
 #include <net/volumegroup_extensions.h>
 #include <boost/circular_buffer.hpp>
 
-#define GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb) \
+#define GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb, msg) \
     if (state_ != fpi::ResourceState::Active) { \
-        LOGWARN << logString() << " Unavailable"; \
+        LOGWARN << logString() << fds::logString(*msg) << " Unavailable"; \
         cb(ERR_VOLUMEGROUP_DOWN, nullptr); \
         return; \
     }
@@ -25,6 +25,22 @@
 
 
 namespace fds {
+// Some logging routines have external linkage
+extern std::string logString(const fpi::AbortBlobTxMsg&);
+extern std::string logString(const fpi::CommitBlobTxMsg&);
+extern std::string logString(const fpi::QueryCatalogMsg&);
+extern std::string logString(const fpi::StartBlobTxMsg&);
+extern std::string logString(const fpi::UpdateCatalogMsg&);
+extern std::string logString(const fpi::UpdateCatalogOnceMsg&);
+extern std::string logString(const fpi::DeleteBlobMsg&);
+extern std::string logString(const fpi::GetVolumeMetadataMsg&);
+extern std::string logString(const fpi::RenameBlobMsg&);
+extern std::string logString(const fpi::SetBlobMetaDataMsg&);
+extern std::string logString(const fpi::SetVolumeMetadataMsg&);
+extern std::string logString(const fpi::GetBlobMetaDataMsg&);
+extern std::string logString(const fpi::StatVolumeMsg&);
+extern std::string logString(const fpi::GetBucketMsg&);
+
 struct VolumeGroupHandle;
 
 std::ostream& operator << (std::ostream &out, const fpi::VolumeIoHdr &h);
@@ -178,7 +194,7 @@ struct VolumeGroupHandleListener {
 * -Handles faults in a volume group
 * -Manages sync/repair of a failed volume replica.
 */
-struct VolumeGroupHandle : HasModuleProvider {
+struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     using VolumeReplicaHandleList       = std::vector<VolumeReplicaHandle>;
     using VolumeReplicaHandleItr        = VolumeReplicaHandleList::iterator;
     using WriteOpsBuffer                = boost::circular_buffer<std::pair<fpi::FDSPMsgTypeId, StringPtr>>;
@@ -186,6 +202,7 @@ struct VolumeGroupHandle : HasModuleProvider {
     VolumeGroupHandle(CommonModuleProviderIf* provider,
                       const fds_volid_t& volId,
                       uint32_t quorumCnt);
+    virtual ~VolumeGroupHandle();
 
     /**
     * @brief Opens volume handle.  After opening, messages can be sent to the group handle.
@@ -237,6 +254,9 @@ struct VolumeGroupHandle : HasModuleProvider {
                                       const bool writeReq,
                                       const Error &inStatus,
                                       uint8_t &successAcks);
+
+    std::string getStateInfo() override;
+    std::string getStateProviderId() override;
 
     void incRef();
     void decRef();
@@ -315,6 +335,8 @@ struct VolumeGroupHandle : HasModuleProvider {
     int64_t                             groupId_;
     /* Version # for group handle.  This is different from VolumeReplicaHandle version # */
     fpi::VolumeGroupVersion             version_;
+    /* Id used when exporting state */
+    std::string                         stateProviderId_;
     /* Every write operation is given a sequence #. The first # is OPSTARTID+1 */
     int64_t                             opSeqNo_;
     /* Every commit operation is given a sequence #. The first # is COMMITSTARTID+1 */
@@ -345,7 +367,7 @@ void VolumeGroupHandle::sendReadMsg(const fpi::FDSPMsgTypeId &msgTypeId,
     fds_assert(!closeCb_);
 
     runSynchronized([this, msgTypeId, msg, cb]() mutable {
-        GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb);
+        GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb, msg);
 
         /* Create a request and send */
         auto req = requestMgr_->newSvcRequest<VolumeGroupFailoverRequest>(this);
@@ -362,7 +384,7 @@ void VolumeGroupHandle::sendModifyMsg(const fpi::FDSPMsgTypeId &msgTypeId,
     fds_assert(!closeCb_);
 
     runSynchronized([this, msgTypeId, msg, cb]() mutable {
-        GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb);
+        GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb, msg);
 
         opSeqNo_++;
         sendWriteReq_<MsgT, VolumeGroupBroadcastRequest>(msgTypeId, msg, cb);
@@ -375,7 +397,7 @@ void VolumeGroupHandle::sendCommitMsg(const fpi::FDSPMsgTypeId &msgTypeId,
     fds_assert(!closeCb_);
 
     runSynchronized([this, msgTypeId, msg, cb]() mutable {
-        GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb);
+        GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb, msg);
 
         opSeqNo_++;
         commitNo_++;

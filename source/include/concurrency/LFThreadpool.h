@@ -97,6 +97,16 @@ struct LFMQThreadpool {
                 new LockFreeTask(std::bind(std::forward<F>(f), std::forward<Args>(args)...)));
     }
 
+    /**
+    * @brief Returns thread id responsible for tasks with provided affinity
+    * @param affinity
+    */
+    std::thread::id getThreadId(uint64_t affinity) const
+    {
+        return workers[affinity % workers.size()]->worker->get_id();
+    }
+
+
     std::vector<LockfreeWorker*> workers;
     int idx;
 };

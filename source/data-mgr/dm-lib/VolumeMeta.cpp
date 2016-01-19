@@ -12,6 +12,7 @@
 #include <net/volumegroup_extensions.h>
 #include <util/stringutils.h>
 #include <dmhandler.h>
+#include <json/json.h>
 
 namespace fds {
 
@@ -25,7 +26,8 @@ VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
             fwd_state(VFORWARD_STATE_NONE),
             dmVolQueue(0),
             dataManager(_dm),
-            cbToVGMgr(NULL) {
+            cbToVGMgr(NULL)
+{
     const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
 
     vol_mtx = new fds_mutex("Volume Meta Mutex");
@@ -35,6 +37,10 @@ VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
     root->fds_mkdir(root->dir_sys_repo_dm().c_str());
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
 
+    /* Enable ability to query state via StateProvider api */
+    stateProviderId = "volume." + std::to_string(_uuid.get());
+    MODULEPROVIDER()->get_cntrs_mgr()->add_for_export(this);
+
     selfSvcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
 
     // this should be overwritten when volume add triggers read of the persisted value
@@ -42,9 +48,14 @@ VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
 
     opId = VolumeGroupConstants::OPSTARTID;
     version = VolumeGroupConstants::VERSION_INVALID;
+
+    threadId = dataManager->getQosCtrl()->threadPool->getThreadId(_uuid.get());
 }
 
-VolumeMeta::~VolumeMeta() {
+VolumeMeta::~VolumeMeta()
+{
+    MODULEPROVIDER()->get_cntrs_mgr()->remove_from_export(this);
+
     delete vol_desc;
     delete vol_mtx;
 }
@@ -158,12 +169,23 @@ void VolumeMeta::setState(const fpi::ResourceState &state,
     LOGNORMAL << logString() << logCtx;
 }
 
-void VolumeMeta::populateState(std::map<std::string, std::string> &state)
+std::string VolumeMeta::getStateProviderId()
 {
+    return stateProviderId;
+}
+
+std::string VolumeMeta::getStateInfo()
+{
+    /* NOTE: Getting the stateinfo isn't synchronized.  It may be a bit stale */
+    Json::Value state;
     state["state"] = fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(getState()));
-    state["version"] = std::to_string(version);
-    state["opid"] = std::to_string(getOpId());
-    state["sequenceid"] = std::to_string(sequence_id);
+    state["version"] = version;
+    state["opid"] = static_cast<Json::Value::Int64>(getOpId());
+    state["sequenceid"] = static_cast<Json::Value::Int64>(sequence_id);
+
+    std::stringstream ss;
+    ss << state;
+    return ss.str();
 }
 
 std::function<void()> VolumeMeta::makeSynchronized(const std::function<void()> &f)

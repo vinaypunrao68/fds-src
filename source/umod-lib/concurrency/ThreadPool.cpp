@@ -355,4 +355,10 @@ fds_threadpool::thp_dequeue_task_or_idle(thpool_worker *worker)
     return task;
 }
 
+std::thread::id fds_threadpool::getThreadId(uint64_t affinity) const
+{
+    fds_assert(use_lftp_instead);
+    return lfthreadpool->getThreadId(affinity);
+}
+
 }  // namespace fds
