@@ -216,7 +216,7 @@ AmDispatcher::registerVolume(VolumeDesc const& volDesc) {
         if (volumegroup_map.end() != it) {
             return;
         }
-        volumegroup_map[vol_id].reset(new VolumeGroupHandle(MODULEPROVIDER(), vol_id, DmDefaultPrimaryCnt));
+        volumegroup_map[vol_id].reset(new VolumeGroupHandle(MODULEPROVIDER(), vol_id, numPrimaries));
         volumegroup_map[vol_id]->setListener(volumegroup_handler.get());
     }
 }

@@ -657,6 +657,8 @@ void
 OmSvcHandler::setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                         boost::shared_ptr<fpi::SetVolumeGroupCoordinatorMsg> &msg)
 {
+    /* xxx: This needs to be synchronized and be done volume managing statemachine */
+    Error e;
     fds_volid_t volId(msg->volumeId);
 	OM_Module *om = OM_Module::om_singleton();
 	OM_NodeDomainMod *dom_mod = om->om_nodedomain_mod();
@@ -664,14 +666,18 @@ OmSvcHandler::setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     VolumeContainer::pointer volumes = local->om_vol_mgr();
 
     auto volumePtr = volumes->get_volume(volId);
-    if (volumePtr == nullptr) {
+    if (volumePtr != nullptr) {
+        auto volDescPtr = volumePtr->vol_get_properties();
+        fpi::VolumeGroupCoordinatorInfo volCoordinatorInfo = msg->coordinator;
+        volDescPtr->setCoordinatorId(volCoordinatorInfo.id);
+        volDescPtr->setCoordinatorVersion(volCoordinatorInfo.version);
+    } else {
         LOGERROR << "Unable to find volume " << volId;
-        return;
+        e = ERR_VOL_NOT_FOUND;
     }
-    auto volDescPtr = volumePtr->vol_get_properties();
-    fpi::VolumeGroupCoordinatorInfo volCoordinatorInfo = msg->coordinator;
-    volDescPtr->setCoordinatorId(volCoordinatorInfo.id);
-    volDescPtr->setCoordinatorVersion(volCoordinatorInfo.version);
+
+    hdr->msg_code = e.GetErrno();
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
 }
 
 

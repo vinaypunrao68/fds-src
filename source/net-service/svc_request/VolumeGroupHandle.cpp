@@ -309,6 +309,7 @@ std::string VolumeGroupHandle::getStateInfo()
     Json::Value state;
     state["state"] = fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(state_));
     state["version"] = version_;
+    state["quorumcnt"] = quorumCnt_;
     state["up"] = static_cast<Json::Value::UInt>(functionalReplicas_.size());
     state["syncing"] = static_cast<Json::Value::UInt>(syncingReplicas_.size());
     state["down"] = static_cast<Json::Value::UInt>(nonfunctionalReplicas_.size());
@@ -437,7 +438,9 @@ VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
         ++latestStateReplicas;
     }
     if (latestStateReplicas < quorumCnt_) {
-        LOGWARN << logString() << " Not enough members with latest state to start a group";
+        LOGWARN << logString() << " Not enough members with latest state to start a group."
+            << " latest state replicas count: " << latestStateReplicas
+            << " quorum count: " << quorumCnt_;
         return nullptr;
     }
     for (uint32_t i = 0; i < latestStateReplicas; i++) {
@@ -548,13 +551,15 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
     if (volumeHandle->isFunctional() ||
         volumeHandle->isSyncing()) {
         Error outStatus = inStatus;
-        /* Check to consider the incoming error to be not an error
-         * VolumeHandle shoudn't consider inStatus to be an error &&
-         * if listener is set, listener also shouldn't consider it an error
-         */
-        if (!volumeHandle->isError(inStatus) && 
-            (!listener_ || !listener_->isError(msgTypeId, inStatus))) {
-            outStatus = ERR_OK;
+        if (inStatus != ERR_OK) {
+            /* If either volume handle or listener doesn't consider it to be an error
+             * it's not an error
+             */
+            bool isVolumeHandleError = volumeHandle->isError(inStatus);
+            bool isListenerError = (!listener_ || listener_->isError(msgTypeId, inStatus));
+            if (!isVolumeHandleError || !isListenerError) {
+                outStatus = ERR_OK;
+            }
         }
 
         if (outStatus == ERR_OK) {
