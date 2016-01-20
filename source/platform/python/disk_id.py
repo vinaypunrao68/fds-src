@@ -180,8 +180,11 @@ def debug_dump (devlist):
 
 def get_device_list(fs) :
     device_list = []
-    if "/dev/md" in fs or "/dev/disk/by-uuid" in fs:
-        call_list = ['mdadm', '--detail', fs]
+
+    real_fs = os.path.realpath(fs)
+
+    if "/dev/md" in real_fs:
+        call_list = ['mdadm', '--detail', real_fs]
         output = subprocess.Popen (call_list, stdout=subprocess.PIPE).stdout
         for line in output:
             if "/dev/sd" in line:
@@ -190,11 +193,11 @@ def get_device_list(fs) :
                 if device not in device_list:
                     device_list.append (device)
     else:
-        device = fs.rstrip('0123456789')
+        device = real_fs.rstrip('0123456789')
         if device not in device_list:
             device_list.append (device)
     return device_list
- 
+
 def discover_os_devices ():
     '''
     Auto discover the OS disks
@@ -308,7 +311,7 @@ def find_index_devices() :
         if "/fds/sys-repo" == items[5]:
             dev = items[0]
             dbg_print("Found an existing index device in df output: %s" % dev)
-            break 
+            break
 
     if 0 != len(dev):
         index_devs = get_device_list(dev)
