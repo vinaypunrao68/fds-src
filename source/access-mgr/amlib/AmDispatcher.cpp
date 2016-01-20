@@ -1066,7 +1066,8 @@ AmDispatcher::putObject(AmRequest* amReq) {
 
     // Sweet, we're done!
     if (0 == objReq->data_len) {
-        return _putObjectCb(objReq, ERR_OK);
+        AmDataProvider::putObjectCb(amReq, ERR_OK);
+        return;
     }
 
     auto message(boost::make_shared<fpi::PutObjectMsg>());
@@ -1089,11 +1090,6 @@ AmDispatcher::putObjectCb(PutObjectReq* amReq,
     dltMgr->releaseVersion(amReq->dlt_version);
     PerfTracer::tracePointEnd(amReq->sm_perf_ctx);
 
-    _putObjectCb(amReq, error);
-}
-
-void
-AmDispatcher::_putObjectCb(PutObjectReq* amReq, const Error& error) {
     AmDataProvider::putObjectCb(amReq, error);
 }
 

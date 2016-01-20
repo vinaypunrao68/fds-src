@@ -196,7 +196,6 @@ struct AmDispatcher : public AmDataProvider
     void _getVolumeMetadataCb(GetVolumeMetadataReq* amReq, const Error& error, shared_str payload);
     void _openVolumeCb(AttachVolumeReq* amReq, const Error& error, boost::shared_ptr<FDS_ProtocolInterface::OpenVolumeRspMsg> const& msg);
     void _putBlobTxCb(UpdateCatalogReq* amReq, const Error& error, shared_str payload);
-    void _putObjectCb(PutObjectReq* amReq, const Error& error);
     void _renameBlobCb(RenameBlobReq *amReq, const Error& error, shared_str payload);
     void _setBlobMetadataCb(SetBlobMetaDataReq *amReq, const Error& error, shared_str payload);
     void _setVolumeMetadataCb(SetVolumeMetadataReq* amReq, const Error& error, shared_str payload);
