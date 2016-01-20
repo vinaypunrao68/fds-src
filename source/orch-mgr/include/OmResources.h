@@ -1122,6 +1122,10 @@ class OM_NodeDomainMod : public Module
 
     void removeNodeComplete(NodeUuid uuid);
 
+    inline fds_bool_t dmClusterPresent() {
+        return volumeGroupDMTFired;
+    }
+
     // used for unit test
     inline void setDmClusterSize(uint32_t size) {
         dmClusterSize = size;
@@ -1166,6 +1170,7 @@ class OM_NodeDomainMod : public Module
     std::vector<int64_t>          shuttingDownNodes;
     uint32_t                      dmClusterSize;
 
+    bool volumeGroupDMTFired;
 };
 
 extern OM_NodeDomainMod      gl_OMNodeDomainMod;

@@ -91,7 +91,8 @@ struct DmGroupFixture : BaseTestFixture {
         return volmod->getCommittedDMTVersion();
     }
 
-    void addNewFakeDm() {
+    // Returns the ptr for book keeping, if the caller wants to
+    fpi::FDSP_RegisterNodeTypePtr addNewFakeDm() {
         NodeUuid newUuid(nodeUuidCounter);
         ++nodeUuidCounter;
         NodeAgent::pointer      newNode;
@@ -107,11 +108,19 @@ struct DmGroupFixture : BaseTestFixture {
         auto om_locDomain = domainMod->om_loc_domain_ctrl();
         om_locDomain->dc_register_node(newUuid, msgPtr, &newNode);
         domainMod->setupNewNode(newUuid, msgPtr, newNode, false);
+
+        // Gotta sleep because we don't have control over boost state machine
+        sleep(2);
+        return msgPtr;
+    }
+
+    void setNewNodeUuid(NodeUuid value) {
+        nodeUuidCounter = value.uuid_get_val();
     }
 
 };
 
-TEST_F(DmGroupFixture, OmTest) {
+TEST_F(DmGroupFixture, DmClusterAddNodeTest) {
     fds::fds_volid_t v1Id(10);
     TestUtils::Waiter waiter(0);
 
@@ -131,35 +140,40 @@ TEST_F(DmGroupFixture, OmTest) {
     addNewFakeDm();
     // Ensure that only one dm is waiting
     ASSERT_TRUE(testOmModule->om_dmt_mod()->getWaitingDMs() == 1);
-
-    sleep(2); // FSM has no waiter to be used
     ASSERT_FALSE(hasCommittedDMT());
 
     // Add second node
     addNewFakeDm();
     ASSERT_TRUE(testOmModule->om_dmt_mod()->getWaitingDMs() == 2);
-    sleep(2); // FSM has no waiter to be used
     ASSERT_FALSE(hasCommittedDMT());
 
     // Add third node
     addNewFakeDm();
     ASSERT_TRUE(testOmModule->om_dmt_mod()->getWaitingDMs() == 3);
-    sleep(2); // FSM has no waiter to be used
     ASSERT_FALSE(hasCommittedDMT());
 
     // Add fourth node
     addNewFakeDm();
-    sleep(5); // FSM has no waiter to be used
     ASSERT_TRUE(hasCommittedDMT());
     // Should only have the first DMT published
     ASSERT_TRUE(getCommittedDMTVersion() == 1);
+    ASSERT_TRUE(testOmModule->om_dmt_mod()->getWaitingDMs() == 0);
 
     // Add fifth node - should be no-op
     addNewFakeDm();
-    sleep(2);
     ASSERT_TRUE(hasCommittedDMT());
     ASSERT_TRUE(getCommittedDMTVersion() == 1);
+    // Since we only support 1 set of 4 DMs, we shouldn't have waiting DMs
+    ASSERT_TRUE(testOmModule->om_dmt_mod()->getWaitingDMs() == 0);
 
+    // Add all the way to 8 nodes... should be no-op. This will change once we support
+    // multiple dm clusters
+    for (int i = 0; i < 3; ++i) {
+        addNewFakeDm();
+    }
+    ASSERT_TRUE(hasCommittedDMT());
+    ASSERT_TRUE(getCommittedDMTVersion() == 1);
+    ASSERT_TRUE(testOmModule->om_dmt_mod()->getWaitingDMs() == 0);
 }
 
 } // namespace fds

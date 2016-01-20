@@ -1243,7 +1243,8 @@ OM_NodeDomainMod::OM_NodeDomainMod(char const *const name)
         : Module(name),
           fsm_lock("OM_NodeDomainMod fsm lock"),
           configDB(nullptr),
-          domainDown(false)
+          domainDown(false),
+          volumeGroupDMTFired(false)
 {
     om_locDomain = new OM_NodeContainer();
     domain_fsm = new FSM_NodeDomain();
@@ -3141,7 +3142,6 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     OM_DMTMod *dmtMod = om->om_dmt_mod();
     // ClusterMap *cmMod =  om->om_clusmap_mod();
     // For volume grouping mode, we support only 1 version of DMT atm.
-    static bool volumeGroupDMTFired = false;
     uint32_t awaitingDMs = dmtMod->getWaitingDMs();
 
     if (dmPrevRegistered) {

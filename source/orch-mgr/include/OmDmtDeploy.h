@@ -177,9 +177,13 @@ class OM_DMTMod : public Module
         return volume_grp_mode;
     }
 
-    inline void addWaitingDMs() {
-        ++waitingDMs;
-    }
+    /**
+     * If a DM cluster is already present, then this is a no-op.
+     * Behavior will change once we support multiple DM clusters.
+     * If DM cluster isn't present, then this will increment the counter
+     * that counts the DMs awaiting to form a DM cluster.
+     */
+    void addWaitingDMs();
 
     inline void removeWaitingDMs() {
         if (waitingDMs > 0) {

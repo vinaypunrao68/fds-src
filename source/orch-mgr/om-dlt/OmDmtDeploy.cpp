@@ -517,6 +517,13 @@ OM_DMTMod::dmt_deploy_event(DmtRecoveryEvt const &evt)
     dmt_dply_fsm->process_event(evt);
 }
 
+void
+OM_DMTMod::addWaitingDMs() {
+    auto nodeDomMod = OM_Module::om_singleton()->om_nodedomain_mod();
+    if (!nodeDomMod->dmClusterPresent()) {
+        ++waitingDMs;
+    }
+}
 // --------------------------------------------------------------------------------------
 // OM DMT Deployment FSM Implementation
 // --------------------------------------------------------------------------------------
