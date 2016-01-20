@@ -1121,6 +1121,12 @@ class OM_NodeDomainMod : public Module
     bool isNodeShuttingDown(int64_t uuid);
 
     void removeNodeComplete(NodeUuid uuid);
+
+    // used for unit test
+    inline void setDmClusterSize(uint32_t size) {
+        dmClusterSize = size;
+    }
+    fds_bool_t checkDmtModVGMode();
   protected:
     bool isPlatformSvc(fpi::SvcInfo svcInfo);
     bool isAccessMgrSvc( fpi::SvcInfo svcInfo );
@@ -1158,6 +1164,7 @@ class OM_NodeDomainMod : public Module
 
     bool                          domainDown;
     std::vector<int64_t>          shuttingDownNodes;
+    uint32_t                      dmClusterSize;
 
 };
 

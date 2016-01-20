@@ -195,6 +195,11 @@ class OM_DMTMod : public Module
         waitingDMs = 0;
     }
 
+    // used for unit test
+    inline void setVolumeGrpMode(fds_bool_t value) {
+        volume_grp_mode = value;
+    }
+
     /**
      * Return the current state of the DMT deployment FSM.
      */

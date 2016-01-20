@@ -31,6 +31,7 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
 {
     om_mutex = new fds_mutex("OrchMgrMutex");
     fds::gl_orch_mgr = this;
+    orchMgr = this;
 
     static fds::Module *omVec[] = {
         omModule,
@@ -192,6 +193,8 @@ void OrchMgr::registerSvcProcess()
 
 int OrchMgr::run()
 {
+    // At this point, all module has init and started. So signal the waiters.
+    readyWaiter.done();
     // run server to listen for OMControl messages from
     // SM, DM and SH
     deleteScheduler.start();

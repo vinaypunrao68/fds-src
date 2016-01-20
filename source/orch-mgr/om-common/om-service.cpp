@@ -58,4 +58,14 @@ OM_Module::mod_shutdown()
 {
     Module::mod_shutdown();
 }
+
+void
+OM_Module::setOMTestMode(fds_bool_t value) {
+    for (unsigned i = 0; i < sizeof(mod_intern); i++) {
+        if (mod_intern[i] != nullptr) {
+            mod_intern[i]->setTestMode(value);
+        }
+    }
+    setTestMode(value);
+}
 }  // namespace fds

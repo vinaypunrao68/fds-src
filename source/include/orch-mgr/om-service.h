@@ -47,6 +47,8 @@ class OM_Module : public Module
         return om_volume_place;
     }
 
+    void setOMTestMode(fds_bool_t value);
+
     /**
      * Module methods.
      */

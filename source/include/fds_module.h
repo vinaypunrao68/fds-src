@@ -78,6 +78,17 @@ class Module
     //
     static Module **mod_cat(Module **v1, Module **v2);
 
+    /**
+     * Used for modules derived to have ability to set / query test mode
+     */
+    inline void setTestMode(fds_bool_t value) {
+        testMode = value;
+    }
+
+    inline fds_bool_t isInTestMode() {
+        return testMode;
+    }
+
   protected:
     friend class ModuleVector;
 
@@ -97,6 +108,8 @@ class Module
     ModuleVector            *mod_owner;
     char const *const        mod_name;
     SysParams const *        mod_params;
+  private:
+    fds_bool_t               testMode;
 };
 
 class ModuleVector
