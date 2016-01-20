@@ -138,6 +138,26 @@ void ReplicaInitializer<T>::run()
             complete_(e, "Coordinator rejected at loading state");
             return;
         }
+
+        if (responseMsg->group.functionalReplicas.size() == 0) {
+            /* When the functional group size is zero, if the latest sequence id matches
+             * with what coordinator has we can become functional
+             */
+            if (responseMsg->group.appliedCommitId == replica_->getSequenceId()) {
+                fds_assert(responseMsg->group.appliedOpId == VolumeGroupConstants::OPSTARTID);
+                /* To become functional, the sequence is go into syncing and become functional */
+                replica_-setState(fpi::ResourceState::Syncing,
+                                  "- no sync peers.  This volume is first functional replica");
+                 /* This will notify coordinator we are in sync state */
+                notifyCoordinator_();
+                /* Complet with OK will notify coordinator we are funcational */
+                complete_(ERR_OK, "- no sync peers.  This volume is first functional replica");
+            } else {
+                complete_(ERR_SYNCPEER_UNAVAILABLE, " - no sync peer is available");
+            }
+            return;
+        }
+        // TODO(Rao): Need to handle retries
         syncPeer_ = responseMsg->group.functionalReplicas.front();
 
         copyActiveStateFromPeer_(replica_->makeSynchronized([this](EPSvcRequest*,
