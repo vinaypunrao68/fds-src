@@ -712,8 +712,6 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
         volumeHandle->setState(targetState);
         volumeHandle->setError(ERR_OK);
     }
-    LOGNORMAL << logString() << volumeHandle->logString()
-        << " state changed. Context - " << context;
 
     /* Move the handle from the appropriate replica list
      * NOTE: we move volumeHandle to the end in the destination list
@@ -731,6 +729,9 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
 
     /* After moving ensure volume handle state maches the container list it is supposed to be in */
     fds_assert(&(getVolumeReplicaHandleList_(volumeHandle->state)) == &dstList);
+
+    LOGNORMAL << logString() << volumeHandle->logString()
+        << " state changed. Context - " << context;
 
     return ERR_OK;
 }
