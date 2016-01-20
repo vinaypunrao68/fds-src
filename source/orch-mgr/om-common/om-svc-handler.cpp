@@ -708,6 +708,8 @@ OmSvcHandler::setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         fpi::VolumeGroupCoordinatorInfo volCoordinatorInfo = msg->coordinator;
         volDescPtr->setCoordinatorId(volCoordinatorInfo.id);
         volDescPtr->setCoordinatorVersion(volCoordinatorInfo.version);
+        LOGNOTIFY << "Set volume coordinator for volid: " << volId
+            << " coordinator: " << volCoordinatorInfo.id.svc_uuid;
     } else {
         LOGERROR << "Unable to find volume " << volId;
         e = ERR_VOL_NOT_FOUND;

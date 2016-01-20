@@ -357,7 +357,7 @@ EPSvcRequestPtr
 VolumeGroupHandle::createSetVolumeGroupCoordinatorMsgReq_()
 {
     auto msg = MAKE_SHARED<fpi::SetVolumeGroupCoordinatorMsg>();
-    assign(msg->coordinator.id, groupId_);
+    msg->coordinator.id =  MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
     msg->coordinator.version = version_;
     msg->volumeId = groupId_;
     auto omUuid = MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid();
