@@ -7,7 +7,6 @@
 #include <map>
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
-#include <fds_timer.h>
 #include <orch-mgr/om-service.h>
 #include <orchMgr.h>
 #include <OmDeploy.h>
@@ -2700,6 +2699,50 @@ OM_NodeDomainMod::om_handle_restart( const NodeUuid& uuid,
     return error;
 }
 
+bool
+OM_NodeDomainMod::isScheduled(FdsTimerTaskPtr& task, int64_t id)
+{
+    std::lock_guard<std::mutex> mapLock(taskMapMutex);
+    auto iter = setupNewNodeTaskMap.find(id);
+
+    if (iter == setupNewNodeTaskMap.end())
+        return false;
+
+    task = iter->second;
+
+    return true;
+}
+
+void
+OM_NodeDomainMod::addToTaskMap(FdsTimerTaskPtr task, int64_t id)
+{
+    std::lock_guard<std::mutex> mapLock(taskMapMutex);
+
+    LOGDEBUG << "Adding scheduled setupNewNode task to task map for svc uuid:"
+             << std::hex << id << std::dec;
+
+    setupNewNodeTaskMap[id] = task;
+}
+
+void
+OM_NodeDomainMod::removeFromTaskMap(int64_t id)
+{
+    std::lock_guard<std::mutex> mapLock(taskMapMutex);
+
+    auto iter = setupNewNodeTaskMap.find(id);
+
+    if (iter == setupNewNodeTaskMap.end())
+    {
+        LOGWARN << "No scheduled setupNewNode found for svc uuid:" << std::hex << id << std::dec;
+        return;
+    }
+
+    LOGDEBUG << "Removing setupNewNode task from task map for svc uuid:"
+             << std::hex << id << std::dec;
+
+    setupNewNodeTaskMap.erase(iter);
+}
+
 // om_reg_node_info
 // ----------------
 //
@@ -2771,6 +2814,19 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         /* schedule the task to be run on timer thread after 3 seconds */
         if ( timer->schedule( task, std::chrono::seconds( 3 ) ) )
         {
+            int64_t id = uuid.uuid_get_val();
+            FdsTimerTaskPtr schedTask;
+            if (!isScheduled(schedTask, id))
+            {
+                addToTaskMap(task, id);
+
+            } else {
+                LOGNOTIFY << " Canceling previously scheduled setupNewNode task found for same svc:"
+                          << std::hex << id << std::dec;
+
+                timer->cancel(schedTask);
+                addToTaskMap(task, id);
+            }
             LOGNORMAL << "Successfully scheduled 'setupNewNode' for uuid " 
                       << std::hex << uuid << std::dec;
         }
@@ -2789,6 +2845,8 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
                                     const FdspNodeRegPtr msg,
                                     NodeAgent::pointer   newNode,
                                     bool fPrevRegistered) {
+
+    removeFromTaskMap(uuid.uuid_get_val());
 
     int64_t pmUuid = uuid.uuid_get_val();
     pmUuid &= ~0xF; // clear out the last 4 bits

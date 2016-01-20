@@ -149,6 +149,7 @@ namespace fds
             int  dsk_label_sect_sz();
             int  dsk_fill_disk_uuids(ChainList *labels);
             bool dsk_label_valid();
+            bool dsk_label_valid_for_node(NodeUuid node_uuid);
             void dsk_label_init_header(dlabel_hdr_t *hdr);
             void dsk_label_init_uuids(int dsk_cnt);
             void dsk_label_comp_checksum(dlabel_hdr_t *hdr);

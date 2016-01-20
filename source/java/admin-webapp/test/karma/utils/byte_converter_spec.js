@@ -61,7 +61,7 @@ describe( 'Testing our byte converter utility', function(){
         
     });
     
-    iit ( 'should convert from some given unit to a readable string', function(){
+    it ( 'should convert from some given unit to a readable string', function(){
         
         var str = byte_converter.convertFromUnitsToString( 34.42, 'KB' );
         expect( str ).toBe( '34.42 KB' );
@@ -71,6 +71,15 @@ describe( 'Testing our byte converter utility', function(){
         
         var str = byte_converter.convertFromUnitsToString( 1234567890123, 'MB' );
         expect( str ).toBe( '1.12 EB' );
+    });
+    
+    iit( 'should handle zeros', function(){
+        
+        var str = byte_converter.convertBytesToString( 0.0 );
+        expect( str ).toBe( '0 Bytes' );
+        
+        var str = byte_converter.convertFromUnitsToString( 0.0, 'MB' );
+        expect( str ).toBe( '0 Bytes' );
     });
     
 });

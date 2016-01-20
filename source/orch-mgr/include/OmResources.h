@@ -23,6 +23,7 @@
 #include <kvstore/configdb.h>
 #include <concurrency/RwLock.h>
 #include <DltDmtUtil.h>
+#include <fds_timer.h>
 
 namespace FDS_ProtocolInterface {
     struct CtrlNotifyDMAbortMigration;
@@ -1131,6 +1132,10 @@ class OM_NodeDomainMod : public Module
         dmClusterSize = size;
     }
     fds_bool_t checkDmtModVGMode();
+    bool isScheduled(FdsTimerTaskPtr&, int64_t id);
+    void addToTaskMap(FdsTimerTaskPtr task, int64_t id);
+    void removeFromTaskMap(int64_t id);
+
   protected:
     bool isPlatformSvc(fpi::SvcInfo svcInfo);
     bool isAccessMgrSvc( fpi::SvcInfo svcInfo );
@@ -1171,6 +1176,8 @@ class OM_NodeDomainMod : public Module
     uint32_t                      dmClusterSize;
 
     bool volumeGroupDMTFired;
+    std::mutex                    taskMapMutex;
+    std::unordered_map<int64_t, FdsTimerTaskPtr> setupNewNodeTaskMap;
 };
 
 extern OM_NodeDomainMod      gl_OMNodeDomainMod;
