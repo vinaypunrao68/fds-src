@@ -400,7 +400,6 @@ AmTxManager::putBlob(AmRequest *amReq) {
     } else {
         // Fake the DM write for now
         blobReq->notifyResponse(ERR_OK);
-        // TODO (bszmyd):  Stage new object ids Thu Jan 21 01:10:56 2016
     }
     AmDataProvider::putObject(objReq);
 }
@@ -424,21 +423,21 @@ AmTxManager::putBlobOnce(AmRequest *amReq) {
 
 void
 AmTxManager::applyPut(PutBlobReq* blobReq) {
-    auto tx_desc = blobReq->tx_desc;
+    auto const& tx_desc = *blobReq->tx_desc;
     // Update the transaction manager with the stage offset update
-    if (ERR_OK != updateStagedBlobOffset(*tx_desc,
+    if (ERR_OK != updateStagedBlobOffset(tx_desc,
                                          blobReq->getBlobName(),
                                          blobReq->blob_offset,
                                          blobReq->obj_id)) {
         // An abort or commit already caused the tx
         // to be cleaned up. Short-circuit
-        GLOGNOTIFY << "Response no longer has active transaction: " << tx_desc->getValue();
+        GLOGNOTIFY << "Response no longer has active transaction: " << tx_desc.getValue();
         return;
     }
 
     // Update the transaction manager with the staged object data
     if (blobReq->data_len > 0) {
-        updateStagedBlobObject(*tx_desc, blobReq->obj_id, blobReq->dataPtr);
+        updateStagedBlobObject(tx_desc, blobReq->obj_id, blobReq->dataPtr);
     }
 }
 
@@ -464,15 +463,26 @@ AmTxManager::putObjectCb(AmRequest *amReq, Error const error) {
 void
 AmTxManager::_putBlobCb(AmRequest* amReq, Error const error) {
     auto blobReq = static_cast<PutBlobReq*>(amReq);
-    auto err = error;
-    bool done {false};
-    std::tie(done, err) = blobReq->notifyResponse(err);
-    if (done) {
-        if (err.ok()) {
-            applyPut(blobReq);
-        } else {
-            abortOnError(blobReq, error);
+    auto const& tx_desc = *blobReq->tx_desc;
+    Error err {ERR_OK};
+    bool done {true};
+    if (!all_atomic_ops) {
+        err = error;
+        std::tie(done, err) = blobReq->notifyResponse(err);
+        if (done) {
+            if (err.ok()) {
+                applyPut(blobReq);
+            } else {
+                abortOnError(blobReq, error);
+            }
         }
+    } else {
+        err = updateStagedBlobOffset(tx_desc,
+                                     blobReq->getBlobName(),
+                                     blobReq->blob_offset,
+                                     blobReq->obj_id);
+    }
+    if (done) {
         AmDataProvider::putBlobCb(blobReq, error);
     }
 }
