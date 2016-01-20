@@ -160,6 +160,7 @@ public class QueryHelper {
 
 	                // TODO finish implementing -- once the platform has total system capacity
                 	Long capacity = SingletonConfigAPI.instance().api().getDiskCapacityTotal();
+                    logger.trace( "Disk Capacity Total::{}", capacity );
                     final Size systemCapacity;
                     if( FdsFeatureToggles.NEW_SUPERBLOCK.isActive( ) )
                     {

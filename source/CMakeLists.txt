@@ -67,7 +67,6 @@ set(SOURCE_FILES
     ./access-mgr/amlib/AmVolumeTable.cpp
     ./access-mgr/amlib/BlockOperations.cpp
     ./access-mgr/amlib/BlockTask.cpp
-    ./access-mgr/amlib/handlers/responsehandler.cpp
     ./access-mgr/connector/nbd/NbdConnection.cpp
     ./access-mgr/connector/nbd/NbdConnector.cpp
     ./access-mgr/connector/scst/ScstConnector.cpp
@@ -119,7 +118,6 @@ set(SOURCE_FILES
     ./access-mgr/include/AmVolumeAccessToken.h
     ./access-mgr/include/AmVolumeTable.h
     ./access-mgr/include/AsyncResponseHandlers.h
-    ./access-mgr/include/responsehandler.h
     ./access-mgr/include/TypeIdMap.h
     ./access-mgr/test/AmFunctionalTest.cpp
 ./access-mgr/test/BlockFunctionalTest.cpp
@@ -923,7 +921,6 @@ osdep/umod-linux/fds_osdep.cpp
 ./unit-test/stor-mgr/svc-test/smperf_gtest.cpp
 ./unit-test/stor-mgr/svc-test/svc_gtest.cpp
 
-    ./unit-test/svclayer/FakeSvcDomain.hpp
     ./unit-test/svclayer/OMSvcProcess.cpp
     ./unit-test/svclayer/OMSvcProcess.h
     ./unit-test/svclayer/SvcMapChecker.cpp
