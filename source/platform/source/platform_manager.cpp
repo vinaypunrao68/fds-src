@@ -259,8 +259,7 @@ namespace fds
                 }
                 else
                 {
-                    updateNodeInfoDbPid (JAVA_AM, EMPTY_PID);
-                    updateNodeInfoDbState (JAVA_AM, fpi::SERVICE_NOT_RUNNING);
+                    updateNodeInfoDbPidAndState (JAVA_AM, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
                 }
             }
 
@@ -274,8 +273,7 @@ namespace fds
                 }
                 else
                 {
-                    updateNodeInfoDbPid (BARE_AM, EMPTY_PID);
-                    updateNodeInfoDbState (BARE_AM, fpi::SERVICE_NOT_RUNNING);
+                    updateNodeInfoDbPidAndState (BARE_AM, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
                     stopProcess (JAVA_AM);
                 }
             }
@@ -290,8 +288,7 @@ namespace fds
                 }
                 else
                 {
-                    updateNodeInfoDbPid (DATA_MANAGER, EMPTY_PID);
-                    updateNodeInfoDbState (DATA_MANAGER, fpi::SERVICE_NOT_RUNNING);
+                    updateNodeInfoDbPidAndState (DATA_MANAGER, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
                 }
             }
 
@@ -305,8 +302,7 @@ namespace fds
                 }
                 else
                 {
-                    updateNodeInfoDbPid (STORAGE_MANAGER, EMPTY_PID);
-                    updateNodeInfoDbState (STORAGE_MANAGER, fpi::SERVICE_NOT_RUNNING);
+                    updateNodeInfoDbPidAndState (STORAGE_MANAGER, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
                 }
             }
             m_startupAuditComplete = true;
@@ -579,8 +575,7 @@ namespace fds
             {
                 LOGNORMAL << procName << " started by platformd as pid " << pid;
                 m_appPidMap[procName] = pid;
-                updateNodeInfoDbPid (procIndex, pid);
-                updateNodeInfoDbState (procIndex, fpi::SERVICE_RUNNING);
+                updateNodeInfoDbPidAndState (procIndex, pid, fpi::SERVICE_RUNNING);
             }
             else
             {
@@ -588,12 +583,13 @@ namespace fds
             }
         }
 
-        void PlatformManager::updateNodeInfoDbPid (int processType, pid_t pid)
+        void PlatformManager::updateNodeInfoDbPidAndState (int processType, pid_t pid, fpi::pmServiceStateTypeId newState)
         {
             switch (processType)
             {
                 case BARE_AM:
                 {
+                    m_nodeInfo.bareAMState = newState;
                     m_nodeInfo.bareAMPid = pid;
 
                 } break;
@@ -601,49 +597,20 @@ namespace fds
                 case JAVA_AM:
                 {
                     m_nodeInfo.javaAMPid = pid;
-
-                } break;
-
-                case DATA_MANAGER:
-                {
-                    m_nodeInfo.dmPid = pid;
-
-                } break;
-
-                case STORAGE_MANAGER:
-                {
-                    m_nodeInfo.smPid = pid;
-
-                } break;
-            }
-
-            m_db->setNodeInfo (m_nodeInfo);
-        }
-
-        void PlatformManager::updateNodeInfoDbState (int processType, fpi::pmServiceStateTypeId newState)
-        {
-            switch (processType)
-            {
-                case BARE_AM:
-                {
-                    m_nodeInfo.bareAMState = newState;
-
-                } break;
-
-                case JAVA_AM:
-                {
                     m_nodeInfo.javaAMState = newState;
 
                 } break;
 
                 case DATA_MANAGER:
                 {
+                    m_nodeInfo.dmPid = pid;
                     m_nodeInfo.dmState = newState;
 
                 } break;
 
                 case STORAGE_MANAGER:
                 {
+                    m_nodeInfo.smPid = pid;
                     m_nodeInfo.smState = newState;
 
                 } break;
@@ -765,8 +732,7 @@ namespace fds
             }
 
             m_appPidMap.erase (mapIter);
-            updateNodeInfoDbPid (procIndex, EMPTY_PID);
-            updateNodeInfoDbState (procIndex, fpi::SERVICE_NOT_RUNNING);
+            updateNodeInfoDbPidAndState (procIndex, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
         }
 
         // plf_start_node_services
@@ -854,8 +820,8 @@ namespace fds
                     {
                         if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.bareAMState && fpi::SERVICE_NOT_PRESENT == m_nodeInfo.javaAMState)
                         {
-                            updateNodeInfoDbState (JAVA_AM, fpi::SERVICE_NOT_RUNNING);
-                            updateNodeInfoDbState (BARE_AM, fpi::SERVICE_NOT_RUNNING);
+                            updateNodeInfoDbPidAndState (JAVA_AM, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
+                            updateNodeInfoDbPidAndState (BARE_AM, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
                         }
                         else if (fpi::SERVICE_RUNNING == m_nodeInfo.bareAMState && fpi::SERVICE_RUNNING == m_nodeInfo.javaAMState)
                         {
@@ -873,7 +839,7 @@ namespace fds
                     {
                         if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.dmState)
                         {
-                            updateNodeInfoDbState (DATA_MANAGER, fpi::SERVICE_NOT_RUNNING);
+                            updateNodeInfoDbPidAndState (DATA_MANAGER, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
                         }
                         else if (fpi::SERVICE_RUNNING == m_nodeInfo.dmState)
                         {
@@ -890,7 +856,7 @@ namespace fds
                     {
                         if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.smState)
                         {
-                            updateNodeInfoDbState (STORAGE_MANAGER, fpi::SERVICE_NOT_RUNNING);
+                            updateNodeInfoDbPidAndState (STORAGE_MANAGER, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
                         }
                         else if (fpi::SERVICE_RUNNING == m_nodeInfo.smState)
                         {
@@ -926,8 +892,8 @@ namespace fds
                     {
                         if (fpi::SERVICE_NOT_RUNNING == m_nodeInfo.bareAMState && fpi::SERVICE_NOT_RUNNING == m_nodeInfo.javaAMState)
                         {
-                            updateNodeInfoDbState (JAVA_AM, fpi::SERVICE_NOT_PRESENT);
-                            updateNodeInfoDbState (BARE_AM, fpi::SERVICE_NOT_PRESENT);
+                            updateNodeInfoDbPidAndState (JAVA_AM, EMPTY_PID, fpi::SERVICE_NOT_PRESENT);
+                            updateNodeInfoDbPidAndState (BARE_AM, EMPTY_PID, fpi::SERVICE_NOT_PRESENT);
                         }
                         else if (fpi::SERVICE_RUNNING == m_nodeInfo.bareAMState || fpi::SERVICE_RUNNING == m_nodeInfo.javaAMState)
                         {
@@ -944,7 +910,7 @@ namespace fds
                     {
                         if (fpi::SERVICE_NOT_RUNNING == m_nodeInfo.dmState)
                         {
-                            updateNodeInfoDbState (DATA_MANAGER, fpi::SERVICE_NOT_PRESENT);
+                            updateNodeInfoDbPidAndState (DATA_MANAGER, EMPTY_PID, fpi::SERVICE_NOT_PRESENT);
                         }
                         else if (fpi::SERVICE_RUNNING == m_nodeInfo.dmState)
                         {
@@ -961,7 +927,7 @@ namespace fds
                     {
                         if (fpi::SERVICE_NOT_RUNNING == m_nodeInfo.smState)
                         {
-                            updateNodeInfoDbState (STORAGE_MANAGER, fpi::SERVICE_NOT_PRESENT);
+                            updateNodeInfoDbPidAndState (STORAGE_MANAGER, EMPTY_PID, fpi::SERVICE_NOT_PRESENT);
                         }
                         else if (fpi::SERVICE_RUNNING == m_nodeInfo.smState)
                         {
@@ -1347,7 +1313,8 @@ namespace fds
 
                             notifyOmServiceStateChange (appIndex, mapIter->second, fpi::HealthState::HEALTH_STATE_UNEXPECTED_EXIT, "unexpectedly exited");
                             m_appPidMap.erase (mapIter++);
-                            updateNodeInfoDbPid (appIndex, EMPTY_PID);
+
+                            updateNodeInfoDbPidAndState (appIndex, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
 
                             if (m_autoRestartFailedProcesses)
                             {
@@ -1557,7 +1524,7 @@ namespace fds
                     break;
                 }
 
-                LOGNORMAL << "dev " << dev << ", path " << path << ", uuid " << uuid << ", idx " << idx;
+                LOGTRACE << "dev " << dev << ", path " << path << ", uuid " << uuid << ", idx " << idx;
                 if ( strstr( path.c_str(), "hdd" ) != NULL && strstr( path.c_str(), "ssd" ) != NULL )
                 {
                     LOGWARN << "Unknown path: " << path.c_str() ;

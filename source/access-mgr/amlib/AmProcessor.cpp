@@ -165,16 +165,24 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
                     code = fpi::RESOURCE_ALREADY_EXISTS;
                     break;;
                 case ERR_NOT_FOUND:
+                    code = fpi::INTERNAL_SERVER_ERROR;
+                    break;;
                 case ERR_BLOB_NOT_FOUND:
                 case ERR_BLOB_OFFSET_INVALID:
                 case ERR_CAT_ENTRY_NOT_FOUND:
                 case ERR_VOL_NOT_FOUND:
                     code = fpi::MISSING_RESOURCE;
                     break;;
+                case ERR_TOKEN_NOT_READY:
                 case ERR_NOT_READY:
+                case ERR_SVC_REQUEST_FAILED:
+                case ERR_SVC_REQUEST_INVOCATION:
                 case ERR_VOLUME_ACCESS_DENIED:
                     code = fpi::SERVICE_NOT_READY;
                     break;;
+                case ERR_SVC_REQUEST_TIMEOUT:
+                    code = fpi::TIMEOUT;
+                    break;
                 default:
                     code = fpi::BAD_REQUEST;
                     break;;
