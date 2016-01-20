@@ -921,6 +921,7 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
 
     // notify the requester that this executor done with migration
     if (migrDoneHandler) {
+        LOGMIGRATE << "Calling migration done handler for executor " << executorId << " and SM token " << smTokenId;
         migrDoneHandler(executorId, smTokenId, dltTokens, roundNum, error);
     }
 }

@@ -339,7 +339,7 @@ void MigrationClient::buildDeltaSetWorkerFirstPhase(leveldb::Iterator *iterDB,
 
     LOGDEBUG << "Building delta set of size " << maxDeltaSetSize << " or smaller.";
     // If we hit this the iterator is no longer valid, so we've finished our work
-    if (!iterDB->Valid()) {
+    if (iterDB == nullptr) {
         LOGDEBUG << "LevelDB iterator no longer valid, we must be done.";
 
         // Don't clean up unless we know all filter sets have been processed
@@ -486,12 +486,18 @@ void MigrationClient::buildDeltaSetWorkerFirstPhase(leveldb::Iterator *iterDB,
         }
     }
 
-    continueWorkFn nextStep = std::bind(&MigrationClient::buildDeltaSetWorkerFirstPhase, this, iterDB,
-                                        dbFromFirstSnap, firstPhaseSnapshotDir, env);
+    continueWorkFn nextStep;
 
-
-    // Track this to prevent cleanup until we're done with the levelDB/iterator
-    // trackFlowControl.startTrackIOReqs();
+    if (iterDB->Valid()) {
+        // If we still have a valid iterator make sure to bind it so we can resume
+        nextStep = std::bind(&MigrationClient::buildDeltaSetWorkerFirstPhase, this, iterDB,
+                             dbFromFirstSnap, firstPhaseSnapshotDir, env);
+    } else {
+        // If we've hit the end of our ptr we still need to bind the callback to clean up for us
+        // Instead of passing the iterDB ptr we'll pass nullptr to indicate that it's time for cleanup
+        nextStep = std::bind(&MigrationClient::buildDeltaSetWorkerFirstPhase, this, nullptr,
+                             dbFromFirstSnap, firstPhaseSnapshotDir, env);
+    }
 
     // This is the last message if iterDB is no longer valid
     /* The last message can be empty. */
@@ -995,7 +1001,7 @@ MigrationClient::setMigClientState(MigrationClientState newState)
 
     std::atomic_store(&migClientState, newState);
 
-    LOGMIGRATE << "Setting MigrateClieentState: from " << prevState
+    LOGMIGRATE << "Setting MigrateClientState: from " << prevState
                << "=> " << migClientState;
 }
 
