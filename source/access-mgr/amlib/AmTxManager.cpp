@@ -13,9 +13,11 @@
 #include "requests/DeleteBlobReq.h"
 #include "requests/GetBlobReq.h"
 #include "requests/PutBlobReq.h"
+#include "requests/PutObjectReq.h"
 #include "requests/RenameBlobReq.h"
 #include "requests/SetBlobMetaDataReq.h"
 #include "requests/StartBlobTxReq.h"
+#include "requests/UpdateCatalogReq.h"
 
 namespace fds {
 
@@ -27,6 +29,13 @@ AmTxManager::AmTxManager(AmDataProvider* prev)
 AmTxManager::~AmTxManager() = default;
 
 void AmTxManager::start() {
+    /**
+     * FEATURE TOGGLE: All Atomic ops switch
+     * Wed Jan 20 18:59:47 2016
+     */
+    FdsConfigAccessor ft_conf(g_fdsprocess->get_fds_config(), "fds.feature_toggle.");
+    all_atomic_ops = ft_conf.get<bool>("am.all_atomic_ops", all_atomic_ops);
+
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     maxStagedEntries = conf.get<fds_uint32_t>("cache.tx_max_staged_entries");
 
@@ -192,7 +201,11 @@ AmTxManager::startBlobTx(AmRequest *amReq) {
     auto blobReq = static_cast<StartBlobTxReq*>(amReq);
     // Generate a random transaction ID to use
     blobReq->tx_desc = boost::make_shared<BlobTxId>(randNumGen->genNumSafe());
-    AmDataProvider::startBlobTx(amReq);
+    if (!all_atomic_ops) {
+        AmDataProvider::startBlobTx(amReq);
+        return;
+    }
+    startBlobTxCb(blobReq, ERR_OK);
 }
 
 void
@@ -214,23 +227,32 @@ AmTxManager::startBlobTxCb(AmRequest * amReq, Error const error) {
 void
 AmTxManager::commitBlobTx(AmRequest *amReq) {
     auto blobReq = static_cast<CommitBlobTxReq*>(amReq);
-    auto err = getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
-    if (!err.ok()) {
-        return AmDataProvider::commitBlobTxCb(amReq, err);
+    Error err { ERR_NOT_IMPLEMENTED };
+    if (!all_atomic_ops) {
+        err = getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+        if (err.ok()) {
+            AmDataProvider::commitBlobTx(blobReq);
+            return;
+        }
+    } else {
+        // TODO (bszmyd):  Implement writing catalog update Wed Jan 20 23:28:01 2016
     }
-    AmDataProvider::commitBlobTx(amReq);
+    AmDataProvider::commitBlobTxCb(blobReq, err);
 }
 
 void
 AmTxManager::commitBlobTxCb(AmRequest * amReq, Error const error) {
     auto blobReq = static_cast<CommitBlobTxReq*>(amReq);
     // Push the committed update to the cache and remove from manager
-    if (ERR_OK == error) {
-        updateStagedBlobDesc(*(blobReq->tx_desc), blobReq->final_meta_data);
-        commitTx(*(blobReq->tx_desc), blobReq->final_blob_size);
+    if (error.ok()) {
+        // Already written via putObjectCb...updateCatalogCb...
+        if (!all_atomic_ops) {
+            updateStagedBlobDesc(*(blobReq->tx_desc), blobReq->final_meta_data);
+            commitTx(*(blobReq->tx_desc), blobReq->final_blob_size);
+        }
     } else {
         LOGERROR << "Transaction failed to commit: " << error;
-        abortOnError(amReq, error);
+        abortOnError(blobReq, error);
     }
     AmDataProvider::commitBlobTxCb(blobReq, error);
 }
@@ -239,23 +261,35 @@ void
 AmTxManager::abortBlobTx(AmRequest *amReq) {
     auto blobReq = static_cast<AbortBlobTxReq*>(amReq);
     auto const& tx_desc = *(blobReq->tx_desc);
-    auto err = getTxDmtVersion(tx_desc, &(blobReq->dmt_version));
-    if (!err.ok()) {
-        return AmDataProvider::abortBlobTxCb(amReq, err);
+    Error err { ERR_OK };
+    if (!all_atomic_ops) {
+        err = getTxDmtVersion(tx_desc, &(blobReq->dmt_version));
+        if (err.ok()) {
+            abortTx(tx_desc);
+            AmDataProvider::abortBlobTx(blobReq);
+            return;
+        }
+    } else {
+        // TODO (bszmyd):  Implement dropping stage Wed Jan 20 22:17:49 2016
     }
-    abortTx(tx_desc);
-    AmDataProvider::abortBlobTx(amReq);
+    AmDataProvider::abortBlobTxCb(amReq, err);
 }
 
 void
 AmTxManager::setBlobMetadata(AmRequest *amReq) {
     auto blobReq = static_cast<SetBlobMetaDataReq*>(amReq);
-    // Assert that we have a tx and dmt_version for the message
-    auto err = getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
-    if (!err.ok()) {
-        return AmDataProvider::setBlobMetadataCb(amReq, err);
+    Error err { ERR_NOT_IMPLEMENTED };
+    if (!all_atomic_ops) {
+        // Assert that we have a tx and dmt_version for the message
+        err = getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+        if (err.ok()) {
+            AmDataProvider::setBlobMetadata(amReq);
+            return;
+        }
+    } else {
+        // TODO (bszmyd):  Stage metadata Wed Jan 20 22:12:53 2016
     }
-    AmDataProvider::setBlobMetadata(amReq);
+    AmTxManager::setBlobMetadataCb(amReq, err);
 }
 
 void
@@ -271,13 +305,19 @@ AmTxManager::deleteBlob(AmRequest *amReq) {
                 << " blob:" << amReq->getBlobName()
                 << " txn:" << blobReq->tx_desc;
 
-    // Update the tx manager with the delete op
-    auto err = getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
-    if (!err.ok()) {
-        return AmDataProvider::deleteBlobCb(amReq, err);
+    Error err { ERR_NOT_IMPLEMENTED };
+    if (!all_atomic_ops) {
+        // Update the tx manager with the delete op
+        err = getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+        if (err.ok()) {
+            updateTxOpType(*(blobReq->tx_desc), amReq->io_type);
+            AmDataProvider::deleteBlob(amReq);
+            return;
+        }
+    } else {
+        // TODO (bszmyd):  Fake delete tx Wed Jan 20 22:37:17 2016
     }
-    updateTxOpType(*(blobReq->tx_desc), amReq->io_type);
-    AmDataProvider::deleteBlob(amReq);
+    AmDataProvider::deleteBlobCb(amReq, err);
 }
 
 void
@@ -336,7 +376,7 @@ AmTxManager::getBlob(AmRequest *amReq) {
 void
 AmTxManager::putBlob(AmRequest *amReq) {
     // Use a stock object ID if the length is 0.
-    PutBlobReq *blobReq = static_cast<PutBlobReq *>(amReq);
+    auto blobReq = static_cast<PutBlobReq *>(amReq);
     blobReq->blob_offset = (blobReq->blob_offset * blobReq->object_size);
     if (amReq->data_len == 0) {
         blobReq->obj_id = ObjectID();
@@ -345,12 +385,30 @@ AmTxManager::putBlob(AmRequest *amReq) {
         blobReq->obj_id = ObjIdGen::genObjectId(blobReq->dataPtr->c_str(), amReq->data_len);
     }
 
-    // Verify we have a dmt version (and transaction) for this update
-    auto err = getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
-    if (!err.ok()) {
-        return AmDataProvider::putBlobCb(amReq, err);
+    // Create the request to update SM with the new object
+    auto objReq = new PutObjectReq(blobReq);
+
+    /**
+     * FEATURE TOGGLE: All Atomic Ops
+     * Wed Jan 20 19:05:42 2016
+     * Instead of writing the DM update, just store the object if needed
+     */
+    if (!all_atomic_ops) {
+        // stage a tx update in DM
+        auto catUpdateReq = new UpdateCatalogReq(blobReq, false);
+        // Verify we have a dmt version (and transaction) for this update
+        auto err = getTxDmtVersion(*(blobReq->tx_desc), &(catUpdateReq->dmt_version));
+        if (!err.ok()) {
+            delete catUpdateReq;
+            AmDataProvider::putBlobCb(blobReq, err);
+            return;
+        }
+        AmDataProvider::updateCatalog(catUpdateReq);
+    } else {
+        // Fake the DM write for now
+        blobReq->notifyResponse(ERR_OK);
     }
-    AmDataProvider::putBlob(amReq);
+    AmDataProvider::putObject(objReq);
 }
 
 void
@@ -366,7 +424,8 @@ AmTxManager::putBlobOnce(AmRequest *amReq) {
     }
 
     blobReq->setTxId(randNumGen->genNumSafe());
-    return AmDataProvider::putBlobOnce(amReq);
+    auto objReq = new PutObjectReq(blobReq);
+    AmDataProvider::putObject(objReq);
 }
 
 void
@@ -390,32 +449,51 @@ AmTxManager::applyPut(PutBlobReq* blobReq) {
 }
 
 void
-AmTxManager::putBlobCb(AmRequest* amReq, Error const error) {
-    if (error.ok()) {
-        applyPut(static_cast<PutBlobReq *>(amReq));
-    } else {
-        abortOnError(amReq, error);
+AmTxManager::putObjectCb(AmRequest *amReq, Error const error) {
+    auto objReq = static_cast<PutObjectReq*>(amReq);
+    auto blobReq = objReq->parent;
+    delete objReq;
+    auto err = error;
+    if (fds::FDS_PUT_BLOB == blobReq->io_type) {
+        _putBlobCb(blobReq, err);
+        return;
     }
-    AmDataProvider::putBlobCb(amReq, error);
+    if (err.ok()) {
+        // Commit the change to DM
+        auto catUpdateReq = new UpdateCatalogReq(blobReq);
+        AmDataProvider::updateCatalog(catUpdateReq);
+        return;
+    }
+    AmDataProvider::putBlobOnceCb(blobReq, err);
 }
 
 void
-AmTxManager::putBlobOnceCb(AmRequest* amReq, Error const error) {
-    auto blobReq = static_cast<PutBlobReq *>(amReq);
-    if (error.ok()) {
-        auto tx_desc = blobReq->tx_desc;
-        // Add the Tx to the manager if this an updateOnce
-        if (ERR_OK == addTx(amReq->io_vol_id,
-                            *tx_desc,
-                            blobReq->dmt_version,
-                            amReq->getBlobName())) {
-            // Stage the transaction metadata changes
-            updateStagedBlobDesc(*tx_desc, blobReq->final_meta_data);
+AmTxManager::_putBlobCb(AmRequest* amReq, Error const error) {
+    auto blobReq = static_cast<PutBlobReq*>(amReq);
+    auto err = error;
+    bool done {false};
+    std::tie(done, err) = blobReq->notifyResponse(err);
+    if (done) {
+        if (err.ok()) {
             applyPut(blobReq);
-            commitTx(*tx_desc, blobReq->final_blob_size);
+        } else {
+            abortOnError(blobReq, error);
         }
+        AmDataProvider::putBlobCb(blobReq, error);
     }
-    AmDataProvider::putBlobOnceCb(amReq, error);
+}
+
+void
+AmTxManager::updateCatalogCb(AmRequest* amReq, Error const error) {
+    auto catReq = static_cast<UpdateCatalogReq *>(amReq);
+    auto blobReq = catReq->parent;
+    delete catReq;
+
+    if (fds::FDS_PUT_BLOB == blobReq->io_type) {
+        _putBlobCb(blobReq, error);
+        return;
+    }
+    AmDataProvider::putBlobOnceCb(blobReq, error);
 }
 
 }  // namespace fds

@@ -28,12 +28,13 @@ struct GetVolumeMetadataReq;
 struct GetBlobReq;
 struct DetachVolumeReq;
 struct RenameBlobReq;
-struct PutBlobReq;
+struct PutObjectReq;
 struct SetBlobMetaDataReq;
 struct SetVolumeMetadataReq;
 struct StatBlobReq;
 struct StatVolumeReq;
 struct StartBlobTxReq;
+struct UpdateCatalogReq;
 struct VolumeContentsReq;
 struct VolumeGroupHandle;
 
@@ -125,23 +126,17 @@ struct AmDispatcher : public AmDataProvider
     void abortBlobTx(AmRequest * amReq) override;
     void startBlobTx(AmRequest * amReq) override;
     void commitBlobTx(AmRequest * amReq) override;
-    void putBlob(AmRequest * amReq) override;
-    void putBlobOnce(AmRequest * amReq) override;
+    void putObject(AmRequest * amReq) override;
     void getObject(AmRequest * amReq) override;
     void deleteBlob(AmRequest * amReq) override;
     void getOffsets(AmRequest * amReq) override;
     void statBlob(AmRequest * amReq) override;
     void renameBlob(AmRequest * amReq) override;
     void setBlobMetadata(AmRequest * amReq) override;
+    void updateCatalog(AmRequest * amReq) override;
     void volumeContents(AmRequest * amReq) override;
 
   private:
-
-    /**
-     * FEATURE TOGGLE: Safe PutBlobOnce
-     * Wed 19 Aug 2015 10:56:46 AM MDT
-     */
-    bool safe_atomic_write { false };
 
     /**
      * FEATURE TOGGLE: VolumeGrouping Support
@@ -200,16 +195,18 @@ struct AmDispatcher : public AmDataProvider
     void _getQueryCatalogCb(GetBlobReq* amReq, const Error& error, shared_str payload);
     void _getVolumeMetadataCb(GetVolumeMetadataReq* amReq, const Error& error, shared_str payload);
     void _openVolumeCb(AttachVolumeReq* amReq, const Error& error, boost::shared_ptr<FDS_ProtocolInterface::OpenVolumeRspMsg> const& msg);
-    void _putBlobOnceCb(PutBlobReq* amReq, const Error& error, shared_str payload);
-    void _putBlobCb(PutBlobReq* amReq, const Error& error, shared_str payload);
+    void _putBlobTxCb(UpdateCatalogReq* amReq, const Error& error, shared_str payload);
+    void _putObjectCb(PutObjectReq* amReq, const Error& error);
     void _renameBlobCb(RenameBlobReq *amReq, const Error& error, shared_str payload);
     void _setBlobMetadataCb(SetBlobMetaDataReq *amReq, const Error& error, shared_str payload);
     void _setVolumeMetadataCb(SetVolumeMetadataReq* amReq, const Error& error, shared_str payload);
     void _startBlobTxCb(StartBlobTxReq* amReq, const Error& error, shared_str payload);
     void _statVolumeCb(StatVolumeReq* amReq, const Error& error, shared_str payload);
     void _statBlobCb(StatBlobReq *amReq, const Error& error, shared_str payload);
+    void _updateCatalogCb(UpdateCatalogReq* amReq, const Error& error, shared_str payload);
     void _volumeContentsCb(VolumeContentsReq *amReq, const Error& error, shared_str payload);
 
+    void putBlobTx(AmRequest * amReq);
     void _startBlobTx(AmRequest *amReq);
 
     /**
@@ -237,10 +234,10 @@ struct AmDispatcher : public AmDataProvider
                       shared_str payload)
     { _deleteBlobCb(amReq, error, payload); }
 
-    void dispatchObjectCb(AmRequest* amReq,
-                          QuorumSvcRequest* svcReq,
-                          const Error& error,
-                          shared_str payload);
+    void putObjectCb(PutObjectReq* amReq,
+                     QuorumSvcRequest* svcReq,
+                     const Error& error,
+                     shared_str payload);
 
     void getObjectCb(AmRequest* amReq,
                      FailoverSvcRequest* svcReq,
@@ -262,16 +259,16 @@ struct AmDispatcher : public AmDataProvider
                       const Error& error,
                       shared_str payload);
 
-    void putBlobOnceCb(PutBlobReq* amReq,
-                       MultiPrimarySvcRequest* svcReq,
-                       const Error& error,
-                       shared_str payload);
+    void updateCatalogCb(UpdateCatalogReq* amReq,
+                         MultiPrimarySvcRequest* svcReq,
+                         const Error& error,
+                         shared_str payload);
 
-    void putBlobCb(PutBlobReq* amReq,
-                   MultiPrimarySvcRequest* svcReq,
-                   const Error& error,
-                   shared_str payload)
-    { _putBlobCb(amReq, error, payload); }
+    void putBlobTxCb(UpdateCatalogReq* amReq,
+                     MultiPrimarySvcRequest* svcReq,
+                     const Error& error,
+                     shared_str payload)
+    { _putBlobTxCb(amReq, error, payload); }
 
     void renameBlobCb(RenameBlobReq *amReq,
                       MultiPrimarySvcRequest* svcReq,
@@ -313,21 +310,6 @@ struct AmDispatcher : public AmDataProvider
     fds_bool_t missingBlobStatusCb(AmRequest* amReq,
                                    const Error& error,
                                    shared_str payload);
-
-    /**
-     * Dipatches a put object request.
-     */
-    void putObject(AmRequest * amReq);
-
-    /**
-     * Commits a blob update to DM
-     */
-    void updateCatalogOnce(AmRequest * amReq);
-
-    /**
-     * Callback for put object responses.
-     */
-    void putObjectCb(AmRequest* amReq, Error const error);
 
     /**
      * Configurable timeouts and defaults (ms)

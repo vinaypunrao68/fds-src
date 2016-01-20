@@ -11,7 +11,9 @@
 #include "requests/AttachVolumeReq.h"
 #include "requests/GetBlobReq.h"
 #include "requests/GetObjectReq.h"
+#include "requests/PutObjectReq.h"
 #include "requests/RenameBlobReq.h"
+#include "requests/UpdateCatalogReq.h"
 
 namespace fds {
 
@@ -444,6 +446,32 @@ AmCache::getBlobCb(AmRequest *amReq, Error const error) {
     }
 
     AmDataProvider::getBlobCb(amReq, ERR_OK);
+}
+
+void
+AmCache::putObjectCb(AmRequest * amReq, Error const error) {
+    if (error.ok()) {
+        auto objReq = static_cast<PutObjectReq*>(amReq);
+        object_cache.add(objReq->io_vol_id, objReq->obj_id, objReq->dataPtr);
+    }
+    AmDataProvider::putObjectCb(amReq, error);
+}
+
+void
+AmCache::updateCatalogCb(AmRequest * amReq, Error const error) {
+    auto blobReq = static_cast<UpdateCatalogReq*>(amReq);
+    // If this was a PutBlobOnce we can stash the metadata changes
+    if (error.ok() && fds::FDS_PUT_BLOB != blobReq->parent->io_type) {
+        offset_cache.add(blobReq->io_vol_id,
+                         BlobOffsetPair(blobReq->getBlobName(), blobReq->blob_offset),
+                         boost::make_shared<ObjectID>(blobReq->obj_id));
+        auto blobDesc = boost::make_shared<BlobDescriptor>(blobReq->getBlobName(),
+                                                           blobReq->io_vol_id.get(),
+                                                           blobReq->final_blob_size,
+                                                           blobReq->final_meta_data);
+        descriptor_cache.add(blobReq->io_vol_id, blobReq->getBlobName(), blobDesc);
+    }
+    AmDataProvider::updateCatalogCb(amReq, error);
 }
 
 }  // namespace fds

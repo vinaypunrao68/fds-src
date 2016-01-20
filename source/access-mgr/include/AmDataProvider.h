@@ -150,6 +150,12 @@ struct AmDataProvider : public HasModuleProvider
     virtual void putBlobOnce(AmRequest * amReq)
     { return forward_request(&AmDataProvider::putBlobOnce, amReq); }
 
+    virtual void putObject(AmRequest * amReq)
+    { return forward_request(&AmDataProvider::putObject, amReq); }
+
+    virtual void updateCatalog(AmRequest * amReq)
+    { return forward_request(&AmDataProvider::updateCatalog, amReq); }
+
     // If you don't know the type of request, use this to get runtime routing
     void unknownTypeResume(AmRequest * amReq);
 
@@ -210,6 +216,12 @@ struct AmDataProvider : public HasModuleProvider
 
     virtual void putBlobOnceCb(AmRequest * amReq, Error const error)
     { return forward_response(&AmDataProvider::putBlobOnceCb, amReq, error); }
+
+    virtual void putObjectCb(AmRequest * amReq, Error const error)
+    { return forward_response(&AmDataProvider::putObjectCb, amReq, error); }
+
+    virtual void updateCatalogCb(AmRequest * amReq, Error const error)
+    { return forward_response(&AmDataProvider::updateCatalogCb, amReq, error); }
 
     AmDataProvider* getNextInChain() const
     { return _next_in_chain.get(); }
