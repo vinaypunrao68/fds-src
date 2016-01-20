@@ -179,6 +179,16 @@ TEST(GetSvcEndpoints, NominalLocal) {
 // Get a list of AM service endpoints for a remote service domain
 TEST(GetSvcEndpoints, NominalRemote) {
 
+    // FDS process depends on global logger. This dependency prevents true
+    // isolation testing.
+    // Initialize logging (logptr, g_fdslog).
+    // Host volume must have permissions in /fds to log test.
+    fds::fds_log *temp_log = new fds::fds_log("fds", "logs");
+    temp_log->setSeverityFilter(
+        fds::fds_log::getLevelFromName("DEBUG"));
+    fds::g_fdslog = temp_log;
+    GLOGNORMAL << "omsvchandler_gtest";
+
     fds::FakeDataStore dataStore;
     fds::FakeOmSvcHandler<fds::FakeDataStore> dut(nullptr);
     dut.setConfigDB(&dataStore);
