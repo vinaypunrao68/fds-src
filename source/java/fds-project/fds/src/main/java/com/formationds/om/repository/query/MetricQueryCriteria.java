@@ -27,7 +27,17 @@ public class MetricQueryCriteria
      * default constructor
      */
     public MetricQueryCriteria(QueryType type) {
-    	super.setQueryType(type);
+    	super(type);
+    }
+
+    @Override
+    public List<String> getColumns() {
+        List<String> cols = super.getColumns();
+        if (cols.isEmpty() && seriesType != null && !seriesType.isEmpty() ) {
+            List<String> columnNames = seriesType.stream().map( Enum::name ).collect( Collectors.toList() );
+            super.setColumns( columnNames );
+        }
+        return super.getColumns();
     }
 
     /**

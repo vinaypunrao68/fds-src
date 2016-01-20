@@ -98,6 +98,12 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
     }
 
     /**
+     * Initialize any caches.  Base implementation does nothing
+     */
+    public void initializeCache() {
+    }
+
+    /**
      * @return the dbConnection (null if not open)
      */
     public InfluxDBConnection getConnection() {
@@ -271,8 +277,26 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
      *
      * @return a completion stage that will contain the result of the function when complete
      */
-    private <R> CompletionStage<R> whenConnected(Function<InfluxDB, R> r) {
-        return adminConnection.getAsyncConnection().thenApply( r );
+    protected <R> CompletionStage<R> whenConnected(Function<InfluxDB, R> r) {
+    	CompletableFuture<InfluxDB> cs = adminConnection.getAsyncConnection();
+    	if (! cs.isDone() )
+    		return cs.thenApply( r );
+    	else {
+    		InfluxDB idb;
+			idb = cs.getNow(null);
+			if (idb == null) {
+				throw new IllegalStateException("Expected InfluxDB connection to be available.");					
+			}
+    		return CompletableFuture.supplyAsync( () -> r.apply(idb) );
+    	}
+    }
+
+    protected CompletionStage<Void> whenConnected(Runnable r) {
+    	CompletableFuture<InfluxDB> cs = adminConnection.getAsyncConnection();
+    	if (! cs.isDone() )
+    		return cs.thenRun( r );
+    	else
+    		return CompletableFuture.runAsync(r);
     }
 
     /**

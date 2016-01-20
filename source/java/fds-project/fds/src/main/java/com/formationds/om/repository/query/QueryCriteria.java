@@ -15,7 +15,6 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
-@SuppressWarnings( "UnusedDeclaration" )
 public class QueryCriteria
     extends ModelBase
     implements SearchCriteria {
@@ -26,18 +25,18 @@ public class QueryCriteria
     public enum QueryType {
     	UNDEFINED,
     	GENERIC,
+    	VOLUME_LATEST_METRICS,
     	FIREBREAK,
     	FIREBREAK_METRIC,
     	SYSHEALTH_FIREBREAK,
     	SYSHEALTH_CAPACITY,
     	CAPACITY,
     	PERFORMANCE,
-    	USER_EVENT,
+    	USER_ACTIVITY_EVENT,
     	FIREBREAK_EVENT,
-    	SYSTEM_EVENT
+    	SYSTEM_EVENT,
+    	UNIT_TEST
     }
-
-    private QueryType queryType = QueryType.UNDEFINED;
 
     private DateRange range;           // date range ; starting and ending
     private Integer points;            // number of points to provide in results
@@ -63,9 +62,15 @@ public class QueryCriteria
     private List<Volume>  contexts = new ArrayList<>();    // the context
     private List<OrderBy> orderBys;    //  a list of orderby instructions assumed to be sorted 0 = most important
 
-    public QueryCriteria() {}
+    private QueryType queryType = QueryType.UNDEFINED;
 
-    public QueryCriteria( DateRange dateRange ) { this.range = dateRange; }
+    public QueryCriteria() { }
+    public QueryCriteria(QueryType type) { this.queryType = type; }
+
+    public QueryCriteria( QueryType type, DateRange dateRange ) {
+    	this.queryType = type;
+    	this.range = dateRange;
+    }
 
     public QueryType getQueryType() { return queryType; }
     public void setQueryType(QueryType type) { queryType = type; }
@@ -113,15 +118,21 @@ public class QueryCriteria
      * @return the list of columns.  An empty list is interpreted to mean "select *"
      */
     public List<String> getColumns() {
-        return columns;
+        if (columns == null)
+            columns = new ArrayList<>();
+        return columns ;
     }
 
     /**
      * @param columns
      */
     public void setColumns( List<String> columns ) {
-        this.columns.clear();
-        addColumns( columns );
+        if ( this.columns != null ) {
+            this.columns.clear();
+            addColumns( columns );
+        } else {
+            this.columns = new ArrayList<>( columns );
+        }
     }
 
     /**
@@ -130,11 +141,12 @@ public class QueryCriteria
      * list is empty, returns a "*".
      */
     public String getColumnString() {
-        if ( columns.isEmpty() ) {
+        List<String> cols = getColumns();
+        if ( cols == null || cols.isEmpty() ) {
             return "*";
         }
         StringBuilder sb = new StringBuilder();
-        Iterator<String> iter = columns.iterator();
+        Iterator<String> iter = cols.iterator();
         while ( iter.hasNext() ) {
             sb.append( iter.next() );
             if ( iter.hasNext() )

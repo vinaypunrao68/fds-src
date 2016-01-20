@@ -5,6 +5,7 @@ import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.commons.model.DateRange;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.repository.query.QueryCriteria;
+import com.formationds.om.repository.query.QueryCriteria.QueryType;
 import com.formationds.util.Configuration;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -38,7 +39,7 @@ public class TestInfluxRepository {
 
         System.out.println( "Testing a complicated query very much like what we receive from the UI." );
 
-        QueryCriteria criteria = new QueryCriteria();
+        QueryCriteria criteria = new QueryCriteria( QueryType.UNIT_TEST );
 
         Volume v1 = (new Volume.Builder("Awesome")).id( 123456L ).create();
         Volume v2 = (new Volume.Builder("Awesome 2")).id( 7890L ).create();
@@ -72,7 +73,7 @@ public class TestInfluxRepository {
 
         System.out.println( "Testing a complicated query very much like what we receive from the UI." );
 
-        QueryCriteria criteria = new QueryCriteria();
+        QueryCriteria criteria = new QueryCriteria( QueryType.UNIT_TEST );
 
         System.out.println( "Testing the query used for the findAll method." );
 
@@ -103,7 +104,7 @@ public class TestInfluxRepository {
 // For this test, use a fixed time
         Long tsOneDayAgo = 12345678901L;
 
-        QueryCriteria criteria = new QueryCriteria( DateRange.since( tsOneDayAgo ) );
+        QueryCriteria criteria = new QueryCriteria( QueryType.FIREBREAK_EVENT, DateRange.since( tsOneDayAgo ) );
         criteria.setContexts( contexts );
 
         String result = influxEventRepository.formulateQueryString( criteria,

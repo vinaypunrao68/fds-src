@@ -15,8 +15,12 @@ import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.helper.VolumeDatapointHelper;
 import com.formationds.om.repository.query.OrderBy;
 import com.formationds.om.repository.query.QueryCriteria;
+import com.formationds.om.repository.query.QueryCriteria.QueryType;
+
 import org.apache.thrift.TException;
 import org.influxdb.dto.Serie;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -38,6 +42,8 @@ import java.util.stream.Collectors;
  * </ul>
  */
 public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, Long> implements MetricRepository {
+
+    public static final Logger logger = LoggerFactory.getLogger( InfluxMetricRepository.class );
 
     public static final String VOL_SERIES_NAME    = "volume_metrics";
     public static final String VOL_ID_COLUMN_NAME = "volume_id";
@@ -99,6 +105,15 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     public InfluxMetricRepository( String url, String adminUser, char[] adminCredentials ) {
         super( url, adminUser, adminCredentials );
         metricCache = new VolumeMetricCache( this );
+    }
+
+    public void initializeCache() {
+    	super.whenConnected( () -> {
+    		List<Long> vids = getVolumeIds();
+    		logger.info("Initializing volume metric cache for {} volumes.", vids.size());
+    		metricCache.loadCache( vids );
+    		logger.info("Completed initializing volume metric cache. Size={}", metricCache.size());
+    	} );
     }
 
     /**
@@ -248,7 +263,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
 
     /**
      * Convert an influxDB return type into VolumeDatapoints that we can use
-     * 
+     *
      * @param criteria the criteria that was used to query the database.
      * @param series the series to convert
      *
@@ -260,7 +275,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
 
         // we expect rows from one and only one series.  If there are more, we'll only use
         // the first one.  Note that this may change if we query using joins over multiple series
-        // (we currently only have volume_metrics).  
+        // (we currently only have volume_metrics).
         if ( series == null || series.size() == 0 ) {
             return datapoints;
         }
@@ -442,7 +457,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
      */
     List<IVolumeDatapoint> loadMostRecentVolumeStats( Long volumeId ) {
 
-        QueryCriteria queryCriteria = new QueryCriteria( );
+        QueryCriteria queryCriteria = new QueryCriteria( QueryType.VOLUME_LATEST_METRICS );
 
 // This could be used to select only volume metadata columns and specific metrics.  For now I think we
 // just want all of the latest....
