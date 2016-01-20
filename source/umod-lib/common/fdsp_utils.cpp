@@ -178,7 +178,7 @@ std::string logString(const fpi::CtrlNotifyFinishMigrationMsg &msg)
 std::string logString(const fpi::CtrlNotifyInitialBlobFilterSetMsg &msg)
 {
 	std::ostringstream oss;
-	oss << " CtrlNotifyInitialBlobFilterSetMsg Vol Id: " << msg.volumeId;
+	oss << " CtrlNotifyInitialBlobFilterSetMsg Vol Id: " << msg.volume_id;
 	return oss.str();
 }
 
@@ -399,6 +399,13 @@ std::string logString(const fpi::DeleteBlobMsg& msg) {
     oss << " DeleteBlobMsg TxId:" << msg.txId
         << " volume_id" << msg.volume_id << " blob_name: "<< msg.blob_name
         << " opid: " << msg.opId;
+    return oss.str();
+}
+
+std::string logString(const fpi::GetVolumeMetadataMsg& msg) {
+    std::ostringstream oss;
+    oss << " GetVolumeMetadataMsg "
+        << " volume_id: " << msg.volumeId;
     return oss.str();
 }
 

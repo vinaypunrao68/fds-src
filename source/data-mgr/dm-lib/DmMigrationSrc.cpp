@@ -16,7 +16,8 @@ DmMigrationSrc::DmMigrationSrc(DataMgr& _dataMgr,
                                DmMigrationClientDoneHandler _handle,
                                migrationCb _cleanup,
                                uint64_t _maxDeltaBlobs,
-                               uint64_t _maxDeltaBlobDescs)
+                               uint64_t _maxDeltaBlobDescs,
+                               int32_t _version)
 : DmMigrationClient(_dataMgr,
                     _myUuid,
                     _destDmUuid,
@@ -27,7 +28,10 @@ DmMigrationSrc::DmMigrationSrc(DataMgr& _dataMgr,
                     _maxDeltaBlobs,
                     _maxDeltaBlobDescs)
 {
-    logStr = util::strformat("[DmMigrationSrc volId: %ld]", volId.get());
+    version = _version;
+    logStr = util::strformat("[DmMigrationSrc volId: %ld version: %d]",
+                            volId.get(),
+                            version);
 }
 
 DmMigrationSrc::~DmMigrationSrc()

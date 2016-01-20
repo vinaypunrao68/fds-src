@@ -311,10 +311,16 @@ struct AmDispatcher : public AmDataProvider
     fds_bool_t missingBlobStatusCb(AmRequest* amReq,
                                    const Error& error,
                                    shared_str payload);
+
     /**
      * Dipatches a put object request.
      */
     void putObject(AmRequest * amReq);
+
+    /**
+     * Commits a blob update to DM
+     */
+    void updateCatalogOnce(AmRequest * amReq);
 
     /**
      * Callback for put object responses.

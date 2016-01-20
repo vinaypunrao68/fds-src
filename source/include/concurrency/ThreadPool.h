@@ -128,6 +128,13 @@ class fds_threadpool : boost::noncopyable
     template <class F, class... Args>
     void scheduleWithAffinity(uint64_t affinity, F&& f, Args&&... args);
 
+    /**
+    * @brief Returns thread id responsible for tasks with provided affinity.
+    * Only valid if underneath threadpool is lftp
+    * @param affinity
+    */
+    std::thread::id getThreadId(uint64_t affinity) const;
+
     void scheduleTask(thpool_req *task);
 
     /* Worker notifies the pool owner when its thread exits. */

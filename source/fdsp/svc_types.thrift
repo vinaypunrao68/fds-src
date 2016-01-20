@@ -408,8 +408,6 @@ enum  FDSPMsgTypeId {
   CtrlNotifyRequestTxStateRspMsgTypeId;
   CtrlNotifyFinishMigrationMsgTypeId;
   /* DM Debug Messages */
-  DbgQueryVolumeStateMsgTypeId;
-  DbgQueryVolumeStateRspMsgTypeId;
   DbgForceVolumeSyncMsgTypeId; 
 
   /* VolumeGroup messages */

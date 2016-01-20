@@ -7,6 +7,7 @@
 
 #include "PerfTrace.h"
 #include "TypeIdMap.h"
+#include "net/SvcMgr.h"
 #include "net/SvcRequestPool.h"
 #include "util/Log.h"
 
@@ -43,7 +44,8 @@ AmDispatcher::readFromDM(ReqPtr request, MsgPtr message, CbMeth cb_func, uint32_
         dmPrimariesForVol->set(i, dm_group->get(i));
     }
     auto primary = boost::make_shared<DmtVolumeIdEpProvider>(dmPrimariesForVol);
-    auto failoverReq = gSvcRequestPool->newFailoverSvcRequest(primary, dmt_ver);
+    auto requestPool = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    auto failoverReq = requestPool->newFailoverSvcRequest(primary, dmt_ver);
     failoverReq->onResponseCb([cb_func, request, this] (FailoverSvcRequest* svc,
                                                         const Error& error,
                                                         shared_str payload) mutable -> void {
@@ -92,7 +94,8 @@ AmDispatcher::writeToDM(ReqPtr request, MsgPtr message, CbMeth cb_func, uint32_t
         secondaries.push_back(uuid);
     }
 
-    auto multiReq = gSvcRequestPool->newMultiPrimarySvcRequest(primaries, secondaries, dmt_ver);
+    auto requestPool = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    auto multiReq = requestPool->newMultiPrimarySvcRequest(primaries, secondaries, dmt_ver);
     // TODO(bszmyd): Mon 22 Jun 2015 12:08:25 PM MDT
     // Need to also set a onAllRespondedCb
     multiReq->onPrimariesRespondedCb([cb_func, request, this] (MultiPrimarySvcRequest* svc,
@@ -143,7 +146,8 @@ AmDispatcher::readFromSM(ReqPtr request, MsgPtr message, CbMeth cb_func, uint32_
        nodes->set(i, token_group->get(i));
     }
     auto provider = boost::make_shared<DltObjectIdEpProvider>(nodes);
-    auto failoverReq = gSvcRequestPool->newFailoverSvcRequest(provider, dlt_version);
+    auto requestPool = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    auto failoverReq = requestPool->newFailoverSvcRequest(provider, dlt_version);
     failoverReq->onResponseCb([cb_func, request, this] (FailoverSvcRequest* svc,
                                                         const Error& error,
                                                         shared_str payload) mutable -> void {
@@ -184,7 +188,8 @@ AmDispatcher::writeToSM(ReqPtr request, MsgPtr payload, CbMeth cb_func, uint32_t
     auto token_group = boost::make_shared<DltObjectIdEpProvider>(dlt->getNodes(objId));
     auto num_nodes = token_group->getEps().size();
 
-    auto quorumReq = gSvcRequestPool->newQuorumSvcRequest(token_group, dlt_version);
+    auto requestPool = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    auto quorumReq = requestPool->newQuorumSvcRequest(token_group, dlt_version);
     quorumReq->setTimeoutMs((0 < timeout) ? timeout : message_timeout_default);
     quorumReq->setPayload(message_type_id(*payload), payload);
     quorumReq->onResponseCb([cb_func, request, this] (QuorumSvcRequest* svc,
