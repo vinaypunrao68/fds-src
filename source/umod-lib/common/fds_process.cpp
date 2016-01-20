@@ -263,9 +263,8 @@ void FdsProcess::init(int argc, char *argv[],
     g_fdslog->setSeverityFilter(
         fds_log::getLevelFromName(conf_helper_.get<std::string>("log_severity","NORMAL")));
 
-    /* Adding a timer task to periodically flush all buffered log data to files
-     * */
-    timer_servicePtr_->scheduledFunctionRepeated(std::chrono::seconds(5),
+    /* Adding a timer task to periodically flush all buffered log data to files */
+    timer_servicePtr_->scheduledFunctionRepeated(std::chrono::seconds(10),
                                                  []() { g_fdslog->flush(); });
 
     const libconfig::Setting& fdsSettings = conf_helper_.get_fds_config()->getConfig().getRoot();
