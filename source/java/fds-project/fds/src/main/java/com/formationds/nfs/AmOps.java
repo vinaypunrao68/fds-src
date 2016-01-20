@@ -52,7 +52,10 @@ public class AmOps implements IoOps {
             }
         };
 
-        return handleExceptions(new ErrorCode[]{ErrorCode.MISSING_RESOURCE}, ec -> Optional.empty(), unit);
+        return handleExceptions(new ErrorCode[]{ErrorCode.MISSING_RESOURCE}, ec -> {
+            LOG.error("Blob not found, volume=" + volumeName + ", blobName=" + blobName);
+            return Optional.empty();
+        }, unit);
     }
 
     @Override

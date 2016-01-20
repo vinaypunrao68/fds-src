@@ -128,13 +128,17 @@ public class DeferredIoOps implements IoOps {
 
         return metadataCache.lock(prefix, c -> {
             SortedMap<MetaKey, CacheEntry<Map<String, String>>> tailmap = c.tailMap(prefix);
-            Iterator<MetaKey> iterator = tailmap.keySet().iterator();
+            Iterator<Map.Entry<MetaKey, CacheEntry<Map<String, String>>>> iterator = tailmap.entrySet().iterator();
             while (iterator.hasNext()) {
-                MetaKey next = iterator.next();
-                if (next.beginsWith(prefix)) {
-                    results.put(next, new BlobMetadata(next.blobName, c.get(next).value));
-                } else {
-                    break;
+                Map.Entry<MetaKey, CacheEntry<Map<String, String>>> next = iterator.next();
+                if (next != null) {
+                    MetaKey key = next.getKey();
+                    CacheEntry<Map<String, String>> cacheEntry = next.getValue();
+                    if (key.beginsWith(prefix)) {
+                        results.put(key, new BlobMetadata(key.blobName, cacheEntry.value));
+                    } else {
+                        break;
+                    }
                 }
             }
             return results;
@@ -174,6 +178,7 @@ public class DeferredIoOps implements IoOps {
     public void deleteBlob(String domain, String volume, String blobName) throws IOException {
         MetaKey metaKey = new MetaKey(domain, volume, blobName);
         metadataCache.lock(metaKey, mc -> {
+                    io.deleteBlob(domain, volume, blobName);
                     mc.remove(metaKey);
                     objectCache.lock(new ObjectKey("", "", "", new ObjectOffset(0)), c -> {
                         HashSet<ObjectKey> keys = new HashSet<>(c.keySet());
@@ -184,7 +189,6 @@ public class DeferredIoOps implements IoOps {
                         }
                         return null;
                     });
-                    io.deleteBlob(domain, volume, blobName);
                     return null;
                 }
         );
