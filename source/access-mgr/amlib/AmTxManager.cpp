@@ -72,11 +72,6 @@ AmTxManager::pop_descriptor(const BlobTxId &txId) {
 }
 
 Error
-AmTxManager::abortTx(const BlobTxId &txId) {
-    return pop_descriptor(txId) ? ERR_OK : ERR_NOT_FOUND;
-}
-
-Error
 AmTxManager::getTxDmtVersion(const BlobTxId &txId, fds_uint64_t *dmtVer) const {
     SCOPEDREAD(txMapLock);
     TxMap::const_iterator txMapIt = txMap.find(txId);
@@ -262,15 +257,13 @@ AmTxManager::abortBlobTx(AmRequest *amReq) {
     auto blobReq = static_cast<AbortBlobTxReq*>(amReq);
     auto const& tx_desc = *(blobReq->tx_desc);
     Error err { ERR_OK };
+    pop_descriptor(tx_desc);
     if (!all_atomic_ops) {
         err = getTxDmtVersion(tx_desc, &(blobReq->dmt_version));
         if (err.ok()) {
-            abortTx(tx_desc);
             AmDataProvider::abortBlobTx(blobReq);
             return;
         }
-    } else {
-        // TODO (bszmyd):  Implement dropping stage Wed Jan 20 22:17:49 2016
     }
     AmDataProvider::abortBlobTxCb(amReq, err);
 }
@@ -278,16 +271,16 @@ AmTxManager::abortBlobTx(AmRequest *amReq) {
 void
 AmTxManager::setBlobMetadata(AmRequest *amReq) {
     auto blobReq = static_cast<SetBlobMetaDataReq*>(amReq);
-    Error err { ERR_NOT_IMPLEMENTED };
+    Error err { ERR_OK };
     if (!all_atomic_ops) {
+        auto err = getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
         // Assert that we have a tx and dmt_version for the message
-        err = getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
         if (err.ok()) {
             AmDataProvider::setBlobMetadata(amReq);
             return;
         }
     } else {
-        // TODO (bszmyd):  Stage metadata Wed Jan 20 22:12:53 2016
+        updateStagedBlobDesc(*(blobReq->tx_desc), *blobReq->metaDataList);
     }
     AmTxManager::setBlobMetadataCb(amReq, err);
 }
@@ -407,6 +400,7 @@ AmTxManager::putBlob(AmRequest *amReq) {
     } else {
         // Fake the DM write for now
         blobReq->notifyResponse(ERR_OK);
+        // TODO (bszmyd):  Stage new object ids Thu Jan 21 01:10:56 2016
     }
     AmDataProvider::putObject(objReq);
 }

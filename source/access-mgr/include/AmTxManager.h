@@ -102,12 +102,6 @@ struct AmTxManager :
 
     void applyPut(PutBlobReq* blobReq);
 
-    /**
-     * Removes an existing transaction from the manager, destroying
-     * any staged object updates. An error is returned if the transaction
-     * ID does not already exist.
-     */
-    Error abortTx(const BlobTxId &txId);
     void abortOnError(AmRequest *amReq, Error const error);
 
     /**
