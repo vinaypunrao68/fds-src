@@ -497,7 +497,7 @@ void VolumeGroupHandle::changeState_(const fpi::ResourceState &targetState,
 
 void VolumeGroupHandle::handleAddToVolumeGroupMsg(
     const fpi::AddToVolumeGroupCtrlMsgPtr &addMsg,
-    const std::function<void(const Error&, const fpi::AddToVolumeGroupRespCtrlMsgPtr&)> &cb)
+    const AddToVolumeGroupCb &cb)
 
 {
     runSynchronized([this, addMsg, cb]() mutable {
@@ -669,12 +669,14 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
     auto srcState = volumeHandle->state;
 
     if (targetState == fpi::ResourceState::Loading) {
-        /* No state change is necessary.  Replica handle is still considered non-functional.
-         * We just need to respond back with current group information so it can copy 
+        /* Set the replica handle to offline.  This marks the end of current version.
+         * Version is incremented when volume comes back with target state of syncing.
+         * Now, we just need to respond back with current group information so it can copy 
          * active transactions from a peer.
          * We will start buffering writes so that when replica handles come back again
          * after copying active transactions, we will replay buffered writes.
          */
+        volumeHandle->setState(fpi::Offline);
         toggleWriteOpsBuffering_(true);
     } else if (VolumeReplicaHandle::isSyncing(targetState)) {
         /* We expect the replica version to always go up */
@@ -710,16 +712,25 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
         volumeHandle->setState(targetState);
         volumeHandle->setError(ERR_OK);
     }
-    LOGNORMAL << volumeHandle->logString() << " state changed. Context - " << context;
+    LOGNORMAL << logString() << volumeHandle->logString()
+        << " state changed. Context - " << context;
 
     /* Move the handle from the appropriate replica list
      * NOTE: we move volumeHandle to the end in the destination list
      */
     auto &srcList = getVolumeReplicaHandleList_(srcState);
+    /* Ensure volumeHandle exists in srcList */
+    fds_assert(std::find_if(srcList.begin(), \
+                            srcList.end(), \
+                            [&volumeHandle](const VolumeReplicaHandle &h) \
+                            {return volumeHandle->svcUuid == h.svcUuid;}) != srcList.end());
     auto &dstList = getVolumeReplicaHandleList_(targetState);
     auto dstItr = std::move(volumeHandle, volumeHandle+1, std::back_inserter(dstList));
     srcList.erase(volumeHandle, volumeHandle+1);
     volumeHandle = dstList.end() - 1;
+
+    /* After moving ensure volume handle state maches the container list it is supposed to be in */
+    fds_assert(&(getVolumeReplicaHandleList_(volumeHandle->state)) == &dstList);
 
     return ERR_OK;
 }
