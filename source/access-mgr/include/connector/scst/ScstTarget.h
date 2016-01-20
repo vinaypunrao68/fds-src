@@ -36,6 +36,7 @@
 namespace fds {
 
 struct AmProcessor;
+struct ScstConnector;
 struct ScstDevice;
 
 /**
@@ -44,7 +45,8 @@ struct ScstDevice;
 struct ScstTarget
     : public LeaderFollower
 {
-    ScstTarget(std::string const& name,
+    ScstTarget(ScstConnector* parent_connector,
+               std::string const& name,
                size_t const followers,
                std::weak_ptr<AmProcessor> processor);
     ScstTarget(ScstTarget const& rhs) = delete;
@@ -54,14 +56,14 @@ struct ScstTarget
 
     void disable() { toggle_state(false); }
     void enable() { toggle_state(true); }
-
-    std::string targetName() const { return target_name; }
+    bool enabled() { return running; }
 
     void addDevice(VolumeDesc const& vol_desc);
     void deviceDone(std::string const& volume_name);
     void removeDevice(std::string const& volume_name);
     void setCHAPCreds(std::unordered_map<std::string, std::string>& credentials);
     void setInitiatorMasking(std::set<std::string> const& ini_members);
+    void shutdown();
 
  protected:
     void lead() override;
@@ -76,6 +78,8 @@ struct ScstTarget
     template<typename T>
     using map_type = std::unordered_map<std::string, T>;
     using device_map_type = map_type<lun_table_type::iterator>;
+
+    ScstConnector* connector;
 
     /// Max LUNs is 255 per target
     device_map_type device_map;
@@ -99,6 +103,7 @@ struct ScstTarget
     std::string const target_name;
 
     bool luns_mapped {false};
+    bool running {true};
 
     void clearMasking();
 

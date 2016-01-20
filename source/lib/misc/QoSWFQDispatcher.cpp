@@ -191,7 +191,7 @@ QoSWFQDispatcher::getNextQueueForDispatch()
     assert(next_qd != NULL);
     assert(n_pios > 0);
     // Step3 end: next_queue is the queue we are going to dispatch from. next_qd is it's descriptor
-    LOGDEBUG << "Dispatcher: picking next priority based queue " << next_queue
+    LOGTRACE << "Dispatcher: picking next priority based queue " << next_queue
              << " for slot " << next_rate_based_spot-1
              << "; current throttle state - ("
              << current_guaranteed_ios_rate << ":" << expected_guaranteed_ios_rate  << ", "

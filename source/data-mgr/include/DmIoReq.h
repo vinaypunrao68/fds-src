@@ -19,6 +19,8 @@
 #include <blob/BlobTypes.h>
 #include <fdsp/dm_api_types.h>
 #include <fdsp/fds_stream_types.h>
+#include <net/PlatNetSvcHandler.h>
+#include <net/volumegroup_extensions.h>
 #include <PerfTrace.h>
 
 #define FdsDmSysTaskId      fds_volid_t(0x8fffffff)
@@ -53,6 +55,7 @@ extern std::string logString(const FDS_ProtocolInterface::ReloadVolumeMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::CtrlNotifyDMStartMigrationMsg& msg);
 extern std::string logString(const FDS_ProtocolInterface::CtrlNotifyInitialBlobFilterSetMsg& msg);
 extern std::string logString(const fpi::CtrlNotifyDeltaBlobDescMsg &msg);
+extern std::string logString(const fpi::CtrlNotifyFinishMigrationMsg &msg);
 // ======
 
 class DmRequest : public FDS_IOType {
@@ -63,15 +66,23 @@ class DmRequest : public FDS_IOType {
     std::string session_uuid;
     BlobTxId::const_ptr blobTxId;
     int64_t             opId;
+    int32_t             version;
     std::function<void(const Error &e, DmRequest *dmRequest)> cb = NULL;
     std::function<void(DmRequest * req)> proc = NULL;
+
+    fpi::FDSPMsgTypeId          reqMessageType; 
+    Error                       respStatus;
+    fpi::FDSPMsgTypeId          respMessageType; 
 
     DmRequest(fds_volid_t  _volId,
              const std::string &_blobName,
              std::string  _session_uuid,
              blob_version_t _blob_version,
              fds_io_op_t  _ioType)
-            : volId(_volId), blob_name(_blobName), session_uuid(_session_uuid) {
+            : volId(_volId),
+              blob_name(_blobName),
+              session_uuid(_session_uuid),
+              version(VolumeGroupConstants::VERSION_INVALID) {
         io_req_id = 0;
         io_type = _ioType;
         io_vol_id = _volId;
@@ -119,6 +130,13 @@ class DmRequest : public FDS_IOType {
     }
     int64_t getOpId() const {
         return opId;
+    }
+    virtual void sendSvcResponse(PlatNetSvcHandler *handler,
+                                 const SHPTR<fpi::AsyncHdr>& asyncHdr) {
+        /* Once necessary subclasses implement this function we can make
+         * this pure virtual 
+         */
+        fds_panic("This function must be overridden inorder to be used");
     }
 
     // Why is this not a ostream operator?
@@ -886,19 +904,63 @@ struct DmFunctor : DmRequest {
 /**
  * Generic request holder for all volume related messages
  */
-template <class MsgT, fds_io_op_t IoType>
+template <fds_io_op_t QosIoT,
+          class ReqT,
+          fpi::FDSPMsgTypeId ReqTypeId,
+          class RespT,
+          fpi::FDSPMsgTypeId RespTypeId>
 struct DmVolumeReq : DmRequest {
-    DmVolumeReq(const fds_volid_t &volId, const SHPTR<MsgT> &msg)
-    : DmRequest(volId, "", "", 0, IoType),
-    message(msg)
+    using ReqMsgT = ReqT;
+    using RespMsgT = RespT;
+    static const fpi::FDSPMsgTypeId reqMsgTypeId = ReqTypeId;
+
+    DmVolumeReq(const fds_volid_t &volId, const SHPTR<ReqMsgT> &msg)
+    : DmRequest(volId, "", "", 0, QosIoT)
     {
+        reqMessageType = ReqTypeId;
+        reqMessage = msg;
     }
-    SHPTR<MsgT>                 message;
+    std::string log_string() const
+    {
+        std::stringstream ss;
+        ss << DmRequest::log_string() << fds::logString(*reqMessage);
+        return ss.str();
+    }
+    virtual void sendSvcResponse(PlatNetSvcHandler *handler,
+                                 const SHPTR<fpi::AsyncHdr>& asyncHdr) {
+        asyncHdr->msg_code = static_cast<int32_t>(respStatus.GetErrno());
+        if (respStatus == ERR_OK) {
+            if (respMessage) {
+                handler->sendAsyncResp(*asyncHdr, RespTypeId, *respMessage);
+            } else {
+                handler->sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+            }
+        } else {
+            GLOGWARN << "Returning error response: " << respStatus
+                << " header: " << fds::logString(*asyncHdr);
+            handler->sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+        }
+    }
+
+    SHPTR<ReqMsgT>              reqMessage;
+    SHPTR<RespMsgT>             respMessage;
 };
+template <fds_io_op_t QosIoT,
+          class ReqT,
+          fpi::FDSPMsgTypeId ReqTypeId,
+          class RespT,
+          fpi::FDSPMsgTypeId RespTypeId>
+const fpi::FDSPMsgTypeId DmVolumeReq<QosIoT, ReqT, ReqTypeId, RespT, RespTypeId>::reqMsgTypeId;
 
-using DmIoVolumegroupUpdate = DmVolumeReq<fpi::VolumeGroupInfoUpdateCtrlMsg,
-                                          FDS_DM_VOLUMEGROUP_UPDATE>;
+#define DECLARE_DM_VOLUMEREQ(QosIoT, ReqT, RespT) \
+    DmVolumeReq<QosIoT, ReqT, FDSP_MSG_TYPEID(ReqT), RespT, FDSP_MSG_TYPEID(RespT)>
+using DmIoVolumegroupUpdate = DECLARE_DM_VOLUMEREQ(FDS_DM_VOLUMEGROUP_UPDATE, \
+                                                   fpi::VolumeGroupInfoUpdateCtrlMsg, \
+                                                   fpi::EmptyMsg);
 
+using DmIoFinishStaticMigration = DECLARE_DM_VOLUMEREQ(FDS_DM_MIG_FINISH_STATIC_MIGRATION, \
+                                                   fpi::CtrlNotifyFinishMigrationMsg, \
+                                                   fpi::EmptyMsg);
 
 }  // namespace fds
 

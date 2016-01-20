@@ -49,8 +49,14 @@ protected:
     /* Id to identify migration. For now this can be the dmt version */
     int64_t                 migrationId;
     DataMgr&                dataMgr;
+    SvcRequestPool          *requestMgr;
     MigrationTrackIOReqs    trackIOReqs;
     std::string             logStr;
+    /**
+     * vol meta version of the other side
+     * Used for volmeta migration
+     */
+    int32_t version;
 };
 
 } // namespace fds

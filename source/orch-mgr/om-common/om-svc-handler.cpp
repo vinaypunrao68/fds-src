@@ -322,6 +322,9 @@ void OmSvcHandler::heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     if ( !gl_orch_mgr->omMonitor->isWellKnown(svcUuid) ) {
         updSvcState = true;
     }
+
+    configDB->setCapacityUsedNode( svcUuid.svc_uuid, msg->usedCapacityInBytes );
+
     gl_orch_mgr->omMonitor->updateKnownPMsMap(svcUuid, current, updSvcState);
 }
 
@@ -642,6 +645,43 @@ void OmSvcHandler::healthReportError(fpi::FDSP_MgrIdType &svc_type,
             }
             return;
         }
+    }
+
+    if ( msg->healthReport.serviceState == fpi::HEALTH_STATE_FLAPPING_DETECTED_EXIT )
+    {
+        auto domain = OM_NodeDomainMod::om_local_domain();
+        NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
+
+        FdsTimerTaskPtr task;
+
+        if (domain->isScheduled(task, uuid.uuid_get_val()))
+        {
+            LOGNOTIFY << "Canceling scheduled setupNewNode task for svc:"
+                      << std::hex << uuid.uuid_get_val() << std::dec;
+            MODULEPROVIDER()->getTimer()->cancel(task);
+        }
+
+        fpi::ServiceStatus status = gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.uuid_get_val());
+
+        // PM can send this error either when OM told it to start the service
+        // or if a service has restarted too many times (but the svc is registered already)
+        if ( status == fpi::SVC_STATUS_STARTED || status == fpi::SVC_STATUS_ACTIVE)
+        {
+            LOGNOTIFY << "Received Flapping error from PM for service:"
+                      << std::hex << uuid.uuid_get_val() << std::dec
+                      << " , setting to state INACTIVE_FAILED";
+            domain->om_change_svc_state_and_bcast_svcmap( uuid, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
+
+        } else if (status == fpi::SVC_STATUS_INACTIVE_FAILED) {
+            LOGNOTIFY << "Flapping service:"<< std::hex << uuid.uuid_get_val() << std::dec
+                      << " is already in INACTIVE_FAILED state";
+        } else {
+            LOGWARN << "Received Flapping error from PM for service:"
+                      << std::hex << uuid.uuid_get_val() << std::dec
+                      << " , ignoring since svc is not in started/active state, current state:" << status;
+        }
+
+        return;
     }
 
     // if we are here, we don't handle the error and/or service yet

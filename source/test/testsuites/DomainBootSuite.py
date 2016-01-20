@@ -50,6 +50,7 @@ def suiteConstruction(self, action="installbootactivate"):
         suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
         suite.addTest(testcases.TestFDSEnvMgt.TestRestartInfluxDBClean())
         suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBUp())
+        suite.addTest(testcases.TestFDSEnvMgt.TestVerifySCSTUpIfEnabled())
 
     if action.count("boot_noverify") > 0:
         if action.count("install") == 0 and fdscfg.rt_obj.cfg_is_fds_installed is not True:
@@ -57,6 +58,7 @@ def suiteConstruction(self, action="installbootactivate"):
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
             suite.addTest(testcases.TestFDSEnvMgt.TestBootInfluxDB())
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBUp())
+            suite.addTest(testcases.TestFDSEnvMgt.TestVerifySCSTUpIfEnabled())
 
         # Start the the OM's PM.
         suite.addTest(testcases.TestFDSServiceMgt.TestPMForOMBringUp())
@@ -75,6 +77,7 @@ def suiteConstruction(self, action="installbootactivate"):
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
             suite.addTest(testcases.TestFDSEnvMgt.TestBootInfluxDB())
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBUp())
+            suite.addTest(testcases.TestFDSEnvMgt.TestVerifySCSTUpIfEnabled())
 
         # Start the the OM's PM.
         suite.addTest(testcases.TestFDSServiceMgt.TestPMForOMBringUp())

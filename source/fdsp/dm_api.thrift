@@ -535,6 +535,8 @@ struct CtrlNotifyDMStartMigrationMsg {
 struct CtrlNotifyDMStartMigrationRspMsg {
   /* Version of DMT associated with the migration. */
   1: i64                     DMT_version;
+  /* Version of the volume stored in volumeMeta */
+  2: i32                     version;
 }
 
 /**
@@ -543,14 +545,16 @@ struct CtrlNotifyDMStartMigrationRspMsg {
 struct CtrlNotifyDeltaBlobsMsg {
   1: i64                     volume_id;
   2: i64                     DMT_version;
+  /* Version of the volume stored in volumeMeta */
+  3: i64                     version;
   /* message sequence  id  for tracking the messages
    * between source DM and destination DM
    */
-  3: i64                     msg_seq_id;
-  4: bool                    last_msg_seq_id = false;
+  4: i64                     msg_seq_id;
+  5: bool                    last_msg_seq_id = false;
   /* list of <offset, oid> in give volume
    */
-  5: list<dm_types.DMMigrationObjListDiff> blob_obj_list;
+  6: list<dm_types.DMMigrationObjListDiff> blob_obj_list;
 }
 
 struct CtrlNotifyDeltaBlobsRspMsg {
@@ -572,15 +576,27 @@ struct CtrlNotifyDeltaBlobDescRspMsg {
 struct CtrlNotifyDeltaBlobDescMsg {
   1: i64                     volume_id;
   2: i64                     DMT_version;
+  /* Version of the volume stored in volumeMeta */
+  3: i64                     version;
   /* message sequence  id  for tracking the messages
    * between source DM and destination DM
    */
-  3: i64                     msg_seq_id;
-  4: bool                    last_msg_seq_id = false;
+  4: i64                     msg_seq_id;
+  5: bool                    last_msg_seq_id = false;
   /* list of <blob, blob descriptor> in give volume
    * empty blob descriptor  for delete operation
    */
-  5: list<dm_types.DMBlobDescListDiff>      blob_desc_list;
+  6: list<dm_types.DMBlobDescListDiff>      blob_desc_list;
+}
+
+/**
+ * Message to end static migration
+ */
+struct CtrlNotifyFinishMigrationMsg {
+  1: i64                     volume_id;
+  2: i32                     status;
+  /* Version of the volume stored in volumeMeta */
+  3: i64                     version;
 }
 
 /**
@@ -589,7 +605,8 @@ struct CtrlNotifyDeltaBlobDescMsg {
 struct CtrlNotifyTxStateMsg {
   1: i64                     volume_id;
   2: i64                     DMT_version;
-  3: list<string>            transactions;
+  3: i64                     version;
+  4: list<string>            transactions;
 }
 
 struct CtrlNotifyTxStateRspMsg {
@@ -600,14 +617,16 @@ struct CtrlNotifyTxStateRspMsg {
 struct CtrlNotifyRequestTxStateMsg {
   1: i64                     volume_id;
   2: i64                     migration_id;
+  3: i64                     version;
 }
 
 struct CtrlNotifyRequestTxStateRspMsg {
   1: i64                     volume_id;
   2: i64                     migration_id;
-  3: i64                     lowest_op_id;
-  4: i64                     highest_op_id;
-  5: list<string>            transactions;
+  3: i64                     version;
+  4: i64                     lowest_op_id;
+  5: i64                     highest_op_id;
+  6: list<string>            transactions;
 }
 
 /* ------------------------------------------------------------
@@ -698,12 +717,13 @@ struct ReloadVolumeRspMsg {
  */
 struct CtrlNotifyInitialBlobFilterSetMsg {
   /** the volume in question */
-  1: i64                volumeId;
+  1: i64                volume_id;
   2: i64                DMT_version;
+  3: i64                version;
   /** map of blobs IDs and sequence number.  Using map to ensure guaranteed
       order, since it uses std::map<>.
       map<blob Name, sequence number> */
-  3: map<string, i64>   blobFilterMap;
+  4: map<string, i64>   blobFilterMap;
 }
 struct CtrlNotifyInitialBlobFilterSetRspMsg {
 }
@@ -727,19 +747,6 @@ struct CtrlNotifyGetActiveTxRspMsg {
 /* ------------------------------------------------------------
    Debug APIs
    ------------------------------------------------------------*/
-
-/* Message to query volume state */
-struct DbgQueryVolumeStateMsg {
-    1: i64                      volId;
-}
-
-/* Response containing volume state related information.  At the moment it is
- * key value pairs because the purpose is just querying state.  Feel free
- * to make it typed when needed.
- */
-struct DbgQueryVolumeStateRspMsg {
-    1: map<string, string>      state;
-}
 
 /**
 * Message to force volume initialization sequence

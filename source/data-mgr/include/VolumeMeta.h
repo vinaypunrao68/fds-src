@@ -14,6 +14,7 @@
 #include <map>
 #include <fds_types.h>
 #include <fds_error.h>
+#include <fds_counters.h>
 #include <util/Log.h>
 
 #include <concurrency/Mutex.h>
@@ -27,7 +28,6 @@ namespace fds {
 struct EPSvcRequest;
 
 using DmMigrationSrcMap = std::map<NodeUuid, DmMigrationSrc::shared_ptr>;
-using migrationCb = std::function<void(const Error& e)>;
 using migrationSrcDoneCb = std::function<void(fds_volid_t volId, const Error &error)>;
 using migrationDestDoneCb = std::function<void (NodeUuid srcNodeUuid,
 							                    fds_volid_t volumeId,
@@ -54,7 +54,7 @@ using migrationDestDoneCb = std::function<void (NodeUuid srcNodeUuid,
 * 2. Committed state (Journals and Catalogs)
 * 3. Sync state (already part of this class)
 */
-struct VolumeMeta : HasLogger,  HasModuleProvider {
+struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
  public:
     /**
      * volume  meta forwarding state
@@ -77,7 +77,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
                fds_log* _dm_log,
                VolumeDesc *v_desc,
                DataMgr *_dm);
-    ~VolumeMeta();
+    virtual ~VolumeMeta();
     /**
     * @brief Apply active transactions
     *
@@ -92,9 +92,9 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     std::string getBaseDirPath() const;
 
     /**
-    * @return Bufferfile path used in buffering operations while sync is in progress
+    * @return Bufferfile prefix path used in buffering operations while sync is in progress
     */
-    std::string getBufferfilePath() const;
+    std::string getBufferfilePrefix() const;
 
     void setSequenceId(sequence_id_t seq_id);
     sequence_id_t getSequenceId();
@@ -105,8 +105,11 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
 
     inline fpi::ResourceState getState() const { return vol_desc->state; }
     void setState(const fpi::ResourceState &state, const std::string &logCtx);
+
     /* Debug query api to get state as kv pairs */
-    void populateState(std::map<std::string, std::string> &state);
+    std::string getStateProviderId() override;
+    std::string getStateInfo() override;
+
 
     inline bool isActive() const { return vol_desc->state == fpi::Active; }
     inline bool isSyncing() const { return vol_desc->state == fpi::Syncing; }
@@ -138,6 +141,13 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
 
     /**
+    * @brief Returns true if this function is invoked by the thread responsible executing
+    * VolumeMeta tasks
+    */
+    inline bool isSynchronized() const {
+        return std::this_thread::get_id() == threadId;
+    }
+    /**
     * @brief Returns wrapper function around f that exectues f in volume synchronized
     * context
     */
@@ -155,11 +165,15 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     /**
      * DM Migration related
      */
-    Error startMigration(NodeUuid& srcDmUuid,
-                         fpi::FDSP_VolumeDescType &vol,
-                         migrationCb doneCb);
+    Error startMigration(const fpi::SvcUuid &srcDmUuid,
+                         const int64_t &volId,
+                         const StatusCb &doneCb);
 
     Error serveMigration(DmRequest *dmRequest);
+    Error handleMigrationDeltaBlobDescs(DmRequest *dmRequest);
+    Error handleMigrationDeltaBlobs(DmRequest *dmRequest);
+    void handleFinishStaticMigration(DmRequest *dmRequest);
+
 
     /**
      * Returns true if DM is forwarding this volume's
@@ -188,6 +202,10 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     void finishForwarding();
 
 
+    /* Handlers */
+    void handleVolumegroupUpdate(DmRequest *dmRequest);
+
+
     VolumeDesc *vol_desc;
 
 
@@ -213,8 +231,16 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
      */
     fwdStateType fwd_state;  // write protected by vol_mtx
 
+    /* Id used when exporting state */
+    std::string         stateProviderId;
+
     /* Cached self svc uuid */
     fpi::SvcUuid        selfSvcUuid;
+
+    /* ID of the thread on which all VolumeMeta synchronized work is done on.
+     * Cached here for ensuring all synchronized tasks are done on this thread id 
+     */
+    std::thread::id     threadId;
 
     /**
      * latest sequence ID is not part of the volume descriptor because it will
@@ -239,9 +265,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     DmMigrationSrcMap migrationSrcMap;
     fds_rwlock migrationSrcMapLock;
 
-    /**
-     * This volume can only be a destination to one node
-     */
+    // This volume can only be a destination to one node
     DmMigrationDest::unique_ptr migrationDest;
 
     /**
@@ -255,7 +279,8 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     Error createMigrationSource(NodeUuid destDmUuid,
                                 const NodeUuid &mySvcUuid,
                                 fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet,
-                                migrationCb cleanup);
+                                StatusCb cleanup,
+                                int32_t version);
 
     /**
      * Internally cleans up a source
@@ -270,11 +295,10 @@ struct VolumeMeta : HasLogger,  HasModuleProvider {
     void cleanUpMigrationDestination(NodeUuid srcNodeUuid,
                                      fds_volid_t volId,
                                      const Error &err);
-
     /**
      * Stores the hook for Callback to the volume group manager
      */
-    migrationCb cbToVGMgr;
+    StatusCb cbToVGMgr;
 };
 
 }  // namespace fds

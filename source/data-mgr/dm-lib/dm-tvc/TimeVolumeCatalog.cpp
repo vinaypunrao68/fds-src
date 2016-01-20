@@ -315,7 +315,7 @@ DmTimeVolCatalog::incrObjRefCount(fds_volid_t srcVolId, fds_volid_t destVolId,
     const DLT * dlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
     fds_verify(dlt);
 
-    auto asyncReq = gSvcRequestPool->newQuorumSvcRequest(
+    auto asyncReq = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->newQuorumSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(dlt->getNodes(token)));
     asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::AddObjectRefMsg), addObjReq);
     asyncReq->setTimeoutMs(10000);

@@ -32,6 +32,7 @@ extern "C" {
 
 #include <ev++.h>
 
+#include "connector/scst/ScstConnector.h"
 #include "connector/scst/ScstDisk.h"
 #include "connector/scst/ScstCommon.h"
 #include "util/Log.h"
@@ -161,10 +162,12 @@ void setQueueDepth(std::string const& target_name, uint8_t const queue_depth) {
 }
 
 
-ScstTarget::ScstTarget(std::string const& name, 
+ScstTarget::ScstTarget(ScstConnector* parent_connector,
+                       std::string const& name,
                        size_t const followers,
                        std::weak_ptr<AmProcessor> processor) :
     LeaderFollower(followers, false), 
+    connector(parent_connector),
     amProcessor(processor),
     target_name(name)
 {
@@ -261,6 +264,8 @@ ScstTarget::deviceDone(std::string const& volume_name) {
     device_map.erase(it);
     if (device_map.empty()) {
         toggle_state(false);
+        asyncWatcher->stop();
+        evLoop->break_loop();
     }
 }
 
@@ -269,6 +274,14 @@ void ScstTarget::removeDevice(std::string const& volume_name) {
     auto it = device_map.find(volume_name);
     if (device_map.end() == it) return;
     (*it->second)->shutdown();
+}
+
+void ScstTarget::shutdown() {
+    std::lock_guard<std::mutex> g(deviceLock);
+    running = false;
+    for (auto& device : lun_table) {
+        if (device) device->shutdown();
+    }
 }
 
 void ScstTarget::mapDevices() {
@@ -427,12 +440,16 @@ ScstTarget::toggle_state(bool const enable) {
 
 void
 ScstTarget::wakeupCb(ev::async &watcher, int revents) {
-    startNewDevices();
+    if (running) {
+        startNewDevices();
+    }
 }
 
 void
 ScstTarget::lead() {
     evLoop->run(0);
+    LOGNORMAL <<  "SCST Target has shutdown " << target_name;
+    connector->targetDone(target_name);
 }
 
 }  // namespace fds
