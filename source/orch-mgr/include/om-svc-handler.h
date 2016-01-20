@@ -97,6 +97,10 @@ namespace fds {
 
       void setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                      boost::shared_ptr<fpi::SetVolumeGroupCoordinatorMsg> &msg);
+      template <typename T, typename Cb>
+      std::unique_ptr<TrackerBase<NodeUuid>>
+      create_tracker(Cb&& cb, std::string event, fds_uint32_t d_w = 0, fds_uint32_t d_t = 0);
+
     protected:
       OM_NodeDomainMod         *om_mod;
       EventTracker<NodeUuid, Error, UuidHash, ErrorHash> event_tracker;

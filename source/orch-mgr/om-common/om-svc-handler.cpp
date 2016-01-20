@@ -23,21 +23,22 @@
 #include <fdsp_utils.h>
 
 namespace fds {
-
 template<typename T>
 static T
-get_config(std::string const& option, T const& default_value)
+get_config(CommonModuleProviderIf *module, std::string const& option, T const& default_value)
 { 
-    return MODULEPROVIDER()->get_fds_config()->get<T>(option, default_value); 
+    return module->get_fds_config()->get<T>(option, default_value);
 }
 
 template <typename T, typename Cb>
-static std::unique_ptr<TrackerBase<NodeUuid>>
-create_tracker(Cb&& cb, std::string event, fds_uint32_t d_w = 0, fds_uint32_t d_t = 0) {
-    static std::string const svc_event_prefix("fds.om.svc_event_threshold.");
+std::unique_ptr<TrackerBase<NodeUuid>>
+OmSvcHandler::create_tracker(Cb&& cb, std::string event, fds_uint32_t d_w, fds_uint32_t d_t) {
+    std::string const svc_event_prefix("fds.om.svc_event_threshold.");
+    std::string windowString = svc_event_prefix + event + ".window";
+    std::string thresholdString = svc_event_prefix + event + ".threshold";
 
-    size_t window = get_config(svc_event_prefix + event + ".window", d_w);
-    size_t threshold = get_config(svc_event_prefix + event + ".threshold", d_t);
+    size_t window = get_config(MODULEPROVIDER(), svc_event_prefix + event + ".window", d_w);
+    size_t threshold = get_config(MODULEPROVIDER(), svc_event_prefix + event + ".threshold", d_t);
 
     LOGNORMAL << "Setting event " << event << " handling threshold to " << threshold;
 
@@ -110,20 +111,22 @@ void OmSvcHandler::init_svc_event_handlers() {
        Error               error;
     };
 
-    // Timeout handler (1 within 15 minutes will trigger)
-    event_tracker.register_event(ERR_SVC_REQUEST_TIMEOUT,
-                                 create_tracker<std::chrono::minutes>(cb{ERR_SVC_REQUEST_TIMEOUT},
-                                                                      "timeout", 15, 1));
+    if (!isInTestMode()) {
+        // Timeout handler (1 within 15 minutes will trigger)
+        event_tracker.register_event(ERR_SVC_REQUEST_TIMEOUT,
+                                     create_tracker<std::chrono::minutes>(cb{ERR_SVC_REQUEST_TIMEOUT},
+                                                                          "timeout", 15, 1));
 
-    // DiskWrite handler (1 within 24 hours will trigger)
-    event_tracker.register_event(ERR_DISK_WRITE_FAILED,
-                                 create_tracker<std::chrono::hours>(cb{ERR_DISK_WRITE_FAILED},
-                                                                    "disk.write_fail", 24, 1));
+        // DiskWrite handler (1 within 24 hours will trigger)
+        event_tracker.register_event(ERR_DISK_WRITE_FAILED,
+                                     create_tracker<std::chrono::hours>(cb{ERR_DISK_WRITE_FAILED},
+                                                                        "disk.write_fail", 24, 1));
 
-    // DiskRead handler (1 within 24 hours will trigger)
-    event_tracker.register_event(ERR_DISK_READ_FAILED,
-                                 create_tracker<std::chrono::hours>(cb{ERR_DISK_READ_FAILED},
-                                                                    "disk.read_fail", 24, 1));
+        // DiskRead handler (1 within 24 hours will trigger)
+        event_tracker.register_event(ERR_DISK_READ_FAILED,
+                                     create_tracker<std::chrono::hours>(cb{ERR_DISK_READ_FAILED},
+                                                                        "disk.read_fail", 24, 1));
+    }
 }
 
 // om_svc_state_chg

@@ -19,15 +19,14 @@ OM_Module::OM_Module(char const *const name)
      * TODO: Let's use member variables rather than globals.
      * Members are a better OO-design.
      */
-    static Module *om_mods[] = {
-        &gl_OMNodeDomainMod,
-        &gl_OMClusMapMod,
-        om_data_place,
-        om_volume_place,
-        &gl_OMDltMod,
-        &gl_OMDmtMod,
-        NULL
-    };
+    static Module *om_mods[7]; // declare first, then assign
+    om_mods[0] = &gl_OMNodeDomainMod;
+    om_mods[1] = &gl_OMClusMapMod;
+    om_mods[2] = om_data_place;
+    om_mods[3] = om_volume_place;
+    om_mods[4] = &gl_OMDltMod;
+    om_mods[5] = &gl_OMDmtMod;
+    om_mods[6] = NULL;
     mod_intern     = om_mods;
     om_dlt         = &gl_OMDltMod;
     om_dmt         = &gl_OMDmtMod;

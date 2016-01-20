@@ -40,8 +40,7 @@ namespace po = boost::program_options;
 namespace fds {
 // The 7 lines below are to make this unit test compile,
 // since everything in OM is global and depends on everything
-OM_Module *omModule = new OM_Module("testOmModule");
-class VolumePlacement;
+OM_Module *omModule;
 
 OM_Module *OM_Module::om_singleton()
 {
@@ -56,18 +55,36 @@ struct DmGroupFixture : BaseTestFixture {
     OrchMgr *testOm;
     OM_Module *testOmModule;
     std::thread* omThPtr;
-    int nodeUuidCounter = 10; // starts at 10 for fun
+    int nodeUuidCounter; // starts at 10 for fun
 
-    // Create a OM state machine
-    void create()
+    DmGroupFixture() : testOm(nullptr),
+                       testOmModule(nullptr),
+                       omThPtr(nullptr),
+                       nodeUuidCounter(10)
+    {}
+
+    ~DmGroupFixture() {}
+
+    // Create a OM state machine - only once
+    void SetUp()
     {
-        testOmModule = omModule;
-        testOm = new OrchMgr(argc_, argv_, testOmModule);
+        testOmModule = omModule = new OM_Module("testOmModule");
+        testOm = new OrchMgr(argc_, argv_, testOmModule, true, true);
         g_fdsprocess = testOm;
         omThPtr = new std::thread(threadedOM, testOm);
         omThPtr->detach();
         testOm->getReadyWaiter().await();
         omModule->setOMTestMode(true);
+    }
+
+    void TearDown()
+    {
+        if (testOm != nullptr) {
+        //     delete testOm;
+        }
+        if (testOmModule != nullptr) {
+        //     delete testOmModule;
+        }
     }
 
     void setDmClusterSize(int size) {
@@ -114,6 +131,16 @@ struct DmGroupFixture : BaseTestFixture {
         return msgPtr;
     }
 
+    // Deletes a node
+    void deleteFakeDm(fpi::FDSP_RegisterNodeTypePtr msg) {
+        auto domainMod = testOmModule->om_nodedomain_mod();
+        NodeUuid nodeUuid(msg->node_uuid.uuid);
+        auto nodeName = msg->node_name;
+        auto retVal = domainMod->om_del_services(nodeUuid, nodeName, false, true, false);
+        ASSERT_TRUE(retVal.OK());
+        sleep(2); // sleep for DMT state machine to churn
+    }
+
     void setNewNodeUuid(NodeUuid value) {
         nodeUuidCounter = value.uuid_get_val();
     }
@@ -121,11 +148,7 @@ struct DmGroupFixture : BaseTestFixture {
 };
 
 TEST_F(DmGroupFixture, DmClusterAddNodeTest) {
-    fds::fds_volid_t v1Id(10);
-    TestUtils::Waiter waiter(0);
-
     // Create an OM module instance
-    create();
 
     // We'll be testing with X DMs... so set it here.
     setDmClusterSize(4);
@@ -174,6 +197,31 @@ TEST_F(DmGroupFixture, DmClusterAddNodeTest) {
     ASSERT_TRUE(hasCommittedDMT());
     ASSERT_TRUE(getCommittedDMTVersion() == 1);
     ASSERT_TRUE(testOmModule->om_dmt_mod()->getWaitingDMs() == 0);
+
+}
+
+TEST_F(DmGroupFixture, DISABLED_DmClusterRemoveNodeTest) {
+    // Create an OM module instance
+
+    // We'll be testing with X DMs... so set it here.
+    setDmClusterSize(4);
+    setVolumeGrpMode(true);
+
+    // Verify we have no committed DMT
+    ASSERT_FALSE(hasCommittedDMT());
+    ASSERT_TRUE(testOmModule->om_dmt_mod()->volumeGrpMode());
+    ASSERT_TRUE(testOmModule->om_nodedomain_mod()->checkDmtModVGMode());
+
+    // Create a 4 DM cluster
+    fpi::FDSP_RegisterNodeTypePtr msgPtr;
+    for (int i=0; i < 4; i++) {
+        msgPtr = addNewFakeDm();
+    }
+
+    // Remove the last node
+    deleteFakeDm(msgPtr);
+    ASSERT_TRUE(hasCommittedDMT());
+    ASSERT_TRUE(getCommittedDMTVersion() == 1);
 }
 
 } // namespace fds
