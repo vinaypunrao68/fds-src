@@ -238,7 +238,9 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
         else:
             expect_failed_msg = None
 
-        if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0) or (action.count("start") > 0) or (action.count("reboot") > 0):
+        if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0) \
+                or (action.count("start") > 0) or (action.count("reboot") > 0)\
+                or (action.count("add") > 0):
             # Start this node according to the specified action.
             for script in nds:
                 found = False
@@ -281,6 +283,13 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                             # Now activate the node's configured services.
                             suite.addTest(TestFDSSysMgt.TestNodeActivate(node=node, expect_to_fail=expect_to_fail, expect_failed_msg=expect_failed_msg))
                             suite.addTest(TestWait(delay=10, reason="to let the node activate"))
+
+                        # Add and Activate node are two different function.
+                        # We activate node after install and boot. PM is started and later all given services.
+                        # For Add node, PM is known to domain and is in DISCOVERED stated as of 01/19/2016 -POOJA
+                        if (action.count("add") > 0):
+                            suite.addTest(TestFDSSysMgt.TestNodeAdd(node=node))
+                            suite.addTest(TestWait(delay=10, reason="to let domain settle after node addition"))
 
                         if (action.count("start") > 0):
                             #Start node services, assumed node is already part of the cluster
