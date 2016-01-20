@@ -111,10 +111,10 @@ namespace fds
     }
 
     // dsk_reconcile_label
-    void DiskLabelMgr::dsk_reconcile_label(bool dsk_need_simulation)
+    void DiskLabelMgr::dsk_reconcile_label(bool dsk_need_simulation, NodeUuid node_uuid)
     {
         bool         need_to_relabel = false;
-        int          valid_labels = 0;
+        int          valid_labels = 0, invalid_labels = 0;
         ChainIter    iter;
 
         DiskLabel   *label, *master = NULL;
@@ -186,10 +186,18 @@ namespace fds
             dl_valid_labels = 0;
         }
 
+        dl_total_disks = 0;
         // Now iterate over all of the disks, relabel if needed and write to disk-map
         chain_foreach(&dl_labels, iter)
         {
             label = dl_labels.chain_iter_current<DiskLabel>(iter);
+            if (!label->dsk_label_valid_for_node(node_uuid))
+            {
+                LOGWARN << "Disk " << label->dl_owner << "has an unknown node UUID. Skipping.\n"
+                        << "(This could be a disk from a previous deployment or different node.)";
+                invalid_labels++;
+                continue;
+            }
             bool is_good_disk = true;
             if (need_to_relabel)
             {
@@ -215,11 +223,15 @@ namespace fds
             }
             if (is_good_disk)
             {
-                dsk_rec_label_map(label->dl_owner, label->dl_label->dl_my_disk_index);
+                if (dsk_rec_label_map(label->dl_owner, label->dl_label->dl_my_disk_index))
+                {
+                    dl_total_disks++;
+                }
             }
         }
 
         dl_valid_labels += valid_labels;                    // rhs:local
+        dl_valid_labels -= invalid_labels;
 #if 0
 
         /* It's the bug here, master is still chained to the list. */
@@ -238,7 +250,7 @@ namespace fds
             delete dl_map;
             dl_map = NULL;
 
-            LOGNORMAL << "Wrote total " << dl_valid_labels << " disks";
+            LOGNORMAL << "Found total " << dl_valid_labels << " labels. Wrote total " << dl_total_disks << " disks";
         }
         dl_mtx.unlock();
     }
@@ -246,7 +258,7 @@ namespace fds
     // dsk_rec_label_map
     // -----------------
     //
-    void DiskLabelMgr::dsk_rec_label_map(PmDiskObj::pointer disk, int idx)
+    bool DiskLabelMgr::dsk_rec_label_map(PmDiskObj::pointer disk, int idx)
     {
         if ((dl_map != NULL) && !disk->dsk_get_mount_point().empty())
         {
@@ -254,12 +266,14 @@ namespace fds
 
             if (0 == strcmp(name, "/dev/sda")) //TODO: identify OS devices
             {
-                return;
+                return false;
             }
 
             *dl_map << disk->rs_get_name() << " " << idx << " " << std::hex <<
             disk->rs_get_uuid().uuid_get_val() << std::dec << " " <<
             disk->dsk_get_mount_point().c_str()  << "\n";
+            return true;
         }
+        return false;
     }
 }  // namespace fds
