@@ -32,7 +32,8 @@ DataPlacement::DataPlacement()
           prevDlt(NULL),
           commitedDlt(NULL),
           newDlt(NULL),
-          sendMigAbortAfterRestart(false){
+          numOfFailures(0)
+{
     curClusterMap = &gl_OMClusMapMod;
     numOfPrimarySMs = 0;
 }
@@ -711,6 +712,20 @@ void DataPlacement::clearTargetDlt()
         LOGWARN << "Failed to unset target DLT in config db";
     }
     newDlt = NULL;
+}
+
+fds_bool_t DataPlacement::canRetryMigration()
+{
+    fds_bool_t ret = false;
+
+    // For now, maximize retries at 3. Keeping consistent with DM retries
+
+    if (numOfFailures < 4)
+    {
+        ret = true;
+    }
+
+    return ret;
 }
 
 }  // namespace fds
