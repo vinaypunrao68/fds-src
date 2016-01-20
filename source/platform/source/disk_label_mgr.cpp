@@ -222,7 +222,7 @@ namespace fds
             }
             if (is_good_disk)
             {
-                if (!dsk_rec_label_map(label->dl_owner, label->dl_label->dl_my_disk_index))
+                if (dsk_rec_label_map(label->dl_owner, label->dl_label->dl_my_disk_index))
                 {
                     total_disks++;
                 }
