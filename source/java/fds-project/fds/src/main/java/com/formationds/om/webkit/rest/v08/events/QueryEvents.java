@@ -14,6 +14,7 @@ import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
+import com.formationds.web.toolkit.RequestLog;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.util.thrift.ConfigurationApi;
@@ -32,6 +33,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import javax.servlet.http.HttpServletRequest;
+
 /**
  * @author dsetzke based on QueryMetrics by ptinius
  */
@@ -46,7 +49,8 @@ public class QueryEvents implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
 
-        try (final Reader reader = new InputStreamReader(request.getInputStream(), "UTF-8")) {
+        HttpServletRequest requestLoggingProxy = RequestLog.newRequestLogger( request );
+        try (final Reader reader = new InputStreamReader(requestLoggingProxy.getInputStream(), "UTF-8")) {
             final QueryCriteria eventQuery = ObjectModelHelper.toObject(reader, TYPE);
 
             // Filter the events to remove any that the current user should not be able to access.

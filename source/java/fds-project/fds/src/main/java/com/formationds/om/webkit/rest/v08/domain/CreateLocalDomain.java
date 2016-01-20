@@ -11,6 +11,7 @@ import com.formationds.protocol.ApiException;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
+import com.formationds.web.toolkit.RequestLog;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 
@@ -22,8 +23,10 @@ import org.slf4j.LoggerFactory;
 import java.io.InputStreamReader;
 import java.util.Map;
 
+import javax.servlet.http.HttpServletRequest;
+
 public class CreateLocalDomain implements RequestHandler {
-	
+
 	private static final Logger logger =
 			LoggerFactory.getLogger( CreateLocalDomain.class );
 
@@ -37,13 +40,16 @@ public class CreateLocalDomain implements RequestHandler {
 	public Resource handle( Request request, Map<String, String> routeParameters )
 			throws Exception {
 
-		final InputStreamReader reader = new InputStreamReader( request.getInputStream() ); 
-		Domain domain = ObjectModelHelper.toObject( reader, Domain.class );
+	    Domain domain = null;
+        HttpServletRequest requestLoggingProxy = RequestLog.newRequestLogger( request );
+        try ( final InputStreamReader reader = new InputStreamReader( requestLoggingProxy.getInputStream(), "UTF-8" ) ) {
+            domain = ObjectModelHelper.toObject( reader, Domain.class );
+        }
 
 		logger.debug( "Creating local domain {} at site {}.", domain.getName(), domain.getSite() );
 
 		long domainId = -1;
-		
+
 		try {
 			domainId = getConfigApi().createLocalDomain( domain.getName(), domain.getSite() );
 		} catch( ApiException e ) {
@@ -52,9 +58,9 @@ public class CreateLocalDomain implements RequestHandler {
 
 			// allow dispatcher to handle
 			throw e;
-			
+
 		} catch ( TException | SecurityException se ) {
-			
+
 			logger.error( "POST::FAILED::" + se.getMessage(), se );
 
 			// allow dispatcher to handle
@@ -64,17 +70,17 @@ public class CreateLocalDomain implements RequestHandler {
 		Domain newDomain = (new GetLocalDomain()).getDomain( domainId );
 
 		String jsonString = ObjectModelHelper.toJSON( newDomain );
-		
+
 		return new TextResource( jsonString );
 	}
-	
+
 	private ConfigurationApi getConfigApi(){
-		
+
 		if ( configApi == null ){
-			
+
 			configApi = SingletonConfigAPI.instance().api();
 		}
-		
+
 		return configApi;
 	}
 }

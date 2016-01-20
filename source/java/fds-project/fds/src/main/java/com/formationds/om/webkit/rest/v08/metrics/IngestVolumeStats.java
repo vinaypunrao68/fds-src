@@ -15,10 +15,13 @@ import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
+import com.formationds.web.toolkit.RequestLog;
+import com.formationds.web.toolkit.RequestLog.LoggingRequestWrapper;
 import com.formationds.web.toolkit.Resource;
 import com.google.gson.reflect.TypeToken;
 
 import org.apache.avro.generic.GenericData;
+import org.apache.logging.log4j.Level;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -32,6 +35,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import javax.servlet.http.HttpServletRequest;
+
 /**
  * @author ptinius
  */
@@ -40,7 +45,7 @@ public class IngestVolumeStats
 
   private static final Logger logger =
     LoggerFactory.getLogger( IngestVolumeStats.class );
-	
+
   private static final Type TYPE = new TypeToken<List<VolumeDatapoint>>(){}.getType();
 
   private final ConfigurationApi config;
@@ -49,18 +54,23 @@ public class IngestVolumeStats
     this.config = config;
   }
 
-  @SuppressWarnings( "Duplicates" )
   @Override
   public Resource handle(Request request, Map<String, String> routeParameters)
       throws Exception {
-    try (final Reader reader = new InputStreamReader(request.getInputStream(), "UTF-8")) {
+
+    // Use the INGEST_STATS_MARKER to only log the payload if the marker is enabled.
+    // Override the parent 
+    HttpServletRequest requestLoggingProxy = RequestLog.newRequestLogger( request );
+    ((LoggingRequestWrapper<?>)requestLoggingProxy).setPayloadMarker( RequestLog.REQUEST_PAYLOAD_INGEST_STATS_MARKER );    
+    
+    try ( final InputStreamReader reader = new InputStreamReader( requestLoggingProxy.getInputStream(), "UTF-8" ) ) {
 
       final List<IVolumeDatapoint> volumeDatapoints = ObjectModelHelper.toObject(reader, TYPE);
 
       final List<String> volumeNames = new ArrayList<>( );
       volumeDatapoints.forEach( vdp -> {
     	  long volid;
-    	  
+
     	  try {
               if( !volumeNames.contains( vdp.getVolumeName() ) )
               {
@@ -71,7 +81,7 @@ public class IngestVolumeStats
     	  } catch (Exception e) {
     		  throw new IllegalStateException( "Volume does not have an ID associated with the name." );
     	  }
-    	  
+
           vdp.setVolumeId( String.valueOf( volid ) );
       });
 

@@ -31,40 +31,41 @@ public class CreateUser implements RequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        
+
+        // NOTE: do not log request with RequestLogger proxy (contains password)
         String source = IOUtils.toString(request.getInputStream());
         JSONObject o = new JSONObject(source);
-        
+
         User inputUser = ObjectModelHelper.toObject( source, User.class );
-        
-        logger.debug( "Trying to create user: {}.", inputUser.getName() );
-    	
+
+        logger.info( "Create user: {}.", inputUser.getName() );
+
     	String login = inputUser.getName();
         String password = o.getString( "password" );
 
         String hashed = new HashedPassword().hash(password);
         String secret = UUID.randomUUID().toString();
         long id = getConfigApi().createUser(login, hashed, secret, false);
-        
+
         com.formationds.apis.User internalUser = getConfigApi().getUser( id );
-        
+
         User externalUser = ExternalModelConverter.convertToExternalUser( internalUser );
-        
+
         if ( inputUser.getTenant() != null ){
         	getConfigApi().assignUserToTenant( externalUser.getId(), inputUser.getTenant().getId() );
         }
-        
+
         String jsonString = ObjectModelHelper.toJSON( externalUser );
-        
+
         return new TextResource( jsonString );
     }
-    
+
     private ConfigurationApi getConfigApi(){
-    	
+
     	if ( configApi == null ){
     		configApi = SingletonConfigAPI.instance().api();
     	}
-    	
+
     	return configApi;
     }
 }

@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.eclipse.jetty.server.Request;
@@ -30,31 +31,34 @@ import com.formationds.protocol.ErrorCode;
 import com.formationds.protocol.ApiException;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
+import com.formationds.web.toolkit.RequestLog;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 
 public class MutateNode implements RequestHandler {
 
 	private static final String NODE_ARG = "node_id";
-	
+
     private static final Logger logger =
             LoggerFactory.getLogger( AddNode.class );
 
     private ConfigurationApi configApi;
-	
+
 	public MutateNode(){}
-	
+
 	@Override
 	public Resource handle(Request request, Map<String, String> routeParameters)
 			throws Exception {
-		
+
         Long nodeUuid = requiredLong(routeParameters, NODE_ARG );
-		
-        final Reader reader = new InputStreamReader( request.getInputStream(), "UTF-8" );
-        Node node = ObjectModelHelper.toObject( reader, Node.class );
-        
+
+        Node node = null;
+        HttpServletRequest requestLoggingProxy = RequestLog.newRequestLogger( request );
+        try ( final InputStreamReader reader = new InputStreamReader( requestLoggingProxy.getInputStream(), "UTF-8" ) ) {
+            node = ObjectModelHelper.toObject( reader, Node.class );
+        }
         Boolean stopNodeServices = false;
-        
+
         switch( node.getState() ){
         	case DOWN:
         		stopNodeServices = true;
@@ -64,13 +68,13 @@ public class MutateNode implements RequestHandler {
         		stopNodeServices = false;
         		break;
         }
-        
+
         List<SvcInfo> svcInfList = new ArrayList<SvcInfo>();
         boolean pmPresent = false;
-        
+
         // Get the real node object so we can access other data related to it
     	Node newNode = (new GetNode()).getNode(nodeUuid);
-    	
+
         for(List<Service> svcList : newNode.getServices().values())
         {
         	for(Service svc : svcList)
@@ -78,14 +82,14 @@ public class MutateNode implements RequestHandler {
         		SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
         				              (newNode.getAddress().getHostAddress(), svc);
         		svcInfList.add(svcInfo);
-        		
+
         		if (svc.getType() == ServiceType.PM) {
         			pmPresent = true;
         		}
-        		
+
         	}
         }
-        
+
         if (!pmPresent)
         {
         	Service pmSvc = (new GetService()).getService(nodeUuid, nodeUuid);
@@ -93,16 +97,16 @@ public class MutateNode implements RequestHandler {
         			              (newNode.getAddress().getHostAddress(), pmSvc);
         	svcInfList.add(svcInfo);
         }
-        
+
         int status = -1;
-        
+
         if ( stopNodeServices )
         {
         	logger.debug("Request to shutdown node, uuid:" + nodeUuid);
         	// Note: This action will *not* change the state of the node to "down"
         	// It will however shutdown any existing am/dm/sm services on the node
         	status = getConfigApi().StopService(new NotifyStopServiceMsg(svcInfList, true));
-        	
+
         	if( status != 0 )
             {
                 status= HttpServletResponse.SC_BAD_REQUEST;
@@ -111,7 +115,7 @@ public class MutateNode implements RequestHandler {
                 throw new ApiException( "Error encountered while shutting down node: "
                         + nodeUuid , ErrorCode.INTERNAL_SERVER_ERROR );
             }
-            else 
+            else
             {
             	EventManager.notifyEvent( OmEvents.STOP_NODE, nodeUuid );
             }
@@ -120,7 +124,7 @@ public class MutateNode implements RequestHandler {
         {
         	logger.debug("Request to start node, uuid:" + nodeUuid);
         	status = getConfigApi().StartService(new NotifyStartServiceMsg(svcInfList, true));
-        	
+
         	if( status != 0 )
             {
                 status= HttpServletResponse.SC_BAD_REQUEST;
@@ -129,24 +133,24 @@ public class MutateNode implements RequestHandler {
                 throw new ApiException( "Error encountered while starting node: "
                         + nodeUuid , ErrorCode.INTERNAL_SERVER_ERROR );
             }
-            else 
+            else
             {
             	EventManager.notifyEvent( OmEvents.START_NODE, nodeUuid );
             }
         }
-        
+
         String jsonString = ObjectModelHelper.toJSON( newNode );
-        
+
         return new TextResource( jsonString );
 	}
 
 	private ConfigurationApi getConfigApi(){
-		
+
 		if ( configApi == null ){
 			configApi = SingletonConfigAPI.instance().api();
 		}
-		
+
 		return configApi;
 	}
-	
+
 }

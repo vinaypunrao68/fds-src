@@ -11,6 +11,7 @@ import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
+import com.formationds.web.toolkit.RequestLog;
 import com.formationds.web.toolkit.Resource;
 import com.google.gson.reflect.TypeToken;
 
@@ -24,6 +25,8 @@ import java.io.Reader;
 import java.lang.reflect.Type;
 import java.util.Map;
 
+import javax.servlet.http.HttpServletRequest;
+
 /**
  * @author ptinius
  */
@@ -35,10 +38,10 @@ public class QueryMetrics
   private static final Type TYPE = new TypeToken<MetricQueryCriteria>() { }.getType();
   private final AuthenticationToken token;
   private final Authorizer authorizer;
-  
+
   public QueryMetrics( final Authorizer authorizer, AuthenticationToken token ) {
     super();
-    
+
     this.token = token;
     this.authorizer = authorizer;
   }
@@ -47,8 +50,8 @@ public class QueryMetrics
   public Resource handle( Request request, Map<String, String> routeParameters )
     throws Exception {
 
-    try( final Reader reader =
-           new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
+    HttpServletRequest requestLoggingProxy = RequestLog.newRequestLogger( request );
+    try( final Reader reader = new InputStreamReader( requestLoggingProxy.getInputStream(), "UTF-8" ) ) {
 
       final Statistics stats = new QueryHelper().execute(
         ObjectModelHelper.toObject( reader, TYPE ), authorizer, token );
