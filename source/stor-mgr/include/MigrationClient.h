@@ -153,7 +153,8 @@ class MigrationClient {
      * the iterator.
      */
     void buildDeltaSetWorkerSecondPhase(metadata::metadata_diff_type::iterator start,
-                                        metadata::metadata_diff_type::iterator end);
+                                        metadata::metadata_diff_type::iterator end,
+                                        bool cleanup);
 
     // Cleans up some things after the second phase is complete
     void migrationCleanup(leveldb::CopyEnv *env,

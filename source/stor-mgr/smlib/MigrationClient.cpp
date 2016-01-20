@@ -704,21 +704,26 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
     metadata::metadata_diff_type::iterator objMDIter = diffObjMetaData->begin();
     metadata::metadata_diff_type::iterator objMDIterEnd = diffObjMetaData->end();
 
-    buildDeltaSetWorkerSecondPhase(objMDIter, objMDIterEnd);
+    buildDeltaSetWorkerSecondPhase(objMDIter, objMDIterEnd, false);
 }
 
 void
 MigrationClient::buildDeltaSetWorkerSecondPhase(metadata::metadata_diff_type::iterator start,
-                                                metadata::metadata_diff_type::iterator end)
+                                                metadata::metadata_diff_type::iterator end,
+                                                bool cleanup)
 {
 
     // If start == end we're done with all of the work, time to clean up
-    if (start == end) {
+    if (cleanup) {
+        LOGMIGRATE << "We've finished second phase delta set work.";
+
         /* Set the migration client state to indicate the second delta set is sent. */
         setMigClientState(MC_SECOND_PHASE_DELTA_SET_COMPLETE);
 
         // Finish tracking IO request.
         trackIOReqs.finishTrackIOReqs();
+
+        return;
     }
 
     std::shared_ptr<ObjMetaDataSet> objMetaDataSet = std::shared_ptr<ObjMetaDataSet>(new ObjMetaDataSet);
@@ -787,8 +792,9 @@ MigrationClient::buildDeltaSetWorkerSecondPhase(metadata::metadata_diff_type::it
         }
     }
 
-    continueWorkFn nextWork = std::bind(&MigrationClient::buildDeltaSetWorkerSecondPhase, this, start, end);
 
+    continueWorkFn nextWork = std::bind(&MigrationClient::buildDeltaSetWorkerSecondPhase,
+                                        this, start, end, start==end);
     migClientAddMetaData(objMetaDataSet, start == end, nextWork);
 }
 
