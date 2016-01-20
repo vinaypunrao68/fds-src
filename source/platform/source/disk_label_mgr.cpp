@@ -114,7 +114,7 @@ namespace fds
     void DiskLabelMgr::dsk_reconcile_label(bool dsk_need_simulation, NodeUuid node_uuid)
     {
         bool         need_to_relabel = false;
-        int          valid_labels = 0, invalid_labels = 0;
+        int          valid_labels = 0, invalid_labels = 0, total_disks = 0;
         ChainIter    iter;
 
         DiskLabel   *label, *master = NULL;
@@ -186,7 +186,6 @@ namespace fds
             dl_valid_labels = 0;
         }
 
-        dl_total_disks = 0;
         // Now iterate over all of the disks, relabel if needed and write to disk-map
         chain_foreach(&dl_labels, iter)
         {
@@ -223,9 +222,9 @@ namespace fds
             }
             if (is_good_disk)
             {
-                if (dsk_rec_label_map(label->dl_owner, label->dl_label->dl_my_disk_index))
+                if (!dsk_rec_label_map(label->dl_owner, label->dl_label->dl_my_disk_index))
                 {
-                    dl_total_disks++;
+                    total_disks++;
                 }
             }
         }
@@ -250,7 +249,7 @@ namespace fds
             delete dl_map;
             dl_map = NULL;
 
-            LOGNORMAL << "Found total " << dl_valid_labels << " labels. Wrote total " << dl_total_disks << " disks";
+            LOGNORMAL << "Found total " << dl_valid_labels << " labels. Wrote total " << total_disks << " disks";
         }
         dl_mtx.unlock();
     }
