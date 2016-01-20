@@ -10,7 +10,6 @@ import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.web.toolkit.RequestHandler;
-import com.formationds.web.toolkit.RequestLog;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import org.eclipse.jetty.server.Request;
@@ -20,59 +19,56 @@ import org.slf4j.LoggerFactory;
 import java.io.InputStreamReader;
 import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
-
 public class MutateVolume implements RequestHandler{
 
-	private static final Logger logger = LoggerFactory
-			.getLogger(MutateVolume.class);
-	private static final String VOLUME_ARG = "volume_id";
+    private static final Logger logger = LoggerFactory
+            .getLogger(MutateVolume.class);
+    private static final String VOLUME_ARG = "volume_id";
 
-	private Authorizer authorizer;
-	private AuthenticationToken token;
+    private Authorizer authorizer;
+    private AuthenticationToken token;
 
-	public MutateVolume( Authorizer authorizer, AuthenticationToken token){
+    public MutateVolume( Authorizer authorizer, AuthenticationToken token){
 
-		this.authorizer = authorizer;
-		this.token = token;
-	}
+        this.authorizer = authorizer;
+        this.token = token;
+    }
 
-	@Override
-	public Resource handle(Request request, Map<String, String> routeParameters)
-			throws Exception {
+    @Override
+    public Resource handle(Request request, Map<String, String> routeParameters)
+            throws Exception {
 
-		long volumeId = requiredLong( routeParameters, VOLUME_ARG );
+        long volumeId = requiredLong( routeParameters, VOLUME_ARG );
 
-		logger.debug( "Editing volume: {}.", volumeId );
+        logger.debug( "Editing volume: {}.", volumeId );
 
-		Volume volume = null;
+        Volume volume = null;
 
-        HttpServletRequest requestLoggingProxy = RequestLog.newRequestLogger( request );
-        try ( final InputStreamReader reader = new InputStreamReader( requestLoggingProxy.getInputStream() ) ) {
+        try ( final InputStreamReader reader = new InputStreamReader( request.getInputStream() ) ) {
             volume = ObjectModelHelper.toObject( reader, Volume.class );
         }
 
-		volume.setId( volumeId );
+        volume.setId( volumeId );
 
-		logger.trace( ObjectModelHelper.toJSON( volume ) );
+        logger.trace( ObjectModelHelper.toJSON( volume ) );
 
-		// change the QOS
-		(new CreateVolume( getAuthorizer(), getToken() )).setQosForVolume( volume );
+        // change the QOS
+        (new CreateVolume( getAuthorizer(), getToken() )).setQosForVolume( volume );
 
-		MutateSnapshotPolicy mutateEndpoint = new MutateSnapshotPolicy();
+        MutateSnapshotPolicy mutateEndpoint = new MutateSnapshotPolicy();
 
-		// modify the snapshot policies
-		volume.getDataProtectionPolicy().getSnapshotPolicies().stream().forEach( (snapshotPolicy) -> {
-			try {
-				mutateEndpoint.mutatePolicy( snapshotPolicy );
-			} catch (Exception e) {
-				logger.warn( "Could not edit snapshot policy: " + snapshotPolicy.getName(), e  );
-			}
-		});
+        // modify the snapshot policies
+        volume.getDataProtectionPolicy().getSnapshotPolicies().stream().forEach( (snapshotPolicy) -> {
+            try {
+                mutateEndpoint.mutatePolicy( snapshotPolicy );
+            } catch (Exception e) {
+                logger.warn( "Could not edit snapshot policy: " + snapshotPolicy.getName(), e  );
+            }
+        });
 
-		switch( volume.getSettings().getVolumeType() )
-		{
-			case ISCSI:
+        switch( volume.getSettings().getVolumeType() )
+        {
+            case ISCSI:
                 final VolumeSettingsISCSI iscsi = ( VolumeSettingsISCSI ) volume.getSettings( );
                 logger.trace( "iSCSI:: LUNS [ {} ] INITIATORS [ {} ] INCOMING USERS [ {} ] OUTGOING USERS [ {} ]",
                               iscsi.getTarget().getLuns().size(),
@@ -81,25 +77,25 @@ public class MutateVolume implements RequestHandler{
                               iscsi.getTarget().getOutgoingUsers().size() );
 
                 break;
-			case NFS:
+            case NFS:
                 final VolumeSettingsNfs nfs = ( VolumeSettingsNfs ) volume.getSettings();
                 logger.trace( "NFS:: CLIENT [ {} ] OPTIONS [ {} ]", nfs.getClients(), nfs.getOptions() );
-				break;
-		}
+                break;
+        }
 
-		Volume newVolume = (new GetVolume( getAuthorizer(), getToken() ) ).getVolume( volumeId );
+        Volume newVolume = (new GetVolume( getAuthorizer(), getToken() ) ).getVolume( volumeId );
 
-		String jsonString = ObjectModelHelper.toJSON( newVolume );
+        String jsonString = ObjectModelHelper.toJSON( newVolume );
 
-		return new TextResource( jsonString );
-	}
+        return new TextResource( jsonString );
+    }
 
-	private Authorizer getAuthorizer(){
-		return this.authorizer;
-	}
+    private Authorizer getAuthorizer(){
+        return this.authorizer;
+    }
 
-	private AuthenticationToken getToken(){
-		return this.token;
-	}
+    private AuthenticationToken getToken(){
+        return this.token;
+    }
 
 }

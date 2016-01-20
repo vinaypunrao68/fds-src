@@ -27,31 +27,30 @@ import com.google.gson.reflect.TypeToken;
 
 public class QueryFirebreak implements RequestHandler {
 
-	private static final Type TYPE = new TypeToken<FirebreakQueryCriteria>() { }.getType();
-	private Authorizer authorizer;
-	private AuthenticationToken token;
+    private static final Type TYPE = new TypeToken<FirebreakQueryCriteria>() { }.getType();
+    private Authorizer authorizer;
+    private AuthenticationToken token;
 
 
-	public QueryFirebreak( final Authorizer authorizer, AuthenticationToken token ) {
-	    super();
+    public QueryFirebreak( final Authorizer authorizer, AuthenticationToken token ) {
+        super();
 
-	    this.token = token;
-	    this.authorizer = authorizer;
-	}
+        this.token = token;
+        this.authorizer = authorizer;
+    }
 
-	@Override
-	public Resource handle(Request request, Map<String, String> routeParameters)
-			throws Exception {
+    @Override
+    public Resource handle(Request request, Map<String, String> routeParameters)
+            throws Exception {
 
-	    HttpServletRequest requestLoggingProxy = RequestLog.newRequestLogger( request );
-	    try( final Reader reader =
-	            new InputStreamReader( requestLoggingProxy.getInputStream(), "UTF-8" ) ) {
+        try( final Reader reader =
+                new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
 
-	       final Statistics stats = new FirebreakHelper().execute(
-	         ObjectModelHelper.toObject( reader, TYPE ), authorizer, token );
+            final Statistics stats = new FirebreakHelper().execute( ObjectModelHelper.toObject( reader, TYPE ),
+                                                                    authorizer, token );
 
-	       return new JsonResource( new JSONObject( stats ) );
-	    }
-	}
+            return new JsonResource( new JSONObject( stats ) );
+        }
+    }
 
 }

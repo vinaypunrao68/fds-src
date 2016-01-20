@@ -8,7 +8,6 @@ import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
-import com.formationds.web.toolkit.RequestLog;
 import com.formationds.web.toolkit.Resource;
 import com.google.gson.reflect.TypeToken;
 import org.eclipse.jetty.server.Request;
@@ -17,12 +16,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.InputStreamReader;
-import java.io.Reader;
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
-
-import javax.servlet.http.HttpServletRequest;
 
 /**
  * Log an event in the OM event repository.
@@ -43,8 +39,7 @@ public class IngestEvents implements RequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        HttpServletRequest requestLoggingProxy = RequestLog.newRequestLogger( request );
-        try ( final InputStreamReader reader = new InputStreamReader( requestLoggingProxy.getInputStream(), "UTF-8" ) ) {
+        try ( final InputStreamReader reader = new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
 
             final List<Event> events = ObjectModelHelper.toObject(reader, TYPE);
             for( final Event event : events) {
@@ -52,9 +47,7 @@ public class IngestEvents implements RequestHandler {
                 logger.trace("AM_EVENT: {}", event);
 
                 // TODO replace with inject
-                SingletonRepositoryManager.instance()
-                                          .getEventRepository()
-                                          .save( event );
+                SingletonRepositoryManager.instance().getEventRepository().save( event );
             }
         }
 

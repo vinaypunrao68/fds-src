@@ -14,17 +14,13 @@ import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
-import com.formationds.web.toolkit.RequestLog;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.web.toolkit.TextResource;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.google.gson.reflect.TypeToken;
 
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONArray;
-import org.json.JSONObject;
-
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.lang.reflect.Type;
@@ -32,8 +28,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
-import javax.servlet.http.HttpServletRequest;
 
 /**
  * @author dsetzke based on QueryMetrics by ptinius
@@ -49,8 +43,7 @@ public class QueryEvents implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
 
-        HttpServletRequest requestLoggingProxy = RequestLog.newRequestLogger( request );
-        try (final Reader reader = new InputStreamReader(requestLoggingProxy.getInputStream(), "UTF-8")) {
+        try (final Reader reader = new InputStreamReader(request.getInputStream(), "UTF-8")) {
             final QueryCriteria eventQuery = ObjectModelHelper.toObject(reader, TYPE);
 
             // Filter the events to remove any that the current user should not be able to access.

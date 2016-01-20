@@ -18,14 +18,12 @@ import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
-import com.formationds.web.toolkit.RequestLog;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
@@ -34,12 +32,12 @@ import java.util.Map;
 
 
 public class AddNode
-    implements RequestHandler {
+implements RequestHandler {
 
-	private static final String NODE_ARG = "node_id";
+    private static final String NODE_ARG = "node_id";
 
     private static final Logger logger =
-        LoggerFactory.getLogger( AddNode.class );
+            LoggerFactory.getLogger( AddNode.class );
 
     private ConfigurationApi configApi;
 
@@ -48,7 +46,7 @@ public class AddNode
     @Override
     public Resource handle( final Request request,
                             final Map<String, String> routeParameters)
-        throws Exception {
+                                    throws Exception {
 
         long nodeUuid = requiredLong(routeParameters, NODE_ARG );
 
@@ -60,9 +58,9 @@ public class AddNode
         }
 
         if( node == null ) {
-	  		throw new ApiException( "The specified node uuid " + nodeUuid +
-	  				                " cannot be found", ErrorCode.MISSING_RESOURCE );
-  		}
+            throw new ApiException( "The specified node uuid " + nodeUuid +
+                                    " cannot be found", ErrorCode.MISSING_RESOURCE );
+        }
 
         List<SvcInfo> svcInfList = new ArrayList<SvcInfo>();
         boolean pmPresent = false;
@@ -70,32 +68,32 @@ public class AddNode
         logger.trace( "NODE::" + node.toString() );
         for(List<Service> svcList : node.getServices().values())
         {
-        	for(Service svc : svcList)
-        	{
-        		SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
-        				                                 (node.getAddress().getHostAddress(),
-                                                          svc);
-        		svcInfList.add(svcInfo);
+            for(Service svc : svcList)
+            {
+                SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
+                        (node.getAddress().getHostAddress(),
+                         svc);
+                svcInfList.add(svcInfo);
 
-        		if (svc.getType() == ServiceType.PM) {
-        			pmPresent = true;
-        		}
+                if (svc.getType() == ServiceType.PM) {
+                    pmPresent = true;
+                }
 
-        	}
+            }
         }
 
         if (!pmPresent)
         {
-        	Service pmSvc = (new GetService()).getService(nodeUuid, nodeUuid);
-        	SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
-        			                                 (node.getAddress().getHostAddress(),
-                                                      pmSvc);
-        	svcInfList.add(svcInfo);
+            Service pmSvc = (new GetService()).getService(nodeUuid, nodeUuid);
+            SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
+                    (node.getAddress().getHostAddress(),
+                     pmSvc);
+            svcInfList.add(svcInfo);
         }
 
         logger.debug("Adding and starting services on node");
         int status =
-        		getConfigApi().AddService(new NotifyAddServiceMsg(svcInfList));
+                getConfigApi().AddService(new NotifyAddServiceMsg(svcInfList));
 
         if( status != 0 )
         {
@@ -130,21 +128,21 @@ public class AddNode
 
     private Boolean activateService( ServiceType type, Node node ){
 
-    	List<Service> services = node.getServices().get( type );
+        List<Service> services = node.getServices().get( type );
 
-    	if ( services.size() == 0 ){
-    		return false;
-    	}
+        if ( services.size() == 0 ){
+            return false;
+        }
 
-    	return true;
+        return true;
     }
 
     private ConfigurationApi getConfigApi(){
 
-    	if ( configApi == null ){
-    		configApi = SingletonConfigAPI.instance().api();
-    	}
+        if ( configApi == null ){
+            configApi = SingletonConfigAPI.instance().api();
+        }
 
-    	return configApi;
+        return configApi;
     }
 }

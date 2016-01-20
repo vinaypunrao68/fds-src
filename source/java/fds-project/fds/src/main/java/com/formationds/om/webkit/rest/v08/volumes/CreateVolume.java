@@ -21,7 +21,6 @@ import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
-import com.formationds.web.toolkit.RequestLog;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.google.common.base.CharMatcher;
@@ -35,10 +34,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
-
-public class CreateVolume
-    implements RequestHandler
+public class CreateVolume implements RequestHandler
 {
 
     private static final Logger logger = LoggerFactory.getLogger( CreateVolume.class );
@@ -56,15 +52,14 @@ public class CreateVolume
 
     @Override
     public Resource handle( Request request, Map<String, String> routeParameters )
-        throws Exception
+            throws Exception
     {
 
         Volume newVolume;
 
         logger.debug( "Creating a new volume." );
 
-        HttpServletRequest requestLoggingProxy = RequestLog.newRequestLogger( request );
-        try (final InputStream is = requestLoggingProxy.getInputStream( ) )
+        try (final InputStream is = request.getInputStream( ) )
         {
             final String jsonBody = readBody( is );
 
@@ -92,7 +87,7 @@ public class CreateVolume
         }
 
         VolumeDescriptor internalVolume =
-            ExternalModelConverter.convertToInternalVolumeDescriptor( newVolume );
+                ExternalModelConverter.convertToInternalVolumeDescriptor( newVolume );
 
         dumpVolume( internalVolume );
 
@@ -111,7 +106,7 @@ public class CreateVolume
         {
 
             if ( e.getErrorCode( )
-                  .equals( ErrorCode.RESOURCE_ALREADY_EXISTS ) )
+                    .equals( ErrorCode.RESOURCE_ALREADY_EXISTS ) )
             {
 
                 throw new ApiException( "The specified volume name ( " + internalVolume.getName() + " ) already exists.",
@@ -159,13 +154,13 @@ public class CreateVolume
         VolumeDescriptor vd = getConfigApi( ).statVolume( domainName, internalVolume.getName( ) );
 
         List<Volume> volumes =
-            ExternalModelConverter.convertToExternalVolumes( Collections.singletonList( vd ) );
+                ExternalModelConverter.convertToExternalVolumes( Collections.singletonList( vd ) );
         Volume myVolume = null;
 
         for ( Volume volume : volumes )
         {
             if ( volume.getId( )
-                       .equals( volumeId ) )
+                    .equals( volumeId ) )
             {
                 myVolume = volume;
                 break;
@@ -185,14 +180,14 @@ public class CreateVolume
      * @throws TException
      */
     public void setQosForVolume( Volume externalVolume )
-        throws ApiException, TException
+            throws ApiException, TException
     {
         setQosForVolume( externalVolume, false );
     }
 
     public void setQosForVolume( Volume externalVolume,
                                  final boolean isCreate )
-        throws ApiException, TException
+                                         throws ApiException, TException
     {
 
         validateQOSSettings( externalVolume );
@@ -210,11 +205,11 @@ public class CreateVolume
             }
 
             FDSP_VolumeDescType volumeDescType =
-                ExternalModelConverter.convertToInternalVolumeDescType( externalVolume );
+                    ExternalModelConverter.convertToInternalVolumeDescType( externalVolume );
 
             getConfigApi( ).ModifyVol(
-                new FDSP_ModifyVolType( externalVolume.getName( ), externalVolume.getId( ),
-                                        volumeDescType ) );
+                                      new FDSP_ModifyVolType( externalVolume.getName( ), externalVolume.getId( ),
+                                                              volumeDescType ) );
         } else
         {
             String message = "Could not verify volume to set QOS parameters.";
@@ -231,37 +226,37 @@ public class CreateVolume
      * @throws Exception
      */
     public void createSnapshotPolicies( Volume externalVolume )
-        throws Exception
+            throws Exception
     {
 
         CreateSnapshotPolicy createEndpoint = new CreateSnapshotPolicy( getAuthorizer( ),
                                                                         getToken( ) );
 
         for ( SnapshotPolicy policy : externalVolume.getDataProtectionPolicy( )
-                                                    .getSnapshotPolicies( ) )
+                .getSnapshotPolicies( ) )
         {
             createEndpoint.createSnapshotPolicy( externalVolume.getId( ), policy );
         }
     }
 
     private static final String CREATED_MSG =
-        " Volume was created successfully, just no QOS policy was set." +
-            " QOS policy can be added, to the volume, by editing the volume" +
-            " ( %d:%s ).";
+            " Volume was created successfully, just no QOS policy was set." +
+                    " QOS policy can be added, to the volume, by editing the volume" +
+                    " ( %d:%s ).";
 
     /**
      * @param volume the {@link Volume} representing the external model object
      * @throws ApiException if the QOS settings are not valid
      */
     public void validateQOSSettings( final Volume volume )
-        throws ApiException
+            throws ApiException
     {
         validateQOSSettings( volume, false );
     }
 
     public void validateQOSSettings( final Volume volume,
                                      final boolean isCreate )
-        throws ApiException
+                                             throws ApiException
     {
 
         if ( volume == null )
@@ -284,13 +279,13 @@ public class CreateVolume
         }
 
         logger.trace(
-            "Validate QOS ( {}:{} ) -- MIN(assured): {} MAX(throttled): {}",
-            volume.getId( ),
-            volume.getName( ),
-            volume.getQosPolicy( )
-                  .getIopsMin( ),
-            volume.getQosPolicy( )
-                  .getIopsMax( ) );
+                     "Validate QOS ( {}:{} ) -- MIN(assured): {} MAX(throttled): {}",
+                     volume.getId( ),
+                     volume.getName( ),
+                     volume.getQosPolicy( )
+                     .getIopsMin( ),
+                     volume.getQosPolicy( )
+                     .getIopsMax( ) );
 
         switch( volume.getSettings().getVolumeType() )
         {
@@ -302,7 +297,7 @@ public class CreateVolume
                 break;
             case ISCSI:
                 final VolumeSettingsISCSI volumeSettingsISCSI =
-                    ( VolumeSettingsISCSI ) volume.getSettings();
+                ( VolumeSettingsISCSI ) volume.getSettings();
                 logger.trace( "Validate ( {}:{} ) -- iSCSI(target={})",
                               volume.getId( ),
                               volume.getName( ),
@@ -310,7 +305,7 @@ public class CreateVolume
                 break;
             case NFS:
                 final VolumeSettingsNfs volumeSettingsNfs =
-                    ( VolumeSettingsNfs ) volume.getSettings();
+                ( VolumeSettingsNfs ) volume.getSettings();
                 logger.trace( "Validate ( {}:{} ) -- NFS(client={}, options={})",
                               volume.getId( ),
                               volume.getName( ),
@@ -320,14 +315,14 @@ public class CreateVolume
         }
 
         if ( !( ( volume.getQosPolicy( )
-                        .getIopsMax( ) == 0 ) ||
-            ( volume.getQosPolicy( )
-                    .getIopsMin( ) <=
-                volume.getQosPolicy( )
-                      .getIopsMax( ) ) ) )
+                .getIopsMax( ) == 0 ) ||
+                ( volume.getQosPolicy( )
+                        .getIopsMin( ) <=
+                        volume.getQosPolicy( )
+                        .getIopsMax( ) ) ) )
         {
             String message =
-                "QOS value out-of-range ( assured must be less than or equal to throttled ).";
+                    "QOS value out-of-range ( assured must be less than or equal to throttled ).";
 
             if ( isCreate )
             {
@@ -355,7 +350,7 @@ public class CreateVolume
         if ( configApi == null )
         {
             configApi = SingletonConfigAPI.instance( )
-                                          .api( );
+                    .api( );
         }
 
         return configApi;
@@ -366,10 +361,10 @@ public class CreateVolume
         final StringBuilder sb = new StringBuilder( );
 
         sb.append( " name: " ).append( volume.getName() )
-          .append( " created: " ).append( volume.getDateCreated() )
-          .append( " state: " ).append( volume.getState() )
-          .append( " tenantId: " ).append( volume.getTenantId() )
-          .append( " volumeId: " ).append( volume.getVolId() );
+        .append( " created: " ).append( volume.getDateCreated() )
+        .append( " state: " ).append( volume.getState() )
+        .append( " tenantId: " ).append( volume.getTenantId() )
+        .append( " volumeId: " ).append( volume.getVolId() );
 
         final com.formationds.apis.VolumeSettings volumeSettings = volume.getPolicy();
         switch( volumeSettings.getVolumeType() )
@@ -385,9 +380,9 @@ public class CreateVolume
                 if( options != null )
                 {
                     sb.append( " client " )
-                      .append( options.getClient( ) )
-                      .append( " options " )
-                      .append( options.getOptions( ) );
+                    .append( options.getClient( ) )
+                    .append( " options " )
+                    .append( options.getOptions( ) );
                 }
                 break;
         }

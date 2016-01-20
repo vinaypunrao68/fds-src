@@ -45,8 +45,6 @@ import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -58,7 +56,7 @@ import java.util.stream.Collectors;
 
 public class SystemHealthStatus implements RequestHandler {
 
-	private static final Logger logger = LoggerFactory.getLogger( SystemHealth.class );
+    private static final Logger logger = LoggerFactory.getLogger( SystemHealth.class );
     private final ConfigurationApi configApi;
     private final Authorizer authorizer;
     private final AuthenticationToken token;
@@ -91,7 +89,7 @@ public class SystemHealthStatus implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters)
             throws Exception {
 
-    	logger.debug( "Retrieving the system health." );
+        logger.debug( "Retrieving the system health." );
 
         List<VolumeDescriptor> allVolumeDescriptors = configApi.listVolumes( "" );
 
@@ -99,8 +97,8 @@ public class SystemHealthStatus implements RequestHandler {
         List<Volume> allVolumes = convertVolDescriptors( allVolumeDescriptors );
 
         List<Volume> filteredVolumes = allVolumes.stream()
-                                                 .filter( v -> authorizer.ownsVolume( token, v.getName() ) )
-                                                 .collect( Collectors.toList() );
+                .filter( v -> authorizer.ownsVolume( token, v.getName() ) )
+                .collect( Collectors.toList() );
 
         SystemHealth serviceHealth = getServiceStatus();
         SystemHealth capacityHealth = getCapacityStatus(allVolumes);
@@ -207,7 +205,7 @@ public class SystemHealthStatus implements RequestHandler {
      */
     private SystemHealth getFirebreakStatus( List<Volume> volumes ) {
 
-    	logger.debug( "Retrieving firebreak system status." );
+        logger.debug( "Retrieving firebreak system status." );
 
         SystemHealth status;
         if ( volumes.size() == 0 ) {
@@ -237,12 +235,12 @@ public class SystemHealthStatus implements RequestHandler {
 
             DateRange range = DateRange.last24Hours();
             MetricQueryCriteria query = queryBuilder.withContexts( volumes )
-                                                    .withSeriesTypes( metrics )
-                                                    .withRange( range )
-                                                    .build();
+                    .withSeriesTypes( metrics )
+                    .withRange( range )
+                    .build();
 
             final MetricRepository metricsRepository = SingletonRepositoryManager.instance()
-                                                                                 .getMetricsRepository();
+                    .getMetricsRepository();
             @SuppressWarnings("unchecked")
             final List<IVolumeDatapoint> queryResults = (List<IVolumeDatapoint>) metricsRepository.query( query );
 
@@ -256,15 +254,15 @@ public class SystemHealthStatus implements RequestHandler {
 
                 // count firebreaks in the last 24hours
                 volumesWithRecentFirebreak = series.stream()
-                                                   .filter( s -> {
-                                                       long fb = s.getDatapoints()
-                                                                  .stream()
-                                                                  .filter( dp -> (dp.getY() > t24s) )
-                                                                  .count();
+                        .filter( s -> {
+                            long fb = s.getDatapoints()
+                                    .stream()
+                                    .filter( dp -> (dp.getY() > t24s) )
+                                    .count();
 
-                                                       return (fb > 0);
-                                                   } )
-                                                   .count();
+                            return (fb > 0);
+                        } )
+                        .count();
             } catch ( TException e ) {
 
                 // this almost certainly means the server is down
@@ -311,7 +309,7 @@ public class SystemHealthStatus implements RequestHandler {
         query.setColumns( new ArrayList<>() );
 
         final MetricRepository metricsRepository = SingletonRepositoryManager.instance()
-                                                                             .getMetricsRepository();
+                .getMetricsRepository();
 
         @SuppressWarnings("unchecked")
         final List<IVolumeDatapoint> queryResults = (List<IVolumeDatapoint>) metricsRepository.query( query );
@@ -329,38 +327,38 @@ public class SystemHealthStatus implements RequestHandler {
         final Size systemCapacity;
         final Size systemCapacityUsed;
         try {
-        	final Double _systemCapacity = ( double ) configApi.getDiskCapacityTotal();
+            final Double _systemCapacity = ( double ) configApi.getDiskCapacityTotal();
             // switch to bytes for now
             if( FdsFeatureToggles.NEW_SUPERBLOCK.isActive() )
             {
                 // normalize to bytes
                 systemCapacity =
-                    Size.of( Size.gb( _systemCapacity.longValue() ).getValue( SizeUnit.B ),
-                             SizeUnit.B );
+                        Size.of( Size.gb( _systemCapacity.longValue() ).getValue( SizeUnit.B ),
+                                 SizeUnit.B );
             }
             else
             {
                 // normalize to bytes
                 systemCapacity =
-                    Size.of( Size.mb( _systemCapacity.longValue() ).getValue( SizeUnit.B ),
-                             SizeUnit.B );
+                        Size.of( Size.mb( _systemCapacity.longValue() ).getValue( SizeUnit.B ),
+                                 SizeUnit.B );
             }
 
             // This number will be in bytes!!! <-- RTFC!
             systemCapacityUsed =
-                Size.of( RedisSingleton.INSTANCE
-                                       .api()
-                                       .getDomainUsedCapacity()
-                                       .getValue()
-                                       .longValue(),
-                         SizeUnit.B );
+                    Size.of( RedisSingleton.INSTANCE
+                             .api()
+                             .getDomainUsedCapacity()
+                             .getValue()
+                             .longValue(),
+                             SizeUnit.B );
 
             logger.trace( "Total Capacity: {} ( {} ) Total Used Capacity: {}",
                           systemCapacity.getValue( SizeUnit.B ),
                           _systemCapacity,
                           systemCapacityUsed.toString() );
         } catch (TException te) {
-        	throw new IllegalStateException( "Failed to retrieve system capacity", te );
+            throw new IllegalStateException( "Failed to retrieve system capacity", te );
         }
 
         final CapacityConsumed consumed = new CapacityConsumed();
@@ -373,9 +371,9 @@ public class SystemHealthStatus implements RequestHandler {
 
         // use the helper to get the key metrics we'll use to ascertain the stat of our capacity
         CapacityFull capacityFull =
-            qh.percentageFull( consumed, systemCapacity.getValue( SizeUnit.B ).doubleValue() );
+                qh.percentageFull( consumed, systemCapacity.getValue( SizeUnit.B ).doubleValue() );
         CapacityToFull timeToFull =
-            qh.toFull( series.get ( 0 ), systemCapacity.getValue( SizeUnit.B ).doubleValue() );
+                qh.toFull( series.get ( 0 ), systemCapacity.getValue( SizeUnit.B ).doubleValue() );
 
         Long daysToFull = TimeUnit.SECONDS.toDays( timeToFull.getToFull() );
 
@@ -423,7 +421,7 @@ public class SystemHealthStatus implements RequestHandler {
      */
     private SystemHealth getServiceStatus() throws TException {
 
-    	logger.debug( "Getting the system service status." );
+        logger.debug( "Getting the system service status." );
 
         SystemHealth status = new SystemHealth();
         status.setCategory(CATEGORY.SERVICES.name());
@@ -445,43 +443,43 @@ public class SystemHealthStatus implements RequestHandler {
         criteria.put( ALL_PMS, true );
 
         nodes.stream().forEach( (node) -> node.getServices( )
-                                          .keySet()
-                                          .stream()
-                                          .forEach( (serviceType) -> node.getServices( )
-                                                                         .get( serviceType )
-                                                                         .stream( )
-                                                                         .forEach( ( service ) -> {
+                                .keySet()
+                                .stream()
+                                .forEach( (serviceType) -> node.getServices( )
+                                          .get( serviceType )
+                                          .stream( )
+                                          .forEach( ( service ) -> {
 
-            if ( !service.getStatus().getServiceState().equals( ServiceState.RUNNING ) ) {
+                                              if ( !service.getStatus().getServiceState().equals( ServiceState.RUNNING ) ) {
 
-                downServices.add( service );
+                                                  downServices.add( service );
 
-                switch( service.getType() ){
-                    case PM:
-                        criteria.put( ALL_PMS, false );
-                        break;
-                    case SM:
-                        criteria.put( ALL_SMS, false );
-                        break;
-                    case DM:
-                        criteria.put( ALL_DMS, false );
-                        break;
-                    default:
-                        break;
-                }
-            } else {
+                                                  switch( service.getType() ){
+                                                      case PM:
+                                                          criteria.put( ALL_PMS, false );
+                                                          break;
+                                                      case SM:
+                                                          criteria.put( ALL_SMS, false );
+                                                          break;
+                                                      case DM:
+                                                          criteria.put( ALL_DMS, false );
+                                                          break;
+                                                      default:
+                                                          break;
+                                                  }
+                                              } else {
 
-                switch ( service.getType() ) {
-                    case OM:
-                        criteria.put( ONE_OM, true );
-                        break;
-                    case AM:
-                        criteria.put( ONE_AM, true );
-                    default:
-                        break;
-                }
-            }
-        } ) ) );
+                                                  switch ( service.getType() ) {
+                                                      case OM:
+                                                          criteria.put( ONE_OM, true );
+                                                          break;
+                                                      case AM:
+                                                          criteria.put( ONE_AM, true );
+                                                      default:
+                                                          break;
+                                                  }
+                                              }
+                                          } ) ) );
 
         // if every service we know about is up, then we're going to report good to go
         if ( downServices.size() == 0 ) {
@@ -489,16 +487,16 @@ public class SystemHealthStatus implements RequestHandler {
             status.setMessage(SERVICES_GOOD);
         }
         else if ( criteria.get( ONE_AM ) &&
-                  ( criteria.get( ONE_OM ) ) &&
-                  ( criteria.get( ALL_DMS ) ) &&
-                  ( criteria.get( ALL_PMS ) ) &&
-                  ( criteria.get( ALL_SMS ) ) ){
-        	status.setState(HealthState.OKAY);
-        	status.setMessage(SERVICES_OKAY);
+                ( criteria.get( ONE_OM ) ) &&
+                ( criteria.get( ALL_DMS ) ) &&
+                ( criteria.get( ALL_PMS ) ) &&
+                ( criteria.get( ALL_SMS ) ) ){
+            status.setState(HealthState.OKAY);
+            status.setMessage(SERVICES_OKAY);
         }
         else {
-        	status.setState(HealthState.BAD);
-        	status.setMessage(SERVICES_BAD);
+            status.setState(HealthState.BAD);
+            status.setMessage(SERVICES_BAD);
         }
 
         logger.debug( "Service status is: {}:{}.", status.getState().name(), status.getMessage() );

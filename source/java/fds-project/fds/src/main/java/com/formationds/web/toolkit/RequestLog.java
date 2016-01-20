@@ -726,29 +726,29 @@ public class RequestLog {
         @Override
         public Object invoke( Object proxy, Method method, Object[] args ) throws Throwable {
             switch ( method.getName() ) {
-            case "getReader":
-                return super.getLoggingRequestReader();
+                case "getReader":
+                    return super.getLoggingRequestReader();
 
-            case "getInputStream":
-                return super.getLoggingRequestInputStream();
+                case "getInputStream":
+                    return super.getLoggingRequestInputStream();
 
-            case "hashCode":
-                return request.hashCode();
+                case "hashCode":
+                    return request.hashCode();
 
-            case "equals":
-                if ( args.length == 1 ) {
-                    Object that = args[0];
-                    if ( this == that )
-                        return true;
-                    if ( !( that instanceof LoggingRequestWrapper<?> ) )
-                        return false;
-                    LoggingRequestWrapper<?> w = (LoggingRequestWrapper<?>) that;
-                    return getRequest().equals( w.getRequest() );
-                }
-                // Otherwise fall-through to default case
+                case "equals":
+                    if ( args.length == 1 ) {
+                        Object that = args[0];
+                        if ( this == that )
+                            return true;
+                        if ( !( that instanceof LoggingRequestWrapper<?> ) )
+                            return false;
+                        LoggingRequestWrapper<?> w = (LoggingRequestWrapper<?>) that;
+                        return getRequest().equals( w.getRequest() );
+                    }
+                    // Otherwise fall-through to default case
 
-            default:
-                return method.invoke( request, args );
+                default:
+                    return method.invoke( request, args );
             }
         }
     }

@@ -9,7 +9,6 @@ import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
-import com.formationds.web.toolkit.RequestLog;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 
@@ -21,58 +20,55 @@ import java.io.InputStreamReader;
 import java.util.List;
 import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
-
 public class CreateSnapshot implements RequestHandler {
 
-	private static final Logger logger = LoggerFactory.getLogger( CreateSnapshot.class );
-	private static final String VOLUME_ARG = "volume_id";
+    private static final Logger logger = LoggerFactory.getLogger( CreateSnapshot.class );
+    private static final String VOLUME_ARG = "volume_id";
 
-	private ConfigurationApi configApi;
+    private ConfigurationApi configApi;
 
-	public CreateSnapshot() {}
+    public CreateSnapshot() {}
 
-	@Override
-	public Resource handle(final Request request,
-			final Map<String, String> routeParameters) throws Exception {
+    @Override
+    public Resource handle(final Request request,
+                           final Map<String, String> routeParameters) throws Exception {
 
-		long volumeId = requiredLong( routeParameters, VOLUME_ARG );
+        long volumeId = requiredLong( routeParameters, VOLUME_ARG );
 
-		logger.debug( "Create a snapshot for volume {}.", volumeId );
+        logger.debug( "Create a snapshot for volume {}.", volumeId );
 
-		Snapshot inputSnapshot = null;
-        HttpServletRequest requestLoggingProxy = RequestLog.newRequestLogger( request );
-        try ( final InputStreamReader reader = new InputStreamReader( requestLoggingProxy.getInputStream() ) ) {
+        Snapshot inputSnapshot = null;
+        try ( final InputStreamReader reader = new InputStreamReader( request.getInputStream() ) ) {
             inputSnapshot = ObjectModelHelper.toObject( reader, Snapshot.class );
         }
 
-		getConfigApi().createSnapshot( volumeId,
-									   inputSnapshot.getName(),
-									   inputSnapshot.getRetention().getSeconds(),
-									   0 );
+        getConfigApi().createSnapshot( volumeId,
+                                       inputSnapshot.getName(),
+                                       inputSnapshot.getRetention().getSeconds(),
+                                       0 );
 
-		List<Snapshot> snapshots = (new ListSnapshots()).listSnapshots( volumeId );
-		Snapshot mySnapshot = null;
+        List<Snapshot> snapshots = (new ListSnapshots()).listSnapshots( volumeId );
+        Snapshot mySnapshot = null;
 
-		for ( Snapshot snapshot : snapshots ){
-			if ( snapshot.getVolumeId().equals( volumeId ) &&
-				 snapshot.getName().equals( inputSnapshot.getName() ) ){
-				mySnapshot = snapshot;
-				break;
-			}
-		}
+        for ( Snapshot snapshot : snapshots ){
+            if ( snapshot.getVolumeId().equals( volumeId ) &&
+                    snapshot.getName().equals( inputSnapshot.getName() ) ){
+                mySnapshot = snapshot;
+                break;
+            }
+        }
 
-		String jsonString = ObjectModelHelper.toJSON( mySnapshot );
+        String jsonString = ObjectModelHelper.toJSON( mySnapshot );
 
-		return new TextResource( jsonString );
-	}
+        return new TextResource( jsonString );
+    }
 
-	private ConfigurationApi getConfigApi(){
+    private ConfigurationApi getConfigApi(){
 
-		if ( configApi == null ){
-			configApi = SingletonConfigAPI.instance().api();
-		}
+        if ( configApi == null ){
+            configApi = SingletonConfigAPI.instance().api();
+        }
 
-		return configApi;
-	}
+        return configApi;
+    }
 }

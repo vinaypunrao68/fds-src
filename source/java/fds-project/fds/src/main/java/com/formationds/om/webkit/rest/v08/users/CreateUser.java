@@ -24,15 +24,14 @@ import java.util.UUID;
 
 public class CreateUser implements RequestHandler {
 
-	private static final Logger logger = LoggerFactory.getLogger( CreateUser.class );
-	private ConfigurationApi configApi;
+    private static final Logger logger = LoggerFactory.getLogger( CreateUser.class );
+    private ConfigurationApi configApi;
 
     public CreateUser() {}
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
 
-        // NOTE: do not log request with RequestLogger proxy (contains password)
         String source = IOUtils.toString(request.getInputStream());
         JSONObject o = new JSONObject(source);
 
@@ -40,7 +39,7 @@ public class CreateUser implements RequestHandler {
 
         logger.info( "Create user: {}.", inputUser.getName() );
 
-    	String login = inputUser.getName();
+        String login = inputUser.getName();
         String password = o.getString( "password" );
 
         String hashed = new HashedPassword().hash(password);
@@ -52,7 +51,7 @@ public class CreateUser implements RequestHandler {
         User externalUser = ExternalModelConverter.convertToExternalUser( internalUser );
 
         if ( inputUser.getTenant() != null ){
-        	getConfigApi().assignUserToTenant( externalUser.getId(), inputUser.getTenant().getId() );
+            getConfigApi().assignUserToTenant( externalUser.getId(), inputUser.getTenant().getId() );
         }
 
         String jsonString = ObjectModelHelper.toJSON( externalUser );
@@ -62,10 +61,10 @@ public class CreateUser implements RequestHandler {
 
     private ConfigurationApi getConfigApi(){
 
-    	if ( configApi == null ){
-    		configApi = SingletonConfigAPI.instance().api();
-    	}
+        if ( configApi == null ){
+            configApi = SingletonConfigAPI.instance().api();
+        }
 
-    	return configApi;
+        return configApi;
     }
 }
