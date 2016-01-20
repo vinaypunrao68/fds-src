@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <syslog.h>
 #include <execinfo.h>
+#include <chrono>
 
 #include <sys/time.h>
 #include <sys/resource.h>
@@ -261,6 +262,11 @@ void FdsProcess::init(int argc, char *argv[],
     /* Set the logger level */
     g_fdslog->setSeverityFilter(
         fds_log::getLevelFromName(conf_helper_.get<std::string>("log_severity","NORMAL")));
+
+    /* Adding a timer task to periodically flush all buffered log data to files
+     * */
+    timer_servicePtr_->scheduledFunctionRepeated(std::chrono::seconds(5),
+                                                 []() { g_fdslog->flush(); });
 
     const libconfig::Setting& fdsSettings = conf_helper_.get_fds_config()->getConfig().getRoot();
     LOGNORMAL << "Configurations as modified by the command line:";
