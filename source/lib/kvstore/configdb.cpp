@@ -116,6 +116,29 @@ std::string ConfigDB::getConfigVersion() {
     return "";
 }
 
+bool ConfigDB::setCapacityUsedNode( const int64_t svcUuid, const unsigned long usedCapacityInBytes )
+{
+    bool bRetCode = false;
+
+    std::stringstream uuid;
+    uuid << svcUuid;
+    std::stringstream used;
+    used << usedCapacityInBytes;
+
+    try
+    {
+        LOGDEBUG << "Setting used capacity for uuid [ " << std::hex << svcUuid << std::dec << " ]";
+        bRetCode = kv_store.hset( "used.capacity", uuid.str( ).c_str( ), used.str( ) );
+    }
+    catch(const RedisException& e)
+    {
+        LOGERROR << "Failed to persist node capacity for node [ "
+                 << std::hex << svcUuid << std::dec << " ], error: " << e.what();
+    };
+
+    return bRetCode;
+}
+
 /**
  * Compare the passed version to the current version.
  *
@@ -2363,7 +2386,7 @@ bool ConfigDB::updateSnapshot(const fpi::Snapshot& snapshot) {
     TRACKMOD();
     try {
         // check if the snapshot exists
-        if ( kv_store.hexists(format("volume:%ld:snapshots", snapshot.volumeId), snapshot.snapshotId)) {
+        if (! kv_store.hexists(format("volume:%ld:snapshots", snapshot.volumeId), snapshot.snapshotId)) {
             LOGWARN << "snapshot does not exist : " << snapshot.snapshotId
                     << " vol:" << snapshot.volumeId;
             NOMOD();
@@ -2646,7 +2669,14 @@ bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
             std::string& value = strings[i+1];
 
             fds::deserializeFdspMsg(value, svcInfo);
-            svcMap.push_back(svcInfo);
+            if( ( svcInfo.svc_type == FDS_ProtocolInterface::FDSP_PLATFORM ) ||
+                ( svcInfo.svc_type == FDS_ProtocolInterface::FDSP_STOR_MGR ) ||
+                ( svcInfo.svc_type == FDS_ProtocolInterface::FDSP_DATA_MGR ) ||
+                ( svcInfo.svc_type == FDS_ProtocolInterface::FDSP_ACCESS_MGR ) ||
+                ( svcInfo.svc_type == FDS_ProtocolInterface::FDSP_ORCH_MGR ) )
+            {
+                svcMap.push_back( svcInfo );
+            }
         }
     } 
     catch ( const RedisException& e ) 

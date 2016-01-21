@@ -50,7 +50,7 @@ DmMigrationMgr::DmMigrationMgr(DataMgr &_dataMgr)
             &DmMigrationMgr::migrationIdleTimeoutCheck, this);
 
     };
-    auto idleTimeouTask = SHPTR<FdsTimerTask>(new FdsTimerFunctionTask(*timer, task));
+    auto idleTimeouTask = SHPTR<FdsTimerTask>(new FdsTimerFunctionTask(task));
     timer->scheduleRepeated(idleTimeouTask, std::chrono::seconds(idleTimeoutSecs));
 }
 

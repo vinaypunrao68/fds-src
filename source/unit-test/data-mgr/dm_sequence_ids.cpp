@@ -47,7 +47,11 @@ void startTxn(fds_volid_t volId, std::string blobName, int txnNum = 1, int blobM
                                            startBlbTx->blob_name,
                                            startBlbTx->blob_version,
                                            startBlbTx->blob_mode,
-                                           startBlbTx->dmt_version);
+                                           startBlbTx->dmt_version,
+                                           /* TODO(Rao): Pass in proper opid.  This test will
+                                            * fail when volumegrouping is enabled 
+                                            */
+                                           0);
     dmBlobTxReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(startBlbTx->txId));
     dmBlobTxReq->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
     TIMEDBLOCK("start") {
@@ -69,7 +73,11 @@ void commitTxn(fds_volid_t volId, std::string blobName, int txnNum = 1) {
                                              commitBlbTx->blob_name,
                                              commitBlbTx->blob_version,
                                              commitBlbTx->dmt_version,
-                                             ++_global_seq_id);
+                                             ++_global_seq_id,
+                                             /* TODO(Rao): Pass in proper opid.  This test will
+                                              * fail when volumegrouping is enabled 
+                                              */
+                                             0);
     dmBlobTxReq1->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(commitBlbTx->txId));
     dmBlobTxReq1->cb =
             BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
@@ -172,10 +180,14 @@ void putBlobOnce(){
         fds::UpdateBlobInfoNoData(updcatMsg, MAX_OBJECT_SIZE, BLOB_SIZE);
 
         auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce<DmIoUpdateCatOnce>(dmTester->TESTVOLID,
-                                                          updcatMsg->blob_name,
-                                                          updcatMsg->blob_version,
-                                                          updcatMsg->dmt_version,
-                                                          _global_seq_id);
+                                    updcatMsg->blob_name,
+                                    updcatMsg->blob_version,
+                                    updcatMsg->dmt_version,
+                                    _global_seq_id,
+                                    /* TODO(Rao): Pass in proper opid.  This test will
+                                     * fail when volumegrouping is enabled 
+                                     */
+                                    0);
         dmCommitBlobOnceReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(updcatMsg->txId));
         dmCommitBlobOnceReq->cb =
             BIND_OBJ_CALLBACK(*cb.get(), DMCallback::handler, asyncHdr);

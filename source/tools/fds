@@ -36,7 +36,7 @@ BINDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/bin"
 TESTDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/tests"
 KODIR="${SOURCEDIR}/fds_client/blk_dev"
 RABBITDIR="/opt/fds-stats-deps/embedded/bin"
-STATSDIR="/opt/fds-stats/embedded"
+STATSDIR="/opt/fds/formation_one/packages/fds-stats-service-1.0.0"
 
 #######################################################################
 
@@ -63,10 +63,11 @@ apps["redis"]="redis-server"
 apps["influxdb"]="influxd"
 
 declare -A TESTS
-TESTS["restart-full"]="FullRestartMultiNodeTest.ini"
-TESTS["restart-simple"]="SimpleRestartMultiNodeTest.ini"
-TESTS["restart"]="SimpleRestartTest.ini"
-TESTS["smoke"]="BuildSmokeTest_onpr.ini"
+TESTS["restart-full"]="FullRestartMultiNodeTest"
+TESTS["restart-simple"]="SimpleRestartMultiNodeTest"
+TESTS["restart"]="SimpleRestartTest"
+TESTS["smoke"]="BuildSmokeTest_onpr"
+TESTS["4node"]="FourNodeStart"
 TESTS["unit"]="unit tests"
 
 function usage() {
@@ -221,7 +222,7 @@ function startApp() {
             loginfo "Starting RabbitMQ server..."
             PATH=$PATH:${RABBITDIR} rabbitmq-server start &
             loginfo "Starting stats service..."
-            ${STATSDIR}/scripts/fds-stats-service &
+            ${STATSDIR}/bin/fds-stats-service &
             ;;
     esac
 
@@ -726,13 +727,42 @@ function runTest() {
 
     if [[ -n $testname ]] && [[ ${TESTS[$testname]+1} ]]; then
         stopApp all
-        (cd ${TESTSUITEDIR}; ./ScenarioDriverSuite.py -q ${TESTS[$testname]})
+        runScenario ${TESTS[$testname]}
+        #(cd ${TESTSUITEDIR}; ./ScenarioDriverSuite.py -q ${TESTS[$testname]})
     else
         logerror "no matching tests for [$testname]"
         logwarn  "should be one of : "
         echo -e "${!TESTS[@]}" | tr " " "\n" | sort | sed -e "s/^/    - /g"
-
     fi
+}
+
+function runScenario() {
+    local SCENENAME="$1"
+    local SCENEDIR=${SOURCEDIR}/test/cfg
+    local SCENENAME="${SCENENAME%%.cfg}.cfg"
+    if [[ ! -f ${SCENEDIR}/${SCENENAME} ]]; then
+        logerror "unable to locate scenario : ${SCENENAME}"
+        exit 0
+    fi
+
+    local TEMPINIFILE=/tmp/${SCENENAME}.${UID}.ini
+
+    echo "
+[harness]
+# Parameters for Jenkins build on commit testing
+test_source_dir: ${SOURCEDIR}/test/testcases
+log_dir: ${SOURCEDIR}/cit
+log_level: 20
+stop_on_fail: True
+run_as_root: False
+threads: 1
+iterations: 1
+fds_config_file: ${SCENEDIR}/${SCENENAME}
+fds_source_dir: ${SOURCEDIR}
+" > ${TEMPINIFILE}
+
+(cd ${SOURCEDIR}/test/testsuites; ./ScenarioDriverSuite.py --reusecluster -q ${TEMPINIFILE})
+
 }
 
 function cleanlogs() {

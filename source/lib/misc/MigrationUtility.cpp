@@ -131,8 +131,7 @@ MigrationSeqNum::startProgressCheck(bool isLastNum)
 
     if (seqNumTimerEnabled) {
         if (!seqNumTimerStarted && !isLastNum) {
-        seqNumTimerTask = FdsTimerTaskPtr(new FdsTimerFunctionTask(*seqNumTimer,
-                                                                   std::bind(&MigrationSeqNum::checkProgress,
+        seqNumTimerTask = FdsTimerTaskPtr(new FdsTimerFunctionTask(std::bind(&MigrationSeqNum::checkProgress,
                                                                    this)));
         // Before the timer is set, just set the set time to curren time.
         lastSetTime = std::chrono::steady_clock::now();
@@ -354,8 +353,7 @@ MigrationDoubleSeqNum::startProgressCheck(bool isNum1Last, bool isNum2Last)
         if (!seqNumTimerStarted && (!isNum1Last && !isNum2Last)) {
             fds_assert(nullptr == seqNumTimerTask);
             seqNumTimerTask =
-                FdsTimerTaskPtr(new FdsTimerFunctionTask(*seqNumTimer,
-                                                         std::bind(&MigrationDoubleSeqNum::checkProgress,
+                FdsTimerTaskPtr(new FdsTimerFunctionTask(std::bind(&MigrationDoubleSeqNum::checkProgress,
                                                          this)));
             seqNumTimerStarted = true;
             return seqNumTimer->scheduleRepeated(seqNumTimerTask,

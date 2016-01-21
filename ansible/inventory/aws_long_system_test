@@ -11,30 +11,33 @@
 # The 'awo-bh-01' is necessary for now, as Ansible's wait_for and
 #  delegate_to modules don't play nice together at this time.
 localhost
-awo-bh-01 fds_deploy_local_deps=no
+awo-bh-01 fds_deploy_local_deps=no fds_build=release
 
-[matteo_ec2:vars]
-fds_log_severity=notification
-clean_fds=no
+[aws_long_system_test]
+10.3.20.11
+10.3.20.12
+10.3.20.13
+10.3.20.14
+#10.3.20.15
+#10.3.20.16
+#10.3.20.17
+#10.3.20.18
+
+[aws_long_system_test:vars]
+instance_count=4
 ansible_ssh_user=deploy
 cluster_location=awo
 deploy_artifact=nightly
 fds_build=release
 fds_default_nic=eth0
 fds_deploy_local_deps=no
-fds_om_host="{{ groups[group_names[0]][0] }}"
+fds_om_host=10.3.20.11
 fds_metrics_enabled=false
 fds_metricsdb_ip=192.168.2.1
 fds_ssh_user=root
 fds_ssh_password=passwd
-fds_ft_common_enable_multi_om_support=true
+fds_ft_common_enable_multi_om_support=false
 fds_om_host_count=3
-fds_om_influxdb_url="http://{{ fds_om_host }}:8086"
-fds_am_cache_max_volume_data=2000
-fds_am_cache_max_metadata_entries=26214400
-fds_dm_catalog_cache_size=16777216
-fds_dm_catalog_write_buffer_size=52428800
-fds_am_testing_am_testing_toggleDisableStreamingStats=true
-fds_sm_data_verify=false
-fds_sm_data_verify_background=false
-
+clean_fds=yes
+force=yes
+fds_only_install=yes

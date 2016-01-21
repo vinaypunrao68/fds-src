@@ -267,26 +267,27 @@ public class Node extends AbstractResource<Long> {
     private Map<ServiceType, List<Service>> serviceMap;
     private Size ssdCapacity;
     private Size diskCapacity;
+    private Size usedCapacity;
 
     protected Node() {}
 
     /**
-     *
-     * @param uid the node unique id
+     *  @param uid the node unique id
      * @param address the node address
      * @param state the current node state
      * @param diskCapacity the nodes disk capacity
      * @param ssdCapacity the node SSD capacity
+     * @param usedCapacity the node's used disk capacity
      * @param services the node's current service map
      */
-    public Node( Long uid, NodeAddress address, NodeState state,
-                 Size diskCapacity, Size ssdCapacity,
-                 Map<ServiceType, List<Service>> services ) {
+    public Node( Long uid, NodeAddress address, NodeState state, Size diskCapacity, Size ssdCapacity,
+                 final Size usedCapacity, Map<ServiceType, List<Service>> services ) {
         super( uid, address.getHostAddress() );
         this.address = address;
         this.state = state;
         this.diskCapacity = diskCapacity;
         this.ssdCapacity = ssdCapacity;
+        this.usedCapacity = usedCapacity;
         this.serviceMap = services;
     }
 
@@ -364,4 +365,9 @@ public class Node extends AbstractResource<Long> {
     public Size getDiskCapacity() {
         return diskCapacity;
     }
+
+    /**
+     * @return the Used disk capacity
+     */
+    public Size getUsedDiskCapacity() { return usedCapacity; }
 }

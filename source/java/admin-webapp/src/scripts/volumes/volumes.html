@@ -65,7 +65,7 @@
                             <sort-helper ng-model="sortPredicate" value="data_connector.type">{{ 'common.th_data_type' | translate }}</sort-helper>
                         </th>
                         <th ng-class="{ 'selected' : sortPredicate.indexOf( 'size' ) !== -1 }" tool-tip text="{{ 'volumes.tt_size' | translate }}">
-                            <sort-helper ng-model="sortPredicate" value="size">{{ 'volumes.th_capacity' | translate }}</sort-helper>
+                            <sort-helper ng-model="sortPredicate" value="size">{{ 'volumes.th_volume_usage' | translate }}</sort-helper>
                         </th>
                         <th ng-class="{ 'selected' : sortPredicate.indexOf( 'firebreak' ) !== -1 }" style="text-align: center;width: 52px;" tool-tip text="{{ 'volumes.tt_firebreak' | translate }}">
                             <sort-helper ng-model="sortPredicate" value="firebreak">

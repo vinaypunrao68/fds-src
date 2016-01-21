@@ -176,7 +176,8 @@ DmTimeVolCatalog::openVolume(fds_volid_t const volId,
                              fpi::SvcUuid const& client_uuid,
                              fds_int64_t& token,
                              fpi::VolumeAccessMode const& mode,
-                             sequence_id_t& sequence_id) {
+                             sequence_id_t& sequence_id,
+                             int32_t &version) {
     Error err = ERR_OK;
     /**
      * FEATURE TOGGLE: Volume Open Support
@@ -196,7 +197,9 @@ DmTimeVolCatalog::openVolume(fds_volid_t const volId,
         }
     }
 
-    sequence_id = dataManager_.getVolumeMeta(volId, false)->getSequenceId();
+    auto volumeMeta = dataManager_.getVolumeMeta(volId, false);
+    sequence_id = volumeMeta->getSequenceId();
+    version = volumeMeta->getVersion();
 
     return err;
 }
@@ -312,7 +315,7 @@ DmTimeVolCatalog::incrObjRefCount(fds_volid_t srcVolId, fds_volid_t destVolId,
     const DLT * dlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
     fds_verify(dlt);
 
-    auto asyncReq = gSvcRequestPool->newQuorumSvcRequest(
+    auto asyncReq = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->newQuorumSvcRequest(
         boost::make_shared<DltObjectIdEpProvider>(dlt->getNodes(token)));
     asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::AddObjectRefMsg), addObjReq);
     asyncReq->setTimeoutMs(10000);
@@ -329,6 +332,10 @@ DmTimeVolCatalog::activateVolume(fds_volid_t volId) {
 Error
 DmTimeVolCatalog::markVolumeDeleted(fds_volid_t volId) {
     auto vol = volcat->getVolume(volId);
+
+    if (vol == NULL)
+       return ERR_VOL_NOT_FOUND;                                   \
+
     if (!vol->isSnapshot() && isPendingTx(volId, 0)) return ERR_VOL_NOT_EMPTY;
     Error err = volcat->markVolumeDeleted(volId);
     if (err.ok()) {

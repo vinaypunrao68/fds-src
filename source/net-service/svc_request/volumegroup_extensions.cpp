@@ -13,10 +13,10 @@ const int32_t VolumeGroupConstants::VERSION_START;
 std::string logString(const fpi::VolumeIoHdr &hdr)
 {
     std::stringstream ss;
-    ss << " volumeId: " << hdr.groupId
-        << " versionId: " << hdr.version
-        << " opId: " << hdr.opId
-        << " commitId: " << hdr.commitId;
+    ss << " volumeid: " << hdr.groupId
+        << " versionid: " << hdr.version
+        << " opid: " << hdr.opId
+        << " commitid: " << hdr.commitId;
     return ss.str();
 }
 
@@ -37,11 +37,11 @@ std::string logString(const fpi::CommitTxMsg& msg)
 
 std::string logString(const fpi::AddToVolumeGroupCtrlMsg& msg) {
     std::stringstream ss;
-    ss << " targetState: " << msg.targetState
-        << " groupId: " << msg.groupId
-        << " replicaVersion: " << msg.replicaVersion
+    ss << " targetstate: " << msg.targetState
+        << " groupid: " << msg.groupId
+        << " replicaversion: " << msg.replicaVersion
         << " svcUuid: " << msg.svcUuid.svc_uuid
-        << " lastOpId: " << msg.lastOpId
+        << " lastopid: " << msg.lastOpId
         << " lastCommitId: " << msg.lastCommitId;
     return ss.str();
 }
@@ -70,7 +70,7 @@ std::string logString(const fpi::VolumeGroupInfo &group)
 std::string logString(const fpi::AddToVolumeGroupRespCtrlMsg& msg)
 {
     std::stringstream ss;
-    ss << "AddToVolumeGroupRespCtrlMsg groupId: " << fds::logString(msg.group);
+    ss << "AddToVolumeGroupRespCtrlMsg groupid: " << fds::logString(msg.group);
     return ss.str();
 }
 }  // namespace fds

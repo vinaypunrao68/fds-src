@@ -42,7 +42,7 @@ angular.module( 'activity-management' ).factory( '$activity_service', [ '$http_f
         }
     };
     
-    service.getActivities = function( filter, callback ){
+    service.getActivities = function( filter, success, failure ){
         
         // if no ordering info is there, use this as the default
         if ( !angular.isDefined( filter.orderBys ) ){
@@ -55,10 +55,10 @@ angular.module( 'activity-management' ).factory( '$activity_service', [ '$http_f
             ];
         }
         
-        return $http_fds.put( webPrefix + '/events', filter, callback );
+        return $http_fds.put( webPrefix + '/events', filter, success, failure );
     };
     
-    service.getSystemHealth = function( callback ){
+    service.getSystemHealth = function( success, failure ){
         
 //        var health = {
 //            status: [
@@ -81,8 +81,8 @@ angular.module( 'activity-management' ).factory( '$activity_service', [ '$http_f
 //            overall: 'EXCELLENT'
 //        };
 //        
-//        callback( health );
-        return $http_fds.get( webPrefix + '/systemhealth', callback );
+//        success( health );
+        return $http_fds.get( webPrefix + '/systemhealth', success, failure );
     };
 
     return service;

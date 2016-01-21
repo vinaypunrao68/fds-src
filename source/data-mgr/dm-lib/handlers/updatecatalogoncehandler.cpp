@@ -34,7 +34,8 @@ void UpdateCatalogOnceHandler::handleRequest(
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
     fds_volid_t volId(message->volume_id);
-    auto err = preEnqueueWriteOpHandling(volId, asyncHdr, PlatNetSvcHandler::threadLocalPayloadBuf);
+    auto err = preEnqueueWriteOpHandling(volId, message->opId,
+                                         asyncHdr, PlatNetSvcHandler::threadLocalPayloadBuf);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
@@ -49,7 +50,8 @@ void UpdateCatalogOnceHandler::handleRequest(
                                                                          message->blob_name,
                                                                          message->blob_version,
                                                                          message->dmt_version,
-                                                                         message->sequence_id);
+                                                                         message->sequence_id,
+                                                                         message->opId);
     dmCommitBlobOnceReq->cb =
             BIND_MSG_CALLBACK(UpdateCatalogOnceHandler::handleCommitBlobOnceResponse, asyncHdr);
 

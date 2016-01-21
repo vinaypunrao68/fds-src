@@ -20,6 +20,9 @@ import time
 from fdscli.model.fds_error import FdsError
 from fdslib.TestUtils import node_is_up
 from fabric.contrib.files import *
+from fdslib.TestUtils import disconnect_fabric
+from fdslib.TestUtils import connect_fabric
+from fdslib.TestUtils import get_log_count_dict
 
 # This class contains the attributes and methods to test
 # activation of an FDS domain starting the same, specified
@@ -237,78 +240,6 @@ class TestNodeActivate(TestCase.FDSTestCase):
             if self.passedNode is not None:
                 # If we were passed a specific node, exit now.
                 return True
-
-        return True
-
-
-# This class contains the attributes and methods to test
-# services removal of nodes. (I.e. remove the node from
-# the domain.)
-class TestNodeRemoveServices(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None):
-        super(self.__class__, self).__init__(parameters,
-                                             self.__class__.__name__,
-                                             self.test_NodeRemoveService,
-                                             "Node services removal")
-
-        self.passedNode = node
-
-    def test_NodeRemoveService(self):
-        """
-        Test Case:
-        Attempt to remove the services of nodes from a domain.
-        """
-
-        # Get the FdsConfigRun object for this test.
-        fdscfg = self.parameters["fdscfg"]
-        om_node = fdscfg.rt_om_node
-
-        nodes = fdscfg.rt_obj.cfg_nodes
-        om_ip = om_node.nd_conf_dict['ip']
-        for n in nodes:
-        # If we were provided a node, deactivate that one and exit.
-            if self.passedNode is not None:
-                n = self.passedNode
-
-            status = n.nd_populate_metadata(om_node=om_node)
-            if status != 0:
-                self.log.error("Getting meta-data for node %s returned status %d." %
-                               (n.nd_conf_dict['node-name'], status))
-                return False
-
-            self.log.info("Removing node %s. " % n.nd_conf_dict['node-name'])
-
-            status = n.nd_populate_metadata(om_node=om_node)
-            if status != 0:
-                self.log.error("Getting meta-data for node %s returned status %d." %
-                    (n.nd_conf_dict['node-name'], status))
-                return False
-
-            node_id = int(n.nd_uuid, 16)
-            # Prevent scenario where we try to remove a node that was never online
-            if not node_is_up(self,om_ip,node_id):
-                self.log.info("Selected node {} is not UP. Ignoring "
-                                     "command to remove node".format(n.nd_conf_dict['node-name']))
-                continue
-
-            node_service = get_node_service(self,om_ip)
-            node_remove = node_service.remove_node(node_id)
-
-            #check node state after remove_node
-            node_state = node_service.get_node(node_id)
-            service_list = ['PM']
-            for service_name in service_list:
-                if (node_state.services['{}'.format(service_name)][0].status.state != "RUNNING") and node_state.state != 'UP':
-                    self.log.warn("FAILED:  Expected Node service=RUNNING, Returned node service={}".format(node_state.services['{}'.format(service_name)][0].status.state))
-                    return False
-
-            if isinstance(node_remove, FdsError) :
-                self.log.error("Removal of node %s returned status %s." %
-                               (n.nd_conf_dict['node-name'], node_remove))
-                return False
-            elif self.passedNode is not None:
-                # If we were passed a specific node, exit now.
-                break
 
         return True
 
@@ -574,32 +505,116 @@ class TestRemoveDisk(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
+# node removal from domain and verifying node is in good state after removal.
+class TestNodeRemove(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None, service_list=None, logentry_list=None, maxwait=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_NodeRemove,
+                                             "Remove a node from domain")
+
+        self.passedNode = node
+        self.passedService_list = service_list
+        self.passedLogentry_list = logentry_list
+        self.maxwait = maxwait
+
+    def test_NodeRemove(self):
+        service_list = self.passedService_list
+        log_entry_list = self.passedLogentry_list
+        om_node = self.parameters["fdscfg"].rt_om_node
+        node_ip = self.passedNode.nd_conf_dict['ip']
+
+        # store passed log entry count before removing a node
+        pre_remove_count = get_log_count_dict(self,om_node.nd_conf_dict['ip'], node_ip, service_list, log_entry_list)
+
+        self.log.info("Removing %s from domain." % self.passedNode.nd_conf_dict['ip'])
+        node_service = get_node_service(self,om_node.nd_conf_dict['ip'])
+
+        assert self.passedNode.nd_populate_metadata(om_node=om_node) is 0
+        node_id = int(self.passedNode.nd_uuid, 16)
+        remove_node_status = node_service.remove_node(node_id)
+        if isinstance(remove_node_status, FdsError) or type(remove_node_status).__name__ == 'FdsError':
+            return False
+        else:
+            node = node_service.get_node(node_id)
+            assert str(node.state) == 'DISCOVERED'
+            verify_remove = verify_with_logs(self, node_ip, service_list, log_entry_list, self.maxwait, pre_remove_count)
+            return True if verify_remove else False
+
+
+# This class contains the attributes and methods to test
 # rebooting node (I.e. node shuts down and comes back up again)
 class TestNodeReboot(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None):
+    def __init__(self, parameters=None, node_ip=None, service_list=None, logentry_list=None, maxwait =None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_NodeReboot,
                                              "Reboot a node")
 
-        self.passedNode = node
+        self.passedNode_ip = node_ip
+        self.passedService_list = service_list
+        self.passedLogentry_list = logentry_list
+        self.maxwait = maxwait
 
     def test_NodeReboot(self):
         """
         Test Case:
         Attempt to reboot a given node.
         """
-        env.user='root'
-        env.password='passwd'
-        env.host_string = self.passedNode.nd_conf_dict['ip']
-        internal_ip = run("hostname")
-        # Fabric is unable to resolve internal ip, so add IP in /etc/hosts
-        print("internal_ip[%s]" % internal_ip)
-        sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
+        service_list = self.passedService_list
+        log_entry_list = self.passedLogentry_list
+        node_ip = self.passedNode_ip
+        om_node = self.parameters["fdscfg"].rt_om_node
 
-        # Get the FdsConfigRun object for this test.
-        sudo("reboot")
-        return True
+        pre_reboot_count = get_log_count_dict(self,om_node.nd_conf_dict['ip'],node_ip,service_list,log_entry_list)
+        self.log.info("%s is going down for reboot NOW!" % self.passedNode_ip)
+        assert connect_fabric(self, node_ip) is True
+        run('reboot')
+        disconnect_fabric()
+
+        # This if will confirm that node is back up again after reboot
+        if not connect_fabric(self, node_ip):
+            return False
+        else:
+            verify_reboot = verify_with_logs(self, node_ip, service_list, log_entry_list, self.maxwait, pre_reboot_count)
+            return True if verify_reboot else False
+
+
+# This method to verifies if node is in good state for IO after reboot
+# by confirming passed log entry count has increased after reboot.
+def verify_with_logs(self, node_ip, service_list, log_entry_list, maxwait, pre_count_dict):
+    assert connect_fabric(self, node_ip) is True
+    disconnect_fabric()
+    wait_for_log_time = maxwait  # It's in minutes
+    om_node = self.parameters["fdscfg"].rt_om_node
+
+    # Given wait time is in minutes, if logs after reboot are not greater than logs before reboot then
+    # we sleep for 30 secs and check again, hence wait_for_log_time is multiplied by 2
+    for i in range(0, wait_for_log_time * 2):
+        post_count_dict = get_log_count_dict(self,om_node.nd_conf_dict['ip'],node_ip, service_list, log_entry_list)
+        post_list = list(post_count_dict.values())
+        pre_list = list(pre_count_dict.values())
+        status = False
+        for i in range(len(pre_list)):
+            if not post_list[i] > pre_list[i]:
+                status = False
+                break
+            else:
+                status = True
+                continue
+
+        if status:
+            self.log.info("SUCCESS. For log_entry_list %s -  post_reboot_count: %s , pre_reboot_count: %s "
+                          % (log_entry_list,post_list, pre_list))
+            return True
+        else:
+            # before rechecking logs wait for 30 sec
+            time.sleep(30)
+            print 'Rechecking logs .. '
+            continue
+    self.log.error('FAILED. Log verification failed after %s min retires too.' %maxwait)
+    return False
+
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)

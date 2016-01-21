@@ -182,7 +182,9 @@ struct ConfigDB : KVStore {
     bool deleteSnapshot(fds_volid_t const volumeId, fds_volid_t const snapshotId);
     bool setSnapshotState(fpi::Snapshot& snapshot , fpi::ResourceState state);
     bool setSnapshotState(fds_volid_t const volumeId, fds_volid_t const snapshotId, fpi::ResourceState state); //NOLINT
-   bool listSnapshots(std::vector<fpi::Snapshot> & _return, fds_volid_t const volumeId); //NOLINT
+    bool listSnapshots(std::vector<fpi::Snapshot> & _return, fds_volid_t const volumeId); //NOLINT
+
+    bool setCapacityUsedNode( const int64_t svcUuid, const unsigned long usedCapacityInBytes );
 
     // Subscriptions
     fds_subid_t getNewSubscriptionId();

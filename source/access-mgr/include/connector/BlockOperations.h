@@ -4,7 +4,6 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCKOPERATIONS_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCKOPERATIONS_H_
 
-#include <deque>
 #include <map>
 #include <string>
 #include <unordered_map>
@@ -76,8 +75,6 @@ class BlockOperations
               task_type* resp);
 
     void read(task_type* resp);
-    void read(uint32_t length, uint64_t offset, int64_t handle);
-
     void write(req_api_type::shared_buffer_type& bytes, task_type* resp);
 
     void attachVolumeResp(const error_type &error,
@@ -125,8 +122,7 @@ class BlockOperations
     boost::shared_ptr<int32_t> blobMode;
     boost::shared_ptr< std::map<std::string, std::string> > emptyMeta;
 
-    // for now we are supporting <=4K requests
-    // so keep current handles for which we are waiting responses
+    // keep current handles for which we are waiting responses
     std::mutex respLock;
     response_map_type responses;
 
@@ -146,6 +142,8 @@ class BlockOperations
     void volumeStatusResp      (const error_type &, handle_type const&, resp_api_type::shared_status_type&) override {}  // NOLINT
     void setVolumeMetadataResp (const error_type &, handle_type const&) override {}  // NOLINT
     void getVolumeMetadataResp (const error_type &, handle_type const&, resp_api_type::shared_meta_type&) override {}  // NOLINT
+
+    void retryLoop();
 };
 
 }  // namespace fds

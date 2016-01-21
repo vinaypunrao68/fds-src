@@ -1,5 +1,6 @@
 package com.formationds.nfs;
 
+import org.apache.log4j.Logger;
 import org.dcache.nfs.status.NoEntException;
 import org.dcache.nfs.vfs.FileHandle;
 import org.dcache.nfs.vfs.Inode;
@@ -8,10 +9,11 @@ import org.dcache.nfs.vfs.Stat;
 import javax.security.auth.Subject;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Map;
 import java.util.Optional;
 
 public class InodeMap {
+    private static final Logger LOG = Logger.getLogger(InodeMap.class);
+
     private final TransactionalIo io;
     private PersistentCounter usedBytes;
     private PersistentCounter usedFiles;
@@ -45,8 +47,13 @@ public class InodeMap {
         String blobName = blobName(inode);
         String volumeName = volumeName(inode);
 
-        Optional<Map<String, String>> currentValue = io.mapMetadata(XdiVfs.DOMAIN, volumeName, blobName, (name, x) -> x);
-        return currentValue.map(m -> new InodeMetadata(m));
+        return io.mapMetadata(XdiVfs.DOMAIN, volumeName, blobName, (name, om) -> {
+            if (om.isPresent() && om.get().size() == 0) {
+                LOG.error("Metadata for inode-" + InodeMetadata.fileId(inode) + " is empty!");
+                throw new NoEntException();
+            }
+            return om.map(m -> new InodeMetadata(m));
+        });
     }
 
     public static String blobName(Inode inode) {
@@ -58,11 +65,21 @@ public class InodeMap {
     }
 
     public long usedBytes(String volume) throws IOException {
-        return usedBytes.currentValue(volume);
+        try {
+            return usedBytes.currentValue(volume);
+        } catch (IOException e) {
+            LOG.error("Error polling " + volume + ".usedBytes", e);
+            return 0;
+        }
     }
 
     public long usedFiles(String volume) throws IOException {
-        return usedFiles.currentValue(volume);
+        try {
+            return usedFiles.currentValue(volume);
+        } catch (IOException e) {
+            LOG.error("Error polling " + volume + ".usedFiles", e);
+            return 0;
+        }
     }
 
     public InodeMetadata write(Inode inode, byte[] data, long offset, int count) throws IOException {

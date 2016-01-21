@@ -953,14 +953,12 @@ class TestAWSDMRemove(TestCase.FDSTestCase):
             ret_status = dm_obj.remove(node_ip)
 
             if ret_status:
-                status = 0
-
-            if (status != 0):
-                return False
+                break
             elif self.passedNode is not None:
                 # We took care of the one node. Get out.
                 break
-
+            else:
+                return False
         return True
 
 

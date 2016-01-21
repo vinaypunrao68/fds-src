@@ -83,6 +83,7 @@ Handler::~Handler() {
 }
 
 Error Handler::preEnqueueWriteOpHandling(const fds_volid_t &volId,
+                                         const int64_t &opId,
                                          const fpi::AsyncHdrPtr &hdr,
                                          const SHPTR<std::string> &payload)
 {
@@ -94,9 +95,9 @@ Error Handler::preEnqueueWriteOpHandling(const fds_volid_t &volId,
     if (volMeta->isActive()) {
         return ERR_OK;
     } else if (volMeta->isSyncing()) {
-        if (!volMeta->isReplayOp(hdr->payloadHdr))  {
+        if (!volMeta->isReplayOp(hdr))  {
             Error e = volMeta->initializer->tryAndBufferIo(
-                std::make_pair(hdr->msg_type_id, payload));
+                BufferReplay::Op{opId, hdr->msg_type_id, payload});
             if (e.ok()) {
                 return ERR_WRITE_OP_BUFFERED;
             } else if (e == ERR_UNAVAILABLE) {

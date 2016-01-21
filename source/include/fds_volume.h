@@ -71,8 +71,7 @@ class VolumeDesc : public HasState {
     // Advanced settings
     int                    writeQuorum;  // Quorum number of writes for success
     int                    readQuorum;  // This will be 1 for now
-    FDS_ProtocolInterface::FDSP_ConsisProtoType
-    consisProtocol;  // Read-Write consistency protocol
+    FDS_ProtocolInterface::FDSP_ConsisProtoType consisProtocol;  // Read-Write consistency protocol
     // Other policies
     int                    volPolicyId;
     int                    archivePolicyId;
@@ -202,7 +201,7 @@ class FDS_Volume {
         else
             return false;
     }
-    ~FDS_Volume();
+    virtual ~FDS_Volume();
 };
 
 /**

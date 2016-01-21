@@ -4,8 +4,9 @@
 
 package com.formationds.om.helper;
 
-import com.formationds.apis.XdiService;
+import com.formationds.xdi.AsyncAm;
 
+import java.io.IOException;
 import java.io.Serializable;
 
 /**
@@ -40,19 +41,26 @@ public class SingletonAmAPI
         return instance();
     }
 
-    private transient XdiService.Iface api;
+    private transient AsyncAm api;
 
     /**
-     * @param api the {@link XdiService.Iface} representing the AM api
+     * @param api the {@link AsyncAm} representing the async AM api
      */
-    public void api( final XdiService.Iface api ) {
+    public void api( final AsyncAm api ) {
         this.api = api;
+
+        try {
+            api.start();
+        } catch (IOException e) {
+            System.out.println(e.toString());
+            this.api = null;
+        }
     }
 
     /**
-     * @return Returns the {@link XdiService.Iface} representing the AM api
+     * @return Returns the {@link AsyncAm} representing the AM api
      */
-    public XdiService.Iface api() {
+    public AsyncAm api() {
         return this.api;
     }
 }

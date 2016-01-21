@@ -8,6 +8,7 @@ import com.formationds.client.v08.model.ServiceType;
 import com.formationds.client.v08.model.Size;
 import com.formationds.client.v08.model.SizeUnit;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.redis.RedisSingleton;
 import com.formationds.protocol.svc.types.FDSP_MgrIdType;
 import com.formationds.protocol.svc.types.FDSP_NodeState;
 import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
@@ -24,7 +25,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 
 import static com.formationds.client.v08.model.Service.ServiceState;
 import static com.formationds.client.v08.model.Service.ServiceStatus;
@@ -109,11 +109,12 @@ public class PlatformModelConverter
     Size ssdCapacityInGB = Size.of( Double.valueOf( PM.getProps()
                                                       .getOrDefault( "ssd_capacity", "0" ) ),
                                     SizeUnit.GB );
+    Size usedCapacityInGB = RedisSingleton.INSTANCE.api().getDomainUsedCapacity();
 
     Size diskCapacity = Size.of( diskCapacityInGB.getValue( SizeUnit.MB ), SizeUnit.MB );
     Size ssdCapacity = Size.of( ssdCapacityInGB.getValue( SizeUnit.MB ), SizeUnit.MB );
 
-    return new Node( nodeId, address, state, diskCapacity, ssdCapacity, services );
+    return new Node( nodeId, address, state, diskCapacity, ssdCapacity, usedCapacityInGB, services );
   }
 
   /**
@@ -257,7 +258,7 @@ public class PlatformModelConverter
 		case NOT_RUNNING:
 		case ERROR:
 		case UNEXPECTED_EXIT:
-			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INACTIVE;
+			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INACTIVE_FAILED;
 			break;
 		case UNREACHABLE:
 			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INVALID;
