@@ -1223,6 +1223,12 @@ namespace fds
             return uuid.uuid_get_val();
         }
 
+        NodeUuid PlatformManager::getUUID ()
+        {
+            fds_uint64_t node_uuid = getNodeUUID(fpi::FDSP_PLATFORM);
+            return NodeUuid(node_uuid);
+        }
+
         void PlatformManager::startQueueMonitor()
         {
             LOGDEBUG << "Starting thread for PlatformManager::startQueueMonitor()";
@@ -1518,7 +1524,7 @@ namespace fds
                     break;
                 }
 
-                LOGNORMAL << "dev " << dev << ", path " << path << ", uuid " << uuid << ", idx " << idx;
+                LOGTRACE << "dev " << dev << ", path " << path << ", uuid " << uuid << ", idx " << idx;
                 if ( strstr( path.c_str(), "hdd" ) != NULL && strstr( path.c_str(), "ssd" ) != NULL )
                 {
                     LOGWARN << "Unknown path: " << path.c_str() ;

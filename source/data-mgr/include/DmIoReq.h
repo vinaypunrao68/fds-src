@@ -20,6 +20,7 @@
 #include <fdsp/dm_api_types.h>
 #include <fdsp/fds_stream_types.h>
 #include <net/PlatNetSvcHandler.h>
+#include <net/volumegroup_extensions.h>
 #include <PerfTrace.h>
 
 #define FdsDmSysTaskId      fds_volid_t(0x8fffffff)
@@ -65,6 +66,7 @@ class DmRequest : public FDS_IOType {
     std::string session_uuid;
     BlobTxId::const_ptr blobTxId;
     int64_t             opId;
+    int32_t             version;
     std::function<void(const Error &e, DmRequest *dmRequest)> cb = NULL;
     std::function<void(DmRequest * req)> proc = NULL;
 
@@ -73,11 +75,14 @@ class DmRequest : public FDS_IOType {
     fpi::FDSPMsgTypeId          respMessageType; 
 
     DmRequest(fds_volid_t  _volId,
-              const std::string &_blobName,
-              std::string  _session_uuid,
-              blob_version_t _blob_version,
-              fds_io_op_t  _ioType)
-            : volId(_volId), blob_name(_blobName), session_uuid(_session_uuid) {
+             const std::string &_blobName,
+             std::string  _session_uuid,
+             blob_version_t _blob_version,
+             fds_io_op_t  _ioType)
+            : volId(_volId),
+              blob_name(_blobName),
+              session_uuid(_session_uuid),
+              version(VolumeGroupConstants::VERSION_INVALID) {
         io_req_id = 0;
         io_type = _ioType;
         io_vol_id = _volId;

@@ -178,7 +178,7 @@ std::string logString(const fpi::CtrlNotifyFinishMigrationMsg &msg)
 std::string logString(const fpi::CtrlNotifyInitialBlobFilterSetMsg &msg)
 {
 	std::ostringstream oss;
-	oss << " CtrlNotifyInitialBlobFilterSetMsg Vol Id: " << msg.volumeId;
+	oss << " CtrlNotifyInitialBlobFilterSetMsg Vol Id: " << msg.volume_id;
 	return oss.str();
 }
 

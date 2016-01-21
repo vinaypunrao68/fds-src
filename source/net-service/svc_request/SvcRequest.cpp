@@ -892,24 +892,32 @@ void QuorumSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
     if (bSuccess) {
         ++successAckd_;
     } else {
+        if (ERR_OK == response_) {
+            response_ = header->msg_code;
+        }
         ++errorAckd_;
     }
 
     /* Take action based on the ack counts */
     if (successAckd_ == quorumCnt_) {
-        complete(ERR_OK);
         if (respCb_) {
             SVCPERF(ts.rspHndlrTs = util::getTimeStampNanos());
             respCb_(this, ERR_OK, payload);
+            respCb_ = nullptr;
         }
         MODULEPROVIDER()->getSvcMgr()->getSvcRequestCntrs()->appsuccess.incr();
     } else if (errorAckd_ > (epReqs_.size() - quorumCnt_)) {
-        complete(ERR_SVC_REQUEST_FAILED);
         if (respCb_) {
-            /* NOTE: We are using last failure code in this case */
-            respCb_(this, header->msg_code, payload);
+            /* NOTE: We are using first non-ERR_OK code in this case */
+            respCb_(this, response_, payload);
+            respCb_ = nullptr;
         }
         MODULEPROVIDER()->getSvcMgr()->getSvcRequestCntrs()->apperrors.incr();
+    }
+
+    if (successAckd_+ errorAckd_ == epReqs_.size()) {
+        /* Recevied all responses */
+        complete(response_);
     }
 }
 

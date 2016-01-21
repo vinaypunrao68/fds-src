@@ -93,6 +93,8 @@ namespace fds
                  */
                 void updateServiceInfoProperties (std::map<std::string, std::string> *data);
 
+                NodeUuid getUUID();
+
             protected:
                 fds_uint64_t getNodeUUID (fpi::FDSP_MgrIdType svcType);
 

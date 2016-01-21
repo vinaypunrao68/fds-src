@@ -27,7 +27,8 @@ public:
                    DmMigrationClientDoneHandler _handle,
                    migrationCb _cleanup,
                    uint64_t _maxDeltaBlobs,
-                   uint64_t _maxDeltaBlobDesc);
+                   uint64_t _maxDeltaBlobDesc,
+                   int32_t _version);
     ~DmMigrationSrc();
     void abortMigration() override;
     void run() override;

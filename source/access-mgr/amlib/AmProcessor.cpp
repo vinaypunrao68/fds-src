@@ -326,6 +326,11 @@ Error AmProcessor::modifyVolumePolicy(const VolumeDesc& vdesc)
     }
     return err;
 }
+void AmProcessor::addToVolumeGroup(const FDS_ProtocolInterface::AddToVolumeGroupCtrlMsgPtr &addMsg,
+                                   const AddToVolumeGroupCb &cb)
+{
+    _impl->addToVolumeGroup(addMsg, cb);
+}
 
 void AmProcessor::registerVolume(const VolumeDesc& volDesc)
 { return _impl->registerVolume(volDesc); }

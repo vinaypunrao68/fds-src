@@ -67,7 +67,7 @@ namespace fds
             virtual void dsk_admit_all();
             virtual void dsk_mount_all();
             virtual bool disk_read_capabilities(DiskCapabilitiesMgr *mgr);
-            virtual void disk_reconcile_label(DiskLabelMgr *mgr);
+            virtual void disk_reconcile_label(DiskLabelMgr *mgr, NodeUuid node_uuid);
 
             virtual void clear_inventory();
     };
