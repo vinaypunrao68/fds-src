@@ -535,7 +535,7 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
         }
     }
     for (auto& badDiskId : badDisks) {
-        LOGDEBUG << "Disk with diskId = " << badDiskId << " is unaccessible";
+        LOGWARN << "Disk with diskId = " << badDiskId << " is unaccessible";
         markDiskBad(badDiskId);
         HDDs.erase(badDiskId);
         diskMap.erase(badDiskId);
@@ -551,7 +551,7 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
         }
     }
     for (auto& badDiskId : badDisks) {
-        LOGDEBUG << "Disk with diskId = " << badDiskId << " is unaccessible";
+        LOGWARN << "Disk with diskId = " << badDiskId << " is unaccessible";
         markDiskBad(badDiskId);
         SSDs.erase(badDiskId);
         diskMap.erase(badDiskId);

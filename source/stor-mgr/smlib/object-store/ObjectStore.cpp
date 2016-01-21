@@ -250,9 +250,9 @@ ObjectStore::initObjectStoreMediaErrorHandlers() {
  */
 Error
 ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& tier) {
-    LOGDEBUG << "Handling disk failure for disk=" << diskId << " tier=" << tier;
+    LOGNOTIFY << "Handling disk failure for disk=" << diskId << " tier=" << tier;
     if (diskMap->isDiskOffline(diskId)) {
-        LOGDEBUG << "Disk " << diskId << " failure is already handled";
+        LOGNORMAL << "Disk " << diskId << " failure is already handled";
         return ERR_OK;
     }
     diskMap->makeDiskOffline(diskId);
@@ -282,7 +282,7 @@ ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& ti
     }
     Error err = openStore(lostTokens);
     if (!err.ok()) {
-        LOGDEBUG << "Error opening metadata and data stores for redistributed tokens." << err;
+        LOGERROR << "Error opening metadata and data stores for redistributed tokens." << err;
     }
 
     if (requestResyncFn) {
