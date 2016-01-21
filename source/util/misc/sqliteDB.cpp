@@ -27,7 +27,7 @@ void SqliteDB::logOnError(const int &errorCode, const std::string &msg) {
     if (errorCode != SQLITE_OK) {
         LOGERROR << "code:" << errorCode
                  << " errmsg:" << sqlite3_errmsg(db)
-                 << " msg:" << query;
+                 << " msg:" << msg;
     }
 }
 
