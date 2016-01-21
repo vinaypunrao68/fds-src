@@ -20,9 +20,9 @@ import socket
 from fdscli.services.fds_auth import *
 from fdscli.model.volume.settings.object_settings import ObjectSettings
 from fdscli.model.volume.settings.block_settings import BlockSettings
+from fdscli.model.volume.settings.nfs_settings import NfsSettings
 from fdscli.model.common.size import Size
 from fdscli.model.volume.volume import Volume
-from fdscli.model.platform.service import Service
 from fdscli.services.volume_service import VolumeService
 from fdscli.model.volume.qos_policy import QosPolicy
 from fdscli.services.node_service import NodeService
@@ -457,6 +457,12 @@ def convertor(volume, fdscfg):
                 raise Exception('Volume section %s must have "size" keyword.' % volume.nd_conf_dict['vol-name'])
             access = BlockSettings()
             access.capacity = Size( size = volume.nd_conf_dict['size'], unit = 'B')
+        elif access == 'nfs':
+            if 'size' not in volume.nd_conf_dict:
+                raise Exception('Volume section %s must have "size" keyword.' % volume.nd_conf_dict['vol-name'])
+            access = NfsSettings()
+            access.max_object_size = Size( size = volume.nd_conf_dict['size'], unit = 'B')
+
     new_volume.settings = access
     if 'policy' in volume.nd_conf_dict:
         #Set QOS policy which is defined is volume definition.
@@ -573,3 +579,13 @@ def core_hunter_aws(self,node_ip):
                     self.log.error("Core file %s detected at node %s:%s"%(file,node_ip,dir))
                     return 0
     return 1
+
+# Returns a path to the named resource. Does not validate that the resource exists.
+def get_resource(self, resource):
+
+    fdscfg = self.parameters["fdscfg"]
+    resourceDir = fdscfg.rt_env.get_fds_source() + "test/testsuites/resources/"
+
+    self.log.debug("Retrieving resource {}.".format(resourceDir + resource))
+
+    return resourceDir + resource
