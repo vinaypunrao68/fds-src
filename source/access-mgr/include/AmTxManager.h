@@ -132,7 +132,8 @@ struct AmTxManager :
     Error updateStagedBlobOffset(const BlobTxId &txId,
                                  const std::string &blobName,
                                  fds_uint64_t blobOffset,
-                                 const ObjectID &objectId);
+                                 const ObjectID &objectId,
+                                 const size_t length);
 
     Error updateStagedBlobDesc(const BlobTxId &txId,
                                fpi::FDSP_MetaDataList const& metaDataList);

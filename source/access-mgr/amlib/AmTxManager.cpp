@@ -104,7 +104,8 @@ Error
 AmTxManager::updateStagedBlobOffset(const BlobTxId &txId,
                                     const std::string &blobName,
                                     fds_uint64_t blobOffset,
-                                    const ObjectID &objectId) {
+                                    const ObjectID &objectId,
+                                    size_t const length) {
     SCOPEDREAD(txMapLock);
     TxMap::iterator txMapIt = txMap.find(txId);
     if (txMapIt == txMap.end()) {
@@ -119,7 +120,7 @@ AmTxManager::updateStagedBlobOffset(const BlobTxId &txId,
     fds_verify(txMapIt->second->stagedBlobOffsets.count(offsetPair) == 0);
 
     if (txMapIt->second->stagedBlobOffsets.size() < maxStagedEntries) {
-        txMapIt->second->stagedBlobOffsets[offsetPair] = objectId;
+        txMapIt->second->stagedBlobOffsets[offsetPair] = std::make_pair(objectId, length);
     }
 
     return ERR_OK;
@@ -222,15 +223,35 @@ AmTxManager::startBlobTxCb(AmRequest * amReq, Error const error) {
 void
 AmTxManager::commitBlobTx(AmRequest *amReq) {
     auto blobReq = static_cast<CommitBlobTxReq*>(amReq);
-    Error err { ERR_NOT_IMPLEMENTED };
-    if (!all_atomic_ops) {
-        err = getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
-        if (err.ok()) {
+    auto const& txId = *blobReq->tx_desc;
+    Error err = getTxDmtVersion(txId, &(blobReq->dmt_version));
+    if (err.ok()) {
+        if (!all_atomic_ops) {
             AmDataProvider::commitBlobTx(blobReq);
             return;
+        } else {
+            auto catUpdateReq = new UpdateCatalogReq(blobReq);
+            SCOPEDREAD(txMapLock);
+            TxMap::iterator txMapIt = txMap.find(txId);
+            if (txMapIt != txMap.end()) {
+                for (auto const& offset_pair : txMapIt->second->stagedBlobOffsets) {
+                    auto const& obj_id = offset_pair.second.first;
+                    auto const data_length = offset_pair.second.second;
+                    catUpdateReq->object_list.emplace(obj_id,
+                                       std::make_pair(offset_pair.first.getOffset(), data_length));
+                }
+
+                for (auto kvIt = txMapIt->second->stagedBlobDesc->kvMetaBegin();
+                     txMapIt->second->stagedBlobDesc->kvMetaEnd() != kvIt;
+                     ++kvIt) {
+                    catUpdateReq->metadata->emplace(kvIt->first, kvIt->second);
+                }
+                AmDataProvider::updateCatalog(catUpdateReq);
+                return;
+            } else {
+                err = ERR_NOT_FOUND;
+            }
         }
-    } else {
-        // TODO (bszmyd):  Implement writing catalog update Wed Jan 20 23:28:01 2016
     }
     AmDataProvider::commitBlobTxCb(blobReq, err);
 }
@@ -389,6 +410,8 @@ AmTxManager::putBlob(AmRequest *amReq) {
     if (!all_atomic_ops) {
         // stage a tx update in DM
         auto catUpdateReq = new UpdateCatalogReq(blobReq, false);
+        catUpdateReq->object_list.emplace(blobReq->obj_id,
+                                          std::make_pair(blobReq->blob_offset, blobReq->data_len));
         // Verify we have a dmt version (and transaction) for this update
         auto err = getTxDmtVersion(*(blobReq->tx_desc), &(catUpdateReq->dmt_version));
         if (!err.ok()) {
@@ -428,7 +451,8 @@ AmTxManager::applyPut(PutBlobReq* blobReq) {
     if (ERR_OK != updateStagedBlobOffset(tx_desc,
                                          blobReq->getBlobName(),
                                          blobReq->blob_offset,
-                                         blobReq->obj_id)) {
+                                         blobReq->obj_id,
+                                         blobReq->data_len)) {
         // An abort or commit already caused the tx
         // to be cleaned up. Short-circuit
         GLOGNOTIFY << "Response no longer has active transaction: " << tx_desc.getValue();
@@ -454,6 +478,8 @@ AmTxManager::putObjectCb(AmRequest *amReq, Error const error) {
     if (err.ok()) {
         // Commit the change to DM
         auto catUpdateReq = new UpdateCatalogReq(blobReq);
+        catUpdateReq->object_list.emplace(blobReq->obj_id,
+                                          std::make_pair(blobReq->blob_offset, blobReq->data_len));
         AmDataProvider::updateCatalog(catUpdateReq);
         return;
     }
@@ -480,7 +506,8 @@ AmTxManager::_putBlobCb(AmRequest* amReq, Error const error) {
         err = updateStagedBlobOffset(tx_desc,
                                      blobReq->getBlobName(),
                                      blobReq->blob_offset,
-                                     blobReq->obj_id);
+                                     blobReq->obj_id,
+                                     blobReq->data_len);
     }
     if (done) {
         AmDataProvider::putBlobCb(blobReq, error);
@@ -495,6 +522,9 @@ AmTxManager::updateCatalogCb(AmRequest* amReq, Error const error) {
 
     if (fds::FDS_PUT_BLOB == blobReq->io_type) {
         _putBlobCb(blobReq, error);
+        return;
+    } else if (fds::FDS_COMMIT_BLOB_TX == blobReq->io_type) {
+        commitBlobTxCb(blobReq, error);
         return;
     }
     AmDataProvider::putBlobOnceCb(blobReq, error);

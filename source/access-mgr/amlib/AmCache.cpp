@@ -225,9 +225,10 @@ AmCache::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint6
                  << txDesc->volId << " blob " << txDesc->blobName;
 
         for (auto& offset_pair : txDesc->stagedBlobOffsets) {
+            auto const& obj_id = offset_pair.second.first;
             offset_cache.add(txDesc->volId,
                              offset_pair.first,
-                             boost::make_shared<ObjectID>(offset_pair.second));
+                             boost::make_shared<ObjectID>(obj_id));
         }
 
         // Add blob descriptor from tx to descriptor cache
@@ -462,9 +463,11 @@ AmCache::updateCatalogCb(AmRequest * amReq, Error const error) {
     auto blobReq = static_cast<UpdateCatalogReq*>(amReq);
     // If this was a PutBlobOnce we can stash the metadata changes
     if (error.ok() && fds::FDS_PUT_BLOB != blobReq->parent->io_type) {
-        offset_cache.add(blobReq->io_vol_id,
-                         BlobOffsetPair(blobReq->getBlobName(), blobReq->blob_offset),
-                         boost::make_shared<ObjectID>(blobReq->obj_id));
+        for (auto const& obj_upd : blobReq->object_list) {
+            offset_cache.add(blobReq->io_vol_id,
+                             BlobOffsetPair(blobReq->getBlobName(), obj_upd.second.first),
+                             boost::make_shared<ObjectID>(obj_upd.first));
+        }
         auto blobDesc = boost::make_shared<BlobDescriptor>(blobReq->getBlobName(),
                                                            blobReq->io_vol_id.get(),
                                                            blobReq->final_blob_size,

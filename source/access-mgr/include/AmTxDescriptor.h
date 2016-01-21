@@ -35,7 +35,7 @@ class AmTxDescriptor {
     /// Staged blob descriptor for the transaction
     BlobDescriptor::ptr stagedBlobDesc;
     /// Staged blob offsets updates
-    typedef std::unordered_map<BlobOffsetPair, ObjectID,
+    typedef std::unordered_map<BlobOffsetPair, std::pair<ObjectID, uint64_t>,
                                BlobOffsetPairHash> BlobOffsetMap;
     BlobOffsetMap stagedBlobOffsets;
     /// Staged blob object updates for the transaction

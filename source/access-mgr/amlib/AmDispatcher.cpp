@@ -460,16 +460,17 @@ AmDispatcher::putBlobTx(AmRequest* amReq) {
     message->txId         = blobReq->tx_desc->getValue();
 
     // Setup blob offset updates
-    // TODO(Andrew): Today we only expect one offset update
-    // TODO(Andrew): Remove lastBuf when we have real transactions
-    FDS_ProtocolInterface::FDSP_BlobObjectInfo updBlobInfo;
-    updBlobInfo.offset   = amReq->blob_offset;
-    updBlobInfo.size     = amReq->data_len;
-    updBlobInfo.data_obj_id.digest = std::string(
-        reinterpret_cast<const char*>(blobReq->obj_id.GetId()),
-        blobReq->obj_id.GetLen());
-    // Add the offset info to the DM message
-    message->obj_list.push_back(updBlobInfo);
+    for (auto const& obj_upd : blobReq->object_list) {
+        auto const& obj_id = obj_upd.first;
+        fpi::FDSP_BlobObjectInfo updBlobInfo;
+        updBlobInfo.offset   = obj_upd.second.first;
+        updBlobInfo.size     = obj_upd.second.second;
+        updBlobInfo.data_obj_id.digest = std::string(
+            reinterpret_cast<const char*>(obj_id.GetId()),
+            obj_id.GetLen());
+        // Add the offset info to the DM message
+        message->obj_list.push_back(updBlobInfo);
+    }
 
     fds::PerfTracer::tracePointBegin(amReq->dm_perf_ctx);
 
@@ -503,21 +504,26 @@ AmDispatcher::updateCatalog(AmRequest* amReq) {
     // Setup blob offset updates
     // TODO(Andrew): Today we only expect one offset update
     // TODO(Andrew): Remove lastBuf when we have real transactions
-    fpi::FDSP_BlobObjectInfo updBlobInfo;
-    updBlobInfo.offset   = amReq->blob_offset;
-    updBlobInfo.size     = amReq->data_len;
-    updBlobInfo.data_obj_id.digest = std::string(
-        reinterpret_cast<const char*>(blobReq->obj_id.GetId()),
-        blobReq->obj_id.GetLen());
-    // Add the offset info to the DM message
-    message->obj_list.push_back(updBlobInfo);
+    for (auto const& obj_upd : blobReq->object_list) {
+        auto const& obj_id = obj_upd.first;
+        fpi::FDSP_BlobObjectInfo updBlobInfo;
+        updBlobInfo.offset   = obj_upd.second.first;
+        updBlobInfo.size     = obj_upd.second.second;
+        updBlobInfo.data_obj_id.digest = std::string(
+            reinterpret_cast<const char*>(obj_id.GetId()),
+            obj_id.GetLen());
+        // Add the offset info to the DM message
+        message->obj_list.push_back(updBlobInfo);
+    }
 
     // Setup blob metadata updates
-    FDS_ProtocolInterface::FDSP_MetaDataPair metaDataPair;
-    for (auto& meta : *(blobReq->metadata)) {
-        metaDataPair.key   = meta.first;
-        metaDataPair.value = meta.second;
-        message->meta_list.push_back(metaDataPair);
+    if (blobReq->metadata) {
+        for (auto const& meta : *(blobReq->metadata)) {
+            FDS_ProtocolInterface::FDSP_MetaDataPair metaDataPair;
+            metaDataPair.key   = meta.first;
+            metaDataPair.value = meta.second;
+            message->meta_list.push_back(metaDataPair);
+        }
     }
 
     PerfTracer::tracePointBegin(amReq->dm_perf_ctx);
