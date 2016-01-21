@@ -87,9 +87,7 @@ public class Main {
     public void start( String[] args )
         throws Exception {
 
-        final Configuration configuration =
-            SingletonConfiguration.instance()
-                                  .getConfig();
+        final Configuration configuration = SingletonConfiguration.getConfig();
 
         // Configuration class ensures that fds-root system property is defined.
         logger.trace( "FDS-ROOT: " + configuration.getFdsRoot() );

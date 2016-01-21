@@ -86,12 +86,18 @@
         <Logger name="com.formationds" level="{{ java_log_severity }}" additivity="false">
             <AppenderRef ref="fds-${sys:fds.service.name}"/>
         </Logger>
+        
         <Logger name="com.formationds.om.repository.influxdb.InfluxDBConnection$LoggingInfluxDBReader" level="{{ java_log_severity }}" additivity="false">
             <AppenderRef ref="fds-${sys:fds.service.name}"/>
+        </Logger>        
+        <Logger name="com.formationds.om.repository.influxdb.InfluxDBConnection$LoggingInfluxDBWriter" level="{{ java_log_severity }}" additivity="false">
+            <AppenderRef ref="fds-${sys:fds.service.name}"/>
         </Logger>
+        
         <Logger name="com.formationds.platform" level="{{ java_log_severity }}" additivity="false">
             <AppenderRef ref="fds-${sys:fds.service.name}"/>
         </Logger>
+        
         <!-- The RequestLog logs detailed information about each request optionally including headers and
              payload.  Enable by setting the level to TRACE and setting the markers onMatch for the fields
              you want logged to ACCEPT.  Although every attempt is made to prevent logging sensitive information
@@ -101,6 +107,12 @@
         <Logger name="com.formationds.web.toolkit.RequestLog" level="{{ java_log_severity }}" additivity="false">
             <AppenderRef ref="fds-${sys:fds.service.name}"/>
         </Logger>
+
+        <!-- StatisticPublisher TRACE level will dump every statistic value received by the AM (XDI) 
+          to the log file. -->
+        <Logger name="com.formationds.am.StatisticsPublisher" level="{{ java_log_severity }}" additivity="false">
+            <AppenderRef ref="fds-${sys:fds.service.name}"/>
+        </Logger>        
     </Loggers>
 </Configuration>
 {% endblock %}
