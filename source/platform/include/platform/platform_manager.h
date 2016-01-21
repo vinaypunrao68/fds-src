@@ -93,9 +93,12 @@ namespace fds
                  */
                 void updateServiceInfoProperties (std::map<std::string, std::string> *data);
 
+                NodeUuid getUUID();
+
                 void setShutdownState(bool const value);
 
             protected:
+
                 fds_uint64_t getNodeUUID (fpi::FDSP_MgrIdType svcType);
 
                 void determineDiskCapability();

@@ -1234,6 +1234,12 @@ namespace fds
             return uuid.uuid_get_val();
         }
 
+        NodeUuid PlatformManager::getUUID ()
+        {
+            fds_uint64_t node_uuid = getNodeUUID(fpi::FDSP_PLATFORM);
+            return NodeUuid(node_uuid);
+        }
+
         void PlatformManager::startQueueMonitor()
         {
             LOGDEBUG << "Starting thread for PlatformManager::startQueueMonitor()";
