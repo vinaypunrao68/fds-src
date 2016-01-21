@@ -31,6 +31,11 @@ set(INCLUDE_DIRECTORIES
     ./platform/include
 
     ./access-mgr/include
+    ./access-mgr/include/connector
+    ./access-mgr/include/connector/nbd
+    ./access-mgr/include/connector/scst
+    ./access-mgr/include/connector/xdi
+    ./access-mgr/include/requests
     ./access-mgr/stor-hvisor
 
     ./data-mgr/include
@@ -72,6 +77,9 @@ set(SOURCE_FILES
     ./access-mgr/connector/nbd/NbdConnector.cpp
     ./access-mgr/connector/scst/ScstConnector.cpp
     ./access-mgr/connector/scst/ScstDevice.cpp
+    ./access-mgr/connector/scst/ScstDisk.cpp
+    ./access-mgr/connector/scst/ScstInquiry.cpp
+    ./access-mgr/connector/scst/ScstMode.cpp
     ./access-mgr/connector/scst/ScstTarget.cpp
     ./access-mgr/connector/scst/ScstTask.cpp
     ./access-mgr/connector/xdi/AmAsyncService.cpp
@@ -87,6 +95,9 @@ set(SOURCE_FILES
     ./access-mgr/include/connector/scst/ScstTask.h
     ./access-mgr/include/connector/xdi/AmAsyncService.h
     ./access-mgr/include/connector/xdi/AmAsyncXdi.h
+    ./access-mgr/include/connector/BlockOperations.h
+    ./access-mgr/include/connector/BlockTask.h
+    ./access-mgr/include/connector/SectorLockMap.h
     ./access-mgr/include/requests/AbortBlobTxReq.h
     ./access-mgr/include/requests/AttachVolumeReq.h
     ./access-mgr/include/requests/CommitBlobTxReq.h
@@ -96,6 +107,7 @@ set(SOURCE_FILES
     ./access-mgr/include/requests/GetObjectReq.h
     ./access-mgr/include/requests/GetVolumeMetadataReq.h
     ./access-mgr/include/requests/PutBlobReq.h
+    ./access-mgr/include/requests/RenameBlobReq.h
     ./access-mgr/include/requests/requests.h
     ./access-mgr/include/requests/SetBlobMetaDataReq.h
     ./access-mgr/include/requests/SetVolumeMetadataReq.h
@@ -104,8 +116,10 @@ set(SOURCE_FILES
     ./access-mgr/include/requests/StatVolumeReq.h
     ./access-mgr/include/requests/VolumeContentsReq.h
     ./access-mgr/include/AccessMgr.h
+    ./access-mgr/include/AmAsyncDataApi.h
     ./access-mgr/include/AmAsyncResponseApi.h
     ./access-mgr/include/AmCache.h
+    ./access-mgr/include/AmDataProvider.h
     ./access-mgr/include/AmDispatcher.h
     ./access-mgr/include/AmProcessor.h
     ./access-mgr/include/AmQoSCtrl.h
@@ -118,6 +132,7 @@ set(SOURCE_FILES
     ./access-mgr/include/AmVolumeTable.h
     ./access-mgr/include/AsyncResponseHandlers.h
     ./access-mgr/include/responsehandler.h
+    ./access-mgr/include/TypeIdMap.h
     ./access-mgr/test/AmFunctionalTest.cpp
 ./access-mgr/test/BlockFunctionalTest.cpp
     ./access-mgr/am-main.cpp
@@ -156,6 +171,8 @@ set(SOURCE_FILES
     ./data-mgr/dm-lib/handlers/updatecatalogoncehandler.cpp
     ./data-mgr/dm-lib/handlers/volumeclosehandler.cpp
     ./data-mgr/dm-lib/handlers/volumeopenhandler.cpp
+    ./data-mgr/dm-lib/refcount/objectrefscanner.cpp
+    ./data-mgr/dm-lib/refcount/refcountmanager.cpp
     ./data-mgr/dm-lib/timeline/journalmanager.cpp
     ./data-mgr/dm-lib/timeline/timelinedb.cpp
     ./data-mgr/dm-lib/timeline/timelinemanager.cpp
@@ -166,8 +183,10 @@ set(SOURCE_FILES
     ./data-mgr/dm-lib/DmBlobTypes.cpp
     ./data-mgr/dm-lib/DmMigrationBase.cpp
     ./data-mgr/dm-lib/DmMigrationClient.cpp
+    ./data-mgr/dm-lib/DmMigrationDest.cpp
     ./data-mgr/dm-lib/DmMigrationExecutor.cpp
     ./data-mgr/dm-lib/DmMigrationMgr.cpp
+    ./data-mgr/dm-lib/DmMigrationSrc.cpp
     ./data-mgr/dm-lib/DMSvcHandler.cpp
     ./data-mgr/dm-lib/expungemanager.cpp
     ./data-mgr/dm-lib/StatStreamAggregator.cpp
@@ -183,11 +202,14 @@ set(SOURCE_FILES
     ./data-mgr/include/dm-vol-cat/DmPersistVolDB.h
     ./data-mgr/include/dm-vol-cat/DmPersistVolFile.h
     ./data-mgr/include/dm-vol-cat/DmVolumeCatalog.h
+    ./data-mgr/include/refcount/objectrefscanner.h
+    ./data-mgr/include/refcount/refcountmanager.h
     ./data-mgr/include/timeline/journalmanager.h
     ./data-mgr/include/timeline/timelinedb.h
     ./data-mgr/include/timeline/timelinemanager.h
     ./data-mgr/include/CatalogSync.h
     ./data-mgr/include/CatalogSyncRecv.h
+    ./data-mgr/include/counters.h
     ./data-mgr/include/DataMgr.h
     ./data-mgr/include/DataMgrIf.h
     ./data-mgr/include/DmBlobTypes.h
@@ -195,12 +217,15 @@ set(SOURCE_FILES
     ./data-mgr/include/DmIoReq.h
     ./data-mgr/include/DmMigrationBase.h
     ./data-mgr/include/DmMigrationClient.h
+    ./data-mgr/include/DmMigrationDest.h
     ./data-mgr/include/DmMigrationExecutor.h
     ./data-mgr/include/DmMigrationMgr.h
+    ./data-mgr/include/DmMigrationSrc.h
     ./data-mgr/include/DMSvcHandler.h
     ./data-mgr/include/expungemanager.h
     ./data-mgr/include/StatStreamAggregator.h
     ./data-mgr/include/VcQueryIface.h
+    ./data-mgr/include/VolumeInitializer.h
     ./data-mgr/include/VolumeMeta.h
     ./data-mgr/utils/dmexplorer.cpp
     ./data-mgr/utils/dmexplorer.h
@@ -472,10 +497,12 @@ set(SOURCE_FILES
 ./lib/lru_policy_mgr.h
 
     ./lib/misc/BitSet.cpp
+    ./lib/misc/BufferReplay.cpp
     ./lib/misc/Catalog.cpp
     ./lib/misc/config.cpp
     ./lib/misc/disk_utils.cpp
     ./lib/misc/dlt.cpp
+    ./lib/misc/DltDmtUtil.cpp
     ./lib/misc/dmt.cpp
     ./lib/misc/fds_counters.cpp
     ./lib/misc/fds_error.cpp
@@ -920,7 +947,6 @@ osdep/umod-linux/fds_osdep.cpp
 ./unit-test/stor-mgr/svc-test/smperf_gtest.cpp
 ./unit-test/stor-mgr/svc-test/svc_gtest.cpp
 
-    ./unit-test/svclayer/FakeSvcDomain.hpp
     ./unit-test/svclayer/OMSvcProcess.cpp
     ./unit-test/svclayer/OMSvcProcess.h
     ./unit-test/svclayer/SvcMapChecker.cpp
@@ -929,6 +955,7 @@ osdep/umod-linux/fds_osdep.cpp
     ./unit-test/svclayer/SvcRequestMgr_gtest.cpp
     ./unit-test/svclayer/SvcServer_gtest.cpp
     ./unit-test/svclayer/TestSvcProcess.cpp
+    ./unit-test/svclayer/VolumeGrouping_gtest.cpp
 
 ./unit-test/umod-lib/ThreadPoolTest.cpp
 ./unit-test/umod-lib/conc_unit_test.cpp
@@ -970,6 +997,7 @@ osdep/umod-linux/fds_osdep.cpp
     ./util/hash/pstdint.h
     ./util/hash/sha1.cpp
 
+    ./util/misc/atomiccounter.cpp
     ./util/misc/bloomfilter.cpp
     ./util/misc/color.cpp
     ./util/misc/Log.cpp
@@ -977,6 +1005,7 @@ osdep/umod-linux/fds_osdep.cpp
     ./util/misc/path.cpp
     ./util/misc/process.cpp
     ./util/misc/properties.cpp
+    ./util/misc/sqliteDB.cpp
     ./util/misc/stats.cpp
     ./util/misc/stringutils.cpp
     ./util/misc/timeutils.cpp
