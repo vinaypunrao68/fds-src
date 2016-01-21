@@ -63,19 +63,23 @@ void AmQoSCtrl::completeRequest(AmRequest* amReq, Error const error) {
     auto remaining = htb_dispatcher->markIODone(amReq);
 
     switch (amReq->io_type) {
-    case fds::FDS_IO_WRITE:
     case fds::FDS_PUT_BLOB_ONCE:
     case fds::FDS_PUT_BLOB:
         StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
                                                  amReq->io_done_ts,
                                                  STAT_AM_PUT_OBJ,
                                                  amReq->io_total_time);
+        if (amReq->io_type == fds::FDS_PUT_BLOB_ONCE) {
+            StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                     amReq->io_done_ts,
+                                                     STAT_AM_PUT_BLOB_ONCE,
+                                                     amReq->io_total_time);
+        }
         break;
-    case fds::FDS_IO_READ:
     case fds::FDS_GET_BLOB:
         StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
                                                  amReq->io_done_ts,
-                                                 STAT_AM_GET_OBJ,
+                                                 STAT_AM_GET_BLOB,
                                                  amReq->io_total_time);
         break;
     case fds::FDS_STAT_BLOB:
@@ -90,6 +94,86 @@ void AmQoSCtrl::completeRequest(AmRequest* amReq, Error const error) {
                                                  STAT_AM_PUT_BMETA,
                                                  amReq->io_total_time);
         break;
+    case fds::FDS_ATTACH_VOL:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_ATTACH_VOL,
+                                                 amReq->io_total_time);
+        break;
+    case fds::FDS_DETACH_VOL:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_DETACH_VOL,
+                                                 amReq->io_total_time);
+        break;
+    case fds::FDS_STAT_VOLUME:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_VSTAT,
+                                                 amReq->io_total_time);
+        break;
+    case fds::FDS_SET_VOLUME_METADATA:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_PUT_VMETA,
+                                                 amReq->io_total_time);
+        break;
+    case fds::FDS_GET_VOLUME_METADATA:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_GET_VMETA,
+                                                 amReq->io_total_time);
+        break;
+    case fds::FDS_VOLUME_CONTENTS:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_GET_VCONTENTS,
+                                                 amReq->io_total_time);
+        break;
+    case fds::FDS_START_BLOB_TX:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_START_BLOB_TX,
+                                                 amReq->io_total_time);
+        break;
+    case fds::FDS_COMMIT_BLOB_TX:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_COMMIT_BLOB_TX,
+                                                 amReq->io_total_time);
+        /**
+         * Currently (01/14/2016) transactions are only used for FDS_PUT_BLOB.
+         */
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_PUT_BLOB,
+                                                 amReq->io_total_time);
+        break;
+    case fds::FDS_ABORT_BLOB_TX:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_ABORT_BLOB_TX,
+                                                 amReq->io_total_time);
+        /**
+         * Currently (01/14/2016) transactions are only used for FDS_PUT_BLOB.
+         */
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_PUT_BLOB,
+                                                 amReq->io_total_time);
+        break;
+    case fds::FDS_DELETE_BLOB:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_DELETE_BLOB,
+                                                 amReq->io_total_time);
+        break;
+    case fds::FDS_RENAME_BLOB:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_RENAME_BLOB,
+                                                 amReq->io_total_time);
+        break;
     default:
         ;;
     };
@@ -97,7 +181,7 @@ void AmQoSCtrl::completeRequest(AmRequest* amReq, Error const error) {
     if (remaining > 0) {
         StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
                                                  amReq->io_done_ts,
-                                                 STAT_AM_QUEUE_FULL,
+                                                 STAT_AM_QUEUE_BACKLOG,
                                                  remaining);
     }
     StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
