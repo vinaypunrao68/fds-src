@@ -677,7 +677,7 @@ ObjectStore::getObject(fds_volid_t volId,
         fds_token_id smToken = diskMap->smTokenId(objId);
         diskio::DataTier metaTier = metaStore->getMetadataTier();
         DiskId diskId = diskMap->getDiskId(objId, metaTier);
-        std::string path = diskMap->getDiskPath(diskId);
+        std::string path = diskMap->getDiskPath(diskId) + "/.tempFlush";
 
         bool diskDown = DiskUtils::diskFileTest(path);
         if (diskDown) {
