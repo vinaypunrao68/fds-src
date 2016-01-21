@@ -873,8 +873,8 @@ DmtDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
 
     // broadcast DMT to DMs first, once we receive acks, will broadcast
     // to AMs
-    dst.commit_acks_to_wait = om->isInTestMode() ? loc_domain->om_bcast_dmt(fpi::FDSP_DATA_MGR,
-                                                       vp->getCommittedDMT()) : 0;
+    dst.commit_acks_to_wait = !om->isInTestMode() ?
+              loc_domain->om_bcast_dmt(fpi::FDSP_DATA_MGR, vp->getCommittedDMT()) : 0;
 
     // there are must be nodes to which we send new DMT
     // unless all failed? -- in that case we should handle errors
