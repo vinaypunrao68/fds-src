@@ -52,7 +52,7 @@ void StatVolumeHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoStatVolume* typedRequest = static_cast<DmIoStatVolume*>(dmRequest);
 
-    helper.err = dataManager.timeVolCat_->queryIface()->statVolume(
+    helper.err = dataManager.timeVolCat_->queryIface()->statVolumeLogical(
             typedRequest->getVolId(),
             // FIXME(DAC): These casts are poster-children for inappropriate usage of
             //             reinterpret_cast.

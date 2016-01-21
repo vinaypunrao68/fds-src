@@ -256,10 +256,10 @@ Error DmVolumeCatalog::deleteEmptyCatalog(fds_volid_t volId, bool checkDeleted /
     return ERR_OK;
 }
 
-Error DmVolumeCatalog::statVolume(fds_volid_t volId,
-                                  fds_uint64_t* volSize,
-                                  fds_uint64_t* blobCount,
-                                  fds_uint64_t* objCount) {
+Error DmVolumeCatalog::statVolumeLogical(fds_volid_t volId,
+                                         fds_uint64_t* volSize,
+                                         fds_uint64_t* blobCount,
+                                         fds_uint64_t* objCount) {
     Error rc(ERR_OK);
     synchronized(lockVolSummaryMap_) {
         DmVolumeSummaryMap_t::const_iterator iter = volSummaryMap_.find(volId);
@@ -285,6 +285,77 @@ Error DmVolumeCatalog::statVolume(fds_volid_t volId,
     return rc;
 }
 
+Error DmVolumeCatalog::statVolumePhysical(fds_volid_t volId, fds_uint64_t *pbytes, fds_uint64_t *pObjCount) {
+    GET_VOL_N_CHECK_DELETED(volId);
+    HANDLE_VOL_NOT_ACTIVATED();
+
+    std::vector<BlobMetaDesc> blobMetaList;
+
+    *pbytes = 0;
+    *pObjCount = 0;
+
+    Error rc = vol->getAllBlobMetaDesc(blobMetaList);
+    if (!rc.ok()) {
+        LOGERROR << "Failed to retrieve volume metadata for volume: '" << std::hex
+                 << volId << std::dec << "' error: '" << rc << "'";
+        return rc;
+    }
+
+    std::unordered_set<ObjectID, ObjectHash> uniqueObjIds;
+    for (const auto & it : blobMetaList) {
+        fds_uint64_t endOffset = DmVolumeCatalog::getLastOffset(it.desc.blob_size,
+                                                                vol->getObjSize());
+        BlobObjList objList;
+        rc = vol->getObject(it.desc.blob_name, 0 /* start offset */, endOffset, objList);
+
+        /**
+         * The vol->getObject() method (which should probably really be called something like
+         * getDataObjectRange()), makes an assumption that all Data Objects in the
+         * range are written and all have the same size, the maximum size of a Data Object
+         * as defined with the Volume, here identified with a call to vol->getObjSize().
+         *
+         * This assumption is wrong on both accounts.
+         *
+         * The last Data Object in the Blob's list will be sized sufficiently to finish
+         * out the entire size of the Blob. In other words, the rest of DM assumes that the
+         * Connector wrote the Blob in chunks of vol->getObjSize() size until the last
+         * Data Object which catches the remainder of BlobSize/vol->getObjSize(). In order
+         * to get a correct PBYTE count here, we must now correct that bad assumption
+         * by vol->getObject().
+         *
+         * We could put this correction into vol->getObject() so that all callers can enjoy
+         * the benefits of a more correct Data Object list, but that would break the S3
+         * Connector's multi-part upload interface which relies upon the incorrect list
+         * produced by vol->getObject().
+         *
+         * As to the other bad assumption, that all Data Objects in the range have been
+         * written, we offer no correction for that at this time. So when a Connector
+         * writes to offsets sporadically, leaving some unwritten (as do the iSCSI and S3
+         * Connectors at least), we will continue to calculate PBYTEs as if all offsets,
+         * from 0 up to the last one based on Blob size have been written as well.
+         */
+        objList[endOffset].size = DmVolumeCatalog::getLastObjSize(it.desc.blob_size,
+                                                                  vol->getObjSize());
+
+        if (!rc.ok()) {
+            LOGERROR << "Failed to retrieve objects for blob: '" << it.desc.blob_name <<
+                     "' volume: '" << std::hex << volId << std::dec << "'";
+            return rc;
+        }
+
+        for (const auto & obj : objList) {
+            if (uniqueObjIds.find(obj.second.oid) == uniqueObjIds.end()) {
+                uniqueObjIds.insert(obj.second.oid);
+                *pbytes += obj.second.size;
+            }
+        }
+    }
+
+    *pObjCount = uniqueObjIds.size();
+
+    return rc;
+}
+
 Error DmVolumeCatalog::statVolumeInternal(fds_volid_t volId, fds_uint64_t * volSize,
             fds_uint64_t * blobCount, fds_uint64_t * objCount) {
     GET_VOL_N_CHECK_DELETED(volId);
@@ -304,6 +375,12 @@ Error DmVolumeCatalog::statVolumeInternal(fds_volid_t volId, fds_uint64_t * volS
         *volSize += it.desc.blob_size;
         *objCount += it.desc.blob_size / vol->getObjSize();
 
+        /**
+         * The last Data Object may be smaller than the max
+         * Data Object size for the volume. And above, we assumed
+         * that all the other Data Objects had size equal to
+         * the max Data Object size for the volume.
+         */
         if (it.desc.blob_size % vol->getObjSize()) {
             *objCount += 1;
         }
@@ -406,8 +483,11 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volId, const std::string& blobName,
                                  fds_uint64_t startOffset, fds_int64_t endOffset,
                                  blob_version_t* blobVersion, fpi::FDSP_MetaDataList* metaList,
                                  fpi::FDSP_BlobObjectList* objList, fds_uint64_t* blobSize) {
-    LOGDEBUG << "Will retrieve blob '" << blobName << "' offset '" << startOffset <<
-            "' volume '" << std::hex << volId << std::dec << "'";
+    LOGDEBUG << "Will retrieve blob <" << blobName
+             << "> start offset <" << startOffset
+             << "> end offset <" << endOffset
+             << "> volume '" << std::hex << volId << std::dec
+             << "'";
 
     *blobSize = 0;
     Error rc = getBlobMeta(volId, blobName, blobVersion, blobSize, metaList);
@@ -421,6 +501,11 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volId, const std::string& blobName,
         // empty blob
         return rc;
     } else if (startOffset >= *blobSize) {
+        LOGNOTIFY << "For Blob '" << blobName
+                  << "', Volume '" << std::hex << volId << std::dec
+                  << "', start offset of <" << startOffset
+                  << "> not less than Blob size <" << *blobSize
+                  << ">.";
         return ERR_BLOB_OFFSET_INVALID;
     } else if (endOffset >= static_cast<fds_int64_t>(*blobSize)) {
         endOffset = -1;
