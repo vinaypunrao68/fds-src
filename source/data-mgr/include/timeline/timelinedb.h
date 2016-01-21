@@ -39,11 +39,13 @@ class TimelineDB : public HasLogger {
                               fds_volid_t& snapshotId);
     Error getSnapshotTime(fds_volid_t volId, fds_volid_t snapshotId, TimeStamp& createTime);
     Error removeVolume(fds_volid_t volId);
+    Error getSnapshotsForVolume(fds_volid_t volId, std::vector<fds_volid_t>& vecVolIds);
     Error close();
     ~TimelineDB();
 
   protected:
     Error getInt(const std::string& sql, fds_uint64_t& data);
+    Error getIntList(const std::string& sql, std::vector<fds_uint64_t>& data);
 
   private:
     sqlite3 *db = NULL;

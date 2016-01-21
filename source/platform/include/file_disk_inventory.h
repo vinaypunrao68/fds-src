@@ -30,7 +30,7 @@ namespace fds
             virtual void dsk_admit_all();
             virtual void dsk_mount_all();
             virtual bool disk_capabilities(DiskCapabilitiesMgr *mgr);
-            virtual void disk_reconcile_label(DiskLabelMgr *mgr);
+            virtual void disk_reconcile_label(DiskLabelMgr *mgr, NodeUuid node_uuid);
 
         private:
             void dsk_file_create(const char *type, int count, ChainList *list);

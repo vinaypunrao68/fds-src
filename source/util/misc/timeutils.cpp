@@ -159,6 +159,7 @@ TimeStamp getSecondsFromHumanTime(const std::string& strTime) {
     int mult = 1;
     char *p, *end;
     seconds =  std::strtol(strTime.c_str(), &end, 10);
+    for ( ; end && *end && *end==' '; ++end);
     p = end;
     for ( ; *p; ++p) *p = tolower(*p);
     if (end != strTime.c_str()) {

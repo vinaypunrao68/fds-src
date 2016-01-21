@@ -36,8 +36,18 @@ public class AsyncAmTest extends BaseAmTest {
     private Counters counters;
 
     @Test
+    public void testDmSupportsSmallObjects() throws Exception {
+        AmOps amOps = new AmOps(asyncAm, counters);
+        amOps.writeObject(domainName, volumeName, blobName, new ObjectOffset(0), ByteBuffer.allocate(10), OBJECT_SIZE, false);
+        ByteBuffer byteBuffer = amOps.readCompleteObject(domainName, volumeName, blobName, new ObjectOffset(0), OBJECT_SIZE);
+        assertEquals(10, byteBuffer.remaining());
+        assertEquals(OBJECT_SIZE, byteBuffer.capacity());
+    }
+
+    @Test
     public void testUpdate() throws Exception {
-        DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
+        AmOps amOps = new AmOps(asyncAm, counters);
+        DeferredIoOps io = new DeferredIoOps(amOps, counters);
         TransactionalIo txs = new TransactionalIo(io);
         InodeIndex index = new SimpleInodeIndex(txs, new MyExportResolver());
         InodeMetadata dir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3);
@@ -90,10 +100,10 @@ public class AsyncAmTest extends BaseAmTest {
         InodeMetadata red = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4)
                 .withLink(fooDir.getFileId(), "red");
 
-        index.index(NFS_EXPORT_ID, false, fooDir);
-        index.index(NFS_EXPORT_ID, false, barDir);
+        index.index(NFS_EXPORT_ID, true, fooDir);
+        index.index(NFS_EXPORT_ID, true, barDir);
         index.index(NFS_EXPORT_ID, false, blue);
-        index.index(NFS_EXPORT_ID, false, red);
+        index.index(NFS_EXPORT_ID, true, red);
         assertEquals(2, index.list(fooDir, NFS_EXPORT_ID).size());
         assertEquals(1, index.list(barDir, NFS_EXPORT_ID).size());
         assertEquals(0, index.list(blue, NFS_EXPORT_ID).size());

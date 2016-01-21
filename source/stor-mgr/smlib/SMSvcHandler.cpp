@@ -85,6 +85,9 @@ SMSvcHandler::SMSvcHandler(CommonModuleProviderIf *provider)
     REGISTER_FDSP_MSG_HANDLER(fpi::ActiveObjectsMsg, activeObjects);
 
     REGISTER_FDSP_MSG_HANDLER(fpi::GenericCommandMsg, genericCommand);
+
+    /* disk-map update message */
+    REGISTER_FDSP_MSG_HANDLER(fpi::NotifyDiskMapChange, diskMapChange);
 }
 
 int
@@ -1310,4 +1313,7 @@ void SMSvcHandler::genericCommand(ASYNC_HANDLER_PARAMS(GenericCommandMsg)) {
     }
 }
 
+    void SMSvcHandler::diskMapChange(ASYNC_HANDLER_PARAMS(NotifyDiskMapChange)) {
+        LOGDEBUG << "Received a disk-map change notification";
+    }
 }  // namespace fds

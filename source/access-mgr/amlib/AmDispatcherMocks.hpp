@@ -13,7 +13,7 @@ struct AmDispatcherMockCbs
     {
         auto blobReq = static_cast<GetBlobReq*>(amReq);
         if (blobReq->get_metadata) {
-            auto cb = SHARED_DYN_CAST(GetObjectWithMetadataCallback, amReq->cb);
+            auto cb = std::dynamic_pointer_cast<GetObjectWithMetadataCallback>(amReq->cb);
             cb->blobDesc = boost::make_shared<BlobDescriptor>();
             cb->blobDesc->setBlobSize(amReq->data_len);
         }

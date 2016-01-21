@@ -52,7 +52,10 @@ public class AmOps implements IoOps {
             }
         };
 
-        return handleExceptions(new ErrorCode[]{ErrorCode.MISSING_RESOURCE}, ec -> Optional.empty(), unit);
+        return handleExceptions(new ErrorCode[]{ErrorCode.MISSING_RESOURCE}, ec -> {
+            LOG.error("Blob not found, volume=" + volumeName + ", blobName=" + blobName);
+            return Optional.empty();
+        }, unit);
     }
 
     @Override
@@ -83,10 +86,11 @@ public class AmOps implements IoOps {
             public ByteBuffer supply() throws Exception {
                 counters.increment(Counters.Key.AM_getBlob);
                 ByteBuffer byteBuffer = asyncAm.getBlob(domain, volumeName, blobName, objectSize, objectOffset).get();
-                if (byteBuffer.remaining() == 0) {
-                    byteBuffer = ByteBuffer.allocate(objectSize);
-                }
-                return byteBuffer;
+                ByteBuffer bb = ByteBuffer.allocate(objectSize);
+                bb.limit(byteBuffer.remaining());
+                bb.put(byteBuffer);
+                bb.position(0);
+                return bb;
             }
         };
 
@@ -109,9 +113,14 @@ public class AmOps implements IoOps {
             @Override
             public Void supply() throws Exception {
                 counters.increment(Counters.Key.AM_updateBlobTx);
-                TxDescriptor tx = asyncAm.startBlobTx(domain, volume, blobName, 0).get();
-                asyncAm.updateBlob(domain, volume, blobName, tx, dupe, dupe.remaining(), objectOffset, false).get();
-                asyncAm.commitBlobTx(domain, volume, blobName, tx).get();
+                int position = buf.position();
+                try {
+                    TxDescriptor tx = asyncAm.startBlobTx(domain, volume, blobName, 0).get();
+                    asyncAm.updateBlob(domain, volume, blobName, tx, dupe, dupe.remaining(), objectOffset, false).get();
+                    asyncAm.commitBlobTx(domain, volume, blobName, tx).get();
+                } finally {
+                    buf.position(position);
+                }
                 return null;
             }
         };
@@ -199,12 +208,12 @@ public class AmOps implements IoOps {
             return result;
         } catch (ApiException e) {
             if (Sets.newHashSet(RECOVERABLE_ERRORS).contains(e.getErrorCode())) {
-                LOG.warn(workUnit.operationName + " failed (recoverable), " + workUnit.description, e);
+                LOG.warn(workUnit.operationName + " failed with error code " + e.getErrorCode() + " (recoverable), " + workUnit.description, e);
                 throw new RecoverableException();
             } else if (Sets.newHashSet(explicitelyHandledErrors).contains(e.getErrorCode())) {
                 return errorHandler.apply(e.getErrorCode());
             } else {
-                LOG.error(workUnit.operationName + " failed, " + workUnit.description, e);
+                LOG.error(workUnit.operationName + " failed  with error code " + e.getErrorCode() + ", " + workUnit.description, e);
                 throw new IOException(e);
             }
         } catch (Exception e) {

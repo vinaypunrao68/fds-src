@@ -21,6 +21,7 @@
 #include "util/path.h"
 #include "fds_module.h"
 #include "fds_process.h"
+#include <net/volumegroup_extensions.h>
 
 #define TIMESTAMP_OP(WB) \
     const fds_uint64_t ts__ = util::getTimeStampMicros(); \
@@ -141,8 +142,13 @@ Error DmPersistVolDB::activate() {
 
     /* Update version */
     if (!snapshot_) {
+        /* Read, increment, and persist new version */
         int32_t version = getVersion();
-        version++;
+        if (version == VolumeGroupConstants::VERSION_INVALID) {
+            version = VolumeGroupConstants::VERSION_START;
+        } else {
+            version++;
+        }
         setVersion(version);
     }
 
@@ -742,7 +748,7 @@ int32_t DmPersistVolDB::getVersion()
     int32_t version;
     std::ifstream in(getVersionFile_());
     if (!in.is_open()) {
-        return 0;
+        return VolumeGroupConstants::VERSION_INVALID;
     }
     in >> version;
     in.close();

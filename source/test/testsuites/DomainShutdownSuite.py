@@ -34,10 +34,6 @@ def suiteConstruction(self, action="kill-uninst"):
     fdscfg = genericTestCase.parameters["fdscfg"]
 
 
-    if action.count("remove") > 0:
-        # One test case to remove the domain services.
-        suite.addTest(testcases.TestFDSSysMgt.TestNodeRemoveServices())
-
     if action.count("shutdown") > 0:
         # One test case to remove the domain services.
         suite.addTest(testcases.TestFDSSysMgt.TestDomainShutdown())
@@ -61,8 +57,10 @@ def suiteConstruction(self, action="kill-uninst"):
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBDown())
 
     if action.count("uninst") > 0:
-        if fdscfg.rt_obj.cfg_remote_nodes is not True:
-            # Cleanup FDS installation directory.
+        if fdscfg.rt_om_node.nd_cmd_line_options['reusecluster'] is not True:
+            # if [kill-uninst] scenario is present then, for local env DELETE installation dir.
+            # For remote env if --reusecluster is NOT passed then DELETE installation dir
+            # For remot env if --reusecluster is passed then  DON'T DELETE installation dir, just clean the nodes
             suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())
         # This one will take care of other product artifacts such as SHM files.
         suite.addTest(testcases.TestFDSEnvMgt.TestFDSSelectiveInstDirClean())

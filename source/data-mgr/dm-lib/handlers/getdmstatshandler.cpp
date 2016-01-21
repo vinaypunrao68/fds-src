@@ -27,9 +27,7 @@ void DmSysStatsHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
     LOGDEBUG << "volume: " << volId;
 
     Error err(ERR_OK);
-    if (!dataManager.amIPrimaryGroup(volId)) {
-    	err = ERR_DM_NOT_PRIMARY;
-    }
+    // if (!dataManager.amIPrimaryGroup(volId)) {err = ERR_DM_NOT_PRIMARY;}
     if (err.OK()) {
     	err = dataManager.validateVolumeIsActive(volId);
     }

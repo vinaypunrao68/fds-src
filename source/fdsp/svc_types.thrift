@@ -152,6 +152,12 @@ enum ResourceState {
   InError,  /*in known erroneous state*/
 }
 
+/* Volumegroup coordinator information */
+struct VolumeGroupCoordinatorInfo {
+    1: required SvcUuid		                id;
+    2: i32				        version;
+}
+
 struct FDSP_VolumeDescType {
   1: required string            vol_name,  /* Name of the volume */
   2: i32                        tennantId,  // Tennant id that owns the volume
@@ -181,6 +187,7 @@ struct FDSP_VolumeDescType {
   19: i64                       createTime,
   20: common.IScsiTarget        iscsi,
   21: common.NfsOption          nfs
+  22: VolumeGroupCoordinatorInfo coordinator;
 }
 
 struct FDSP_PolicyInfoType {
@@ -326,7 +333,7 @@ enum  FDSPMsgTypeId {
   CtrlSvcEventTypeId                        = 9000;
   CtrlTokenMigrationAbortTypeId             = 9001;
   SvcStateChangeRespTypeId                  = 9002;
-  
+
   /** SM Type Ids*/
   GetObjectMsgTypeId                        = 10000;
   GetObjectRespTypeId                       = 10001;
@@ -404,6 +411,11 @@ enum  FDSPMsgTypeId {
   CtrlNotifyTxStateMsgTypeId;
   CtrlNotifyTxStateRspMsgTypeId;
   StartRefScanMsgTypeId;
+  CtrlNotifyRequestTxStateMsgTypeId;
+  CtrlNotifyRequestTxStateRspMsgTypeId;
+  CtrlNotifyFinishMigrationMsgTypeId;
+  /* DM Debug Messages */
+  DbgForceVolumeSyncMsgTypeId; 
 
   /* VolumeGroup messages */
   VolumeGroupInfoUpdateCtrlMsgTypeId = 30000;
@@ -418,7 +430,7 @@ enum  FDSPMsgTypeId {
   UpdateTxMsgTypeId;
   CommitTxMsgTypeId;
   PullActiveTxsMsgTypeId;
-  PullActiveTxsRespMsgTypeId; 
+  PullActiveTxsRespMsgTypeId;
   PullCommitLogEntriesMsgTypeId;
   PullCommitLogEntriesRespMsgTypeId;
   QosFunctionTypeId;
@@ -428,29 +440,40 @@ enum  FDSPMsgTypeId {
   NotifyHealthReportTypeId                  = 100000;
   HeartbeatMessageTypeId                    = 100001;
   EventMessageTypeId;
+
+  /** disk-map change (sent by PM to SM and DM) */
+  NotifyDiskMapChangeTypeId;
 }
 
 /**
  * Service status.
  */
 enum ServiceStatus {
-    SVC_STATUS_INVALID      = 0x0000;
-    SVC_STATUS_ACTIVE       = 0x0001;
-    SVC_STATUS_INACTIVE     = 0x0002;
-/*
- * We really need some way to determine that a "PM service" is in a
- * "discovered" state to allow us to add it on first registration
- */
-    SVC_STATUS_DISCOVERED   = 0x0003;
-/*
- * When we shutdown or remove a node, we need a state to reflect
- * that while the PM is not in inactive state, it is not active either
- */
-    SVC_STATUS_STANDBY      = 0x0004;
-    SVC_STATUS_ADDED        = 0x0005;
-    SVC_STATUS_STARTED      = 0x0006;
-    SVC_STATUS_STOPPED      = 0x0007;
-    SVC_STATUS_REMOVED      = 0x0008;
+    SVC_STATUS_INVALID          = 0x0000;
+    SVC_STATUS_ACTIVE           = 0x0001;
+    
+    /*
+    * Inactive because of an intentional action (svc stop/remove, node stop/remove, domain shutdown)
+    */
+    SVC_STATUS_INACTIVE_STOPPED = 0x0002;
+   /*
+   * We really need some way to determine that a "PM service" is in a
+   * "discovered" state to allow us to add it on first registration
+   */
+    SVC_STATUS_DISCOVERED       = 0x0003;
+   /*
+   * When we shutdown or remove a node, we need a state to reflect
+   * that while the PM is not in inactive state, it is not active either
+   */
+    SVC_STATUS_STANDBY          = 0x0004;
+    SVC_STATUS_ADDED            = 0x0005;
+    SVC_STATUS_STARTED          = 0x0006;
+    SVC_STATUS_STOPPED          = 0x0007;
+    SVC_STATUS_REMOVED          = 0x0008;
+    /*
+    * Indicates a svc is inactive because OM received a unreachable event from svcLayer
+    */
+    SVC_STATUS_INACTIVE_FAILED  = 0x0009;
 }
 
 /* ------------------------------------------------------------

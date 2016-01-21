@@ -33,9 +33,9 @@ namespace fds
             DiskLabelMgr               *label_manager;
             DiskCapabilitiesMgr        *capabilities_manager;
             struct pollfd               pollfds[FD_COUNT];
+            NodeUuid                    node_uuid;
 
             void dsk_discover_mount_pts();
-            void scan_and_discover_disks();
 
         public:
             explicit DiskPlatModule(char const *const name);
@@ -65,6 +65,9 @@ namespace fds
             void dsk_rescan();
             void dsk_monitor_hotplug();
             void dsk_commit_label();
+            void scan_and_discover_disks();
+
+            void set_node_uuid(NodeUuid uuid);
 
             // Module methods.
             ///

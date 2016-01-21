@@ -51,18 +51,18 @@ class DmMigrationClient : public DmMigrationBase {
     /**
      * "Main" of this client
      */
-    void run();
+    virtual void run();
 
     /**
      * Whether or not I/O to this volume needs to be forwarded
      * as part of Active Migration.
      * Input: dmtVersion - the version of DMT that the commit log belongs to
      */
-    fds_bool_t shouldForwardIO(fds_uint64_t dmtVersion);
+    virtual fds_bool_t shouldForwardIO(fds_uint64_t dmtVersion);
 
     /* Forwarding Modifiers */
-    void turnOnForwarding();
-    void turnOffForwarding();
+    virtual void turnOnForwarding();
+    virtual void turnOffForwarding();
     void turnOffForwardingInternal(); // No sending of finish messages
 
     /**
@@ -109,7 +109,7 @@ class DmMigrationClient : public DmMigrationBase {
     void routeAbortMigration() override;
 
     // Called by MigrationMgr to clean up any ongoing residue due to migration
-    void abortMigration();
+    virtual void abortMigration();
 
     // Wait for the run thread to rejoin
     void finish();

@@ -111,7 +111,7 @@ class DmMigrationExecutor : public DmMigrationBase {
     /**
      * Called by MigrationMgr to clean up any mess that this executor has caused
      */
-    void abortMigration();
+    virtual void abortMigration();
 
     inline bool isMigrationComplete() {
     	return (migrationProgress == MIGRATION_COMPLETE);
@@ -184,7 +184,7 @@ class DmMigrationExecutor : public DmMigrationBase {
      * and the actual call to this function, i.e. safe to call even after the state machine has moved
      * beyond static migration.
      */
-    void testStaticMigrationComplete();
+    virtual void testStaticMigrationComplete();
 
     /**
      * Mutex for blob offset list and blob descriptor list coordination

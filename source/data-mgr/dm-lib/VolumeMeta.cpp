@@ -10,6 +10,9 @@
 #include <net/SvcRequest.h>
 #include <DataMgr.h>
 #include <net/volumegroup_extensions.h>
+#include <util/stringutils.h>
+#include <dmhandler.h>
+#include <json/json.h>
 
 namespace fds {
 
@@ -23,7 +26,8 @@ VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
             fwd_state(VFORWARD_STATE_NONE),
             dmVolQueue(0),
             dataManager(_dm),
-            cbToVGMgr(NULL) {
+            cbToVGMgr(NULL)
+{
     const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
 
     vol_mtx = new fds_mutex("Volume Meta Mutex");
@@ -33,16 +37,39 @@ VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
     root->fds_mkdir(root->dir_sys_repo_dm().c_str());
     root->fds_mkdir(root->dir_user_repo_dm().c_str());
 
+    /* Enable ability to query state via StateProvider api */
+    stateProviderId = "volume." + std::to_string(_uuid.get());
+    MODULEPROVIDER()->get_cntrs_mgr()->add_for_export(this);
+
+    selfSvcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
+
     // this should be overwritten when volume add triggers read of the persisted value
     sequence_id = 0;
 
     opId = VolumeGroupConstants::OPSTARTID;
     version = VolumeGroupConstants::VERSION_INVALID;
+
+    threadId = dataManager->getQosCtrl()->threadPool->getThreadId(_uuid.get());
 }
 
-VolumeMeta::~VolumeMeta() {
+VolumeMeta::~VolumeMeta()
+{
+    MODULEPROVIDER()->get_cntrs_mgr()->remove_from_export(this);
+
     delete vol_desc;
     delete vol_mtx;
+}
+
+std::string VolumeMeta::getBaseDirPath() const
+{
+    return dmutil::getVolumeDir(MODULEPROVIDER()->proc_fdsroot(),
+                                     fds_volid_t(getId()),
+                                     invalid_vol_id);
+}
+
+std::string VolumeMeta::getBufferfilePrefix() const
+{
+    return util::strformat("%s/bufferfile_", getBaseDirPath().c_str());
 }
 
 // Returns true if volume is in forwarding state, and qos queue is empty;
@@ -83,6 +110,29 @@ void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
     v_desc->qosQueueId = pVol->qosQueueId;
     v_desc->contCommitlogRetention = pVol->contCommitlogRetention;
     v_desc->timelineTime = pVol->timelineTime;
+    v_desc->coordinator = pVol->coordinator;
+}
+
+Error VolumeMeta::applyActiveTxState(const int64_t &highestOpId,
+                                     const std::vector<std::string> &txs)
+{
+    fds_volid_t volId = fds_volid_t(getId());
+    DmCommitLog::ptr commitLog;
+
+    auto err = dataManager->timeVolCat_->getCommitlog(volId, commitLog);
+    if (!err.ok()) {
+        return err;
+    }
+
+    commitLog->clear();
+    err = commitLog->applySerializedTxs(txs);
+    if (!err.ok()) {
+        return err;
+    }
+
+    setOpId(highestOpId);
+
+    return ERR_OK;
 }
 
 void VolumeMeta::setSequenceId(sequence_id_t new_seq_id){
@@ -104,6 +154,7 @@ std::string VolumeMeta::logString() const
     std::stringstream ss;
     ss << " ["
         << "volid: " << vol_desc->volUUID
+        << " version: " << version
         << " opid: " << getOpId()
         << " sequenceid: " << sequence_id
         << " state: " << fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(getState()))
@@ -111,6 +162,47 @@ std::string VolumeMeta::logString() const
     return ss.str();
 }
 
+void VolumeMeta::setState(const fpi::ResourceState &state,
+                          const std::string &logCtx)
+{
+    vol_desc->state = state;
+    LOGNORMAL << logString() << logCtx;
+}
+
+std::string VolumeMeta::getStateProviderId()
+{
+    return stateProviderId;
+}
+
+std::string VolumeMeta::getStateInfo()
+{
+    /* NOTE: Getting the stateinfo isn't synchronized.  It may be a bit stale */
+    Json::Value state;
+    state["state"] = fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(getState()));
+    state["version"] = version;
+    state["opid"] = static_cast<Json::Value::Int64>(getOpId());
+    state["sequenceid"] = static_cast<Json::Value::Int64>(sequence_id);
+    state["coordinator"] = static_cast<Json::Value::Int64>(getCoordinatorId().svc_uuid);
+
+    std::stringstream ss;
+    ss << state;
+    return ss.str();
+}
+
+std::function<void()> VolumeMeta::makeSynchronized(const std::function<void()> &f)
+{
+    auto qosCtrl = dataManager->getQosCtrl();
+    fds_volid_t volId(getId());
+    auto newCb = [f, qosCtrl, volId]() {
+        auto ioReq = new DmFunctor(volId, std::bind(f));
+        auto err = qosCtrl->enqueueIO(volId, ioReq);
+        if (err != ERR_OK) {
+            GLOGWARN << "Failed to enqueue volume synchronized DmFunctor.  Dropping. " << err;
+            delete ioReq;
+        }
+    };
+    return newCb;
+}
 
 EPSvcRequestRespCb
 VolumeMeta::makeSynchronized(const EPSvcRequestRespCb &f)
@@ -157,11 +249,34 @@ BufferReplay::ProgressCb VolumeMeta::synchronizedProgressCb(const BufferReplay::
     };
     return newCb;
 }
+void VolumeMeta::startInitializer()
+{
+    fds_assert(getState() == fpi::Offline);
+    fds_assert(!isInitializerInProgress());
 
-Error VolumeMeta::startMigration(NodeUuid& srcDmUuid,
-                                 fpi::FDSP_VolumeDescType &vol,
-                                 migrationCb doneCb) {
+    LOGDEBUG << "Starting initializer: " << logString();
+
+    /* Coordinator is set. We can go through sync protocol */
+    setState(fpi::Loading, " - startInitializer");
+    initializer = MAKE_SHARED<VolumeInitializer>(MODULEPROVIDER(), this);
+    initializer->run();
+}
+
+void VolumeMeta::cleanupInitializer()
+{
+    fds_assert(initializer->getProgress() == VolumeInitializer::COMPLETE);
+    initializer.reset();
+    LOGDEBUG << "Cleanedup initializer: " << logString();
+}
+
+Error VolumeMeta::startMigration(const fpi::SvcUuid &srcDmUuid,
+                                 const int64_t &volId,
+                                 const StatusCb &doneCb)
+{
     Error err(ERR_OK);
+    fpi::FDSP_VolumeDescType vol;
+    vol.volUUID = volId;
+
     fds_assert(migrationDest == nullptr);
     cbToVGMgr = doneCb;
     uint32_t deltaBlobTimeout = uint32_t(MODULEPROVIDER()->get_fds_config()->
@@ -171,9 +286,10 @@ Error VolumeMeta::startMigration(NodeUuid& srcDmUuid,
     // DataMgr *nonConstDm = dataManager;
 
     auto dummyId = 0;
+    auto srcDmNodeid = NodeUuid(srcDmUuid);
     migrationDest.reset(new DmMigrationDest(dummyId,
                                             *dataManager,
-                                            srcDmUuid,
+                                            srcDmNodeid,
                                             vol,
                                             deltaBlobTimeout,
                                             std::bind(&VolumeMeta::cleanUpMigrationDestination,
@@ -189,18 +305,47 @@ Error VolumeMeta::startMigration(NodeUuid& srcDmUuid,
     return err;
 }
 
+Error VolumeMeta::handleMigrationDeltaBlobDescs(DmRequest *dmRequest)
+{
+    auto typedRequest = static_cast<DmIoMigrationDeltaBlobDesc*>(dmRequest);
+
+    auto err = migrationDest->checkVolmetaVersion(dmRequest->version);
+    if (err.OK()) {
+        err = migrationDest->processDeltaBlobDescs(typedRequest->deltaBlobDescMsg,
+                                                    typedRequest->localCb);
+    } else {
+        typedRequest->localCb(err);
+    }
+    return err;
+}
+
+Error VolumeMeta::handleMigrationDeltaBlobs(DmRequest *dmRequest)
+{
+    auto typedRequest = static_cast<DmIoMigrationDeltaBlobs*>(dmRequest);
+    auto err = migrationDest->checkVolmetaVersion(dmRequest->version);
+    if (err.OK()) {
+        err = migrationDest->processDeltaBlobs(typedRequest->deltaBlobsMsg);
+    }
+    return err;
+}
+
 Error VolumeMeta::serveMigration(DmRequest *dmRequest) {
     Error err(ERR_OK);
     NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
     DmIoResyncInitialBlob* typedRequest = static_cast<DmIoResyncInitialBlob*>(dmRequest);
     NodeUuid destDmUuid(typedRequest->destNodeUuid);
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr migReqMsg = typedRequest->message;
-    migrationCb cleanupCb = typedRequest->localCb;
+    StatusCb cleanupCb = typedRequest->localCb;
 
     LOGNOTIFY << "migrationid: " << migReqMsg->DMT_version
-        <<" received msg for volume " << migReqMsg->volumeId;
+        <<" received msg for volume " << migReqMsg->volume_id
+        << " on svcuuid: " << destDmUuid << " version: " << dmRequest->version;
 
-    err = createMigrationSource(destDmUuid, mySvcUuid, migReqMsg, cleanupCb);
+    err = createMigrationSource(destDmUuid,
+                                mySvcUuid,
+                                migReqMsg,
+                                cleanupCb,
+                                dmRequest->version);
 
     return err;
 }
@@ -208,7 +353,8 @@ Error VolumeMeta::serveMigration(DmRequest *dmRequest) {
 Error VolumeMeta::createMigrationSource(NodeUuid destDmUuid,
                                         const NodeUuid &mySvcUuid,
                                         fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet,
-                                        migrationCb cleanup) {
+                                        StatusCb cleanup,
+                                        int32_t version) {
     Error err(ERR_OK);
     auto maxNumBlobs = uint64_t(MODULEPROVIDER()->get_fds_config()->
                            get<int64_t>("fds.dm.migration.migration_max_delta_blobs"));
@@ -216,16 +362,19 @@ Error VolumeMeta::createMigrationSource(NodeUuid destDmUuid,
                               get<int64_t>("fds.dm.migration.migration_max_delta_blob_desc"));
 
 
-    auto fds_volid = fds_volid_t(filterSet->volumeId);
+    auto fds_volid = fds_volid_t(filterSet->volume_id);
     fds_verify(fds_volid == vol_desc->GetID());
 
     auto search = migrationSrcMap.find(destDmUuid);
     if (search != migrationSrcMap.end()) {
         LOGERROR << "migrationid: " << filterSet->DMT_version
             << " Source received request for destination node: " << destDmUuid
-            << " volume " << filterSet->volumeId << " but it already exists";
+            << " volume " << filterSet->volume_id << " but it already exists";
         err = ERR_DUPLICATE;
     } else {
+        LOGMIGRATE << "Creating migration source for dest: " << destDmUuid <<
+                " for volume: " << vol_desc->name << "(ID: " << vol_desc->volUUID <<
+                ") with meta version " << version;
         DmMigrationSrc::shared_ptr source;
         {
             SCOPEDWRITE(migrationSrcMapLock);
@@ -242,7 +391,8 @@ Error VolumeMeta::createMigrationSource(NodeUuid destDmUuid,
                                                  destDmUuid),
                                        cleanup,
                                        maxNumBlobs,
-                                       maxNumBlobDesc));
+                                       maxNumBlobDesc,
+                                       version));
             migrationSrcMap.insert(std::make_pair(destDmUuid, source));
         }
         source->run();
@@ -255,11 +405,11 @@ void VolumeMeta::cleanUpMigrationSource(fds_volid_t volId,
                                         const NodeUuid destDmUuid) {
 
     if (!err.ok()) {
-        LOGERROR << "Cleaning up for vol: " << volId << " dest node: " << destDmUuid <<
-            " with error: " << err;
+        LOGERROR << "Cleaning up DmMigrationSrc for vol: " << volId
+            << " dest node: " << destDmUuid << " with error: " << err;
     } else {
-        LOGNORMAL << "[migrate] Cleaning up for vol: " << volId << " dest node: " << destDmUuid <<
-            " with error: " << err;
+        LOGNORMAL << "[migrate] Cleaning up DmMigrationSrc for vol: " << volId
+            << " dest node: " << destDmUuid << " with error: " << err;
 
     }
     DmMigrationSrc::shared_ptr source;
@@ -271,12 +421,36 @@ void VolumeMeta::cleanUpMigrationSource(fds_volid_t volId,
             return;
         } else {
             source = search->second;
-            source->finish();
+            // source->sendFinishFwdMsg();
+            // source->finish();
             migrationSrcMap.erase(search);
         }
     }
 }
 
+void VolumeMeta::handleFinishStaticMigration(DmRequest *dmRequest)
+{
+    dm::QueueHelper helper(*dataManager, dmRequest);
+    DmIoFinishStaticMigration *request = static_cast<DmIoFinishStaticMigration*>(dmRequest);
+
+    Error err(request->reqMessage->status);
+
+    /** volId and srcNodeUuid is there for formality */
+    if (!err.ok()) {
+        LOGERROR << "Cleaning up DmMigrationDest " << logString();
+    } else {
+        LOGNORMAL << "[migrate] Cleaning up DmMigrationDest " << logString();
+    }
+
+    /* This shouldn't block.  This is there to avoid the assert ~MigrationTrackIOReqs() */
+    migrationDest->waitForAsyncMsgs();
+    migrationDest.reset();
+
+    cbToVGMgr(err);
+    cbToVGMgr=nullptr;
+}
+
+// TODO(Rao): remoe the following
 void VolumeMeta::cleanUpMigrationDestination(NodeUuid srcNodeUuid,
                                              fds_volid_t volId,
                                              const Error &err) {
@@ -284,15 +458,43 @@ void VolumeMeta::cleanUpMigrationDestination(NodeUuid srcNodeUuid,
     /** volId and srcNodeUuid is there for formality */
     fds_assert(volId == vol_desc->volUUID);
     if (!err.ok()) {
-        LOGERROR << "Cleaning up for vol: " << volId << " dest node: " << srcNodeUuid <<
-            " with error: " << err;
+        LOGERROR << "Cleaning up DmMigrationDest for vol: "
+            << volId << " dest node: " << srcNodeUuid << " with error: " << err;
     } else {
-        LOGNORMAL << "[migrate] Cleaning up for vol: " << volId << " dest node: " << srcNodeUuid <<
-            " with error: " << err;
+        LOGNORMAL << "[migrate] Cleaning up DmMigrationDest for vol: " << volId
+            << " dest node: " << srcNodeUuid << " with error: " << err;
     }
 
     migrationDest.reset();
+
+    cbToVGMgr(err);
+    cbToVGMgr=nullptr;
+}
+
+
+void VolumeMeta::handleVolumegroupUpdate(DmRequest *dmRequest)
+{
+    dm::QueueHelper helper(*dataManager, dmRequest);
+    DmIoVolumegroupUpdate* request = static_cast<DmIoVolumegroupUpdate*>(dmRequest);
+
+    LOGDEBUG << "Attempting to set volumegroup info for vol: '"
+             << std::hex << request->volId << std::dec << "'";
+    if (getState() != fpi::Loading) {
+        LOGWARN << "Failed setting volumegroup info vol: " << request->volId
+            << ". Volume isn't in loading state";
+        helper.err = ERR_INVALID;
+        return;
+    } else if (getSequenceId() !=
+               static_cast<uint64_t>(request->reqMessage->group.lastCommitId)) {
+        LOGWARN << "vol: " << request->volId << " doesn't have active state."
+            << " current sequence id: " << getSequenceId()
+            << " expected sequence id: " << request->reqMessage->group.lastCommitId;
+        setState(fpi::Offline, " - VolumegroupUpdateHandler:sequence id mismatch");
+        // TODO(Rao): At this point we should trigger a sync
+        return;
+    }
+    setOpId(request->reqMessage->group.lastOpId);
+    setState(fpi::Active, " - VolumegroupUpdateHandler:state matched with coordinator");
 }
 
 }  // namespace fds
-

@@ -18,6 +18,7 @@ static const fds_uint32_t MAX_POLL_EVENTS = 1024;
 static const fds_uint32_t BUF_LEN = MAX_POLL_EVENTS * (sizeof(struct inotify_event) + NAME_MAX);
 
 JournalManager::JournalManager(fds::DataMgr* dm) : dm(dm),fStopLogMonitoring(false) {
+    inotifyFd = -1;
     if (dm->features.isTimelineEnabled()) {
         logMonitor.reset(new std::thread(
             std::bind(&JournalManager::monitorLogs, this)));
@@ -31,6 +32,9 @@ JournalManager::~JournalManager() {
 void JournalManager::stopMonitoring() {
     if (dm->features.isTimelineEnabled()) {
         fStopLogMonitoring = true;
+        if (inotifyFd > 0) {
+            close(inotifyFd);
+        }
         logMonitor->join();
     }
 }
@@ -135,14 +139,14 @@ void JournalManager::monitorLogs() {
     FdsRootDir::fds_mkdir(root->dir_timeline_dm().c_str());
 
     // initialize inotify
-    int fd = inotify_init();
-    if (fd < 0) {
+    int inotifyFd = inotify_init();
+    if (inotifyFd < 0) {
         LOGCRITICAL << "Failed to initialize inotify, error= '" << errno << "'";
         return;
     }
 
     std::set<std::string> watched;
-    int wd = inotify_add_watch(fd, dmDir.c_str(), IN_CREATE);
+    int wd = inotify_add_watch(inotifyFd, dmDir.c_str(), IN_CREATE);
     if (wd < 0) {
         LOGCRITICAL << "Failed to add watch for directory '" << dmDir << "'";
         return;
@@ -150,14 +154,14 @@ void JournalManager::monitorLogs() {
     watched.insert(dmDir);
 
     // epoll related calls
-    int efd = epoll_create(sizeof(fd));
+    int efd = epoll_create(sizeof(inotifyFd));
     if (efd < 0) {
         LOGCRITICAL << "Failed to create epoll file descriptor, error= '" << errno << "'";
         return;
     }
     struct epoll_event ev = {0};
     ev.events = EPOLLIN | EPOLLET;
-    int ecfg = epoll_ctl(efd, EPOLL_CTL_ADD, fd, &ev);
+    int ecfg = epoll_ctl(efd, EPOLL_CTL_ADD, inotifyFd, &ev);
     if (ecfg < 0) {
         LOGCRITICAL << "Failed to configure epoll interface!";
         return;
@@ -174,6 +178,18 @@ void JournalManager::monitorLogs() {
             util::getSubDirectories(dmDir, volDirs);
 
             for (const auto & d : volDirs) {
+                // check the commit log retention for this volume
+                fds_volid_t volid(std::atoll(d.c_str()));
+                const VolumeDesc *volumeDesc = dm->getVolumeDesc(volid);
+                if (!volumeDesc) {
+                    LOGWARN << "unable to get voldesc for vol:" << volid;
+                    continue;
+                }
+                if (volumeDesc->contCommitlogRetention == 0) {
+                    LOGDEBUG << "skipping journal log archive as retention is OFF for vol:" << volid;
+                    continue;
+                }
+
                 std::string volPath = dmDir + d + "/";
                 std::vector<std::string> catFiles;
                 util::getFiles(volPath, catFiles);
@@ -204,7 +220,7 @@ void JournalManager::monitorLogs() {
 
                 std::set<std::string>::const_iterator iter = watched.find(volPath);
                 if (watched.end() == iter) {
-                    if ((wd = inotify_add_watch(fd, volPath.c_str(), IN_CREATE)) < 0) {
+                    if ((wd = inotify_add_watch(inotifyFd, volPath.c_str(), IN_CREATE)) < 0) {
                         LOGCRITICAL << "Failed to add watch for directory '" << volPath << "'";
                         continue;
                     } else {
@@ -227,6 +243,9 @@ void JournalManager::monitorLogs() {
             eventReady = false;
             errno = 0;
             fds_int32_t fdCount = epoll_wait(efd, &ev, MAX_POLL_EVENTS, POLL_WAIT_TIME_MS);
+            if (fStopLogMonitoring) {
+                return;
+            }
             if (fdCount < 0) {
                 if (EINTR != errno) {
                     LOGCRITICAL << "epoll_wait() failed, error= '" << errno << "'";
@@ -237,7 +256,7 @@ void JournalManager::monitorLogs() {
                 // timeout, refresh
                 eventReady = true;
             } else {
-                int len = read(fd, buffer, BUF_LEN);
+                int len = read(inotifyFd, buffer, BUF_LEN);
                 if (len < 0) {
                     LOGWARN << "Failed to read inotify event, error= '" << errno << "'";
                     continue;
@@ -254,9 +273,6 @@ void JournalManager::monitorLogs() {
                     }
                     p += sizeof(struct inotify_event) + event->len;
                 }
-            }
-            if (fStopLogMonitoring) {
-                return;
             }
         } while (!eventReady);
     }

@@ -67,7 +67,7 @@ public class SeriesHelper {
          * for a timestamp. Then determine if there enough datapoints to cover
          * what is being asked for.
          *
-         * Maximum number of points is 30. Any timestamp that we don't
+         * Maximum number of points is 30. Any timestamp that we don't have
          * datapoints for will be set with a datapoint(x=0,y=timestamp).
          *
          * date range diff less than or equal to 'one hours' will provide a
@@ -298,9 +298,9 @@ public class SeriesHelper {
         	// which are separated by "distribution" and start at "timestamp"
             Double diff = dp.getX() - timestampSeconds;
 
-            Double bucket = Math.floor( diff.doubleValue() /
-                                        new Double( TimeUnit.MINUTES.toSeconds( distributionSeconds ) ) );
-            bucket = timestampSeconds + (bucket * TimeUnit.MINUTES.toSeconds( distributionSeconds ) );
+            Double bucket = Math.floor( diff /
+                                        ( double ) TimeUnit.MINUTES.toSeconds( distributionSeconds ) );
+            bucket = timestampSeconds + ( bucket * TimeUnit.MINUTES.toSeconds( distributionSeconds ) );
 
             List<Datapoint> bucketList = bucketMap.get( bucket );
         	

@@ -11,6 +11,7 @@ user_non_fds_libs := pcrecpp sqlite3  \
 user_cpp_flags    :=
 
 user_bin_exe      := \
+    volumegrouping_gtest \
     dm_direct \
     dm_volume_catalog_gtest \
     dm_timelinedb \
@@ -20,6 +21,8 @@ user_bin_exe      := \
     dmchecker_gtest \
     objectrefscanner_gtest
 
+
+volumegrouping_gtest := VolumeGrouping_gtest.cpp
 dm_volume_catalog_gtest     := dm_volume_catalog_gtest.cpp
 dm_direct := dm_direct.cpp
 dm_timelinedb := timelinedb.cpp

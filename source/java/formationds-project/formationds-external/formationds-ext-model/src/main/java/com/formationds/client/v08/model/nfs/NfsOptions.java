@@ -16,7 +16,8 @@ public class NfsOptions
         public Builder withAcl() { _withAcl = true; return this; }
         public Builder withoutAcl() { _withAcl = false; return this; }
         public Builder async() { async = true; return this; }
-        public Builder allSquash() { allSquash = true; return this; }
+        public Builder allSquash() { allSquash = true; noAllSquash = false; return this; }
+        public Builder noAllSquash() { noAllSquash = true; allSquash = false; return this; }
         public Builder withRootSquash() { rootSquash = true; return this; }
 
         public NfsOptions build( )
@@ -28,6 +29,7 @@ public class NfsOptions
         private boolean rw = false;
         private boolean _withAcl = false;
         private boolean allSquash = false;
+        private boolean noAllSquash = false;
         private boolean rootSquash = false;
         private boolean async = false;
     }
@@ -40,25 +42,15 @@ public class NfsOptions
 
         if( builder.ro && !builder.rw )
         {
-            sb.append( "ro" );
+            sb.append( "ro" ).append( "," );
         }
         else if( !builder.ro && builder.rw )
         {
-            sb.append( "rw" );
-        }
-        else
-        {
-            // The default is to disallow any request which changes the filesystem.
-            sb.append( "ro" );
+            sb.append( "rw" ).append( "," );
         }
 
-        if( builder.async )
-        {
-            sb.append( "," )
-              .append( "async" );
-        }
-
-        sb.append( "," )
+        sb.append( builder.async ? "async" : "sync" )
+          .append( "," )
           .append( builder._withAcl ? "acl" : "noacl" )
           .append( "," )
           .append( builder.rootSquash ? "root_squash" : "no_root_squash" );
@@ -68,9 +60,20 @@ public class NfsOptions
             sb.append( "," )
               .append( "all_squash" );
         }
+        else if( builder.noAllSquash )
+        {
+            sb.append( "," )
+              .append( "no_all_squash" );
+        }
 
         this.options = sb.toString();
     }
 
     public String getOptions( ) { return this.options; }
+
+    @Override
+    public String toString( )
+    {
+        return getOptions();
+    }
 }

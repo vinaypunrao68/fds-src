@@ -8,6 +8,7 @@
 
 // Internal includes.
 #include "catalogKeys/BlobObjectKey.h"
+#include <net/PlatNetSvcHandler.h>
 #include "checker/DmChecker.h"
 #include "dm-vol-cat/DmPersistVolDB.h"
 #include "fds_process.h"

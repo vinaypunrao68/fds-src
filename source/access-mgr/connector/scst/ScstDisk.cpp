@@ -226,22 +226,25 @@ void ScstDisk::execDeviceCmd(ScstTask* task) {
 
 void
 ScstDisk::respondDeviceTask(ScstTask* task) {
-    if (task->isRead()) {
-        if (fpi::OK != task->getError()) {
+    auto const& err = task->getError();
+    if (fpi::OK != err) {
+        if (task->isRead() && fpi::INTERNAL_SERVER_ERROR == err) {
             task->checkCondition(SCST_LOAD_SENSE(scst_sense_read_error));
+        } else if (task->isWrite() && fpi::MISSING_RESOURCE == err) {
+            task->checkCondition(SCST_LOAD_SENSE(scst_sense_write_error));
         } else {
-            auto buffer = task->getResponseBuffer();
-            fds_uint32_t i = 0, context = 0;
-            boost::shared_ptr<std::string> buf = task->getNextReadBuffer(context);
-            while (buf != NULL) {
-                memcpy(buffer + i, buf->c_str(), buf->length());
-                i += buf->length();
-                buf = task->getNextReadBuffer(context);
-            }
-            task->setResponseLength(i);
+            task->checkCondition(SCST_LOAD_SENSE(scst_sense_rebuild_in_progress));
         }
-    } else if (fpi::OK != task->getError()) {
-        task->checkCondition(SCST_LOAD_SENSE(scst_sense_write_error));
+    } else if (task->isRead()) {
+        auto buffer = task->getResponseBuffer();
+        fds_uint32_t i = 0, context = 0;
+        boost::shared_ptr<std::string> buf = task->getNextReadBuffer(context);
+        while (buf != NULL) {
+            memcpy(buffer + i, buf->c_str(), buf->length());
+            i += buf->length();
+            buf = task->getNextReadBuffer(context);
+        }
+        task->setResponseLength(i);
     }
 }
 

@@ -102,6 +102,27 @@ namespace fds
         return false;
     }
 
+    // dsk_label_valid_for_node indicates whether the node uuid matches
+    // ---------------
+    //
+    bool DiskLabel::dsk_label_valid_for_node(NodeUuid node_uuid)
+    {
+        if (!dsk_label_valid())
+        {
+            return true;  // return true if there is no label
+        }
+        if (node_uuid.uuid_get_val() <= 0)
+        {
+            LOGWARN << "Bad node uuid, can't verify label ";
+            return true;
+        }
+        NodeUuid uuid;
+        uuid.uuid_set_from_raw(dl_label->dl_node_uuid);
+        LOGDEBUG << "Checking label node uuid " << uuid.uuid_get_val()
+                 << " against node uuid " << node_uuid.uuid_get_val();
+        return node_uuid == uuid;
+    }
+
     // dsk_label_init_uuids
     // --------------------
     //

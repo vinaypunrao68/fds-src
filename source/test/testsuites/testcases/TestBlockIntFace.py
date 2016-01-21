@@ -19,6 +19,8 @@ from fdscli.model.volume.volume import Volume
 from fdslib.TestUtils import get_volume_service
 from fdscli.model.fds_error import FdsError
 from fabric.contrib.files import *
+from fdslib.TestUtils import connect_fabric
+from fdslib.TestUtils import disconnect_fabric
 
 nbd_device = "/dev/nbd15"
 pwd = ""
@@ -209,12 +211,7 @@ class TestBlockFioSeqW(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
         if self.parameters['ansible_install_done'] is True:
-            env.user='root'
-            env.password='passwd'
-            env.host_string = om_node.nd_conf_dict['ip']
-            internal_ip = run("hostname")
-            # When we run command using fabric it is unable to resolve internal ip, so add IP in /etc/hosts
-            result = sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
+            assert connect_fabric(self,om_node.nd_conf_dict['ip']) is True
         if self.childPID is None:
             # Not running in a forked process.
             # Stop on failures.
@@ -246,7 +243,7 @@ class TestBlockFioSeqW(TestCase.FDSTestCase):
         elif status != 0:
             self.log.error("Failed to run write workload with status %s." % status)
             return False
-
+        disconnect_fabric()
         return True
 
 # This class contains the attributes and methods to test

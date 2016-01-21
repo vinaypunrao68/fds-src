@@ -93,7 +93,7 @@ void AmProcess::putBlob(const fds_volid_t &volId, const VolumeResponseCb &cb)
     /* Commit Tx */
     fpi::CommitTxMsgPtr commitMsg(new fpi::CommitTxMsg());
     commitMsg->volumeIoHdr.txId = txId;
-    volHandle_->sendWriteMsg<fpi::CommitTxMsg>(
+    volHandle_->sendCommitMsg<fpi::CommitTxMsg>(
         FDSP_MSG_TYPEID(fpi::CommitTxMsg),
         commitMsg,
         cb);

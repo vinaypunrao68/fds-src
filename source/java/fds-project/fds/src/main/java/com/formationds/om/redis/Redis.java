@@ -7,6 +7,8 @@ package com.formationds.om.redis;
 import FDS_ProtocolInterface.FDSP_AnnounceDiskCapability;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
+import com.formationds.client.v08.model.Size;
+import com.formationds.client.v08.model.SizeUnit;
 import com.formationds.platform.svclayer.SvcLayerSerializationProvider;
 import com.formationds.platform.svclayer.SvcLayerSerializer;
 import com.formationds.protocol.IScsiTarget;
@@ -116,8 +118,6 @@ public class Redis
                               {
                                   logger.warn( "Encountered a de-serialization failure",
                                                e );
-
-                                  logger.trace( "'[ " + serialized + " ]'" );
                               }
                           } );
         }
@@ -166,13 +166,13 @@ public class Redis
         return nodeInfos;
     }
 
-    public Map<Long, FDSP_AnnounceDiskCapability> getPMNodeCapacity( )
+    public Map<String, FDSP_AnnounceDiskCapability> getPMNodeCapacity( )
     {
-        final Map<Long,FDSP_AnnounceDiskCapability> nodeDiskCapacity = new HashMap<>( );
+        final Map<String,FDSP_AnnounceDiskCapability> nodeDiskCapacity = new HashMap<>( );
 
         try ( Jedis jedis = pool.getResource( ) )
         {
-            Set<String> sets = jedis.keys( "*.node.disk.capability" );
+            Set<String> sets = jedis.keys( "*.fds.node.disk.capability" );
             sets.stream( )
                 .forEach( ( p ) ->
                           {
@@ -184,16 +184,7 @@ public class Redis
                                           FDSP_AnnounceDiskCapability.class,
                                           ByteBuffer.wrap( serialized.getBytes( ) ) );
                                   final String uuidKey = p.replace( ".fds.node.disk.capability", "" );
-                                  System.out.println( "P::" + p + " UUID::" + uuidKey );
-                                  final NodeInfo nodeInfo = getPMNodeInfo( uuidKey );
-                                  if( nodeInfo != null )
-                                  {
-                                      nodeDiskCapacity.put( nodeInfo.getUuid( ), capacity );
-                                  }
-                                  else
-                                  {
-                                      logger.warn( "The specified uuid {} was not found.", uuidKey );
-                                  }
+                                  nodeDiskCapacity.put( uuidKey, capacity );
                               }
                           } );
         }
@@ -271,6 +262,45 @@ public class Redis
         return Optional.empty();
     }
 
+    public Size getDomainUsedCapacity( )
+    {
+        long used;
+        try ( Jedis jedis = pool.getResource( ) )
+        {
+            final Map<String, String> byNodes = jedis.hgetAll( "used.capacity" );
+            used = byNodes.values()
+                          .stream()
+                          .peek( ( v ) -> logger.trace( "per node used capacity::{}", Long.valueOf( v ) ) )
+                          .mapToLong( Long::valueOf ).sum( );
+        }
+
+        logger.trace( "domain used capacity::{}", used );
+        return Size.of( used, SizeUnit.B );
+    }
+
+    public Size getPMNodeUsedCapacity( final long id )
+    {
+        long used = 0;
+        try ( Jedis jedis = pool.getResource( ) )
+        {
+            final Map<String, String> byNodes = jedis.hgetAll( "used.capacity" );
+            if( byNodes.containsKey( String.valueOf( id ) ) )
+            {
+                final long bytesUsed = Long.valueOf( byNodes.get( String.valueOf( id ) ) );
+                logger.trace( "node uuid [ {} hex:{} ]::used capacity {}",
+                              id, Long.toHexString( id ), bytesUsed );
+                used = bytesUsed;
+            }
+            else
+            {
+                logger.warn( "The specified node uuid [ {} hex:{} ] was not found.",
+                             id, Long.toHexString( id ) );
+            }
+        }
+
+        return Size.of( used, SizeUnit.B );
+    }
+
     protected Optional<String> getVolumeSettings( final BigInteger uuid )
     {
         try ( Jedis jedis = pool.getResource( ) )
@@ -285,7 +315,7 @@ public class Redis
         return Optional.empty();
     }
 
-    protected List<Long> getVolumeIds(  final long localDomainId )
+    protected List<Long> getVolumeIds( final long localDomainId )
     {
         final List<Long> volumeIds = new ArrayList<>( );
 
@@ -326,46 +356,24 @@ public class Redis
                               final String serialized = jedis.get( p );
                               if ( serialized != null )
                               {
-                                  System.out.println( key + "::'" + serialized + "'" );
                                   try
                                   {
                                       nodeInfo[ 0 ] =
                                           SvcLayerSerializer.deserialize(
                                               NodeInfo.class,
                                               ByteBuffer.wrap( serialized.getBytes( ) ) );
-
-                                      System.out.println( "NODE::" + nodeInfo[ 0 ].toString() );
                                   }
                                   catch ( SvcLayerSerializationProvider.SerializationException e )
                                   {
                                       final String warning =
                                           String.format( "The specified key '%s' encountered a de-serialization failure", key );
+
                                       logger.warn( warning, e );
-
-                                      logger.trace( "{}::'{}'", key, serialized );
-
-                                      e.printStackTrace();
                                   }
                               }
                           } );
         }
 
         return nodeInfo[ 0 ];
-    }
-
-    public static void main( final String[] args )
-    {
-        final Redis redis = new Redis( "10.2.10.171" );
-
-//        System.out.println( "PMs::" + redis.getPMSvcInfos() );
-//        System.out.println( "SVCINFOS::" + redis.getSvcInfos() );
-//        System.out.println( "NODEs::" + redis.getNodes() );
-        System.out.println( redis.getPMNodeCapacity() );
-//        System.out.println( "VOLUMES::" );
-//        for( VolumeDesc desc : redis.listVolumes() )
-//        {
-//            System.out.println( "" + desc );
-//        }
-//          System.out.println( redis.getVolume( 11L ) );
     }
 }

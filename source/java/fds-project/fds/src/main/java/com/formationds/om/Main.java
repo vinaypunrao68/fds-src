@@ -4,10 +4,11 @@
 package com.formationds.om;
 
 import com.formationds.apis.ConfigurationService;
-import com.formationds.apis.XdiService;
+import com.formationds.util.thrift.ThriftClientFactory;
 import com.formationds.commons.libconfig.Assignment;
 import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
+import com.formationds.nfs.XdiStaticConfiguration;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
@@ -29,9 +30,11 @@ import com.formationds.security.FdsAuthenticator;
 import com.formationds.security.FdsAuthorizer;
 import com.formationds.security.NullAuthenticator;
 import com.formationds.util.Configuration;
-import com.formationds.util.thrift.AmServiceClientFactory;
+import com.formationds.util.ServerPortFinder;
 import com.formationds.util.thrift.ConfigServiceClientFactory;
-import com.formationds.util.thrift.ThriftClientFactory;
+import com.formationds.xdi.AsyncAm;
+import com.formationds.xdi.FakeAsyncAm;
+import com.formationds.xdi.RealAsyncAm;
 import com.nurkiewicz.asyncretry.AsyncRetryExecutor;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.thrift.transport.TTransportException;
@@ -148,13 +151,6 @@ public class Main {
         // initialize the firebreak event listener (callback from repository persist)
         EventManager.INSTANCE.initEventListeners();
 
-        // TODO: should there be an OM property for the am host?
-        String amHost = platformConfig.defaultString("fds.xdi.am_host", "localhost");
-
-        // TODO: we are going to AM on the same node as OM here; otherwise we need to get a platform
-        // port of another node (but this is the same functionality as was before with instanceID)
-        int amServicePortOffset = platformConfig.defaultInt("fds.am.am_service_port_offset", 2988);
-        int amServicePort = pmPort + amServicePortOffset;
         int omConfigPort = platformConfig.defaultInt( "fds.om.config_port",
                                                       9090 );
 
@@ -209,8 +205,22 @@ public class Main {
 
         EnsureAdminUser.bootstrapAdminUser( configCache );
 
-        XdiService.Iface amService = AmServiceClientFactory.newAmService(amHost, amServicePort).getClient( );
-        SingletonAmAPI.instance().api( amService );
+        // TODO: should there be an OM property for the am host?
+        String amHost = platformConfig.defaultString("fds.xdi.am_host", "localhost");
+
+        int xdiServicePortOffset = platformConfig.defaultInt("fds.am.xdi_service_port_offset", 1899);
+        int xdiServicePort = pmPort + xdiServicePortOffset;
+
+        int xdiResponsePortOffset = platformConfig.defaultInt("fds.om.xdi_response_port_offset", 2988);
+        int xdiResponsePort = new ServerPortFinder().findPort("Async XDI response port", pmPort + xdiResponsePortOffset);
+
+        XdiStaticConfiguration xdiStaticConfig = configuration.getXdiStaticConfig( pmPort );
+
+        boolean useFakeAm = platformConfig.defaultBoolean( "fds.am.memory_backend", false );
+        AsyncAm asyncAm = useFakeAm ?
+                new FakeAsyncAm() :
+                new RealAsyncAm(amHost, xdiServicePort, xdiResponsePort, xdiStaticConfig.getAmTimeout());
+        SingletonAmAPI.instance().api( asyncAm );
 
         /*
          * TODO(Tinius) currently we only support a single OM

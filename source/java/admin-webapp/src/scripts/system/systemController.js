@@ -1,4 +1,4 @@
-angular.module( 'system' ).controller( 'systemController', [ '$scope', '$node_service', '$authentication', '$state', '$timeout', '$filter', '$rootScope', function( $scope, $node_service, $authentication, $state, $timeout, $filter, $rootScope ){
+angular.module( 'system' ).controller( 'systemController', [ '$scope', '$node_service', '$authentication', '$state', '$timeout', '$filter', '$rootScope', '$byte_converter', function( $scope, $node_service, $authentication, $state, $timeout, $filter, $rootScope, $byte_converter ){
 
     $scope.addingnode = false;
     $scope.nodes = $node_service.nodes;
@@ -63,6 +63,11 @@ angular.module( 'system' ).controller( 'systemController', [ '$scope', '$node_se
             default:
                 return 'icon-nothing state-unknown';
         }
+    };
+    
+    $scope.getByteString = function( value, units ){
+        
+        return $byte_converter.convertFromUnitsToString( value, units );
     };
 
     $scope.$on( 'fds::node_done_adding', function(){

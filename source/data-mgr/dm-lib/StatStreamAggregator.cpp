@@ -447,7 +447,14 @@ Error StatStreamAggregator::deregisterStream(fds_uint32_t reg_id) {
     LOGTRACE << "Removing streaming registration with id " << reg_id;
 
     SCOPEDWRITE(lockStatStreamRegsMap);
-    streamTimer_.cancel(statStreamTaskMap_[reg_id]);
+    auto task = statStreamTaskMap_.find(reg_id);
+
+    if (task == statStreamTaskMap_.end()) {
+        LOGERROR << "Got deregister request for an invalid registration id: " << reg_id;
+        return ERR_NOT_FOUND;
+    }
+
+    streamTimer_.cancel(task->second);
     statStreamTaskMap_.erase(reg_id);
     statStreamRegistrations_.erase(reg_id);
     return err;
