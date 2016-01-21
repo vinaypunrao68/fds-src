@@ -1328,7 +1328,8 @@ OM_NodeDomainMod::OM_NodeDomainMod(char const *const name)
         : Module(name),
           fsm_lock("OM_NodeDomainMod fsm lock"),
           configDB(nullptr),
-          domainDown(false)
+          domainDown(false),
+          dbLock("ConfigDB access lock")
 {
     om_locDomain = new OM_NodeContainer();
     domain_fsm = new FSM_NodeDomain();
@@ -3215,7 +3216,7 @@ OM_NodeDomainMod::removeNodeComplete(NodeUuid uuid) {
     bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcuuid, svcInfo);
     if (ret) {
         LOGDEBUG << "Deleting from svcMap, uuid:" << std::hex << svcuuid.svc_uuid << std::dec;
-        fds_mutex dbLock;
+
         fds_mutex::scoped_lock l(dbLock);
 
         configDB->deleteSvcMap(svcInfo);
@@ -3337,7 +3338,6 @@ OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap( const NodeUuid& svcUuid,
                                                         const fpi::ServiceStatus status )
 {
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-    fds_mutex dbLock;
     {
         fds_mutex::scoped_lock l(dbLock);
         change_service_state( configDB, svcUuid.uuid_get_val(), status, true );
