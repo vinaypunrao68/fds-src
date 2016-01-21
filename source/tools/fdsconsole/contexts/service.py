@@ -188,6 +188,7 @@ class ServiceContext(Context):
 
     def getServiceIds(self, pattern):
         return self.getServiceId(pattern , False)
+
     def getServiceId(self, pattern, onlyone=True):
         if type(pattern) == types.IntType:
             return pattern if onlyone else [pattern]
@@ -196,7 +197,8 @@ class ServiceContext(Context):
 
         ipPattern = re.compile("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")
         try:
-            name=None
+            uuid = None
+            name = None
             ip=[]
             port=None
             if ':' in pattern:
@@ -226,9 +228,17 @@ class ServiceContext(Context):
             if name not in ['om','am','pm','sm','dm', '*', 'all', None]:
                 # check for hostname
                 iplist = self.getIpsFromName(name)
-                if len(iplist) > 0:
+                if len(iplist) > 0 and not (iplist[0] == name):
                     ip = iplist
                     name = None
+
+                if name != None:
+                    # check if it is a hex nodeid
+                    try:
+                        uuid = int(name,16)
+                        name = None
+                    except:
+                        pass
 
                 if name != None:
                     print 'unknown service : {}'.format(name)
@@ -238,7 +248,9 @@ class ServiceContext(Context):
             finallist = [s for s in services
                          if (name == None or name == 'all' or name == '*' or name == s['service'].lower()) and
                          (len(ip) == 0 or s['ip'] in ip) and
-                         (port == None or s['port'] == port)]
+                         (port == None or s['port'] == port) and
+                         (uuid == None or int(s['uuid']) == uuid)]
+
             if onlyone:
                 if len(finallist) == 1:
                     return int(finallist[0]['uuid'])
