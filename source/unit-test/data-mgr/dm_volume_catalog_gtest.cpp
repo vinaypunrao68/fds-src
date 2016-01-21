@@ -151,8 +151,8 @@ TEST_F(DmVolumeCatalogTest, copy_volume) {
         fds_uint64_t size = 0;
         fds_uint64_t blobCount = 0;
         fds_uint64_t objCount = 0;
-        rc = volcat->statVolume(snapshots[i]->volUUID, &size, &blobCount, &objCount);
-        std::cout << "[statVolume returned: ] " << rc << std::endl;
+        rc = volcat->statVolumeLogical(snapshots[i]->volUUID, &size, &blobCount, &objCount);
+        std::cout << "[statVolumeLogical returned: ] " << rc << std::endl;
         EXPECT_TRUE(rc.ok());
         EXPECT_EQ(blobCount, 1);
         EXPECT_EQ(size, blobCount * BLOB_SIZE);
@@ -180,7 +180,7 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
     // get volume details
     for (auto vdesc : volumes) {
         fds_uint64_t size = 0, blobCount = 0, objCount = 0;
-        Error rc = volcat->statVolume(vdesc->volUUID, &size, &blobCount, &objCount);
+        Error rc = volcat->statVolumeLogical(vdesc->volUUID, &size, &blobCount, &objCount);
         EXPECT_TRUE(rc.ok());
         EXPECT_EQ(size, static_cast<fds_uint64_t>(blobCount) * BLOB_SIZE);
 
