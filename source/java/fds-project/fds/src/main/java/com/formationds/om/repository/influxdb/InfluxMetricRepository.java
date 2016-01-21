@@ -199,7 +199,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
                     // find the metric position
                     int midx = indexOf( vdp.getKey() );
                     if (midx == -1) {
-                        logger.warn( "Metric {} not found in Volume Metrics list.  Skipping.", vdp.getKey() );
+                        logger.debug( "Metric {} not found in Volume Metrics list.  Skipping.", vdp.getKey() );
                         continue;
                     }
                     metricValues[midx] = vdp.getValue();
