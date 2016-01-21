@@ -24,11 +24,6 @@ struct VolumeIoHdr {
     6: i64					txId;
 }
 
-struct VolumeGroupCoordinatorInfo {
-    1: required svc_types.SvcUuid		id;
-    2: required i32				version;
-}
-
 struct VolumeGroupInfo {
     1: required VolumeGroupId			groupId;
     2: required VolumeGroupVersion		version;
@@ -65,8 +60,8 @@ struct AddToVolumeGroupRespCtrlMsg {
 
 /* Message sent from Coordinator to OM to register the coordinator for a vol */
 struct SetVolumeGroupCoordinatorMsg {
-    1: VolumeGroupCoordinatorInfo	coordinator;
-    2: i64                          volumeId;
+    1: svc_types.VolumeGroupCoordinatorInfo	coordinator;
+    2: i64                          		volumeId;
 }
 
 /* BEGIN exposed for testing.  Will be removed */
