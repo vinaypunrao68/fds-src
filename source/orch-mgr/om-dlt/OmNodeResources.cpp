@@ -3685,20 +3685,26 @@ OM_NodeContainer::om_bcast_shutdown_msg(fpi::FDSP_MgrIdType svc_type)
 {
     fds_uint32_t count = 0;
 
-    if (svc_type == fpi::FDSP_DATA_MGR) {
-        // send shutdown to DM nodes
+    switch (svc_type)
+    {
+    case fpi::FDSP_DATA_MGR:
         count = dc_dm_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
         LOGDEBUG << "Sent SHUTDOWN to " << count << " DM services successfully";
-    } else if (svc_type == fpi::FDSP_STOR_MGR) {
-        // send shutdown to SM nodes
+        break;
+    case fpi::FDSP_STOR_MGR:
         count = dc_sm_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
         LOGDEBUG << "Sent SHUTDOWN to " << count << " SM services successfully";
-    } else if (svc_type == fpi::FDSP_ACCESS_MGR) {
-        // send shutdown to AM nodes
+        break;
+    case fpi::FDSP_ACCESS_MGR:
         count = dc_am_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
         LOGDEBUG << "Sent SHUTDOWN to " << count << " AM services successfully";
-    } else {
-        LOGERROR << "Received Prepare For Shutdown request for invalid svc type.";
+        break;
+    case fpi::FDSP_PLATFORM:
+        count = dc_pm_nodes->agent_ret_foreach<fds_uint32_t>(0, om_send_shutdown);
+        LOGDEBUG << "Sent SHUTDOWN to " << count << " PM services successfully";
+        break;
+    default:
+        LOGERROR << "Received Prepare For Shutdown request for invalid svc type:" << svc_type;
     }
     return count;
 }
