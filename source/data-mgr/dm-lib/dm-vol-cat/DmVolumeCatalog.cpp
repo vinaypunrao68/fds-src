@@ -83,10 +83,13 @@ Error DmVolumeCatalog::addCatalog(const VolumeDesc & voldesc) {
      * TODO(umesh): commented out for beta for commit log and consistent hot snapshot features
     if (fpi::FDSP_VOL_S3_TYPE == voldesc.volType) {
     */
+    fds_bool_t fArchiveLogs = CONFIG_BOOL("fds.feature_toggle.common.enable_timeline", true) &&
+            !voldesc.isSnapshot() && voldesc.contCommitlogRetention > 0;
         vol.reset(new DmPersistVolDB(MODULEPROVIDER(),
                     voldesc.volUUID, voldesc.maxObjSizeInBytes,
-                    voldesc.isSnapshot(), voldesc.isSnapshot(), voldesc.isClone(),
-                    voldesc.isSnapshot() ? voldesc.srcVolumeId : invalid_vol_id));
+                                     voldesc.isSnapshot(), voldesc.isSnapshot(), voldesc.isClone(),
+                                     fArchiveLogs,
+                                     voldesc.isSnapshot() ? voldesc.srcVolumeId : invalid_vol_id));
     /*
     } else {
         vol.reset(new DmPersistVolFile(voldesc.volUUID, voldesc.maxObjSizeInBytes,
@@ -147,9 +150,12 @@ Error DmVolumeCatalog::copyVolume(const VolumeDesc & voldesc) {
          * TODO(umesh): commented out for beta for commit log and consistent hot snapshot features
         if (fpi::FDSP_VOL_S3_TYPE == volType) {
         */
+        fds_bool_t fArchiveLogs = CONFIG_BOOL("fds.feature_toggle.common.enable_timeline", true) &&
+                !voldesc.isSnapshot() && voldesc.contCommitlogRetention > 0;
+
             vol.reset(new DmPersistVolDB(MODULEPROVIDER(),
-                    voldesc.volUUID, objSize, voldesc.isSnapshot(),
-                    voldesc.isSnapshot(), voldesc.isClone(), voldesc.srcVolumeId));
+                                         voldesc.volUUID, objSize, voldesc.isSnapshot(),
+                                         voldesc.isSnapshot(), voldesc.isClone(), fArchiveLogs, voldesc.srcVolumeId));
         /*
         } else {
             vol.reset(new DmPersistVolFile(voldesc.volUUID, objSize, voldesc.isSnapshot(),

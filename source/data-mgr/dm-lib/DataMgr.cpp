@@ -36,7 +36,7 @@
         io->cb(ERR_VOL_NOT_FOUND, io); \
         break; \
     } \
-    
+
 namespace fds {
 
 struct RemoveErroredVolume {
@@ -746,8 +746,16 @@ Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
                                          voldesc.relativePrio);
     vol_map_mtx->unlock();
     vm->vol_desc->contCommitlogRetention = voldesc.contCommitlogRetention;
-    LOGNOTIFY << "Modify policy for volume "
-              << voldesc.name << " RESULT: " << err.GetErrstr();
+    auto volDb = getPersistDB(vol_uuid);
+    if (volDb) {
+        auto fArchiveLogs = features.isTimelineEnabled() &&
+                !voldesc.isSnapshot() && voldesc.contCommitlogRetention > 0;
+        volDb->setArchiveLogs(fArchiveLogs);
+    } else {
+        LOGERROR << "unable to get persist db for vol:" << vol_uuid;
+    }
+    LOGNORMAL << "Modify policy for volume:" << voldesc.name
+              << " RESULT: " << err;
 
     return err;
 }
@@ -937,7 +945,7 @@ int DataMgr::mod_init(SysParams const *const param)
             get<bool>("fds.dm.testing.uturn_setmeta", false);
 
     // timeline feature toggle
-    features.setTimelineEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>("fds.feature_toggle.common.enable_timeline", true));
+    features.setTimelineEnabled(CONFIG_BOOL("fds.feature_toggle.common.enable_timeline", true));
     timelineMgr.reset(new timeline::TimelineManager(this));
 
     /**
@@ -1497,6 +1505,14 @@ Error DataMgr::copyVolumeToOtherDMs(fds_volid_t volId) {
         return ERR_VOL_NOT_FOUND;
     }
 
+    const fpi::SvcUuid me (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
+    DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volId);
+
+    if (nodes->getLength() == 1) {
+        LOGDEBUG << "no other node to copy to .. on a one node system!!";
+        return err;
+    }
+
     std::string archiveDir = dmutil::getTempDir();
     std::string archiveFileName = util::strformat("%ld.tgz",volId.get());
     std::string archiveFile =  archiveFileName;
@@ -1520,8 +1536,6 @@ Error DataMgr::copyVolumeToOtherDMs(fds_volid_t volId) {
         taskStatus->done();
     };
 
-    const fpi::SvcUuid me (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
-    DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volId);
     uint total = 0, failed = 0;
     for (uint i = 0; i < nodes->getLength(); i++) {
         if (nodes->get(i).toSvcUuid() == me) continue;
@@ -1557,7 +1571,7 @@ Error DataMgr::copyVolumeToOtherDMs(fds_volid_t volId) {
     // remove archive file
     boost::filesystem::remove(archiveFile);
 
-    if (failed >= (1.0*total/2.0)) {
+    if (total > 0 && failed >= (1.0*total/2.0)) {
         LOGERROR << "volume copy failed : " << volId;
         return ERR_INVALID;
     }
