@@ -445,6 +445,8 @@ function getAppPid() {
         pid="$(pgrep -f com.formationds.am.Main)"
     elif [[  ${name} == "stats"  ]]; then
         pid="$(pgrep -f com.formationds.stats.service.Main)"
+    elif [[  ${name} == "rabbitmq"  ]]; then
+        pid="$(pgrep -f rabbitmq)"
     else
         pid="$(pgrep -f \(valgrind\)?.\*${apps[$name]})"
     fi
@@ -853,7 +855,7 @@ do
             exit 0
             ;;
         # detect commands
-        kill|start?|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*|top)
+        kill|start*|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*|top)
             CMD=$opt
             ;;
         test)
