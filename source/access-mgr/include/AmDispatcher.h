@@ -117,6 +117,8 @@ struct AmDispatcher : public AmDataProvider
     void removeVolume(VolumeDesc const& volDesc) override;
     void openVolume(AmRequest * amReq) override;
     void closeVolume(AmRequest * amReq) override;
+    void addToVolumeGroup(const fpi::AddToVolumeGroupCtrlMsgPtr &addMsg,
+                               const AddToVolumeGroupCb &cb) override;
     void statVolume(AmRequest * amReq) override;
     void setVolumeMetadata(AmRequest * amReq) override;
     void getVolumeMetadata(AmRequest * amReq) override;
@@ -311,10 +313,16 @@ struct AmDispatcher : public AmDataProvider
     fds_bool_t missingBlobStatusCb(AmRequest* amReq,
                                    const Error& error,
                                    shared_str payload);
+
     /**
      * Dipatches a put object request.
      */
     void putObject(AmRequest * amReq);
+
+    /**
+     * Commits a blob update to DM
+     */
+    void updateCatalogOnce(AmRequest * amReq);
 
     /**
      * Callback for put object responses.

@@ -158,7 +158,7 @@ AmDispatcher::registerVolume(VolumeDesc const& volDesc) {
         if (volumegroup_map.end() != it) {
             return;
         }
-        volumegroup_map[vol_id].reset(new VolumeGroupHandle(MODULEPROVIDER(), vol_id, DmDefaultPrimaryCnt));
+        volumegroup_map[vol_id].reset(new VolumeGroupHandle(MODULEPROVIDER(), vol_id, numPrimaries));
         volumegroup_map[vol_id]->setListener(volumegroup_handler.get());
     }
 }
@@ -194,6 +194,23 @@ AmDispatcher::removeVolume(VolumeDesc const& volDesc) {
             ++it;
         }
     }
+}
+
+void
+AmDispatcher::addToVolumeGroup(const fpi::AddToVolumeGroupCtrlMsgPtr &addMsg,
+                               const AddToVolumeGroupCb &cb)
+{
+    auto vol_id = fds_volid_t(addMsg->groupId);
+
+    ReadGuard rg(volumegroup_lock);
+    auto it = volumegroup_map.find(vol_id);
+    if (volumegroup_map.end() != it) {
+        it->second->handleAddToVolumeGroupMsg(addMsg, cb);
+        return;
+    }
+
+    LOGERROR << "Unknown volume to AmDispatcher: " << vol_id;
+    cb(ERR_VOL_NOT_FOUND, MAKE_SHARED<fpi::AddToVolumeGroupRespCtrlMsg>());
 }
 
 /**
@@ -436,7 +453,7 @@ AmDispatcher::putBlob(AmRequest* amReq) {
     auto blobReq = static_cast<PutBlobReq *>(amReq);
     fiu_do_on("am.uturn.dispatcher", return AmDataProvider::putBlobCb(amReq, ERR_OK););
 
-    // We can safely dispatch to SM before DM using transactions
+    // We can safely dispatch to DM before SM using transactions
     putObject(amReq);
 
     auto message(boost::make_shared<fpi::UpdateCatalogMsg>());
@@ -472,14 +489,17 @@ AmDispatcher::putBlob(AmRequest* amReq) {
 
 void
 AmDispatcher::putBlobOnce(AmRequest* amReq) {
-    auto blobReq = static_cast<PutBlobReq *>(amReq);
     fiu_do_on("am.uturn.dispatcher", return AmDataProvider::putBlobOnceCb(amReq, ERR_OK););
 
     if (!safe_atomic_write) {
-        putObject(amReq);
+        updateCatalogOnce(amReq);
     }
+    putObject(amReq);
+}
 
-
+void
+AmDispatcher::updateCatalogOnce(AmRequest* amReq) {
+    auto blobReq = static_cast<PutBlobReq *>(amReq);
     auto message(boost::make_shared<fpi::UpdateCatalogOnceMsg>());
     message->blob_name    = amReq->getBlobName();
     message->blob_version = blob_version_invalid;
@@ -1030,12 +1050,9 @@ AmDispatcher::_putBlobOnceCb(PutBlobReq* amReq, const Error& error, shared_str p
             amReq->final_blob_size = updCatRsp->byteCount;
             amReq->final_meta_data.swap(updCatRsp->meta_list);
         }
-        if (safe_atomic_write) {
-            return putObject(amReq);
-        }
     }
 
-    if (safe_atomic_write || done) {
+    if (done) {
         if (ERR_OK != err) {
             LOGERROR << "Failed to update"
                      << " blob name: " << amReq->getBlobName()
@@ -1099,9 +1116,17 @@ AmDispatcher::dispatchObjectCb(AmRequest* amReq,
 
 void
 AmDispatcher::putObjectCb(AmRequest* amReq, const Error error) {
+    auto blobReq = static_cast<PutBlobReq*>(amReq);
+    // If we haven't dispatched the catalog update yet...don't
+    if (fds::FDS_PUT_BLOB != amReq->io_type
+        && safe_atomic_write
+        && !error.ok()) {
+        blobReq->notifyResponse(error);
+    }
+
     bool done;
     Error err;
-    std::tie(done, err) = static_cast<AmMultiReq*>(amReq)->notifyResponse(error);
+    std::tie(done, err) = blobReq->notifyResponse(error);
     if (done) {
         if (ERR_OK != err) {
             LOGERROR << "Failed to update"
@@ -1114,6 +1139,8 @@ AmDispatcher::putObjectCb(AmRequest* amReq, const Error error) {
         } else {
             return AmDataProvider::putBlobOnceCb(amReq, err);
         }
+    } else if (fds::FDS_PUT_BLOB != amReq->io_type && safe_atomic_write) {
+        updateCatalogOnce(amReq);
     }
 }
 

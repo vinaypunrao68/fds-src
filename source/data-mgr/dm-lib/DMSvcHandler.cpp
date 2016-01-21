@@ -34,7 +34,6 @@ DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManage
     REGISTER_FDSP_MSG_HANDLER(fpi::PrepareForShutdownMsg, shutdownDM);
 
     /* DM Debug messages */
-    REGISTER_FDSP_MSG_HANDLER(fpi::DbgQueryVolumeStateMsg, handleDbgQueryVolumeStateMsg);
     REGISTER_FDSP_MSG_HANDLER(fpi::DbgForceVolumeSyncMsg, handleDbgForceVolumeSyncMsg);
 
     registerDmVolumeReqHandler<DmIoVolumegroupUpdate>();
@@ -476,23 +475,6 @@ void DMSvcHandler::NotifyDMAbortMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
 }
 
 void
-DMSvcHandler::handleDbgQueryVolumeStateMsg(SHPTR<fpi::AsyncHdr>& hdr,
-                                           SHPTR<fpi::DbgQueryVolumeStateMsg> &queryMsg)
-{
-    auto volMeta = dataManager_.getVolumeMeta(fds_volid_t(queryMsg->volId));
-    if (volMeta == nullptr) {
-        LOGWARN << "Failed to debug query volume state.  volid: "
-            << queryMsg->volId << " not found";
-        hdr->msg_code = ERR_VOL_NOT_FOUND;
-        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
-        return;
-    }
-    fpi::DbgQueryVolumeStateRspMsg resp;
-    volMeta->populateState(resp.state);
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::DbgQueryVolumeStateRspMsg), resp);
-}
-
-void
 DMSvcHandler::handleDbgForceVolumeSyncMsg(SHPTR<fpi::AsyncHdr>& hdr,
                                            SHPTR<fpi::DbgForceVolumeSyncMsg> &queryMsg)
 {
@@ -513,6 +495,11 @@ DMSvcHandler::handleDbgForceVolumeSyncMsg(SHPTR<fpi::AsyncHdr>& hdr,
     auto func = volMeta->makeSynchronized([volMeta, cb]() {
         if (volMeta->getState() != fpi::Offline) {
             LOGWARN << "Force sync failed.  Volume is not offline." << volMeta->logString();
+            cb(ERR_INVALID);
+            return;
+        } else if (!volMeta->isCoordinatorSet()) {
+            LOGWARN << "Force sync failed.  Volume coordinator is not set."
+                << volMeta->logString();
             cb(ERR_INVALID);
             return;
         } else if (volMeta->isInitializerInProgress()) {

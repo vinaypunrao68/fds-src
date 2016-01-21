@@ -40,18 +40,24 @@ DmMigrationBase::dmMigrationCheckResp(std::function<void()> abortFunc,
 
 void DmMigrationBase::asyncMsgPassed()
 {
-    trackIOReqs.finishTrackIOReqs();
-    dataMgr.counters->numberOfOutstandingIOs.decr(1);
     LOGDEBUG << logString() << " trackIO count-- is now: " << trackIOReqs.debugCount();
+    dataMgr.counters->numberOfOutstandingIOs.decr(1);
+
+    // do this last, as object may be deallocated immediately after
+    trackIOReqs.finishTrackIOReqs();
 }
 
 void DmMigrationBase::asyncMsgFailed()
 {
-    trackIOReqs.finishTrackIOReqs();
-    dataMgr.counters->numberOfOutstandingIOs.decr(1);
+
+
     LOGDEBUG << logString() << " trackIO count-- is now: " << trackIOReqs.debugCount();
     LOGERROR << logString() << " Async migration message failed, aborting";
     routeAbortMigration();
+    dataMgr.counters->numberOfOutstandingIOs.decr(1);
+
+    // do this last, as object may be deallocated immediately after
+    trackIOReqs.finishTrackIOReqs();
 }
 
 void DmMigrationBase::asyncMsgIssued()

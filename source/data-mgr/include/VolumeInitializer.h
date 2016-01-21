@@ -88,7 +88,7 @@ struct ReplicaInitializer : HasModuleProvider,
     void doStaticMigrationWithPeer_(const StatusCb &cb);
     void startReplay_();
     void setProgress_(Progress progress);
-    bool isSynchronized_();
+    bool isSynchronized_() const;
     void complete_(const Error &e, const std::string &context);
 
     Progress                                progress_;
@@ -251,9 +251,26 @@ void ReplicaInitializer<T>::startBuffering_()
                                      const Error &e,
                                      StringPtr) {
                 if (e != ERR_OK) {
-                    /* calling abort mutiple times should be ok */
-                    bufferReplay_->abort();
+                    if (e == ERR_INVALID_ARG ||
+                        e == ERR_DM_OP_NOT_ALLOWED ||
+                        e == ERR_VOLUME_ACCESS_DENIED ||
+                        e == ERR_HASH_COLLISION ||
+                        e == ERR_BLOB_SEQUENCE_ID_REGRESSION ||
+                        e == ERR_CAT_ENTRY_NOT_FOUND ||
+                        e == ERR_BLOB_NOT_FOUND ||
+                        e == ERR_BLOB_OFFSET_INVALID) {
+                        LOGWARN << replica_->logString() << bufferReplay_->logString()
+                            << " buffer replay encountered "
+                            << e << " - ignoring the error";
+                    } else {
+                        LOGWARN << replica_->logString() << bufferReplay_->logString()
+                            << " buffer replay encountered "
+                            << e << " - aborting buffer replay";
+                        /* calling abort mutiple times should be ok */
+                        bufferReplay_->abort();
+                    }
                 }
+                /* Op accounting.  NOTE: Op accounting needs to be done even after abort */
                 bufferReplay_->notifyOpsReplayed();
             });
             /* invokeDirect() because we want to ensure IO is enqueued to qos on this thread */
@@ -290,6 +307,7 @@ void ReplicaInitializer<T>::copyActiveStateFromPeer_(const EPSvcRequestRespCb &c
 
     auto msg = fpi::CtrlNotifyRequestTxStateMsgPtr(new fpi::CtrlNotifyRequestTxStateMsg);
     msg->volume_id = replica_->getId();
+    msg->version = replica_->getVersion();
     auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
     auto req = requestMgr->newEPSvcRequest(syncPeer_);
     req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyRequestTxStateMsg), msg);
@@ -313,6 +331,7 @@ void ReplicaInitializer<T>::doStaticMigrationWithPeer_(const StatusCb &cb)
     fds_assert(isSynchronized_());
     setProgress_(STATIC_MIGRATION);
 
+    // Helps trace: startMigration should call volumeMeta's startMigration
     replica_->startMigration(syncPeer_, replica_->getId(), cb);
 }
 
@@ -362,10 +381,9 @@ void ReplicaInitializer<T>::setProgress_(Progress progress)
 }
 
 template <class T>
-bool ReplicaInitializer<T>::isSynchronized_()
+bool ReplicaInitializer<T>::isSynchronized_() const
 {
-    // TODO(Rao): Implement
-    return true;
+    return replica_->isSynchronized();
 }
 
 template <class T>
@@ -379,9 +397,7 @@ void ReplicaInitializer<T>::complete_(const Error &e, const std::string &context
     fds_assert(progress_ != COMPLETE);
     // TODO(Rao): Assert static migration, buffer replay aren't in progress
 
-    if (completionError_ != ERR_OK) {
-        completionError_ = e;
-    }
+    completionError_ = e;
     setProgress_(COMPLETE);
 
     if (completionError_ == ERR_OK) {

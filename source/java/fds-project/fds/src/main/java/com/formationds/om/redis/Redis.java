@@ -268,9 +268,13 @@ public class Redis
         try ( Jedis jedis = pool.getResource( ) )
         {
             final Map<String, String> byNodes = jedis.hgetAll( "used.capacity" );
-            used = byNodes.values().stream().mapToLong( Long::valueOf ).sum( );
+            used = byNodes.values()
+                          .stream()
+                          .peek( ( v ) -> logger.trace( "per node used capacity::{}", Long.valueOf( v ) ) )
+                          .mapToLong( Long::valueOf ).sum( );
         }
 
+        logger.trace( "domain used capacity::{}", used );
         return Size.of( used, SizeUnit.B );
     }
 
@@ -282,7 +286,10 @@ public class Redis
             final Map<String, String> byNodes = jedis.hgetAll( "used.capacity" );
             if( byNodes.containsKey( String.valueOf( id ) ) )
             {
-                used = Long.valueOf( byNodes.get( String.valueOf( id ) ) );
+                final long bytesUsed = Long.valueOf( byNodes.get( String.valueOf( id ) ) );
+                logger.trace( "node uuid [ {} hex:{} ]::used capacity {}",
+                              id, Long.toHexString( id ), bytesUsed );
+                used = bytesUsed;
             }
             else
             {

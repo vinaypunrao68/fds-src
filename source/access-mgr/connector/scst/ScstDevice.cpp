@@ -559,7 +559,9 @@ ScstDevice::respondTask(BlockTask* response) {
 
 void
 ScstDevice::attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) {
-    LOGNORMAL << "Attached to volume: " << volDesc->name;
+    if (volDesc) {
+        LOGNORMAL << "Attached to volume: " << volDesc->name;
+    }
 }
 
 }  // namespace fds
