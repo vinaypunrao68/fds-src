@@ -3,22 +3,31 @@
  */
 
 #include <util/sqliteDB.h>
+#include <util/Log.h>
+#include <fds_error.h>
 
 namespace fds {
 
-SqliteDB::SqliteDB(const std::string &dbFilePath):
-                   dbFile(dbFilePath) {
+SqliteDB::SqliteDB(const std::string &dbFilePath): dbFile(dbFilePath) {
     int errorCode = sqlite3_open(dbFilePath.c_str(), &db);
-    logOnError(errorCode, "Unable to open db.","");
+    logOnError(errorCode, "Unable to open db");
 }
 
 SqliteDB::~SqliteDB() {
     if (db) {
         int errorCode = sqlite3_close(db);
-        logOnError(errorCode, "Unable to close db","");
+        logOnError(errorCode, "Unable to close db");
         if (errorCode != SQLITE_BUSY) {
             db = nullptr;
         }
+    }
+}
+
+void SqliteDB::logOnError(const int &errorCode, const std::string &msg) {
+    if (errorCode != SQLITE_OK) {
+        LOGERROR << "code:" << errorCode
+                 << " errmsg:" << sqlite3_errmsg(db)
+                 << " msg:" << query;
     }
 }
 
@@ -27,7 +36,7 @@ int SqliteDB::dropDB() {
     int errorCode = 0;
     if (db) {
         errorCode = sqlite3_close(db);
-        logOnError(errorCode, "Unable to close db","");
+        logOnError(errorCode, "Unable to close db");
         if (errorCode != SQLITE_BUSY) {
             db = nullptr;
             if (unlink(dbFile.c_str()) < 0) {
@@ -43,7 +52,7 @@ int SqliteDB::execute(const std::string &query) {
     if (!db) {  return -1;  }
 
     int errorCode = sqlite3_exec(db, query.c_str(), nullptr, nullptr, nullptr);
-    logOnError(errorCode, "Statement execution failed.", query);
+    logOnError(errorCode, query);
     return errorCode;
 }
 
@@ -55,7 +64,7 @@ bool SqliteDB::getIntValue(const std::string &query, fds_uint64_t &value) {
     sqlite3_stmt *stmt;
 
     errorCode = sqlite3_prepare(db, query.c_str(), -1, &stmt, nullptr);
-    logOnError(errorCode, "Unable to prepare statement", query);
+    logOnError(errorCode, query);
     do {
         errorCode = sqlite3_step(stmt);
         switch (errorCode) {
@@ -80,7 +89,7 @@ bool SqliteDB::getIntValues(const std::string &query, std::set<fds_uint64_t> &va
     sqlite3_stmt *stmt;
 
     errorCode = sqlite3_prepare(db, query.c_str(), -1, &stmt, nullptr);
-    logOnError(errorCode, "Unable to prepare statement", query);
+    logOnError(errorCode, query);
     do {
         errorCode = sqlite3_step(stmt);
         switch (errorCode) {
@@ -105,7 +114,7 @@ bool SqliteDB::getTextValue(const std::string &query, std::string &value) {
     sqlite3_stmt * stmt;
 
     errorCode = sqlite3_prepare(db, query.c_str(), -1, &stmt, nullptr);
-    logOnError(errorCode, "Unable to prepare statement", query);
+    logOnError(errorCode, query);
     do {
         errorCode = sqlite3_step(stmt);
         switch (errorCode) {
@@ -130,7 +139,7 @@ bool SqliteDB::getTextValues(const std::string &query, std::set<std::string> &va
     sqlite3_stmt * stmt;
 
     errorCode = sqlite3_prepare(db, query.c_str(), -1, &stmt, nullptr);
-    logOnError(errorCode, "Unable to prepare statement", query);
+    logOnError(errorCode, query);
     do {
         errorCode = sqlite3_step(stmt);
         std::string data;
