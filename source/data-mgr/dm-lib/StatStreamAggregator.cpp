@@ -42,7 +42,7 @@ StatStreamTimerTask::StatStreamTimerTask(FdsTimer &timer,
           reg_(reg),
           statStreamAggr_(statStreamAggr) {
     for (auto volId : reg_->volumes) {
-        vol_last_rel_sec_[fds_volid_t(volId)] = 0;
+        vol_last_rel_sec_[fds_volid_t(volId)] = std::numeric_limits<fds_uint64_t>::max(); // Indicates unused.
     }
 }
 
@@ -98,8 +98,6 @@ void VolumeStats::processStats() {
     std::vector<StatSlot> slots;
     last_process_rel_secs_ = finegrain_hist_->toSlotList(slots,
                                                          last_process_rel_secs_,
-                                                         0,  // max_slots - copy all slots from history at a point starting with, but not
-                                                             // including, last_process_rel_secs_ except
                                                          StatConstants::singleton()->FdsStatCollectionWaitMult * StatConstants::singleton()->FdsStatPushAndAggregatePeriodSec);
                                                             // the last few slots that are contained in the amount of time taken to
                                                             // do FdsStatCollectionWaitMult pushes.
@@ -119,31 +117,32 @@ void VolumeStats::processStats() {
                  << last_process_rel_secs_ << ">.";
     }
 
-    for (std::vector<StatSlot>::const_iterator cit = slots.cbegin();
-         cit != slots.cend();
-         ++cit) {
-        // debugging for now, remove at some point
-        LOGTRACE << "[" << (*cit).getRelSeconds() << "], "
-                 << "Volume " << std::hex << volid_ << std::dec << ", "
-                 << "Puts " << StatHelper::getTotalPuts(*cit) << ", "
-                 << "Gets " << StatHelper::getTotalGets(*cit) << ", "
-                 << "Queue full " << StatHelper::getQueueFull(*cit) << ", "
-                 << "Logical bytes " << StatHelper::getTotalLogicalBytes(*cit) << ", "
-                 << "Physical bytes " << StatHelper::getTotalPhysicalBytes(*cit) << ", "
-                 << "Metadata bytes " << StatHelper::getTotalMetadataBytes(*cit) << ", "
-                  << "Blobs " << StatHelper::getTotalBlobs(*cit) << ", "
-                  << "Objects " << StatHelper::getTotalObjects(*cit) << ", "
-                  << "Ave blob size " << StatHelper::getAverageBytesInBlob(*cit) << " bytes, "
-                  << "Ave objects in blobs " << StatHelper::getAverageObjectsInBlob(*cit) << ", "
-                  << "Gets from SSD " << StatHelper::getTotalSsdGets(*cit) << ", "
-                  << "Gets from HDD " << StatHelper::getTotalGets(*cit) - StatHelper::getTotalSsdGets(*cit) << ", "
-                  << "Short term perf wma " << perf_recent_wma_ << ", "
-                  << "Short term perf sigma " << perf_recent_stdev_ << ", "
-                  << "Long term perf sigma " << perf_long_stdev_ << ", "
-                  << "Short term capacity sigma " << cap_recent_stdev_ << ", "
-                  << "Short term capacity wma " << cap_recent_wma_ << ", "
-                  << "Long term capacity sigma " << cap_long_stdev_;
-    }
+    //for (std::vector<StatSlot>::const_iterator cit = slots.cbegin();
+    //     cit != slots.cend();
+    //     ++cit) {
+    //    // debugging for now, remove at some point
+    //    LOGTRACE << "[" << (*cit).getRelSeconds() << "], "
+    //             << "Volume " << std::hex << volid_ << std::dec << ", "
+    //             << "Puts " << StatHelper::getCountObjPuts(*cit) << ", "
+    //             << "Gets " << StatHelper::getTotalObjGets(*cit) << ", "
+    //             << "Queue full " << StatHelper::getQueueFull(*cit) << ", "
+    //             << "Logical bytes " << StatHelper::getTotalLogicalBytes(*cit) << ", "
+    //             << "Physical bytes " << StatHelper::getTotalPhysicalBytes(*cit) << ", "
+    //             << "Metadata bytes " << StatHelper::getTotalMetadataBytes(*cit) << ", "
+    //             << "Blobs " << StatHelper::getTotalBlobs(*cit) << ", "
+    //             << "Objects " << StatHelper::getTotalLogicalObjects(*cit) << ", "
+    //             << "Ave blob size " << StatHelper::getAverageBytesInBlob(*cit) << " bytes, "
+    //             << "Ave objects in blobs " << StatHelper::getAverageObjectsInBlob(*cit) << ", "
+    //             << "Gets from SSD " << StatHelper::getTotalSsdGets(*cit) << ", "
+    //             << "Gets from HDD " <<
+    //             StatHelper::getTotalObjGets(*cit) - StatHelper::getTotalSsdGets(*cit) << ", "
+    //             << "Short term perf wma " << perf_recent_wma_ << ", "
+    //             << "Short term perf sigma " << perf_recent_stdev_ << ", "
+    //             << "Long term perf sigma " << perf_long_stdev_ << ", "
+    //             << "Short term capacity sigma " << cap_recent_stdev_ << ", "
+    //             << "Short term capacity wma " << cap_recent_wma_ << ", "
+    //             << "Long term capacity sigma " << cap_long_stdev_;
+    //}
 }
 
 
@@ -217,7 +216,7 @@ void VolumeStats::updateStdev(const std::vector<StatSlot>& slots,
             continue;
         }
         double add_bytes_per_unit = (bytes - prev_bytes) / units_in_slot;
-        double ops = StatHelper::getTotalPuts(*cit) + StatHelper::getTotalGets(*cit);
+        double ops = StatHelper::getCountObjPuts(*cit) + StatHelper::getCountObjGets(*cit);
         double ops_per_unit = ops / units_in_slot;
 
         LOGTRACE << "Volume " << std::hex << volid_ << std::dec << " rel secs "
@@ -298,8 +297,8 @@ StatStreamAggregator::StatStreamAggregator(CommonModuleProviderIf *modProvider,
     root->fds_mkdir(root->dir_sys_repo_stats().c_str());
 
     /**
-     * This sets up our internal streams of stats to the XDI server from
-     * where they eventually wind up in the InfluxDB database.
+     * This sets up our local logging of stats - local with respect to the stats
+     * collection primary DM for a volume and only for volume-context stats.
      */
     fpi::StatStreamRegistrationMsgPtr minLogReg(new fpi::StatStreamRegistrationMsg());
     minLogReg->id = MinLogRegId;
@@ -460,19 +459,19 @@ StatStreamAggregator::handleModuleStatStream(const fpi::StatStreamMsgPtr& stream
 
     for (fds_uint32_t i = 0; i < (stream_msg->volstats).size(); ++i) {
         fpi::VolStatList & vstats = (stream_msg->volstats)[i];
-        LOGTRACE << "Received fdsp stats for volume " << std::hex << vstats.volume_id
-                 << std::dec << " timestamp " << stream_msg->start_timestamp;
+        //LOGTRACE << "Received " << vstats.statlist.size() << " generations of fdsp stats for volume " << std::hex << vstats.volume_id
+        //         << std::dec << " start timestamp " << stream_msg->start_timestamp
+        //         << "\n" << VolStatListWrapper(vstats);
 
         VolumeStats::ptr volstats = getVolumeStats(fds_volid_t(vstats.volume_id));
         if (!volstats) {
           LOGTRACE << "Volume " << fds_volid_t(vstats.volume_id)
-               << " is not attached to the aggregator! Ignoring stats";
+                   << " is not attached to the aggregator! Ignoring stats.";
           continue;
         }
 
         err = (volstats->finegrain_hist_)->mergeSlots(vstats, stream_msg->start_timestamp);
         fds_verify(err.ok());  // if err, prob de-serialize issue
-        LOGTRACE << *(volstats->finegrain_hist_);
     }
     return err;
 }
@@ -484,17 +483,16 @@ void
 StatStreamAggregator::handleModuleStatStream(fds_uint64_t start_timestamp,
                                              fds_volid_t volume_id,
                                              const std::vector<StatSlot>& slots) {
-    LOGTRACE << "Received local stats for volume " << std::hex << volume_id
-             << std::dec << " timestamp " << start_timestamp;
+    //LOGTRACE << "Received local stats for volume " << std::hex << volume_id
+    //         << std::dec << " start timestamp " << start_timestamp;
 
     VolumeStats::ptr volstats = getVolumeStats(volume_id);
     if (!volstats) {
         LOGTRACE << "Volume " << std::hex << volume_id << std::dec
-                 << " is not attached to the aggregator! Ignoring stats";
+                 << " is not attached to the aggregator! Ignoring stats.";
         return;
     }
     (volstats->finegrain_hist_)->mergeSlots(slots);
-    LOGTRACE << *(volstats->finegrain_hist_);
 }
 
 Error
@@ -629,57 +627,143 @@ void StatStreamAggregator::processStats() {
     }
 }
 
-fds_uint64_t StatHelper::getTotalPuts(const StatSlot& slot) {
+fds_uint64_t StatHelper::getCountObjPuts(const StatSlot &slot) {
     return slot.getCount(STAT_AM_PUT_OBJ);
 }
 
-fds_uint64_t StatHelper::getTotalGets(const StatSlot& slot) {
+fds_uint64_t StatHelper::getCountExplicitTxBlobPuts(const StatSlot &slot) {
+    return slot.getCount(STAT_AM_PUT_BLOB);
+}
+
+fds_uint64_t StatHelper::getCountImplicitTxBlobPuts(const StatSlot &slot) {
+    return slot.getCount(STAT_AM_PUT_BLOB_ONCE);
+}
+
+fds_uint64_t StatHelper::getCountObjGets(const StatSlot &slot) {
     return slot.getCount(STAT_AM_GET_OBJ);
 }
 
+fds_uint64_t StatHelper::getCountCachedObjGets(const StatSlot &slot) {
+    return slot.getCount(STAT_AM_GET_CACHED_OBJ);
+}
+
+fds_uint64_t StatHelper::getCountSSDObjGets(const StatSlot &slot) {
+    return slot.getCount(STAT_SM_GET_SSD);
+}
+
+fds_uint64_t StatHelper::getCountBlobGets(const StatSlot &slot) {
+    return slot.getCount(STAT_AM_GET_BLOB);
+}
+
+fds_uint64_t StatHelper::getCountAttachVol(const StatSlot &slot) {
+    return slot.getCount(STAT_AM_ATTACH_VOL);
+}
+
+fds_uint64_t StatHelper::getCountDetachVol(const StatSlot &slot) {
+    return slot.getCount(STAT_AM_DETACH_VOL);
+}
+
+fds_uint64_t StatHelper::getCountVolStat(const StatSlot &slot) {
+    return slot.getCount(STAT_AM_VSTAT);
+}
+
+fds_uint64_t StatHelper::getCountPutVolMeta(const StatSlot &slot) {
+    return slot.getCount(STAT_AM_PUT_VMETA);
+}
+
+fds_uint64_t StatHelper::getCountGetVolMeta(const StatSlot &slot) {
+    return slot.getCount(STAT_AM_GET_VMETA);
+}
+
+fds_uint64_t StatHelper::getCountGetVolContents(const StatSlot &slot) {
+    return slot.getCount(STAT_AM_GET_VCONTENTS);
+}
+
+fds_uint64_t StatHelper::getCountStartBlobTx(const StatSlot &slot) {
+    return slot.getCount(STAT_AM_START_BLOB_TX);
+}
+
+fds_uint64_t StatHelper::getCountCommitBlobTx(const StatSlot &slot) {
+    return slot.getCount(STAT_AM_COMMIT_BLOB_TX);
+}
+
+fds_uint64_t StatHelper::getCountAbortBlobTx(const StatSlot &slot) {
+    return slot.getCount(STAT_AM_ABORT_BLOB_TX);
+}
+
+fds_uint64_t StatHelper::getCountDeleteBlob(const StatSlot &slot) {
+    return slot.getCount(STAT_AM_DELETE_BLOB);
+}
+
+fds_uint64_t StatHelper::getCountRenameBlob(const StatSlot &slot) {
+    return slot.getCount(STAT_AM_RENAME_BLOB);
+}
+
 fds_uint64_t StatHelper::getTotalLogicalBytes(const StatSlot& slot) {
-    return slot.getTotal(STAT_DM_CUR_TOTAL_BYTES);
+    return slot.getTotal(STAT_DM_CUR_LBYTES);
 }
 
 fds_uint64_t StatHelper::getTotalPhysicalBytes(const StatSlot& slot) {
-    fds_uint64_t logical_bytes = slot.getTotal(STAT_DM_CUR_TOTAL_BYTES);
-    fds_uint64_t deduped_bytes =  slot.getTotal(STAT_SM_CUR_DEDUP_BYTES);
-    if (logical_bytes < deduped_bytes) {
-        // we did not measure something properly, for now ignoring
-        LOGTRACE << "logical bytes " << logical_bytes << " < deduped bytes "
-                << deduped_bytes;
-        return 0;
-    }
-    return (logical_bytes - deduped_bytes);
+    /**
+     * We used to calculate physical bytes thusly:
+     */
+    //fds_uint64_t logical_bytes = slot.getTotal(STAT_DM_CUR_LBYTES);
+    //fds_uint64_t deduped_bytes =  slot.getTotal(STAT_SM_CUR_DOMAIN_DEDUP_BYTES_FRAC);
+    //if (logical_bytes < deduped_bytes) {
+    //    // we did not measure something properly, for now ignoring
+    //    LOGTRACE << "logical bytes " << logical_bytes << " < deduped bytes "
+    //            << deduped_bytes;
+    //    return 0;
+    //}
+    //return (logical_bytes - deduped_bytes);
+    /**
+     * But this was problematic since the calculation depends
+     * upon a stats from different services which may not always
+     * be delivered on time. Better to capture the raw data and
+     * let the stats consumers calculate what they want.
+     */
+    return slot.getTotal(STAT_DM_CUR_PBYTES);
+}
+
+fds_uint64_t StatHelper::getTotalDomainDedupBytesFrac(const StatSlot &slot) {
+    return slot.getTotal(STAT_SM_CUR_DOMAIN_DEDUP_BYTES_FRAC);
+}
+
+fds_uint64_t StatHelper::getTotalDedupBytes(const StatSlot &slot) {
+    return slot.getTotal(STAT_SM_CUR_DEDUP_BYTES);
 }
 
 // we do not include user-defined metadata
 fds_uint64_t StatHelper::getTotalMetadataBytes(const StatSlot& slot) {
-    fds_uint64_t tot_objs = slot.getTotal(STAT_DM_CUR_TOTAL_OBJECTS);
-    fds_uint64_t tot_blobs = slot.getTotal(STAT_DM_CUR_TOTAL_BLOBS);
+    fds_uint64_t tot_objs = slot.getTotal(STAT_DM_CUR_POBJECTS);
+    fds_uint64_t tot_blobs = slot.getTotal(STAT_DM_CUR_BLOBS);
     // approx -- asume 20 bytes for blob name
     fds_uint64_t header_bytes = 20 + 8*3 + 4;
     return (tot_blobs * header_bytes + tot_objs * 24);
 }
 
 fds_uint64_t StatHelper::getTotalBlobs(const StatSlot& slot) {
-    return slot.getTotal(STAT_DM_CUR_TOTAL_BLOBS);
+    return slot.getTotal(STAT_DM_CUR_BLOBS);
 }
 
-fds_uint64_t StatHelper::getTotalObjects(const StatSlot& slot) {
-    return slot.getTotal(STAT_DM_CUR_TOTAL_OBJECTS);
+fds_uint64_t StatHelper::getTotalLogicalObjects(const StatSlot &slot) {
+    return slot.getTotal(STAT_DM_CUR_LOBJECTS);
+}
+
+fds_uint64_t StatHelper::getTotalPhysicalObjects(const StatSlot &slot) {
+    return slot.getTotal(STAT_DM_CUR_POBJECTS);
 }
 
 double StatHelper::getAverageBytesInBlob(const StatSlot& slot) {
-    double tot_bytes = slot.getTotal(STAT_DM_CUR_TOTAL_BYTES);
-    double tot_blobs = slot.getTotal(STAT_DM_CUR_TOTAL_BLOBS);
+    double tot_bytes = slot.getTotal(STAT_DM_CUR_LBYTES);
+    double tot_blobs = slot.getTotal(STAT_DM_CUR_BLOBS);
     if (tot_blobs == 0) return 0;
     return tot_bytes / tot_blobs;
 }
 
 double StatHelper::getAverageObjectsInBlob(const StatSlot& slot) {
-    double tot_objects = slot.getTotal(STAT_DM_CUR_TOTAL_OBJECTS);
-    double tot_blobs = slot.getTotal(STAT_DM_CUR_TOTAL_BLOBS);
+    double tot_objects = slot.getTotal(STAT_DM_CUR_LOBJECTS);
+    double tot_blobs = slot.getTotal(STAT_DM_CUR_BLOBS);
     if (tot_blobs == 0) return 0;
     return tot_objects / tot_blobs;
 }
@@ -694,7 +778,15 @@ fds_uint64_t StatHelper::getTotalSsdGets(const StatSlot& slot) {
 }
 
 fds_bool_t StatHelper::getQueueFull(const StatSlot& slot) {
-    return (slot.getMin(STAT_AM_QUEUE_FULL) > 4);  // random constant
+    return (slot.getMin(STAT_AM_QUEUE_BACKLOG) > 4);  // random constant
+}
+
+fds_uint64_t StatHelper::getQueueBacklog(const StatSlot& slot) {
+    return slot.getTotal(STAT_AM_QUEUE_BACKLOG);
+}
+
+fds_uint64_t StatHelper::getQueueWaitTime(const StatSlot &slot) {
+    return slot.getTotal(STAT_AM_QUEUE_WAIT);
 }
 
 /**
@@ -737,6 +829,7 @@ void StatStreamTimerTask::runTimerTask() {
 
     bool logLocal = reg_->method == std::string("log-local");
     for (auto volId : volumes) {
+        //LOGTRACE << "Generating stream for volume <" << volId << ">.";
         std::vector<StatSlot> slots;
         std::map<fds_uint64_t, std::vector<fpi::DataPointPair> > volDataPointsMap;  // NOLINT
         VolumeStats::ptr volStat = statStreamAggr_.getVolumeStats(volId);
@@ -762,12 +855,13 @@ void StatStreamTimerTask::runTimerTask() {
         /**
          * Where did we leave off?
          */
-        auto last_rel_sec = (vol_last_rel_sec_.count(volId) > 0) ? vol_last_rel_sec_[volId] : 0;
+        auto last_rel_sec = (vol_last_rel_sec_.count(volId) > 0) ? vol_last_rel_sec_[volId] :
+                             std::numeric_limits<fds_uint64_t>::max(); // Indicates first time.
 
         /**
          * For reporting fine-grained stats, we want to ignore the last few seconds of stat generation
          * to give remote services enough time to send them to us for aggregation. Otherwise, they get
-         * left out, or worse, appear later perhaps resulting in a change in history!
+         * left out!
          *
          * How many seconds should we ignore? We'll wait some multiple of the number of seconds configured
          * for the period, the expiration of which causes remote services to push their stats to us and triggers
@@ -778,27 +872,63 @@ void StatStreamTimerTask::runTimerTask() {
                                             StatConstants::singleton()->FdsStatPushAndAggregatePeriodSec :
                                     0;
 
-        vol_last_rel_sec_[volId] = hist->toSlotList(slots, last_rel_sec, 0, last_secs_to_ignore);
+        vol_last_rel_sec_[volId] = hist->toSlotList(slots, last_rel_sec, last_secs_to_ignore);
 
         for (auto slot : slots) {
+            //LOGTRACE << "Processing slot:\n" << slot;
             fds_uint64_t timestamp = hist->getTimestamp((slot).getRelSeconds());
 
             timestamp /= NANOS_IN_SECOND;
 
             fpi::DataPointPair putsDP;
             putsDP.key = "Puts";
-            putsDP.value = StatHelper::getTotalPuts(slot);
+            putsDP.value = StatHelper::getCountObjPuts(slot);
             volDataPointsMap[timestamp].push_back(putsDP);
+
+            fpi::DataPointPair moputsDP;
+            moputsDP.key = "Explicit Tx Blob Puts";
+            moputsDP.value = StatHelper::getCountExplicitTxBlobPuts(slot);
+            volDataPointsMap[timestamp].push_back(moputsDP);
+
+            fpi::DataPointPair soputsDP;
+            soputsDP.key = "Implicit Tx Blob Puts";
+            soputsDP.value = StatHelper::getCountImplicitTxBlobPuts(slot);
+            volDataPointsMap[timestamp].push_back(soputsDP);
 
             fpi::DataPointPair getsDP;
             getsDP.key = "Gets";
-            getsDP.value = StatHelper::getTotalGets(slot);
+            getsDP.value = StatHelper::getCountObjGets(slot);
             volDataPointsMap[timestamp].push_back(getsDP);
+
+            fpi::DataPointPair cgetsDP;
+            cgetsDP.key = "Cached Obj Gets";
+            cgetsDP.value = StatHelper::getCountCachedObjGets(slot);
+            volDataPointsMap[timestamp].push_back(cgetsDP);
+
+            fpi::DataPointPair ssdgetsDP;
+            ssdgetsDP.key = "SSD Obj Gets";
+            ssdgetsDP.value = StatHelper::getCountSSDObjGets(slot);
+            volDataPointsMap[timestamp].push_back(ssdgetsDP);
+
+            fpi::DataPointPair blobgetsDP;
+            blobgetsDP.key = "Blob Gets";
+            blobgetsDP.value = StatHelper::getCountBlobGets(slot);
+            volDataPointsMap[timestamp].push_back(blobgetsDP);
 
             fpi::DataPointPair qfullDP;
             qfullDP.key = "Queue Full";
             qfullDP.value = StatHelper::getQueueFull(slot);
             volDataPointsMap[timestamp].push_back(qfullDP);
+
+            fpi::DataPointPair qbacklogDP;
+            qbacklogDP.key = "Queue Backlog";
+            qbacklogDP.value = StatHelper::getQueueBacklog(slot);
+            volDataPointsMap[timestamp].push_back(qbacklogDP);
+
+            fpi::DataPointPair qwaitDP;
+            qwaitDP.key = "Queue Waittime";
+            qwaitDP.value = StatHelper::getQueueWaitTime(slot);
+            volDataPointsMap[timestamp].push_back(qwaitDP);
 
             fpi::DataPointPair ssdGetsDP;
             ssdGetsDP.key = "SSD Gets";
@@ -820,6 +950,16 @@ void StatStreamTimerTask::runTimerTask() {
             physicalBytesDP.value = StatHelper::getTotalPhysicalBytes(slot);
             volDataPointsMap[timestamp].push_back(physicalBytesDP);
 
+            fpi::DataPointPair domaindedupBytesDP;
+            domaindedupBytesDP.key = "Domain Dedup Bytes Fraction";
+            domaindedupBytesDP.value = StatHelper::getTotalDomainDedupBytesFrac(slot);
+            volDataPointsMap[timestamp].push_back(domaindedupBytesDP);
+
+            fpi::DataPointPair dedupBytesDP;
+            dedupBytesDP.key = "Dedup Bytes";
+            dedupBytesDP.value = StatHelper::getTotalDedupBytes(slot);
+            volDataPointsMap[timestamp].push_back(dedupBytesDP);
+
             fpi::DataPointPair mdBytesDP;
             mdBytesDP.key = "Metadata Bytes";
             mdBytesDP.value = StatHelper::getTotalMetadataBytes(slot);
@@ -830,10 +970,15 @@ void StatStreamTimerTask::runTimerTask() {
             blobsDP.value = StatHelper::getTotalBlobs(slot);
             volDataPointsMap[timestamp].push_back(blobsDP);
 
-            fpi::DataPointPair objectsDP;
-            objectsDP.key = "Objects";
-            objectsDP.value = StatHelper::getTotalObjects(slot);
-            volDataPointsMap[timestamp].push_back(objectsDP);
+            fpi::DataPointPair logicalObjectsDP;
+            logicalObjectsDP.key = "Objects";
+            logicalObjectsDP.value = StatHelper::getTotalLogicalObjects(slot);
+            volDataPointsMap[timestamp].push_back(logicalObjectsDP);
+
+            fpi::DataPointPair physicalObjectsDP;
+            physicalObjectsDP.key = "Physical Objects";
+            physicalObjectsDP.value = StatHelper::getTotalPhysicalObjects(slot);
+            volDataPointsMap[timestamp].push_back(physicalObjectsDP);
 
             fpi::DataPointPair aveBlobSizeDP;
             aveBlobSizeDP.key = "Ave Blob Size";
@@ -844,6 +989,61 @@ void StatStreamTimerTask::runTimerTask() {
             aveObjectsDP.key = "Ave Objects per Blob";
             aveObjectsDP.value = StatHelper::getAverageObjectsInBlob(slot);
             volDataPointsMap[timestamp].push_back(aveObjectsDP);
+
+            fpi::DataPointPair avDP;
+            avDP.key = "Attach Vol";
+            avDP.value = StatHelper::getCountAttachVol(slot);
+            volDataPointsMap[timestamp].push_back(avDP);
+
+            fpi::DataPointPair dvDP;
+            dvDP.key = "Detach Vol";
+            dvDP.value = StatHelper::getCountDetachVol(slot);
+            volDataPointsMap[timestamp].push_back(dvDP);
+
+            fpi::DataPointPair vstatDP;
+            vstatDP.key = "Vol Stat";
+            vstatDP.value = StatHelper::getCountVolStat(slot);
+            volDataPointsMap[timestamp].push_back(vstatDP);
+
+            fpi::DataPointPair pvmetaDP;
+            pvmetaDP.key = "Put Vol MetaD";
+            pvmetaDP.value = StatHelper::getCountPutVolMeta(slot);
+            volDataPointsMap[timestamp].push_back(pvmetaDP);
+
+            fpi::DataPointPair gvmetaDP;
+            gvmetaDP.key = "Get Vol MetaD";
+            gvmetaDP.value = StatHelper::getCountGetVolMeta(slot);
+            volDataPointsMap[timestamp].push_back(gvmetaDP);
+
+            fpi::DataPointPair gvcontDP;
+            gvcontDP.key = "Get Vol Contents";
+            gvcontDP.value = StatHelper::getCountGetVolContents(slot);
+            volDataPointsMap[timestamp].push_back(gvcontDP);
+
+            fpi::DataPointPair starttxDP;
+            starttxDP.key = "Start Tx";
+            starttxDP.value = StatHelper::getCountStartBlobTx(slot);
+            volDataPointsMap[timestamp].push_back(starttxDP);
+
+            fpi::DataPointPair committxDP;
+            committxDP.key = "Commit Tx";
+            committxDP.value = StatHelper::getCountCommitBlobTx(slot);
+            volDataPointsMap[timestamp].push_back(committxDP);
+
+            fpi::DataPointPair aborttxDP;
+            aborttxDP.key = "Abort Tx";
+            aborttxDP.value = StatHelper::getCountAbortBlobTx(slot);
+            volDataPointsMap[timestamp].push_back(aborttxDP);
+
+            fpi::DataPointPair dblobDP;
+            dblobDP.key = "Delete Blob";
+            dblobDP.value = StatHelper::getCountDeleteBlob(slot);
+            volDataPointsMap[timestamp].push_back(dblobDP);
+
+            fpi::DataPointPair rblobDP;
+            rblobDP.key = "Rename Blob";
+            rblobDP.value = StatHelper::getCountRenameBlob(slot);
+            volDataPointsMap[timestamp].push_back(rblobDP);
 
             fpi::DataPointPair recentCapStdevDP;
             recentCapStdevDP.key = "Short Term Capacity Sigma";
