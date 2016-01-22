@@ -454,12 +454,15 @@ Error ObjectStorMgr::handleDltUpdate() {
     const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
     Error err = objStorMgr->objectStore->handleNewDlt(curDlt);
     if (err == ERR_SM_NOERR_NEED_RESYNC) {
-        LOGNOTIFY << "SM " << std::hex << getUuid() << " going to do"
-                  << " token diff resync";
+        migrationMgr->makeTokensAvailable(curDlt,
+                                          curDlt->getNumBitsForToken(),
+                                          getUuid());
 
         // Start the resync process
         if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync", true)) {
             if (objectStore->doResync()) {
+                LOGNOTIFY << "SM " << std::hex << getUuid() << " going to do"
+                          << " token diff resync";
                 err = objStorMgr->migrationMgr->startResync(curDlt,
                                                             getUuid(),
                                                             curDlt->getNumBitsForToken(),
