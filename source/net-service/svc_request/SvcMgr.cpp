@@ -802,32 +802,73 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
     return false;
 }
 
+bool
+SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr current, const fpi::SvcInfoPtr incoming)
+{
+    fds_bool_t ret(false);
+    if ( current->incarnationNo < incoming->incarnationNo ) {
+        GLOGDEBUG << "Incoming update: " << fds::logString(*incoming)
+            << " Operation: update to new incarnation. ";
+        ret = true;
+    } else if ( (current->incarnationNo == incoming->incarnationNo) &&
+                (current->svc_status != incoming->svc_status) &&
+                (incoming->svc_status != fpi::SVC_STATUS_INACTIVE_FAILED) ) {
+        GLOGDEBUG << "Incoming update: " << fds::logString(*incoming)
+            << " Operation: update to current incarnation. ";
+        ret = true;
+    } else if (incoming->incarnationNo == 0) {
+        /**
+         * TODO
+         * This is a workaround to handle when no incarnation number is given...
+         * we have to assume that this is newer than the old incarnation number in the
+         * configDB. Until all areas of PM and OM are sending incarnation number,
+         * this has to be here... and bugs may be coming in.
+         */
+        ret = true;
+    } else {
+        GLOGDEBUG << "Incoming update: " << fds::logString(*incoming) << " vs: "
+            << fds::logString(*current) << " Operation: not applied. ";
+    }
+
+    return (ret);
+}
+
+bool
+SvcHandle::shouldSetSvcHandleDown(const fpi::SvcInfoPtr current, const fpi::SvcInfoPtr incoming)
+{
+    fds_bool_t ret(false);
+    if (current->incarnationNo == incoming->incarnationNo &&
+               incoming->svc_status == fpi::SVC_STATUS_INACTIVE_FAILED) {
+        GLOGDEBUG << "Incoming update: " << fds::logString(*incoming)
+            << " Operation: set current incarnation as down. ";
+    } else if (incoming->incarnationNo == 0) {
+        /**
+         * TODO
+         * This is a workaround to handle when no incarnation number is given...
+         * we have to assume that this is newer than the old incarnation number in the
+         * configDB. Until all areas of PM and OM are sending incarnation number,
+         * this has to be here... and bugs may be coming in.
+         */
+        ret = true;
+    } else {
+        GLOGDEBUG << "Incoming update: " << fds::logString(*incoming) << " vs: "
+            << fds::logString(*current) << " Operation: not applied. ";
+    }
+    return (ret);
+}
+
 void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
 {
     fds_scoped_lock lock(lock_);
-    if ( svcInfo_.incarnationNo < newInfo.incarnationNo ) {
-        /* Update to new incaration information.  Invalidate the old rpc client */
+    auto currentPtr = boost::make_shared<fpi::SvcInfo>(svcInfo_);
+    auto newPtr = boost::make_shared<fpi::SvcInfo>(newInfo);
+    if (shouldUpdateSvcHandle(currentPtr, newPtr)) {
         svcInfo_ = newInfo;
         svcClient_.reset();
-        GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
-            << " Operation: update to new incarnation. After update " << logString();
-    } else if (svcInfo_.incarnationNo == newInfo.incarnationNo &&
-               newInfo.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED) {
-        /* Mark current incaration inactivnewInfo.  Invalidate the rpc client */
+    }
+    if (shouldSetSvcHandleDown(currentPtr, newPtr)) {
         svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE_FAILED;
         svcClient_.reset();
-        GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
-            << " Operation: set current incarnation as down.  After update" << logString();
-    } else if ( (svcInfo_.incarnationNo == newInfo.incarnationNo) &&
-                (svcInfo_.svc_status != newInfo.svc_status) ) {
-        svcInfo_ = newInfo;
-        svcClient_.reset();
-        GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
-            << " Operation: update to current incarnation. After update " << logString();
-
-    } else {
-        GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
-            << " Operation: not applied.  After update" << logString();
     }
 }
 

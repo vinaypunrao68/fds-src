@@ -14,6 +14,7 @@
 #include <util/properties.h>
 #include <net/net_utils.h>
 #include <ratio>
+#include <net/SvcMgr.h>
 
 #include "platform/platform_shm_typedefs.h"
 #include "platform/node_data.h"
@@ -2494,7 +2495,7 @@ bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo) {
     return bRetCode;
 }
 
-bool ConfigDB::changeStateSvcMap( const int64_t svc_uuid, 
+bool ConfigDB::changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr,
                                   const fpi::ServiceStatus svc_status )
 {
     bool bRetCode = false;
@@ -2502,42 +2503,49 @@ bool ConfigDB::changeStateSvcMap( const int64_t svc_uuid,
     try
     {
         std::stringstream uuid;
-        uuid << svc_uuid;
+        uuid << svcInfoPtr->svc_id.svc_uuid.svc_uuid;
         
-         LOGDEBUG << "ConfigDB changing service status:"
-                  << " uuid: " << std::hex << svc_uuid << std::dec
-                  << " status: " << svc_status;
+         LOGDEBUG << "ConfigDB attempt to change service status:"
+                  << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid << std::dec
+                  << " to status: " << svc_status;
         
         Reply reply = kv_store.hget( "svcmap", uuid.str().c_str() ); //NOLINT
         if ( reply.isValid() ) 
         {
-            std::string value = reply.getString();
-            fpi::SvcInfo svcInfo;
-            fds::deserializeFdspMsg( value, svcInfo );
-            
-            fpi::ServiceStatus old_svc_status = svcInfo.svc_status;
-            svcInfo.svc_status = svc_status;
-                        
-            bRetCode = updateSvcMap( svcInfo );
-            
-            LOGDEBUG << "ConfigDB updated service status:"
-                     << " uuid: " << std::hex << svc_uuid << std::dec
-                     << " from status: " << old_svc_status 
-                     << " to status: " << svc_status;
-            
-            /* Convert new registration request to existing registration request */
-            kvstore::NodeInfoType nodeInfo;
-            fromTo( svcInfo, nodeInfo );
-            updateNode( nodeInfo );
-            
             bRetCode = true;
+            std::string value = reply.getString();
+            fpi::SvcInfo dbSvcInfo;
+            fds::deserializeFdspMsg( value, dbSvcInfo );
+            auto dbSvcInfoPtr = boost::make_shared<fpi::SvcInfo>(dbSvcInfo);
+
+            /**
+             * We should use the same intelligence as updateSvcMap to check if we should
+             * update the configDB to ensure consistency between the service map and db
+             */
+            if (fds::SvcHandle::shouldUpdateSvcHandle(dbSvcInfoPtr, svcInfoPtr) ||
+                fds::SvcHandle::shouldSetSvcHandleDown(dbSvcInfoPtr, svcInfoPtr)) {
+
+                fpi::ServiceStatus old_svc_status = dbSvcInfo.svc_status;
+                dbSvcInfoPtr->svc_status = svc_status;
+                // svcInfo.svc_status = svc_status;
+
+                updateSvcMap( *dbSvcInfoPtr );
+
+                LOGDEBUG << "ConfigDB updated service status:"
+                         << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid << std::dec
+                         << " from status: " << old_svc_status
+                         << " to status: " << svc_status;
+
+                /* Convert new registration request to existing registration request */
+                kvstore::NodeInfoType nodeInfo;
+                fromTo( *dbSvcInfoPtr, nodeInfo );
+                updateNode( nodeInfo );
+            }
         }
     }
     catch( const RedisException& e ) 
     {
-        
         LOGCRITICAL << "error with redis " << e.what();
-        
     }
     
     return bRetCode;
@@ -2623,7 +2631,7 @@ bool ConfigDB::isPresentInSvcMap( const int64_t svc_uuid )
     return isPresent;
 }
 
-void ConfigDB::fromTo( fpi::SvcInfo svcInfo, 
+void ConfigDB::fromTo( fpi::SvcInfo svcInfo,
                        kvstore::NodeInfoType nodeInfo )
 {
     nodeInfo.control_port = svcInfo.svc_port;

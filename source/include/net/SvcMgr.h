@@ -572,6 +572,7 @@ struct SvcMgr : HasModuleProvider, Module {
 
 };
 
+
 /**
 * @brief Wrapper around service information and service rpc client.
 */
@@ -579,6 +580,11 @@ struct SvcHandle : HasModuleProvider {
     SvcHandle(CommonModuleProviderIf *moduleProvider,
               const fpi::SvcInfo &info);
     virtual ~SvcHandle();
+
+    // Making this a static so that configDB can use this intelligence too
+    static bool shouldUpdateSvcHandle(const fpi::SvcInfoPtr current, const fpi::SvcInfoPtr incoming);
+
+    static bool shouldSetSvcHandleDown(const fpi::SvcInfoPtr current, const fpi::SvcInfoPtr incoming);
 
     /**
     * @brief Use it for sending async request messages.  This uses asynReqt() interface for 

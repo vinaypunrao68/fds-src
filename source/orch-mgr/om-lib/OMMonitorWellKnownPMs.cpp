@@ -230,8 +230,10 @@ namespace fds
             {
                 fds_mutex::scoped_lock l(dbLock);
                 // don't need to update svc layer, since it already knows this PM is active
+                fpi::SvcInfoPtr fakeInfo = boost::make_shared<fpi::SvcInfo>();
+                fakeInfo->svc_id.svc_uuid.svc_uuid = uuid.svc_uuid;
                 fds::change_service_state(gl_orch_mgr->getConfigDB(),
-                                          uuid.svc_uuid,
+                                          fakeInfo,
                                           fpi::SVC_STATUS_ACTIVE,
                                           false);
 
@@ -314,8 +316,10 @@ namespace fds
         // Update service state in the configDB, svclayer Map
         {
             fds_mutex::scoped_lock l(dbLock);
+            fpi::SvcInfoPtr fakeInfo = boost::make_shared<fpi::SvcInfo>();
+            fakeInfo->svc_id.svc_uuid.svc_uuid = svcUuid.svc_uuid;
             fds::change_service_state(gl_orch_mgr->getConfigDB(),
-                                      svcUuid.svc_uuid,
+                                      fakeInfo,
                                       fpi::SVC_STATUS_INACTIVE_FAILED,
                                       false);
 

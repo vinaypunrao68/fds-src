@@ -3333,14 +3333,14 @@ OM_NodeDomainMod::om_dlt_update_cluster() {
 }
 
 void
-OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap( const NodeUuid& svcUuid,
+OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap(boost::shared_ptr<fpi::SvcInfo> svcInfo,
                                                         fpi::FDSP_MgrIdType svcType,
-                                                        const fpi::ServiceStatus status )
+                                                        const fpi::ServiceStatus status)
 {
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
     {
         fds_mutex::scoped_lock l(dbLock);
-        change_service_state( configDB, svcUuid.uuid_get_val(), status, true );
+        change_service_state( configDB, svcInfo, status, true );
     }
     om_locDomain->om_bcast_svcmap();
 }
