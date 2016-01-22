@@ -34,14 +34,13 @@
 #include "DmBlobTypes.h"
 
 #define USE_NEW_LDB_STRUCTURES
-
+uint count;
 namespace leveldb {
 
 namespace {
 
 // Print contents of a log file. (*func)() is called on every record.
-bool PrintLogContents(Env* env, const std::string& fname,
-                      void (*func)(Slice)) {
+bool PrintLogContents(Env* env, const std::string& fname, void (*func)(Slice)) {
     SequentialFile* file;
     Status s = env->NewSequentialFile(fname, &file);
     if (!s.ok()) {
@@ -70,44 +69,53 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
     virtual void Put(const Slice& key, const Slice& value) {
 #ifdef USE_NEW_LDB_STRUCTURES
         fds::CatalogKeyType keyType = *reinterpret_cast<fds::CatalogKeyType const*>(key.data());
-        switch (keyType)
-        {
-        case fds::CatalogKeyType::JOURNAL_TIMESTAMP:
-            std::cout << "= >Timestamp: '" << *reinterpret_cast<fds_uint64_t const*>(value.data())
-                      << "'\n";
-            break;
-        case fds::CatalogKeyType::BLOB_OBJECTS:
-        {
-            BlobObjectKey blobObjectKey { key };
-            std::cout << "= >put Blob: '" << blobObjectKey.getBlobName()
-                      << "' [Index: " << blobObjectKey.getObjectIndex()
-                      << " -> " << fds::ObjectID(reinterpret_cast<uint8_t const*>(value.data()),
-                                                                                  value.size())
-                      << "]\n";
-            break;
-        }
-        case fds::CatalogKeyType::BLOB_METADATA:
-        {
-            fds::BlobMetaDesc blobMeta;
-            blobMeta.loadSerialized(std::string{value.data(), value.size()});
-
-            std::cout << "= >put Blob Name: '" << blobMeta.desc.blob_name
-                      << "' Size: '" << blobMeta.desc.blob_size
-                      << "' Version: '" << blobMeta.desc.version
-                      << "'\n";
-
-            std::cout << "  [ ";
-            for (auto const& it : blobMeta.meta_list)
-            {
-                std::cout << it.first << ":" << it.second << " ";
+        switch (keyType) {
+            case fds::CatalogKeyType::JOURNAL_TIMESTAMP:
+                std::cout << "=> [" << ++count << "] timestamp: " << *reinterpret_cast<fds_uint64_t const*>(value.data())
+                          << "\n";
+                break;
+            case fds::CatalogKeyType::BLOB_OBJECTS: {
+                BlobObjectKey blobObjectKey { key };
+                std::cout << "=> put [blob=" << blobObjectKey.getBlobName()
+                          << " index=" << blobObjectKey.getObjectIndex()
+                          << " obj=" << fds::ObjectID(reinterpret_cast<uint8_t const*>(value.data()),
+                                                      value.size()).ToHex()
+                          << "]\n";
+                break;
             }
-            std::cout << "]\n";
+            case fds::CatalogKeyType::BLOB_METADATA: {
+                fds::BlobMetaDesc blobMeta;
+                blobMeta.loadSerialized(std::string{value.data(), value.size()});
 
-            break;
-        }
-        default:
-            throw std::runtime_error{"Unrecognized key type: "
-                                     + std::to_string(static_cast<unsigned int>(keyType)) + "."};
+                std::cout << "=> put meta [blob=" << blobMeta.desc.blob_name
+                          << " size=" << blobMeta.desc.blob_size
+                          << " version=" << blobMeta.desc.version
+                          << " seq=" << blobMeta.desc.sequence_id
+                          << "]\n";
+
+                std::cout << "  [ ";
+                for (auto const& it : blobMeta.meta_list) {
+                    std::cout << it.first << "=" << it.second << " ";
+                }
+                std::cout << "]\n";
+
+                break;
+            }
+            case fds::CatalogKeyType::VOLUME_METADATA: {
+                const fpi::FDSP_MetaDataList metadataList;
+                const sequence_id_t seq_id=0;
+                VolumeMetaDesc volDesc(metadataList, seq_id);
+                volDesc.loadSerialized(std::string{value.data(), value.size()});
+                std::cout << "=> put volume meta: " ;
+                std::cout << "[seqid=" << volDesc.sequence_id << " " ;
+                for (const auto& item : volDesc.meta_list) {
+                    std::cout << item.first << "=" << item.second << " ";
+                }
+                std::cout << "]\n";
+                break;
+            }
+            default:
+                throw std::runtime_error{"Unrecognized key type: " + std::to_string(static_cast<unsigned int>(keyType)) + "."};
         }
 #else
         std::string keyStr(key.data(), key.size());
@@ -125,7 +133,7 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
 
         extent->loadSerialized(dataStr);
 
-        std::cout << "\n= >put 'Blob:" << extKey.blob_name << ", Extent:" << extKey.extent_id
+        std::cout << "\n=> put 'Blob=" << extKey.blob_name << ", Extent=" << extKey.extent_id
                   << "'" << std::endl;
         std::vector<fds::ObjectID> oids;
         extent->getAllObjects(oids);
@@ -138,33 +146,35 @@ class WriteBatchItemPrinter : public WriteBatch::Handler {
     virtual void Delete(const Slice& key) {
 #ifdef USE_NEW_LDB_STRUCTURES
         fds::CatalogKeyType keyType = *reinterpret_cast<fds::CatalogKeyType const*>(key.data());
-        switch (keyType)
-        {
-        case fds::CatalogKeyType::JOURNAL_TIMESTAMP:
-            std::cout << "= >del JournalTimestampKey\n";
-            break;
-        case fds::CatalogKeyType::BLOB_OBJECTS:
-        {
-            BlobObjectKey blobObjectKey { key };
-            std::cout << "= >del BlobObject: '" << blobObjectKey.getBlobName()
-                      << "' Index: '" << blobObjectKey.getObjectIndex() << "'\n";
-            break;
-        }
-        case fds::CatalogKeyType::BLOB_METADATA:
-        {
-            BlobMetadataKey blobMetaKey { key };
-            std::cout << "= >del BlobMeta: '" << blobMetaKey.getBlobName() << "'\n";
-            break;
-        }
-        default:
-            throw std::runtime_error{"Unrecognized key type: "
-                                     + std::to_string(static_cast<unsigned int>(keyType)) + "."};
+        switch (keyType) {
+            case fds::CatalogKeyType::JOURNAL_TIMESTAMP:
+                std::cout << "=> del JournalTimestampKey\n";
+                break;
+            case fds::CatalogKeyType::BLOB_OBJECTS: {
+                BlobObjectKey blobObjectKey { key };
+                std::cout << "=> del [blob=" << blobObjectKey.getBlobName()
+                          << " index=" << blobObjectKey.getObjectIndex() << "]\n";
+                break;
+            }
+            case fds::CatalogKeyType::BLOB_METADATA: {
+                BlobMetadataKey blobMetaKey { key };
+                std::cout << "=> del [blobmeta=" << blobMetaKey.getBlobName() << "]\n";
+                break;
+            }
+            case fds::CatalogKeyType::VOLUME_METADATA: {
+                std::cout << "=> del [volumeMeta]\n";
+                break;
+            }
+
+            default:
+                throw std::runtime_error{"Unrecognized key type: "
+                            + std::to_string(static_cast<unsigned int>(keyType)) + "."};
         }
 #else
         std::string keyStr(key.data(), key.size());
         fds::ExtentKey extKey;
         extKey.loadSerialized(keyStr);
-        std::cout << "  del 'Blob:" << extKey.blob_name << ", Extent:" << extKey.extent_id
+        std::cout << "  del 'Blob=" << extKey.blob_name << ", Extent=" << extKey.extent_id
                   << "'" << std::endl;
 #endif
     }
@@ -207,8 +217,8 @@ bool HandleDumpCommand(Env* env, char** files, int num) {
 }  // namespace leveldb
 
 static void Usage() {
-    std::cerr << "Usage: journal-dump files...\n"
-              << "   files...         -- dump contents of specified journal files\n";
+    std::cout << "Usage: journal-dump <file>...\n"
+              << "   file...         -- dump contents of specified journal files\n";
 }
 
 int main(int argc, char** argv) {
@@ -223,6 +233,7 @@ int main(int argc, char** argv) {
             // ok = leveldb::HandleDumpCommand(env, argv+1, argc-1);
             leveldb::CatJournalIterator iter(argv[1]);
             leveldb::WriteBatchItemPrinter batch_item_printer;
+            count = 0;
             for (; iter.isValid(); iter.Next()) {
                 const leveldb::WriteBatch &wb = iter.GetBatch();
                 leveldb::Status s = wb.Iterate(&batch_item_printer);
