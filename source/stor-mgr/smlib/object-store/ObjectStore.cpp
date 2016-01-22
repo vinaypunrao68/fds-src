@@ -399,6 +399,29 @@ ObjectStore::handleDltClose(const DLT* dlt) {
     return err;
 }
 
+fds_bool_t
+ObjectStore::doResync() const {
+    if (diskMap) {
+        return diskMap->doResync();
+    } else {
+        return false;
+    }
+}
+
+void
+ObjectStore::setResync() {
+    if (diskMap) {
+        return diskMap->setResync();
+    }
+}
+
+void
+ObjectStore::resetResync() {
+    if (diskMap) {
+        return diskMap->resetResync();
+    }
+}
+
 Error
 ObjectStore::addVolume(const VolumeDesc& volDesc) {
     Error err(ERR_OK);

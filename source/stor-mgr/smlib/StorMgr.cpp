@@ -159,11 +159,15 @@ void ObjectStorMgr::handleResyncDoneOrPending(fds_bool_t startResync, fds_bool_t
     }
 
     if (startResync && g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
-        objStorMgr->migrationMgr->startResync(curDlt,
-                                              getUuid(),
-                                              curDlt->getNumBitsForToken(),
-                                              std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
-                                                        std::placeholders::_1, std::placeholders::_2));
+        if (objectStore->doResync()) {
+            objStorMgr->migrationMgr->startResync(curDlt,
+                                                  getUuid(),
+                                                  curDlt->getNumBitsForToken(),
+                                                  std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
+                                                            std::placeholders::_1, std::placeholders::_2));
+        } else {
+            objectStore->setResync();
+        }
     }
 }
 
@@ -450,16 +454,23 @@ Error ObjectStorMgr::handleDltUpdate() {
     const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
     Error err = objStorMgr->objectStore->handleNewDlt(curDlt);
     if (err == ERR_SM_NOERR_NEED_RESYNC) {
-        LOGNOTIFY << "SM " << std::hex << getUuid() << " going to do"
-                  << " token diff resync";
+        migrationMgr->makeTokensAvailable(curDlt,
+                                          curDlt->getNumBitsForToken(),
+                                          getUuid());
 
         // Start the resync process
         if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync", true)) {
-            err = objStorMgr->migrationMgr->startResync(curDlt,
-                                                        getUuid(),
-                                                        curDlt->getNumBitsForToken(),
-                                                        std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
-                                                                  std::placeholders::_1, std::placeholders::_2));
+            if (objectStore->doResync()) {
+                LOGNOTIFY << "SM " << std::hex << getUuid() << " going to do"
+                          << " token diff resync";
+                err = objStorMgr->migrationMgr->startResync(curDlt,
+                                                            getUuid(),
+                                                            curDlt->getNumBitsForToken(),
+                                                            std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
+                                                                      std::placeholders::_1, std::placeholders::_2));
+            } else {
+                objectStore->setResync();
+            }
         } else {
             // not doing resync, making all DLT tokens ready
             migrationMgr->makeTokensAvailable(curDlt,
