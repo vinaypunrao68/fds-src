@@ -939,7 +939,7 @@ void VolumeGroupBroadcastRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
                                        header->msg_code,
                                        nSuccessAcked_);
 
-    if (prevSuccessCnt == nSuccessAcked_ && /* header->msg_code is an error */
+    if (prevSuccessCnt == nSuccessAcked_ && /* VolumeGroup considered it an error */
         response_.ok()) {
         /* Caching first error code. Used when quorum isn't met */
         if (header->msg_code == ERR_OK) {  /* when group is down this can happen */
@@ -951,7 +951,7 @@ void VolumeGroupBroadcastRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
 
     if (nSuccessAcked_ == groupHandle_->getQuorumCnt() &&
         responseCb_) {
-        /* Met the quorum count.  Returning the last error code*/
+        /* Met the quorum count.  Returning the last error code */
         // TODO(Rao): Ensure all replicas returned the same error code
         responseCb_(header->msg_code, payload); 
         responseCb_ = 0;
