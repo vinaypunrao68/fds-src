@@ -125,6 +125,24 @@ void addIncomingUser(std::string const& target_name,
             << " "                      << password << std::endl;
 }
 
+/**
+ * When we're done with the target from it from SCST to cause
+ * any existing sessions to be terminated.
+ */
+void
+addToScst(std::string const& target_name) {
+    GLOGDEBUG << "Adding iSCSI target: [" << target_name << "]";
+    std::ofstream tgt_dev(scst_iscsi_target_path + scst_iscsi_target_mgmt, std::ios::out);
+
+    if (tgt_dev.is_open()) {
+        // Add a new target
+        tgt_dev << scst_iscsi_cmd_add << " " << target_name << std::endl;
+        return;
+    }
+    GLOGERROR << "Could not create target, no iSCSI devices will be presented!";
+    throw ScstError::scst_error;
+}
+
 bool groupExists(std::string const& target_name, std::string const& group_name) {
     struct stat info;
     auto ini_dir = scst_iscsi_target_path + target_name + scst_iscsi_ini_path + group_name;
@@ -145,6 +163,53 @@ void removeIncomingUser(std::string const& target_name,
     }
     tgt_dev << "del_target_attribute "  << target_name
             << " IncomingUser "         << user_name << std::endl;
+}
+
+/**
+ * Before a target can be removed, all sessions must be closed
+ */
+void removeInitiators(std::string const& target_name) {
+    GLOGDEBUG << "Closing active sessions for: " << target_name;
+    glob_t glob_buf {};
+    auto pattern = scst_iscsi_target_path + target_name + "/sessions/*/force_close";
+    auto res = glob(pattern.c_str(), GLOB_ERR, nullptr, &glob_buf);
+    if (0 == res) {
+        auto session = glob_buf.gl_pathv;
+        while (nullptr != session && 0 < glob_buf.gl_pathc) {
+            std::ofstream session_close(*session, std::ios::out);
+
+            if (session_close.is_open()) {
+                session_close << "1" << std::endl;
+            }
+            if (!session_close.good()) {
+                GLOGWARN << "Could not close session: [" << *session
+                         << "] may not be able to remove target.";
+            }
+            ++session; --glob_buf.gl_pathc;
+        }
+    }
+    globfree(&glob_buf);
+}
+
+/**
+ * When we're done with the target from it from SCST to cause
+ * any existing sessions to be terminated.
+ */
+void removeFromScst(std::string const& target_name) {
+    removeInitiators(target_name);
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    GLOGDEBUG << "Removing iSCSI target: [" << target_name << "]";
+    std::ofstream tgt_dev(scst_iscsi_target_path + scst_iscsi_target_mgmt, std::ios::out);
+
+    if (tgt_dev.is_open()) {
+        // Remove new target
+        tgt_dev << scst_iscsi_cmd_remove << " " << target_name << std::endl;
+        if (tgt_dev.good()) {
+            return;
+        }
+    }
+    GLOGWARN << "Could not remove target.";
+
 }
 
 /**
@@ -175,17 +240,7 @@ ScstTarget::ScstTarget(ScstConnector* parent_connector,
     // We can support other target-drivers than iSCSI...TBD
     // Create an iSCSI target in the SCST mid-ware for our handler
     GLOGDEBUG << "Creating iSCSI target for connector: [" << target_name << "]";
-    std::ofstream tgt_dev(scst_iscsi_target_path + scst_iscsi_target_mgmt, std::ios::out);
-
-    if (!tgt_dev.is_open()) {
-        GLOGERROR << "Could not create target, no iSCSI devices will be presented!";
-        throw ScstError::scst_error;
-    }
-
-    // Add a new target for ourselves
-    tgt_dev << scst_iscsi_cmd_add << " " << target_name << std::endl;
-    tgt_dev.close();
-
+    addToScst(target_name);
     setQueueDepth(target_name, 64);
 
     // Clear any mappings we might have left from before
@@ -194,7 +249,7 @@ ScstTarget::ScstTarget(ScstConnector* parent_connector,
     // Start watching the loop
     evLoop = std::make_shared<ev::dynamic_loop>(ev::NOENV | ev::POLL);
     if (!evLoop) {
-        LOGERROR << "Failed to initialize lib_ev...SCST is not serving devices";
+        GLOGERROR << "Failed to initialize lib_ev...SCST is not serving devices";
         throw ScstError::scst_error;
     }
 
@@ -273,12 +328,13 @@ void ScstTarget::removeDevice(std::string const& volume_name) {
     std::lock_guard<std::mutex> g(deviceLock);
     auto it = device_map.find(volume_name);
     if (device_map.end() == it) return;
+    state = State::REMOVED;
     (*it->second)->shutdown();
 }
 
 void ScstTarget::shutdown() {
     std::lock_guard<std::mutex> g(deviceLock);
-    running = false;
+    state = State::STOPPED;
     for (auto& device : lun_table) {
         if (device) device->shutdown();
     }
@@ -359,7 +415,7 @@ ScstTarget::setInitiatorMasking(std::set<std::string> const& new_members) {
             std::ofstream ini_mgmt(scst_iscsi_target_path + target_name + scst_iscsi_ini_mgmt,
                                   std::ios::out);
             if (!ini_mgmt.is_open()) {
-                LOGWARN << "Could not open mgmt interface to create masking group.";
+                GLOGWARN << "Could not open mgmt interface to create masking group.";
                 return;
             }
             ini_mgmt << "create allowed" << std::endl;
@@ -373,7 +429,7 @@ ScstTarget::setInitiatorMasking(std::set<std::string> const& new_members) {
                                        + scst_iscsi_host_mgmt,
                                    std::ios::out);
             if (! host_mgmt.is_open()) {
-                LOGWARN << "Could not open mgmt interface to add initiators to group.";
+                GLOGWARN << "Could not open mgmt interface to add initiators to group.";
                 return;
             }
             // For each ini that is no longer in the list, remove from group
@@ -442,7 +498,7 @@ ScstTarget::toggle_state(bool const enable) {
 
 void
 ScstTarget::wakeupCb(ev::async &watcher, int revents) {
-    if (running) {
+    if (enabled()) {
         startNewDevices();
     }
 }
@@ -450,7 +506,14 @@ ScstTarget::wakeupCb(ev::async &watcher, int revents) {
 void
 ScstTarget::lead() {
     evLoop->run(0);
-    LOGNORMAL <<  "SCST Target has shutdown " << target_name;
+    GLOGNORMAL <<  "SCST Target has shutdown " << target_name;
+    // If we were removed, disconnect sessions, otherwise we are just restarting
+    {
+        std::lock_guard<std::mutex> g(deviceLock);
+        if (State::REMOVED == state) {
+            removeFromScst(target_name);
+        }
+    }
     connector->targetDone(target_name);
 }
 

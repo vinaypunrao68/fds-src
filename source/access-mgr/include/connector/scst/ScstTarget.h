@@ -45,6 +45,8 @@ struct ScstDevice;
 struct ScstTarget
     : public LeaderFollower
 {
+    enum State { STOPPED, RUNNING, REMOVED };
+
     ScstTarget(ScstConnector* parent_connector,
                std::string const& name,
                size_t const followers,
@@ -56,7 +58,8 @@ struct ScstTarget
 
     void disable() { toggle_state(false); }
     void enable() { toggle_state(true); }
-    bool enabled() { return running; }
+    bool enabled() const
+    { std::lock_guard<std::mutex> lg(deviceLock); return State::RUNNING == state; }
 
     void addDevice(VolumeDesc const& vol_desc);
     void deviceDone(std::string const& volume_name);
@@ -86,7 +89,7 @@ struct ScstTarget
     lun_table_type lun_table;
 
     std::condition_variable deviceStartCv;
-    std::mutex deviceLock;
+    mutable std::mutex deviceLock;
     std::deque<int32_t> devicesToStart;
 
     /// Initiator masking
@@ -103,7 +106,7 @@ struct ScstTarget
     std::string const target_name;
 
     bool luns_mapped {false};
-    bool running {true};
+    State state {RUNNING};
 
     void clearMasking();
 
