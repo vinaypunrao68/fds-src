@@ -277,7 +277,10 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 {
     Error err(ERR_OK);
     bool fault_enabled = false;
-    LOGDEBUG << "Initiate Object Sync";
+    LOGDEBUG << "Initiate Object Sync for " << std::hex
+             << asyncHdr->msg_src_uuid.svc_uuid
+             << " executor id: " << filterObjSet->executorID
+             << " token: " << std::dec << filterObjSet->tokenId;
 
     // first disable GC and Tier Migration. If this SM is also a destination and
     // we already disabled GC and Tier Migration, disabling them again is a noop
