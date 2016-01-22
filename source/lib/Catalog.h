@@ -84,7 +84,7 @@ class Catalog {
     Catalog(const std::string& _file, fds_uint32_t writeBufferSize = WRITE_BUFFER_SIZE,
             fds_uint32_t cacheSize = CACHE_SIZE, const std::string& logDirName = empty,
             const std::string& logFilePrefix = empty, fds_uint32_t maxLogFiles = 0,
-            fds_bool_t timelineEnable = false,leveldb::Comparator * cmp = 0);
+            fds_bool_t archiveLogs = false,leveldb::Comparator * cmp = 0);
 
     ~Catalog();
 
@@ -144,6 +144,14 @@ class Catalog {
     inline void clearLogRotate() {
         fds_assert(env);
         env->logRotate() = false;
+    }
+
+    inline const fds_bool_t& archiveLogs() const {
+        return env->archiveLogs();
+    }
+
+    inline fds_bool_t& archiveLogs() {
+        return env->archiveLogs();
     }
 
     std::string GetFile() const;
