@@ -170,7 +170,6 @@ set(SOURCE_FILES
     ./data-mgr/dm-lib/DmMigrationExecutor.cpp
     ./data-mgr/dm-lib/DmMigrationMgr.cpp
     ./data-mgr/dm-lib/DMSvcHandler.cpp
-    ./data-mgr/dm-lib/expungemanager.cpp
     ./data-mgr/dm-lib/StatStreamAggregator.cpp
     ./data-mgr/dm-lib/VolumeMeta.cpp
     ./data-mgr/include/archive/ArchiveClient.h
@@ -199,7 +198,6 @@ set(SOURCE_FILES
     ./data-mgr/include/DmMigrationExecutor.h
     ./data-mgr/include/DmMigrationMgr.h
     ./data-mgr/include/DMSvcHandler.h
-    ./data-mgr/include/expungemanager.h
     ./data-mgr/include/StatStreamAggregator.h
     ./data-mgr/include/VcQueryIface.h
     ./data-mgr/include/VolumeMeta.h
