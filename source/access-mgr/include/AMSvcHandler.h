@@ -79,6 +79,10 @@ class AMSvcHandler :  virtual public fpi::AMSvcIf, virtual public PlatNetSvcHand
     virtual void
     shutdownAM(boost::shared_ptr<fpi::AsyncHdr>               &hdr,
                boost::shared_ptr<fpi::PrepareForShutdownMsg>  &shutdownMsg);
+
+    virtual void
+    addToVolumeGroup(fpi::AsyncHdrPtr& asyncHdr,
+                         fpi::AddToVolumeGroupCtrlMsgPtr& addMsg);
 };
 
 }  // namespace fds

@@ -37,6 +37,13 @@ public:
     Error start();
 
     void routeAbortMigration() override;
+
+    /**
+     * Used in the volmeta context, for destination
+     * If the version is set, checks the argument and see if
+     * this is the same version as the one undergoing migration.
+     */
+    Error checkVolmetaVersion(const int32_t version);
 private:
 };
 

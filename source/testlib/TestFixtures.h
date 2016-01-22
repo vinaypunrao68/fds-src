@@ -29,6 +29,15 @@ struct BaseTestFixture : ::testing::Test
 
     static void TearDownTestCase();
 
+    /**
+    * @brief Sets up a four node dm cluster environment
+    *
+    * @param fdsSrcDir
+    * @param baseDirPrefix
+    */
+    static void setupDmClusterEnv(const std::string &fdsSrcDir,
+                                  const std::string &baseDirPrefix);
+
     template <class T>
     static T getArg(const std::string& k, T defaultVal)
     {

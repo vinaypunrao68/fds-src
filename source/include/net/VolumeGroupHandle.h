@@ -128,6 +128,8 @@ std::ostream& operator << (std::ostream &out, const VolumeReplicaHandle &h);
 
 using VolumeResponseCb = std::function<void(const Error&, StringPtr)>;
 using OpenResponseCb = std::function<void(const Error&, const fpi::OpenVolumeRspMsgPtr&)>;
+using AddToVolumeGroupCb = std::function<void(const Error&,
+                                              const fpi::AddToVolumeGroupRespCtrlMsgPtr&)>;
 
 /**
 * @brief Base class for group requests that are related to VolumeGrouping
@@ -245,7 +247,7 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
 
     virtual void handleAddToVolumeGroupMsg(
         const fpi::AddToVolumeGroupCtrlMsgPtr &addMsg,
-        const std::function<void(const Error&, const fpi::AddToVolumeGroupRespCtrlMsgPtr&)> &cb);
+        const AddToVolumeGroupCb &cb);
 
     virtual void handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
                                       const int32_t &replicaVersion,

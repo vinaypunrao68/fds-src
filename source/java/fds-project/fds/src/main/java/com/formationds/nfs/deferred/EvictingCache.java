@@ -7,13 +7,18 @@ import com.google.common.cache.RemovalCause;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
 
 public class EvictingCache<TKey, TValue> {
+    private final static int LOCK_STRIPES = 1024 * 32;
+
     private final Cache<TKey, CacheEntry<TValue>> cache;
-    private Cache<TKey, Object> locks;
     private TraversableView traversableView;
     private Evictor<TKey, CacheEntry<TValue>> evictor;
+    private final Object[] locks;
     private String name;
     private final BlockingDeque<Exception> exceptions;
 
@@ -46,10 +51,10 @@ public class EvictingCache<TKey, TValue> {
                     }
                 }).build();
 
-        locks = CacheBuilder.newBuilder()
-                .maximumSize(maxSize)
-                .expireAfterAccess(evictionInterval, evictionTimeUnit)
-                .build();
+        locks = new Object[LOCK_STRIPES];
+        for (int i = 0; i < locks.length; i++) {
+            locks[i] = new Object();
+        }
     }
 
     public void start() {
@@ -58,7 +63,6 @@ public class EvictingCache<TKey, TValue> {
                 try {
                     Thread.sleep(1000);
                     cache.cleanUp();
-                    locks.cleanUp();
                 } catch (InterruptedException e) {
                     break;
                 }
@@ -70,13 +74,8 @@ public class EvictingCache<TKey, TValue> {
 
     public <T> T lock(TKey key, IoFunction<SortedMap<TKey, CacheEntry<TValue>>, T> f) throws IOException {
         bubbleExceptions();
-        Object lockObj = null;
-        try {
-            lockObj = locks.get(key, () -> new Object());
-        } catch (ExecutionException e) {
-            throw new IOException(e);
-        }
-        synchronized (lockObj) {
+        int stripe = Math.abs(key.hashCode() % LOCK_STRIPES);
+        synchronized (locks[stripe]) {
             return f.apply(this.traversableView);
         }
     }

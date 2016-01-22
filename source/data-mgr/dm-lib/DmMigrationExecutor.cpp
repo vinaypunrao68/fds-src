@@ -136,7 +136,13 @@ DmMigrationExecutor::processInitialBlobFilterSet()
      * create and initialize message for initial filter set.
      */
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr filterSet(new fpi::CtrlNotifyInitialBlobFilterSetMsg());
-    filterSet->volumeId = volumeUuid.get();
+    filterSet->volume_id = volumeUuid.get();
+    auto volMeta = dataMgr.getVolumeMeta(volumeUuid);
+    // volMeta needs to be there in the volume group context - since migration is done in vol context
+    if (dataMgr.features.isVolumegroupingEnabled()) {
+        fds_assert(volMeta != nullptr);
+    }
+    filterSet->version = volMeta ? volMeta->getVersion() : VolumeGroupConstants::VERSION_INVALID;
 
     LOGMIGRATE << logString() << "processing to get list of <blobid, seqnum> for volume=" << volumeUuid;
     /**

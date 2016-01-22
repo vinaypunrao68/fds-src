@@ -59,7 +59,7 @@
                         <td>{{node.domain}}</td>
 -->
                         <td class="ssd-capacity">{{ getByteString( node.ssdCapacity.value, node.ssdCapacity.unit ) }}</td>
-                        <td class="hdd-capacity">{{ getByteString( node.hddCapacity.value, node.hddCapacity.unit ) }}</td>
+                        <td class="hdd-capacity">{{ getByteString( node.diskCapacity.value, node.diskCapacity.unit ) }}</td>
                         
                         <td class="process-cell process-width ams"><span class="{{getStatus( node.serviceMap.AM )}}"></span></td>
                         <td class="process-cell process-width pms"><span class="{{getStatus( node.serviceMap.PM )}}"></span></td>

@@ -497,6 +497,11 @@ DMSvcHandler::handleDbgForceVolumeSyncMsg(SHPTR<fpi::AsyncHdr>& hdr,
             LOGWARN << "Force sync failed.  Volume is not offline." << volMeta->logString();
             cb(ERR_INVALID);
             return;
+        } else if (!volMeta->isCoordinatorSet()) {
+            LOGWARN << "Force sync failed.  Volume coordinator is not set."
+                << volMeta->logString();
+            cb(ERR_INVALID);
+            return;
         } else if (volMeta->isInitializerInProgress()) {
             LOGWARN << "Force sync failed. Volume sync is in progress" << volMeta->logString();
             cb(ERR_INVALID);

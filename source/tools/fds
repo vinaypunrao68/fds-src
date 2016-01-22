@@ -36,7 +36,7 @@ BINDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/bin"
 TESTDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/tests"
 KODIR="${SOURCEDIR}/fds_client/blk_dev"
 RABBITDIR="/opt/fds-stats-deps/embedded/bin"
-STATSDIR="/opt/fds-stats/embedded"
+STATSDIR="/opt/fds/formation_one/packages/fds-stats-service-1.0.0"
 
 #######################################################################
 
@@ -222,7 +222,7 @@ function startApp() {
             loginfo "Starting RabbitMQ server..."
             PATH=$PATH:${RABBITDIR} rabbitmq-server start &
             loginfo "Starting stats service..."
-            ${STATSDIR}/scripts/fds-stats-service &
+            ${STATSDIR}/bin/fds-stats-service &
             ;;
     esac
 

@@ -51,7 +51,13 @@ namespace fds
             { STORAGE_MANAGER, SM_NAME            }
         };
 
-        PlatformManager::PlatformManager() : Module ("pm"), m_appPidMap(), m_autoRestartFailedProcesses (false), m_startupAuditComplete (false), m_nodeRedisKeyId (""), m_diskUuidToDeviceMap()
+        PlatformManager::PlatformManager() : Module ("pm"),
+                                             m_appPidMap(),
+                                             m_autoRestartFailedProcesses (false),
+                                             m_inShutdownState { true },
+                                             m_startupAuditComplete (false),
+                                             m_nodeRedisKeyId (""),
+                                             m_diskUuidToDeviceMap()
         {
         }
 
@@ -1163,6 +1169,11 @@ namespace fds
             props.setInt ("disk_type", diskCapability.disk_type);
         }
 
+        void PlatformManager::setShutdownState(bool const value)
+        {
+            m_inShutdownState = value;
+        }
+
         // TODO: this needs to populate real data from the disk module labels etc.
         // it may want to load the value from the database and validate it against
         // DiskPlatModule data, or just load from the DiskPlatModule and be done
@@ -1221,6 +1232,12 @@ namespace fds
             uuid.uuid_set_type (m_nodeInfo.uuid, svcType);
 
             return uuid.uuid_get_val();
+        }
+
+        NodeUuid PlatformManager::getUUID ()
+        {
+            fds_uint64_t node_uuid = getNodeUUID(fpi::FDSP_PLATFORM);
+            return NodeUuid(node_uuid);
         }
 
         void PlatformManager::startQueueMonitor()
@@ -1310,7 +1327,7 @@ namespace fds
 
                             updateNodeInfoDbPidAndState (appIndex, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
 
-                            if (m_autoRestartFailedProcesses)
+                            if (m_autoRestartFailedProcesses && !m_inShutdownState)
                             {
                                 {   // context for lock_guard
                                     deadProcessesFound = true;
@@ -1396,20 +1413,20 @@ namespace fds
             std::ostringstream textualContent;
             textualContent << "Platform detected that " << procName << " (pid = " << procPid << ") " << message << ".";
 
-            fpi::NotifyHealthReportPtr message (new fpi::NotifyHealthReport());
+            fpi::NotifyHealthReportPtr healthMessage (new fpi::NotifyHealthReport());
 
-            message->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid = serviceRecord->svc_id.svc_uuid.svc_uuid;
-            message->healthReport.serviceInfo.svc_id.svc_name = serviceRecord->name;
-            message->healthReport.serviceInfo.svc_port = serviceRecord->svc_port;
-            message->healthReport.platformUUID.svc_uuid.svc_uuid = m_nodeInfo.uuid;
-            message->healthReport.serviceState = state;
-            message->healthReport.statusCode = fds::PLATFORM_ERROR_UNEXPECTED_CHILD_DEATH;
-            message->healthReport.statusInfo = textualContent.str();
+            healthMessage->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid = serviceRecord->svc_id.svc_uuid.svc_uuid;
+            healthMessage->healthReport.serviceInfo.svc_id.svc_name = serviceRecord->name;
+            healthMessage->healthReport.serviceInfo.svc_port = serviceRecord->svc_port;
+            healthMessage->healthReport.platformUUID.svc_uuid.svc_uuid = m_nodeInfo.uuid;
+            healthMessage->healthReport.serviceState = state;
+            healthMessage->healthReport.statusCode = fds::PLATFORM_ERROR_UNEXPECTED_CHILD_DEATH;
+            healthMessage->healthReport.statusInfo = textualContent.str();
 
             auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
             auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
 
-            request->setPayload (FDSP_MSG_TYPEID (fpi::NotifyHealthReport), message);
+            request->setPayload (FDSP_MSG_TYPEID (fpi::NotifyHealthReport), healthMessage);
             request->invoke();
         }
 
@@ -1518,7 +1535,7 @@ namespace fds
                     break;
                 }
 
-                LOGNORMAL << "dev " << dev << ", path " << path << ", uuid " << uuid << ", idx " << idx;
+                LOGTRACE << "dev " << dev << ", path " << path << ", uuid " << uuid << ", idx " << idx;
                 if ( strstr( path.c_str(), "hdd" ) != NULL && strstr( path.c_str(), "ssd" ) != NULL )
                 {
                     LOGWARN << "Unknown path: " << path.c_str() ;

@@ -28,6 +28,7 @@ AMSvcHandler::AMSvcHandler(CommonModuleProviderIf *provider,
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::PrepareForShutdownMsg, shutdownAM);
+    REGISTER_FDSP_MSG_HANDLER(fpi::AddToVolumeGroupCtrlMsg, addToVolumeGroup);
 }
 
 // notifySvcChange
@@ -334,6 +335,21 @@ AMSvcHandler::shutdownAM(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
       * It's an async shutdown as we cleanup. So acknowledge the message now.
       */
      hdr->msg_code = err.GetErrno();
+}
+
+void
+AMSvcHandler::addToVolumeGroup(fpi::AsyncHdrPtr& asyncHdr,
+                               fpi::AddToVolumeGroupCtrlMsgPtr& addMsg)
+{
+    amProcessor->addToVolumeGroup(
+        addMsg,
+        [this, asyncHdr](const Error& e,
+                         const fpi::AddToVolumeGroupRespCtrlMsgPtr &payload) {
+        asyncHdr->msg_code = e.GetErrno();
+        sendAsyncResp(*asyncHdr,
+                      FDSP_MSG_TYPEID(fpi::AddToVolumeGroupRespCtrlMsg),
+                      *payload);
+        });
 }
 
 }  // namespace fds

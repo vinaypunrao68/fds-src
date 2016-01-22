@@ -2,6 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
+#include <chrono>
 #include <string>
 #include <list>
 #include <vector>
@@ -706,7 +707,9 @@ Error DataMgr::addVolume(const std::string& vol_name,
                 !(vdesc->isSnapshot())) {
                 if (volmeta->isCoordinatorSet()) {
                     /* Coordinator is set. We can go through sync protocol */
-                    volmeta->setState(fpi::Loading, " - addVolume:coordinator set");
+                    volmeta->setState(fpi::Loading, 
+                                    util::strformat(" - addVolume:coordinator set: %ld",
+                                                    volmeta->getCoordinatorId().svc_uuid));
                     volmeta->initializer = MAKE_SHARED<VolumeInitializer>(MODULEPROVIDER(), volmeta);
                     fSyncRequired = true;
                 } else {

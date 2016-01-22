@@ -93,7 +93,12 @@ namespace fds
                  */
                 void updateServiceInfoProperties (std::map<std::string, std::string> *data);
 
+                NodeUuid getUUID();
+
+                void setShutdownState(bool const value);
+
             protected:
+
                 fds_uint64_t getNodeUUID (fpi::FDSP_MgrIdType svcType);
 
                 void determineDiskCapability();
@@ -124,6 +129,7 @@ namespace fds
                 FlapDetector                        *m_serviceFlapDetector;         // Used to keep track of service restarts and detect a bouncing service.
 
                 bool                                m_autoRestartFailedProcesses;
+                bool                                m_inShutdownState;             // Domain is shut down.
                 bool                                m_startupAuditComplete;        // Tracks if the run function has completed it's startup audit.
                                                                                    // which prevents service activate function from occurring.
 
