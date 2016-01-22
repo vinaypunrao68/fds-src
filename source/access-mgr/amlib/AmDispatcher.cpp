@@ -202,11 +202,13 @@ AmDispatcher::addToVolumeGroup(const fpi::AddToVolumeGroupCtrlMsgPtr &addMsg,
 {
     auto vol_id = fds_volid_t(addMsg->groupId);
 
-    ReadGuard rg(volumegroup_lock);
-    auto it = volumegroup_map.find(vol_id);
-    if (volumegroup_map.end() != it) {
-        it->second->handleAddToVolumeGroupMsg(addMsg, cb);
-        return;
+    {
+        ReadGuard rg(volumegroup_lock);
+        auto it = volumegroup_map.find(vol_id);
+        if (volumegroup_map.end() != it) {
+            it->second->handleAddToVolumeGroupMsg(addMsg, cb);
+            return;
+        }
     }
 
     LOGERROR << "Unknown volume to AmDispatcher: " << vol_id;

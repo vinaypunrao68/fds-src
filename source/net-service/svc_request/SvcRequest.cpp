@@ -784,6 +784,7 @@ QuorumSvcRequest::QuorumSvcRequest(CommonModuleProviderIf *provider,
     successAckd_ = 0;
     errorAckd_ = 0;
     quorumCnt_ = peerEpIds.size();
+    waitForAllResponses_ = false;
 }
 
 /**
@@ -819,6 +820,12 @@ QuorumSvcRequest::~QuorumSvcRequest()
 void QuorumSvcRequest::setQuorumCnt(const uint32_t cnt)
 {
     quorumCnt_ = cnt;
+}
+
+
+void QuorumSvcRequest::setWaitForAllResponses(bool flag)
+{
+    waitForAllResponses_ = flag;
 }
 
 void QuorumSvcRequest::invoke() {
@@ -900,14 +907,14 @@ void QuorumSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
 
     /* Take action based on the ack counts */
     if (successAckd_ == quorumCnt_) {
-        if (respCb_) {
+        if (respCb_ && !waitForAllResponses_) {
             SVCPERF(ts.rspHndlrTs = util::getTimeStampNanos());
             respCb_(this, ERR_OK, payload);
             respCb_ = nullptr;
         }
         MODULEPROVIDER()->getSvcMgr()->getSvcRequestCntrs()->appsuccess.incr();
     } else if (errorAckd_ > (epReqs_.size() - quorumCnt_)) {
-        if (respCb_) {
+        if (respCb_ && !waitForAllResponses_) {
             /* NOTE: We are using first non-ERR_OK code in this case */
             respCb_(this, response_, payload);
             respCb_ = nullptr;
@@ -916,8 +923,13 @@ void QuorumSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
     }
 
     if (successAckd_+ errorAckd_ == epReqs_.size()) {
+        auto completionCode = (successAckd_ >= quorumCnt_) ? ERR_OK : response_;
+        if (waitForAllResponses_ && respCb_) {
+            respCb_(this, completionCode, payload);
+            respCb_ = nullptr;
+        }
         /* Recevied all responses */
-        complete(response_);
+        complete(completionCode);
     }
 }
 
