@@ -166,6 +166,13 @@ class ObjectStore : public Module, public boost::noncopyable {
     Error handleDltClose(const DLT* dlt);
 
     /**
+     * Does SM want to resync tokens or not.
+     */
+    fds_bool_t doResync() const;
+    void setResync();
+    void resetResync();
+
+    /**
      * Adds a new volume to the object store. Some physical
      * resources are allocated, but new volume creation is
      * thinly provisioned.

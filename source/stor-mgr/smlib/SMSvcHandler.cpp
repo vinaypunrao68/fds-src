@@ -378,6 +378,7 @@ void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 {
     LOGDEBUG << "Received shutdown message... shutting down...";
     if (!objStorMgr->isShuttingDown()) {
+        objStorMgr->objectStore->resetResync();
         objStorMgr->mod_disable_service();
         objStorMgr->mod_shutdown();
     }
