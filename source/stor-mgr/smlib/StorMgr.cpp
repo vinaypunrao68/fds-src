@@ -568,7 +568,7 @@ void ObjectStorMgr::checkDiskCapacities() {
         objectStore->setReadOnly();
         sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SERVICE_CAPACITY_FULL, "SM capacity is FULL! ");
         // Send the read only mode command to the other SMs
-        sendReadOnlyModeCmd();
+        // sendReadOnlyModeCmd();
         lastCapacityMessageSentAt = pct_used;
 
     } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
@@ -603,7 +603,8 @@ void ObjectStorMgr::checkDiskCapacities() {
             sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
                                    "SM utilization no longer at dangerous levels.");
         } else if (pct_used < DISK_CAPACITY_ERROR_THRESHOLD) {
-            sendReadWriteModeCmd();
+            // sendReadWriteModeCmd();
+            objectStore->setAvailable();
             lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
             sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SERVICE_CAPACITY_DANGEROUS,
                                    "SM is reaching dangerous capacity levels!");

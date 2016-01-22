@@ -166,21 +166,24 @@ float_t ObjectStore::getUsedCapacityAsPct() {
         if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
                 lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
             LOGERROR << "ERROR: Disk at path " << diskMap->getDiskPath(diskId)
-                     << " is consuming " << pct_used << "Space, which is more than the error threshold of "
-                     << DISK_CAPACITY_ERROR_THRESHOLD;
+                     << " is consuming " << pct_used << " space, which is more than the error threshold of "
+                     << DISK_CAPACITY_ERROR_THRESHOLD << "Consumed/Total (" << capacity.first
+                     << "/" << capacity.second << ")";
             lastCapacityMessageSentAt = DISK_CAPACITY_ERROR_THRESHOLD;
-        } else if (pct_used > DISK_CAPACITY_WARNING_THRESHOLD &&
-            lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
+        } else if (pct_used > DISK_CAPACITY_ALERT_THRESHOLD &&
+            lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
             LOGWARN << "WARNING: Disk at path " << diskMap->getDiskPath(diskId)
                     << " is consuming " << pct_used << " space, which is more than the warning threshold of "
-                    << DISK_CAPACITY_WARNING_THRESHOLD;
-            lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
-        } else if (pct_used > DISK_CAPACITY_ALERT_THRESHOLD &&
-                   lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
+                    << DISK_CAPACITY_ALERT_THRESHOLD << "Consumed/Total (" << capacity.first
+                    << "/" << capacity.second << ")";
+            lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
+        } else if (pct_used > DISK_CAPACITY_WARNING_THRESHOLD &&
+                   lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
             LOGNORMAL << "ALERT: Disk at path " << diskMap->getDiskPath(diskId)
                       << " is consuming " << pct_used << " space, which is more than the alert threshold of "
-                      << DISK_CAPACITY_ALERT_THRESHOLD;
-            lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
+                      << DISK_CAPACITY_WARNING_THRESHOLD << "Consumed/Total (" << capacity.first
+                      << "/" << capacity.second << ")";
+            lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
         } else {
             // If the used pct drops below alert levels reset so we resend the message when
             // we re-hit this condition
