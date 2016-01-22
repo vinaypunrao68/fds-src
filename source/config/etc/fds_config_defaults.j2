@@ -150,6 +150,6 @@
     -XX:ErrorFile=/corefiles/*_hs_err_pid%p..log specifies the JVM crash report file location.
 #}
 {% set common_java_opts = fds_common_java_opts if fds_common_java_opts is defined else '-Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -XX:ErrorFile=/corefiles/hs_err_pid-%p.log' %}
-{% set om_java_opts = fds_om_java_opts if fds_om_java_opts is defined else '-Xmx2048M' %}
+{% set om_java_opts = fds_om_java_opts if fds_om_java_opts is defined else '-Xmx4096M' %}
 {% set xdi_java_opts = fds_xdi_java_opts if fds_xdi_java_opts is defined else '' %}
 {% block content %}{% endblock %}
