@@ -765,8 +765,10 @@ public class RequestLog {
         private final Request delegate;
 
         /**
-         * @param r
-         *            the request
+         * @param r the request
+         * @param logger the logger
+         * @param level the log level
+         * @param marker the payload marker.
          */
         private LoggingJettyRequestWrapper( Request r, Logger logger, Level level, Marker marker ) {
             // we extend Request, but everything that can be delegated is

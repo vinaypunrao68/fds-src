@@ -100,6 +100,8 @@
 {% set snmp_targetip = fds_snmp_targetip if fds_snmp_targetip is defined else 'localhost' %}
 {% set snmp_community = fds_snmp_community if fds_snmp_community is defined else 'public' %}
 {% set rest_07_feature = ft_fds_rest_07_feature if ft_fds_rest_07_feature is defined else 'false' %}
+{% set om_influxdb_write_batch_size = fds_om_influxdb_write_batch_size if fds_om_influxdb_write_batch_size is defined else '1024' %}
+{% set om_task_scheduler_pool_min = fds_om_task_scheduler_pool_min if fds_om_task_scheduler_pool_min is defined else '10' %}
 {#
    fds.xdi. specific entries
 #}
@@ -130,8 +132,8 @@
 {% set ft_common_enable_subscriptions             = fds_ft_common_enable_subscriptions             if fds_ft_common_enable_subscriptions             is defined else 'false' %}
 {% set ft_common_enable_volume_open_support       = fds_ft_common_enable_volume_open_support       if fds_ft_common_enable_volume_open_support       is defined else 'true'  %}
 {% set ft_common_enable_valgrind      		      = fds_ft_common_enable_valgrind                  if fds_ft_common_enable_valgrind                  is defined else 'false' %}
-{% set ft_enable_timeline                         = fds_ft_enable_timeline                         if fds_ft_enable_timeline                         is defined else 'true' %}
-{% set ft_periodic_expunge                        = fds_ft_periodic_expunge                        if fds_ft_periodic_expunge                        is defined else 'true' %}
+{% set ft_enable_timeline                         = fds_ft_enable_timeline                         if fds_ft_enable_timeline                         is defined else 'true'  %}
+{% set ft_periodic_expunge                        = fds_ft_periodic_expunge                        if fds_ft_periodic_expunge                        is defined else 'true'  %}
 {% set all_ssd_support                            = all_ssd_support                                if all_ssd_support                                is defined else 'false' %}
 {% set ft_am_nbd_enabled                          = fds_ft_am_nbd_enabled                          if fds_ft_am_nbd_enabled                          is defined else 'true'  %}
 {% set ft_am_scst_enabled                         = fds_ft_am_scst_enabled                         if fds_ft_am_scst_enabled                         is defined else 'false' %}
@@ -144,6 +146,8 @@
 {% set ft_fds_rest_07_feature                     = fds_ft_rest_07_feature                         if fds_ft_rest_07_feature                         is defined else 'true'  %}
 {% set ft_fs_2660_metric_firebreak_event_query    = fds_ft_fs_2660_metric_firebreak_event_query    if fds_ft_fs_2660_metric_firebreak_event_query    is defined else 'false' %}
 {% set ft_enable_java_om_svc_proxy                = fds_ft_enable_java_om_svc_proxy                if fds_ft_enable_java_om_svc_proxy                is defined else 'false' %}
+{% set ft_enable_web_logging_request_wrapper      = fds_ft_enable_web_logging_request_wrapper      if fds_ft_enable_web_logging_request_wrapper      is defined else 'false' %}
+{% set ft_enable_influxdb_write_batch             = fds_ft_enable_influxdb_write_batch             if fds_ft_enable_influxdb_write_batch             is defined else 'false' %}
 {#
     Java Options -- not stored in platform.conf, but rather in formation_env and ultimately in environment variables
     The Logging and service name configuration in the defaults are important.  Without it, the logging may not be configured properly.

@@ -1,5 +1,6 @@
 package com.formationds.web.toolkit;
 
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.google.common.collect.Multimap;
 
 import org.apache.logging.log4j.Logger;
@@ -56,23 +57,30 @@ public class Dispatcher extends HttpServlet {
 	@Override
     public void service(HttpServletRequest httpServletRequest, HttpServletResponse response) throws IOException, ServletException {
         long then = System.currentTimeMillis();
-        Request request = RequestLog.newJettyRequestLogger( (Request) httpServletRequest );
+
+        boolean featureLoggingRequestWrapperEnabled = FdsFeatureToggles.WEB_LOGGING_REQUEST_WRAPPER.isActive();
+        Request request = ( featureLoggingRequestWrapperEnabled ?
+                              RequestLog.newJettyRequestLogger( (Request) httpServletRequest ) :
+                              (Request) httpServletRequest );
+
         @SuppressWarnings("unchecked")
-		String requestLogEntryBase = ((RequestLog.LoggingRequestWrapper<Request>)request).getRequestInfoHeader();
+		String requestLogEntryBase = (featureLoggingRequestWrapperEnabled ?
+		                                 ((RequestLog.LoggingRequestWrapper<Request>)request).getRequestInfoHeader() :
+		                                 String.format( "%s %s", request.getMethod(), request.getRequestURI() ) );
         LOG.info("{} Starting", requestLogEntryBase);
         Resource resource = new FourOhFour();
         try {
 	        RequestHandler requestHandler;
 	        Map<String, String> routeAttributes = new HashMap<>();
-	
+
 	        if (isStaticAsset(request) && webDir != null) {
 	            requestHandler = new StaticFileHandler(webDir);
 	        } else {
-	
+
 	            Optional<CompletableFuture<Void>> execution = tryExecuteAsyncApp(request, (Response) response);
 	            if(execution.isPresent())
 	                return;
-	
+
 	            Optional<Route> route = routeFinder.resolve(request);
 	            if (!route.isPresent()) {
 	                route = Optional.of(new Route(request, new HashMap<>(),
@@ -82,7 +90,7 @@ public class Dispatcher extends HttpServlet {
 	            request = route.get().getRequest();
 	            routeAttributes = route.get().getAttributes();
 	        }
-	
+
 	        try {
 	            resource = requestHandler.handle(request, routeAttributes);
 	        } catch (UsageException e) {
@@ -91,7 +99,7 @@ public class Dispatcher extends HttpServlet {
 	            LOG.fatal(t.getMessage(), t);
 	            resource = new ErrorPage(t.getMessage(), t);
 	        }
-	
+
 	        Arrays.stream(resource.cookies()).forEach( response::addCookie );
 	        response.addHeader("Access-Control-Allow-Origin", "*");
 	        response.setContentType(resource.getContentType());
@@ -103,16 +111,18 @@ public class Dispatcher extends HttpServlet {
 	                response.addHeader(headerName, value);
 	            }
 	        }
-	
+
 	        ClosingInterceptor outputStream = new ClosingInterceptor(response.getOutputStream());
 	        resource.render(outputStream);
 	        outputStream.flush();
 	        outputStream.doCloseForReal();
-	
+
         } finally {
 	        long elapsed = System.currentTimeMillis() - then;
 	        LOG.info("{} Complete HTTP status: {}, {} ms", requestLogEntryBase, resource.getHttpStatus(), elapsed);
-        	RequestLog.requestComplete(request);
+        	if ( featureLoggingRequestWrapperEnabled ) {
+        	    RequestLog.requestComplete(request);
+        	}
         }
     }
 

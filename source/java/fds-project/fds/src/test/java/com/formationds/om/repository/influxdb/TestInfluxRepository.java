@@ -25,8 +25,6 @@ public class TestInfluxRepository {
     @BeforeClass
     static public void setUpClass() throws Exception {
         SingletonConfiguration.instance().setConfig( mockedConfig );
-        when( mockedPC.defaultBoolean( InfluxDBConnection.FDS_OM_INFLUXDB_SERIALIZE_ALL, false ) ).thenReturn( false );
-        when( mockedPC.defaultBoolean( InfluxDBConnection.FDS_OM_INFLUXDB_SERIALIZE_READS, false ) ).thenReturn( false );
         when( mockedPC.defaultBoolean( InfluxDBConnection.FDS_OM_INFLUXDB_SERIALIZE_WRITES, false ) ).thenReturn( false );
         when( mockedConfig.getPlatformConfig() ).thenReturn( mockedPC );
     }

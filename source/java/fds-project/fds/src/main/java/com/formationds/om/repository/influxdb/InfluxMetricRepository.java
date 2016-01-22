@@ -9,6 +9,7 @@ import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.exception.UnsupportedMetricException;
 import com.formationds.commons.model.type.Metrics;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.helper.EndUserMessages;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
@@ -181,6 +182,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         }
     }
 
+    @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override
     protected <R extends IVolumeDatapoint> List<R> doPersist( Collection<R> entities ) {
         Object[] metricValues = new Object[VOL_METRIC_NAMES.size()];
@@ -195,7 +197,10 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         Map<Long, Map<String, List<IVolumeDatapoint>>> orderedVDPs =
                 VolumeDatapointHelper.sortByTimestampAndVolumeId( vdps, true );
 
-        final int batchSize = SingletonConfiguration.getPlatformConfig().defaultInt( "fds.om.influxdb.batch_write_size", DEFAULT_BATCH_SIZE );
+        boolean batchedWritesEnabled = FdsFeatureToggles.INFLUX_WRITE_BATCHING.isActive();
+        int batchSize = (batchedWritesEnabled ?
+                            SingletonConfiguration.getPlatformConfig().defaultInt( "fds.om.influxdb.batch_write_size", DEFAULT_BATCH_SIZE ) :
+                            1 );
         List<Serie> batch = new ArrayList<>(batchSize);
 
         for ( Map.Entry<Long, Map<String, List<IVolumeDatapoint>>> e : orderedVDPs.entrySet() ) {
@@ -206,9 +211,6 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
                 // TODO: need volume ids as long everywhere
                 Long volid = Long.valueOf( e2.getKey() );
                 String volDomain = "";
-
-                // volName is in the list of volume datapoints
-                String volName = null;
 
                 metricValues[0] = ts;
                 metricValues[1] = volid;
@@ -235,20 +237,24 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
                         .values(metricValues)
                         .build();
 
-                batch.add( serie );
-                if ( batch.size() == batchSize ) {
-                    Serie[] writeBatch = batch.toArray( new Serie[ batch.size() ] );
-                    batch.clear();
+                if ( batchedWritesEnabled ) {
+                    batch.add( serie );
+                    if ( batch.size() == batchSize ) {
+                        Serie[] writeBatch = batch.toArray( new Serie[ batch.size() ] );
+                        batch.clear();
 
-                    // We are now explicitly specifying the timestamp and since VolumeDatapoint timestamps are
-                    // in seconds since the epoch, specify a SECONDS precision on the series
-                    getConnection().getAsyncDBWriter().write( TimeUnit.SECONDS, writeBatch );
+                        // We are now explicitly specifying the timestamp and since VolumeDatapoint timestamps are
+                        // in seconds since the epoch, specify a SECONDS precision on the series
+                        getConnection().getAsyncDBWriter().write( TimeUnit.SECONDS, writeBatch );
+                    }
+                } else {
+                    getConnection().getAsyncDBWriter().write( TimeUnit.SECONDS, serie );
                 }
             }
         }
 
         // if there are any remaining entries in the batch, make sure they are written
-        if ( batch.size() > 0 ) {
+        if ( batchedWritesEnabled && batch.size() > 0 ) {
             Serie[] writeBatch = batch.toArray( new Serie[ batch.size() ] );
             batch.clear();
 

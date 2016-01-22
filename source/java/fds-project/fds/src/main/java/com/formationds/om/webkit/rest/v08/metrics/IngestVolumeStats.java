@@ -9,6 +9,7 @@ import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.Metrics;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.redis.RedisSingleton;
 import com.formationds.om.repository.SingletonRepositoryManager;
@@ -53,12 +54,15 @@ public class IngestVolumeStats implements RequestHandler {
     public Resource handle(Request request, Map<String, String> routeParameters)
             throws Exception {
 
-        // Use the INGEST_STATS_MARKER to only log the payload if the marker is enabled.
-        // Override the parent.
-        HttpServletRequest requestLoggingProxy = RequestLog.newRequestLogger( request );
-        ((LoggingRequestWrapper<?>)requestLoggingProxy).setPayloadMarker( RequestLog.REQUEST_PAYLOAD_INGEST_STATS_MARKER );
+        HttpServletRequest httpRequest = (HttpServletRequest)request;
+        if ( FdsFeatureToggles.WEB_LOGGING_REQUEST_WRAPPER.isActive() ) {
+            // Use the INGEST_STATS_MARKER to only log the payload if the marker is enabled.
+            // Override the parent.
+            httpRequest = RequestLog.newRequestLogger( request );
+            ((LoggingRequestWrapper<?>)httpRequest).setPayloadMarker( RequestLog.REQUEST_PAYLOAD_INGEST_STATS_MARKER );
+        }
 
-        try ( final InputStreamReader reader = new InputStreamReader( requestLoggingProxy.getInputStream(), "UTF-8" ) ) {
+        try ( final InputStreamReader reader = new InputStreamReader( httpRequest.getInputStream(), "UTF-8" ) ) {
 
             final List<IVolumeDatapoint> volumeDatapoints = ObjectModelHelper.toObject(reader, TYPE);
 

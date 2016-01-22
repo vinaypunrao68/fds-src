@@ -12,6 +12,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import com.formationds.commons.util.thread.ThreadFactories;
+import com.formationds.om.helper.SingletonConfiguration;
 
 /**
  * Provides an OM Service Task scheduler built on top of the {@link ScheduledExecutorService}.
@@ -83,16 +84,14 @@ public enum OmTaskScheduler {
      */
     public static Future<?> submit(Runnable task) { return INSTANCE.scheduler.submit(task);	}
 
+    public static final String MIN_POOL_SIZE_KEY = "fds.om.task_scheduler.min";
     private final ScheduledExecutorService scheduler;
+
     private final int min;
-    private final int max;
-    private int saturationThresholdFactor = 5;
 
     private OmTaskScheduler() {
 
-        // TODO: get initial min and max from configuration
-        min = 10;
-        max = 40;
+        min = SingletonConfiguration.getIntValue( MIN_POOL_SIZE_KEY, 10 );
         scheduler = Executors.newScheduledThreadPool(min, ThreadFactories.newThreadFactory("om-task-sched", true));
     }
 
@@ -102,34 +101,6 @@ public enum OmTaskScheduler {
         return scheduler.awaitTermination(timeout, unit);
     }
 
-    /**
-     * Check if the pool is saturated, which I am defining as occurring when
-     * all of the threads are active and the number of pending uncanceled tasks > pool size * the
-     * saturationThresholdFactor (default 5).  This definition is not perfect but should suffice.
-     *
-     */
-    void checkSaturation() {
-        final ScheduledThreadPoolExecutor s = ((ScheduledThreadPoolExecutor)scheduler);
-
-        // purge any cancelled tasks first
-        s.purge();
-
-        int core = s.getCorePoolSize();
-        int cmax = s.getMaximumPoolSize();
-        int taskBacklog = s.getQueue().size();
-
-        int active = s.getActiveCount();
-
-        if (active == core && taskBacklog > core*saturationThresholdFactor) {
-            int newCore = Math.max(min, Math.min(core*2, cmax));
-            if ( newCore != core) {
-                s.setMaximumPoolSize(newCore);
-                s.setCorePoolSize( newCore );
-            }
-        }
-        // TODO: shrink too?  Not positive the ScheduledExecutorService handles shrinking the pool
-        // else if ( max/active >=  .1f && taskBacklog == 0 ) {
-        //
-        // }
-    }
+    int getThreadPoolSize() { return ((ScheduledThreadPoolExecutor)scheduler).getPoolSize(); }
+    int getMin() { return min; }
 }

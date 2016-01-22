@@ -43,19 +43,9 @@ public class InfluxDBConnection {
     public static final Logger logger = LoggerFactory.getLogger( InfluxDBConnection.class );
 
     public static final String FDS_OM_INFLUXDB_ENABLE_BACKTRACE = "fds.om.influxdb.enable_query_backtrace";
-    public static final String FDS_OM_INFLUXDB_SERIALIZE_READS  = "fds.om.influxdb.serialize_reads";
     public static final String FDS_OM_INFLUXDB_SERIALIZE_WRITES = "fds.om.influxdb.serialize_writes";
-    public static final String FDS_OM_INFLUXDB_SERIALIZE_ALL    = "fds.om.influxdb.serialize_all";
 
-    private static final ParsedConfig PLAT_CFG = SingletonConfiguration.instance().getConfig().getPlatformConfig();
-
-    /**
-     * @return the value of the fds.om.influxdb.serialize_reads flag or false if it is not defined
-     */
-    private static boolean isSerializeReads()
-    {
-        return PLAT_CFG.defaultBoolean( FDS_OM_INFLUXDB_SERIALIZE_READS, false );
-    }
+    private static final ParsedConfig PLAT_CFG = SingletonConfiguration.getPlatformConfig();
 
     /**
      * @return the value of the fds.om.influxdb.serialize_writes flag or false if it is not defined
@@ -63,14 +53,6 @@ public class InfluxDBConnection {
     private static boolean isSerializeWrites()
     {
         return PLAT_CFG.defaultBoolean( FDS_OM_INFLUXDB_SERIALIZE_WRITES, false );
-    }
-
-    /**
-     * @return the value of the fds.om.influxdb.serialize_all flag or false if it is not defined
-     */
-    private static boolean isSerializeAll()
-    {
-        return PLAT_CFG.defaultBoolean( FDS_OM_INFLUXDB_SERIALIZE_ALL, false );
     }
 
     private final LoggingInfluxDBReader reader = new LoggingInfluxDBReader();
@@ -99,14 +81,13 @@ public class InfluxDBConnection {
     // @formatter:off
     // overrides toString to return the lock name and identity hash code only. used for trace logging only
     private class NamedLock extends ReentrantLock {
+        private static final long serialVersionUID = -1368502809071656626L;
         private final String name;
         public NamedLock(String n) { super(); this.name = n; }
         public String toString() { return name + "[" + System.identityHashCode( this ) + "]"; }
     }
     // @formatter:on
 
-    private final ReentrantLock sharedLock = new NamedLock( "SHARED" );
-    private final ReentrantLock queryLock  = new NamedLock( "QUERY" );
     private final ReentrantLock writeLock  = new NamedLock( "WRITE" );
 
     private final String url;
@@ -279,34 +260,9 @@ public class InfluxDBConnection {
      *
      * @see InfluxDBConnection for a description of the locking strategy
      */
-    private Lock getQueryLock()
-    {
-        if ( isSerializeAll() )
-        {
-            return sharedLock;
-        }
-        else if ( isSerializeReads() )
-        {
-            return queryLock;
-        }
-        else
-        {
-            return noLock;
-        }
-    }
-
-    /**
-     * @return the lock to use for queries.
-     *
-     * @see InfluxDBConnection for a description of the locking strategy
-     */
     private Lock getWriteLock()
     {
-        if ( isSerializeAll() )
-        {
-            return sharedLock;
-        }
-        else if ( isSerializeWrites() )
+        if ( isSerializeWrites() )
         {
             return writeLock;
         }
@@ -418,15 +374,13 @@ public class InfluxDBConnection {
         public List<Serie> query( String query, TimeUnit precision )
         {
             long start = System.currentTimeMillis();
-            long connTime = -1;
-            long queryTime = -1;
-            long lockTime = -1;
+            long connTime = 0;
+            long queryTime = 0;
             List<Serie> result = Collections.emptyList();
             Throwable failed = null;
-            Lock lock = getQueryLock();
             try
             {
-                queryLogger.trace( "QUERY_BEGIN [{}]:[{}]: {}", lock, start, query );
+                queryLogger.trace( "QUERY_BEGIN [{}]: {}", start, query );
 
                 if ( PLAT_CFG.defaultBoolean( FDS_OM_INFLUXDB_ENABLE_BACKTRACE, false ) )
                 {
@@ -444,15 +398,8 @@ public class InfluxDBConnection {
                 InfluxDB conn = connect();
                 connTime = System.currentTimeMillis() - start;
 
-                lockTime = timedOp( lock::lock );
-                try
-                {
-                    result = conn.query( database.get(), query, precision );
-                }
-                finally
-                {
-                    lock.unlock();
-                }
+                result = conn.query( database.get(), query, precision );
+
                 queryTime = System.currentTimeMillis() - start - connTime;
 
                 return result;
@@ -471,17 +418,17 @@ public class InfluxDBConnection {
                 {
                     failed = e;
                     queryLogger
-                            .trace( "QUERY_FAIL  [{}]: {} [ex={}; lock={} ms; conn={} ms; query={} ms]", start, query,
-                                    e.getMessage(), lockTime, connTime, queryTime );
+                            .trace( "QUERY_FAIL  [{}]: {} [ex={}; conn={} ms; query={} ms]", start, query,
+                                    e.getMessage(), connTime, queryTime );
                     throw e;
                 }
             }
             finally
             {
-                queryLogger.trace( "QUERY_END   [{}]:[{}]: {} [result={}; lock={} ms; conn={} ms; query={} ms]", lock,
+                queryLogger.trace( "QUERY_END   [{}]: {} [result={}; conn={} ms; query={} ms]",
                                    start, query, ( failed != null
                                                    ? "'" + failed.getMessage() + "'"
-                                                   : Integer.toString( result.size() ) ), lockTime, connTime,
+                                                   : Integer.toString( result.size() ) ), connTime,
                                    queryTime );
             }
         }

@@ -69,9 +69,10 @@
           https://issues.apache.org/jira/browse/LOG4J2-601
     -->
     <Filters>
-        <!-- HttpRequest Log Filters used in the com.formationds.web.toolkitRequestLog.  
+        <!-- HttpRequest Log Filters used in the com.formationds.web.toolkitRequestLog.
             Note that when enabled these produce a lot of output extra log output and will
             cause logs to rollover frequently.
+        -->
         <MarkerFilter marker="REQUEST" onMatch="ACCEPT" onMismatch="NEUTRAL" />
         <MarkerFilter marker="REQUEST_QUERY" onMatch="ACCEPT" onMismatch="NEUTRAL" />
         <MarkerFilter marker="REQUEST_HEADERS" onMatch="DENY" onMismatch="NEUTRAL" />
@@ -86,18 +87,18 @@
         <Logger name="com.formationds" level="{{ java_log_severity }}" additivity="false">
             <AppenderRef ref="fds-${sys:fds.service.name}"/>
         </Logger>
-        
+
         <Logger name="com.formationds.om.repository.influxdb.InfluxDBConnection$LoggingInfluxDBReader" level="{{ java_log_severity }}" additivity="false">
             <AppenderRef ref="fds-${sys:fds.service.name}"/>
-        </Logger>        
+        </Logger>
         <Logger name="com.formationds.om.repository.influxdb.InfluxDBConnection$LoggingInfluxDBWriter" level="{{ java_log_severity }}" additivity="false">
             <AppenderRef ref="fds-${sys:fds.service.name}"/>
         </Logger>
-        
+
         <Logger name="com.formationds.platform" level="{{ java_log_severity }}" additivity="false">
             <AppenderRef ref="fds-${sys:fds.service.name}"/>
         </Logger>
-        
+
         <!-- The RequestLog logs detailed information about each request optionally including headers and
              payload.  Enable by setting the level to TRACE and setting the markers onMatch for the fields
              you want logged to ACCEPT.  Although every attempt is made to prevent logging sensitive information
@@ -108,11 +109,11 @@
             <AppenderRef ref="fds-${sys:fds.service.name}"/>
         </Logger>
 
-        <!-- StatisticPublisher TRACE level will dump every statistic value received by the AM (XDI) 
+        <!-- StatisticPublisher TRACE level will dump every statistic value received by the AM (XDI)
           to the log file. -->
         <Logger name="com.formationds.am.StatisticsPublisher" level="{{ java_log_severity }}" additivity="false">
             <AppenderRef ref="fds-${sys:fds.service.name}"/>
-        </Logger>        
+        </Logger>
     </Loggers>
 </Configuration>
 {% endblock %}
