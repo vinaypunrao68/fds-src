@@ -593,12 +593,18 @@ void ObjectStorMgr::checkDiskCapacities() {
         // If the used pct drops below alert levels reset so we resend the message when
         // we re-hit this condition
         if (pct_used < DISK_CAPACITY_WARNING_THRESHOLD) {
+            if (objectStore->isReadOnly()) {
+                objectStore->setAvailable();
+            }
             if (lastCapacityMessageSentAt > DISK_CAPACITY_ALERT_THRESHOLD) {
                 sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
                                        "SM utilization no longer at dangerous levels.");
             }
             lastCapacityMessageSentAt = 0;
         } else if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
+            if (objectStore->isReadOnly()) {
+                objectStore->setAvailable();
+            }
             lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
             sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
                                    "SM utilization no longer at dangerous levels.");
