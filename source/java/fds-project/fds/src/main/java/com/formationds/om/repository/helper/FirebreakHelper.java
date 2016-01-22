@@ -59,7 +59,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class FirebreakHelper extends QueryHelper {
     private static final Logger logger =
-        LoggerFactory.getLogger( FirebreakHelper.class );
+            LoggerFactory.getLogger( FirebreakHelper.class );
 
 
     // zero is not a value last occurred time
@@ -100,21 +100,21 @@ public class FirebreakHelper extends QueryHelper {
 
         static class VolumeFirebreakEventCache {
             static final VolumeFirebreakEventCache EMPTY_CACHE = new VolumeFirebreakEventCache(null, Collections.emptyNavigableMap());
-        	private final FBInfo fbInfo;
+            private final FBInfo fbInfo;
             private final NavigableMap<Instant,FirebreakEvent> firebreaks;
 
             private ScheduledFuture<?> cleanTask =
-            		OmTaskScheduler.scheduleWithFixedDelay(this::cleanExpiredFirebreaks,
-            											   60, 60, TimeUnit.MINUTES);
+                    OmTaskScheduler.scheduleWithFixedDelay(this::cleanExpiredFirebreaks,
+                                                           60, 60, TimeUnit.MINUTES);
 
-			/**
-			 * @param fbInfo
-			 */
-			public VolumeFirebreakEventCache(FBInfo fbInfo) {
-				super();
-				this.fbInfo = fbInfo;
-				this.firebreaks = new ConcurrentSkipListMap<>();
-			}
+            /**
+             * @param fbInfo
+             */
+            public VolumeFirebreakEventCache(FBInfo fbInfo) {
+                super();
+                this.fbInfo = fbInfo;
+                this.firebreaks = new ConcurrentSkipListMap<>();
+            }
 
             /**
              * @param fbInfo
@@ -127,14 +127,14 @@ public class FirebreakHelper extends QueryHelper {
             }
 
             void newFirebreak(FirebreakEvent e) {
-            	firebreaks.put(Instant.ofEpochMilli(e.getInitialTimestamp()), e);
+                firebreaks.put(Instant.ofEpochMilli(e.getInitialTimestamp()), e);
             }
 
             private void cleanExpiredFirebreaks() {
-            	// TODO: may want to push this to another thread.
+                // TODO: may want to push this to another thread.
                 Instant oneDayAgo = Instant.now().minus( Duration.ofDays( 1 ) );
-            	NavigableSet<Instant> expired = firebreaks.headMap(oneDayAgo, false).navigableKeySet();
-            	expired.clear();
+                NavigableSet<Instant> expired = firebreaks.headMap(oneDayAgo, false).navigableKeySet();
+                expired.clear();
             }
 
             public FirebreakEvent latest() {
@@ -166,30 +166,30 @@ public class FirebreakHelper extends QueryHelper {
                 return set;
             }
 
-			@Override
-			public int hashCode() {
-				final int prime = 31;
-				int result = 1;
-				result = prime * result + ((fbInfo == null) ? 0 : fbInfo.hashCode());
-				return result;
-			}
+            @Override
+            public int hashCode() {
+                final int prime = 31;
+                int result = 1;
+                result = prime * result + ((fbInfo == null) ? 0 : fbInfo.hashCode());
+                return result;
+            }
 
-			@Override
-			public boolean equals(Object obj) {
-				if (this == obj)
-					return true;
-				if (obj == null)
-					return false;
-				if (getClass() != obj.getClass())
-					return false;
-				VolumeFirebreakEventCache other = (VolumeFirebreakEventCache) obj;
-				if (fbInfo == null) {
-					if (other.fbInfo != null)
-						return false;
-				} else if (!fbInfo.equals(other.fbInfo))
-					return false;
-				return true;
-			}
+            @Override
+            public boolean equals(Object obj) {
+                if (this == obj)
+                    return true;
+                if (obj == null)
+                    return false;
+                if (getClass() != obj.getClass())
+                    return false;
+                VolumeFirebreakEventCache other = (VolumeFirebreakEventCache) obj;
+                if (fbInfo == null) {
+                    if (other.fbInfo != null)
+                        return false;
+                } else if (!fbInfo.equals(other.fbInfo))
+                    return false;
+                return true;
+            }
         }
 
         // cache all firebreak events for a volume over the past 24 hours
@@ -304,7 +304,7 @@ public class FirebreakHelper extends QueryHelper {
     public static boolean hasActiveFirebreak( com.formationds.client.v08.model.VolumeStatus v ) {
         Instant activeThreshold = Instant.now().minus( Duration.ofDays( 1 ) );
         return v.getLastCapacityFirebreak().isAfter( activeThreshold ) ||
-               v.getLastPerformanceFirebreak().isAfter( activeThreshold );
+                v.getLastPerformanceFirebreak().isAfter( activeThreshold );
     }
 
     /**
@@ -371,8 +371,8 @@ public class FirebreakHelper extends QueryHelper {
             // finding the volume usage
             // get the status using the key because its really the id
             Optional<VolumeStatus> opStatus = SingletonRepositoryManager.instance()
-                                                                        .getMetricsRepository()
-                                                                        .getLatestVolumeStatus( Long.parseLong( key ) );
+                    .getMetricsRepository()
+                    .getLatestVolumeStatus( Long.parseLong( key ) );
 
             Double currentUsageInBytes = 0.0D;
 
@@ -459,11 +459,11 @@ public class FirebreakHelper extends QueryHelper {
      * @throws org.apache.thrift.TException any unhandled thrift error
      */
     public List<Series> processFirebreak( final List<IVolumeDatapoint> queryResults )
-        throws TException {
+            throws TException {
         Map<String, VolumeDatapointPair> firebreakPointsVDP = findFirebreak( queryResults );
         Map<String, Datapoint> firebreakPoints = new HashMap<>();
         firebreakPointsVDP.entrySet().stream()
-                          .forEach( kv -> firebreakPoints.put( kv.getKey(), kv.getValue().getDatapoint() ) );
+        .forEach( kv -> firebreakPoints.put( kv.getKey(), kv.getValue().getDatapoint() ) );
 
         /*
          * TODO may not be a problem, but I need to think about.
@@ -482,16 +482,16 @@ public class FirebreakHelper extends QueryHelper {
             for ( final String key : keys ) {
                 logger.trace( "Gathering firebreak for '{}'", key );
                 final String volumeName =
-                    SingletonConfigAPI.instance()
-                                      .api()
-                                      .getVolumeName( Long.valueOf( key ) );
+                        SingletonConfigAPI.instance()
+                        .api()
+                        .getVolumeName( Long.valueOf( key ) );
 
                 // only provide stats for existing volumes
                 if( volumeName != null && volumeName.length() > 0 ) {
                     final Series s =
-                        new SeriesBuilder().withContext( new Volume( Long.parseLong( key ), volumeName ) )
-                                           .withDatapoint( firebreakPoints.get( key ) )
-                                           .build();
+                            new SeriesBuilder().withContext( new Volume( Long.parseLong( key ), volumeName ) )
+                            .withDatapoint( firebreakPoints.get( key ) )
+                            .build();
                     /*
                      * "Firebreak" is not a valid series type, based on the
                      * Metrics enum type. But since the UI provides all of its
@@ -558,16 +558,16 @@ public class FirebreakHelper extends QueryHelper {
 
             final String key = pair.getShortTermSigma().getVolumeId();
             final String volumeName = pair.getShortTermSigma()
-                                          .getVolumeName();
+                    .getVolumeName();
 
             if (!results.containsKey(key)) {
                 final Datapoint datapoint = new Datapoint();
                 datapoint.setY(NEVER);    // firebreak last occurrence
 
                 final Optional<VolumeStatus> status =
-                    SingletonRepositoryManager.instance()
-                                              .getMetricsRepository()
-                                              .getLatestVolumeStatus( volumeName );
+                        SingletonRepositoryManager.instance()
+                        .getMetricsRepository()
+                        .getLatestVolumeStatus( volumeName );
                 if( status.isPresent() ) {
                     // use the usage, OBJECT volumes have no fixed capacity
                     datapoint.setX((double)status.get().getCurrentUsageInBytes());
@@ -663,9 +663,9 @@ public class FirebreakHelper extends QueryHelper {
             SingletonConfigAPI.instance().api().listVolumes( "" ).forEach( ( vd ) -> {
 
                 final Optional<VolumeStatus> optionalStatus =
-                    SingletonRepositoryManager.instance()
-                                              .getMetricsRepository()
-                                              .getLatestVolumeStatus( vd.getName() );
+                        SingletonRepositoryManager.instance()
+                        .getMetricsRepository()
+                        .getLatestVolumeStatus( vd.getName() );
                 if ( optionalStatus.isPresent() ) {
                     vols.put( vd.getVolId(),
                               optionalStatus.get() );
@@ -691,7 +691,7 @@ public class FirebreakHelper extends QueryHelper {
         final List<IVolumeDatapoint> firebreakDP = extractFirebreakDatapoints(datapoints);
 
         Map<Long, Map<String, List<IVolumeDatapoint>>> orderedFBDPs =
-            VolumeDatapointHelper.groupByTimestampAndVolumeId( firebreakDP );
+                VolumeDatapointHelper.groupByTimestampAndVolumeId( firebreakDP );
 
         // TODO: we may be able to parallelize this with a Spliterator by splitting first on timestamp and second on volume.
         // (similar to the StreamHelper.consecutiveStream used previously)
@@ -739,8 +739,8 @@ public class FirebreakHelper extends QueryHelper {
          * filter just the firebreak volume datapoints
          */
         datapoints.stream()
-                  .filter(this::isFirebreakType)
-                  .forEach(firebreakDP::add);
+        .filter(this::isFirebreakType)
+        .forEach(firebreakDP::add);
         return firebreakDP;
     }
 
@@ -758,8 +758,8 @@ public class FirebreakHelper extends QueryHelper {
      * @return true if the datapoint pair represents a firebreak
      */
     protected boolean isFirebreak(IVolumeDatapoint s1, IVolumeDatapoint s2) {
-      return Calculation.isFirebreak(s1.getValue(),
-                                     s2.getValue());
+        return Calculation.isFirebreak(s1.getValue(),
+                                       s2.getValue());
     }
 
     /**
@@ -809,12 +809,12 @@ public class FirebreakHelper extends QueryHelper {
             Metrics sm = Metrics.lookup( shortTerm.getKey() );
             if (!(Metrics.STC_SIGMA.equals(sm) || Metrics.STP_SIGMA.equals(sm)))
                 throw new IllegalArgumentException("Short term sigma datapoint must be one of the valid short-term " +
-                                                "capacity or performance metric types.  Sigma=" + sm);
+                        "capacity or performance metric types.  Sigma=" + sm);
 
             Metrics lm = Metrics.lookup( longTerm.getKey() );
             if (!(Metrics.LTC_SIGMA.equals(lm) || Metrics.LTP_SIGMA.equals(lm)))
                 throw new IllegalArgumentException("Long term sigma datapoint must be one of the valid long-term " +
-                                                "capacity or performance metric types.  Sigma=" + sm);
+                        "capacity or performance metric types.  Sigma=" + sm);
 
             Optional<FirebreakType> smto = FirebreakType.metricFirebreakType(sm);
             Optional<FirebreakType> lmto = FirebreakType.metricFirebreakType(lm);
@@ -824,7 +824,7 @@ public class FirebreakHelper extends QueryHelper {
 
             if (!smto.get().equals(lmto.get())) {
                 throw new IllegalArgumentException("Both datapoints must be the same type of Firebreak metric, " +
-                                                   "either CAPACITY or PERFORMANCE");
+                        "either CAPACITY or PERFORMANCE");
             }
 
             this.shortTermSigma = shortTerm;
