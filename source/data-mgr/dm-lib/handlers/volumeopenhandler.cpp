@@ -80,7 +80,9 @@ void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
                  << request->sequence_id;
         if (dataManager.features.isVolumegroupingEnabled()) {
             volMeta->setCoordinatorId(request->client_uuid_);
-            volMeta->setState(fpi::Loading, " - VolumeOpenHandler::handleQueueItem");
+            volMeta->setState(fpi::Loading,
+                              util::strformat(" - openvolume from coordinator: %ld",
+                                              volMeta->getCoordinatorId().svc_uuid));
         }
     }
 }

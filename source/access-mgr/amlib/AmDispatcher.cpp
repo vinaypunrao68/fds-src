@@ -158,7 +158,7 @@ AmDispatcher::registerVolume(VolumeDesc const& volDesc) {
         if (volumegroup_map.end() != it) {
             return;
         }
-        volumegroup_map[vol_id].reset(new VolumeGroupHandle(MODULEPROVIDER(), vol_id, DmDefaultPrimaryCnt));
+        volumegroup_map[vol_id].reset(new VolumeGroupHandle(MODULEPROVIDER(), vol_id, numPrimaries));
         volumegroup_map[vol_id]->setListener(volumegroup_handler.get());
     }
 }
@@ -194,6 +194,25 @@ AmDispatcher::removeVolume(VolumeDesc const& volDesc) {
             ++it;
         }
     }
+}
+
+void
+AmDispatcher::addToVolumeGroup(const fpi::AddToVolumeGroupCtrlMsgPtr &addMsg,
+                               const AddToVolumeGroupCb &cb)
+{
+    auto vol_id = fds_volid_t(addMsg->groupId);
+
+    {
+        ReadGuard rg(volumegroup_lock);
+        auto it = volumegroup_map.find(vol_id);
+        if (volumegroup_map.end() != it) {
+            it->second->handleAddToVolumeGroupMsg(addMsg, cb);
+            return;
+        }
+    }
+
+    LOGERROR << "Unknown volume to AmDispatcher: " << vol_id;
+    cb(ERR_VOL_NOT_FOUND, MAKE_SHARED<fpi::AddToVolumeGroupRespCtrlMsg>());
 }
 
 /**

@@ -445,6 +445,14 @@ DEFINE_OUTPUT_FUNCS(GenericCommandMsg) {
     return out;
 }
 
+DEFINE_OUTPUT_FUNCS(LoadFromArchiveMsg) {
+    out << "["
+        << " file:" << msg.filename
+        << " vol:" << msg.volId
+        << "]";
+    return out;
+}
+
 size_t sizeOfData(fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg) {
     size_t totalSize = 0;
     auto blobDescList = msg->blob_desc_list;

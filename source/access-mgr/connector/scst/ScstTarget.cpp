@@ -263,7 +263,7 @@ ScstTarget::deviceDone(std::string const& volume_name) {
     it->second->reset();
     device_map.erase(it);
     if (device_map.empty()) {
-        toggle_state(false);
+        disable();
         asyncWatcher->stop();
         evLoop->break_loop();
     }
@@ -359,7 +359,8 @@ ScstTarget::setInitiatorMasking(std::set<std::string> const& new_members) {
             std::ofstream ini_mgmt(scst_iscsi_target_path + target_name + scst_iscsi_ini_mgmt,
                                   std::ios::out);
             if (!ini_mgmt.is_open()) {
-                throw ScstError::scst_error;
+                LOGWARN << "Could not open mgmt interface to create masking group.";
+                return;
             }
             ini_mgmt << "create allowed" << std::endl;
         }
@@ -372,7 +373,8 @@ ScstTarget::setInitiatorMasking(std::set<std::string> const& new_members) {
                                        + scst_iscsi_host_mgmt,
                                    std::ios::out);
             if (! host_mgmt.is_open()) {
-                throw ScstError::scst_error;
+                LOGWARN << "Could not open mgmt interface to add initiators to group.";
+                return;
             }
             // For each ini that is no longer in the list, remove from group
             std::vector<std::string> manip_list;
@@ -424,7 +426,7 @@ ScstTarget::toggle_state(bool const enable) {
                       std::ios::out);
     if (!dev.is_open()) {
         GLOGERROR << "Could not toggle target, no iSCSI devices will be presented!";
-        throw ScstError::scst_error;
+        return;
     }
 
     // Enable target

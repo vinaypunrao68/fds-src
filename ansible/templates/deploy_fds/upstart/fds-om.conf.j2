@@ -22,7 +22,9 @@ respawn limit 5 60
 script
   chdir ${fds_root}/bin
 
-  echo '=====================================================' > ${fds_root}/bin/om.out
+##
+# this is a short term solution, appending and not overwriting the om.out file.
+  echo '=====================================================' >> ${fds_root}/bin/om.out
   echo 'UPTIME:\t'`date` >> ${fds_root}/bin/om.out
   echo 'Loading '${fds_root}/etc/formation_env >> ${fds_root}/bin/om.out
   [ -f ${fds_root}/etc/formation_env ] || exit 1
