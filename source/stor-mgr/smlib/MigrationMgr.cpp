@@ -1721,7 +1721,7 @@ std::string MigrationMgr::getStateInfo() {
     }
     untoken_str.append("}");
 
-    /* Return the SM UUID and the available and unavailable token counts */
+    /* Return the available and unavailable token counts as well as the unavailable token list */
     Json::Value state;
     state["Available"] = available;
     state["Unavailable"] = unavailable;
