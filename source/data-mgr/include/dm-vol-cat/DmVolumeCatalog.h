@@ -20,6 +20,7 @@
 #include <dm-vol-cat/DmPersistVolCat.h>
 
 namespace fds {
+    class VolumeMeta;
 
 struct DmVolumeSummary {
     typedef boost::shared_ptr<DmVolumeSummary> ptr;
@@ -43,15 +44,21 @@ typedef std::unordered_map<fds_volid_t, DmVolumeSummary::ptr> DmVolumeSummaryMap
  * uses two sub-modules: persistent layer and a cache that
  * sits on top of persistent layer
  */
-class DmVolumeCatalog : public Module, public HasLogger,
-        public VolumeCatalogQueryIface {
+class DmVolumeCatalog : public HasModuleProvider,
+    public Module,
+    public HasLogger,
+    public VolumeCatalogQueryIface {
   public:
     typedef boost::shared_ptr<DmVolumeCatalog> ptr;
     typedef boost::shared_ptr<const DmVolumeCatalog> const_ptr;
 
     // static methods
     inline static fds_uint32_t getLastObjSize(fds_uint64_t blobSize, fds_uint32_t objSize) {
-        fds_uint32_t rc = blobSize ? (blobSize % objSize) : 0;
+        if (blobSize == 0) {
+            return 0;
+        }
+
+        fds_uint32_t rc = blobSize % objSize;
         return (rc ? rc : objSize);
     }
 
@@ -60,7 +67,8 @@ class DmVolumeCatalog : public Module, public HasLogger,
     }
 
     // ctor and dtor
-    explicit DmVolumeCatalog(char const * const name);
+    explicit DmVolumeCatalog(CommonModuleProviderIf* modProvider,
+                             char const * const name);
     ~DmVolumeCatalog();
 
     // Methods
@@ -173,7 +181,7 @@ class DmVolumeCatalog : public Module, public HasLogger,
     * @param dbItr
     * @param objects
     *
-    * @return 
+    * @return
     */
     Error getObjectIds(fds_volid_t volId,
                        const uint32_t &maxObjs,
@@ -290,7 +298,8 @@ class DmVolumeCatalog : public Module, public HasLogger,
      */
     Error migrateDescriptor(fds_volid_t volId,
                             const std::string& blobName,
-                            const std::string& blobData);
+                            const std::string& blobData,
+                            VolumeMeta& volMeta);
 
     /**
      * Get total matadata size for a volume
@@ -304,6 +313,10 @@ class DmVolumeCatalog : public Module, public HasLogger,
 
     Error getAllBlobsWithSequenceId(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId,
 														const Catalog::MemSnap snap);
+
+    Error getAllBlobsWithSequenceId(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId,
+														const Catalog::MemSnap snap,
+														const fds_bool_t &abortFlag);
 
     DmPersistVolCat::ptr getVolume(fds_volid_t volId);
 
@@ -327,6 +340,7 @@ class DmVolumeCatalog : public Module, public HasLogger,
 
     Error putObject(fds_volid_t volId, const std::string & blobName, const BlobObjList & objs);
 
+    Error getVersion(fds_volid_t volId, int32_t &version) override;
   private:
     // methods
     Error statVolumeInternal(fds_volid_t volId, fds_uint64_t * volSize,

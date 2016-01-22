@@ -9,6 +9,7 @@ user_cpp       := $(wildcard *.cpp)
 
 user_no_style  := $(user_cc) $(user_cpp)
 user_ar_libs   := cmdconsole
+user_so_libs   := cmdconsole
 cmdconsole     := $(user_cc) $(user_cpp)
 
 include $(topdir)/Makefile.incl

@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+#include <DltDmtUtil.h>
 #include <ostream>
 #include <sstream>
 #include <iostream>
@@ -70,6 +71,15 @@ DmtColumnPtr DMT::getNodeGroup(fds_volid_t volume_id) const {
     fds_uint32_t col_index = volume_id.get() % columns;
     return dmt_table->at(col_index);
 }
+
+std::vector<fpi::SvcUuid>
+DMT::getSvcUuids(fds_volid_t volume_id) const
+{
+    auto column = getNodeGroup(volume_id);
+    return column->toSvcUuids();
+}
+        
+
 
 /**
  * returns column index for given 'volume_id' for a given number of
@@ -213,10 +223,16 @@ Error DMT::verify(const NodeUuidSet& expectedUuidSet) const {
             NodeUuid uuid = column->get(j);
             if ((uuid.uuid_get_val() == 0) ||
                 (expectedUuidSet.count(uuid) == 0)) {
-                // unexpected uuid in this DMT cell
-                LOGERROR << "DMT contains unexpected uuid " << std::hex
-                         << uuid.uuid_get_val() << std::dec;
-                return ERR_INVALID_DMT;
+                if (!DltDmtUtil::getInstance()->isMarkedForRemoval(uuid.uuid_get_val())) {
+                    // unexpected uuid in this DMT cell
+                    LOGERROR << "DMT contains unexpected uuid " << std::hex
+                             << uuid.uuid_get_val() << std::dec;
+                    return ERR_INVALID_DMT;
+                } else {
+                    LOGDEBUG <<"Node:" << std::hex << uuid.uuid_get_val()
+                             << std::dec << " pending removal present in DMT,"
+                             << " will process in next update";
+                }
             }
             colSet.insert(uuid);
         }
@@ -292,6 +308,17 @@ void DMT::getUniqueNodes(std::set<fds_uint64_t>* ret_nodes) const {
 bool DMT::isVolumeOwnedBySvc(const fds_volid_t &volId, const fpi::SvcUuid &svcUuid) const {
     auto nodeGroup = getNodeGroup(volId);
     return (nodeGroup->find(NodeUuid(svcUuid)) != -1);
+}
+
+DMTPtr DMT::newDMT(const std::vector<fpi::SvcUuid> &column)
+{
+    auto dmt = MAKE_SHARED<DMT>(1, column.size(), 1);
+    TableColumn tc(column.size());
+    for (uint32_t i = 0; i < column.size(); i++) {
+        tc.set(i, column[i].svc_uuid);
+    }
+    dmt->setNodeGroup(0, tc);
+    return dmt;
 }
 
 /***** DMTManager implementation ****/

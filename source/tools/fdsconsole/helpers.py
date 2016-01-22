@@ -1,4 +1,3 @@
-
 ATTR_CLICMD='clicmd'
 KEY_SYSTEM = '__system__'
 KEY_ACCESSLEVEL = '__accesslevel__'
@@ -7,6 +6,7 @@ KEY_PORT = 'port'
 KEY_USER = 'username'
 KEY_PASS = 'password'
 KEY_GRIDOUTPUT = 'gridoutput'
+KEY_FDSROOT = 'fdsroot'
 PROTECTED_KEYS = [KEY_SYSTEM, KEY_ACCESSLEVEL]
 
 from fdslib import restendpoint
@@ -18,6 +18,7 @@ from fdslib import platformservice
 import re
 import humanize
 import itertools
+import time
 
 def get_simple_re(pattern, flags=re.IGNORECASE):
     if pattern == None:
@@ -46,12 +47,29 @@ def expandIntRange(data, generator=False):
     except Exception as e:
         raise Exception('unable to expand range [{}] - {}'.format(data,e))
 
+def addHumanInfo(datamap, nozero = False):
+    for key in datamap.keys():
+        if nozero and int(datamap[key]) == 0:
+            continue
+        if key.endswith('.timestamp'):
+            value='{} ago'.format(humanize.naturaldelta(time.time()-int(datamap[key]))) if datamap[key] > 0 else 'not yet'
+            datamap[key + ".human"] = value
+        elif key.endswith('.totaltime'):
+            value = '{}'.format(humanize.naturaldelta(datamap[key]))
+            datamap[key + ".human"] = value
+        elif key.endswith('.bytes'):
+            value = '{}'.format(humanize.naturalsize(datamap[key]))
+            datamap[key + ".human"] = value
+
+def printHeader(data):
+    print ('\n{}\n{}'.format(data, '-'*60))
+
 class AccessLevel:
     '''
     Defines different access levels for users
     '''
     DEBUG = 1
-    ADMIN = 2    
+    ADMIN = 2
 
     @staticmethod
     def getName(level):
@@ -83,7 +101,11 @@ class ConfigData:
         self.__platform = None
         self.__token = None
         self.__services = None
+        self.__volumes = None
         self.checkDefaults()
+
+    def isDebugTool(self):
+        return self.__data['debugTool']
 
     def checkDefaults(self):
         defaults = {
@@ -91,6 +113,7 @@ class ConfigData:
             KEY_PORT : 7020,
             KEY_USER : 'admin',
             KEY_PASS : 'admin',
+            KEY_FDSROOT : '/fds',
             KEY_GRIDOUTPUT : False
         }
 
@@ -125,10 +148,12 @@ class ConfigData:
     def getServiceApi(self):
         return self.__services
 
-    def getServiceId(self, pattern, onlyone = True):
-        if self.__services == None:
-            return None
-        return self.__services.getServiceId(pattern, onlyone)
+    def setVolumeApi(self, api):
+        self.__volumes = api
+
+    def getVolumeApi(self):
+        return self.__volumes
+
 
     def hasPlatformClient(self):
         return self.__platform != None
@@ -178,6 +203,12 @@ class ConfigData:
     def setHost(self, host):
         self.setSystem(KEY_HOST, host)
 
+    def setFdsRoot(self, fdsroot):
+        self.setSystem(KEY_FDSROOT, fdsroot)
+
+    def getFdsRoot(self):
+        return self.getSystem(KEY_FDSROOT)
+
     def getPort(self):
         return int(self.get(KEY_PORT, KEY_SYSTEM))
 
@@ -193,7 +224,7 @@ class ConfigData:
         else:
             return 'simple'
 
-def setupHistoryFile():
+def setupHistoryFile(debugTool = False):
     '''
     stores and retrieves the command history specific to the user
     '''
@@ -202,7 +233,10 @@ def setupHistoryFile():
         import readline
     except ImportError:
         return
+
     histfile = os.path.join(os.path.expanduser("~"), ".fdsconsole_history.{}".format(os.geteuid()))
+    if debugTool:
+        histfile = os.path.join(os.path.expanduser("~"), ".fdsdebugtool_history.{}".format(os.geteuid()))
     try:
         readline.read_history_file(histfile)
     except IOError:

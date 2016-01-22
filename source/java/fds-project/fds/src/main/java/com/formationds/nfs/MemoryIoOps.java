@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 
 public class MemoryIoOps implements IoOps {
     private static final Logger LOG = Logger.getLogger(MemoryIoOps.class);
-    private Map<ObjectKey, byte[]> objectCache;
+    private Map<ObjectKey, ByteBuffer> objectCache;
     private Map<MetaKey, Map<String, String>> metadataCache;
 
     public MemoryIoOps() {
@@ -44,25 +44,20 @@ public class MemoryIoOps implements IoOps {
             throw new FileNotFoundException();
         }
 
-        byte[] bytes = objectCache.get(key);
+        ByteBuffer bytes = objectCache.get(key);
         if (bytes == null) {
-            bytes = new byte[objectSize];
+            bytes = ByteBuffer.allocate(objectSize);
+            bytes.limit(0);
             objectCache.put(key, bytes);
         }
-        LOG.debug("MemoryIO.readCompleteObject, volume=" + volumeName + ", blobName=" + blobName + ", objectOffset = " + objectOffset.getValue() + ", size=" + bytes.length);
-        return ByteBuffer.wrap(bytes);
+        LOG.debug("MemoryIO.readCompleteObject, volume=" + volumeName + ", blobName=" + blobName + ", objectOffset = " + objectOffset.getValue() + ", size=" + bytes.remaining());
+        return bytes.duplicate();
     }
 
     @Override
     public void writeObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, ByteBuffer byteBuffer, int objectSize, boolean deferrable) throws IOException {
-        if (byteBuffer.remaining() != objectSize) {
-            throw new IOException("Attempting to write a buffer where size != objectSize");
-        }
-
-        byte[] bytes = new byte[objectSize];
-        byteBuffer.get(bytes);
-        objectCache.put(new ObjectKey(domain, volumeName, blobName, objectOffset), bytes);
-        LOG.debug("MemoryIO.writeObject, volume=" + volumeName + ", blobName=" + blobName + ", objectOffset = " + objectOffset.getValue() + ", size=" + bytes.length);
+        objectCache.put(new ObjectKey(domain, volumeName, blobName, objectOffset), byteBuffer);
+        LOG.debug("MemoryIO.writeObject, volume=" + volumeName + ", blobName=" + blobName + ", objectOffset = " + objectOffset.getValue() + ", size=" + byteBuffer.remaining());
     }
 
     @Override
@@ -76,7 +71,7 @@ public class MemoryIoOps implements IoOps {
             HashSet<ObjectKey> objects = new HashSet<>(objectCache.keySet());
             for (ObjectKey oldObjectKey : objects) {
                 if (oldObjectKey.domain.equals(domain) && oldObjectKey.volume.equals(volumeName) && oldObjectKey.blobName.equals(oldName)) {
-                    byte[] bytes = objectCache.get(oldObjectKey);
+                    ByteBuffer bytes = objectCache.get(oldObjectKey);
                     objectCache.remove(oldObjectKey);
                     objectCache.put(new ObjectKey(domain, volumeName, newName, new ObjectOffset(oldObjectKey.objectOffset)), bytes);
                 }
@@ -86,7 +81,7 @@ public class MemoryIoOps implements IoOps {
     }
 
     @Override
-    public List<BlobMetadata> scan(String domain, String volume, String blobNamePrefix) throws IOException {
+    public Collection<BlobMetadata> scan(String domain, String volume, String blobNamePrefix) throws IOException {
         List<BlobMetadata> result = metadataCache.keySet()
                 .stream()
                 .filter(k -> k.blobName.startsWith(blobNamePrefix))

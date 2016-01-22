@@ -45,11 +45,11 @@ def dumpActiveObjects():
 
     conn = sqlite3.connect(filename)
     cols = []
-    for row in conn.execute("PRAGMA table_info('liveObjTbl')"):
+    for row in conn.execute("PRAGMA table_info('liveobjectstbl')"):
         cols.append(row[1])
 
     data=[]
-    for row in conn.execute("select * from liveObjTbl where length(filename)>0 order by smtoken,volid"):
+    for row in conn.execute("select * from liveobjectstbl where length(filename)>0 order by smtoken,volid"):
         data.append(row)
 
     print 'active objects table :' , len(data)

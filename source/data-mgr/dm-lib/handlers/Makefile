@@ -9,6 +9,8 @@ user_incl_dir     := $(topdir) ../../include
 user_cpp_flags    := -DDMGR_LIVE_DEBUG
 user_cpp          := $(wildcard *.cpp)
 user_ar_libs      := fds-dm-lib
+user_so_libs      := fds-dm-handlers
 fds-dm-lib        := $(user_cpp)
+fds-dm-handlers   := $(user_cpp)
 
 include $(topdir)/Makefile.incl

@@ -8,6 +8,7 @@ import com.formationds.client.v08.model.ServiceType;
 import com.formationds.client.v08.model.Size;
 import com.formationds.client.v08.model.SizeUnit;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.redis.RedisSingleton;
 import com.formationds.protocol.svc.types.FDSP_MgrIdType;
 import com.formationds.protocol.svc.types.FDSP_NodeState;
 import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
@@ -24,7 +25,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 
 import static com.formationds.client.v08.model.Service.ServiceState;
 import static com.formationds.client.v08.model.Service.ServiceStatus;
@@ -45,23 +45,30 @@ public class PlatformModelConverter
     Map<FDSP_Node_Info_Type,Service> pms = new HashMap<>();
     for( FDSP_Node_Info_Type internalService : nodeInfoTypes )
     {
-
-      Service externalService = convertToExternalService( internalService );
-      if (externalService.getType().equals( ServiceType.PM ) ) {
-          pms.put(internalService, externalService);
-      }
-
-      List<Service> likeServiceList
-              = services.get( externalService.getType( ) );
-
-      if( likeServiceList == null )
+      Optional<ServiceType> optType =
+          convertToExternalServiceType( internalService.getNode_type( ) );
+      if( optType.isPresent() )
       {
-        likeServiceList = new ArrayList<>( );
+
+        Service externalService = convertToExternalService( internalService );
+        if ( externalService.getType( )
+                            .equals( ServiceType.PM ) )
+        {
+          pms.put( internalService, externalService );
+        }
+
+        List<Service> likeServiceList
+            = services.get( externalService.getType( ) );
+
+        if ( likeServiceList == null )
+        {
+          likeServiceList = new ArrayList<>( );
+        }
+
+        likeServiceList.add( externalService );
+
+        services.put( externalService.getType( ), likeServiceList );
       }
-
-      likeServiceList.add( externalService );
-
-      services.put( externalService.getType( ), likeServiceList );
     }
 
     Map.Entry<FDSP_Node_Info_Type, Service> pm;
@@ -96,13 +103,18 @@ public class PlatformModelConverter
     address = new NodeAddress( ipv4, ipv6 );
 
     SvcInfo PM = loadNodeSvcInfo(nodeId);
-    Size diskCapacity = Size.of( Double.valueOf( PM.getProps()
-                                                 .getOrDefault( "disk_capacity", "0" ) ),
-                                 SizeUnit.B );
-    Size ssdCapacity = Size.of( Double.valueOf( PM.getProps()
-                                                .getOrDefault( "ssd_capacity", "0" ) ),
-                                SizeUnit.B );
-    return new Node( nodeId, address, state, diskCapacity, ssdCapacity, services );
+    Size diskCapacityInGB = Size.of( Double.valueOf( PM.getProps()
+                                                       .getOrDefault( "disk_capacity", "0" ) ),
+                                     SizeUnit.GB );
+    Size ssdCapacityInGB = Size.of( Double.valueOf( PM.getProps()
+                                                      .getOrDefault( "ssd_capacity", "0" ) ),
+                                    SizeUnit.GB );
+    Size usedCapacityInGB = RedisSingleton.INSTANCE.api().getDomainUsedCapacity();
+
+    Size diskCapacity = Size.of( diskCapacityInGB.getValue( SizeUnit.MB ), SizeUnit.MB );
+    Size ssdCapacity = Size.of( ssdCapacityInGB.getValue( SizeUnit.MB ), SizeUnit.MB );
+
+    return new Node( nodeId, address, state, diskCapacity, ssdCapacity, usedCapacityInGB, services );
   }
 
   /**
@@ -246,7 +258,7 @@ public class PlatformModelConverter
 		case NOT_RUNNING:
 		case ERROR:
 		case UNEXPECTED_EXIT:
-			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INACTIVE;
+			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INACTIVE_FAILED;
 			break;
 		case UNREACHABLE:
 			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INVALID;

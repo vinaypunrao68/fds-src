@@ -25,6 +25,10 @@
         </section>
 
         <section class="side-by-side">
+            <label class="right-align" style="width: 150px;" translate>volumes.l_data_connector</label>
+            <connector-panel ng-model="connectorSettings" enable="enableDc"></connector-panel>
+        </section>
+        <section class="side-by-side">
             <label class="right-align" style="width: 150px;" translate>volumes.l_qos</label>
             <div class="add-bottom-space">
                 <qos-panel ng-model="editQos" save-only="true"></qos-panel>
@@ -67,4 +71,5 @@
         </div>
     </section>
     
+    <div class="page-vertical-spacer view-volume-bottom-element" style="height: 70px;"></div>
 </div>

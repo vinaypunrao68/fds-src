@@ -18,7 +18,6 @@ namespace fds {
 
 struct AmTxDescriptor;
 struct PutBlobReq;
-class CommonModuleProviderIf;
 class RandNumGenerator;
 
 /**
@@ -45,7 +44,7 @@ struct AmTxManager :
     fds_uint32_t maxStagedEntries;
 
   public:
-    AmTxManager(AmDataProvider* prev, CommonModuleProviderIf *modProvider);
+    explicit AmTxManager(AmDataProvider* prev);
     AmTxManager(AmTxManager const&) = delete;
     AmTxManager& operator=(AmTxManager const&) = delete;
     ~AmTxManager() override;
@@ -70,9 +69,11 @@ struct AmTxManager :
     /**
      * These are the response we actually care about seeing the results of
      */
-    void abortBlobTxCb(AmRequest * amReq, Error const error) override;
     void commitBlobTxCb(AmRequest * amReq, Error const error) override;
     void startBlobTxCb(AmRequest * amReq, Error const error) override;
+    void setBlobMetadataCb(AmRequest * AmReq, Error const error) override;
+    void deleteBlobCb(AmRequest * amReq, Error const error) override;
+    void renameBlobCb(AmRequest * amReq, Error const error) override;
     void putBlobCb(AmRequest * amReq, Error const error) override;
     void putBlobOnceCb(AmRequest * amReq, Error const error) override;
 
@@ -101,6 +102,7 @@ struct AmTxManager :
      * ID does not already exist.
      */
     Error abortTx(const BlobTxId &txId);
+    void abortOnError(AmRequest *amReq, Error const error);
 
     /**
      * Updates an existing transaction with a new operation

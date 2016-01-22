@@ -193,8 +193,7 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                 (action.count("graceful_restart") > 0):
             domainBootSuite = DomainBootSuite.suiteConstruction(self=None, action=action)
             suite.addTest(domainBootSuite)
-        elif (action.count("remove") > 0) or (action.count("shutdown") > 0) or (action.count("kill") > 0) or\
-                (action.count("uninst") > 0):
+        elif(action.count("shutdown") > 0) or (action.count("kill") > 0) or (action.count("uninst") > 0):
             # Shutdown the domain as indicated by the action.
             domainShutdownSuite = DomainShutdownSuite.suiteConstruction(self=None, action=action)
             suite.addTest(domainShutdownSuite)
@@ -239,7 +238,9 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
         else:
             expect_failed_msg = None
 
-        if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0) or (action.count("start") > 0):
+        if (action.count("install") > 0) or (action.count("boot") > 0) or (action.count("activate") > 0) \
+                or (action.count("start") > 0) or (action.count("reboot") > 0)\
+                or (action.count("add") > 0):
             # Start this node according to the specified action.
             for script in nds:
                 found = False
@@ -283,19 +284,43 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                             suite.addTest(TestFDSSysMgt.TestNodeActivate(node=node, expect_to_fail=expect_to_fail, expect_failed_msg=expect_failed_msg))
                             suite.addTest(TestWait(delay=10, reason="to let the node activate"))
 
+                        # Add and Activate node are two different function.
+                        # We activate node after install and boot. PM is started and later all given services.
+                        # For Add node, PM is known to domain and is in DISCOVERED stated as of 01/19/2016 -POOJA
+                        if (action.count("add") > 0):
+                            suite.addTest(TestFDSSysMgt.TestNodeAdd(node=node))
+                            suite.addTest(TestWait(delay=10, reason="to let domain settle after node addition"))
+
                         if (action.count("start") > 0):
                             #Start node services, assumed node is already part of the cluster
                             suite.addTest(TestFDSSysMgt.TestNodeStart(node=node))
 
+                        if (action.count("reboot") > 0):
+                            # Verify the section.
+                            if ('service' not in scenario.nd_conf_dict) or \
+                                    ('logentry' not in scenario.nd_conf_dict) or \
+                                    ('maxwait' not in scenario.nd_conf_dict):
+                                log.error("Scenario section %s is missing one of 'fds_node', 'service', 'logentry' or 'maxwait'"
+                                          %(scenario.nd_conf_dict['scenario-name']))
+                                raise Exception
+                            service_list = scenario.nd_conf_dict['service'].split(',')
+                            logentry_list = scenario.nd_conf_dict['logentry'].split(',')
+                            assert len(service_list) == len(logentry_list)
+                            maxwait = int(scenario.nd_conf_dict['maxwait'])
+                            suite.addTest(TestFDSSysMgt.TestNodeReboot(node_ip=node.nd_conf_dict['ip'],
+                                                                        service_list=service_list,
+                                                                        logentry_list=logentry_list,
+                                                                        maxwait=maxwait))
                         break
 
                 if found:
-                    # Give the node some time to initialize if requested.
+                    # Give the domain some time to reinitialize if requested.
                     if 'delay_wait' in scenario.nd_conf_dict:
-                        suite.addTest(TestWait(delay=delay, reason="to allow node " + script + " to initialize"))
+                        suite.addTest(TestWait(delay=delay,reason="to allow domain to reinitialize after node " + script))
+
                 else:
                     log.error("Node not found for scenario '%s'" %
-                              (scenario.nd_conf_dict['scenario-name']))
+                                          (scenario.nd_conf_dict['scenario-name']))
                     raise Exception
 
         elif (action.count("remove") > 0) or (action.count("kill") > 0) or (action.count("uninst") > 0) or (action.count("shutdown") > 0):
@@ -306,16 +331,27 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                     if '[' + node.nd_conf_dict['node-name'] + ']' == script:
                         found = True
 
-                        if (action.count("remove") > 0):
-                            suite.addTest(TestFDSSysMgt.TestNodeRemoveServices(node=node))
-
-                        if (action.count("kill") > 0):
+                        if action.count("remove") > 0:
+                            if ('service' not in scenario.nd_conf_dict) or ('logentry' not in scenario.nd_conf_dict) or \
+                                    ('maxwait' not in scenario.nd_conf_dict):
+                                log.error("Scenario section %s is missing one of 'fds_node', 'service', 'logentry' or 'maxwait' "
+                                    % (scenario.nd_conf_dict['scenario-name']))
+                                raise Exception
+                            service_list = scenario.nd_conf_dict['service'].split(',')
+                            logentry_list = scenario.nd_conf_dict['logentry'].split(',')
+                            assert len(service_list) == len(logentry_list)
+                            maxwait = int(scenario.nd_conf_dict['maxwait'])
+                            suite.addTest(TestFDSSysMgt.TestNodeRemove(node=node,
+                                                                    service_list=service_list,
+                                                                    logentry_list=logentry_list,
+                                                                    maxwait= maxwait))
+                        if action.count("kill") > 0:
                             suite.addTest(TestFDSSysMgt.TestNodeKill(node=node))
 
-                        if (action.count("uninst") > 0):
+                        if action.count("uninst") > 0:
                             suite.addTest(TestFDSEnvMgt.TestFDSDeleteInstDir(node=node))
 
-                        if (action.count("shutdown") > 0):
+                        if action.count("shutdown") > 0:
                             suite.addTest(TestFDSSysMgt.TestNodeShutdown(node=node))
 
                             # Shutdown Redis on the machine if we started it.
@@ -333,8 +369,7 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                 if found:
                     # Give the domain some time to reinitialize if requested.
                     if 'delay_wait' in scenario.nd_conf_dict:
-                        suite.addTest(TestWait(delay=delay,
-                                                                 reason="to allow domain " + script + " to reinitialize"))
+                        suite.addTest(TestWait(delay=delay, reason="to allow domain to reinitialize after node " + script))
                 else:
                     log.error("Node not found for scenario '%s'" %
                               (scenario.nd_conf_dict['scenario-name']))
@@ -400,7 +435,7 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
             node = None
             fdsNodes = None
 
-        #The expect_failure is added here to allow test scenario to test adding service to 
+        #The expect_failure is added here to allow test scenario to test adding service to
         #a node that already has the same existing service running
         if "expect_failure" in scenario.nd_conf_dict:
             expect_to_fail = bool(scenario.nd_conf_dict['expect_failure'])
@@ -887,11 +922,11 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
             maxwait = int(scenario.nd_conf_dict['maxwait'])
 
 
-        if ('atleastone' not in scenario.nd_conf_dict):
+        if ('atleastcount' not in scenario.nd_conf_dict):
             #log.error("%s not found for any occurrence" %(scenario.nd_conf_dict['logentry']))
-            atleastone = None
+            atleastcount = None
         else:
-            atleastone = 1
+            atleastcount = int(scenario.nd_conf_dict['atleastcount'])
 
        # Locate the node.
         found = False
@@ -901,7 +936,7 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                 suite.addTest(TestFDSSysVerify.TestWaitForLog(node=node, service=scenario.nd_conf_dict['service'],
                                                                         logentry=scenario.nd_conf_dict['logentry'],
                                                                         occurrences=occurrences, maxwait=maxwait,
-                                                                        atleastone=atleastone))
+                                                                        atleastcount=atleastcount))
                 break
 
         if found:
@@ -961,7 +996,7 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                 param_names.append(key[4:])
                 params.append(value)
 
-        if len(param_names) > 0: 
+        if len(param_names) > 0:
             # Build parameter dictionary.
             kwargs = dict(zip(param_names, params))
             testcase = str_to_obj(script.strip('[]'))(**kwargs)

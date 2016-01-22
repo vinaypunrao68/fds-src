@@ -15,6 +15,10 @@ import tempfile
 import TestFDSSysMgt
 from fdslib.TestUtils import findNodeFromInv
 import subprocess
+from TestUtils import core_hunter_aws
+from TestUtils import get_inventory_value
+
+KEY_ENABLE_SCST='fds_ft_am_scst_enabled'
 
 # This class contains attributes and methods to test
 # creating an FDS installation from a development environment.
@@ -468,11 +472,17 @@ class TestFDSSelectiveInstDirClean(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
         bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
 
-        # If we have core files, return a failure and don't remove anything.
-        cur_dir = os.getcwd()
-        os.chdir(fdscfg.rt_env.get_fds_source() + "/..")
-        rc = subprocess.call(["bash", "-c", ". ./jenkins_scripts/core_hunter.sh; core_hunter"])
-        os.chdir(cur_dir)
+        if self.parameters['ansible_install_done'] == True:
+            nodes = fdscfg.rt_obj.cfg_nodes
+            for node in nodes:
+                rc =core_hunter_aws(self,node.nd_host)
+                if rc == 0: break
+        else:
+            # If we have core files, return a failure and don't remove anything.
+            cur_dir = os.getcwd()
+            os.chdir(fdscfg.rt_env.get_fds_source() + "/..")
+            rc = subprocess.call(["bash", "-c", ". ./jenkins_scripts/core_hunter.sh; core_hunter"])
+            os.chdir(cur_dir)
 
         # Note: core_hunter is looking for core files and returns a "success" code
         # when it finds at least one.
@@ -990,6 +1000,77 @@ class TestVerifyInfluxDBDown(TestCase.FDSTestCase):
         if (status != 3) and (n.nd_agent.env_install and status != 1):
             self.log.error("Verify InfluxDB is down on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
             return False
+
+        return True
+
+
+# This class contains the attributes and methods to test
+# verifying that scst service is started.
+class TestVerifySCSTUpIfEnabled(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_VerifySCSTUp,
+                                             "Verify scst service started")
+
+        self.passedNode = node
+
+    def test_VerifySCSTUp(self):
+        """
+        Test Case:
+        Attempt to verify scst service started.
+        """
+
+        # No operation unless inventory file asks for SCST
+        inventory_file = self.parameters['inventory_file']
+        result = get_inventory_value(inventory_file, KEY_ENABLE_SCST, self.log)
+        if not result:
+            # Inventory file is not required to have our key/value for SCST
+            return True
+        if result.lower() != 'true':
+            return True
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+
+        nodes = fdscfg.rt_obj.cfg_nodes
+        for n in nodes:
+            # If a specific node was passed in, use that one and get out.
+            if self.passedNode is not None:
+                n = findNodeFromInv(nodes, self.passedNode);
+
+            # Make sure there is supposed to be an AM service on node n
+            if n.nd_services.count("am") == 0:
+                self.log.warning("AM service not configured for node %s." % n.nd_conf_dict["node-name"])
+                if self.passedNode is None:
+                    continue
+                else:
+                    break
+
+            self.log.info("Verify scst service started node %s." % n.nd_conf_dict['node-name'])
+
+            # Parameter return_stdin is set to return stdout. ... Don't ask me!
+            status, stdout = n.nd_agent.exec_wait("service scst status", return_stdin=True, fds_tools=True)
+
+            if status != 0:
+                self.log.error("Verify scst service on node %s returned status %d." % (n.nd_conf_dict['node-name'], status))
+                return False
+
+            self.log.info(stdout)
+
+            if stdout.count("NOT") > 0:
+                return False
+            else:
+                status = 0
+
+            if self.passedNode is not None:
+                # We took care of the one node. Get out.
+                break
 
         return True
 

@@ -25,8 +25,11 @@
 #include <boost/io/ios_state.hpp>
 #include <serialize.h>
 #include <shared/fds-constants.h>
+#include <fdsp/volumegroup_types.h>
 #define FdsSysTaskQueueId fds_volid_t(0xefffffff)
 #define FdsSysTaskPri 5
+
+namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
 
@@ -68,8 +71,7 @@ class VolumeDesc : public HasState {
     // Advanced settings
     int                    writeQuorum;  // Quorum number of writes for success
     int                    readQuorum;  // This will be 1 for now
-    FDS_ProtocolInterface::FDSP_ConsisProtoType
-    consisProtocol;  // Read-Write consistency protocol
+    FDS_ProtocolInterface::FDSP_ConsisProtoType consisProtocol;  // Read-Write consistency protocol
     // Other policies
     int                    volPolicyId;
     int                    archivePolicyId;
@@ -101,7 +103,12 @@ class VolumeDesc : public HasState {
     bool primary {false}; // "true" if transactions against this volume are to be asynchronously replicated.
     bool replica {false}; // "true" if this volume is maintained with asynchronously replicated transactions.
 
+    FDS_ProtocolInterface::IScsiTarget iscsiSettings;
+    FDS_ProtocolInterface::NfsOption nfsSettings;
+
     FDS_ProtocolInterface::ResourceState     state;
+
+    FDS_ProtocolInterface::VolumeGroupCoordinatorInfo   coordinator;
 
     /* Output from block device */
     char                   vol_blkdev[FDS_MAX_VOL_NAME];
@@ -154,6 +161,25 @@ class VolumeDesc : public HasState {
     void setState(FDS_ProtocolInterface::ResourceState state) {
         this->state = state;
     }
+
+    inline fpi::VolumeGroupCoordinatorInfo getCoordinatorInfo() const {
+        return coordinator;
+    }
+    inline fpi::SvcUuid getCoordinatorId() const {
+        return coordinator.id;
+    }
+    inline int32_t getCoordinatorVersion() const {
+        return coordinator.version;
+    }
+    inline void setCoordinatorId(fpi::SvcUuid id) {
+        coordinator.id = id;
+    }
+    inline void setCoordinatorVersion(int32_t version) {
+        coordinator.version = version;
+    }
+    inline bool isCoordinatorSet() const {
+        return coordinator.id.svc_uuid != 0;
+    }
 };
 
 /**
@@ -175,7 +201,7 @@ class FDS_Volume {
         else
             return false;
     }
-    ~FDS_Volume();
+    virtual ~FDS_Volume();
 };
 
 /**

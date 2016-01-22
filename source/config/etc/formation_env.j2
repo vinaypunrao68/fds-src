@@ -22,6 +22,9 @@ export FDS_JAVA_HOME
 # Note that Java libs not added - jvm handles
 LD_LIBRARY_PATH=${fds_root}/lib
 LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds-deps/embedded/lib
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/simpleamqpclient/libs
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/rabbitmq-c/libs
+LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/fds-stats-client-c/libs
 export LD_LIBRARY_PATH
 
 PATH=/usr/local/sbin
@@ -48,6 +51,9 @@ CLASSPATH=${CLASSPATH}:${fds_root}/etc/hadoop
 CLASSPATH=${CLASSPATH}:${fds_root}/etc/ssl
 CLASSPATH=${CLASSPATH}:${fds_root}/etc/ssl/dev
 export CLASSPATH=${CLASSPATH}:${fds_root}/lib/java/\*
+
+export LANG=POSIX
+export LC_MESSAGES=POSIX
 
 # JAVA Main executables
 export OM_JAVA_HOME=${OM_JAVA_HOME:=${FDS_JAVA_HOME}}

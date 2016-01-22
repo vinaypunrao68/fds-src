@@ -8,6 +8,7 @@
 #include <string>
 #include <unistd.h>
 #include <exception>
+#include <functional>
 #include <arpa/inet.h>
 #include <thrift/transport/TSocket.h>
 #include <thrift/transport/TBufferTransports.h>
@@ -86,7 +87,7 @@ void serializeFdspMsg(const PayloadT &payload, bo::shared_ptr<std::string> &payl
         /* This is to ensure we assert on any serialization exceptions in debug
          * builds.  We then rethrow the exception
          */
-        GLOGDEBUG << "Excpetion in serializing: " << e.what();
+        GLOGDEBUG << "Exception in serializing: " << e.what();
 /*
  * allow the caller to handle this exception; which is what it will have to do in "release" build, i.e. production
  * fds_assert(!"Exception de-serializing.  Most likely due to fdsp msg id mismatch");
@@ -94,7 +95,7 @@ void serializeFdspMsg(const PayloadT &payload, bo::shared_ptr<std::string> &payl
         throw;
     } catch(...) {
         /* This is to ensure we assert on any serialization exceptions in debug
-         * builds.  We then rethrow the exception
+         * builds.  We then re-throw the exception
          */
         DBG(std::exception_ptr eptr = std::current_exception());
 /*
@@ -105,6 +106,14 @@ void serializeFdspMsg(const PayloadT &payload, bo::shared_ptr<std::string> &payl
     }
     payloadBuf = bo::make_shared<std::string>();
     *payloadBuf = buffer->getBufferAsString();
+}
+
+template<class PayloadT>
+bo::shared_ptr<std::string> serializeFdspMsg(const PayloadT &payload)
+{
+    bo::shared_ptr<std::string> payloadBuf;
+    serializeFdspMsg<PayloadT>(payload, payloadBuf);
+    return payloadBuf;
 }
 
 /**
@@ -118,7 +127,7 @@ void serializeFdspMsg(const PayloadT &payload, bo::shared_ptr<std::string> &payl
 */
 template<class PayloadT>
 void deserializeFdspMsg(const std::string& payloadBuf, PayloadT& payload) {
-    // TODO(Rao): Do buffer managment so that the below deserialization is
+    // TODO(Rao): Do buffer management so that the below deserialization is
     // efficient
     bo::shared_ptr<tt::TMemoryBuffer> memory_buf(
         new tt::TMemoryBuffer(reinterpret_cast<uint8_t*>(
@@ -130,9 +139,9 @@ void deserializeFdspMsg(const std::string& payloadBuf, PayloadT& payload) {
         fds_verify(read > 0);
     } catch(std::exception &e) {
         /* This is to ensure we assert on any serialization exceptions in debug
-         * builds.  We then rethrow the exception
+         * builds.  We then re-throw the exception
          */
-        GLOGDEBUG << "Excpetion in deserializing: " << e.what();
+        GLOGDEBUG << "Exception in deserializing: " << e.what();
         DBG(std::exception_ptr eptr = std::current_exception());
 /*
  * allow the caller to handle this exception; which is what it will have to do in "release" build, i.e. production
@@ -141,7 +150,7 @@ void deserializeFdspMsg(const std::string& payloadBuf, PayloadT& payload) {
         throw;
     } catch(...) {
         /* This is to ensure we assert on any serialization exceptions in debug
-         * builds.  We then rethrow the exception
+         * builds.  We then re-throw the exception
          */
         DBG(std::exception_ptr eptr = std::current_exception());
 /*

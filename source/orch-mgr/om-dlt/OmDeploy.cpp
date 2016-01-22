@@ -468,8 +468,12 @@ DltDplyFSM::no_transition(Evt const &evt, Fsm &fsm, int state)
 void DltDplyFSM::RetryTimerTask::runTimerTask()
 {
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
-    LOGNOTIFY << "DltDplyFSM: retry to re-compute DLT";
-    domain->om_dlt_update_cluster();
+    if (!domain->isDomainShuttingDown()) {
+        LOGNOTIFY << "DltDplyFSM: retry to re-compute DLT";
+        domain->om_dlt_update_cluster();
+    } else {
+        LOGNOTIFY << "Will not recompute DLT since domain is shutting down or is down";
+    }
 }
 
 // GRD_DltCompute
@@ -523,10 +527,10 @@ DltDplyFSM::GRD_DltCompute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     fds_uint32_t nonFailedCount = cm->getNumNonfailedMembers(fpi::FDSP_STOR_MGR);
     fds_uint32_t totalCount = cm->getNumMembers(fpi::FDSP_STOR_MGR);
 
-    LOGDEBUG << "Added SMs: " << addedCount
-             << " Removed SMs: " << rmCount
-             << " Non-failed SMs: " << nonFailedCount
-             << " Total SMs: " << totalCount;
+    LOGNOTIFY << "Added SMs: " << addedCount
+              << " Removed SMs: " << rmCount
+              << " Non-failed SMs: " << nonFailedCount
+              << " Total SMs: " << totalCount;
 
     LOGDEBUG << "See if cluster map changed such that newly computed DLT is different from commited";
     Error err = dp->computeDlt();
@@ -650,12 +654,19 @@ DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
 
     // persist commited DLT
     dp->persistCommitedTargetDlt();
+    dp->markSuccess();
 
     // set all added DMs to ACTIVE state
     NodeUuidSet addedNodes = cm->getAddedServices(fpi::FDSP_STOR_MGR);
     for (auto uuid : addedNodes) {
         OM_SmAgent::pointer sm_agent = domain->om_sm_agent(uuid);
         sm_agent->handle_service_deployed();
+    }
+
+    NodeUuidSet removedNodes = cm->getRemovedServices(fpi::FDSP_STOR_MGR);
+
+    for (auto uuid : removedNodes) {
+        domain->removeNodeComplete(uuid);
     }
 
     // once we persisted DLT and set SM states to 'active', we officially
@@ -815,24 +826,27 @@ DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         // revert to previously commited DLT locally in OM
         fds_uint64_t targetDltVersion = dp->getTargetDltVersion();
 
+        if ( DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue() ) {
+            targetDltVersion = DltDmtUtil::getInstance()->getSMTargetVersionForAbort();
+            LOGDEBUG << "Setting target DLT version to:" << targetDltVersion;
+        }
+
+        LOGNORMAL << "Already computed or commited target DLT, will send abort migration msg "
+                  << "for target DLT version " << targetDltVersion;
+
         // This flag is set only if OM came up after a restart and found it
         // was interrupted during a DLT computation. In this case, we do not
-        // want to do undoTarget.. since it resets newDlt/committedDlt values
+        // want to do undoTarget since it resets newDlt/committedDlt values
         // which have already been set to what they should be in ::loadDltsFromConfigDb.
-        // The "next" version will be cleared out in the clearAbortParams method call
-        // after all this processing is done
-        if ( !dp->isAbortAfterRestartTrue() ) {
+        // The "next" version will be explicitly cleared at the end of error mode
+        if ( !DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue() ) {
             dp->undoTargetDltCommit();
-        } else {
-            targetDltVersion = dp->getTargetVersionForAbort();
-            LOGDEBUG << "Re-setting target DLT version for abort msg to:" << targetDltVersion;
         }
 
         // we already computed target DLT, so most likely sent start migration msg
         // send abort migration to SMs first, so that we can restart migratino later
         // (otherwise SMs will be left in bad state)
-        LOGNORMAL << "Already computed or commited target DLT, will send abort migration msg "
-                  << " for target DLT version " << targetDltVersion;
+
         fds_uint32_t abortCnt = dom_ctrl->om_bcast_sm_migration_abort(dp->getCommitedDltVersion(),
                                                                       targetDltVersion);
         LOGNORMAL << "Sent abort migration msgs to " << abortCnt << " SMs";
@@ -878,6 +892,9 @@ DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
 {
     LOGDEBUG << "FSM DACT_EndError " << src.errFound;
 
+    OM_Module *om     = OM_Module::om_singleton();
+    DataPlacement *dp = om->om_dataplace_mod();
+
     // since we failed to re-deploy DLT, retry again later (on some errors)
     if ( (src.errFound == ERR_SM_TOK_MIGRATION_INPROGRESS) ||
          (src.errFound == ERR_SM_TOK_MIGRATION_SRC_SVC_REQUEST) ||
@@ -890,17 +907,40 @@ DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
         } else {
             LOGDEBUG << "Will retry to re-deploy DLT in few minutes";
         }
-        if (!dst.tryAgainTimer->schedule(dst.tryAgainTimerTask,
-                                         std::chrono::seconds(3*60))) {
-            LOGWARN << "Failed to start try againtimer!!!"
-                    << " SM additions/deletions may be pending for long time!";
+
+        // Only increment failure count if the error is because of a failed
+        // service. Otherwise, we could very quickly max out our retry counts
+        // by receiving migration in progress errors from n nodes in the cluster
+        if ( (src.errFound == ERR_SVC_REQUEST_INVOCATION) ||
+             (src.errFound == ERR_SVC_REQUEST_TIMEOUT) )
+        {
+            dp->markFailure();
+
+            if (dp->canRetryMigration())
+            {
+                LOGNOTIFY << "Migration has failed: " << dp->failedAttempts() << " times.";
+                if (!dst.tryAgainTimer->schedule(dst.tryAgainTimerTask,
+                                                 std::chrono::seconds(3*60))) {
+                    LOGWARN << "Failed to start try againtimer!!!"
+                            << " SM additions/deletions may be pending for long time!";
+                }
+            } else {
+                LOGERROR << "Migration has failed too many times. Manually inspect and"
+                         << " remove node with failed SM and re-add to initiate another migration";
+            }
+        } else { // For the other errors, simply retry
+
+            if (!dst.tryAgainTimer->schedule(dst.tryAgainTimerTask,
+                                             std::chrono::seconds(3*60))) {
+                LOGWARN << "Failed to start try againtimer!!!"
+                        << " SM additions/deletions may be pending for long time!";
+            }
         }
     }
 
-    OM_Module *om     = OM_Module::om_singleton();
-    DataPlacement *dp = om->om_dataplace_mod();
 
-    if ( dp->isAbortAfterRestartTrue() ) {
+
+    if ( DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue() ) {
 
         LOGDEBUG << "Will try re-compute DLT in a minute, abortMigrationMsg has been sent on restart";
         if (!dst.tryAgainTimer->schedule(dst.tryAgainTimerTask,
@@ -910,7 +950,9 @@ DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
                     << " SM additions/deletions may be pending for long time!";
         }
 
-        dp->clearAbortParams();
+        dp->clearTargetDlt();
+
+        DltDmtUtil::getInstance()->clearSMAbortParams();
     }
 }
 
@@ -939,9 +981,16 @@ DltDplyFSM::DACT_ChkEndErr::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
             DataPlacement *dp = om->om_dataplace_mod();
             OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
             OM_SmAgent::pointer sm_agent = domain->om_sm_agent(recoverAckEvt.svcUuid);
-            src.nodesAbortResent.insert(recoverAckEvt.svcUuid);
-            sm_agent->om_send_sm_abort_migration(dp->getCommitedDltVersion(),
+
+            if (sm_agent != NULL) {
+                src.nodesAbortResent.insert(recoverAckEvt.svcUuid);
+                sm_agent->om_send_sm_abort_migration(dp->getCommitedDltVersion(),
                                                  recoverAckEvt.targetDlt);
+            } else {
+                // This could only be the case if this service has been removed,
+                // in which case don't  care about ack
+                --src.abortMigrAcksToWait;
+            }
         } else {
             --src.abortMigrAcksToWait;
         }

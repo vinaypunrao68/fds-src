@@ -27,6 +27,8 @@ namespace fds
                 auto processor = boost::make_shared <fpi::PlatNetSvcProcessor> (handler);
                 init (argc, argv, "platform.conf", "fds.pm.", "pm.log", nullptr, handler, processor);
 
+                // init above calls setupSvcInfo_, so by the time we get here, node uuid should be set
+                gl_DiskPlatMod.set_node_uuid(platform->getUUID());
                 gl_DiskPlatMod.mod_startup();
 
 #ifdef DEBUG

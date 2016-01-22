@@ -24,9 +24,10 @@ typedef std::function<void (NodeUuid srcNodeUuid,
 
 class DmMigrationExecutor : public DmMigrationBase {
   public:
-    explicit DmMigrationExecutor(DataMgr& _dataMgr,
+    explicit DmMigrationExecutor(DataMgr &_dataMgr,
     							 const NodeUuid& _srcDmUuid,
 								 fpi::FDSP_VolumeDescType& _volDesc,
+                                 int64_t migrationId,
 								 const fds_bool_t& _autoIncrement,
 								 DmMigrationExecutorDoneCb _callback,
                                  uint32_t _timeout);
@@ -103,19 +104,28 @@ class DmMigrationExecutor : public DmMigrationBase {
     Error finishActiveMigration();
 
     /**
+     * Overrides the base and routes to the mgr
+     */
+    void routeAbortMigration() override;
+
+    /**
      * Called by MigrationMgr to clean up any mess that this executor has caused
      */
-    void abortMigration();
+    virtual void abortMigration();
 
     inline bool isMigrationComplete() {
     	return (migrationProgress == MIGRATION_COMPLETE);
     }
+    /**
+    * Returns true if migration has been idle
+    */
+    bool isMigrationIdle(const util::TimeStamp& curTsSec) const;
 
-  private:
-    /** Reference to the DataManager
-     */
-    DataMgr& dataMgr;
+    inline util::TimeStamp getLastUpdateFromClientTsSec() const {
+        return lastUpdateFromClientTsSec_;
+    }
 
+  protected:
     /** Uuid of source DM
      */
     NodeUuid srcDmSvcUuid;
@@ -174,7 +184,7 @@ class DmMigrationExecutor : public DmMigrationBase {
      * and the actual call to this function, i.e. safe to call even after the state machine has moved
      * beyond static migration.
      */
-    void testStaticMigrationComplete();
+    virtual void testStaticMigrationComplete();
 
     /**
      * Mutex for blob offset list and blob descriptor list coordination
@@ -222,6 +232,11 @@ class DmMigrationExecutor : public DmMigrationBase {
 
     // DMT at the time migration began
     fds_uint64_t dmtVersion;
+    
+    /* Last timestamp of when we heard from the client */
+    util::TimeStamp lastUpdateFromClientTsSec_;
+
+    friend class DmMigrationMgr;
 
 };  // DmMigrationExecutor
 

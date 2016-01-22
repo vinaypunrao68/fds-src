@@ -3,6 +3,37 @@
     <!-- Real stuff -->
     <div class="volumecontainer">
 
+        <div class="space-out-center" ng-hide="volumes.length === 0">
+            <div>
+                <div class="chart-title" translate>volumes.title_volumes_by_size</div>
+                <div class="flex">
+                    <div style="width: 200px; height: 200px;">
+                        <pie-chart data="volumesBySize" pie-property="value" tooltip="sizeTooltip" colors="pieColors"></pie-chart>
+                    </div>
+                    <div style="margin-top: 18px">
+                        <div class="flex" ng-repeat="portion in volumesBySize">
+                            <div class="legend-box" ng-style="{ 'border-color': pieColors( portion ), 'background-color': pieColors( portion ) }"></div>
+                            <div class="legend-data">{{ sizeTooltip( portion ) }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div class="chart-title" translate>volumes.title_volumes_by_type</div>
+                <div class="flex">
+                    <div style="width: 200px; height: 200px;">
+                        <pie-chart data="volumesByType" pie-property="value" tooltip="countTooltip" colors="pieColors"></pie-chart>
+                    </div>
+                    <div style="margin-top: 18px">
+                        <div class="flex" ng-repeat="portion in volumesByType">
+                            <div class="legend-box" ng-style="{ 'border-color': pieColors( portion ), 'background-color': pieColors( portion ) }"></div>
+                            <div class="legend-data">{{ countTooltip( portion ) }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <div class="volumes">
             <span>{{name}}</span>
             <span class="header pull-left" style="margin-right: 24px;" translate>volumes.title</span>
@@ -34,7 +65,7 @@
                             <sort-helper ng-model="sortPredicate" value="data_connector.type">{{ 'common.th_data_type' | translate }}</sort-helper>
                         </th>
                         <th ng-class="{ 'selected' : sortPredicate.indexOf( 'size' ) !== -1 }" tool-tip text="{{ 'volumes.tt_size' | translate }}">
-                            <sort-helper ng-model="sortPredicate" value="size">{{ 'volumes.th_capacity' | translate }}</sort-helper>
+                            <sort-helper ng-model="sortPredicate" value="size">{{ 'volumes.th_volume_usage' | translate }}</sort-helper>
                         </th>
                         <th ng-class="{ 'selected' : sortPredicate.indexOf( 'firebreak' ) !== -1 }" style="text-align: center;width: 52px;" tool-tip text="{{ 'volumes.tt_firebreak' | translate }}">
                             <sort-helper ng-model="sortPredicate" value="firebreak">
@@ -72,7 +103,7 @@
                             </td>
 
                             <td class="consume">
-                                {{getCapacityString( volume.status.currentUsage ) }}
+                                {{getCapacityString( volume ) }}
                             </td>
                             
                             <td class="firebreak">

@@ -7,6 +7,7 @@
 #include <iostream>
 #include <atomic>
 #include <vector>
+#include <unordered_map>
 #include <ostream>
 #include <boost/noncopyable.hpp>
 #include <fds_types.h>
@@ -20,11 +21,11 @@ class FdsCounters;
 class FdsBaseCounter;
 class FdsCountersMgr;
 
-/* Class SamplerTask: performs snapshotting and sampling. Operates on data 
+/* Class SamplerTask: performs snapshotting and sampling. Operates on data
    structures in couter manager */
 class SamplerTask : public FdsTimerTask {
     public:
-    SamplerTask(FdsTimer &fds_timer, const std::vector<FdsCounters*> &counters,  std::vector<FdsCounters*> &snapshot_counters) : 
+    SamplerTask(FdsTimer &fds_timer, const std::vector<FdsCounters*> &counters,  std::vector<FdsCounters*> &snapshot_counters) :
         FdsTimerTask(fds_timer), counters_ref_(counters), snapshot_counters_(snapshot_counters) {}
     void runTimerTask() override;
     void snapshot_counters() {};
@@ -38,6 +39,15 @@ class SamplerTask : public FdsTimerTask {
 };
 
 /**
+* @brief Implement this interface to export state information as key,value pairs
+* KEEP AS INTERFACE.  DON'T ADD STATE.
+*/
+struct StateProvider {
+    virtual std::string getStateInfo() = 0;
+    virtual std::string getStateProviderId() = 0;
+};
+
+/**
  * @brief Counter manager.  Mananges the job of exporting registered
  * FdsCounters class objects in various different formats.
  * Supported format are:
@@ -47,38 +57,47 @@ class FdsCountersMgr : public boost::noncopyable {
 public:
     FdsCountersMgr(const std::string &id);
     ~FdsCountersMgr() {timer_.destroy();}
+
+    /* Counters related methods */
     void add_for_export(FdsCounters *counters);
     void remove_from_export(FdsCounters *counters);
-
     FdsCounters* get_counters(const std::string &id);
-
+    FdsCounters* get_default_counters();
     std::string export_as_graphite();
-
     void export_to_ostream(std::ostream &stream);
-
     void toMap(std::map<std::string, int64_t>& m);
-
     void reset();
+
+    /* Status provider methods */
+    void add_for_export(StateProvider *provider);
+    void remove_from_export(StateProvider *provider);
+    bool getStateInfo(const std::string &id, std::string &state);
 
 protected:
     std::string id_;
+    FdsCounters* defaultCounters;
     /* Counter objects that are exported out */
     std::vector<FdsCounters*> exp_counters_;
-    /* Lock for this object */
-    fds_mutex lock_;
+    /* Lock for the counters */
+    fds_mutex counters_lock_;
     /* Timer */
     FdsTimer timer_;
     /* Sampler task */
     boost::shared_ptr<FdsTimerTask> sampler_ptr_;
     /* Snapshot */
     std::vector<FdsCounters*> snapshot_counters_;
+
+    /* Lock for state provider */
+    fds_mutex stateproviders_lock_;
+    /* All the stateproviders */
+    std::unordered_map<std::string, StateProvider*> stateproviders_tbl_;
 };
 
 /**
  * @brief Base counters class.  Any module that has a set of counters
  * should derive from this class
  */
-class FdsCounters : public boost::noncopyable { 
+class FdsCounters : public boost::noncopyable {
 public:
     FdsCounters(const std::string &id, FdsCountersMgr *mgr);
     FdsCounters(const FdsCounters& counters);
@@ -115,7 +134,7 @@ protected:
 class FdsBaseCounter : public boost::noncopyable {
 public:
     FdsBaseCounter(const std::string &id, FdsCounters *export_parent);
-    FdsBaseCounter(const std::string &id, fds_volid_t volid, 
+    FdsBaseCounter(const std::string &id, fds_volid_t volid,
                     FdsCounters *export_parent);
     FdsBaseCounter(const FdsBaseCounter& c);
     /* Exposed for testing */
@@ -129,7 +148,7 @@ public:
     virtual void set_volid(fds_volid_t volid);
     virtual bool volid_enable() const;
     virtual void reset() = 0;
-    void toMap(std::map<std::string, int64_t>& m) const;
+    virtual void toMap(std::map<std::string, int64_t>& m) const;
 
 private:
     std::string id_;
@@ -161,7 +180,7 @@ struct SimpleNumericCounter : FdsBaseCounter {
 class NumericCounter : public FdsBaseCounter
 {
 public:
-    NumericCounter(const std::string &id, fds_volid_t volid, 
+    NumericCounter(const std::string &id, fds_volid_t volid,
                     FdsCounters *export_parent);
     NumericCounter(const std::string &id, FdsCounters *export_parent);
     NumericCounter(const NumericCounter &c);
@@ -199,7 +218,7 @@ private:
 class LatencyCounter : public FdsBaseCounter
 {
 public:
-    LatencyCounter(const std::string &id, fds_volid_t volid, 
+    LatencyCounter(const std::string &id, fds_volid_t volid,
                         FdsCounters *export_parent);
     LatencyCounter(const std::string &id, FdsCounters *export_parent);
     LatencyCounter(const LatencyCounter &c);
@@ -247,6 +266,17 @@ private:
     std::atomic<uint64_t> min_latency_;
     std::atomic<uint64_t> max_latency_;
 };
+
+struct ResourceUsageCounter : FdsBaseCounter {
+    ResourceUsageCounter(FdsCounters *export_parent);
+    ResourceUsageCounter(const ResourceUsageCounter& c) = default;
+
+    uint64_t value() const { return 0; };
+    // cannot be reset via thrift
+    void reset() {};
+    void toMap(std::map<std::string, int64_t>& m) const;
+};
+
 
 }  // namespace fds
 

@@ -59,6 +59,10 @@ uint64_t DeleteDispatcher::process(const DeleteTask& task) {
                 fNeedsTimeCheck = true;
                 fNeedsDeleteCheck= true;
                 break;
+            case fpi::ResourceState::Syncing:
+                // Fall through
+            default:
+                fds_assert(!"Not handled");
         }
 
         if (fNeedsTimeCheck && (nextTime == 0 || deleteTime < nextTime)) {

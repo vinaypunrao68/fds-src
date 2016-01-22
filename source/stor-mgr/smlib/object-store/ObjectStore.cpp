@@ -265,9 +265,9 @@ ObjectStore::initObjectStoreMediaErrorHandlers() {
  */
 Error
 ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& tier) {
-    LOGDEBUG << "Handling disk failure for disk=" << diskId << " tier=" << tier;
+    LOGNOTIFY << "Handling disk failure for disk=" << diskId << " tier=" << tier;
     if (diskMap->isDiskOffline(diskId)) {
-        LOGDEBUG << "Disk " << diskId << " failure is already handled";
+        LOGNORMAL << "Disk " << diskId << " failure is already handled";
         return ERR_OK;
     }
     diskMap->makeDiskOffline(diskId);
@@ -297,7 +297,7 @@ ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& ti
     }
     Error err = openStore(lostTokens);
     if (!err.ok()) {
-        LOGDEBUG << "Error opening metadata and data stores for redistributed tokens." << err;
+        LOGERROR << "Error opening metadata and data stores for redistributed tokens." << err;
     }
 
     if (requestResyncFn) {
@@ -618,7 +618,7 @@ ObjectStore::putObject(fds_volid_t volId,
 
         if (diskMap->getTotalDisks(useTier) == 0) {
             LOGCRITICAL << "No disk capacity";
-            return ERR_SM_EXCEEDED_DISK_CAPACITY;
+            return ERR_SM_NO_DISK;
         }
 
         // put object to datastore
@@ -695,7 +695,7 @@ ObjectStore::getObject(fds_volid_t volId,
         fds_token_id smToken = diskMap->smTokenId(objId);
         diskio::DataTier metaTier = metaStore->getMetadataTier();
         DiskId diskId = diskMap->getDiskId(objId, metaTier);
-        std::string path = diskMap->getDiskPath(diskId);
+        std::string path = diskMap->getDiskPath(diskId) + "/.tempFlush";
 
         bool diskDown = DiskUtils::diskFileTest(path);
         if (diskDown) {
@@ -1167,6 +1167,8 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
             return err;
         }
 
+        OBJECTSTOREMGR(objStorMgr)->counters->dataCopied.incr(objMeta->getObjSize());
+
         // update physical location that we got from data store
         updatedMeta->updatePhysLocation(&objPhyLoc);
         // write metadata to metadata store
@@ -1181,6 +1183,7 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         if (TokenCompactor::isGarbage(*objMeta) || !objOwned) {
             LOGDEBUG << "Removing metadata for " << objId
                       << " object owned? " << objOwned;
+            OBJECTSTOREMGR(objStorMgr)->counters->dataRemoved.incr(objMeta->getObjSize());
             err = metaStore->removeObjectMetadata(unknownVolId, objId);
         }
     }
@@ -1415,7 +1418,7 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
 
         if (diskMap->getTotalDisks(useTier) == 0) {
             LOGCRITICAL << "No disk capacity";
-            return ERR_SM_EXCEEDED_DISK_CAPACITY;
+            return ERR_SM_NO_DISK;
         }
 
         // put object to datastore
@@ -1619,19 +1622,15 @@ ObjectStore::handleDiskChanges(const DiskId& removedDiskId,
  * (Including all system volumes).
  */
 bool
-ObjectStore::haveAllObjectSets() const {
-    bool have = true;
-    std::set<fds_volid_t> volumes;
-    liveObjectsTable->findAllVols(volumes);
-    std::list<fds_volid_t> volList = volumeTbl->getVolList();
+ObjectStore::haveAllObjectSets(TimeStamp after) const {
+    auto volList = volumeTbl->getVolList(true);
+    std::set<fds_volid_t> volumes(volList.begin(), volList.end());
 
-    for (auto volId : volList) {
-        if (volumes.find(volId) == volumes.end()) {
-            LOGWARN << "Object set not found for volume: " << volId;
-            have = false;
-        }
+    for (auto i = 0 ; i < 256 ; i++) {
+        if (liveObjectsTable->haveAllObjectSets(i, volumes, after)) return true;
     }
-    return have;
+    LOGDEBUG << "all objects not found for any token";
+    return false;
 }
 
 /**
@@ -1642,10 +1641,8 @@ void
 ObjectStore::addObjectSet(const fds_token_id &smToken,
                           const fds_volid_t &volId,
                           const util::TimeStamp &timeStamp,
-                          const std::string &objectSetFilePath,
-                          const fds_uint64_t &dmUUID) {
-    liveObjectsTable->addObjectSet(smToken, volId, timeStamp,
-                                   objectSetFilePath, dmUUID);
+                          const std::string &objectSetFilePath) {
+    liveObjectsTable->addObjectSet(smToken, volId, timeStamp, objectSetFilePath);
 }
 
 /**
@@ -1656,10 +1653,9 @@ void
 ObjectStore::cleansertObjectSet(const fds_token_id &smToken,
                                 const fds_volid_t &volId,
                                 const util::TimeStamp &timeStamp,
-                                const std::string &objectSetFilePath,
-                                const fds_uint64_t &dmUUID) {
+                                const std::string &objectSetFilePath) {
     liveObjectsTable->cleansertObjectSet(smToken, volId, timeStamp,
-                                         objectSetFilePath, dmUUID);
+                                         objectSetFilePath);
 }
 
 /**
@@ -1677,9 +1673,8 @@ ObjectStore::removeObjectSet(const fds_token_id &smToken,
  * based on sm token and dm svc uuid.
  */
 void
-ObjectStore::removeObjectSet(const fds_token_id &smToken,
-                             const fds_uint64_t &dmUUID) {
-    liveObjectsTable->removeObjectSet(smToken, dmUUID);
+ObjectStore::removeObjectSet(const fds_token_id &smToken) {
+    liveObjectsTable->removeObjectSet(smToken);
 }
 
 /**

@@ -1,24 +1,32 @@
 package com.formationds.nfs;
 
 import com.formationds.apis.ObjectOffset;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
 
 public class TransactionalIo {
+    private static final int META_LOCK_STRIPES = 1024 * 32;
+    private static final int OBJECT_LOCK_STRIPES = 1024;
+
     private IoOps io;
-    private Cache<MetaKey, Object> metaLocks;
-    private Cache<ObjectKey, Object> objectLocks;
+    private final Object[] metaLocks;
+    private final Object[] objectLocks;
 
     public TransactionalIo(IoOps io) {
         this.io = io;
-        objectLocks = CacheBuilder.newBuilder().maximumSize(500).build();
-        metaLocks = CacheBuilder.newBuilder().maximumSize(20000).build();
+        metaLocks = makeLocks(META_LOCK_STRIPES);
+        objectLocks = makeLocks(OBJECT_LOCK_STRIPES);
+    }
+
+    private Object[] makeLocks(int stripes) {
+        Object[] locks = new Object[stripes];
+        for (int i = 0; i < locks.length; i++) {
+            locks[i] = new Object();
+        }
+        return locks;
     }
 
     public <T> T mapMetadata(String domain, String volumeName, String blobName, MetadataMapper<T> mapper) throws IOException {
@@ -80,11 +88,12 @@ public class TransactionalIo {
                 buffer = io.readCompleteObject(domain, volume, blobName, objectOffset, objectSize);
             } catch (FileNotFoundException e) {
                 buffer = ByteBuffer.allocate(objectSize);
+                buffer.limit(0);
             }
             Map<String, String> metadata;
             synchronized (metaLock(metaKey)) {
                 metadata = io.readMetadata(domain, volume, blobName).orElse(new HashMap<>());
-                ObjectAndMetadata om = new ObjectAndMetadata(metadata, buffer.duplicate());
+                ObjectAndMetadata om = new ObjectAndMetadata(metadata, buffer);
                 mutator.mutate(om);
                 io.writeMetadata(domain, volume, blobName, metadata, deferrable);
             }
@@ -109,7 +118,7 @@ public class TransactionalIo {
     }
 
     public <T> List<T> scan(String domain, String volume, String blobNamePrefix, MetadataMapper<T> mapper) throws IOException {
-        List<BlobMetadata> mds = io.scan(domain, volume, blobNamePrefix);
+        Collection<BlobMetadata> mds = io.scan(domain, volume, blobNamePrefix);
         List<T> result = new ArrayList<>(mds.size());
         for (BlobMetadata meta : mds) {
             result.add(mapper.map(meta.getBlobName(), Optional.of(meta.getMetadata())));
@@ -122,18 +131,10 @@ public class TransactionalIo {
     }
 
     private Object metaLock(MetaKey key) {
-        try {
-            return metaLocks.get(key, () -> new Object());
-        } catch (ExecutionException e) {
-            throw new RuntimeException(e);
-        }
+        return metaLocks[Math.abs(key.hashCode() % META_LOCK_STRIPES)];
     }
 
     private Object objectLock(ObjectKey key) {
-        try {
-            return objectLocks.get(key, () -> new Object());
-        } catch (ExecutionException e) {
-            throw new RuntimeException(e);
-        }
+        return objectLocks[Math.abs(key.hashCode() % OBJECT_LOCK_STRIPES)];
     }
 }

@@ -16,7 +16,6 @@ namespace fds {
 struct AmTxDescriptor;
 struct GetBlobReq;
 struct GetObjectReq;
-struct CommonModuleProviderIf;
 
 /**
  * A client-side cache of blob metadata and data. The cache
@@ -34,7 +33,7 @@ class AmCache :
         object_cache_type;
 
   public:
-    AmCache(AmDataProvider* prev, CommonModuleProviderIf* modProvider);
+    explicit AmCache(AmDataProvider* prev);
     AmCache(AmCache const&) = delete;
     AmCache& operator=(AmCache const&) = delete;
     ~AmCache() override;
@@ -53,6 +52,7 @@ class AmCache :
     bool done() override;
     void registerVolume(const VolumeDesc& volDesc) override;
     void removeVolume(const VolumeDesc& volDesc) override;
+    void closeVolume(AmRequest *amReq) override;
     void statBlob(AmRequest * amReq) override;
     void getBlob(AmRequest * amReq) override;
 

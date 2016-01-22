@@ -17,10 +17,14 @@
 #include "fdsp/node_svc_api_types.h"
 #include "fdsp/pm_service_types.h"
 
+#include "platform/flap_detector.h"
+
 namespace fds
 {
     namespace pm
     {
+        typedef std::unordered_map<fds_uint16_t, std::string> DiskMountMap;
+
         enum
         {
             JAVA_AM,
@@ -89,7 +93,12 @@ namespace fds
                  */
                 void updateServiceInfoProperties (std::map<std::string, std::string> *data);
 
+                NodeUuid getUUID();
+
+                void setShutdownState(bool const value);
+
             protected:
+
                 fds_uint64_t getNodeUUID (fpi::FDSP_MgrIdType svcType);
 
                 void determineDiskCapability();
@@ -98,9 +107,13 @@ namespace fds
                 void startProcess (int id);
                 void stopProcess (int id);
 
+                DiskMountMap                        diskMountMap;
+
             private:
                 FdsConfigAccessor                  *fdsConfig;
                 fpi::FDSP_AnnounceDiskCapability    diskCapability;
+
+                int64_t                             usedDiskCapacity;
 
                 kvstore::PlatformDB                *m_db;
                 fpi::NodeInfo                       m_nodeInfo;
@@ -113,7 +126,10 @@ namespace fds
                 std::condition_variable             m_startQueueCondition;
                 std::list <int>                     m_startQueue;
 
+                FlapDetector                        *m_serviceFlapDetector;         // Used to keep track of service restarts and detect a bouncing service.
+
                 bool                                m_autoRestartFailedProcesses;
+                bool                                m_inShutdownState;             // Domain is shut down.
                 bool                                m_startupAuditComplete;        // Tracks if the run function has completed it's startup audit.
                                                                                    // which prevents service activate function from occurring.
 
@@ -124,18 +140,21 @@ namespace fds
                 std::vector <std::string>           m_javaOptions;                 // List of options to use with java child processes
                 std::string                         m_javaXdiMainClassName;
                 std::string                         m_javaXdiJavaCmd;              // path to java command
+
                 void loadRedisKeyId();
                 void childProcessMonitor();
                 void startQueueMonitor();
-                void notifyOmAProcessDied (std::string const &procName, int const appIndex, pid_t const procPid);
+                void usedDiskCapacityMonitor();
+                void processDiskMapFile();
+                void notifyOmServiceStateChange (int const appIndex, pid_t const procPid, FDS_ProtocolInterface::HealthState, std::string const message);
                 std::string getProcName (int const index);
-                void updateNodeInfoDbPid (int processType, pid_t pid);
-                void updateNodeInfoDbState (int processType, fpi::pmServiceStateTypeId newState);
+                void updateNodeInfoDbPidAndState (int processType, pid_t pid, fpi::pmServiceStateTypeId newState);
                 void checkPidsDuringRestart();
                 bool procCheck (std::string procName, pid_t pid);
                 bool loadDiskUuidToDeviceMap();
                 void verifyAndMountFDSFileSystems();
                 void loadEnvironmentVariables();
+                void notifyDiskMapChange();
         };
     }  // namespace pm
 }  // namespace fds

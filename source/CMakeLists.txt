@@ -53,7 +53,9 @@ include_directories(${INCLUDE_DIRECTORIES})
 
 set(SOURCE_FILES
     ./access-mgr/amlib/AccessMgr.cpp
+    ./access-mgr/amlib/AmAsyncDataApi.cpp
     ./access-mgr/amlib/AmCache.cpp
+    ./access-mgr/amlib/AmDataProvider.cpp
     ./access-mgr/amlib/AmDispatcher.cpp
     ./access-mgr/amlib/AmDispatcherMocks.hpp
     ./access-mgr/amlib/AmProcessor.cpp
@@ -62,9 +64,9 @@ set(SOURCE_FILES
     ./access-mgr/amlib/AmTxDescriptor.cpp
     ./access-mgr/amlib/AmTxManager.cpp
     ./access-mgr/amlib/AmVolume.cpp
-    ./access-mgr/amlib/AmVolumeAccessToken.cpp
     ./access-mgr/amlib/AmVolumeTable.cpp
-    ./access-mgr/amlib/handlers/responsehandler.cpp
+    ./access-mgr/amlib/BlockOperations.cpp
+    ./access-mgr/amlib/BlockTask.cpp
     ./access-mgr/connector/nbd/NbdConnection.cpp
     ./access-mgr/connector/nbd/NbdConnector.cpp
     ./access-mgr/connector/scst/ScstConnector.cpp
@@ -101,8 +103,10 @@ set(SOURCE_FILES
     ./access-mgr/include/requests/StatVolumeReq.h
     ./access-mgr/include/requests/VolumeContentsReq.h
     ./access-mgr/include/AccessMgr.h
+    ./access-mgr/include/AmAsyncDataApi.h
     ./access-mgr/include/AmAsyncResponseApi.h
     ./access-mgr/include/AmCache.h
+    ./access-mgr/include/AmDataProvider.h
     ./access-mgr/include/AmDispatcher.h
     ./access-mgr/include/AmProcessor.h
     ./access-mgr/include/AmQoSCtrl.h
@@ -114,7 +118,7 @@ set(SOURCE_FILES
     ./access-mgr/include/AmVolumeAccessToken.h
     ./access-mgr/include/AmVolumeTable.h
     ./access-mgr/include/AsyncResponseHandlers.h
-    ./access-mgr/include/responsehandler.h
+    ./access-mgr/include/TypeIdMap.h
     ./access-mgr/test/AmFunctionalTest.cpp
 ./access-mgr/test/BlockFunctionalTest.cpp
     ./access-mgr/am-main.cpp
@@ -145,6 +149,7 @@ set(SOURCE_FILES
     ./data-mgr/dm-lib/handlers/renameblobhandler.cpp
     ./data-mgr/dm-lib/handlers/setblobmetadatahandler.cpp
     ./data-mgr/dm-lib/handlers/setvolumemetadatahandler.cpp
+    ./data-mgr/dm-lib/handlers/simplehandler.cpp
     ./data-mgr/dm-lib/handlers/startblobtxhandler.cpp
     ./data-mgr/dm-lib/handlers/statstreamhandler.cpp
     ./data-mgr/dm-lib/handlers/statvolumehandler.cpp
@@ -157,6 +162,7 @@ set(SOURCE_FILES
     ./data-mgr/dm-lib/timeline/timelinemanager.cpp
     ./data-mgr/dm-lib/CatalogSync.cpp
     ./data-mgr/dm-lib/CatalogSyncRecv.cpp
+    ./data-mgr/dm-lib/counters.cpp
     ./data-mgr/dm-lib/DataMgr.cpp
     ./data-mgr/dm-lib/DmBlobTypes.cpp
     ./data-mgr/dm-lib/DmMigrationBase.cpp
@@ -561,6 +567,7 @@ set(SOURCE_FILES
     ./orch-mgr/om-dlt/OmVolume.cpp
     ./orch-mgr/om-dlt/OmVolumePlacement.cpp
     ./orch-mgr/om-lib/OmAdminCtrl.cpp
+    ./orch-mgr/om-lib/OMMonitorWellKnownPMs.cpp
     ./orch-mgr/om-lib/omutils.cpp
     ./orch-mgr/om-lib/OmVolPolicy.cpp
     ./orch-mgr/om-lib/orchMgr.cpp
@@ -617,7 +624,6 @@ osdep/umod-linux/fds_osdep.cpp
     ./platform/include/plat_work_item.h
     ./platform/include/platform_disk_obj.h
     ./platform/include/platform_ep_handler.h
-    ./platform/include/platform_net_svc.h
     ./platform/include/platform_plugin.h
     ./platform/include/pm_disk_inventory.h
     ./platform/include/state_switch.h
@@ -679,7 +685,6 @@ osdep/umod-linux/fds_osdep.cpp
     ./platform/source/platform.cpp
     ./platform/source/platform_ep_handler.cpp
     ./platform/source/platform_manager.cpp
-    ./platform/source/platform_net_svc.cpp
     ./platform/source/platform_process.cpp
     ./platform/source/platformd_plugin.cpp
     ./platform/source/pm_agent.cpp
@@ -701,6 +706,7 @@ osdep/umod-linux/fds_osdep.cpp
     ./stor-mgr/include/object-store/ObjectMetaDb.h
     ./stor-mgr/include/object-store/ObjectPersistData.h
     ./stor-mgr/include/object-store/ObjectStore.h
+    ./stor-mgr/include/object-store/ObjectStoreCommon.h
     ./stor-mgr/include/object-store/RandomRankPolicy.h
     ./stor-mgr/include/object-store/RankEngine.h
     ./stor-mgr/include/object-store/Scavenger.h
@@ -710,6 +716,7 @@ osdep/umod-linux/fds_osdep.cpp
     ./stor-mgr/include/object-store/SmTokenState.h
     ./stor-mgr/include/object-store/TieringConfig.h
     ./stor-mgr/include/object-store/TokenCompactor.h
+    ./stor-mgr/include/counters.h
     ./stor-mgr/include/data_obj.h
     ./stor-mgr/include/HybridTierCtrlr.h
     ./stor-mgr/include/MigrationClient.h
@@ -725,17 +732,15 @@ osdep/umod-linux/fds_osdep.cpp
     ./stor-mgr/include/SmCtrl.h
     ./stor-mgr/include/SmDiskTypes.h
     ./stor-mgr/include/SmIo.h
-    ./stor-mgr/include/SmObjDb.h
     ./stor-mgr/include/SMSvcHandler.h
     ./stor-mgr/include/SmTypes.h
-    ./stor-mgr/include/stor_mgr.h
     ./stor-mgr/include/StorMgr.h
     ./stor-mgr/include/StorMgrVolumes.h
     ./stor-mgr/include/TierEngine.h
     ./stor-mgr/include/TierMigration.h
-    ./stor-mgr/include/TierPutAlgorithms.h
     ./stor-mgr/protos/counting_bloom_filter/CountingBloomFilter.hpp
     ./stor-mgr/protos/counting_bloom_filter/RandomHashGenerator.cpp
+    ./stor-mgr/smlib/object-store/LiveObjectsDB.cpp
     ./stor-mgr/smlib/object-store/ObjectDataCache.cpp
     ./stor-mgr/smlib/object-store/ObjectDataStore.cpp
     ./stor-mgr/smlib/object-store/ObjectMetaCache.cpp
@@ -750,6 +755,7 @@ osdep/umod-linux/fds_osdep.cpp
     ./stor-mgr/smlib/object-store/SmTokenPlacement.cpp
     ./stor-mgr/smlib/object-store/SmTokenState.cpp
     ./stor-mgr/smlib/object-store/TokenCompactor.cpp
+    ./stor-mgr/smlib/counters.cpp
     ./stor-mgr/smlib/HybridTierCtrlr.cpp
     ./stor-mgr/smlib/MigrationClient.cpp
     ./stor-mgr/smlib/MigrationExecutor.cpp
@@ -760,7 +766,6 @@ osdep/umod-linux/fds_osdep.cpp
     ./stor-mgr/smlib/ObjRank.cpp
     ./stor-mgr/smlib/ObjStats.cpp
     ./stor-mgr/smlib/SmIo.cpp
-    ./stor-mgr/smlib/SmObjDb.cpp
     ./stor-mgr/smlib/SMSvcHandler.cpp
     ./stor-mgr/smlib/SMCheck.cpp
     ./stor-mgr/smlib/SMCheckCtrl.cpp
@@ -768,7 +773,6 @@ osdep/umod-linux/fds_osdep.cpp
     ./stor-mgr/smlib/StorMgrVolumes.cpp
     ./stor-mgr/smlib/TierEngine.cpp
     ./stor-mgr/smlib/TierMigration.cpp
-    ./stor-mgr/smlib/TierPutAlgorithms.cpp
     ./stor-mgr/utils/SMCheckDriver.cpp
     ./stor-mgr/utils/SMCheckDriver.h
     ./stor-mgr/stormgr_main.cpp
@@ -842,6 +846,7 @@ osdep/umod-linux/fds_osdep.cpp
     ./umod-lib/common/fdsp_utils.cpp
     ./umod-lib/common/PerfTrace.cpp
     ./umod-lib/common/Tracebuffer.cpp
+    ./umod-lib/common/StatTypes.cpp
 
     ./umod-lib/concurrency/Mutex.cpp
     ./umod-lib/concurrency/Synchronization.cpp
@@ -914,7 +919,6 @@ osdep/umod-linux/fds_osdep.cpp
 ./unit-test/stor-mgr/svc-test/smperf_gtest.cpp
 ./unit-test/stor-mgr/svc-test/svc_gtest.cpp
 
-    ./unit-test/svclayer/FakeSvcDomain.hpp
     ./unit-test/svclayer/OMSvcProcess.cpp
     ./unit-test/svclayer/OMSvcProcess.h
     ./unit-test/svclayer/SvcMapChecker.cpp

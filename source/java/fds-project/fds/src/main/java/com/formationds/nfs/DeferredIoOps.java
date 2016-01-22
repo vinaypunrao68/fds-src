@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 
 public class DeferredIoOps implements IoOps {
@@ -45,7 +46,7 @@ public class DeferredIoOps implements IoOps {
     @Override
     public Optional<Map<String, String>> readMetadata(String domain, String volumeName, String blobName) throws IOException {
         MetaKey key = new MetaKey(domain, volumeName, blobName);
-        return (Optional<Map<String, String>>) metadataCache.lock(key, c -> {
+        return metadataCache.lock(key, c -> {
             CacheEntry<Map<String, String>> ce = c.get(key);
             if (ce == null) {
                 Optional<Map<String, String>> om = io.readMetadata(domain, volumeName, blobName);
@@ -56,7 +57,7 @@ public class DeferredIoOps implements IoOps {
                 return om;
             } else {
                 counters.increment(Counters.Key.metadataCacheHit);
-                return Optional.of(new HashMap<>(ce.value));
+                return Optional.of(ce.value);
             }
         });
     }
@@ -84,13 +85,13 @@ public class DeferredIoOps implements IoOps {
             if (ce == null) {
                 counters.increment(Counters.Key.objectCacheMiss);
                 ByteBuffer buf = io.readCompleteObject(domain, volumeName, blobName, objectOffset, objectSize);
-                ce = new CacheEntry<ByteBuffer>(buf.slice(), false);
+                ce = new CacheEntry<>(buf, false);
                 c.put(objectKey, ce);
             } else {
                 counters.increment(Counters.Key.objectCacheHit);
             }
 
-            return ce.value.duplicate();
+            return ce.value;
         });
     }
 
@@ -100,34 +101,49 @@ public class DeferredIoOps implements IoOps {
         objectCache.lock(objectKey, c -> {
             counters.increment(Counters.Key.deferredObjectMutation);
             if (deferrable) {
-                c.put(objectKey, new CacheEntry<>(byteBuffer.slice(), true));
+                c.put(objectKey, new CacheEntry<>(byteBuffer, true));
             } else {
                 io.writeObject(domain, volumeName, blobName, objectOffset, byteBuffer.slice().duplicate(), objectSize, false);
-                c.put(objectKey, new CacheEntry<>(byteBuffer.slice().duplicate(), false));
+                c.put(objectKey, new CacheEntry<>(byteBuffer.slice(), false));
             }
             return null;
         });
     }
 
     @Override
-    public List<BlobMetadata> scan(String domain, String volume, String blobNamePrefix) throws IOException {
-        List<BlobMetadata> results = io.scan(domain, volume, blobNamePrefix);
-        for (int i = 0; i < results.size(); i++) {
-            BlobMetadata m = results.get(i);
-            MetaKey key = new MetaKey(domain, volume, m.getBlobName());
-            final int offset = i;
-            metadataCache.lock(key, c -> {
-                if (c.containsKey(key)) {
-                    results.set(offset, new BlobMetadata(key.blobName, c.get(key).value));
-                } else {
-                    c.put(key, new CacheEntry<>(m.getMetadata(), false));
-                }
-                return null;
-            });
-        }
-        return results;
+    public Collection<BlobMetadata> scan(String domain, String volume, String blobNamePrefix) throws IOException {
+        Map<MetaKey, BlobMetadata> fromAm = io.scan(domain, volume, blobNamePrefix)
+                .stream()
+                .collect(Collectors.toMap(bm -> new MetaKey(domain, volume, bm.getBlobName()), bm -> bm));
+
+        MetaKey prefix = new MetaKey(domain, volume, blobNamePrefix);
+        Map<MetaKey, BlobMetadata> fromCache = metadataCache.lock(prefix, c -> scanCache(domain, volume, blobNamePrefix));
+        fromAm.putAll(fromCache);
+        return fromAm.values();
     }
 
+    private Map<MetaKey, BlobMetadata> scanCache(String domain, String volume, String blobNamePrefix) throws IOException {
+        MetaKey prefix = new MetaKey(domain, volume, blobNamePrefix);
+        Map<MetaKey, BlobMetadata> results = new HashMap<>();
+
+        return metadataCache.lock(prefix, c -> {
+            SortedMap<MetaKey, CacheEntry<Map<String, String>>> tailmap = c.tailMap(prefix);
+            Iterator<Map.Entry<MetaKey, CacheEntry<Map<String, String>>>> iterator = tailmap.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<MetaKey, CacheEntry<Map<String, String>>> next = iterator.next();
+                if (next != null) {
+                    MetaKey key = next.getKey();
+                    CacheEntry<Map<String, String>> cacheEntry = next.getValue();
+                    if (key.beginsWith(prefix)) {
+                        results.put(key, new BlobMetadata(key.blobName, cacheEntry.value));
+                    } else {
+                        break;
+                    }
+                }
+            }
+            return results;
+        });
+    }
 
     @Override
     public void renameBlob(String domain, String volumeName, String oldName, String newName) throws IOException {
@@ -162,6 +178,7 @@ public class DeferredIoOps implements IoOps {
     public void deleteBlob(String domain, String volume, String blobName) throws IOException {
         MetaKey metaKey = new MetaKey(domain, volume, blobName);
         metadataCache.lock(metaKey, mc -> {
+                    io.deleteBlob(domain, volume, blobName);
                     mc.remove(metaKey);
                     objectCache.lock(new ObjectKey("", "", "", new ObjectOffset(0)), c -> {
                         HashSet<ObjectKey> keys = new HashSet<>(c.keySet());
@@ -172,7 +189,6 @@ public class DeferredIoOps implements IoOps {
                         }
                         return null;
                     });
-                    io.deleteBlob(domain, volume, blobName);
                     return null;
                 }
         );

@@ -6,7 +6,7 @@ import logging
 import sys
 import time
 import hashlib
-
+import types
 from FDS_ProtocolInterface.ttypes import *
 
 from thrift.transport import TTransport
@@ -21,6 +21,8 @@ from dm_api.ttypes import *
 from dm_api.constants import *
 import sm_api as smapi
 import sm_types as smtypes
+from sm_api.ttypes import *
+from sm_api.constants import *
 
 
 log = logging.getLogger(__name__)
@@ -32,11 +34,22 @@ log = logging.getLogger(__name__)
 #
 # @return Service message object 
 def newSvcMsgByTypeId(typeId):
-    typeStr = FDSPMsgTypeId._VALUES_TO_NAMES[typeId]
+    if type(typeId) == types.StringType:
+        typeStr=typeId
+    else:
+        typeStr = FDSPMsgTypeId._VALUES_TO_NAMES[typeId]
     thType = typeStr.replace('TypeId','')
-    log.info('th typestr: {}, typeid: {}'.format(typeStr, thType))
+    #log.info('th typestr: {}, typeid: {}'.format(typeStr, thType))
     thismodule = sys.modules[__name__]
-    thObj = getattr(thismodule, thType)()
+    thObj = None
+    if hasattr(thismodule, thType):
+        thObj = getattr(thismodule, thType)()
+    else:
+        thType = thType.replace('RspMsg','MsgRsp')
+        thObj = getattr(thismodule, thType)()
+
+    if thObj is None:
+        log.error('unable to find thrift object : {}'.format(thType))
     return thObj
 
 def getMsgTypeId(msg):
@@ -180,7 +193,7 @@ def newGetObjectMsg(volId, objectId):
 # @return 
 def newGetVolumeMetaDataMsg(volId):
     msg = GetVolumeMetadataMsg()
-    msg.volume_id = volId
+    msg.volumeId = volId
     return msg
 
 ##

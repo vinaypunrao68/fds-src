@@ -58,12 +58,14 @@ void issuePutBlobs(const fds_volid_t &volId, uint32_t numBlobs, std::list<Object
         txnId = dmTester->getNextTxnId();
         putBlobOnce->blob_name = dmTester->getBlobName(i);
         putBlobOnce->txId = txnId;
+        putBlobOnce->opId = i;
 
         auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce<DmIoUpdateCatOnce>(volId,
                                                                              putBlobOnce->blob_name,
                                                                              putBlobOnce->blob_version,
                                                                              putBlobOnce->dmt_version,
-                                                                             ++seq_id);
+                                                                             ++seq_id,
+                                                                             i);
         dmCommitBlobOnceReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(putBlobOnce->txId));
         dmCommitBlobOnceReq->cb =
             BIND_OBJ_CALLBACK(*cb.get(), DMCallback::handler, asyncHdr);

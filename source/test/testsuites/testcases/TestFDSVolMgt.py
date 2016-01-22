@@ -13,14 +13,11 @@ from fdslib.TestUtils import findNodeFromInv
 from fdslib.TestUtils import check_localhost
 # Module-specific requirements
 import sys
-import os
-import socket
-from fdscli.services.volume_service import VolumeService
 from fdscli.services.fds_auth import *
-from fdslib.TestUtils import create_fdsConf_file
 from fdslib.TestUtils import convertor
 from fdslib.TestUtils import get_volume_service
 from fdscli.model.fds_error import FdsError
+import re
 
 # This class contains the attributes and methods to test
 # volume creation.
@@ -61,7 +58,11 @@ class TestVolumeCreate(TestCase.FDSTestCase):
             newVolume = convertor(volume, fdscfg)
             status = vol_service.create_volume(newVolume)
 
-            if isinstance(status, FdsError):
+            if isinstance(status, FdsError) or type(status).__name__ == 'FdsError':
+                pattern = re.compile("500: The specified volume name (.*) already exists.")
+                if re.match(pattern, status.message):
+                    return True
+
                 self.log.error("Volume %s creation on %s returned status %s." %
                                (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name'], status))
                 return False
@@ -259,7 +260,7 @@ class TestVolumeDelete(TestCase.FDSTestCase):
         vol_service = get_volume_service(self,om_node.nd_conf_dict['ip'])
         status = vol_service.delete_volume(volume_id)
 
-        if isinstance(status, FdsError):
+        if isinstance(status, FdsError) or type(status).__name__ == 'FdsError':
             self.log.error("Delete volume %s on %s returned status as %s." %
                                (volume.name, om_node.nd_conf_dict['node-name'], status))
             return False

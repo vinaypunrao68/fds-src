@@ -17,7 +17,7 @@ version "3.2" do
   source md5: "0247b6a7b314f8edeb618159fa95f9cb"
 end
 
-source url: "http://gnu.mirrorcatalogs.com/parted/parted-#{version}.tar.xz"
+source url: "http://ftp.gnu.org/gnu/parted/parted-#{version}.tar.xz"
 
 relative_path "parted-#{version}"
 

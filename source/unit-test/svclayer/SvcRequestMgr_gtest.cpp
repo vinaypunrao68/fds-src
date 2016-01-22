@@ -19,7 +19,7 @@
 #include <testlib/TestFixtures.h>
 #include <util/fiu_util.h>
 #include <SvcMgrModuleProvider.hpp>
-#include <FakeSvcDomain.hpp>
+#include <testlib/FakeSvcDomain.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -44,30 +44,30 @@ std::string SvcRequestMgrTest::confFile;
 */
 TEST_F(SvcRequestMgrTest, epsvcrequest)
 {
-    int cnt = 2;
+    int cnt = 3;
     FakeSyncSvcDomain domain(cnt, confFile);
 
     /* dest service is up...request should succeed */
     SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter1;
-    domain.sendGetStatusEpSvcRequest(0, 1, svcStatusWaiter1);
+    domain.sendGetStatusEpSvcRequest(1, 2, svcStatusWaiter1);
     svcStatusWaiter1.await();
     ASSERT_EQ(svcStatusWaiter1.error, ERR_OK) << "Error: " << svcStatusWaiter1.error;
     ASSERT_EQ(svcStatusWaiter1.response->status, fpi::SVC_STATUS_ACTIVE)
         << "Status: " << svcStatusWaiter1.response->status;
 
     /* dest service is down...request should fail */
-    domain.kill(1);
+    domain.kill(2);
     SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter2;
-    domain.sendGetStatusEpSvcRequest(0, 1, svcStatusWaiter2);
+    domain.sendGetStatusEpSvcRequest(1, 2, svcStatusWaiter2);
     svcStatusWaiter2.await();
     ASSERT_TRUE(svcStatusWaiter2.error == ERR_SVC_REQUEST_INVOCATION ||
                 svcStatusWaiter2.error == ERR_SVC_REQUEST_TIMEOUT)
         << "Error: " << svcStatusWaiter2.error;
 
     /* dest service is up again...request should succeed */
-    domain.spawn(1);
+    domain.spawn(2);
     SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter3;
-    domain.sendGetStatusEpSvcRequest(0, 1, svcStatusWaiter3);
+    domain.sendGetStatusEpSvcRequest(1, 2, svcStatusWaiter3);
     svcStatusWaiter3.await();
     ASSERT_EQ(svcStatusWaiter3.error, ERR_OK)
         << "Error: " << svcStatusWaiter3.error;
@@ -81,14 +81,14 @@ TEST_F(SvcRequestMgrTest, epsvcrequest)
 */
 TEST_F(SvcRequestMgrTest, epsvcrequest_invalidep)
 {
-    int cnt = 2;
+    int cnt = 3;
     FakeSyncSvcDomain domain(cnt, confFile);
 
-    auto svcMgr1 = domain[0]->getSvcMgr();
+    auto svcMgr1 = domain[1]->getSvcMgr();
 
     SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
     auto svcStatusMsg = boost::make_shared<fpi::GetSvcStatusMsg>();
-    auto asyncReq = svcMgr1->getSvcRequestMgr()->newEPSvcRequest(FakeSvcDomain::INVALID_SVCUUID);
+    auto asyncReq = svcMgr1->getSvcRequestMgr()->newEPSvcRequest(FakeSvcFactory::INVALID_SVCUUID);
     asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::GetSvcStatusMsg), svcStatusMsg);
     asyncReq->setTimeoutMs(1000);
     asyncReq->onResponseCb(svcStatusWaiter.cb);
@@ -102,12 +102,12 @@ TEST_F(SvcRequestMgrTest, epsvcrequest_invalidep)
 /* Tests basic failover style request */
 TEST_F(SvcRequestMgrTest, failoversvcrequest)
 {
-    int cnt = 3;
+    int cnt = 4;
     FakeSyncSvcDomain domain(cnt, confFile);
 
     /* all endpoints are up...request should succeed */
     SvcRequestCbTask<FailoverSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
-    domain.sendGetStatusFailoverSvcRequest(0, {1,2}, svcStatusWaiter);
+    domain.sendGetStatusFailoverSvcRequest(1, {2,3}, svcStatusWaiter);
 
     svcStatusWaiter.await();
     ASSERT_EQ(svcStatusWaiter.error, ERR_OK) << "Error: " << svcStatusWaiter.error;
@@ -115,27 +115,27 @@ TEST_F(SvcRequestMgrTest, failoversvcrequest)
         << "Status: " << svcStatusWaiter.response->status;
 
     /* one endpoints is down...request should succeed */
-    domain.kill(1);
+    domain.kill(2);
     SvcRequestCbTask<FailoverSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter1;
-    domain.sendGetStatusFailoverSvcRequest(0, {1,2}, svcStatusWaiter1);
+    domain.sendGetStatusFailoverSvcRequest(1, {2,3}, svcStatusWaiter1);
     svcStatusWaiter1.await();
     ASSERT_EQ(svcStatusWaiter1.error, ERR_OK) << "Error: " << svcStatusWaiter1.error;
     ASSERT_EQ(svcStatusWaiter1.response->status, fpi::SVC_STATUS_ACTIVE)
         << "Status: " << svcStatusWaiter1.response->status;
 
     /* all endpoints are down. Request should fail */
-    domain.kill(2);
+    domain.kill(3);
     SvcRequestCbTask<FailoverSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter2;
-    domain.sendGetStatusFailoverSvcRequest(0, {1,2}, svcStatusWaiter2);
+    domain.sendGetStatusFailoverSvcRequest(1, {2,3}, svcStatusWaiter2);
     svcStatusWaiter2.await();
     ASSERT_TRUE(svcStatusWaiter2.error == ERR_SVC_REQUEST_INVOCATION ||
                 svcStatusWaiter2.error == ERR_SVC_REQUEST_TIMEOUT)
         << "Error: " << svcStatusWaiter2.error;
 
     /* One service is up. Request should succeed */
-    domain.spawn(2);
+    domain.spawn(3);
     SvcRequestCbTask<FailoverSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter3;
-    domain.sendGetStatusFailoverSvcRequest(0, {1,2}, svcStatusWaiter3);
+    domain.sendGetStatusFailoverSvcRequest(1, {2,3}, svcStatusWaiter3);
     svcStatusWaiter3.await();
     ASSERT_EQ(svcStatusWaiter3.error, ERR_OK) << "Error: " << svcStatusWaiter3.error;
     ASSERT_EQ(svcStatusWaiter3.response->status, fpi::SVC_STATUS_ACTIVE)
@@ -145,11 +145,11 @@ TEST_F(SvcRequestMgrTest, failoversvcrequest)
 /* Tests basic quorum reqesut */
 TEST_F(SvcRequestMgrTest, quorumsvcrequest)
 {
-    int cnt = 3;
+    int cnt = 4;
     FakeSyncSvcDomain domain(cnt, confFile);
 
     SvcRequestCbTask<QuorumSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
-    domain.sendGetStatusQuorumSvcRequest(0, {1,2}, svcStatusWaiter);
+    domain.sendGetStatusQuorumSvcRequest(1, {2,3}, svcStatusWaiter);
 
     svcStatusWaiter.await();
     ASSERT_EQ(svcStatusWaiter.error, ERR_OK) << "Error: " << svcStatusWaiter.error;
@@ -157,28 +157,28 @@ TEST_F(SvcRequestMgrTest, quorumsvcrequest)
         << "Status: " << svcStatusWaiter.response->status;
 
     /* Kill both services.  Quorum request should fail */
-    domain.kill(1);
     domain.kill(2);
+    domain.kill(3);
     SvcRequestCbTask<QuorumSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter1;
-    domain.sendGetStatusQuorumSvcRequest(0, {1,2}, svcStatusWaiter1);
+    domain.sendGetStatusQuorumSvcRequest(1, {2,3}, svcStatusWaiter1);
     svcStatusWaiter1.await();
     ASSERT_TRUE(svcStatusWaiter1.error == ERR_SVC_REQUEST_INVOCATION ||
                 svcStatusWaiter1.error == ERR_SVC_REQUEST_TIMEOUT)
         << "Error: " << svcStatusWaiter1.error;
 
     /* Bring one service up.  Quorum request should fail */
-    domain.spawn(1);
+    domain.spawn(2);
     SvcRequestCbTask<QuorumSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter2;
-    domain.sendGetStatusQuorumSvcRequest(0, {1,2}, svcStatusWaiter2);
+    domain.sendGetStatusQuorumSvcRequest(1, {2,3}, svcStatusWaiter2);
     svcStatusWaiter2.await();
     ASSERT_TRUE(svcStatusWaiter2.error == ERR_SVC_REQUEST_INVOCATION ||
                 svcStatusWaiter2.error == ERR_SVC_REQUEST_TIMEOUT)
         << "Error: " << svcStatusWaiter2.error;
 
     /* Bring both services up.  Quorum request should succeed */
-    domain.spawn(2);
+    domain.spawn(3);
     SvcRequestCbTask<QuorumSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter3;
-    domain.sendGetStatusQuorumSvcRequest(0, {1,2}, svcStatusWaiter3);
+    domain.sendGetStatusQuorumSvcRequest(1, {2,3}, svcStatusWaiter3);
     svcStatusWaiter3.await();
     ASSERT_EQ(svcStatusWaiter3.error, ERR_OK) << "Error: " << svcStatusWaiter3.error;
     ASSERT_EQ(svcStatusWaiter3.response->status, fpi::SVC_STATUS_ACTIVE)
@@ -186,14 +186,14 @@ TEST_F(SvcRequestMgrTest, quorumsvcrequest)
 }
 
 TEST_F(SvcRequestMgrTest, multiPrimarySvcRequest) {
-    int cnt = 4;
+    int cnt = 5;
     FakeSyncSvcDomain domain(cnt, confFile);
     MultiPrimarySvcRequestPtr req;
     /* Request with all services up should work */
     MultiPrimarySvcRequestCbTask svcStatusWaiter1;
     req = domain.sendGetStatusMultiPrimarySvcRequest(
-        0,
-        {1,2}, {3},
+        1,
+        {2,3}, {4},
         svcStatusWaiter1);
     svcStatusWaiter1.await();
     ASSERT_EQ(svcStatusWaiter1.error, ERR_OK) << "Error: " << svcStatusWaiter1.error;
@@ -201,11 +201,11 @@ TEST_F(SvcRequestMgrTest, multiPrimarySvcRequest) {
     ASSERT_EQ(req->getFailedOptionals().size(), 0);
 
     /* Request with optional service down should work */
-    domain.kill(3);
+    domain.kill(4);
     MultiPrimarySvcRequestCbTask svcStatusWaiter2;
     req = domain.sendGetStatusMultiPrimarySvcRequest(
-        0,
-        {1,2}, {3},
+        1,
+        {2,3}, {4},
         svcStatusWaiter2);
     svcStatusWaiter2.await();
     ASSERT_EQ(svcStatusWaiter2.error, ERR_OK) << "Error: " << svcStatusWaiter2.error;
@@ -213,12 +213,12 @@ TEST_F(SvcRequestMgrTest, multiPrimarySvcRequest) {
     ASSERT_EQ(req->getFailedOptionals().size(), 1);
 
     /* Request with one primary down should fail */
-    domain.spawn(3);
-    domain.kill(1);
+    domain.spawn(4);
+    domain.kill(2);
     MultiPrimarySvcRequestCbTask svcStatusWaiter3;
     req = domain.sendGetStatusMultiPrimarySvcRequest(
-        0,
-        {1,2}, {3},
+        1,
+        {2,3}, {4},
         svcStatusWaiter3);
     svcStatusWaiter3.await();
     ASSERT_EQ(svcStatusWaiter3.error, ERR_SVC_REQUEST_TIMEOUT)
@@ -236,14 +236,14 @@ struct FTCallback : concurrency::TaskStatus {
 };
 
 TEST_F(SvcRequestMgrTest, filetransfer) {
-    int cnt = 2;
+    int cnt = 3;
     FakeSyncSvcDomain domain(cnt, confFile);
     FTCallback cb;
     fds::net::FileTransferService::OnTransferCallback ftcb = std::bind(&FTCallback::handle, &cb, std::placeholders::_1, std::placeholders::_2);
-    domain[0]->filetransfer->send(domain.getFakeSvcUuid(1), "/bin/ls", "test.txt", ftcb, false);
+    domain[1]->filetransfer->send(domain.getFakeSvcUuid(2), "/bin/ls", "test.txt", ftcb, false);
     cb.await();
     cb.reset(1);
-    domain[0]->filetransfer->send(domain.getFakeSvcUuid(1), "/bin/ls", "test.txt", ftcb, false);
+    domain[1]->filetransfer->send(domain.getFakeSvcUuid(2), "/bin/ls", "test.txt", ftcb, false);
     cb.await();
 }
 
@@ -253,6 +253,7 @@ int main(int argc, char** argv) {
     opts.add_options()
         ("help", "produce help message")
         ("fds-root", po::value<std::string>()->default_value("/fds"), "root");
+    g_fdslog = new fds_log("SvcRequestMgrTest");
     SvcRequestMgrTest::init(argc, argv, opts);
     return RUN_ALL_TESTS();
 }

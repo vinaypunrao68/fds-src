@@ -32,12 +32,8 @@ namespace fds
             DiskLabel *dsk_master_label_mtx();
             void dsk_read_label(PmDiskObj::pointer disk);
 
-            /**
-             * @return true if the majority of labels read from the inventory have valid
-             * FDS labels.
-             */
-            bool dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat);
-            void dsk_rec_label_map(PmDiskObj::pointer disk, int idx);
+            void dsk_reconcile_label(bool dsk_need_simulation, NodeUuid node_uuid);
+            bool dsk_rec_label_map(PmDiskObj::pointer disk, int idx);
 
             // Clear the list of disk labels
             void clear();

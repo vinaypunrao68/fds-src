@@ -19,8 +19,8 @@
 
 namespace fds {
 
-AmTxManager::AmTxManager(AmDataProvider* prev, CommonModuleProviderIf *modProvider)
-    : AmDataProvider(prev, new AmCache(this, modProvider))
+AmTxManager::AmTxManager(AmDataProvider* prev)
+    : AmDataProvider(prev, new AmCache(this))
 {
 }
 
@@ -164,6 +164,20 @@ AmTxManager::updateStagedBlobDesc(const BlobTxId &txId,
     return ERR_OK;
 }
 
+void
+AmTxManager::abortOnError(AmRequest *amReq, Error const error) {
+    // If this failed, implicitly abort the tx, Xdi won't
+    if (ERR_OK != error) {
+        auto txReq = dynamic_cast<AmTxReq*>(amReq);
+        auto abort_req = new AbortBlobTxReq(amReq->io_vol_id,
+                                            amReq->volume_name,
+                                            amReq->getBlobName(),
+                                            txReq->tx_desc,
+                                            nullptr);
+        abortBlobTx(abort_req);
+    }
+}
+
 Error
 AmTxManager::commitTx(const BlobTxId &txId, fds_uint64_t const blobSize)
 {
@@ -184,7 +198,7 @@ AmTxManager::startBlobTx(AmRequest *amReq) {
 void
 AmTxManager::startBlobTxCb(AmRequest * amReq, Error const error) {
     auto blobReq = static_cast<StartBlobTxReq*>(amReq);
-    StartBlobTxCallback::ptr cb = SHARED_DYN_CAST(StartBlobTxCallback, blobReq->cb);
+    auto cb = std::dynamic_pointer_cast<StartBlobTxCallback>(blobReq->cb);
     auto err = error;
     if (err.ok()) {
         // Update callback and record new open transaction
@@ -216,6 +230,7 @@ AmTxManager::commitBlobTxCb(AmRequest * amReq, Error const error) {
         commitTx(*(blobReq->tx_desc), blobReq->final_blob_size);
     } else {
         LOGERROR << "Transaction failed to commit: " << error;
+        abortOnError(amReq, error);
     }
     AmDataProvider::commitBlobTxCb(blobReq, error);
 }
@@ -223,20 +238,13 @@ AmTxManager::commitBlobTxCb(AmRequest * amReq, Error const error) {
 void
 AmTxManager::abortBlobTx(AmRequest *amReq) {
     auto blobReq = static_cast<AbortBlobTxReq*>(amReq);
-    auto err = getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+    auto const& tx_desc = *(blobReq->tx_desc);
+    auto err = getTxDmtVersion(tx_desc, &(blobReq->dmt_version));
     if (!err.ok()) {
         return AmDataProvider::abortBlobTxCb(amReq, err);
     }
+    abortTx(tx_desc);
     AmDataProvider::abortBlobTx(amReq);
-}
-
-void
-AmTxManager::abortBlobTxCb(AmRequest * amReq, Error const error) {
-    auto blobReq = static_cast<AbortBlobTxReq*>(amReq);
-    if (ERR_OK != abortTx(*(blobReq->tx_desc))) {
-        LOGWARN << "Transaction unknown";
-    }
-    AmDataProvider::abortBlobTxCb(blobReq, error);
 }
 
 void
@@ -248,6 +256,12 @@ AmTxManager::setBlobMetadata(AmRequest *amReq) {
         return AmDataProvider::setBlobMetadataCb(amReq, err);
     }
     AmDataProvider::setBlobMetadata(amReq);
+}
+
+void
+AmTxManager::setBlobMetadataCb(AmRequest *amReq, Error const error) {
+    abortOnError(amReq, error);
+    AmDataProvider::setBlobMetadataCb(amReq, error);
 }
 
 void
@@ -267,6 +281,12 @@ AmTxManager::deleteBlob(AmRequest *amReq) {
 }
 
 void
+AmTxManager::deleteBlobCb(AmRequest *amReq, Error const error) {
+    abortOnError(amReq, error);
+    AmDataProvider::deleteBlobCb(amReq, error);
+}
+
+void
 AmTxManager::renameBlob(AmRequest *amReq) {
     auto blobReq = static_cast<RenameBlobReq*>(amReq);
     LOGDEBUG << "Renaming blob: " << blobReq->getBlobName()
@@ -274,6 +294,12 @@ AmTxManager::renameBlob(AmRequest *amReq) {
     blobReq->tx_desc.reset(new BlobTxId(randNumGen->genNumSafe()));
     blobReq->dest_tx_desc.reset(new BlobTxId(randNumGen->genNumSafe()));
     AmDataProvider::renameBlob(amReq);
+}
+
+void
+AmTxManager::renameBlobCb(AmRequest *amReq, Error const error) {
+    abortOnError(amReq, error);
+    AmDataProvider::renameBlobCb(amReq, error);
 }
 
 void
@@ -293,7 +319,7 @@ AmTxManager::getBlob(AmRequest *amReq) {
 
     // Create buffers for return objects, we don't know how many till we have
     // a valid descriptor
-    GetObjectCallback::ptr cb = SHARED_DYN_CAST(GetObjectCallback, amReq->cb);
+    auto cb = std::dynamic_pointer_cast<GetObjectCallback>(amReq->cb);
     cb->return_buffers = boost::make_shared<std::vector<boost::shared_ptr<std::string>>>();
 
     // FIXME(bszmyd): Sun 26 Apr 2015 04:41:12 AM MDT
@@ -367,6 +393,8 @@ void
 AmTxManager::putBlobCb(AmRequest* amReq, Error const error) {
     if (error.ok()) {
         applyPut(static_cast<PutBlobReq *>(amReq));
+    } else {
+        abortOnError(amReq, error);
     }
     AmDataProvider::putBlobCb(amReq, error);
 }

@@ -24,6 +24,9 @@
 #include <fdsp/svc_api_types.h>
 
 namespace fds {
+
+thread_local StringPtr PlatNetSvcHandler::threadLocalPayloadBuf;
+
 PlatNetSvcHandler::PlatNetSvcHandler(CommonModuleProviderIf *provider)
 : HasModuleProvider(provider),
 Module("PlatNetSvcHandler")
@@ -86,6 +89,12 @@ void PlatNetSvcHandler::setTaskExecutor(SynchronizedTaskExecutor<uint64_t>  *tas
     taskExecutor_ = taskExecutor;
 }
 
+void PlatNetSvcHandler::updateHandler(const fpi::FDSPMsgTypeId msgId,
+                                      const FdspMsgHandler &handler)
+{
+    asyncReqHandlers_[msgId] = handler;
+}
+
 /**
  * @brief
  *
@@ -123,7 +132,7 @@ void PlatNetSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::Async
     }
 
     fds_assert(state == ACCEPT_REQUESTS);
-    LOGDEBUG << logString(*header);
+    // LOGDEBUG << logString(*header);
     try
     {
         /* Deserialize the message and invoke the handler.  Deserialization is performed
@@ -366,6 +375,12 @@ void PlatNetSvcHandler::resetCounters(const std::string& id) // NOLINT
 {
 }
 
+void PlatNetSvcHandler::getStateInfo(std::string & _return,  // NOLINT
+                                     const std::string& id)
+{
+}
+
+
 void PlatNetSvcHandler::getFlags(std::map<std::string, int64_t> & _return,
                                  const int32_t nullarg)  // NOLINT
 {
@@ -450,6 +465,22 @@ void PlatNetSvcHandler::resetCounters(boost::shared_ptr<std::string>& id)
         MODULEPROVIDER()->get_cntrs_mgr()->reset();
     }
 }
+
+/**
+* @brief Returns state as json from StateProvider identified by id
+*
+* @param _return
+* @param id
+*/
+void PlatNetSvcHandler::getStateInfo(std::string & _return,
+                                     boost::shared_ptr<std::string>& id) 
+{
+    if (!MODULEPROVIDER()) {
+        return;
+    }
+    MODULEPROVIDER()->get_cntrs_mgr()->getStateInfo(*id, _return);
+}
+
 /**
  * For setting a flag dynamically
  * @param id
@@ -513,6 +544,12 @@ void PlatNetSvcHandler::getFlags(std::map<std::string, int64_t> & _return,  // N
  */
 bool PlatNetSvcHandler::setFault(boost::shared_ptr<std::string>& cmdline)  // NOLINT
 {
+    // exception case for rotate logs
+    if (*cmdline == "log.rotate") {
+        LOGGERPTR->rotate();
+        return true;
+    }
+
     boost::char_separator<char>                       sep(", ");
     /* Parse the cmd line */
     boost::tokenizer<boost::char_separator<char> >    toknzr(*cmdline, sep);

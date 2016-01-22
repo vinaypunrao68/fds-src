@@ -9,6 +9,7 @@
 #include <fds_process.h>
 #include <fdsp/svc_types_types.h>
 #include <net/SvcServer.h>
+#include <net/PlatNetSvcHandler.h>
 
 /* Forward declarations */
 namespace FDS_ProtocolInterface {
@@ -22,8 +23,6 @@ namespace fds {
 /* Forward declarations */
 class FdsProcess;
 struct SvcMgr; 
-class PlatNetSvcHandler;
-using PlatNetSvcHandlerPtr = boost::shared_ptr<PlatNetSvcHandler>;
 
 /**
 * @brief Base class for all Services
@@ -35,17 +34,25 @@ using PlatNetSvcHandlerPtr = boost::shared_ptr<PlatNetSvcHandler>;
 struct SvcProcess : FdsProcess, SvcServerListener {
     SvcProcess();
     SvcProcess(int argc, char *argv[],
-                   const std::string &def_cfg_file,
-                   const std::string &base_path,
-                   const std::string &def_log_file,
-                   fds::Module **mod_vec);
+               const std::string &def_cfg_file,
+               const std::string &base_path,
+               const std::string &def_log_file,
+               fds::Module **mod_vec);
     SvcProcess(int argc, char *argv[],
-                   const std::string &def_cfg_file,
-                   const std::string &base_path,
-                   const std::string &def_log_file,
-                   fds::Module **mod_vec,
-                   PlatNetSvcHandlerPtr handler,
-                   fpi::PlatNetSvcProcessorPtr processor);
+               const std::string &def_cfg_file,
+               const std::string &base_path,
+               const std::string &def_log_file,
+               fds::Module **mod_vec,
+               PlatNetSvcHandlerPtr handler,
+               fpi::PlatNetSvcProcessorPtr processor);
+    SvcProcess(int argc, char *argv[],
+               bool initAsModule,
+               const std::string &def_cfg_file,
+               const std::string &base_path,
+               const std::string &def_log_file,
+               fds::Module **mod_vec,
+               PlatNetSvcHandlerPtr handler,
+               fpi::PlatNetSvcProcessorPtr processor);
     virtual ~SvcProcess();
 
     /**
@@ -64,12 +71,21 @@ struct SvcProcess : FdsProcess, SvcServerListener {
     *
     * @param argc
     * @param argv[]
+    * @param initAsModule
     * @param def_cfg_file
     * @param base_path
     * @param def_log_file
     * @param mod_vec
     * @param processor
     */
+    void init(int argc, char *argv[],
+              bool initAsModule,
+              const std::string &def_cfg_file,
+              const std::string &base_path,
+              const std::string &def_log_file,
+              fds::Module **mod_vec,
+              PlatNetSvcHandlerPtr handler,
+              fpi::PlatNetSvcProcessorPtr processor);
     void init(int argc, char *argv[],
               const std::string &def_cfg_file,
               const std::string &base_path,
@@ -88,7 +104,7 @@ struct SvcProcess : FdsProcess, SvcServerListener {
               fds::Module **mod_vec) {
         auto handler = boost::make_shared<Handler>(this);
         auto processor = boost::make_shared<Processor>(handler);
-        init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec,
+        init(argc, argv, false, def_cfg_file, base_path, def_log_file, mod_vec,
                 handler, processor);
     }
 
@@ -122,7 +138,14 @@ struct SvcProcess : FdsProcess, SvcServerListener {
     /* SvcServerListener notifications */
     virtual void notifyServerDown(const Error &e) override;
 
+    void updateMsgHandler(const fpi::FDSPMsgTypeId msgId,
+                          const PlatNetSvcHandler::FdspMsgHandler &handler);
+
  protected:
+    void initAsModule_(int argc, char *argv[],
+                       const std::string &def_cfg_file,
+                       const std::string &base_path,
+                       fds::Module **mod_vec);
     /**
     * @brief Sets up configdb used for persistence
     */

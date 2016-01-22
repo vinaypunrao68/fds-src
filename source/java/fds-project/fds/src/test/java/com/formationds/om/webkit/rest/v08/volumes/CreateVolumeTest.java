@@ -4,18 +4,10 @@
 
 package com.formationds.om.webkit.rest.v08.volumes;
 
-import com.formationds.client.v08.model.DataProtectionPolicyPreset;
-import com.formationds.client.v08.model.MediaPolicy;
-import com.formationds.client.v08.model.QosPolicy;
-import com.formationds.client.v08.model.Size;
-import com.formationds.client.v08.model.SizeUnit;
-import com.formationds.client.v08.model.Tenant;
-import com.formationds.client.v08.model.Volume;
-import com.formationds.client.v08.model.VolumeAccessPolicy;
-import com.formationds.client.v08.model.VolumeSettingsObject;
-import com.formationds.client.v08.model.VolumeState;
-import com.formationds.client.v08.model.VolumeStatus;
+import com.formationds.client.v08.model.*;
 import com.formationds.protocol.ApiException;
+import com.google.common.base.CharMatcher;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -111,5 +103,24 @@ public class CreateVolumeTest
         validVolume.setQosPolicy( new QosPolicy( 3, 1500, 0 ) );
         ( new CreateVolume( null, null ) ).validateQOSSettings( validVolume,
                                                                 true );
+    }
+
+    @Test
+    public void testVolumeNameWithSpacesRegEx()
+    {
+        final String volumeName = "This Volume Has Spaces in the name";
+        Assert.assertTrue( CharMatcher.WHITESPACE.matchesAnyOf( volumeName ) );
+    }
+    @Test
+    public void testVolumeNameWithoutSpacesRegEx()
+    {
+        final String volumeName = "TestVolume_Name";
+        Assert.assertFalse( CharMatcher.WHITESPACE.matchesAnyOf( volumeName ) );
+    }
+    @Test
+    public void testVolumeNameWithDNSStyleNamesRegEx()
+    {
+        final String volumeName = "c3po.s3.formationds.com";
+        Assert.assertFalse( CharMatcher.WHITESPACE.matchesAnyOf( volumeName ) );
     }
 }

@@ -7,6 +7,7 @@ user_incl_dir  :=                                \
 
 platform_cpp  :=                        \
                  platform_manager.cpp   \
+                 flap_detector.cpp      \
                  svc_handler.cpp        \
                  file_system_table.cpp  \
                  valgrind.cpp           \
@@ -24,7 +25,6 @@ fds_plat_lib_cpp :=                              \
                     domain_resources.cpp         \
                     platform_process.cpp         \
                     platform-rpc.cpp             \
-                    om_node_agent_evt.cpp        \
                     om_node_agent_evt.cpp        \
                     disk_inventory.cpp           \
                     node_inventory.cpp           \
@@ -59,6 +59,7 @@ fds_plat_lib_cpp :=                              \
 
 user_cpp := $(platfrom_cpp) $(fds_plat_lib_cpp)
 user_ar_libs := fds-pm-lib fds-plat-lib fds-disk-lib
+user_so_libs := fds-pm-lib fds-disk-lib fds-plat-lib
 fds-pm-lib   := $(platform_cpp)
 fds-plat-lib := $(fds_plat_lib_cpp)
 fds-disk-lib := $(disk_cpp)

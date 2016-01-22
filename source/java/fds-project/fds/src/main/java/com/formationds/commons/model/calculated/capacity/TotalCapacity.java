@@ -25,7 +25,7 @@ extends Calculated {
 	}
 
 	/**
-	 * @param toFull the {@link java.lang.Integer}  representing the duration
+	 * @param capacity the {@link java.lang.Integer}  representing the duration
 	 *               until capacity is 100% (full)
 	 */
 	public void setTotalCapacity( final Double capacity ) {

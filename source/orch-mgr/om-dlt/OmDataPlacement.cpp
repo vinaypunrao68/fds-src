@@ -32,7 +32,8 @@ DataPlacement::DataPlacement()
           prevDlt(NULL),
           commitedDlt(NULL),
           newDlt(NULL),
-          sendMigAbortAfterRestart(false){
+          numOfFailures(0)
+{
     curClusterMap = &gl_OMClusMapMod;
     numOfPrimarySMs = 0;
 }
@@ -122,6 +123,7 @@ DataPlacement::computeDlt() {
                      depth,
                      version,
                      true);
+
     err = placeAlgo->computeNewDlt(curClusterMap,
                                    commitedDlt,
                                    newDlt, getNumOfPrimarySMs());
@@ -479,6 +481,8 @@ DataPlacement::persistCommitedTargetDlt() {
                 << "[" << commitedDlt->getVersion() << "]";
     }
 
+    LOGNORMAL << "DLT version: " << commitedDlt->getVersion();
+
     // TODO(prem) do we need to remove the old dlt from the config db ??
     // oldVersion ?
 
@@ -601,6 +605,23 @@ DataPlacement::validateDltOnDomainActivate(const NodeUuidSet& sm_services) {
     return err;
 }
 
+
+
+void DataPlacement::generateNodeTokenMapOnRestart()
+{
+    LOGDEBUG << "Generating token map on OM restart";
+
+    if ( commitedDlt == NULL ) {
+        if ( newDlt != NULL ) {
+            newDlt->generateNodeTokenMap();
+        } else {
+            LOGWARN << "No values for committed or new DLT, unable to generate node token map";
+        }
+    } else {
+        commitedDlt->generateNodeTokenMap();
+    }
+}
+
 Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services,
                                           const NodeUuidSet& deployed_sm_services) {
     Error err(ERR_OK);
@@ -628,6 +649,7 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services,
             // i.e. only contains node uuis that are in deployed_sm_services
             // set and does not contain any zeroes, etc.
             err = dlt->verify(deployed_sm_services);
+
             if (err.ok()) {
                 LOGNOTIFY << "Current DLT in config DB is valid!";
                 // we will set newDLT because we don't know yet if
@@ -658,11 +680,12 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services,
         LOGNOTIFY << "OM went down in the middle of migration. Will throw away "
                   << "persisted  target DLT and re-compute it again if discovered "
                   << "SMs re-register";
+
         if (!configDB->setDltType(0, "next")) {
             LOGWARN << "unable to reset DLT target version in configDB";
         }
 
-        setAbortParams(true, nextVersion);
+        DltDmtUtil::getInstance()->setSMAbortParams(true, nextVersion);
 
     } else {
         if (0 == nextVersion) {
@@ -681,35 +704,28 @@ void DataPlacement::setConfigDB(kvstore::ConfigDB* configDB)
     this->configDB = configDB;
 }
 
-
-void DataPlacement::setAbortParams(bool abort, fds_int64_t version)
+void DataPlacement::clearTargetDlt()
 {
-    sendMigAbortAfterRestart = abort;
-    targetVersionForAbort    = version;
+    LOGDEBUG << "Clearing out target DLT in configDB";
 
-}
-
-void DataPlacement::clearAbortParams()
-{
-    sendMigAbortAfterRestart = false;
-    targetVersionForAbort    = 0;
-
-    // We prevented this from being cleared out during om_load_state
-    // so do it now
     if (!configDB->setDltType(0, "next")) {
         LOGWARN << "Failed to unset target DLT in config db";
     }
     newDlt = NULL;
 }
 
-bool DataPlacement::isAbortAfterRestartTrue()
+fds_bool_t DataPlacement::canRetryMigration()
 {
-    return sendMigAbortAfterRestart;
-}
+    fds_bool_t ret = false;
 
-fds_uint64_t DataPlacement::getTargetVersionForAbort()
-{
-    return targetVersionForAbort;
+    // For now, maximize retries at 3. Keeping consistent with DM retries
+
+    if (numOfFailures < 4)
+    {
+        ret = true;
+    }
+
+    return ret;
 }
 
 }  // namespace fds

@@ -4,9 +4,12 @@
 
 package com.formationds.om.repository.helper;
 
+import com.formationds.client.v08.model.Size;
+import com.formationds.client.v08.model.SizeUnit;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.model.Datapoint;
+import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Series;
 import com.formationds.commons.model.Statistics;
 import com.formationds.commons.model.abs.Calculated;
@@ -26,8 +29,10 @@ import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.StatOperation;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.commons.util.DateTimeUtil;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.redis.RedisSingleton;
 import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
@@ -35,7 +40,7 @@ import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
-import com.formationds.util.SizeUnit;
+
 import org.apache.commons.math3.stat.regression.SimpleRegression;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
@@ -48,6 +53,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
@@ -143,45 +149,56 @@ public class QueryHelper {
                 calculatedList.add( deDupRatio() );
 
                 // let's get the physical bytes consumed.
-            	Series physicalBytes = series.stream()
-	            		.filter( ( s ) -> { 
-	            			return s.getType().equals( Metrics.PBYTES.name() );
-	            		})
-		            	.findFirst().orElse( null );
-            	
-            	Double bytesConsumed = 0.0;
-            	
-            	if ( physicalBytes != null ) {
-            		bytesConsumed = physicalBytes.getDatapoints()
-            								     .get( physicalBytes.getDatapoints().size()-1 )
-            								     .getY();
-            	}
-                
-                final CapacityConsumed consumed = new CapacityConsumed();
-                consumed.setTotal( bytesConsumed );
-                calculatedList.add( consumed );
+                Series physicalBytes = series.stream()
+                                             .filter( ( s ) -> Metrics.UBYTES.matches( s.getType( ) ) )
+                                             .findFirst()
+                                             .orElse( null );
 
                 // only the FDS admin is allowed to get data about the capacity limit
                 // of the system
-                if ( authorizer.userFor( token ).isIsFdsAdmin() ){
-                	
+                if ( authorizer.userFor( token ).isIsFdsAdmin() ) {
+
 	                // TODO finish implementing -- once the platform has total system capacity
-	                final Double systemCapacity = Long.valueOf( SizeUnit.TB.totalBytes( 1 ) )
-	                                                  .doubleValue();
-//		                calculatedList.add( percentageFull( consumed, systemCapacity ) );
-	                
+                	Long capacity = SingletonConfigAPI.instance().api().getDiskCapacityTotal();
+                    logger.trace( "Disk Capacity Total::{}", capacity );
+                    final Size systemCapacity;
+                    if( FdsFeatureToggles.NEW_SUPERBLOCK.isActive( ) )
+                    {
+                        // normalize to bytes
+                        systemCapacity =
+                            Size.of( Size.gb( capacity ).getValue( SizeUnit.B ),
+                                     SizeUnit.B );
+                    }
+                    else
+                    {
+                        // normalize to bytes
+                        systemCapacity =
+                            Size.of( Size.mb( capacity ).getValue( SizeUnit.B ),
+                                     SizeUnit.B );
+                    }
+
+                    final Double systemCapacityInBytes = systemCapacity.getValue( SizeUnit.B ).doubleValue();
 	                TotalCapacity totalCap = new TotalCapacity();
-	                totalCap.setTotalCapacity( systemCapacity );
+	                totalCap.setTotalCapacity( systemCapacityInBytes );
 	                calculatedList.add( totalCap );
-	            	
+
 	            	if ( physicalBytes != null ){
-	            		calculatedList.add( toFull( physicalBytes, systemCapacity ) );
+	            		calculatedList.add( toFull( physicalBytes, systemCapacityInBytes ) );
 
 	            	}
 	            	else {
 	            		logger.info( "There were no physical bytes reported for the system.  Cannot calculate time to full.");
 	            	}
                 }
+
+                Double bytesConsumed = RedisSingleton.INSTANCE
+                                                     .api()
+                                                     .getDomainUsedCapacity()
+                                                     .getValue( )
+                                                     .doubleValue();
+                final CapacityConsumed consumed = new CapacityConsumed();
+                consumed.setTotal( bytesConsumed );
+                calculatedList.add( consumed );
 
             } else if ( isPerformanceBreakdownQuery( query.getSeriesType() ) ) {
             	
@@ -197,10 +214,12 @@ public class QueryHelper {
             } else {
             	
                 // individual stats
+
                 query.getSeriesType()
                      .stream()
                      .forEach( ( m ) ->
                          series.addAll( otherQueries( originated,
+                        		 					  query.getRange(),
                                                       m ) ) );
             }
 
@@ -312,6 +331,7 @@ public class QueryHelper {
      */
     protected List<Series> otherQueries(
         final Map<String, List<IVolumeDatapoint>> organized,
+        final DateRange dateRange,
         final Metrics metrics ) {
         final List<Series> series = new ArrayList<>();
 
@@ -326,8 +346,7 @@ public class QueryHelper {
             s.setType( metrics.name() );
             volumeDatapoints.stream()
                             .distinct()
-                            .filter( ( p ) -> metrics.key()
-                                                     .equalsIgnoreCase( p.getKey() ) )
+                            .filter( ( p ) -> metrics.matches( p.getKey() ) )
                             .forEach( ( p ) -> {
                                 final Datapoint dp =
                                     new DatapointBuilder().withX( (double)p.getTimestamp() )
@@ -336,6 +355,33 @@ public class QueryHelper {
                                 s.setDatapoint( dp );
                                 s.setContext( new Volume( Long.parseLong( p.getVolumeId() ), p.getVolumeName() ) );
                             } );
+            
+            // get earliest data point
+            OptionalLong oLong = volumeDatapoints.stream()
+            		.filter( ( p ) -> metrics.matches( p.getKey() ) )
+            		.mapToLong( ( vdp ) -> vdp.getTimestamp() )
+            		.min();
+            
+            if ( oLong.isPresent() && oLong.getAsLong() > dateRange.getStart() && volumeDatapoints.size() > 0 ){
+            	
+            	String volumeId = volumeDatapoints.get( 0 ).getVolumeId();
+            	String volumeName = volumeDatapoints.get( 0 ).getVolumeName();
+            	String metricKey = volumeDatapoints.get( 0 ).getKey();
+            	
+	            // a point just earlier than the first real point. ... let's do one second
+            	VolumeDatapoint justBefore = new VolumeDatapoint( oLong.getAsLong() - 1, volumeId, volumeName, metricKey, 0.0 );
+            	VolumeDatapoint theStart = new VolumeDatapoint( dateRange.getStart(), volumeId, volumeName, metricKey, 0.0 );
+            	
+            	s.setDatapoint( new DatapointBuilder().withX( (double)justBefore.getTimestamp() )
+            										  .withY( justBefore.getValue() )
+            										  .build());
+	        	
+	        	// at start time
+	        	s.setDatapoint( new DatapointBuilder().withX( (double)theStart.getTimestamp() )
+	        										  .withY( theStart.getValue() )
+	        										  .build() );
+            }
+        	
             series.add( s );
         } );
 
@@ -375,7 +421,7 @@ public class QueryHelper {
  * 
  * THIS IS ALSO IN ListVolumes.java
  */                        
-                        .filter( v-> !v.getName().startsWith( "SYSTEM_VOLUME" )  )
+                        .filter( v-> !v.getName().startsWith( "SYSTEM_" )  )
                         .map(vd -> {
 
                             String volumeId = "";
@@ -460,7 +506,12 @@ public class QueryHelper {
     	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.HDD_GETS.name() ) )
         	.findFirst().get();
 
-    	Double getsHdd = gets.getDatapoints().stream().mapToDouble( Datapoint::getY ).sum();
+//    	Double getsHdd = gets.getDatapoints().stream().mapToDouble( Datapoint::getY ).sum();
+    	Double getsHdd = RedisSingleton.INSTANCE
+                                       .api()
+                                       .getDomainUsedCapacity()
+                                       .getValue( SizeUnit.B )
+                                       .doubleValue();
 
     	Series getsssd = series.stream().filter( s -> s.getType().equals( Metrics.SSD_GETS.name() ) )
         		.findFirst().get();
@@ -469,8 +520,16 @@ public class QueryHelper {
 
     	Double sum = getsHdd + getsSsd;
 
-    	long ssdPerc = Math.round( (getsSsd / sum) * 100.0 );
-    	long hddPerc = Math.round( (getsHdd / sum) * 100.0 );
+    	long ssdPerc = 0L;
+    	long hddPerc = 0L;
+
+    	if ( sum > 0 ){
+    		ssdPerc = Math.round( (getsSsd / sum) * 100.0 );
+    		hddPerc = Math.round( (getsHdd / sum) * 100.0 );
+    	}
+
+        logger.trace( "Tiering Percentage::HDD Capacity: {} ({}%)::SDD Capacity: {} ({}%)::Sum: {}",
+                      getsHdd, hddPerc, getsSsd, ssdPerc, sum );
 
     	PercentageConsumed ssd = new PercentageConsumed();
     	ssd.setPercentage( (double)ssdPerc );
@@ -513,7 +572,7 @@ public class QueryHelper {
      * @return Returns {@link CapacityFull}
      */
     public CapacityFull percentageFull( final CapacityConsumed consumed,
-                                           final Double systemCapacity ) {
+                                        final Double systemCapacity ) {
         final CapacityFull full = new CapacityFull();
         full.setPercentage( ( int ) Calculation.percentage( consumed.getTotal(),
                                                             systemCapacity ) );

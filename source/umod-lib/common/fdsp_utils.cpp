@@ -15,29 +15,31 @@
 
 using boost::replace_all;
 /**
- * NOTE : use this declaration in your cpp along with includes outside fds namsepace
+ * NOTE : use this declaration in your cpp along with includes outside fds namespace
  * like DECL_EXTERN_OUTPUT_FUNCS(ActiveObjectsMsg);
  */
 
+using boss = boost::log::formatting_ostream;
+
 #define DEFINE_OUTPUT_FUNCS(MSGTYPE)                                    \
-    boost::log::formatting_ostream& operator<<(boost::log::formatting_ostream& out, const fpi::MSGTYPE &msg); \
-    boost::log::formatting_ostream& operator<<(boost::log::formatting_ostream& out, const fpi::MSGTYPE* msg) { \
+    boss& operator<<(boss& out, const fpi::MSGTYPE &msg);               \
+    boss& operator<<(boss& out, const fpi::MSGTYPE* msg) {              \
         if (msg) out << (*msg);                                         \
         else out << "[ " #MSGTYPE " msg is NULL ]";                     \
         return out;                                                     \
     }                                                                   \
-    boost::log::formatting_ostream& operator<<(boost::log::formatting_ostream& out, const SHPTR<fpi::MSGTYPE> &msg) { \
+    boss& operator<<(boss& out, const SHPTR<fpi::MSGTYPE> &msg) {       \
         if (msg.get()) out << (*msg);                                   \
         else out << "[ " #MSGTYPE " msg is NULL ]";                     \
         return out;                                                     \
     }                                                                   \
     std::string logString(const fpi::MSGTYPE &msg) {                    \
-        boost::log::formatting_ostream oss;                             \
+        boss oss;                                                       \
         std::string s; oss.attach(s);                                   \
         oss << msg;                                                     \
         return oss.str();                                               \
     }                                                                   \
-    boost::log::formatting_ostream& operator<<(boost::log::formatting_ostream& out, const fpi::MSGTYPE &msg)
+    boss& operator<<(boss& out, const fpi::MSGTYPE &msg)
 
 namespace fds {
 
@@ -139,6 +141,13 @@ std::string logString(const fpi::OpenVolumeMsg &openVol)
     return oss.str();
 }
 
+std::string logString(const fpi::VolumeGroupInfoUpdateCtrlMsg& msg)
+{
+    std::ostringstream oss;
+    oss << " VolumeGroupInfoUpdateCtrlMsg Vol Id: " << msg.group.groupId;
+    return oss.str();
+}
+
 std::string logString(const fpi::CloseVolumeMsg &closeVol)
 {
     std::ostringstream oss;
@@ -154,14 +163,22 @@ std::string logString(const fpi::ReloadVolumeMsg & vol) {
 
 std::string logString(const fpi::CtrlNotifyDMStartMigrationMsg & vol) {
     std::ostringstream oss;
-    oss << " CtrlNotifyDMStartMigrationMsg Vol Id: ";
+    oss << " CtrlNotifyDMStartMigrationMsg.  DMT version:  "<< vol.DMT_version
+        << " # of volumes: " << vol.migrations.size();
+    return oss.str();
+}
+
+std::string logString(const fpi::CtrlNotifyFinishMigrationMsg &msg)
+{
+    std::ostringstream oss;
+    oss << " CtrlNotifyFinishMigrationMsg volId:  "<< msg.volume_id;
     return oss.str();
 }
 
 std::string logString(const fpi::CtrlNotifyInitialBlobFilterSetMsg &msg)
 {
 	std::ostringstream oss;
-	oss << " CtrlNotifyInitialBlobFilterSetMsg Vol Id: " << msg.volumeId;
+	oss << " CtrlNotifyInitialBlobFilterSetMsg Vol Id: " << msg.volume_id;
 	return oss.str();
 }
 
@@ -230,7 +247,8 @@ std::string logString(const fpi::UpdateCatalogMsg& updCat)
 {
     std::ostringstream oss;
     oss << " UpdateCatalogMsg TxId:" <<  updCat.txId
-        << " volume_id" << updCat.volume_id << " blob_name: "<< updCat.blob_name;
+        << " volume_id" << updCat.volume_id << " blob_name: "<< updCat.blob_name
+        << " opid: " << updCat.opId;
     return oss.str();
 }
 
@@ -245,7 +263,8 @@ std::string logString(const fpi::UpdateCatalogOnceMsg& updCat)
 {
     std::ostringstream oss;
     oss << " UpdateCatalogOnceMsg TxId:" << updCat.txId
-        << " volume_id" << updCat.volume_id << " blob_name: "<< updCat.blob_name;
+        << " volume_id" << updCat.volume_id << " blob_name: "<< updCat.blob_name
+        << " opid: " << updCat.opId;
     return oss.str();
 }
 
@@ -260,7 +279,8 @@ std::string logString(const fpi::StartBlobTxMsg& stBlobTx)
 {
     std::ostringstream oss;
     oss << " StartBlobTxMs TxId:" << stBlobTx.txId
-        << " volume_id" << stBlobTx.volume_id << " blob_name: "<< stBlobTx.blob_name;
+        << " volume_id" << stBlobTx.volume_id << " blob_name: "<< stBlobTx.blob_name
+        << " opid: " << stBlobTx.opId;
     return oss.str();
 }
 
@@ -268,7 +288,8 @@ std::string logString(const fpi::CommitBlobTxMsg& commitBlbTx)
 {
     std::ostringstream oss;
     oss << " CommitBlobTxMs TxId:" << commitBlbTx.txId
-        << " volume_id" << commitBlbTx.volume_id << " blob_name: "<< commitBlbTx.blob_name;
+        << " volume_id" << commitBlbTx.volume_id << " blob_name: "<< commitBlbTx.blob_name
+        << " opid: " << commitBlbTx.opId;
     return oss.str();
 }
 
@@ -276,7 +297,8 @@ std::string logString(const fpi::SetBlobMetaDataMsg& setMDMsg)
 {
     std::ostringstream oss;
     oss << " SetBlobMetaDataMsg TxId:" << setMDMsg.txId
-        << " volume_id" << setMDMsg.volume_id << " blob_name: "<< setMDMsg.blob_name;
+        << " volume_id" << setMDMsg.volume_id << " blob_name: "<< setMDMsg.blob_name
+        << " opid: " << setMDMsg.opId;
     return oss.str();
 }
 
@@ -322,7 +344,8 @@ std::string logString(const fpi::AbortBlobTxMsg& abortBlbTx)
     // FIXME(DAC): This does nothing.
     oss << " AbortBlobTxMs";
     oss << " AbortBlobTxMs TxId:" << abortBlbTx.txId
-        << " volume_id" << abortBlbTx.volume_id << " blob_name: "<< abortBlbTx.blob_name;
+        << " volume_id" << abortBlbTx.volume_id << " blob_name: "<< abortBlbTx.blob_name
+        << " opid: " << abortBlbTx.opId;
     return oss.str();
 }
 
@@ -333,7 +356,9 @@ std::string logString(const fpi::GetBlobMetaDataMsg& message)
 
 std::string logString(const fpi::RenameBlobMsg& message)
 {
-    return "RenameBlobMsg";
+    std::ostringstream oss;
+    oss << "RenameBlobMsg " << " opid: " << message.opId;
+    return oss.str();
 }
 
 std::string logString(const fpi::RenameBlobRespMsg& message)
@@ -372,7 +397,15 @@ std::string logString(const fpi::DeleteBlobMsg& msg) {
     std::ostringstream oss;
     oss << " DeleteBlobMsg ";
     oss << " DeleteBlobMsg TxId:" << msg.txId
-        << " volume_id" << msg.volume_id << " blob_name: "<< msg.blob_name;
+        << " volume_id" << msg.volume_id << " blob_name: "<< msg.blob_name
+        << " opid: " << msg.opId;
+    return oss.str();
+}
+
+std::string logString(const fpi::GetVolumeMetadataMsg& msg) {
+    std::ostringstream oss;
+    oss << " GetVolumeMetadataMsg "
+        << " volume_id: " << msg.volumeId;
     return oss.str();
 }
 
@@ -403,4 +436,36 @@ DEFINE_OUTPUT_FUNCS(SvcUuid) {
     out << SvcMgr::mapToSvcUuidAndName(msg);
     return out;
 }
+
+DEFINE_OUTPUT_FUNCS(GenericCommandMsg) {
+    out << "["
+        << " command:" << msg.command
+        << " args:" << msg.arg
+        << "]";
+    return out;
+}
+
+size_t sizeOfData(fpi::CtrlNotifyDeltaBlobDescMsgPtr &msg) {
+    size_t totalSize = 0;
+    auto blobDescList = msg->blob_desc_list;
+    for (auto bdlIt : blobDescList) {
+        totalSize += sizeof(bdlIt.vol_blob_name);
+        totalSize += sizeof(bdlIt.vol_blob_desc);
+    }
+    return (totalSize);
+}
+
+size_t sizeOfData(fpi::CtrlNotifyDeltaBlobsMsgPtr &msg) {
+    size_t totalSize = 0;
+    auto blobList = msg->blob_obj_list;
+    for (auto blobObj : blobList) {
+        auto blob_diff_list = blobObj.blob_diff_list;
+        for (auto blobObjInfo : blob_diff_list) {
+            totalSize += sizeof(blobObjInfo.data_obj_id.digest);
+        }
+    }
+
+    return (totalSize);
+}
+
 }  // namespace fds

@@ -1,14 +1,38 @@
 package com.formationds.nfs;
 
-class MetaKey {
+import com.google.common.primitives.UnsignedBytes;
+
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.util.Arrays;
+
+class MetaKey implements Comparable<MetaKey> {
     String domain;
     String volume;
     String blobName;
+    private byte[] bytes;
 
-    MetaKey(String domain, String volume, String blobName) {
+    public MetaKey(String domain, String volume, String blobName) {
         this.domain = domain;
         this.volume = volume;
         this.blobName = blobName;
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        DataOutputStream daos = new DataOutputStream(baos);
+        try {
+            daos.write(domain.getBytes());
+            daos.write(volume.getBytes());
+            daos.write(blobName.getBytes());
+            daos.flush();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        this.bytes = baos.toByteArray();
+    }
+
+    public byte[] bytes() {
+        return bytes;
     }
 
     @Override
@@ -18,27 +42,32 @@ class MetaKey {
 
         MetaKey metaKey = (MetaKey) o;
 
-        if (!blobName.equals(metaKey.blobName)) return false;
-        if (!domain.equals(metaKey.domain)) return false;
-        if (!volume.equals(metaKey.volume)) return false;
+        if (!Arrays.equals(bytes, metaKey.bytes)) return false;
 
         return true;
     }
 
     @Override
     public int hashCode() {
-        int result = domain.hashCode();
-        result = 31 * result + volume.hashCode();
-        result = 31 * result + blobName.hashCode();
-        return result;
+        return Arrays.hashCode(bytes);
     }
 
     @Override
-    public String toString() {
-        return "MetaKey{" +
-                "domain='" + domain + '\'' +
-                ", volume='" + volume + '\'' +
-                ", blobName='" + blobName + '\'' +
-                '}';
+    public int compareTo(MetaKey o) {
+        return UnsignedBytes.lexicographicalComparator().compare(this.bytes, o.bytes);
+    }
+
+    public boolean beginsWith(MetaKey prefix) {
+        if (bytes.length < prefix.bytes.length) {
+            return false;
+        }
+
+        for (int i = 0; i < prefix.bytes.length; i++) {
+            if (bytes[i] != prefix.bytes[i]) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

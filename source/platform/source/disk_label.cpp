@@ -82,7 +82,7 @@ namespace fds
     // dsk_label_valid
     // ---------------
     //
-    bool DiskLabel::dsk_label_valid(DiskLabelMgr *mgr)
+    bool DiskLabel::dsk_label_valid()
     {
         ResourceUUID    disk_uuid, node_uuid;
 
@@ -97,13 +97,30 @@ namespace fds
         if ((dl_disk_uuids->dl_disk_rec.dl_magic == MAGIC_DSK_UUID_REC) &&
             (disk_uuid.uuid_get_val() != 0) && (node_uuid.uuid_get_val() != 0))
         {
-            if (mgr != NULL)
-            {
-                mgr->dsk_rec_label_map(dl_owner, dl_label->dl_my_disk_index);
-            }
             return true;
         }
         return false;
+    }
+
+    // dsk_label_valid_for_node indicates whether the node uuid matches
+    // ---------------
+    //
+    bool DiskLabel::dsk_label_valid_for_node(NodeUuid node_uuid)
+    {
+        if (!dsk_label_valid())
+        {
+            return true;  // return true if there is no label
+        }
+        if (node_uuid.uuid_get_val() <= 0)
+        {
+            LOGWARN << "Bad node uuid, can't verify label ";
+            return true;
+        }
+        NodeUuid uuid;
+        uuid.uuid_set_from_raw(dl_label->dl_node_uuid);
+        LOGDEBUG << "Checking label node uuid " << uuid.uuid_get_val()
+                 << " against node uuid " << node_uuid.uuid_get_val();
+        return node_uuid == uuid;
     }
 
     // dsk_label_init_uuids
@@ -293,7 +310,7 @@ namespace fds
         dl_label      = reinterpret_cast<dlabel_hdr_t *>(buf);
         dl_disk_uuids = reinterpret_cast<dlabel_disk_uuid_t *>(dl_label + 1);
 
-        if (dsk_label_valid(NULL) == false)
+        if (dsk_label_valid() == false)
         {
             memset(buf, 0, DL_PAGE_SZ);
         }
@@ -302,15 +319,20 @@ namespace fds
     // dsk_label_write
     // ---------------
     //
-    void DiskLabel::dsk_label_write(PmDiskInventory::pointer inv, DiskLabelMgr *mgr)
+    bool DiskLabel::dsk_label_write(bool dsk_need_simulation)
     {
         int    sect_sz;
+        ssize_t ret;
 
         sect_sz = dsk_label_sect_sz();
         fds_verify(dl_label != NULL);
         fds_verify(sect_sz <= DL_PAGE_SECT_SZ);
 
-        mgr->dsk_rec_label_map(dl_owner, dl_label->dl_my_disk_index);
-        dl_owner->dsk_write(inv->dsk_need_simulation(), reinterpret_cast<void *>(dl_label), DL_SECTOR_BEGIN, sect_sz, m_use_new_superblock);
+        ret = dl_owner->dsk_write(dsk_need_simulation, reinterpret_cast<void *>(dl_label), DL_SECTOR_BEGIN, sect_sz, m_use_new_superblock);
+        if (dsk_need_simulation)
+        { // if we are in simulation mode dsk_write is not going to write a label, so ignore its return value
+            return true;
+        }
+        return ret;
     }
 }  // namespace fds

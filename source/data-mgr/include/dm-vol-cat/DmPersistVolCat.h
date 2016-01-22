@@ -14,6 +14,7 @@
 #include "lib/Catalog.h"
 #include "DmBlobTypes.h"
 #include "fds_uuid.h"
+#include <fds_module_provider.h>
 
 #define IS_OP_ALLOWED() \
     if (isSnapshot() || isReadOnly()) { \
@@ -30,21 +31,25 @@ extern const fds_uint64_t VOL_META_ID;
 extern const JournalTimestampKey OP_TIMESTAMP_KEY;
 extern const leveldb::Slice OP_TIMESTAMP_REC;
 
-class DmPersistVolCat {
+class DmPersistVolCat : public HasModuleProvider {
   public:
     // types
     typedef boost::shared_ptr<DmPersistVolCat> ptr;
     typedef boost::shared_ptr<const DmPersistVolCat> const_ptr;
 
     // ctor and dtor
-    DmPersistVolCat(fds_volid_t volId, fds_uint32_t objSize,
+    DmPersistVolCat(CommonModuleProviderIf *modProvider,
+                    fds_volid_t volId, fds_uint32_t objSize,
                     fds_bool_t snapshot,
                     fds_bool_t readOnly,
                     fds_bool_t clone,
                     fpi::FDSP_VolType volType = fpi::FDSP_VOL_S3_TYPE,
-                    fds_volid_t srcVolId = invalid_vol_id) : volId_(volId), objSize_(objSize),
-            volType_(volType), srcVolId_(srcVolId), snapshot_(snapshot), readOnly_(readOnly),
-            clone_(clone), initialized_(false), deleted_(false), activated_(false) {
+                    fds_volid_t srcVolId = invalid_vol_id)
+        : HasModuleProvider(modProvider),
+        volId_(volId), objSize_(objSize),
+        volType_(volType), srcVolId_(srcVolId), snapshot_(snapshot), readOnly_(readOnly),
+        clone_(clone), initialized_(false), deleted_(false), activated_(false)
+    {
         fds_verify(objSize > 0);
         if (invalid_vol_id == srcVolId_) {
             srcVolId_ = volId;
@@ -142,6 +147,10 @@ class DmPersistVolCat {
     virtual Error getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsWithSeqId,
                                             const Catalog::MemSnap snap) = 0;
 
+    virtual Error getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsWithSeqId,
+                                            const Catalog::MemSnap snap,
+                                            const fds_bool_t &abortFlag) = 0;
+
     virtual Error getInMemorySnapshot(Catalog::MemSnap &snap) = 0;
 
     virtual void getObjectIds(const uint32_t &maxObjs,
@@ -183,6 +192,9 @@ class DmPersistVolCat {
     virtual Error syncCatalog(const NodeUuid & dmUuid);
 
     virtual void forEachObject(std::function<void(const ObjectID&)>) = 0;
+
+    virtual int32_t getVersion() = 0;
+    virtual void setVersion(int32_t version) = 0;
 
   protected:
     // vars

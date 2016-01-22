@@ -7,7 +7,7 @@ function volume_setup {
     local node=$2
     local vol=$3
     pushd /fds/sbin 
-    ./fdsconsole.py accesslevel admin 
+    # please use fdscli to create volumes
     ./fdsconsole.py volume create $vol --vol-type block --blk-dev-size 10485760 --max-obj-size $max_obj_size
     sleep 10
     ./fdsconsole.py volume modify $vol --minimum 0 --maximum 0 --priority 1 

@@ -4,6 +4,7 @@
 
 package com.formationds.commons;
 
+import com.formationds.commons.util.NodeUtils;
 import com.formationds.protocol.svc.types.FDSP_MgrIdType;
 import com.formationds.protocol.svc.types.FDSP_NodeState;
 import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
@@ -140,21 +141,7 @@ public abstract class TestBase
 
     private String name( final FDSP_MgrIdType type )
     {
-        switch( type )
-        {
-            case FDSP_PLATFORM:
-                return "pm";
-            case FDSP_STOR_MGR:
-                return "sm";
-            case FDSP_DATA_MGR:
-                return "dm";
-            case FDSP_ACCESS_MGR:
-                return "am";
-            case FDSP_ORCH_MGR:
-                return "om";
-            default:
-                return "unknown";
-        }
+        return NodeUtils.mapToSvcName( type );
     }
 
     private FDSP_Node_Info_Type other( final FDSP_Node_Info_Type pm,

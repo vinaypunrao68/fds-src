@@ -57,8 +57,6 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     TokenLockFn tokenLockFn = { TokenLockFn() };
 
-    LiveObjectsDB::unique_ptr liveObjectsTable;
-
     enum ObjectStoreState {
         /**
          * The object store is in initializing state before it
@@ -140,6 +138,7 @@ class ObjectStore : public Module, public boost::noncopyable {
     ~ObjectStore();
     typedef std::unique_ptr<ObjectStore> unique_ptr;
     typedef std::shared_ptr<ObjectStore> ptr;
+    LiveObjectsDB::unique_ptr liveObjectsTable;
 
     /**
      * Returns the highest percentage of used capacity among all disks in non-all-SSD config.
@@ -339,7 +338,7 @@ class ObjectStore : public Module, public boost::noncopyable {
         return (currentState.load() == OBJECT_STORE_UNAVAILABLE);
     }
 
-    bool haveAllObjectSets() const;
+    bool haveAllObjectSets(util::TimeStamp after = 0) const;
 
     void evaluateObjectSets(const fds_token_id& smToken,
                             const diskio::DataTier& tier,
@@ -348,20 +347,17 @@ class ObjectStore : public Module, public boost::noncopyable {
     void addObjectSet(const fds_token_id &smToken,
                       const fds_volid_t &volId,
                       const util::TimeStamp &ts,
-                      const std::string &objectSetFilePath,
-                      const fds_uint64_t &dmUUID = 0);
+                      const std::string &objectSetFilePath);
 
     void cleansertObjectSet(const fds_token_id &smToken,
                             const fds_volid_t &volId,
                             const util::TimeStamp &ts,
-                            const std::string &objectSetFilePath,
-                            const fds_uint64_t &dmUUID = 0);
+                            const std::string &objectSetFilePath);
 
     void removeObjectSet(const fds_token_id &smToken,
                          const fds_volid_t &volId);
 
-    void removeObjectSet(const fds_token_id &smToken,
-                         const fds_uint64_t &dmUUID);
+    void removeObjectSet(const fds_token_id &smToken);
 
     void removeObjectSet(const fds_volid_t &volId);
 

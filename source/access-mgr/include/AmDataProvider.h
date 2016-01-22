@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright 2015-2016 Formation Data Systems, Inc.
  */
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMDATAPROVIDER_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AMDATAPROVIDER_H_
@@ -11,20 +11,40 @@
 #include "fds_error.h"
 #include "fds_table.h"
 #include "fds_volume.h"
+#include "fds_module_provider.h"
+
+namespace FDS_ProtocolInterface {
+class AddToVolumeGroupRespCtrlMsg;
+}
 
 namespace fds {
 
 struct AmRequest;
+using AddToVolumeGroupCb =
+    std::function<void(const Error&,
+                       const boost::shared_ptr<FDS_ProtocolInterface::AddToVolumeGroupRespCtrlMsg>&)>;
 
 /**
  * AM's DataProvider API
  * All service layers of AM from QoS to Dispatcher implement this interface
  */
-struct AmDataProvider {
-    explicit AmDataProvider(AmDataProvider* _prev, AmDataProvider* _next) :
+struct AmDataProvider : public HasModuleProvider
+{
+    explicit AmDataProvider(AmDataProvider* _prev,
+                            AmDataProvider* _next,
+                            CommonModuleProviderIf* modProvider = nullptr) :
+        HasModuleProvider(modProvider),
         _next_in_chain(_next),
         _prev_in_chain(_prev)
     { }
+
+    void setProvider(CommonModuleProviderIf* modProvider)
+    {
+        setModuleProvider(modProvider);
+        if (_next_in_chain) {
+            _next_in_chain->setProvider(modProvider);
+        }
+    }
 
     virtual ~AmDataProvider() = default;
 
@@ -42,25 +62,17 @@ struct AmDataProvider {
         return true;
     }
 
-    virtual void getVolumes(std::vector<VolumeDesc>& volumes)
-    {
-        if (_next_in_chain) {
-            return _next_in_chain->getVolumes(volumes);
-        }
-        volumes.clear();
-    }
-
     virtual void registerVolume(const VolumeDesc& volDesc)
     {
         if (_next_in_chain) {
-            return _next_in_chain->registerVolume(volDesc);
+            _next_in_chain->registerVolume(volDesc);
         }
     }
 
     virtual void removeVolume(const VolumeDesc& volDesc)
     {
         if (_next_in_chain) {
-            return _next_in_chain->removeVolume(volDesc);
+            _next_in_chain->removeVolume(volDesc);
         }
     }
 
@@ -72,8 +84,14 @@ struct AmDataProvider {
         return ERR_OK;
     }
 
-    virtual void lookupVolume(std::string const volume_name)
-    { return forward_request(&AmDataProvider::lookupVolume, volume_name); }
+    virtual void addToVolumeGroup(const fpi::AddToVolumeGroupCtrlMsgPtr &addMsg,
+                                  const AddToVolumeGroupCb &cb)
+    {
+        
+        if (_next_in_chain) {
+            return _next_in_chain->addToVolumeGroup(addMsg, cb);
+        }
+    }
 
     virtual Error updateQoS(int64_t const* rate, float const* throttle)
     { return forward_request(&AmDataProvider::updateQoS, rate, throttle); }
@@ -138,30 +156,7 @@ struct AmDataProvider {
     // If you don't know the type of request, use this to get runtime routing
     void unknownTypeCb(AmRequest * amReq, Error const error);
 
-    virtual Error updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb) {
-        if (_next_in_chain) {
-            return _next_in_chain->updateDlt(dlt_type, dlt_data, cb);
-        }
-        throw std::runtime_error("Unimplemented DataProvider routine.");
-    }
-
-    virtual Error updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::callback_type const& cb) {
-        if (_next_in_chain) {
-            return _next_in_chain->updateDmt(dmt_type, dmt_data, cb);
-        }
-        throw std::runtime_error("Unimplemented DataProvider routine.");
-    }
-
-    virtual Error getDMT()
-    { return forward_request(&AmDataProvider::getDMT); }
-
-    virtual Error getDLT()
-    { return forward_request(&AmDataProvider::getDLT); }
-
  protected:
-    virtual void lookupVolumeCb(VolumeDesc const vol_desc, Error const error)
-    { return forward_response(&AmDataProvider::lookupVolumeCb, vol_desc, error); }
-
     virtual void openVolumeCb(AmRequest * amReq, Error const error)
     { return forward_response(&AmDataProvider::openVolumeCb, amReq, error); }
 
@@ -222,7 +217,7 @@ struct AmDataProvider {
     std::unique_ptr<AmDataProvider> _next_in_chain {nullptr};
     AmDataProvider* const _prev_in_chain {nullptr};
 
- private:
+ protected:
     template<typename Ret, typename ... Args>
     constexpr Ret forward_request(Ret (AmDataProvider::*func)(Args...), Args... args) {
         if (_next_in_chain) {
