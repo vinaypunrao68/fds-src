@@ -95,6 +95,7 @@ namespace fds {
     ADD(ERR_ABORTED, = 75, "Service/module aborted"),\
     ADD(ERR_SYNC_INPROGRESS, = 76, "Sync is in progress"),\
     ADD(ERR_VOLMETA_NOT_FOUND, = 77, "Volume Metadata not found"),\
+    ADD(ERR_SYNCPEER_UNAVAILABLE, = 78, "Sync peer is unavailable"),\
     \
     /* I/O error range */            \
     ADD(ERR_IO_DLT_MISMATCH,= 100," "), \
@@ -157,7 +158,8 @@ namespace fds {
     ADD(ERR_SM_NOERR_NOT_IN_DLT, ,"  "), \
     ADD(ERR_SM_RESYNC_SOURCE_DECLINE, ,"  "), \
     ADD(ERR_SM_NOT_READY_AS_MIGR_SRC, ,"  "), \
-    ADD(ERR_SM_NO_DISK, ," "), \
+    ADD(ERR_SM_NO_DISK, ,"  "), \
+    ADD(ERR_SM_READ_ONLY, ,"SM is currently in read-only mode."), \
     ADD(ERR_SM_TC_INVALID_STATE, ,"Token compactor in invalid state. "), \
     \
     /* Network errors */    \

@@ -159,6 +159,9 @@ class SmDiskMap : public Module, public boost::noncopyable {
      * Get current (i.e. closed DLT) from persitent storage.
      */
     fds_uint64_t getDLTVersion();
+    fds_bool_t doResync() const;
+    void setResync();
+    void resetResync();
 
     /**
      * Called when encounted IO error when writing to token file or metadata DB

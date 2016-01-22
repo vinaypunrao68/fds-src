@@ -105,6 +105,9 @@ SmDiskMap::loadPersistentState() {
     return err;
 }
 
+/**
+ * Determines how much of the disk is currently being consumed.
+ */
 DiskUtils::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
 {
 
@@ -372,9 +375,23 @@ SmTokenSet SmDiskMap::handleDltClose(const DLT* dlt, NodeUuid& mySvcUuid)
 }
 
 fds_uint64_t
-SmDiskMap::getDLTVersion()
-{
+SmDiskMap::getDLTVersion() {
     return superblock->getDLTVersion();
+}
+
+fds_bool_t
+SmDiskMap::doResync() const {
+    return superblock->doResync();
+}
+
+void
+SmDiskMap::setResync() {
+    return superblock->setResync();
+}
+
+void
+SmDiskMap::resetResync() {
+    return superblock->resetResync();
 }
 
 fds_token_id

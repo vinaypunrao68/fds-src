@@ -89,7 +89,11 @@ struct AmDataProvider : public HasModuleProvider
     {
         
         if (_next_in_chain) {
-            return _next_in_chain->addToVolumeGroup(addMsg, cb);
+            _next_in_chain->addToVolumeGroup(addMsg, cb);
+        } else {
+            fds_assert(!"Unimplemented chain link");
+            cb(ERR_UNAVAILABLE,
+               boost::shared_ptr<fpi::AddToVolumeGroupRespCtrlMsg>(new fpi::AddToVolumeGroupRespCtrlMsg));
         }
     }
 
