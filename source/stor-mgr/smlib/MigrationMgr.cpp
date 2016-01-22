@@ -12,6 +12,7 @@
 #include <fds_process.h>
 #include <fdsp_utils.h>
 #include "PerfTrace.h"
+#include <json/json.h>
 
 namespace fds {
 class ObjectStorMgr;
@@ -55,9 +56,13 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
     // get migration timeout duration from the platform.conf file.
     migrationTimeoutSec =
             g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.migration.migration_timeout", 300);
+
+    stateProviderId = "migrationmgr";
+    g_fdsprocess->get_cntrs_mgr()->add_for_export(this);
 }
 
 MigrationMgr::~MigrationMgr() {
+    g_fdsprocess->get_cntrs_mgr()->remove_from_export(this);
     mTimer.destroy();
     migrationTimeoutTimer->destroy();
 }
@@ -1690,5 +1695,49 @@ MigrationMgr::abortMigrationCb(fds_uint64_t& executorId,
         smTokenInProgress.erase(smToken);
     }
 }
+
+/* Provides function for token DLT availability states */
+std::string MigrationMgr::getStateInfo() {
+    uint32_t available = 0, unavailable = 0;
+    std::vector<uint32_t> untoken;
+    /* Lock dltTokenStates to make sure there is no change in dlt while checking*/
+    dltTokenStatesMutex.lock();
+    for (uint32_t i=0; i < dltTokenStates.size(); i++) {
+        if (dltTokenStates[i]) {
+            available++;
+        } else {
+            unavailable++;
+            untoken.push_back(i);
+        }
+    }
+    dltTokenStatesMutex.unlock();
+
+    /* Convert list of unavailabe tokens to string */
+    std::string untoken_str;
+    untoken_str.append("{");
+    for (auto unt : untoken) {
+        untoken_str.append(std::to_string(unt));
+        untoken_str.append(",");
+    }
+    untoken_str.append("}");
+
+    /* Return the SM UUID and the available and unavailable token counts */
+    Json::Value state;
+    state["Available"] = available;
+    state["Unavailable"] = unavailable;
+    state["Unavailable_list"] = untoken_str;
+
+    std::stringstream ss;
+    ss << state;
+    return ss.str();
+}
+
+/* Provides stateProviderId */
+std::string MigrationMgr::getStateProviderId()
+{
+    return stateProviderId;
+}
+
+
 }  // namespace fds
 
