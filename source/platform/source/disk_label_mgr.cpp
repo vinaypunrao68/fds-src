@@ -176,18 +176,20 @@ namespace fds
         LOGNORMAL << "dl_total_disks = " << dl_total_disks << "   dl_valid_labels=" <<
                       dl_valid_labels;
 
-        if (dsk_need_simulation == true)
-        {
-            LOGNORMAL << "In simulation, found " << dl_valid_labels << " labels";
-        }else {
-            LOGNORMAL << "Scan HW inventory, found " << dl_valid_labels << " labels";
-        }
-
         if (largest_disk_index < max_disk_index)
         {
             LOGCRITICAL << "Invalid value of largest disk index: " << largest_disk_index
                         << ". Setting to " << max_disk_index;
             largest_disk_index = max_disk_index;
+        }
+
+        if (dsk_need_simulation == true)
+        {
+            LOGNORMAL << "In simulation, found " << dl_valid_labels << " labels";
+            largest_disk_index = 0;
+            LOGNORMAL << "Setting largest disk index to " << largest_disk_index;
+        }else {
+            LOGNORMAL << "Scan HW inventory, found " << dl_valid_labels << " labels";
         }
 
         // Now iterate over all of the disks, label if needed and write to disk-map
