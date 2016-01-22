@@ -654,7 +654,7 @@ ObjectStore::getObject(fds_volid_t volId,
                        diskio::DataTier& usedTier,
                        Error& err) {
     err = checkAvailability();
-    if (!err.ok() || err != ERR_SM_READ_ONLY) {
+    if (!err.ok() && err != ERR_SM_READ_ONLY) {
         return nullptr;
     }
 
@@ -776,7 +776,7 @@ ObjectStore::getObjectData(fds_volid_t volId,
                        Error& err)
 {
     err = checkAvailability();
-    if (!err.ok() || err != ERR_SM_READ_ONLY) {
+    if (!err.ok() && err != ERR_SM_READ_ONLY) {
         return nullptr;
     }
 
@@ -799,7 +799,7 @@ ObjectStore::deleteObject(fds_volid_t volId,
                           const ObjectID &objId,
                           fds_bool_t forwardedIO) {
     Error err = checkAvailability();
-    if (!err.ok() || err != ERR_SM_READ_ONLY) {
+    if (!err.ok() && err != ERR_SM_READ_ONLY) {
         return err;
     }
 

@@ -1263,11 +1263,13 @@ void SMSvcHandler::objectStoreCtrl(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 
     // We just received a message from another SM that it had to enter read only mode, or that it is no longer
     // in read only mode. We need to just blindly follow right now. Down the road we should add more robust handling.
+    /** NOTE: This is commented out for safety at the current time.
     if (msg->state == OBJECTSTORE_READ_ONLY) {
         objStorMgr->objectStore->setReadOnly();
     } else if (msg->state == OBJECTSTORE_NORMAL) {
         objStorMgr->objectStore->setAvailable();
     }
+     **/
 }
 
 void
