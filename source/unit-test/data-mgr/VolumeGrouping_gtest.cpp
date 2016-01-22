@@ -13,6 +13,7 @@
 #include <testlib/SvcMsgFactory.h>
 #include <testlib/TestUtils.h>
 #include <net/VolumeGroupHandle.h>
+#include <boost/filesystem.hpp>
 
 using ::testing::AtLeast;
 using ::testing::Return;
@@ -64,14 +65,22 @@ struct DmGroupFixture : BaseTestFixture {
     using OmHandle = ProcessHandle<TestOm>;
     using AmHandle = ProcessHandle<TestAm>;
 
-    void create(int numDms) {
-        int ret;
-        ret = std::system("rm -rf /fds/sys-repo/dm-names/*");
-        ret = std::system("rm -rf /fds/node1/sys-repo/dm-names/*");
-        ret = std::system("rm -rf /fds/node2/sys-repo/dm-names/*");
+    void createCluster(int numDms) {
+        std::string fdsSrcPath;
+        auto findRet = findFdsSrcPath(fdsSrcPath);
+        fds_verify(findRet);
+        
+        std::string homedir = boost::filesystem::path(getenv("HOME")).string();
+        std::string baseDir =  homedir + "/temp";
+        setupDmClusterEnv(fdsSrcPath, baseDir);
+
+        std::vector<std::string> roots;
+        for (int i = 1; i <= numDms; i++) {
+            roots.push_back(util::strformat("--fds-root=%s/node%d", baseDir.c_str(), i));
+        }
 
         omHandle.start({"am",
-            "--fds-root=/fds/node1",
+            roots[0],
             "--fds.pm.platform_uuid=1024",
             "--fds.pm.platform_port=7000",
             "--fds.om.threadpool.num_threads=2"
@@ -88,7 +97,7 @@ struct DmGroupFixture : BaseTestFixture {
             });
 
         amHandle.start({"am",
-            "--fds-root=/fds/node1",
+            roots[0],
             "--fds.pm.platform_uuid=2048",
             "--fds.pm.platform_port=9850",
             "--fds.am.threadpool.num_threads=3"
@@ -99,11 +108,10 @@ struct DmGroupFixture : BaseTestFixture {
         dmGroup.resize(numDms);
         for (int i = 0; i < numDms; i++) {
             dmGroup[i].reset(new DmHandle);
-            std::string root = util::strformat("--fds-root=/fds/node%d", i+1);
             std::string platformUuid = util::strformat("--fds.pm.platform_uuid=%d", uuid);
             std::string platformPort = util::strformat("--fds.pm.platform_port=%d", port);
             dmGroup[i]->start({"dm",
-                              root,
+                              roots[i],
                               platformUuid,
                               platformPort,
                               "--fds.dm.threadpool.num_threads=3",
@@ -114,6 +122,7 @@ struct DmGroupFixture : BaseTestFixture {
             uuid +=256;
             port += 10;
         }
+
     }
 
     SHPTR<VolumeDesc> generateVolume(const fds_volid_t &volId) {
@@ -220,7 +229,7 @@ struct DmGroupFixture : BaseTestFixture {
 
 TEST_F(DmGroupFixture, singledm) {
     /* Start with one dm */
-    create(1);
+    createCluster(1);
 
     Waiter waiter(0);
     fds_volid_t v1Id(10);
@@ -285,7 +294,7 @@ TEST_F(DmGroupFixture, singledm) {
 TEST_F(DmGroupFixture, staticio_restarts) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
     /* Create two dms */
-    create(2);
+    createCluster(2);
 
     Waiter waiter(0);
     fds_volid_t v1Id(10);
@@ -392,7 +401,7 @@ TEST_F(DmGroupFixture, staticio_restarts) {
 TEST_F(DmGroupFixture, activeio_restart) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
     /* Create two dms */
-    create(2);
+    createCluster(2);
 
     Waiter waiter(0);
     fds_volid_t v1Id(10);
@@ -469,7 +478,7 @@ TEST_F(DmGroupFixture, activeio_restart) {
 TEST_F(DmGroupFixture, domain_reboot) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
     /* Create two dms */
-    create(2);
+    createCluster(2);
 
     Waiter waiter(0);
     fds_volid_t v1Id(10);
