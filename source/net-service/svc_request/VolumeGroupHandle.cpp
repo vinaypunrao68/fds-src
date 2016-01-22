@@ -177,10 +177,6 @@ void VolumeGroupHandle::resetGroup_(fpi::ResourceState state)
      */
     version_++;
 
-    changeState_(state,
-                 true, /* Clear replica lists */
-                 __FUNCTION__);
-
     opSeqNo_ = VolumeGroupConstants::OPSTARTID;
     commitNo_ = VolumeGroupConstants::COMMITSTARTID;
 
@@ -195,6 +191,11 @@ void VolumeGroupHandle::resetGroup_(fpi::ResourceState state)
     for (const auto &svcUuId : svcs) {
         nonfunctionalReplicas_.push_back(VolumeReplicaHandle(svcUuId));
     }
+
+    changeState_(state,
+                 false, /* don't clear replica lists */
+                 __FUNCTION__);
+
 }
 
 void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
@@ -286,7 +287,8 @@ void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
 void VolumeGroupHandle::close(const VoidCb &closeCb)
 {
     runSynchronized([this, closeCb]() {
-        changeState_(fpi::ResourceState::Offline,
+        groupSize_ = 0;
+        changeState_(fpi::ResourceState::Unknown,
                      true,  /* Clear replica lists */
                      "Close");
         if (refCnt_ == 0) {
@@ -776,7 +778,7 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
                          false, /* This is a noop */
                          " - funcationl again.  Met the quorum count");
         }
-    } else if (VolumeReplicaHandle::isNonFunctional(targetState) {
+    } else if (VolumeReplicaHandle::isNonFunctional(targetState)) {
         /* Check if the group needs to become offline */
         if (state_ == fpi::ResourceState::Active &&
             functionalReplicas_.size() < quorumCnt_) {

@@ -143,11 +143,11 @@ void ReplicaInitializer<T>::run()
             /* When the functional group size is zero, if the latest sequence id matches
              * with what coordinator has we can become functional
              */
-            if (responseMsg->group.appliedCommitId == replica_->getSequenceId()) {
-                fds_assert(responseMsg->group.appliedOpId == VolumeGroupConstants::OPSTARTID);
+            if (responseMsg->group.lastCommitId == replica_->getSequenceId()) {
+                fds_assert(responseMsg->group.lastOpId == VolumeGroupConstants::OPSTARTID);
                 /* To become functional, the sequence is go into syncing and become functional */
-                replica_-setState(fpi::ResourceState::Syncing,
-                                  "- no sync peers.  This volume is first functional replica");
+                replica_->setState(fpi::ResourceState::Syncing,
+                                   "- no sync peers.  This volume is first functional replica");
                  /* This will notify coordinator we are in sync state */
                 notifyCoordinator_();
                 /* Complet with OK will notify coordinator we are funcational */

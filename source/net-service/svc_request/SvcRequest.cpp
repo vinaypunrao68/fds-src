@@ -925,7 +925,8 @@ void QuorumSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
     if (successAckd_+ errorAckd_ == epReqs_.size()) {
         auto completionCode = (successAckd_ >= quorumCnt_) ? ERR_OK : response_;
         if (waitForAllResponses_ && respCb_) {
-            respCb_(this, completionCode);
+            respCb_(this, completionCode, payload);
+            respCb_ = nullptr;
         }
         /* Recevied all responses */
         complete(completionCode);
