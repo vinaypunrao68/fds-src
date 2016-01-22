@@ -687,6 +687,12 @@ fds: {
             serialize_all={{ om_influxdb_serialize_all }}
         }
 
+        stats: {
+            frequency={{ om_stats_frequency }}
+            duration={{ om_stats_duration }}
+            method="{{ om_stats_method }}"
+        }
+
         test_mode=false
         threadpool: {
             num_threads = 10

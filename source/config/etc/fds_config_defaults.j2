@@ -99,6 +99,9 @@
 {% set om_influxdb_serialize_writes = fds_om_influxdb_serialize_writes if fds_om_influxdb_serialize_writes is defined else 'false' %}
 {% set om_influxdb_serialize_reads = fds_om_influxdb_serialize_reads if fds_om_influxdb_serialize_reads is defined else 'false' %}
 {% set om_influxdb_serialize_all = fds_om_influxdb_serialize_all if fds_om_influxdb_serialize_all is defined else 'false' %}
+{% set om_stats_frequency = fds_om_stats_frequency if fds_om_stats_frequency is defined else 120 %}
+{% set om_stats_duration = fds_om_stats_duration if fds_om_stats_duration is defined else -1 %}
+{% set om_stats_method = fds_om_stats_method if fds_om_stats_method is defined else 'POST' %}
 {% set snmp_targetip = fds_snmp_targetip if fds_snmp_targetip is defined else 'localhost' %}
 {% set snmp_community = fds_snmp_community if fds_snmp_community is defined else 'public' %}
 {% set rest_07_feature = ft_fds_rest_07_feature if ft_fds_rest_07_feature is defined else 'false' %}

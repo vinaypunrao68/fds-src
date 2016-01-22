@@ -19,6 +19,7 @@ import com.formationds.protocol.pm.NotifyAddServiceMsg;
 import com.formationds.protocol.pm.NotifyRemoveServiceMsg;
 import com.formationds.protocol.pm.NotifyStartServiceMsg;
 import com.formationds.protocol.pm.NotifyStopServiceMsg;
+import com.formationds.util.Configuration;
 import com.formationds.util.thrift.CachedConfiguration;
 import com.formationds.util.thrift.ThriftClientFactory;
 import com.google.common.collect.Lists;
@@ -46,9 +47,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     }
 
     void createStatStreamRegistrationHandler( final String urlHostname,
-                                              final int urlPortNo ) {
+                                              final int urlPortNo,
+                                              final Configuration platformDotConf ) {
         this.statStreamRegistrationHandler =
-            new StatStreamRegistrationHandler( this, urlHostname, urlPortNo );
+            new StatStreamRegistrationHandler( this, platformDotConf, urlHostname, urlPortNo );
     }
 
     void startConfigurationUpdater( long intervalMS ) {

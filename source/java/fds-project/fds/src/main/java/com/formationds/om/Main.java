@@ -258,7 +258,8 @@ public class Main {
          * TODO(Tinius) should be using the https port here, but requires more SSL certs ( AM service )
          */
         configCache.createStatStreamRegistrationHandler( omHost,
-                                                         httpPort );
+                                                         httpPort,
+                                                         configuration );
 
         logger.info( "Starting Web toolkit" );
 
