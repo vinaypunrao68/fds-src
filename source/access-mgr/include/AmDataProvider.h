@@ -13,9 +13,16 @@
 #include "fds_volume.h"
 #include "fds_module_provider.h"
 
+namespace FDS_ProtocolInterface {
+class AddToVolumeGroupRespCtrlMsg;
+}
+
 namespace fds {
 
 struct AmRequest;
+using AddToVolumeGroupCb =
+    std::function<void(const Error&,
+                       const boost::shared_ptr<FDS_ProtocolInterface::AddToVolumeGroupRespCtrlMsg>&)>;
 
 /**
  * AM's DataProvider API
@@ -75,6 +82,15 @@ struct AmDataProvider : public HasModuleProvider
             return _next_in_chain->modifyVolumePolicy(volDesc);
         }
         return ERR_OK;
+    }
+
+    virtual void addToVolumeGroup(const fpi::AddToVolumeGroupCtrlMsgPtr &addMsg,
+                                  const AddToVolumeGroupCb &cb)
+    {
+        
+        if (_next_in_chain) {
+            return _next_in_chain->addToVolumeGroup(addMsg, cb);
+        }
     }
 
     virtual Error updateQoS(int64_t const* rate, float const* throttle)

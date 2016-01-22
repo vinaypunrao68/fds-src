@@ -250,9 +250,9 @@ ObjectStore::initObjectStoreMediaErrorHandlers() {
  */
 Error
 ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& tier) {
-    LOGDEBUG << "Handling disk failure for disk=" << diskId << " tier=" << tier;
+    LOGNOTIFY << "Handling disk failure for disk=" << diskId << " tier=" << tier;
     if (diskMap->isDiskOffline(diskId)) {
-        LOGDEBUG << "Disk " << diskId << " failure is already handled";
+        LOGNORMAL << "Disk " << diskId << " failure is already handled";
         return ERR_OK;
     }
     diskMap->makeDiskOffline(diskId);
@@ -282,7 +282,7 @@ ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& ti
     }
     Error err = openStore(lostTokens);
     if (!err.ok()) {
-        LOGDEBUG << "Error opening metadata and data stores for redistributed tokens." << err;
+        LOGERROR << "Error opening metadata and data stores for redistributed tokens." << err;
     }
 
     if (requestResyncFn) {
@@ -397,6 +397,29 @@ ObjectStore::handleDltClose(const DLT* dlt) {
     }
 
     return err;
+}
+
+fds_bool_t
+ObjectStore::doResync() const {
+    if (diskMap) {
+        return diskMap->doResync();
+    } else {
+        return false;
+    }
+}
+
+void
+ObjectStore::setResync() {
+    if (diskMap) {
+        return diskMap->setResync();
+    }
+}
+
+void
+ObjectStore::resetResync() {
+    if (diskMap) {
+        return diskMap->resetResync();
+    }
 }
 
 Error
@@ -677,7 +700,7 @@ ObjectStore::getObject(fds_volid_t volId,
         fds_token_id smToken = diskMap->smTokenId(objId);
         diskio::DataTier metaTier = metaStore->getMetadataTier();
         DiskId diskId = diskMap->getDiskId(objId, metaTier);
-        std::string path = diskMap->getDiskPath(diskId);
+        std::string path = diskMap->getDiskPath(diskId) + "/.tempFlush";
 
         bool diskDown = DiskUtils::diskFileTest(path);
         if (diskDown) {

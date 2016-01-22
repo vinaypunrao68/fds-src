@@ -218,6 +218,12 @@ struct __attribute__((__packed__)) SmSuperblock {
      */
     Error validateSuperblock();
 
+    /**
+     * Do token resync or not?
+     */
+    fds_bool_t doResync() const;
+    void setResync();
+    void resetResync();
 
     /* Initializes mainly the header of the superblock.
      */
@@ -231,7 +237,8 @@ struct __attribute__((__packed__)) SmSuperblock {
      */
     SmSuperblockHeader Header;
     fds_uint64_t DLTVersion;
-    char SmSuperblockReserved[504]; // To be backwards compat with pre 2015-11-30 blocks
+    fds_bool_t resync;
+    char SmSuperblockReserved[503]; // To be backwards compat with pre 2015-11-30 blocks
     ObjectLocationTable olt;
     TokenDescTable tokTbl;
 
@@ -345,6 +352,10 @@ class SmSuperblockMgr {
      * Get the latest committed DLT version.
      */
     fds_uint64_t getDLTVersion();
+
+    fds_bool_t doResync();
+    void setResync();
+    void resetResync();
 
     // So we can print class members for logging
     friend std::ostream& operator<< (std::ostream &out,

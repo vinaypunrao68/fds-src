@@ -476,8 +476,12 @@ namespace fds {
          */
         fds_uint32_t numOfPrimarySMs;
 
-        bool        sendMigAbortAfterRestart;
-       fds_uint64_t targetVersionForAbort;
+       /**
+        * How many times has DLT deploy failed.
+        * Resets to 0 on success
+        */
+
+       fds_uint32_t numOfFailures;
 
   public:
         DataPlacement();
@@ -611,6 +615,32 @@ namespace fds {
 
         inline fds_uint32_t getNumOfPrimarySMs() const {
             return numOfPrimarySMs;
+        }
+
+        /**
+         * If a SM migration fails, track it here
+         */
+        inline void markFailure() {
+            ++numOfFailures;
+        }
+
+        /**
+         * If a migration succeeds, this gets called
+         */
+        inline void markSuccess() {
+            numOfFailures = 0;
+        }
+
+        /**
+         * Check to see if we can retry another migration
+         */
+        fds_bool_t canRetryMigration();
+
+        /**
+         * Getter for number of failed migrations
+         */
+        inline fds_uint32_t failedAttempts() {
+            return numOfFailures;
         }
 
   private:  // methods

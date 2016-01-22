@@ -7,6 +7,7 @@
 #include <fdsp/ConfigurationService.h>
 #include <SvcMsgFactory.h>
 #include <TestFixtures.h>
+#include <util/stringutils.h>
 
 #include "platform/platform.h"
 
@@ -43,6 +44,38 @@ void BaseTestFixture::SetUpTestCase()
 
 void BaseTestFixture::TearDownTestCase()
 {
+}
+
+void BaseTestFixture::setupDmClusterEnv(const std::string &fdsSrcDir,
+                                        const std::string &baseDirPrefix)
+{
+    int ret = 0;
+    /* Remove node[1-4] */
+    for (int i = 1; i <= 4; i++) {
+        ret = std::system(util::strformat("rm -rf %s/node%d/*",
+                                          baseDirPrefix.c_str(), i).c_str());
+        ret = std::system(util::strformat("mkdir -p %s/node%d",
+                                          baseDirPrefix.c_str(), i).c_str());
+    }
+    /* Create node 1*/
+    std::string confFilePath = util::strformat("%s/config/etc/platform.conf", fdsSrcDir.c_str());
+    ret = std::system(util::strformat("mkdir -p %s/node1/etc", baseDirPrefix.c_str()).c_str());
+    ret = std::system(util::strformat("cp %s %s/node1/etc/platform.conf",
+                                      confFilePath.c_str(), baseDirPrefix.c_str()).c_str());
+    ret = std::system(util::strformat("mkdir -p %s/node1/var/logs",
+                                      baseDirPrefix.c_str()).c_str());
+    ret = std::system(util::strformat("mkdir -p %s/node1/sys-repo",
+                                      baseDirPrefix.c_str()).c_str());
+    ret = std::system(util::strformat("mkdir -p %s/node1/user-repo",
+                                      baseDirPrefix.c_str()).c_str());
+
+    /* Copy node1 to node[2-4] */
+    for (int i = 2; i <= 4; i++) {
+        ret = std::system(util::strformat("cp -r %s/node1/* %s/node%d/",
+                                          baseDirPrefix.c_str(),
+                                          baseDirPrefix.c_str(),
+                                          i).c_str());
+    }
 }
 
 TestPlatform::TestPlatform(int argc, char *argv[], const std::string &log, Module **vec)

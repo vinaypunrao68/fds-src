@@ -309,6 +309,7 @@ std::string VolumeGroupHandle::getStateInfo()
     Json::Value state;
     state["state"] = fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(state_));
     state["version"] = version_;
+    state["quorumcnt"] = quorumCnt_;
     state["up"] = static_cast<Json::Value::UInt>(functionalReplicas_.size());
     state["syncing"] = static_cast<Json::Value::UInt>(syncingReplicas_.size());
     state["down"] = static_cast<Json::Value::UInt>(nonfunctionalReplicas_.size());
@@ -356,7 +357,7 @@ EPSvcRequestPtr
 VolumeGroupHandle::createSetVolumeGroupCoordinatorMsgReq_()
 {
     auto msg = MAKE_SHARED<fpi::SetVolumeGroupCoordinatorMsg>();
-    assign(msg->coordinator.id, groupId_);
+    msg->coordinator.id =  MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
     msg->coordinator.version = version_;
     msg->volumeId = groupId_;
     auto omUuid = MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid();
@@ -437,7 +438,9 @@ VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
         ++latestStateReplicas;
     }
     if (latestStateReplicas < quorumCnt_) {
-        LOGWARN << logString() << " Not enough members with latest state to start a group";
+        LOGWARN << logString() << " Not enough members with latest state to start a group."
+            << " latest state replicas count: " << latestStateReplicas
+            << " quorum count: " << quorumCnt_;
         return nullptr;
     }
     for (uint32_t i = 0; i < latestStateReplicas; i++) {
@@ -494,7 +497,7 @@ void VolumeGroupHandle::changeState_(const fpi::ResourceState &targetState,
 
 void VolumeGroupHandle::handleAddToVolumeGroupMsg(
     const fpi::AddToVolumeGroupCtrlMsgPtr &addMsg,
-    const std::function<void(const Error&, const fpi::AddToVolumeGroupRespCtrlMsgPtr&)> &cb)
+    const AddToVolumeGroupCb &cb)
 
 {
     runSynchronized([this, addMsg, cb]() mutable {
@@ -548,13 +551,15 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
     if (volumeHandle->isFunctional() ||
         volumeHandle->isSyncing()) {
         Error outStatus = inStatus;
-        /* Check to consider the incoming error to be not an error
-         * VolumeHandle shoudn't consider inStatus to be an error &&
-         * if listener is set, listener also shouldn't consider it an error
-         */
-        if (!volumeHandle->isError(inStatus) && 
-            (!listener_ || !listener_->isError(msgTypeId, inStatus))) {
-            outStatus = ERR_OK;
+        if (inStatus != ERR_OK) {
+            /* If either volume handle or listener doesn't consider it to be an error
+             * it's not an error
+             */
+            bool isVolumeHandleError = volumeHandle->isError(inStatus);
+            bool isListenerError = (!listener_ || listener_->isError(msgTypeId, inStatus));
+            if (!isVolumeHandleError || !isListenerError) {
+                outStatus = ERR_OK;
+            }
         }
 
         if (outStatus == ERR_OK) {
@@ -664,12 +669,14 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
     auto srcState = volumeHandle->state;
 
     if (targetState == fpi::ResourceState::Loading) {
-        /* No state change is necessary.  Replica handle is still considered non-functional.
-         * We just need to respond back with current group information so it can copy 
+        /* Set the replica handle to offline.  This marks the end of current version.
+         * Version is incremented when volume comes back with target state of syncing.
+         * Now, we just need to respond back with current group information so it can copy 
          * active transactions from a peer.
          * We will start buffering writes so that when replica handles come back again
          * after copying active transactions, we will replay buffered writes.
          */
+        volumeHandle->setState(fpi::Offline);
         toggleWriteOpsBuffering_(true);
     } else if (VolumeReplicaHandle::isSyncing(targetState)) {
         /* We expect the replica version to always go up */
@@ -705,16 +712,26 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
         volumeHandle->setState(targetState);
         volumeHandle->setError(ERR_OK);
     }
-    LOGNORMAL << volumeHandle->logString() << " state changed. Context - " << context;
 
     /* Move the handle from the appropriate replica list
      * NOTE: we move volumeHandle to the end in the destination list
      */
     auto &srcList = getVolumeReplicaHandleList_(srcState);
+    /* Ensure volumeHandle exists in srcList */
+    fds_assert(std::find_if(srcList.begin(), \
+                            srcList.end(), \
+                            [&volumeHandle](const VolumeReplicaHandle &h) \
+                            {return volumeHandle->svcUuid == h.svcUuid;}) != srcList.end());
     auto &dstList = getVolumeReplicaHandleList_(targetState);
     auto dstItr = std::move(volumeHandle, volumeHandle+1, std::back_inserter(dstList));
     srcList.erase(volumeHandle, volumeHandle+1);
     volumeHandle = dstList.end() - 1;
+
+    /* After moving ensure volume handle state maches the container list it is supposed to be in */
+    fds_assert(&(getVolumeReplicaHandleList_(volumeHandle->state)) == &dstList);
+
+    LOGNORMAL << logString() << volumeHandle->logString()
+        << " state changed. Context - " << context;
 
     return ERR_OK;
 }

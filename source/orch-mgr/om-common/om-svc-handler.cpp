@@ -564,7 +564,9 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
         */
         if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
         {
-            if ( (msg->healthReport.serviceInfo.svc_status == fpi::SVC_STATUS_REMOVED) &&
+            NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
+
+            if ( (gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.uuid_get_val()) == fpi::SVC_STATUS_REMOVED) &&
                  ((svc_type == fpi::FDSP_STOR_MGR) || (svc_type == fpi::FDSP_DATA_MGR)) ) {
 
                 // It is important that SMs and DMs stay in removed state for correct
@@ -576,7 +578,6 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
             }
 
             auto domain = OM_NodeDomainMod::om_local_domain();
-            NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
             Error reportError(msg->healthReport.statusCode);
 
             LOGERROR << "Will set service to failed state: "
@@ -697,6 +698,8 @@ void
 OmSvcHandler::setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                         boost::shared_ptr<fpi::SetVolumeGroupCoordinatorMsg> &msg)
 {
+    /* xxx: This needs to be synchronized and be done volume managing statemachine */
+    Error e;
     fds_volid_t volId(msg->volumeId);
 	OM_Module *om = OM_Module::om_singleton();
 	OM_NodeDomainMod *dom_mod = om->om_nodedomain_mod();
@@ -704,14 +707,20 @@ OmSvcHandler::setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     VolumeContainer::pointer volumes = local->om_vol_mgr();
 
     auto volumePtr = volumes->get_volume(volId);
-    if (volumePtr == nullptr) {
+    if (volumePtr != nullptr) {
+        auto volDescPtr = volumePtr->vol_get_properties();
+        fpi::VolumeGroupCoordinatorInfo volCoordinatorInfo = msg->coordinator;
+        volDescPtr->setCoordinatorId(volCoordinatorInfo.id);
+        volDescPtr->setCoordinatorVersion(volCoordinatorInfo.version);
+        LOGNOTIFY << "Set volume coordinator for volid: " << volId
+            << " coordinator: " << volCoordinatorInfo.id.svc_uuid;
+    } else {
         LOGERROR << "Unable to find volume " << volId;
-        return;
+        e = ERR_VOL_NOT_FOUND;
     }
-    auto volDescPtr = volumePtr->vol_get_properties();
-    fpi::VolumeGroupCoordinatorInfo volCoordinatorInfo = msg->coordinator;
-    volDescPtr->setCoordinatorId(volCoordinatorInfo.id);
-    volDescPtr->setCoordinatorVersion(volCoordinatorInfo.version);
+
+    hdr->msg_code = e.GetErrno();
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
 }
 
 
