@@ -36,9 +36,7 @@ bool findFdsSrcPath(std::string &fdsSrcPath)
     bfs::path p(boost::filesystem::current_path());
 
     while (!bfs::is_empty(p)) {
-        if (p.filename().string() == "source" &&
-            !bfs::is_empty(p.parent_path()) &&
-            p.parent_path().filename().string() == "fds-src") {
+        if (p.filename().string() == "source") {
             fdsSrcPath = p.string();
             return true;
         }
