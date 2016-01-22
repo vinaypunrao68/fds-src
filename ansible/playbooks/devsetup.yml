@@ -189,6 +189,7 @@
         - libcurl4-openssl-dev
         - npm
         - nodejs-legacy
+        - open-iscsi
         - ruby1.9.1-full
         - ruby-sass
         - python-concurrent.futures
@@ -203,6 +204,7 @@
         - libhiredis0.10
         - libhiredis-dev
         - libsqlite3-dev
+        - sg3-utils
         - swig3.0
         - sshpass
         - nbd-client
