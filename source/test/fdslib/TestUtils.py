@@ -33,8 +33,9 @@ import fnmatch
 import fabric
 import fabric.network
 
+# Assumes tests run from /source/test/testsuites
 RELPATH_TEMPLATES="../testsuites/templates/"
-RELPATH_DEVROOT="../../../../"
+RELPATH_DEVROOT="../../../"
 TESTSUITES_INVENTORY="%sansible-inventory/" % RELPATH_TEMPLATES
 DEFAULT_INVENTORY="%sansible/inventory/" % RELPATH_DEVROOT
 
@@ -471,7 +472,7 @@ def convertor(volume, fdscfg):
     return new_volume
 
 
-def get_inventory_value(inventory_file, key_name):
+def get_inventory_value(inventory_file, key_name, log):
     '''
     Parse the given Ansible inventory file given as argument to this
     function, and find a value for the given key
@@ -482,6 +483,8 @@ def get_inventory_value(inventory_file, key_name):
         The name of the Ansible inventory file to be parsed
     key_name : str
         A key that may or may not exist in the inventory file
+    log : 
+        A logger
 
     Returns:
     --------
@@ -500,7 +503,7 @@ def get_inventory_value(inventory_file, key_name):
         # Fall back to default inventory location
         inventory_path = os.path.join(DEFAULT_INVENTORY, inventory_file)
         if not os.path.isfile(inventory_path):
-            log.error("Inventory file not found")
+            log.error('Inventory file {0} not found'.format(inventory_path))
             raise Exception
 
     with open(inventory_path, 'r') as f:

@@ -1028,7 +1028,7 @@ class TestVerifySCSTUpIfEnabled(TestCase.FDSTestCase):
 
         # No operation unless inventory file asks for SCST
         inventory_file = self.parameters['inventory_file']
-        result = get_inventory_value(inventory_file, KEY_ENABLE_SCST)
+        result = get_inventory_value(inventory_file, KEY_ENABLE_SCST, self.log)
         if not result:
             # Inventory file is not required to have our key/value for SCST
             return True

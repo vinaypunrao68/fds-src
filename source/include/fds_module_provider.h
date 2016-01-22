@@ -57,6 +57,10 @@ class CommonModuleProviderIf {
 };
 
 #define MODULEPROVIDER() getModuleProvider()
+#define CONFIG_BOOL(name, defvalue) MODULEPROVIDER()->get_fds_config()->get<fds_bool_t>(name, defvalue)
+#define CONFIG_STR(name, defvalue) MODULEPROVIDER()->get_fds_config()->get<std::string>(name, defvalue)
+#define CONFIG_UINT32(name, defvalue) MODULEPROVIDER()->get_fds_config()->get<fds_uint32_t>(name, defvalue)
+#define CONFIG_UINT64(name, defvalue) MODULEPROVIDER()->get_fds_config()->get<fds_uint64_t>(name, defvalue)
 
 /**
 * @brief Derive from this class to have access to module provider.
