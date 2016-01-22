@@ -111,10 +111,10 @@ namespace fds
     }
 
     // dsk_reconcile_label
-    void DiskLabelMgr::dsk_reconcile_label(bool dsk_need_simulation, NodeUuid node_uuid)
+    void DiskLabelMgr::dsk_reconcile_label(bool dsk_need_simulation, NodeUuid node_uuid, fds_uint16_t& largest_disk_index)
     {
-        bool         need_to_relabel = false;
         int          valid_labels = 0, invalid_labels = 0, total_disks = 0;
+        fds_uint16_t max_disk_index = 0;
         ChainIter    iter;
 
         DiskLabel   *label, *master = NULL;
@@ -162,10 +162,13 @@ namespace fds
             {
                 dl_valid_labels++;
                 GLOGDEBUG << label->dl_owner;
+                if (label->dl_label->dl_my_disk_index > max_disk_index)
+                {
+                    max_disk_index = label->dl_label->dl_my_disk_index;
+                }
             }
             else
             {
-                need_to_relabel = true;
                 GLOGDEBUG << "Found invalid label on disk " << label->dl_owner;
             }
         }
@@ -180,16 +183,18 @@ namespace fds
             LOGNORMAL << "Scan HW inventory, found " << dl_valid_labels << " labels";
         }
 
-        if (need_to_relabel)
-        {   // if there are some unlabeled disks, invalidate and re-label everything
-            LOGNORMAL << "Found unlabeled disk(s), re-labeling all disks";
-            dl_valid_labels = 0;
+        if (largest_disk_index < max_disk_index)
+        {
+            LOGCRITICAL << "Invalid value of largest disk index: " << largest_disk_index
+                        << ". Setting to " << max_disk_index;
+            largest_disk_index = max_disk_index;
         }
 
-        // Now iterate over all of the disks, relabel if needed and write to disk-map
+        // Now iterate over all of the disks, label if needed and write to disk-map
         chain_foreach(&dl_labels, iter)
         {
             label = dl_labels.chain_iter_current<DiskLabel>(iter);
+            bool is_good_disk = true;
             if (!label->dsk_label_valid_for_node(node_uuid))
             {
                 LOGWARN << "Disk " << label->dl_owner << "has an unknown node UUID. Skipping.\n"
@@ -197,17 +202,16 @@ namespace fds
                 invalid_labels++;
                 continue;
             }
-            bool is_good_disk = true;
-            if (need_to_relabel)
-            {
+            if (!label->dsk_label_valid())
+            {   // new disk, needs to  be labeled
                 if (master == NULL)
                 {
-                    label->dsk_label_generate(&dl_labels, dl_total_disks);
+                    label->dsk_label_generate(&dl_labels, dl_total_disks, largest_disk_index);
                     master = label;
                 }
                 else
                 {
-                    label->dsk_label_clone(master);
+                    label->dsk_label_clone(master, largest_disk_index);
                 }
                 is_good_disk = label->dsk_label_write(dsk_need_simulation);
                 if (is_good_disk)

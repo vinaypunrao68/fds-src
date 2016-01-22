@@ -94,6 +94,8 @@ namespace fds
                 void updateServiceInfoProperties (std::map<std::string, std::string> *data);
 
                 NodeUuid getUUID();
+                fds_uint16_t getLargestDiskIndex();
+                void persistLargestDiskIndex(fds_uint16_t largestDiskIndex);
 
             protected:
                 fds_uint64_t getNodeUUID (fpi::FDSP_MgrIdType svcType);
@@ -109,6 +111,7 @@ namespace fds
             private:
                 FdsConfigAccessor                  *fdsConfig;
                 fpi::FDSP_AnnounceDiskCapability    diskCapability;
+                fds_uint16_t                        largestDiskIndex;
 
                 int64_t                             usedDiskCapacity;
 

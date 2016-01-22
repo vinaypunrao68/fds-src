@@ -36,7 +36,7 @@ OBJECT_SIZE = 16384
 
 HIGH_INDEX_MODE_VALUE = 0.25     # When to use the storage space on the index drives in capacity calculations
 
-##### Some constants used when creating partitions
+##### Some constants used when creating oartitions
 PARTITION_START_MB = 2
                            # f   o   r   m   a   t   i   o   n       D   a   t   a       S   y   s   t   e   m   s             D   I   S   K
 DISK_MARKER = bytearray ('\x46\x6f\x72\x6d\x61\x74\x69\x6f\x6e\x00\x44\x61\x74\x61\x00\x53\x79\x73\x74\x65\x6d\x73\x00\xfd\x00\x44\x49\x53\x4b\x00')
@@ -728,11 +728,13 @@ class DiskManager (Base):
         ''' Partition and format each disk that needs formatting'''
 
         for disk in self.disk_list:
-            if disk.formatted == True :
+            if disk.formatted == True:
                 self.dbg_print("Skipping formatted disk %s" % disk.path)
                 continue
             if disk.get_os_usage():
                 disk.verifySystemDiskPartitionSize()
+                if not self.options.reset:
+                    continue
             print("Partitioning and formatting  disk %s" % disk.path)
 #            disk.partition (self.dm_index_MB, self.sm_index_MB / len (self.sm_index_partition_list))
             disk.partition (self.dm_index_MB, 0)
