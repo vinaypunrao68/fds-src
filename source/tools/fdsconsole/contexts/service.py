@@ -532,7 +532,7 @@ class ServiceContext(Context):
                     myinfo['status'] = e.svc_status
                     myinfo['ip'] = e.ip
                     myinfo['port'] = e.svc_port
-                    myinfo['outstanding_svc_reqs'] = state['outstandingRequests']
+                    myinfo['outstanding_svc_reqs'] = state['outstandingRequestsCount']
 
                 # add service map properties
                 for s in svcMap:

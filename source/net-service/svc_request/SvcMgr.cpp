@@ -717,7 +717,7 @@ std::string SvcMgr::getStateProviderId() {
 std::string SvcMgr::getStateInfo() {
 
     Json::Value state;
-    state["outstandingRequests"] = static_cast<Json::Value::UInt64>(svcRequestMgr_->getOutstandingRequests());
+    state["outstandingRequestsCount"] = static_cast<Json::Value::UInt64>(svcRequestMgr_->getOutstandingRequestsCount());
 
     std::stringstream ss;
     ss << state;

@@ -286,8 +286,8 @@ void SvcRequestPool::setDltManager(DLTManagerPtr dltManager) {
     dltMgr = dltManager;
 }
 
-uint64_t SvcRequestPool::getOutstandingRequests() {
-    return svcRequestTracker_->getOutstandingSvcReqs();
+uint64_t SvcRequestPool::getOutstandingRequestsCount() {
+    return svcRequestTracker_->getOutstandingSvcReqsCount();
 }
 
 }  // namespace fds

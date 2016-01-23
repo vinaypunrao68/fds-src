@@ -72,7 +72,7 @@ SvcRequestTracker::getSvcRequest(const SvcRequestId& id)
  * Return number of outstanding requests for cli debug
  */
 uint64_t
-SvcRequestTracker::getOutstandingSvcReqs() {
+SvcRequestTracker::getOutstandingSvcReqsCount() {
     return svcReqMap_.size();
 }
 
