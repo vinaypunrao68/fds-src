@@ -158,7 +158,7 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
     dmtMgr_.reset(new DMTManager());
 
     if (MODULEPROVIDER()->get_cntrs_mgr() != NULL) {
-        stateProviderId = "platnetsvcmgr";
+        stateProviderId = "svcmgr";
         MODULEPROVIDER()->get_cntrs_mgr()->add_for_export(this);
     }
 }
