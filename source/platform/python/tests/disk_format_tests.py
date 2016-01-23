@@ -642,7 +642,7 @@ class testDiskManager (unittest.TestCase):
 
         self.manager.global_debug_on = True
         self.manager.partition_and_format_disks()
-        assert 3 == mock_format.call_count # 5 - 2(os) -1(formatted)
+        assert 3 == mock_format.call_count # 6 - 2(os) -1(formatted)
 
     def testDiskManagerCalcCapacities (self):
         self.manager.disk_config_file = 'test_data/disk_config'
