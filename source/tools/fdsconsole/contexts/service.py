@@ -519,7 +519,7 @@ class ServiceContext(Context):
             for uuid in self.getServiceIds(svc):
                 helpers.printHeader('info for {}'.format(self.getServiceName(uuid)))
                 #print state
-                state = ServiceMap.client(uuid).getStateInfo('platnetsvcmgr')
+                state = ServiceMap.client(uuid).getStateInfo('svcmgr')
                 state = json.loads(state)
                 svcMap = ServiceMap.client(uuid).getSvcMap(None)
                 #print svcMap
