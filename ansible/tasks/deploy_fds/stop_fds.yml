@@ -16,6 +16,35 @@
     tags:
         - shutdown
 
+-   name: get auth token
+    when: fds_om_host is defined and fds_om_host == inventory_hostname and fds_installed|success
+    uri: url=http://{{ fds_om_host }}:7777/api/auth/token?login={{ domain_admin_user }}&password={{ domain_admin_pass }}
+        method=POST
+        return_content=yes
+        status_code=200
+    delegate_to: localhost
+    register: auth_results
+    run_once: true
+    sudo: no
+    tags:
+        - shutdown
+
+-   name: domain stop
+    when: fds_om_host is defined and fds_om_host == inventory_hostname and fds_installed|success
+    uri: url=http://{{ fds_om_host }}:7777/fds/config/v08/local_domains/1
+        method=PUT
+        body_format=json
+        body="{{shutdown_domain_put_body_json}}"
+        HEADER_Content-Type="application/json"
+        HEADER_Cookie="token={{auth_results['json']['token']}}"
+        status_code=200
+        return_content=yes
+    delegate_to: localhost
+    run_once: true
+    sudo: no
+    tags:
+        - shutdown
+
 -   name: shutdown_om
     service: name=fds-om state=stopped
     when: fds_om_host is defined and fds_om_host == inventory_hostname and fds_installed|success
