@@ -10,6 +10,15 @@
 namespace fds {
 
 // Disk capacity Thresholds
+// We should define DISK_CAPACITY_ERROR_THRESHOLD as:
+// (disk_capacity - (((number_bits_per_token / number_disks) / disk_capacity) * 2)) / disk_capacity
+// Should also likely add a ~2% buffer for safety
+// This will give us a value that is 2x the maximum size of a token file to allow for compaction in the worst case
+// Subsequent thresholds should be set as WARNING - 10 and WARNING - 20
+
+
+
+
 #define DISK_CAPACITY_WARNING_THRESHOLD 75.0
 #define DISK_CAPACITY_ALERT_THRESHOLD 85.0
 #define DISK_CAPACITY_ERROR_THRESHOLD 95.0

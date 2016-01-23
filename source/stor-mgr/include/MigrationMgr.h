@@ -43,7 +43,7 @@ typedef std::function<void (fds_bool_t, fds_bool_t)> ResyncDoneOrPendingCb;
  *    6) When set of migration executors responsible for current SM token finish
  *       migration, SmTokenMigration picks another SM token and repeats steps 2-5
  */
-class MigrationMgr {
+class MigrationMgr : StateProvider{
   public:
     explicit MigrationMgr(SmIoReqHandler *dataStore);
     ~MigrationMgr();
@@ -84,6 +84,9 @@ class MigrationMgr {
     inline fds_bool_t isResync() const {
         return resyncOnRestart;
     }
+
+    std::string getStateProviderId() override;
+    std::string getStateInfo() override;
 
     /**
      * Handles start migration message from OM.
@@ -598,6 +601,9 @@ class MigrationMgr {
      * in case of an election of new source SMs.
      */
      std::atomic<fds_uint32_t>  uniqRestartId;
+
+     /* Debug states for state provider */
+     std::string stateProviderId;
 };
 
 typedef MigrationMgr::MigrationType SMMigrType;

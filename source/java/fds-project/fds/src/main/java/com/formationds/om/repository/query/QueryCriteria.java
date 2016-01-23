@@ -15,12 +15,28 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
-@SuppressWarnings( "UnusedDeclaration" )
 public class QueryCriteria
     extends ModelBase
     implements SearchCriteria {
 
     private static final long serialVersionUID = 6792621380579634266L;
+
+    // TODO: Hack to identify queries, hopefully for more intelligent caching
+    public enum QueryType {
+    	UNDEFINED,
+    	GENERIC,
+    	VOLUME_LATEST_METRICS,
+    	FIREBREAK,
+    	FIREBREAK_METRIC,
+    	SYSHEALTH_FIREBREAK,
+    	SYSHEALTH_CAPACITY,
+    	CAPACITY,
+    	PERFORMANCE,
+    	USER_ACTIVITY_EVENT,
+    	FIREBREAK_EVENT,
+    	SYSTEM_EVENT,
+    	UNIT_TEST
+    }
 
     private DateRange range;           // date range ; starting and ending
     private Integer points;            // number of points to provide in results
@@ -44,11 +60,20 @@ public class QueryCriteria
     // For now the only time Context is used is with a Volume type so in favor of speed we are
     // changing the query to only take volumes
     private List<Volume>  contexts = new ArrayList<>();    // the context
-    private List<OrderBy> orderBys;    //  a list of orderby instructions assumed to be sorted 0 = most important 
+    private List<OrderBy> orderBys;    //  a list of orderby instructions assumed to be sorted 0 = most important
 
-    public QueryCriteria() {}
+    private QueryType queryType = QueryType.UNDEFINED;
 
-    public QueryCriteria( DateRange dateRange ) { this.range = dateRange; }
+    public QueryCriteria() { }
+    public QueryCriteria(QueryType type) { this.queryType = type; }
+
+    public QueryCriteria( QueryType type, DateRange dateRange ) {
+    	this.queryType = type;
+    	this.range = dateRange;
+    }
+
+    public QueryType getQueryType() { return queryType; }
+    public void setQueryType(QueryType type) { queryType = type; }
 
     /**
      * @return Returns the {@link com.formationds.commons.model.DateRange}
@@ -93,15 +118,21 @@ public class QueryCriteria
      * @return the list of columns.  An empty list is interpreted to mean "select *"
      */
     public List<String> getColumns() {
-        return columns;
+        if (columns == null)
+            columns = new ArrayList<>();
+        return columns ;
     }
 
     /**
      * @param columns
      */
     public void setColumns( List<String> columns ) {
-        this.columns.clear();
-        addColumns( columns );
+        if ( this.columns != null ) {
+            this.columns.clear();
+            addColumns( columns );
+        } else {
+            this.columns = new ArrayList<>( columns );
+        }
     }
 
     /**
@@ -110,11 +141,12 @@ public class QueryCriteria
      * list is empty, returns a "*".
      */
     public String getColumnString() {
-        if ( columns.isEmpty() ) {
+        List<String> cols = getColumns();
+        if ( cols == null || cols.isEmpty() ) {
             return "*";
         }
         StringBuilder sb = new StringBuilder();
-        Iterator<String> iter = columns.iterator();
+        Iterator<String> iter = cols.iterator();
         while ( iter.hasNext() ) {
             sb.append( iter.next() );
             if ( iter.hasNext() )
@@ -178,9 +210,9 @@ public class QueryCriteria
     public void setFirstPoint( final Long firstPoint ) {
         this.firstPoint = firstPoint;
     }
-    
+
     /**
-     * 
+     *
      * @return a list of {@link OrderBy} arguments for this search
      */
     public List<OrderBy> getOrderBy(){
@@ -190,18 +222,18 @@ public class QueryCriteria
 
     	return this.orderBys;
     }
-    
+
     /**
-     * 
+     *
      * @param someOrders a list of ordering criteria
      */
     public void setOrderBy( List<OrderBy> someOrders ){
     	this.orderBys = someOrders;
     }
-    
+
     /**
      * Convenience method to add a single orderby at a time
-     * 
+     *
      * @param anOrderBy the order by clause to add
      */
     public void addOrderBy( OrderBy anOrderBy ){

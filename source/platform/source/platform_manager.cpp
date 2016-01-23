@@ -93,6 +93,15 @@ namespace fds
 
             m_db->getNodeInfo (m_nodeInfo);
             m_db->getNodeDiskCapability (diskCapability);
+            if (m_db->getNodeLargestDiskIndex (largestDiskIndex))
+            {
+                LOGNORMAL << "Stored largest disk index is " << largestDiskIndex;
+            }
+            else
+            {
+                largestDiskIndex = 0;
+                LOGNORMAL << "No stored largest disk index, initializing " << largestDiskIndex;
+            }
 
             if (m_nodeInfo.uuid <= 0)
             {
@@ -1240,6 +1249,18 @@ namespace fds
             return NodeUuid(node_uuid);
         }
 
+        fds_uint16_t PlatformManager::getLargestDiskIndex()
+        {
+            return largestDiskIndex;
+        }
+
+        void PlatformManager::persistLargestDiskIndex(fds_uint16_t largestDiskIndex)
+        {
+            LOGNORMAL << "Persisting largestDiskIndex " << largestDiskIndex;
+            this->largestDiskIndex = largestDiskIndex;
+            m_db->setNodeLargestDiskIndex(this->largestDiskIndex);
+        }
+
         void PlatformManager::startQueueMonitor()
         {
             LOGDEBUG << "Starting thread for PlatformManager::startQueueMonitor()";
@@ -1570,8 +1591,9 @@ namespace fds
                 {
                     verifyAndMountFDSFileSystems();
                 }
-                dpm->scan_and_discover_disks();
+                largestDiskIndex = dpm->scan_and_discover_disks();
                 notifyDiskMapChange();
+                persistLargestDiskIndex(largestDiskIndex);
             }
         }
     }  // namespace pm

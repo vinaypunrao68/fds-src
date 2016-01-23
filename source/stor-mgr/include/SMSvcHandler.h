@@ -77,6 +77,7 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     DECL_ASYNC_HANDLER(NotifySMCheck          , CtrlNotifySMCheck);
     DECL_ASYNC_HANDLER(querySMCheckStatus     , CtrlNotifySMCheckStatus);
     DECL_ASYNC_HANDLER(activeObjects          , ActiveObjectsMsg);
+    DECL_ASYNC_HANDLER(objectStoreCtrl         , ObjectStoreCtrlMsg);
     DECL_ASYNC_HANDLER(diskMapChange          , NotifyDiskMapChange);
 
     void getObjectCb(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
@@ -99,6 +100,7 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     void addObjectRefCb(boost::shared_ptr <fpi::AsyncHdr> &asyncHdr,
                         const Error &err,
                         SmIoAddObjRefReq *addObjRefReq);
+
     void NotifyDLTCloseCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                           const Error &err,
                           SmIoNotifyDLTClose *DLTCloseReq);

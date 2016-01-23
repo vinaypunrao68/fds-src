@@ -100,8 +100,23 @@ ObjectStore::~ObjectStore() {
 
 
 void ObjectStore::setUnavailable() {
-    GLOGDEBUG << "Setting ObjectStore state to OBJECT_STORE_UNAVAILABLE. This should block future IOs";
+    LOGNOTIFY << "Setting ObjectStore state to OBJECT_STORE_UNAVAILABLE. This should block future IOs";
     currentState = OBJECT_STORE_UNAVAILABLE;
+}
+
+void ObjectStore::setReadOnly() {
+    LOGNOTIFY << "Setting ObjectStore state to OBJECT_STORE_READ_ONLY. This should block write IOs but allow reads.";
+
+    // If we're already unavailabe we should *not* set this state as it is more permissive than UNAVAILABLE
+    // However if we're in NORMAL state this is okay; if we're already READ ONLY this is idempotent
+    if (currentState != OBJECT_STORE_UNAVAILABLE) {
+        currentState = OBJECT_STORE_READ_ONLY;
+    }
+}
+
+void ObjectStore::setAvailable() {
+    LOGNOTIFY << "Setting ObjectStore state to OBJECT_STORE_READY. This should allow reads and writes again.";
+    currentState = OBJECT_STORE_READY;
 }
 
 float_t ObjectStore::getUsedCapacityAsPct() {
@@ -151,21 +166,24 @@ float_t ObjectStore::getUsedCapacityAsPct() {
         if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
                 lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
             LOGERROR << "ERROR: Disk at path " << diskMap->getDiskPath(diskId)
-                     << " is consuming " << pct_used << "Space, which is more than the error threshold of "
-                     << DISK_CAPACITY_ERROR_THRESHOLD;
+                     << " is consuming " << pct_used << " space, which is more than the error threshold of "
+                     << DISK_CAPACITY_ERROR_THRESHOLD << "Consumed/Total (" << capacity.first
+                     << "/" << capacity.second << ")";
             lastCapacityMessageSentAt = DISK_CAPACITY_ERROR_THRESHOLD;
-        } else if (pct_used > DISK_CAPACITY_WARNING_THRESHOLD &&
-            lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
+        } else if (pct_used > DISK_CAPACITY_ALERT_THRESHOLD &&
+            lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
             LOGWARN << "WARNING: Disk at path " << diskMap->getDiskPath(diskId)
                     << " is consuming " << pct_used << " space, which is more than the warning threshold of "
-                    << DISK_CAPACITY_WARNING_THRESHOLD;
-            lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
-        } else if (pct_used > DISK_CAPACITY_ALERT_THRESHOLD &&
-                   lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
+                    << DISK_CAPACITY_ALERT_THRESHOLD << "Consumed/Total (" << capacity.first
+                    << "/" << capacity.second << ")";
+            lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
+        } else if (pct_used > DISK_CAPACITY_WARNING_THRESHOLD &&
+                   lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
             LOGNORMAL << "ALERT: Disk at path " << diskMap->getDiskPath(diskId)
                       << " is consuming " << pct_used << " space, which is more than the alert threshold of "
-                      << DISK_CAPACITY_ALERT_THRESHOLD;
-            lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
+                      << DISK_CAPACITY_WARNING_THRESHOLD << "Consumed/Total (" << capacity.first
+                      << "/" << capacity.second << ")";
+            lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
         } else {
             // If the used pct drops below alert levels reset so we resend the message when
             // we re-hit this condition
@@ -399,6 +417,29 @@ ObjectStore::handleDltClose(const DLT* dlt) {
     return err;
 }
 
+fds_bool_t
+ObjectStore::doResync() const {
+    if (diskMap) {
+        return diskMap->doResync();
+    } else {
+        return false;
+    }
+}
+
+void
+ObjectStore::setResync() {
+    if (diskMap) {
+        return diskMap->setResync();
+    }
+}
+
+void
+ObjectStore::resetResync() {
+    if (diskMap) {
+        return diskMap->resetResync();
+    }
+}
+
 Error
 ObjectStore::addVolume(const VolumeDesc& volDesc) {
     Error err(ERR_OK);
@@ -422,6 +463,9 @@ ObjectStore::checkAvailability() const {
     } else if (curState == OBJECT_STORE_INIT) {
         LOGERROR << "Object Store is coming up, but not ready to accept IO";
         return ERR_NOT_READY;
+    } else if (curState == OBJECT_STORE_READ_ONLY) {
+        LOGWARN << "Object store is in read only mode.";
+        return ERR_SM_READ_ONLY;
     }
     return ERR_OK;
 }
@@ -636,7 +680,7 @@ ObjectStore::getObject(fds_volid_t volId,
                        diskio::DataTier& usedTier,
                        Error& err) {
     err = checkAvailability();
-    if (!err.ok()) {
+    if (!err.ok() && err != ERR_SM_READ_ONLY) {
         return nullptr;
     }
 
@@ -758,7 +802,7 @@ ObjectStore::getObjectData(fds_volid_t volId,
                        Error& err)
 {
     err = checkAvailability();
-    if (!err.ok()) {
+    if (!err.ok() && err != ERR_SM_READ_ONLY) {
         return nullptr;
     }
 
@@ -781,7 +825,7 @@ ObjectStore::deleteObject(fds_volid_t volId,
                           const ObjectID &objId,
                           fds_bool_t forwardedIO) {
     Error err = checkAvailability();
-    if (!err.ok()) {
+    if (!err.ok() && err != ERR_SM_READ_ONLY) {
         return err;
     }
 
@@ -1808,11 +1852,16 @@ ObjectStore::mod_init(SysParams const *const p) {
         }
         LOGDEBUG << "First phase of object store init done";
 
-        // if object store comes up in pristine state, then we are done
-        // initializing it -- set state to ready
-        if (err == ERR_SM_NOERR_PRISTINE_STATE) {
+        // If we're above the error threshold we need to go into read only mode instead.
+        if (getUsedCapacityAsPct() >= DISK_CAPACITY_ERROR_THRESHOLD) {
+            currentState = OBJECT_STORE_READ_ONLY;
+
+        } else if (err == ERR_SM_NOERR_PRISTINE_STATE) {
+            // If we hit this then the object store came up in pristine state and we're done initializing
+            // set the ready state
             currentState = OBJECT_STORE_READY;
         }
+
     } else {
         LOGCRITICAL << "Object Store failed to initialize! " << err;
         currentState = OBJECT_STORE_UNAVAILABLE;
@@ -1836,5 +1885,4 @@ void
 ObjectStore::mod_shutdown() {
     Module::mod_shutdown();
 }
-
 }  // namespace fds

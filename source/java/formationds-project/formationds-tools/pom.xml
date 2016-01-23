@@ -5,7 +5,7 @@
     <parent>
         <artifactId>formationds</artifactId>
         <groupId>com.formationds</groupId>
-        <version>2016.01.15-SNAPSHOT</version>
+        <version>2016.01.29-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -40,6 +40,15 @@
             <artifactId>jopt-simple</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.influxdb</groupId>
+            <artifactId>influxdb-java</artifactId>
+        </dependency>
+
+        <dependency> 
+        	<groupId>com.nurkiewicz.asyncretry</groupId>
+        	<artifactId>asyncretry</artifactId>
+        </dependency>
     </dependencies>
 
 </project>

@@ -51,6 +51,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                                               final Configuration platformDotConf ) {
         this.statStreamRegistrationHandler =
             new StatStreamRegistrationHandler( this, platformDotConf, urlHostname, urlPortNo );
+        this.statStreamRegistrationHandler.manageOmStreamRegistrations();
     }
 
     void startConfigurationUpdater( long intervalMS ) {
