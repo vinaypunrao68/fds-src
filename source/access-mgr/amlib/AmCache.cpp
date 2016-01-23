@@ -150,6 +150,10 @@ AmCache::getObjects(GetBlobReq* blobReq) {
     blobReq->setResponseCount(miss_cnt);
     auto obj_it = blobReq->object_ids.cbegin();
     auto buf_it = cb->return_buffers->begin();
+
+    // Short-circuit this loop when we've dispatched all the expected requests,
+    // otherwise we'll continue to use what might be pointers to a request that
+    // has already been responded to on another thread.
     for (; 0 < miss_cnt; ++obj_it, ++buf_it) {
         if (!*buf_it) {
             --miss_cnt;
