@@ -36,7 +36,7 @@ OBJECT_SIZE = 16384
 
 HIGH_INDEX_MODE_VALUE = 0.25     # When to use the storage space on the index drives in capacity calculations
 
-##### Some constants used when creating oartitions
+##### Some constants used when creating partitions
 PARTITION_START_MB = 2
                            # f   o   r   m   a   t   i   o   n       D   a   t   a       S   y   s   t   e   m   s             D   I   S   K
 DISK_MARKER = bytearray ('\x46\x6f\x72\x6d\x61\x74\x69\x6f\x6e\x00\x44\x61\x74\x61\x00\x53\x79\x73\x74\x65\x6d\x73\x00\xfd\x00\x44\x49\x53\x4b\x00')
