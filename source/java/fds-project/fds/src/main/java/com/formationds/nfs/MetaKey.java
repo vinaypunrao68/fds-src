@@ -70,4 +70,10 @@ class MetaKey implements Comparable<MetaKey> {
 
         return true;
     }
+
+    @Override
+    public String toString() {
+        return String.format("[MetaKey domain=%s, volume=%s, blobName=%s]", domain, volume, blobName);
+
+    }
 }
