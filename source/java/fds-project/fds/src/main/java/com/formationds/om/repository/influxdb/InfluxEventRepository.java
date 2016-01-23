@@ -16,6 +16,7 @@ import com.formationds.commons.model.entity.UserActivityEvent;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.query.QueryCriteria;
+import com.formationds.om.repository.query.QueryCriteria.QueryType;
 import com.google.common.collect.Lists;
 import org.influxdb.dto.Serie;
 
@@ -166,7 +167,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
 	public List<UserActivityEvent> queryTenantUsers(QueryCriteria queryCriteria,
 			List<Long> tenantUsers) {
 
-        QueryCriteria criteria = new QueryCriteria( );
+        QueryCriteria criteria = new QueryCriteria( QueryType.USER_ACTIVITY_EVENT );
         String queryBase = formulateQueryString( criteria, FBEVENT_VOL_ID_COLUMN_NAME );
         StringBuilder queryString = new StringBuilder( queryBase );
 
@@ -216,7 +217,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
     public EnumMap<FirebreakType, FirebreakEvent> findLatestFirebreaks( Volume v ) {
 
         // create base query (select * from EVENT_SERIES_NAME where
-        QueryCriteria criteria = new QueryCriteria( DateRange.last24Hours() );
+        QueryCriteria criteria = new QueryCriteria( QueryType.FIREBREAK_EVENT, DateRange.last24Hours() );
 
         // criteria is still using old model classes.
         criteria.addContext( new com.formationds.client.v08.model.Volume( Long.valueOf( v.getId() ),
@@ -276,7 +277,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
     public Map<Long, EnumMap<FirebreakType, FirebreakEvent>> findLatestFirebreaks() {
 
         // create base query (select * from EVENT_SERIES_NAME where
-        QueryCriteria criteria = new QueryCriteria( DateRange.last24Hours() );
+        QueryCriteria criteria = new QueryCriteria( QueryType.FIREBREAK_EVENT, DateRange.last24Hours() );
         String queryBase = formulateQueryString( criteria, FBEVENT_VOL_ID_COLUMN_NAME );
         String queryString = new StringBuilder( queryBase )
                                  .append( " " )

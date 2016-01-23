@@ -2,28 +2,29 @@
  * Copyright (c) 2015 Formation Data Systems.  All rights reserved.
  */
 
-package com.formationds.om.repository.influxdb;
+package com.formationds.tools.statgen.influxdb;
 
-import com.formationds.commons.libconfig.ParsedConfig;
-import com.formationds.commons.util.RetryHelper;
-import com.formationds.om.helper.SingletonConfiguration;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.Serie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.nurkiewicz.asyncretry.AsyncRetryExecutor;
+
+import java.net.ConnectException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReentrantLock;;
 
 /**
  * Represent a connection to the InfluxDB database.
@@ -33,8 +34,6 @@ import java.util.concurrent.locks.ReentrantLock;
  * against the influxdb database.  The default configuration is to allow concurrent reads and writes, but we have
  * observed problems with InfluxDB handling concurrent operations so this is in place to workaround those issues.
  * <ul>
- * <li>If the serialize_all flag is set, then we use a shared lock in both the DBWriter and the DBReader preventing concurrent reads or writes.</li>
- * <li>if the serialize_reads flag is set, then we use a query lock in the DBReader to prevent concurrent reads</li>
  * <li>If the serialize_writes flag is set, then we use a write lock in the DBWriter to prevent concurrent writes.</li>
  * <li>Otherwise, we return a no-op implementation of a lock that does no locking at all</li>
  * </ul>
@@ -43,16 +42,16 @@ public class InfluxDBConnection {
     public static final Logger logger = LoggerFactory.getLogger( InfluxDBConnection.class );
 
     public static final String FDS_OM_INFLUXDB_ENABLE_BACKTRACE = "fds.om.influxdb.enable_query_backtrace";
+    public static final String FDS_OM_INFLUXDB_SERIALIZE_READS  = "fds.om.influxdb.serialize_reads";
     public static final String FDS_OM_INFLUXDB_SERIALIZE_WRITES = "fds.om.influxdb.serialize_writes";
-
-    private static final ParsedConfig PLAT_CFG = SingletonConfiguration.getPlatformConfig();
+    public static final String FDS_OM_INFLUXDB_SERIALIZE_ALL    = "fds.om.influxdb.serialize_all";
 
     /**
      * @return the value of the fds.om.influxdb.serialize_writes flag or false if it is not defined
      */
     private static boolean isSerializeWrites()
     {
-        return PLAT_CFG.defaultBoolean( FDS_OM_INFLUXDB_SERIALIZE_WRITES, false );
+        return false;
     }
 
     private final LoggingInfluxDBReader reader = new LoggingInfluxDBReader();
@@ -81,7 +80,6 @@ public class InfluxDBConnection {
     // @formatter:off
     // overrides toString to return the lock name and identity hash code only. used for trace logging only
     private class NamedLock extends ReentrantLock {
-        private static final long serialVersionUID = -1368502809071656626L;
         private final String name;
         public NamedLock(String n) { super(); this.name = n; }
         public String toString() { return name + "[" + System.identityHashCode( this ) + "]"; }
@@ -208,8 +206,19 @@ public class InfluxDBConnection {
 
     protected CompletableFuture<InfluxDB> connectWithRetry() {
 
-        return RetryHelper.asyncRetry( "InfluxDBConnection-" + getUrl( ),
-                                       ( ) -> {
+        final AsyncRetryExecutor asyncRetryExecutor =
+                new AsyncRetryExecutor(
+                    Executors.newSingleThreadScheduledExecutor( ) );
+
+            asyncRetryExecutor.withExponentialBackoff( 500, 2 )
+                              .withMaxDelay( 10_000 )
+                              .withUniformJitter( )
+                              .retryInfinitely()
+                              .retryOn( ExecutionException.class )
+                              .retryOn( RuntimeException.class )
+                              .retryOn( ConnectException.class );
+
+            return asyncRetryExecutor.getWithRetry( ( ) -> {
                                            InfluxDB conn
                                                = InfluxDBFactory.connect( url,
                                                                           user,
@@ -316,7 +325,7 @@ public class InfluxDBConnection {
 
             try
             {
-                if ( PLAT_CFG.defaultBoolean( FDS_OM_INFLUXDB_ENABLE_BACKTRACE, false ) )
+                if ( Boolean.valueOf( System.getProperty( FDS_OM_INFLUXDB_ENABLE_BACKTRACE, "false" ) ) )
                 {
                     // hack to log the stack trace of each query
                     StackTraceElement[] st = new Exception().getStackTrace();
@@ -374,15 +383,16 @@ public class InfluxDBConnection {
         public List<Serie> query( String query, TimeUnit precision )
         {
             long start = System.currentTimeMillis();
-            long connTime = 0;
-            long queryTime = 0;
+            long connTime = -1;
+            long queryTime = -1;
+            long lockTime = -1;
             List<Serie> result = Collections.emptyList();
             Throwable failed = null;
             try
             {
                 queryLogger.trace( "QUERY_BEGIN [{}]: {}", start, query );
 
-                if ( PLAT_CFG.defaultBoolean( FDS_OM_INFLUXDB_ENABLE_BACKTRACE, false ) )
+                if ( Boolean.valueOf( System.getProperty( FDS_OM_INFLUXDB_ENABLE_BACKTRACE, "false" ) ) )
                 {
                     // hack to log the stack trace of each query
                     StackTraceElement[] st = new Exception().getStackTrace();
@@ -397,9 +407,13 @@ public class InfluxDBConnection {
 
                 InfluxDB conn = connect();
                 connTime = System.currentTimeMillis() - start;
-
-                result = conn.query( database.get(), query, precision );
-
+                try
+                {
+                    result = conn.query( database.get(), query, precision );
+                }
+                finally
+                {
+                }
                 queryTime = System.currentTimeMillis() - start - connTime;
 
                 return result;
