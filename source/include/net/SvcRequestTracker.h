@@ -24,6 +24,7 @@ class SvcRequestTracker : HasModuleProvider {
     bool addForTracking(const SvcRequestId& id, SvcRequestIfPtr req);
     SvcRequestIfPtr popFromTracking(const SvcRequestId& id);
     SvcRequestIfPtr getSvcRequest(const SvcRequestId &id);
+    uint64_t getOutstandingSvcReqs();
 
  protected:
     fds_mutex svcReqMaplock_;

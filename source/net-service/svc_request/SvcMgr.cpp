@@ -24,6 +24,7 @@
 #include <fds_dmt.h>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
+#include <json/json.h>
 
 namespace fds {
 
@@ -155,6 +156,11 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
 
     dltMgr_.reset(new DLTManager());
     dmtMgr_.reset(new DMTManager());
+
+    if (MODULEPROVIDER()->get_cntrs_mgr() != NULL) {
+        stateProviderId = "platnetsvcmgr";
+        MODULEPROVIDER()->get_cntrs_mgr()->add_for_export(this);
+    }
 }
 
 fpi::FDSP_MgrIdType SvcMgr::mapToSvcType(const std::string &svcName)
@@ -235,6 +241,7 @@ fpi::SvcUuid SvcMgr::mapToSvcUuid(const NodeUuid &in,
 
 SvcMgr::~SvcMgr()
 {
+    MODULEPROVIDER()->get_cntrs_mgr()->remove_from_export(this);
     svcServer_->stop();
     delete taskExecutor_;
     delete svcRequestMgr_;
@@ -703,6 +710,20 @@ void SvcMgr::setUnreachableInjection(float frequency) {
     LOGNOTIFY << "Enabling unreachable fault injections at a probability of " << frequency;
 }
 
+std::string SvcMgr::getStateProviderId() {
+    return stateProviderId;
+}
+
+std::string SvcMgr::getStateInfo() {
+
+    Json::Value state;
+    state["outstandingRequests"] = static_cast<Json::Value::UInt64>(svcRequestMgr_->getOutstandingRequests());
+
+    std::stringstream ss;
+    ss << state;
+    return ss.str();
+}
+
 SvcHandle::SvcHandle(CommonModuleProviderIf *moduleProvider,
                      const fpi::SvcInfo &info)
 : HasModuleProvider(moduleProvider)
@@ -862,6 +883,5 @@ void SvcHandle::markSvcDown_()
         svcMgr->notifyOMSvcIsDown(svcInfo_);
     }
 }
-
 
 }  // namespace fds
