@@ -9,6 +9,7 @@
 #include "AmDispatcher.h"
 #include "AmTxDescriptor.h"
 #include "requests/AttachVolumeReq.h"
+#include "requests/CommitBlobTxReq.h"
 #include "requests/GetBlobReq.h"
 #include "requests/GetObjectReq.h"
 #include "requests/PutObjectReq.h"
@@ -297,15 +298,16 @@ AmCache::statBlob(AmRequest *amReq) {
 }
 
 void
-AmCache::deleteBlobCb(AmRequest* amReq, Error const error) {
-    if (error.ok()) {
+AmCache::commitBlobTxCb(AmRequest* amReq, Error const error) {
+    auto blobReq = static_cast<CommitBlobTxReq*>(amReq);
+    if (blobReq->is_delete && error.ok()) {
         descriptor_cache.remove(amReq->io_vol_id, amReq->getBlobName());
         offset_cache.remove_if(amReq->io_vol_id,
                                [amReq] (BlobOffsetPair const& blob_pair) -> bool {
                                     return (amReq->getBlobName() == blob_pair.getName());
                                });
     }
-    AmDataProvider::deleteBlobCb(amReq, error);
+    AmDataProvider::commitBlobTxCb(amReq, error);
 }
 
 void

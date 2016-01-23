@@ -207,15 +207,29 @@ AmTxManager::startBlobTx(AmRequest *amReq) {
 void
 AmTxManager::startBlobTxCb(AmRequest * amReq, Error const error) {
     auto blobReq = static_cast<StartBlobTxReq*>(amReq);
-    auto cb = std::dynamic_pointer_cast<StartBlobTxCallback>(blobReq->cb);
     auto err = error;
     if (err.ok()) {
         // Update callback and record new open transaction
-        cb->blobTxId = *blobReq->tx_desc;
-        err = addTx(blobReq->io_vol_id,
-                    *blobReq->tx_desc,
-                    blobReq->dmt_version,
-                    blobReq->getBlobName());
+        if (blobReq->cb) {
+            auto cb = std::dynamic_pointer_cast<StartBlobTxCallback>(blobReq->cb);
+            cb->blobTxId = *blobReq->tx_desc;
+        }
+        if (blobReq->delete_request) {
+            // XXX (bszmyd):  This is a hack until delete is atomic Fri Jan 22 18:49:01 2016
+            {
+                SCOPEDREAD(txMapLock);
+                txMap[*blobReq->tx_desc]->originDmtVersion = blobReq->dmt_version;
+            }
+            auto delReq = static_cast<DeleteBlobReq*>(blobReq->delete_request);
+            delReq->dmt_version = blobReq->dmt_version;
+            updateTxOpType(*(blobReq->tx_desc), delReq->io_type);
+            AmDataProvider::deleteBlob(delReq);
+        } else {
+            err = addTx(blobReq->io_vol_id,
+                        *blobReq->tx_desc,
+                        blobReq->dmt_version,
+                        blobReq->getBlobName());
+        }
     }
     AmDataProvider::startBlobTxCb(blobReq, err);
 }
@@ -225,35 +239,40 @@ AmTxManager::commitBlobTx(AmRequest *amReq) {
     auto blobReq = static_cast<CommitBlobTxReq*>(amReq);
     auto const& txId = *blobReq->tx_desc;
     Error err = getTxDmtVersion(txId, &(blobReq->dmt_version));
-    if (err.ok()) {
-        if (!all_atomic_ops) {
-            AmDataProvider::commitBlobTx(blobReq);
-            return;
-        } else {
-            auto catUpdateReq = new UpdateCatalogReq(blobReq);
-            SCOPEDREAD(txMapLock);
-            TxMap::iterator txMapIt = txMap.find(txId);
-            if (txMapIt != txMap.end()) {
-                for (auto const& offset_pair : txMapIt->second->stagedBlobOffsets) {
-                    auto const& obj_id = offset_pair.second.first;
-                    auto const data_length = offset_pair.second.second;
-                    catUpdateReq->object_list.emplace(obj_id,
-                                       std::make_pair(offset_pair.first.getOffset(), data_length));
-                }
+    if (!err.ok()) {
+        AmDataProvider::commitBlobTxCb(blobReq, err);
+    }
 
-                for (auto kvIt = txMapIt->second->stagedBlobDesc->kvMetaBegin();
-                     txMapIt->second->stagedBlobDesc->kvMetaEnd() != kvIt;
-                     ++kvIt) {
-                    catUpdateReq->metadata->emplace(kvIt->first, kvIt->second);
-                }
-                AmDataProvider::updateCatalog(catUpdateReq);
-                return;
-            } else {
-                err = ERR_NOT_FOUND;
+    SCOPEDREAD(txMapLock);
+    TxMap::iterator txMapIt = txMap.find(txId);
+    if (txMapIt == txMap.end()) {
+        AmDataProvider::commitBlobTxCb(blobReq, ERR_INVALID_ARG);
+        return;
+    }
+    blobReq->is_delete = (FDS_DELETE_BLOB == txMapIt->second->opType);
+
+    if (!all_atomic_ops) {
+        AmDataProvider::commitBlobTx(blobReq);
+    } else {
+        if (!blobReq->is_delete) {
+            auto catUpdateReq = new UpdateCatalogReq(blobReq);
+            for (auto const& offset_pair : txMapIt->second->stagedBlobOffsets) {
+                auto const& obj_id = offset_pair.second.first;
+                auto const data_length = offset_pair.second.second;
+                catUpdateReq->object_list.emplace(obj_id,
+                                   std::make_pair(offset_pair.first.getOffset(), data_length));
             }
+
+            for (auto kvIt = txMapIt->second->stagedBlobDesc->kvMetaBegin();
+                 txMapIt->second->stagedBlobDesc->kvMetaEnd() != kvIt;
+                 ++kvIt) {
+                catUpdateReq->metadata->emplace(kvIt->first, kvIt->second);
+            }
+            AmDataProvider::updateCatalog(catUpdateReq);
+        } else {
+            AmDataProvider::commitBlobTx(blobReq);
         }
     }
-    AmDataProvider::commitBlobTxCb(blobReq, err);
 }
 
 void
@@ -319,19 +338,26 @@ AmTxManager::deleteBlob(AmRequest *amReq) {
                 << " blob:" << amReq->getBlobName()
                 << " txn:" << blobReq->tx_desc;
 
-    Error err { ERR_NOT_IMPLEMENTED };
     if (!all_atomic_ops) {
         // Update the tx manager with the delete op
-        err = getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
+        auto err = getTxDmtVersion(*(blobReq->tx_desc), &(blobReq->dmt_version));
         if (err.ok()) {
             updateTxOpType(*(blobReq->tx_desc), amReq->io_type);
             AmDataProvider::deleteBlob(amReq);
-            return;
+        } else {
+            AmDataProvider::deleteBlobCb(amReq, err);
         }
     } else {
-        // TODO (bszmyd):  Fake delete tx Wed Jan 20 22:37:17 2016
+        auto startReq = new StartBlobTxReq(blobReq->io_vol_id,
+                                           blobReq->volume_name,
+                                           blobReq->getBlobName(),
+                                           0,
+                                           nullptr);
+        // XXX (bszmyd):  Delete needs to be _real_ Tx for now Fri Jan 22 18:47:13 2016
+        startReq->tx_desc = blobReq->tx_desc;
+        startReq->delete_request = amReq;
+        AmDataProvider::startBlobTx(startReq);
     }
-    AmDataProvider::deleteBlobCb(amReq, err);
 }
 
 void
