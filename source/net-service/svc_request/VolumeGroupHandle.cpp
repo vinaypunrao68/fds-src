@@ -774,8 +774,7 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
         /* Check if offline volumegroup needs to become functional again */
         if (state_ == fpi::ResourceState::Offline &&
             functionalReplicas_.size() == quorumCnt_) {
-            changeState_(fpi::ResourceState::Active,
-                         false, /* This is a noop */
+            changeState_(fpi::ResourceState::Active, false, /* This is a noop */
                          " - funcationl again.  Met the quorum count");
         }
     } else if (VolumeReplicaHandle::isNonFunctional(targetState)) {
@@ -783,7 +782,7 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
         if (state_ == fpi::ResourceState::Active &&
             functionalReplicas_.size() < quorumCnt_) {
             if (functionalReplicas_.size() == 0) {
-                /* When we zero functional replicas we reset opSeqNo_ */
+                /* When we have zero functional replicas we reset opSeqNo_ */
                 opSeqNo_ = VolumeGroupConstants::OPSTARTID;
                 LOGNORMAL << logString()
                     << " - # functional replicas is zero.  Resetting opid";

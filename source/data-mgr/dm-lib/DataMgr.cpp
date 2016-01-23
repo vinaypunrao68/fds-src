@@ -1323,7 +1323,18 @@ DataMgr::amIPrimary(fds_volid_t volUuid) {
 fds_bool_t
 DataMgr::amIPrimaryGroup(fds_volid_t volUuid) {
     if (features.isVolumegroupingEnabled()) {
-        return true;
+        if (MODULEPROVIDER()->getSvcMgr()->hasCommittedDMT()) {
+            const DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->\
+                                       getDMTNodesForVolume(volUuid);
+            fds_verify(nodes->getLength() > 0);
+            const fpi::SvcUuid myUuid (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
+            for (uint i = 0; i < nodes->getLength() ; i++) {
+                if (nodes->get(i).toSvcUuid() == myUuid) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
     return (_amIPrimaryImpl(volUuid, false));
 }
