@@ -85,7 +85,6 @@ void ScstAdmin::toggleState(std::string const& target_name, bool const enable) {
     } else { 
         dev << "0" << std::endl;
     }
-    dev.close();
     GLOGNORMAL << "iSCSI target [" << target_name
               << "] has been " << (enable ? "enabled" : "disabled");
 }
