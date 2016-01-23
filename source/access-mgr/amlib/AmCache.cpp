@@ -83,31 +83,31 @@ AmCache::getBlobOffsetObjects(fds_volid_t volId,
                               fds_uint64_t const obj_offset_end,
                               size_t const obj_size,
                               std::vector<ObjectID::ptr>& obj_ids) {
-    LOGTRACE << "Cache lookup for volume " << std::hex << volId << std::dec
-             << " blob " << blobName << " offset " << obj_offset
-             << " objects " << obj_ids.size();
-
     // Search for all the Offset pairs for the range of data we're interested in
     // and populate the object ids vector with ids.
     obj_ids.clear();
+    Error error {ERR_OK};
     for (auto cur_off = obj_offset; obj_offset_end >= cur_off; cur_off += obj_size) {
         ObjectID::ptr obj_id;
         auto offset_pair = BlobOffsetPair(blobName, cur_off);
         auto err = offset_cache.get(volId, offset_pair, obj_id);
         if (err == ERR_OK) {
             PerfTracer::incr(PerfEventType::AM_OFFSET_CACHE_HIT, volId);
-            LOGDEBUG << "Found offset, id: " << *obj_id;
+            LOGDEBUG << "Found offset, [0x" << std::hex << cur_off
+                     << "] id: " << *obj_id;
             obj_ids.push_back(obj_id);
         } else {
-            return err; // Had a cache miss, inform processor
+            LOGDEBUG << "Missing offset, [0x" << std::hex << cur_off << "]";
+            error = err;
+            obj_ids.push_back(boost::make_shared<ObjectID>(NullObjectID));
         }
     }
-    return ERR_OK;
+    return error;
 }
 
 void
 AmCache::getObjects(GetBlobReq* blobReq) {
-    static boost::shared_ptr<std::string> null_object = boost::make_shared<std::string>();
+    static boost::shared_ptr<std::string> null_object = boost::make_shared<std::string>(0, '\0');
 
     LOGDEBUG << "checking cache for: " << blobReq->object_ids.size() << " objects";
     auto cb = std::dynamic_pointer_cast<GetObjectCallback>(blobReq->cb);
@@ -121,17 +121,19 @@ AmCache::getObjects(GetBlobReq* blobReq) {
     for (; id_it != blobReq->object_ids.end(); ++id_it, ++data_it) {
         auto const& obj_id = *id_it;
         boost::shared_ptr<std::string> blobObjectPtr = null_object;
-        LOGDEBUG << "Cache lookup for volume " << blobReq->io_vol_id << std::dec
-                 << " object " << *obj_id;
-
-        // If this is a null object return a zero size object to the connector,
+        // If this is a null object we don't know or it doesn't have an ObjectID
+        Error err {ERR_OK};
         if (NullObjectID != *obj_id) {
-            auto err = object_cache.get(blobReq->io_vol_id, *obj_id, blobObjectPtr);
-            if (ERR_OK != err) {
-                ++miss_cnt;
-                continue;
-            }
+            LOGDEBUG << "Cache lookup for volume " << blobReq->io_vol_id << std::dec
+                     << " object " << *obj_id;
+            err = object_cache.get(blobReq->io_vol_id, *obj_id, blobObjectPtr);
         }
+
+        if (ERR_OK != err) {
+            ++miss_cnt;
+            continue;
+        }
+
         ++hit_cnt;
         PerfTracer::incr(PerfEventType::AM_OBJECT_CACHE_HIT, blobReq->io_vol_id);
         data_it->swap(blobObjectPtr);
