@@ -671,11 +671,11 @@ DmTimeVolCatalog::getUsedCapacityAsPct() {
     // Get fds root dir
     const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
     // Get sys-repo dir
-    DiskUtils::capacity_tuple cap = DiskUtils::getDiskConsumedSize(root->dir_sys_repo_dm());
+    DiskUtils::CapacityPair cap = DiskUtils::getDiskConsumedSize(root->dir_sys_repo_dm());
 
     // Calculate pct
-    float_t result = ((1. * cap.first) / cap.second) * 100;
-    GLOGDEBUG << "Found DM disk capacity of (" << cap.first << "/" << cap.second << ") = " << result;
+    float_t result = ((1. * cap.usedCapacity) / cap.totalCapacity) * 100;
+    GLOGDEBUG << "Found DM disk capacity of (" << cap.usedCapacity << "/" << cap.totalCapacity << ") = " << result;
 
     return result;
 }

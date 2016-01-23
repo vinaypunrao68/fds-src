@@ -224,6 +224,7 @@ ObjectPersistData::writeObjectData(const ObjectID& objId,
     fiu_do_on("sm.objectstore.fail.data.disk",
               if (smDiskMap->getDiskId(objId, req->getTier()) == 0)
               {  err = ERR_DISK_WRITE_FAILED; });
+
     return err;
 }
 
