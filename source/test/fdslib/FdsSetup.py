@@ -490,6 +490,8 @@ class FdsRmtEnv(FdsEnv):
                 if 'InsecureRequestWarning' in line:
                     continue
 
+                log.warning("[{} stderr] {}".format(self.env_host, line))
+
                 if status == 0:
                     log.warning("Shell reported status 0 from command execution but stderr "
                                 "contains unexpected output as follows. Forcing status to -1.")
