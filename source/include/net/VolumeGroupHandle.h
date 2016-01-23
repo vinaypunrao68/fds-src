@@ -412,6 +412,8 @@ void VolumeGroupHandle::sendCommitMsg(const fpi::FDSPMsgTypeId &msgTypeId,
 
         opSeqNo_++;
         commitNo_++;
+        // TODO(Rao): We should set sequence_id here
+        fds_assert(msg->sequence_id == commitNo_);
         sendWriteReq_<MsgT, VolumeGroupBroadcastRequest>(msgTypeId, msg, cb);
     });
 }
