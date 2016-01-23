@@ -121,8 +121,8 @@ AmCache::getObjects(GetBlobReq* blobReq) {
     for (; id_it != blobReq->object_ids.end(); ++id_it, ++data_it) {
         auto const& obj_id = *id_it;
         boost::shared_ptr<std::string> blobObjectPtr = null_object;
-        GLOGTRACE << "Cache lookup for volume " << blobReq->io_vol_id << std::dec
-                  << " object " << *obj_id;
+        LOGDEBUG << "Cache lookup for volume " << blobReq->io_vol_id << std::dec
+                 << " object " << *obj_id;
 
         // If this is a null object return a zero size object to the connector,
         if (NullObjectID != *obj_id) {
@@ -150,8 +150,9 @@ AmCache::getObjects(GetBlobReq* blobReq) {
     blobReq->setResponseCount(miss_cnt);
     auto obj_it = blobReq->object_ids.cbegin();
     auto buf_it = cb->return_buffers->begin();
-    for (auto end = cb->return_buffers->cend(); end != buf_it; ++obj_it, ++buf_it) {
+    for (; 0 < miss_cnt; ++obj_it, ++buf_it) {
         if (!*buf_it) {
+            --miss_cnt;
             LOGDEBUG << "Instantiating GetObject for object: " << **obj_it;
             getObject(blobReq, *obj_it, *buf_it);
         }
@@ -374,7 +375,7 @@ AmCache::getBlob(AmRequest *amReq) {
                                                     amReq->getBlobName(),
                                                     error);
             if (error.ok()) {
-                LOGTRACE << "Found cached blob descriptor for " << std::hex
+                LOGDEBUG << "Found cached blob descriptor for " << std::hex
                          << amReq->io_vol_id << std::dec << " blob " << amReq->getBlobName();
                 blobReq->metadata_cached = true;
                 auto cb = std::dynamic_pointer_cast<GetObjectWithMetadataCallback>(amReq->cb);
