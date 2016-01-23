@@ -95,7 +95,7 @@ class PlatSvc(object):
         svcinfo.svc_status = ServiceStatus.SVC_STATUS_ACTIVE;
         svcinfo.svc_auto_name = 'Formation Console Service';
         # TODO(Rao): Get IP
-        svcinfo.ip = socket.gethostbyname(socket.gethostname())
+        svcinfo.ip = socket.gethostname()
         svcinfo.incarnationNo =  int(time.time());
         svcinfo.name = 'FDS Debug Tool'
         svcinfo.props = {};
