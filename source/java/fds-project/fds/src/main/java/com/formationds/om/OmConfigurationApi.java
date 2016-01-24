@@ -591,7 +591,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                         volumeSettings.getBlockDeviceSizeInBytes() :
                         volumeSettings.getMaxObjectSizeInBytes());
 
-        statStreamRegistrationHandler.notifyVolumeCreated( domainName, volumeName );
+        getCache().loadVolume( domainName, volumeName );
 
         // load the new volume into the cache
         getCache().loadVolume( domainName, volumeName );
@@ -626,8 +626,6 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     public void deleteVolume( String domainName, String volumeName ) throws TException {
         getConfig().deleteVolume( domainName, volumeName );
         EventManager.notifyEvent( OmEvents.DELETE_VOLUME, domainName, volumeName );
-        statStreamRegistrationHandler.notifyVolumeDeleted( domainName, volumeName );
-
         getCache().removeVolume( domainName, volumeName );
     }
 

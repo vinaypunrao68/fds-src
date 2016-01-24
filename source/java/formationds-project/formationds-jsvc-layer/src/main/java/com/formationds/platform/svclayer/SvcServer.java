@@ -189,6 +189,7 @@ public class SvcServer<S extends PlatNetSvc.Iface> {
      *
      * @throws TTransportException
      */
+    @SuppressWarnings( "unchecked" )
     private TNonblockingServer createThriftServer( InetSocketAddress address, S handler ) throws TTransportException {
 
         TNonblockingServerSocket transport = new TNonblockingServerSocket( address );
