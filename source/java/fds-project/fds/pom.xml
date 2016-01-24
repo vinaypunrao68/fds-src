@@ -370,6 +370,24 @@
         </exclusion>
       </exclusions>
     </dependency>
+
+    <!-- InfluxDB-Java dependencies
+        Note that we should not have to declare these explicitly, but we are having
+        problems with the pom file in artifactory with our custom version of
+        the influxdb-java library and it being unable to find the transitive dependencies -->
+    <dependency>
+        <groupId>com.squareup.retrofit</groupId>
+        <artifactId>retrofit</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>com.squareup.okhttp</groupId>
+        <artifactId>okhttp</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>com.squareup.okhttp</groupId>
+        <artifactId>okhttp-urlconnection</artifactId>
+    </dependency>
+
   </dependencies>
 
 
