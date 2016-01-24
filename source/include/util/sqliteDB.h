@@ -5,8 +5,6 @@
 #define SOURCE_INCLUDE_UTIL_SQLITEDB_H_
 
 #include <sqlite3.h>
-#include <util/Log.h>
-#include <fds_error.h>
 #include <fds_types.h>
 #include <concurrency/Mutex.h>
 
@@ -17,36 +15,22 @@ namespace fds {
  * the tables.
  */
 class SqliteDB {
-
-    private:
-        sqlite3 *db = nullptr;
-        std::string dbFile;
-        fds_mutex mtx;
-    public:
-        explicit SqliteDB(const std::string &dbFilePath);
-        int execute(const std::string &query);
-        bool getIntValue(const std::string &query,
-                        fds_uint64_t &value);
-        bool getIntValues(const std::string &query,
-                          std::set<fds_uint64_t> &valueSet);
-        bool getTextValue(const std::string &query,
-                          std::string &value);
-        bool getTextValues(const std::string &query,
-                           std::set<std::string> &valueSet);
-        inline void logOnError(const int &errorCode,
-                               const std::string &msg, const std::string& query) {
-            if (errorCode != SQLITE_OK) {
-                LOGERROR << msg << " code:" << errorCode
-                         << " dbmsg:" << sqlite3_errmsg(db)
-                         << " query:" << query;
-            }
-        }
-        int dropDB();
-        ~SqliteDB();
+  private:
+    sqlite3 *db = nullptr;
+    std::string dbFile;
+    fds_mutex mtx;
+  public:
+    explicit SqliteDB(const std::string &dbFilePath);
+    int execute(const std::string &query);
+    bool getIntValue(const std::string &query, fds_uint64_t &value);
+    bool getIntValues(const std::string &query, std::set<fds_uint64_t> &valueSet);
+    bool getTextValue(const std::string &query, std::string &value);
+    bool getTextValues(const std::string &query, std::set<std::string> &valueSet);
+    void logOnError(const int &errorCode, const std::string &msg);
+    int dropDB();
+    ~SqliteDB();
 };
 
 } // namespace fds
 
 #endif // SOURCE_INCLUDE_UTIL_SQLITEDB_H_
-
-

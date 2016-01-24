@@ -22,6 +22,8 @@ struct PlatformDB : KVStore {
     bool getNodeInfo(fpi::NodeInfo& nodeInfo);
     bool setNodeDiskCapability(const fpi::FDSP_AnnounceDiskCapability& diskCapability); // NOLINT
     bool getNodeDiskCapability(fpi::FDSP_AnnounceDiskCapability& diskCapability); // NOLINT
+    bool setNodeLargestDiskIndex(const fds_uint16_t& largestDiskIndex);
+    bool getNodeLargestDiskIndex(fds_uint16_t& largestDiskIndex);
 
 
  protected:

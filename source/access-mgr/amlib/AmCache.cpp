@@ -32,9 +32,11 @@ AmCache::~AmCache() = default;
 
 bool
 AmCache::done() {
-    std::lock_guard<std::mutex> g(obj_get_lock);
-    if (!obj_get_queue.empty()) {
-        return false;
+    {
+        std::lock_guard<std::mutex> g(obj_get_lock);
+        if (!obj_get_queue.empty()) {
+            return false;
+        }
     }
     return AmDataProvider::done();
 }
@@ -161,29 +163,39 @@ AmCache::getObject(GetBlobReq* blobReq,
                    ObjectID::ptr const& obj_id,
                    boost::shared_ptr<std::string>& buf) {
     auto objReq = new GetObjectReq(blobReq, buf, obj_id);
-
-    std::lock_guard<std::mutex> g(obj_get_lock);
-    auto q = obj_get_queue.find(*obj_id);
-    if (obj_get_queue.end() == q) {
-        auto new_queue = new std::deque<GetObjectReq*>();
-        obj_get_queue[*obj_id].reset(new_queue);
-        new_queue->push_back(objReq);
-        return AmDataProvider::getObject(objReq);
+    bool happened {false};
+    // Only dispatch to lower layers if we haven't already for this object
+    {
+        std::lock_guard<std::mutex> g(obj_get_lock);
+        auto it = obj_get_queue.end();
+        std::tie(it, happened) = obj_get_queue.emplace(*obj_id, nullptr);
+        if (happened) {
+            it->second.reset(new std::deque<GetObjectReq*>());
+        }
+        it->second->push_back(objReq);
     }
-    q->second->push_back(objReq);
+    if (happened) {
+        AmDataProvider::getObject(objReq);
+    }
 }
 
 void
 AmCache::getObjectCb(AmRequest* amReq, Error const error) {
-    auto obj_id = *static_cast<GetObjectReq*>(amReq)->obj_id;
+    auto const& obj_id = *static_cast<GetObjectReq*>(amReq)->obj_id;
     std::unique_ptr<std::deque<GetObjectReq*>> queue;
     {
         // Find the waiting get requeust queue
         std::lock_guard<std::mutex> g(obj_get_lock);
         auto q = obj_get_queue.find(obj_id);
-        fds_assert(obj_get_queue.end() != q);
-        queue.swap(q->second);
-        obj_get_queue.erase(q);
+        if (obj_get_queue.end() != q) {
+            queue.swap(q->second);
+            obj_get_queue.erase(q);
+        }
+    }
+
+    if (!queue) {
+        LOGCRITICAL << "Missing response queue...assuming lost getObject request? Possible Leak";
+        return;
     }
 
     // For each request waiting on this object, respond to it and set the buffer
@@ -193,7 +205,7 @@ AmCache::getObjectCb(AmRequest* amReq, Error const error) {
     for (auto& objReq : *queue) {
         if (error.ok()) {
             objReq->obj_data = buf;
-            object_cache.add(objReq->io_vol_id, *objReq->obj_id, objReq->obj_data);
+            object_cache.add(objReq->io_vol_id, obj_id, objReq->obj_data);
         }
         bool done;
         Error err;

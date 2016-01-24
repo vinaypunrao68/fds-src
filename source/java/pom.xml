@@ -94,15 +94,15 @@
     <mockito.version>1.10.8</mockito.version>
 
     <!-- formation data systems, inc dependencies -->
-    <formationds.commons.libconfig.version>2016.01.15-SNAPSHOT</formationds.commons.libconfig.version>
-    <formationds.commons.togglz.version>2016.01.15-SNAPSHOT</formationds.commons.togglz.version>
-    <formationds.commons.util.version>2016.01.15-SNAPSHOT</formationds.commons.util.version>
-    <formationds.ext.model.version>2016.01.15-SNAPSHOT</formationds.ext.model.version>
-    <formationds.project.version>2016.01.15-SNAPSHOT</formationds.project.version>
-    <formationds.thrift.client.util.version>2016.01.15-SNAPSHOT</formationds.thrift.client.util.version>
-    <formationds.thrift.version>2016.01.15-SNAPSHOT</formationds.thrift.version>
-    <formationds.jsvc.layer.version>2016.01.15-SNAPSHOT</formationds.jsvc.layer.version>
-    <formationds.commons.version>2016.01.15-SNAPSHOT</formationds.commons.version>
+    <formationds.commons.libconfig.version>2016.01.29-SNAPSHOT</formationds.commons.libconfig.version>
+    <formationds.commons.togglz.version>2016.01.29-SNAPSHOT</formationds.commons.togglz.version>
+    <formationds.commons.util.version>2016.01.29-SNAPSHOT</formationds.commons.util.version>
+    <formationds.ext.model.version>2016.01.29-SNAPSHOT</formationds.ext.model.version>
+    <formationds.project.version>2016.01.29-SNAPSHOT</formationds.project.version>
+    <formationds.thrift.client.util.version>2016.01.29-SNAPSHOT</formationds.thrift.client.util.version>
+    <formationds.thrift.version>2016.01.29-SNAPSHOT</formationds.thrift.version>
+    <formationds.jsvc.layer.version>2016.01.29-SNAPSHOT</formationds.jsvc.layer.version>
+    <formationds.commons.version>2016.01.29-SNAPSHOT</formationds.commons.version>
     <formationds.stats.client.version>0.0.1-SNAPSHOT</formationds.stats.client.version>
 
     <!-- plugin versions -->

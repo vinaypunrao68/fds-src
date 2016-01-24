@@ -319,7 +319,7 @@ function system_test_scenario_wrapper
     # Fix for fs-3698
     if [[ "${scenario}" == 'ActiveIORestart' ]]
     then
-          rm -rf source/cit/*.xml
+          rm -rf ../../cit/*.xml
     fi
     check_xunit_errors ${scenario}
     check_xunit_failures ${scenario}

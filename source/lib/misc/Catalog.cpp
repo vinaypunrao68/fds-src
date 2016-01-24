@@ -16,8 +16,8 @@ int doCopyFile(void * arg, const char* fname, fds_uint64_t length) {
     fds_assert(fname && *fname != 0);
 
     fds::CopyDetails * details = reinterpret_cast<fds::CopyDetails *>(arg);
-    GLOGNORMAL << "Copying file '" << fname << "' to directory '" << details->destPath
-            << "' from '" << details->srcPath;
+    GLOGTRACE << "Copying file '" << fname << "' to directory '" << details->destPath
+              << "' from '" << details->srcPath;
 
     std::string srcFile = details->srcPath + "/" + fname;
     std::string destFile = details->destPath + "/" + fname;
@@ -59,7 +59,7 @@ Catalog::Catalog(const std::string& _file,
                  const std::string& logDirName /* = empty */,
                  const std::string& logFilePrefix /* = empty */,
                  fds_uint32_t maxLogFiles /* = 0 */,
-                 fds_bool_t timelineEnable,
+                 fds_bool_t archiveLogs_,
                  leveldb::Comparator * cmp /* = 0 */) : backing_file(_file)
 {
     filter_policy.reset(leveldb::NewBloomFilterPolicy(FILTER_BITS_PER_KEY));
@@ -84,7 +84,7 @@ Catalog::Catalog(const std::string& _file,
         env->logDirName() = logDirName;
         env->logFilePrefix() = logFilePrefix;
         env->maxLogFiles() = maxLogFiles;
-        env->timelineEnable() = timelineEnable;
+        env->archiveLogs() = archiveLogs_;
 
         env->logRotate() = !logFilePrefix.empty();
     }

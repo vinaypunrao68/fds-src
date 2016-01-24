@@ -2,7 +2,7 @@
 #define INCLUDE_CONCURRENCY_TASKSTATUS_H_
 
 #include <thrift/concurrency/Monitor.h>
-
+#include <fds_error.h>
 /**
  * TaskStatus: Wait for a task to be done
  * Eg:
@@ -34,7 +34,7 @@ namespace fds {
 
             // get the no.of tasks remaining
             virtual int getNumTasks() const ;
-  
+            Error error;
           protected:
             uint numTasks = 0;
             apache::thrift::concurrency::Monitor monitor;

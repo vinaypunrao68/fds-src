@@ -140,7 +140,7 @@ namespace fds
             bool                  m_use_new_superblock;
             PmDiskObj::pointer    dl_owner;
 
-            void dsk_label_fixup_header();
+            void dsk_label_fixup_header(fds_uint16_t& largest_disk_index);
 
         public:
             explicit DiskLabel(PmDiskObj::pointer disk);
@@ -166,8 +166,8 @@ namespace fds
                 return dl_disk_uuids;
             }
 
-            virtual void dsk_label_generate(ChainList *labels, int dsk_cnt);
-            virtual void dsk_label_clone(DiskLabel *master);
+            virtual void dsk_label_generate(ChainList *labels, int dsk_cnt, fds_uint16_t& largest_disk_index);
+            virtual void dsk_label_clone(DiskLabel *master, fds_uint16_t& largest_disk_index);
             virtual void dsk_label_read();
             virtual bool dsk_label_write(bool dsk_need_simulation);
     };
