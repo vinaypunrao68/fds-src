@@ -374,9 +374,16 @@ AmCache::getBlob(AmRequest *amReq) {
 
     // Can we read from cache
     if (!amReq->forced_unit_access) {
-        Error error {ERR_OK};
+        // Check cache for object IDs
+        auto error = getBlobOffsetObjects(amReq->io_vol_id,
+                                          amReq->getBlobName(),
+                                          amReq->blob_offset,
+                                          amReq->blob_offset_end,
+                                          amReq->object_size,
+                                          blobReq->object_ids);
+
         // If we need to return metadata, check the cache
-        if (blobReq->get_metadata) {
+        if (error.ok() && blobReq->get_metadata) {
             auto cachedBlobDesc = getBlobDescriptor(amReq->io_vol_id,
                                                     amReq->getBlobName(),
                                                     error);
@@ -388,16 +395,6 @@ AmCache::getBlob(AmRequest *amReq) {
                 // Fill in the data here
                 cb->blobDesc = cachedBlobDesc;
             }
-        }
-
-        // Check cache for object IDs
-        if (error.ok()) {
-            error = getBlobOffsetObjects(amReq->io_vol_id,
-                                         amReq->getBlobName(),
-                                         amReq->blob_offset,
-                                         amReq->blob_offset_end,
-                                         amReq->object_size,
-                                         blobReq->object_ids);
         }
 
         // ObjectIDs were found in the cache
