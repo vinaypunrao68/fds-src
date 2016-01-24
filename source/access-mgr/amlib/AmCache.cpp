@@ -405,7 +405,7 @@ AmCache::getBlob(AmRequest *amReq) {
         }
     } else {
         LOGDEBUG << "Can't read from cache, dispatching to DM.";
-        size_t numObjs = (blobReq->blob_offset_end - blobReq->blob_offset) / blobReq->object_size;
+        size_t numObjs = ((blobReq->blob_offset_end - blobReq->blob_offset) / blobReq->object_size) + 1;
         blobReq->object_ids.assign(numObjs, boost::make_shared<ObjectID>(NullObjectID));
     }
 
