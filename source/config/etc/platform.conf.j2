@@ -695,6 +695,12 @@ fds: {
             min = {{ om_task_scheduler_pool_min }}
         }
 
+        stats: {
+            frequency={{ om_stats_frequency }}
+            duration={{ om_stats_duration }}
+            method="{{ om_stats_method }}"
+        }
+
         test_mode=false
         threadpool: {
             num_threads = 10
