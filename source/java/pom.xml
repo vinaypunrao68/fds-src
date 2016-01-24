@@ -378,9 +378,16 @@
       </dependency>
 
       <dependency>
+      <!-- NOTE: Using forked version with chunked response streaming support
+           from git@github.com:davefds/influxdb-java.git (0.8.x.chunked_response branch)
         <groupId>org.influxdb</groupId>
         <artifactId>influxdb-java</artifactId>
         <version>${influxdb.version}</version>
+        -->
+        <groupId>com.formationds</groupId>
+        <artifactId>influxdb-java</artifactId>
+        <version>1.6.1-SNAPSHOT</version>
+        
       </dependency>
 
       <dependency>

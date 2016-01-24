@@ -33,6 +33,9 @@ public enum FdsFeatureToggles implements Feature {
     @Label( "Enable InfluxDB Write batching" )
     INFLUX_WRITE_BATCHING( "fds.feature_toggle.om.enable_influxdb_write_batch" ),
 
+    @Label( "Enable InfluxDB Chunked Response Query.  Requires fork of influxdb-java")
+    INFLUX_CHUNKED_QUERY_RESPONSE( "fds.feature_toggle.om.enable_influxdb_chunked_query_response" ),
+
     @Label( "Enable web logging request wrapper")
     WEB_LOGGING_REQUEST_WRAPPER( "fds.feature_toggle.common.enable_web_logging_request_wrapper" );
 

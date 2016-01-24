@@ -5,16 +5,18 @@
 package com.formationds.om.repository.influxdb;
 
 import com.formationds.commons.libconfig.ParsedConfig;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.commons.util.RetryHelper;
 import com.formationds.om.helper.SingletonConfiguration;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
+import org.influxdb.dto.ChunkedResponse;
 import org.influxdb.dto.Serie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -100,6 +102,8 @@ public class InfluxDBConnection {
 
     private CompletableFuture<InfluxDB> influxDB = null;
 
+    private final boolean chunkedResponseEnabled;
+
     /**
      *
      * @param url the influxdb url
@@ -123,11 +127,20 @@ public class InfluxDBConnection {
         this.database = ((database != null && !database.trim().isEmpty() ) ?
                          Optional.of( database ) :
                          Optional.empty() );
+
+        chunkedResponseEnabled = FdsFeatureToggles.INFLUX_CHUNKED_QUERY_RESPONSE.isActive();
     }
 
     public String getUrl() { return url; }
     public String getUser() { return user; }
     char[] getCredentials() { return Arrays.copyOf( credentials, credentials.length ); }
+
+    /**
+     * @return true if the chunked query response feature toggle is enabled
+     */
+    public boolean isChunkedResponseEnabled() {
+        return chunkedResponseEnabled;
+    }
 
     /**
      * close the influxdb connection.
@@ -369,40 +382,48 @@ public class InfluxDBConnection {
     {
         public final Logger queryLogger = LoggerFactory.getLogger( LoggingInfluxDBReader.class );
 
+        private static final String CHUNKED_MARKER = "CHUNKED";
+
         LoggingInfluxDBReader() { }
 
         public List<Serie> query( String query, TimeUnit precision )
         {
+            String marker = "";
+            List<Serie> result = doExecQuery( query, precision, marker );
+            if (result == null) {
+                result = new ArrayList<>();
+            }
+            return result;
+        }
+
+        @SuppressWarnings("unchecked")
+        private <T> T doExecQuery( String query, TimeUnit precision, String marker ) {
             long start = System.currentTimeMillis();
             long connTime = 0;
             long queryTime = 0;
-            List<Serie> result = Collections.emptyList();
+            T result = null;
             Throwable failed = null;
             try
             {
-                queryLogger.trace( "QUERY_BEGIN [{}]: {}", start, query );
+                queryLogger.trace( "QUERY_BEGIN {} [{}]: {}", marker, start, query );
 
                 if ( PLAT_CFG.defaultBoolean( FDS_OM_INFLUXDB_ENABLE_BACKTRACE, false ) )
                 {
-                    // hack to log the stack trace of each query
-                    StackTraceElement[] st = new Exception().getStackTrace();
-                    int maxDepth = 25;
-                    int d = 0;
-                    for ( StackTraceElement e : st )
-                    {
-                        queryLogger.trace( "QUERY_TRACE[" + d + "]: {}", e );
-                        if ( ++d > maxDepth || e.getClassName().startsWith( "org.eclipse.jetty" ) ) { break; }
-                    }
+                    logBacktrace();
                 }
 
                 InfluxDB conn = connect();
                 connTime = System.currentTimeMillis() - start;
 
-                result = conn.query( database.get(), query, precision );
+                if ( CHUNKED_MARKER.equals( marker ) ) {
+                    result = (T)conn.chunkedResponseQuery( database.get(), query, precision );
+                } else {
+                    result = (T)conn.query( database.get(), query, precision );
+                }
 
                 queryTime = System.currentTimeMillis() - start - connTime;
 
-                return result;
+                return (T)result;
             }
             catch ( Throwable e )
             {
@@ -411,26 +432,60 @@ public class InfluxDBConnection {
                 String msg = e.getMessage();
                 if ( msg != null && msg.startsWith( "Couldn't find series:" ) )
                 {
-                    // empty list
-                    return result;
+                    return (T)null;
                 }
                 else
                 {
                     failed = e;
                     queryLogger
-                            .trace( "QUERY_FAIL  [{}]: {} [ex={}; conn={} ms; query={} ms]", start, query,
+                            .trace( "QUERY_FAIL {} [{}]: {} [ex={}; conn={} ms; query={} ms]",
+                                    marker, start, query,
                                     e.getMessage(), connTime, queryTime );
                     throw e;
                 }
             }
             finally
             {
-                queryLogger.trace( "QUERY_END   [{}]: {} [result={}; conn={} ms; query={} ms]",
-                                   start, query, ( failed != null
+                queryLogger.trace( "QUERY_END {}  [{}]: {} [result={}; conn={} ms; query={} ms]",
+                                   marker, start, query, ( failed != null
                                                    ? "'" + failed.getMessage() + "'"
-                                                   : Integer.toString( result.size() ) ), connTime,
+                                                   : (result instanceof List ?
+                                                         Integer.toString( ((List)result).size() ): 0 ) ),
+                                   connTime,
                                    queryTime );
             }
         }
+
+        @Override
+        public boolean suportsChunkedResponseQuery() {
+            return chunkedResponseEnabled;
+        }
+
+        @Override
+        public ChunkedResponse chunkedReponseQuery( String query, TimeUnit precision ) {
+            if ( ! chunkedResponseEnabled ) {
+                throw new IllegalStateException("Chunked response queries disabled.");
+            }
+
+            ChunkedResponse response = doExecQuery( query, precision, CHUNKED_MARKER );
+            if (response == null) {
+
+            }
+            return response;
+        }
+
+        private void logBacktrace() {
+            // hack to log the stack trace of each query
+            StackTraceElement[] st = new Exception().getStackTrace();
+            int maxDepth = 25;
+            int d = 0;
+            for ( StackTraceElement e : st )
+            {
+                queryLogger.trace( "QUERY_TRACE[" + d + "]: {}", e );
+                if ( ++d > maxDepth || e.getClassName().startsWith( "org.eclipse.jetty" ) ) { break; }
+            }
+        }
+
+
     }
 }
