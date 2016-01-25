@@ -123,7 +123,7 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      * @return the persisted entity with any generated data updated in the entity.
      */
     @Override
-    synchronized public <R extends T> R save( R entity ) {
+    public <R extends T> R save( R entity ) {
         try {
             logger.trace( "ENTITY_SAVE: {}", entity );
 
@@ -149,7 +149,7 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      *
      * @throws RuntimeException if the save for any entity fails
      */
-    synchronized public <R extends T> List<R> save( Collection<R> entities ) {
+    public <R extends T> List<R> save( Collection<R> entities ) {
         List<R> persisted = new ArrayList<>();
         try {
             logger.trace( "Saving {} entities",
@@ -176,7 +176,7 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      * @param entity the entity to delete
      */
     @Override
-    synchronized public void delete( T entity ) {
+    public void delete( T entity ) {
         try {
             logger.trace( "Deleting entity {}", entity );
 

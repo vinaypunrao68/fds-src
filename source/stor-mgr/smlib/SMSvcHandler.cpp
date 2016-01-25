@@ -37,6 +37,9 @@ SMSvcHandler::SMSvcHandler(CommonModuleProviderIf *provider)
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteObjectMsg, deleteObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::AddObjectRefMsg, addObjectRef);
 
+    /* Object Store Ctrl */
+    REGISTER_FDSP_MSG_HANDLER(fpi::ObjectStoreCtrlMsg, objectStoreCtrl);
+
     /* Service map messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::NodeSvcInfo, notifySvcChange);
 
@@ -1256,10 +1259,26 @@ SMSvcHandler::querySMCheckStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMCheckStatusResp), *resp);
 }
 
+void SMSvcHandler::objectStoreCtrl(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                                   boost::shared_ptr<fpi::ObjectStoreCtrlMsg>& msg) {
+
+    LOGNORMAL << "Received objectStorCtrlMsg from " << hdr->msg_src_id
+                << " telling us to set object store to " << msg->state << " state";
+
+    // We just received a message from another SM that it had to enter read only mode, or that it is no longer
+    // in read only mode. We need to just blindly follow right now. Down the road we should add more robust handling.
+    /** NOTE: This is commented out for safety at the current time.
+    if (msg->state == OBJECTSTORE_READ_ONLY) {
+        objStorMgr->objectStore->setReadOnly();
+    } else if (msg->state == OBJECTSTORE_NORMAL) {
+        objStorMgr->objectStore->setAvailable();
+    }
+     **/
+}
+
 void
 SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-                            boost::shared_ptr<fpi::ActiveObjectsMsg>& msg)
-{
+                            boost::shared_ptr<fpi::ActiveObjectsMsg> &msg) {
     Error err(ERR_OK);
 
     LOGDEBUG << hdr;
@@ -1274,20 +1293,20 @@ SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     // verify the file checksum
     if (msg->filename.empty() && msg->checksum.empty()) {
         LOGDEBUG << "no active objects for token:" << msg->token
-                 << " for [" << msg->volumeIds.size() <<"]";
+                    << " for [" << msg->volumeIds.size() << "]";
     } else {
         filename = objStorMgr->fileTransfer->getFullPath(msg->filename);
         if (!util::fileExists(filename)) {
             err = ERR_FILE_DOES_NOT_EXIST;
             LOGERROR << "active object file ["
-                     << filename
-                     << "] does not exist";
+                        << filename
+                        << "] does not exist";
         } else {
             std::string chksum = util::getFileChecksum(filename);
             if (chksum != msg->checksum) {
                 LOGERROR << "file checksum mismatch [orig:" << msg->checksum
-                         << " new:" << chksum << "]"
-                         << " file:" << filename;
+                            << " new:" << chksum << "]"
+                            << " file:" << filename;
                 err = ERR_CHECKSUM_MISMATCH;
             }
         }
@@ -1317,7 +1336,7 @@ void SMSvcHandler::genericCommand(ASYNC_HANDLER_PARAMS(GenericCommandMsg)) {
     }
 }
 
-    void SMSvcHandler::diskMapChange(ASYNC_HANDLER_PARAMS(NotifyDiskMapChange)) {
-        LOGDEBUG << "Received a disk-map change notification";
-    }
+void SMSvcHandler::diskMapChange(ASYNC_HANDLER_PARAMS(NotifyDiskMapChange)) {
+    LOGDEBUG << "Received a disk-map change notification";
+}
 }  // namespace fds
