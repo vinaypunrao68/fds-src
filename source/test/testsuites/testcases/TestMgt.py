@@ -947,8 +947,14 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                       (scenario.nd_conf_dict['scenario-name']))
             raise Exception
 
+        if ('adjustLines' not in scenario.nd_conf_dict):
+            adjustLines = False
+        else:
+            adjustLines = bool(scenario.nd_conf_dict['adjustLines'])
+
         suite.addTest(TestFDSSysVerify.TestCanonMatch(canon=scenario.nd_conf_dict['canon'],
-                                                                fileToCheck=scenario.nd_conf_dict['filetocheck']))
+                                                      fileToCheck=scenario.nd_conf_dict['filetocheck'],
+                                                      adjustLines=adjustLines))
 
         # Give the test some time if requested.
         if 'delay_wait' in scenario.nd_conf_dict:

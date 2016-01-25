@@ -136,11 +136,15 @@ def are_dir_trees_equal(dir1, dir2, logDiff=False):
     return True
 
 
-def canonMatch(canon, fileToCheck):
+def canonMatch(canon, fileToCheck, adjustLines = False):
     """
     Test whether the fileToCheck file matches the canon file.
     This is a regular expression check where the canon file may
     contain regular expression patterns to aid in custom compares.
+
+    If adjustLines is set True, then the number of lines in
+    the canon determines the first number f line in the file we
+    check.
     """
     log = logging.getLogger('TestFDSSysVerify' + '.' + 'canonMatch')
 
@@ -164,9 +168,10 @@ def canonMatch(canon, fileToCheck):
     f.close()
 
     if len(canonLines) != len(linesToCheck):
-        log.error("Canon mis-match on line count: %s line count: %s. %s line count: %s." %
-                  (canon, len(canonLines), fileToCheck, len(fileToCheck)))
-        return False
+        if (adjustLines) and (len(canonLines) > len(linesToCheck)):
+            log.error("Canon mis-match on line count: %s line count: %s. %s line count: %s." %
+                      (canon, len(canonLines), fileToCheck, len(fileToCheck)))
+            return False
 
     idx = 0
     for canonLine in canonLines:
@@ -734,10 +739,10 @@ class TestRunScavenger(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# whether he specified file matches the specified canon file
+# whether the specified file matches the specified canon file
 # in a regular expression compare.
 class TestCanonMatch(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, canon=None, fileToCheck=None):
+    def __init__(self, parameters=None, canon=None, fileToCheck=None, adjustLines=False):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_CanonMatch,
@@ -745,6 +750,7 @@ class TestCanonMatch(TestCase.FDSTestCase):
 
         self.passedCanon = canon
         self.passedFileToCheck = fileToCheck
+        self.passedAdjustLines = adjustLines
 
     def test_CanonMatch(self):
         """
@@ -753,7 +759,7 @@ class TestCanonMatch(TestCase.FDSTestCase):
         the canon file and the file to be checked.
         """
 
-        # We must have all our parameters supplied.
+        # We must have our canon and fileToCheck parameters supplied.
         if (self.passedCanon is None) or \
                 (self.passedFileToCheck is None):
             self.log.error("Some parameters missing values.")
@@ -762,14 +768,47 @@ class TestCanonMatch(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
         canonDir = fdscfg.rt_env.get_fds_source() + "test/testsuites/canons/"
 
-        self.log.info("Comparing file %s to canon %s." %
-                      (self.passedFileToCheck, canonDir + self.passedCanon))
+        # If we don't see the canon file, it may be that there are multiple
+        # versions that we need to check. Different versions of a canon will
+        # all have the same file name except that they will have a final
+        # LLQ starting with "v" and followed by a number. For example:
+        # 3.stat_min_log.v1
+        # 3.stat_min_log.v2
+        # are two different versions of canon "3.stat_min_log".
+        #
+        # If we have different version, we'll check each in turn until we
+        # either find a match (success!) or find that none match (fail!).
+        if not os.path.isfile(canonDir + self.passedCanon):
+            canonFileDir, canonFilePrefix = os.path.split(canonDir + self.passedCanon)
+            listOfCanonDirFiles = os.listdir(canonFileDir)
 
-        if canonMatch(canonDir + self.passedCanon, self.passedFileToCheck):
-            return True
-        else:
-            self.log.error("Canon match failed.")
+            found = False
+            for file in listOfCanonDirFiles:
+                if (re.search(canonFilePrefix + '[.]v[0-9]', file)):
+                    found = True
+
+                    self.log.info("Comparing file %s to canon %s." %
+                                  (self.passedFileToCheck, canonFileDir + os.path.sep + file))
+
+                    if canonMatch(canonFileDir + os.path.sep + file, self.passedFileToCheck, adjustLines=self.passedAdjustLines):
+                        return True
+                    else:
+                        self.log.error("Canon match failed.")
+
+            if not found:
+                self.log.error("Canon file %s is not found." % (self.passedCanon))
+
             return False
+        else:
+            # Just check the one file.
+            self.log.info("Comparing file %s to canon %s." %
+                          (self.passedFileToCheck, canonDir + self.passedCanon))
+
+            if canonMatch(canonDir + self.passedCanon, self.passedFileToCheck, adjustLines=self.passedAdjustLines):
+                return True
+            else:
+                self.log.error("Canon match failed.")
+                return False
 
 
 if __name__ == '__main__':
