@@ -7,9 +7,11 @@
 #include "OmResources.h"
 #include <orchMgr.h>
 #include <net/SvcMgr.h>
+#include "omutils.h"
 
 namespace fds
 {
+
     OMMonitorWellKnownPMs::OMMonitorWellKnownPMs
         (
         ): fShutdown(false)
@@ -228,14 +230,7 @@ namespace fds
             if ( (gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.svc_uuid) ) == fpi::SVC_STATUS_INACTIVE_FAILED ||
                  (gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.svc_uuid) ) == fpi::SVC_STATUS_INACTIVE_STOPPED )
             {
-                fds_mutex::scoped_lock l(dbLock);
-                // don't need to update svc layer, since it already knows this PM is active
-                fpi::SvcInfoPtr fakeInfo = boost::make_shared<fpi::SvcInfo>();
-                fakeInfo->svc_id.svc_uuid.svc_uuid = uuid.svc_uuid;
-                fds::change_service_state(gl_orch_mgr->getConfigDB(),
-                                          fakeInfo,
-                                          fpi::SVC_STATUS_ACTIVE,
-                                          false);
+                UPDATE_CONFIGDB_SERVICE_STATE(gl_orch_mgr->getConfigDB(), uuid, fpi::SVC_STATUS_ACTIVE);
 
                 OM_NodeContainer *local         = OM_NodeDomainMod::om_loc_domain_ctrl();
                 OM_PmContainer::pointer pmNodes = local->om_pm_nodes();
@@ -315,13 +310,7 @@ namespace fds
 
         // Update service state in the configDB, svclayer Map
         {
-            fds_mutex::scoped_lock l(dbLock);
-            fpi::SvcInfoPtr fakeInfo = boost::make_shared<fpi::SvcInfo>();
-            fakeInfo->svc_id.svc_uuid.svc_uuid = svcUuid.svc_uuid;
-            fds::change_service_state(gl_orch_mgr->getConfigDB(),
-                                      fakeInfo,
-                                      fpi::SVC_STATUS_INACTIVE_FAILED,
-                                      false);
+		    UPDATE_CONFIGDB_SERVICE_STATE(gl_orch_mgr->getConfigDB(), svcUuid, fpi::SVC_STATUS_INACTIVE_FAILED);
 
             OM_NodeContainer *local         = OM_NodeDomainMod::om_loc_domain_ctrl();
             OM_PmContainer::pointer pmNodes = local->om_pm_nodes();

@@ -803,18 +803,27 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
 }
 
 bool
-SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr current, const fpi::SvcInfoPtr incoming)
+SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr &current, const fpi::SvcInfoPtr &incoming)
 {
     fds_bool_t ret(false);
+
     if ( current->incarnationNo < incoming->incarnationNo ) {
-        GLOGDEBUG << "Incoming update: " << fds::logString(*incoming)
-            << " Operation: update to new incarnation. ";
         ret = true;
     } else if ( (current->incarnationNo == incoming->incarnationNo) &&
                 (current->svc_status != incoming->svc_status) &&
-                (incoming->svc_status != fpi::SVC_STATUS_INACTIVE_FAILED) ) {
-        GLOGDEBUG << "Incoming update: " << fds::logString(*incoming)
-            << " Operation: update to current incarnation. ";
+                (current->svc_status != fpi::SVC_STATUS_INACTIVE_FAILED) ) {
+        /**
+         * Once a process is declared INACTIVE_FAILED, then nothing can revive it,
+         * until a new incarnation number has come.
+         *
+         * If a identical incarnation number that attempts to revive a service from
+         * an inactive to active, then it's considered an invalid operation.
+         * The only allowable use case is if a dead service were to restart, in which
+         * it would then come with a newer incarnation number.
+         *
+         * TODO(Neil): make this check more detailed and centralize the conditionals...
+         * Will happen in another PR.
+         */
         ret = true;
     } else if (incoming->incarnationNo == 0) {
         /**
@@ -824,36 +833,10 @@ SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr current, const fpi::SvcIn
          * configDB. Until all areas of PM and OM are sending incarnation number,
          * this has to be here... and bugs may be coming in.
          */
+        LOGWARN << "THIS NEEDS TO BE FIXED. Should be passing in with complete info.";
         ret = true;
-    } else {
-        GLOGDEBUG << "Incoming update: " << fds::logString(*incoming) << " vs: "
-            << fds::logString(*current) << " Operation: not applied. ";
     }
 
-    return (ret);
-}
-
-bool
-SvcHandle::shouldSetSvcHandleDown(const fpi::SvcInfoPtr current, const fpi::SvcInfoPtr incoming)
-{
-    fds_bool_t ret(false);
-    if (current->incarnationNo == incoming->incarnationNo &&
-               incoming->svc_status == fpi::SVC_STATUS_INACTIVE_FAILED) {
-        GLOGDEBUG << "Incoming update: " << fds::logString(*incoming)
-            << " Operation: set current incarnation as down. ";
-    } else if (incoming->incarnationNo == 0) {
-        /**
-         * TODO
-         * This is a workaround to handle when no incarnation number is given...
-         * we have to assume that this is newer than the old incarnation number in the
-         * configDB. Until all areas of PM and OM are sending incarnation number,
-         * this has to be here... and bugs may be coming in.
-         */
-        ret = true;
-    } else {
-        GLOGDEBUG << "Incoming update: " << fds::logString(*incoming) << " vs: "
-            << fds::logString(*current) << " Operation: not applied. ";
-    }
     return (ret);
 }
 
@@ -862,13 +845,14 @@ void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
     fds_scoped_lock lock(lock_);
     auto currentPtr = boost::make_shared<fpi::SvcInfo>(svcInfo_);
     auto newPtr = boost::make_shared<fpi::SvcInfo>(newInfo);
+    GLOGDEBUG << "Incoming update: " << fds::logString(*newPtr) << " vs current status: "
+            << fds::logString(*currentPtr);
     if (shouldUpdateSvcHandle(currentPtr, newPtr)) {
         svcInfo_ = newInfo;
         svcClient_.reset();
-    }
-    if (shouldSetSvcHandleDown(currentPtr, newPtr)) {
-        svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE_FAILED;
-        svcClient_.reset();
+        GLOGDEBUG << "Operation Applied.";
+    } else {
+        GLOGDEBUG << "Operation not Applied.";
     }
 }
 

@@ -1503,8 +1503,10 @@ OM_PmAgent::send_start_service
                 continue;
 
             /**
-             * Since the incoming svcInfos will only include PM UUIDs, we need to
-             * compare the internal svcmap UUIDs of other Mgr's against it.
+             * the incoming svcInfos will contain the uuids of all the services requested to
+             * be started (sm, dm, am) aside from the pm uuids. The retrieveSvcId
+             * is a faster way to get to the service uuids, as opposed to iterating
+             * through the svcInfos, checking the type, and extracting the svc id.
              */
             fds::retrieveSvcId(svc_uuid.svc_uuid, svcuuid, item.svc_type);
 
@@ -1909,6 +1911,28 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
     domain->local_domain_event(DeactAckEvt(error));
 }
 
+#define POPULATE_AND_REMOVE_SERVICE_STATE(serviceTypeId) \
+    bool found = false; \
+    fpi::SvcInfoPtr svcPtr; \
+    for (std::vector<fpi::SvcInfo>::const_iterator iter = svcInfos.begin(); \
+            iter != svcInfos.end(); ++iter) { \
+        if (iter->svc_id.svc_uuid.svc_uuid == serviceTypeId.svc_uuid) { \
+            svcPtr = boost::make_shared<fpi::SvcInfo>(*iter); \
+            found = true; \
+            break; \
+        } \
+    } \
+    if (!found) { \
+        LOGDEBUG << "Unable to find service in list. Making a fake svcPtr. Fix this?"; \
+        svcPtr = boost::make_shared<fpi::SvcInfo>(); \
+        svcPtr->svc_id.svc_uuid.svc_uuid = serviceTypeId.svc_uuid; \
+    } \
+    DltDmtUtil::getInstance()->addToRemoveList(smId.svc_uuid); \
+    change_service_state( configDB, \
+                          svcPtr, \
+                          fpi::SVC_STATUS_REMOVED, \
+                          true );
+
 /**
  * Name: send_remove_service
  * For provided list of services, send request to platform to remove
@@ -1967,8 +1991,6 @@ OM_PmAgent::send_remove_service
                     << " remove am ? " << remove_am;
 
     fpi::SvcUuid smId, dmId, amId;
-    // TODO - this needs to be passed in instead of faked
-    fpi::SvcInfoPtr svcPtr = boost::make_shared<fpi::SvcInfo>();
     fds::retrieveSvcId(node_uuid.uuid_get_val(), smId, fpi::FDSP_STOR_MGR);
     fds::retrieveSvcId(node_uuid.uuid_get_val(), dmId, fpi::FDSP_DATA_MGR);
     fds::retrieveSvcId(node_uuid.uuid_get_val(), amId, fpi::FDSP_ACCESS_MGR);
@@ -1976,29 +1998,13 @@ OM_PmAgent::send_remove_service
     {
         fds_mutex::scoped_lock l(dbNodeInfoLock);
         if (remove_sm) {
-
-            DltDmtUtil::getInstance()->addToRemoveList(smId.svc_uuid);
-            svcPtr->svc_id.svc_uuid.svc_uuid = smId.svc_uuid;
-            change_service_state( configDB,
-                                  svcPtr,
-                                  fpi::SVC_STATUS_REMOVED,
-                                  true);
+            POPULATE_AND_REMOVE_SERVICE_STATE(smId);
         }
         if (remove_dm) {
-
-            DltDmtUtil::getInstance()->addToRemoveList(dmId.svc_uuid);
-            svcPtr->svc_id.svc_uuid.svc_uuid = dmId.svc_uuid;
-            change_service_state( configDB,
-                                  svcPtr,
-                                  fpi::SVC_STATUS_REMOVED,
-                                  true );
+            POPULATE_AND_REMOVE_SERVICE_STATE(dmId);
         }
         if (remove_am) {
-            svcPtr->svc_id.svc_uuid.svc_uuid = amId.svc_uuid;
-            change_service_state( configDB,
-                                  svcPtr,
-                                  fpi::SVC_STATUS_REMOVED,
-                                  true );
+            POPULATE_AND_REMOVE_SERVICE_STATE(amId);
         }
     }
 

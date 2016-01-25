@@ -582,9 +582,7 @@ struct SvcHandle : HasModuleProvider {
     virtual ~SvcHandle();
 
     // Making this a static so that configDB can use this intelligence too
-    static bool shouldUpdateSvcHandle(const fpi::SvcInfoPtr current, const fpi::SvcInfoPtr incoming);
-
-    static bool shouldSetSvcHandleDown(const fpi::SvcInfoPtr current, const fpi::SvcInfoPtr incoming);
+    static bool shouldUpdateSvcHandle(const fpi::SvcInfoPtr &current, const fpi::SvcInfoPtr &incoming);
 
     /**
     * @brief Use it for sending async request messages.  This uses asynReqt() interface for 

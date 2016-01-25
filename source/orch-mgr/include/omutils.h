@@ -12,7 +12,24 @@
 namespace fds 
 {
     namespace fpi = FDS_ProtocolInterface;
-    
+
+    // Used throughout multiple places
+    #define UPDATE_CONFIGDB_SERVICE_STATE(configdbPtr, uuid, status) \
+            fpi::SvcInfo tempSvcInfo; \
+            fpi::SvcInfoPtr svcInfoPtr; \
+            fds_mutex::scoped_lock l(dbLock); \
+            bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(uuid, tempSvcInfo); \
+            if (ret) { \
+                svcInfoPtr = boost::make_shared<fpi::SvcInfo>(tempSvcInfo); \
+            } else { \
+                svcInfoPtr = boost::make_shared<fpi::SvcInfo>(); \
+                svcInfoPtr->svc_id.svc_uuid.svc_uuid = uuid.svc_uuid; \
+            } \
+            fds::change_service_state(configdbPtr, \
+                                      svcInfoPtr, \
+                                      status, \
+                                      false);
+
     /**
      * This is case insensitive
      */

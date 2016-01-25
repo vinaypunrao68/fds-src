@@ -2522,8 +2522,7 @@ bool ConfigDB::changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr,
              * We should use the same intelligence as updateSvcMap to check if we should
              * update the configDB to ensure consistency between the service map and db
              */
-            if (fds::SvcHandle::shouldUpdateSvcHandle(dbSvcInfoPtr, svcInfoPtr) ||
-                fds::SvcHandle::shouldSetSvcHandleDown(dbSvcInfoPtr, svcInfoPtr)) {
+            if (fds::SvcHandle::shouldUpdateSvcHandle(dbSvcInfoPtr, svcInfoPtr)) {
 
                 fpi::ServiceStatus old_svc_status = dbSvcInfo.svc_status;
                 dbSvcInfoPtr->svc_status = svc_status;
@@ -2540,6 +2539,8 @@ bool ConfigDB::changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr,
                 kvstore::NodeInfoType nodeInfo;
                 fromTo( *dbSvcInfoPtr, nodeInfo );
                 updateNode( nodeInfo );
+            } else {
+                LOGDEBUG << "ConfigDB updates not applied.";
             }
         }
     }

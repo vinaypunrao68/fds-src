@@ -39,10 +39,11 @@ namespace fds
                                const fds_uint64_t svc_uuid, 
                                const fpi::ServiceStatus svc_status )
     {
-        // No incarnation number provided... fake a svcInfo
-        fpi::SvcInfoPtr fakeInfo = boost::make_shared<fpi::SvcInfo>();
-        fakeInfo->svc_id.svc_uuid.svc_uuid = svc_uuid;
-        change_service_state( configDB, fakeInfo, svc_status, false );
+        // No incarnation number provided... do lookup and call the one below
+        fpi::SvcUuid uuid;
+        uuid.svc_uuid = svc_uuid;
+        fds_mutex dbLock; // for macro only
+        UPDATE_CONFIGDB_SERVICE_STATE(configDB, uuid, svc_status);
     }
 
     // See header file
