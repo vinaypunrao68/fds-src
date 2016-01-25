@@ -30,6 +30,7 @@ import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair;
 import com.formationds.om.repository.query.MetricQueryCriteria;
+import com.formationds.om.repository.query.QueryCriteria.QueryType;
 import com.formationds.protocol.IScsiTarget;
 import com.formationds.protocol.LogicalUnitNumber;
 import com.formationds.protocol.NfsOption;
@@ -92,7 +93,7 @@ public class ExternalModelConverter {
         Long extId = internalUser.getId();
         String extName = internalUser.getIdentifier();
         Long roleId = 1L;
-        
+
         logger.info( "Converting user ID: " + extId + " Name: " + extName );
 
         if ( internalUser.isIsFdsAdmin() ) {
@@ -291,12 +292,14 @@ public class ExternalModelConverter {
             volumeStatus = SingletonAmAPI.instance().api().volumeStatus("" /* TODO: Dummy domain name. */,
                                                                         internalVolume.getName()).get();
         } catch (Exception e) {
-            logger.error("Unknown Exception: " + e.getMessage());
+            logger.warn("Unknown Exception requesting volume status for " + internalVolume.getName() + ": " + e.getMessage());
             return new VolumeStatus(VolumeState.Unknown, Size.ZERO);
         }
 
         extUsage = Size.of(volumeStatus.getCurrentUsageInBytes(), SizeUnit.B);
-        logger.trace("Determined extUsage for " + internalVolume.getName() + " to be " + extUsage + ".");
+        if (logger.isTraceEnabled()) { 
+            logger.trace("Determined extUsage for " + internalVolume.getName() + " to be " + extUsage + ".");
+        }
 
         Instant[] instants = {Instant.EPOCH, Instant.EPOCH};
         extractTimestamps( fbResults, instants );
@@ -1219,7 +1222,7 @@ public class ExternalModelConverter {
                           EnumMap<FirebreakType,
                                      VolumeDatapointPair>> getFirebreakEventsMetrics( List<Volume> volumes ) {
 
-        MetricQueryCriteria query = new MetricQueryCriteria();
+        MetricQueryCriteria query = new MetricQueryCriteria(QueryType.FIREBREAK_METRIC);
         DateRange range = DateRange.last24Hours();
 
         query.setSeriesType( new ArrayList<>( Metrics.FIREBREAK ) );

@@ -83,6 +83,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         
         volume.mediaPolicy = $scope.mediaPolicy.value;
         
+        // make sure a name is present
         if ( !angular.isDefined( volume.name ) || volume.name === '' ){
             
             var $event = {
@@ -90,6 +91,31 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
                 type: 'ERROR'
             };
             
+            $rootScope.$emit( 'fds::alert', $event );
+            return;
+        }
+        
+        // make sure a name has no spaces
+        if ( volume.name.indexOf( ' ' ) !== -1 ){
+            
+            var $event = {
+                text: 'Volume names must not contain spaces.',
+                type: 'ERROR'
+            };
+            
+            $rootScope.$emit( 'fds::alert', $event );
+            return;
+        }
+        
+        // make sure if it's NFS that an IP filter is set.
+        if ( volume.settings.type == 'NFS' && volume.settings.clients.length == 0 ){
+            
+            var $event = {
+                text: 'The \'Allowed IP Filters\' field must not be empty.  It will be reset to \'*\'.',
+                type: 'ERROR'
+            };
+            
+            $scope.dataSettings.clients = '*';
             $rootScope.$emit( 'fds::alert', $event );
             return;
         }

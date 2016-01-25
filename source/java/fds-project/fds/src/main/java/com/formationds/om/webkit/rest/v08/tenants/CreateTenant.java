@@ -22,45 +22,47 @@ import java.util.Map;
 
 public class CreateTenant implements RequestHandler {
 
-	private static final Logger logger = LoggerFactory
-			.getLogger( CreateTenant.class);
-	
+    private static final Logger logger = LoggerFactory
+            .getLogger( CreateTenant.class);
+
     private ConfigurationApi configApi;
 
     public CreateTenant() {}
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        
-    	final InputStreamReader reader = new InputStreamReader( request.getInputStream() );
-    	Tenant tenant = ObjectModelHelper.toObject( reader, Tenant.class );
-    	
-    	logger.debug( "Trying to create tenant: " + tenant.getName() );
-    	
-    	long tenantId = getConfigApi().createTenant( tenant.getName() );
-    	
-    	List<com.formationds.apis.Tenant> internalTenants = getConfigApi().listTenants(0);
-    	Tenant newTenant = null;
-    	
-    	for ( com.formationds.apis.Tenant internalTenant : internalTenants ){
-    		
-    		if ( internalTenant.getId() == tenantId ){
-    			newTenant = ExternalModelConverter.convertToExternalTenant( internalTenant );
-    			break;
-    		}
-    	}
-    	
-    	String jsonString = ObjectModelHelper.toJSON( newTenant );
-    	
-    	return new TextResource( jsonString );
+
+        Tenant tenant = null;
+        try ( final InputStreamReader reader = new InputStreamReader( request.getInputStream() ) ) {
+            tenant = ObjectModelHelper.toObject( reader, Tenant.class );
+        }
+
+        logger.debug( "Trying to create tenant: " + tenant.getName() );
+
+        long tenantId = getConfigApi().createTenant( tenant.getName() );
+
+        List<com.formationds.apis.Tenant> internalTenants = getConfigApi().listTenants(0);
+        Tenant newTenant = null;
+
+        for ( com.formationds.apis.Tenant internalTenant : internalTenants ){
+
+            if ( internalTenant.getId() == tenantId ){
+                newTenant = ExternalModelConverter.convertToExternalTenant( internalTenant );
+                break;
+            }
+        }
+
+        String jsonString = ObjectModelHelper.toJSON( newTenant );
+
+        return new TextResource( jsonString );
     }
-    
+
     private ConfigurationApi getConfigApi(){
-    	
-    	if ( configApi == null ){
-    		configApi = SingletonConfigAPI.instance().api();
-    	}
-    	
-    	return configApi;
+
+        if ( configApi == null ){
+            configApi = SingletonConfigAPI.instance().api();
+        }
+
+        return configApi;
     }
 }

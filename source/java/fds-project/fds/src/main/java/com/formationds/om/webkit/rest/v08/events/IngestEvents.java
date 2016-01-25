@@ -16,7 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.InputStreamReader;
-import java.io.Reader;
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
@@ -40,8 +39,7 @@ public class IngestEvents implements RequestHandler {
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-        try( final Reader reader =
-                     new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
+        try ( final InputStreamReader reader = new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
 
             final List<Event> events = ObjectModelHelper.toObject(reader, TYPE);
             for( final Event event : events) {
@@ -49,9 +47,7 @@ public class IngestEvents implements RequestHandler {
                 logger.trace("AM_EVENT: {}", event);
 
                 // TODO replace with inject
-                SingletonRepositoryManager.instance()
-                                          .getEventRepository()
-                                          .save( event );
+                SingletonRepositoryManager.instance().getEventRepository().save( event );
             }
         }
 
