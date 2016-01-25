@@ -33,6 +33,8 @@ namespace fds
                 void stopService (boost::shared_ptr <fpi::AsyncHdr> &hdr, boost::shared_ptr <fpi::NotifyStopServiceMsg> &stopServiceMessage);
 
                 void heartbeatCheck (boost::shared_ptr <fpi::AsyncHdr>& hdr, boost::shared_ptr<fpi::HeartbeatMessage> &heartbeatMessage);
+
+                void prepareForShutdown (boost::shared_ptr <fpi::AsyncHdr>& hdr, boost::shared_ptr<fpi::PrepareForShutdownMsg>& message);
             protected:
                 PlatformManager   *platform;
 

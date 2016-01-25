@@ -90,6 +90,11 @@ public class VolumeMetricCache {
     public boolean isEmpty() { return mostRecentVolumeDatapoints.isEmpty(); }
 
     /**
+     * @return the current number of volumes loaded in the cache.
+     */
+    public int size() { return mostRecentVolumeDatapoints.size(); }
+
+    /**
      * Load the specified volume ids into the cache.
      *
      * @param volumeIds volume ids to load

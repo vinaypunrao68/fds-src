@@ -8,7 +8,7 @@ import types
 import time
 import socket
 import dmtdlt
-
+import humanize
 class ServiceContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
@@ -18,6 +18,7 @@ class ServiceContext(Context):
         self.serviceFetchTime = 0
         self.hostToIpMap = {}
         self.ipToHostMap = {}
+        self.usageCounters={}
 
     def restApi(self):
         if self.__restApi == None:
@@ -65,6 +66,39 @@ class ServiceContext(Context):
         dlt = dmtdlt.DLT()
         dlt.load(msg.dlt_data.dlt_data)
         return dlt
+
+    def addUsageCounters(self, uuid, cntrs):
+        if uuid not in self.usageCounters:
+            self.usageCounters[uuid] = []
+
+        selectedCounters={}
+        for key,value in cntrs.items():
+            if key.startswith('rusage.'):
+                selectedCounters[key[7:]]=value
+        t = int(time.time())
+        del self.usageCounters[uuid][5:]
+        if len(selectedCounters) == 0:
+            return
+        helpers.addHumanInfo(selectedCounters)
+        self.usageCounters[uuid].insert(0,(t,selectedCounters))
+
+    def printUsageCounters(self, uuid, delta = True):
+        helpers.printHeader('usage for {}'.format(self.getServiceName(uuid)))
+        if len(self.usageCounters[uuid]) == 0:
+            return
+        keys = sorted(self.usageCounters[uuid][0][1].keys())
+        alldata = []
+        for key in keys:
+            data = [key]
+            data.extend([m[1].get(key,'') for m in self.usageCounters[uuid]])
+            if delta and not key.endswith('.human'):
+                for n in range(2,len(data)):
+                    data[n] = data[n] - data[1]
+            alldata.append(data)
+
+        headerNames = ['name']
+        headerNames.extend(humanize.naturaldelta(time.time()-m[0]) for m in self.usageCounters[uuid])
+        print tabulate(alldata, headers=headerNames, tablefmt=self.config.getTableFormat())
 
     #--------------------------------------------------------------------------------------
     @clicmd
@@ -154,6 +188,7 @@ class ServiceContext(Context):
 
     def getServiceIds(self, pattern):
         return self.getServiceId(pattern , False)
+
     def getServiceId(self, pattern, onlyone=True):
         if type(pattern) == types.IntType:
             return pattern if onlyone else [pattern]
@@ -162,7 +197,8 @@ class ServiceContext(Context):
 
         ipPattern = re.compile("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")
         try:
-            name=None
+            uuid = None
+            name = None
             ip=[]
             port=None
             if ':' in pattern:
@@ -192,19 +228,29 @@ class ServiceContext(Context):
             if name not in ['om','am','pm','sm','dm', '*', 'all', None]:
                 # check for hostname
                 iplist = self.getIpsFromName(name)
-                if len(iplist) > 0:
+                if len(iplist) > 0 and not (iplist[0] == name):
                     ip = iplist
                     name = None
 
                 if name != None:
+                    # check if it is a hex nodeid
+                    try:
+                        uuid = int(name,16)
+                        name = None
+                    except:
+                        pass
+
+                if name != None:
                     print 'unknown service : {}'.format(name)
                     return []
-            
+
             services = self.getServiceList()
             finallist = [s for s in services
                          if (name == None or name == 'all' or name == '*' or name == s['service'].lower()) and
                          (len(ip) == 0 or s['ip'] in ip) and
-                         (port == None or s['port'] == port)]
+                         (port == None or s['port'] == port) and
+                         (uuid == None or int(s['uuid']) == uuid)]
+
             if onlyone:
                 if len(finallist) == 1:
                     return int(finallist[0]['uuid'])
@@ -354,11 +400,16 @@ class ServiceContext(Context):
         'display the service map'
         try:
             for uuid in self.getServiceIds(svcid):
-                print ('\n{}\nsvcmap for {}\n{}'.format('-'*40, self.getServiceName(uuid), '-'*40))
+                helpers.printHeader('service map for {}'.format(self.getServiceName(uuid)))
                 svcMap = ServiceMap.client(uuid).getSvcMap(None)
+                #print svcMap
                 data = [(e.svc_id.svc_uuid.svc_uuid, e.incarnationNo, e.svc_status, e.ip, e.svc_port) for e in svcMap]
                 data.sort(key=itemgetter(0))
                 print tabulate(data,headers=['uuid', 'incarnation', 'status', 'ip', 'port'], tablefmt=self.config.getTableFormat())
+                for s in svcMap:
+                    if s.name == 'pm' and s.svc_id.svc_uuid.svc_uuid/100 == uuid/100:
+                        print "\nservice properties"
+                        print tabulate(s.props.items(), headers=['key','value'], tablefmt=self.config.getTableFormat())
         except Exception, e:
             log.exception(e)
             return 'unable to get svcmap'
@@ -373,10 +424,8 @@ class ServiceContext(Context):
             helpers.printHeader('setting fault @ {}'.format(self.getServiceName(uuid)))
             try:
                 success = ServiceMap.client(uuid).setFault(cmd)
-                if success:
-                    print 'Ok'
-                else:
-                    print "Failed to inject fault.  Check the command"
+                if not success:
+                    print 'Failed to inject fault {} @ '.format(cmd, self.getServiceName(uuid))
             except Exception, e:
                 log.exception(e)
                 print 'Unable to set fault [{}] @ [{}]'.format(cmd,self.getServiceName(uuid))
@@ -445,5 +494,49 @@ class ServiceContext(Context):
     @clidebugcmd
     @arg('svc', type=str)
     def rotatelog(self, svc):
+        'force log rotation for the service'
         for uuid in self.config.getServiceApi().getServiceIds(svc):
             self.setfault(uuid, "log.rotate")
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('svc', type=str)
+    def usage(self, svc):
+        'display resource usage for a service'
+        for uuid in self.config.getServiceApi().getServiceIds(svc):
+            cntrs = ServiceMap.client(uuid).getCounters('process')
+            self.addUsageCounters(uuid, cntrs)
+            self.printUsageCounters(uuid)
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('svc', help= "service id",  type=str)
+    def info(self, svc):
+        'display service information'
+        try:
+            for uuid in self.getServiceIds(svc):
+                helpers.printHeader('info for {}'.format(self.getServiceName(uuid)))
+                svcMap = ServiceMap.client(uuid).getSvcMap(None)
+                #print svcMap
+                myinfo = {}
+                data = [e for e in svcMap if uuid == e.svc_id.svc_uuid.svc_uuid]
+                if len(data) > 0 :
+                    e= data[0]
+                    myinfo['uuid'] = e.svc_id.svc_uuid.svc_uuid
+                    myinfo['incarnation'] = e.incarnationNo
+                    myinfo['status'] = e.svc_status
+                    myinfo['ip'] = e.ip
+                    myinfo['port'] = e.svc_port
+
+                # add service map properties
+                for s in svcMap:
+                    if s.name == 'pm' and s.svc_id.svc_uuid.svc_uuid/100 == uuid/100:
+                        myinfo.update(s.props)
+
+                # add service props
+                myinfo.update(ServiceMap.client(uuid).getProperties(0))
+
+                print tabulate(sorted(myinfo.items()),headers=['key','value'], tablefmt=self.config.getTableFormat())
+        except Exception, e:
+            log.exception(e)
+            return 'unable to get svcmap'

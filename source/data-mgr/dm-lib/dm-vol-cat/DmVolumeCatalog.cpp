@@ -83,10 +83,13 @@ Error DmVolumeCatalog::addCatalog(const VolumeDesc & voldesc) {
      * TODO(umesh): commented out for beta for commit log and consistent hot snapshot features
     if (fpi::FDSP_VOL_S3_TYPE == voldesc.volType) {
     */
+    fds_bool_t fArchiveLogs = CONFIG_BOOL("fds.feature_toggle.common.enable_timeline", true) &&
+            !voldesc.isSnapshot() && voldesc.contCommitlogRetention > 0;
         vol.reset(new DmPersistVolDB(MODULEPROVIDER(),
                     voldesc.volUUID, voldesc.maxObjSizeInBytes,
-                    voldesc.isSnapshot(), voldesc.isSnapshot(), voldesc.isClone(),
-                    voldesc.isSnapshot() ? voldesc.srcVolumeId : invalid_vol_id));
+                                     voldesc.isSnapshot(), voldesc.isSnapshot(), voldesc.isClone(),
+                                     fArchiveLogs,
+                                     voldesc.isSnapshot() ? voldesc.srcVolumeId : invalid_vol_id));
     /*
     } else {
         vol.reset(new DmPersistVolFile(voldesc.volUUID, voldesc.maxObjSizeInBytes,
@@ -147,9 +150,12 @@ Error DmVolumeCatalog::copyVolume(const VolumeDesc & voldesc) {
          * TODO(umesh): commented out for beta for commit log and consistent hot snapshot features
         if (fpi::FDSP_VOL_S3_TYPE == volType) {
         */
+        fds_bool_t fArchiveLogs = CONFIG_BOOL("fds.feature_toggle.common.enable_timeline", true) &&
+                !voldesc.isSnapshot() && voldesc.contCommitlogRetention > 0;
+
             vol.reset(new DmPersistVolDB(MODULEPROVIDER(),
-                    voldesc.volUUID, objSize, voldesc.isSnapshot(),
-                    voldesc.isSnapshot(), voldesc.isClone(), voldesc.srcVolumeId));
+                                         voldesc.volUUID, objSize, voldesc.isSnapshot(),
+                                         voldesc.isSnapshot(), voldesc.isClone(), fArchiveLogs, voldesc.srcVolumeId));
         /*
         } else {
             vol.reset(new DmPersistVolFile(voldesc.volUUID, objSize, voldesc.isSnapshot(),
@@ -179,15 +185,32 @@ Error DmVolumeCatalog::activateCatalog(fds_volid_t volId) {
 }
 
 Error DmVolumeCatalog::reloadCatalog(const VolumeDesc & voldesc) {
-    LOGDEBUG << "Will reload catalog for volume " << std::hex << voldesc.volUUID << std::dec;
+    LOGNORMAL << "Will reload catalog for volume " << voldesc.volUUID;
     deleteEmptyCatalog(voldesc.volUUID, false);
     Error rc = addCatalog(voldesc);
     if (!rc.ok()) {
-        LOGWARN << "Failed to re-instantiate the volume '" << std::hex << voldesc.volUUID
-                << std::dec << "'";
+        LOGWARN << "Failed to re-instantiate the volume '" << voldesc.volUUID;
         return rc;
     }
-    return activateCatalog(voldesc.volUUID);
+    rc = activateCatalog(voldesc.volUUID);
+    if (rc.ok()) {
+        synchronized(lockVolSummaryMap_) {
+            DmVolumeSummaryMap_t::const_iterator iter = volSummaryMap_.find(voldesc.volUUID);
+            if (volSummaryMap_.end() != iter) {
+                volSummaryMap_.erase(iter);
+            }
+        }
+        fds_uint64_t volSize=0, blobCount=0, objCount=0;
+        statVolume(voldesc.volUUID, &volSize, &blobCount, &objCount);
+        LOGNORMAL << "reloaded vol:" << voldesc.volUUID << "["
+                  << " size:" << volSize
+                  << " blobs:" << blobCount
+                  << " objects:" << objCount << "]";
+    } else {
+        LOGWARN << "unable to activate vol:" << voldesc.volUUID
+                << "error:" << rc;
+    }
+    return rc;
 }
 
 void DmVolumeCatalog::registerExpungeObjectsCb(expunge_objs_cb_t cb) {
@@ -686,7 +709,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         return rc;
     }
 
-    std::vector<ObjectID> expungeList;
+    // std::vector<ObjectID> expungeList;
 
     BlobObjList::const_iter firstIter = blobObjList->begin();
     fds_verify(blobObjList->end() != firstIter);
@@ -733,7 +756,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
 
         if (NullObjectID != oldIter->second.oid) {
             // null object does not physically exist
-            expungeList.push_back(oldIter->second.oid);
+            // expungeList.push_back(oldIter->second.oid);
         }
 
         // if we are updating last offset, adjust blob size
@@ -768,7 +791,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         for (auto & i : truncateObjList) {
             if (NullObjectID != i.second.oid) {
                 delOffsetList.push_back(i.first);
-                expungeList.push_back(i.second.oid);
+                // expungeList.push_back(i.second.oid);
                 newBlobSize -= i.first == oldLastOffset ? oldLastObjSize : i.second.size;
             }
         }
@@ -819,8 +842,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
 
     // actually expunge objects that were dereferenced by the blob
     // TODO(xxx): later that should become part of GC and done in background
-    fds_verify(expungeCb_);
-    return expungeCb_(volId, expungeList, false);
+    return ERR_OK;
 }
 
 // NOTE: used by the Batch ifdef, not currently called by compiled code
@@ -965,13 +987,6 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volId, const std::string& blobName
                 iter->second->size.fetch_sub(blobMeta.desc.blob_size);
                 iter->second->objectCount.fetch_sub(expungeList.size());
             }
-        }
-
-        // actually expunge objects that were dereferenced by the blob
-        // TODO(xxx): later that should become part of GC and done in background
-        fds_assert(expungeCb_);
-        if (expunge_data) {
-            return expungeCb_(volId, expungeList, fIsSnapshot);
         }
     }
 

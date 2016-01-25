@@ -29,7 +29,6 @@
 #include <string>
 #include <persistent-layer/dm_service.h>
 
-#include <fdsp/event_types_types.h>
 #include "fdsp/health_monitoring_types_types.h"
 #include "fds_types.h"
 #include <fdsp/FDSP_types.h>
@@ -53,23 +52,30 @@
 
 #include <DmMigrationMgr.h>
 #include "util/ExecutionGate.h"
+
 #include <timeline/timelinemanager.h>
-#include <expungemanager.h>
 #include <refcount/refcountmanager.h>
+
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
  */
 #undef FDS_TEST_DM_NOOP
 
-
-
 namespace fds {
+// forward declarations
+class DmPersistVolDB;
 namespace dm {
+
 struct Handler;
 struct Counters;
+struct RequestManager;
+
+namespace refcount {struct RefCountManager;}
+namespace timeline {struct TimelineManager;}
 }
 class DMSvcHandler;
 class DmMigrationMgr;
+
 struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     static void InitMsgHdr(const fpi::FDSP_MsgHdrTypePtr& msg_hdr);
 
@@ -117,6 +123,8 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
 
     virtual const VolumeDesc * getVolumeDesc(fds_volid_t volId) const;
     void getActiveVolumes(std::vector<fds_volid_t>& vecVolIds);
+
+    SHPTR<DmPersistVolDB> getPersistDB(fds_volid_t volId);
 
     ///
     /// Check if a given volume is active.
@@ -194,8 +202,8 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     dm::Counters* counters;
 
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
-    boost::shared_ptr<timeline::TimelineManager> timelineMgr;
-    boost::shared_ptr<ExpungeManager> expungeMgr;
+    SHPTR<timeline::TimelineManager> timelineMgr;
+    dm::RequestManager* requestMgr;
     /**
      * For timing out request forwarding in DM (to send DMT close ack)
      */
@@ -212,8 +220,8 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
      */
     StatStreamAggregator::ptr statStreamAggr_;
 
-    net::FileTransferService::ptr fileTransfer;
-    refcount::RefCountManager::ptr refCountMgr;
+    SHPTR<net::FileTransferService> fileTransfer;
+    SHPTR<refcount::RefCountManager> refCountMgr;
     struct dmQosCtrl : FDS_QoSControl {
         DataMgr *parentDm;
 
@@ -341,7 +349,7 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     void handleForwardComplete(DmRequest *io);
     void handleStatStream(DmRequest *io);
     void handleDmFunctor(DmRequest *io);
-
+    Error copyVolumeToOtherDMs(fds_volid_t volId);
     Error processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete);
 
     /**
@@ -422,23 +430,6 @@ private:
     fds_uint8_t sampleCounter;
     float_t lastCapacityMessageSentAt;
 
-    /**
-     * Send event message to OM
-     */
-    void sendEventMessageToOM(fpi::EventType eventType,
-                              fpi::EventCategory eventCategory,
-                              fpi::EventSeverity eventSeverity,
-                              fpi::EventState eventState,
-                              const std::string& messageKey,
-                              std::vector<fpi::MessageArgs> messageArgs,
-                              const std::string& messageFormat);
-
-    // Send health check message
-    void sendHealthCheckMsgToOM(fpi::HealthState serviceState,
-                                fds_errno_t statusCode,
-                                const std::string& statusInfo);
-
-
 };
 
 class CloseDMTTimerTask : public FdsTimerTask {
@@ -460,7 +451,7 @@ namespace dmutil {
 // location of volume
 std::string getVolumeDir(const FdsRootDir* root,
                          fds_volid_t volId, fds_volid_t snapId = invalid_vol_id);
-
+std::string getTempDir(const FdsRootDir* root = NULL, fds_volid_t volId = invalid_vol_id);
 // location of all snapshots for a volume
 std::string getSnapshotDir(const FdsRootDir* root, fds_volid_t volId);
 std::string getVolumeMetaDir(const FdsRootDir* root, fds_volid_t volId);
@@ -475,7 +466,6 @@ std::string getLevelDBFile(const FdsRootDir* root, fds_volid_t volId, fds_volid_
 void getVolumeIds(const FdsRootDir* root, std::vector<fds_volid_t>& vecVolumes);
 
 std::string getTimelineDBPath(const FdsRootDir* root);
-std::string getExpungeDBPath(const FdsRootDir* root);
 }  // namespace dmutil
 
 }  // namespace fds

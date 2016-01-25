@@ -19,6 +19,7 @@ import org.apache.commons.cli.ParseException;
 import com.formationds.commons.AbstractConfig;
 import com.formationds.commons.Fds;
 import com.formationds.commons.NullArgumentException;
+import com.formationds.commons.util.ExceptionHelper;
 import com.formationds.iodriver.CommandLineConfigurationException;
 import com.formationds.iodriver.ConfigurationException;
 import com.formationds.iodriver.endpoints.FdsEndpoint;
@@ -104,77 +105,19 @@ public final class Config extends AbstractConfig
     @SuppressWarnings( "unchecked" )
     public Optional<FdsEndpoint> getEndpointA() throws ConfigurationException, ParseException
 	{
-        if ( _endpointA == null )
-        {
-            try
-            {
-                // NOTE: eclipse compiler does not properly handle the
-                // ParseException thrown by the getEndpointAHost() inside the
-                // lambda expression (JDK compiler does).
-                Object a = tunnel( ConfigurationException.class,
-                                   in -> {
-                                       try
-                                       {
-                                           return getEndpointAHost().map( in );
-                                       }
-                                       catch ( ParseException e )
-                                       {
-                                           throw new RuntimeException( e );
-                                       }
-                                   } ,
-                                   ( String h ) -> getFdsEndpoint( h ) );
-
-                _endpointA = (Optional<FdsEndpoint>) a;
-            }
-            catch ( RuntimeException re )
-            {
-                Throwable cause = re.getCause();
-                if ( cause instanceof ParseException )
-                {
-                    throw (ParseException) cause;
-                }
-                throw re;
-            }
-        }
-        return _endpointA;
+	    return _endpointA == null
+	           ? (_endpointA = getEndpointAHost().map(tunnel(Config::getFdsEndpoint,
+	                                                         ConfigurationException.class)))
+	           : _endpointA;
 	}
 
     @SuppressWarnings( "unchecked" )
 	public Optional<FdsEndpoint> getEndpointB() throws ConfigurationException, ParseException
 	{
-        if ( _endpointB == null )
-        {
-            try
-            {
-                // NOTE: eclipse compiler does not properly handle the
-                // ParseException thrown by the getEndpointBHost() inside the
-                // lambda expression (JDK compiler does).
-                Object b = tunnel( ConfigurationException.class,
-                                   in -> {
-                                       try
-                                       {
-                                           return getEndpointBHost().map( in );
-                                       }
-                                       catch ( ParseException e )
-                                       {
-                                           throw new RuntimeException( e );
-                                       }
-                                   } ,
-                                   ( String h ) -> getFdsEndpoint( h ) );
-
-                _endpointB = (Optional<FdsEndpoint>) b;
-            }
-            catch ( RuntimeException re )
-            {
-                Throwable cause = re.getCause();
-                if ( cause instanceof ParseException )
-                {
-                    throw (ParseException) cause;
-                }
-                throw re;
-            }
-        }
-        return _endpointB;
+	    return _endpointB == null
+	           ? (_endpointB = getEndpointBHost().map(tunnel(Config::getFdsEndpoint,
+	                                                         ConfigurationException.class)))
+	           : _endpointB;
 	}
 
 	public Optional<String> getEndpointAHost() throws ParseException

@@ -27,8 +27,12 @@ fds: {
             enable_subscriptions = {{ ft_common_enable_subscriptions }}
             all_ssd = {{ all_ssd_support }}
             volume_open_support = {{ ft_common_enable_volume_open_support }}
-	    /* Volume grouping allows IO to volumes to driven by a coordinator at AM */
-	    enable_volumegrouping = false
+
+    	    /* Volume grouping allows IO to volumes to driven by a coordinator at AM */
+    	    enable_volumegrouping = false
+
+    	    /* applies to OM and XDI web toolkit */
+            enable_web_logging_request_wrapper = {{ ft_enable_web_logging_request_wrapper }}
         }
         pm: {
 
@@ -55,6 +59,8 @@ fds: {
            enable_java_om_svc_proxy = {{ ft_enable_java_om_svc_proxy }}
            rest_07_feature = {{ ft_fds_rest_07_feature }}
            fs_2660_metric_firebreak_event_query = {{ ft_fs_2660_metric_firebreak_event_query }}
+           enable_influxdb_write_batch = {{ ft_enable_influxdb_write_batch }}
+           enable_influxdb_chunked_query_response = {{ ft_enable_influxdb_chunked_query_response }}
         }
     }
 
@@ -683,9 +689,18 @@ fds: {
         influxdb: {
             url="{{ om_influxdb_url }}"
             enable_query_backtrace = false
-            serialize_reads={{ om_influxdb_serialize_reads }}
             serialize_writes={{ om_influxdb_serialize_writes }}
-            serialize_all={{ om_influxdb_serialize_all }}
+            write_batch_size = {{ om_influxdb_write_batch_size }}
+        }
+
+        task_scheduler_pool: {
+            min = {{ om_task_scheduler_pool_min }}
+        }
+
+        stats: {
+            frequency={{ om_stats_frequency }}
+            duration={{ om_stats_duration }}
+            method="{{ om_stats_method }}"
         }
 
         test_mode=false

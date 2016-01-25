@@ -188,11 +188,15 @@ namespace fds
     // dsk_label_generate
     // ------------------
     //
-    void DiskLabel::dsk_label_generate(ChainList *labels, int dsk_cnt)
+    void DiskLabel::dsk_label_generate(ChainList *labels, int dsk_cnt, fds_uint16_t& largest_disk_index)
     {
         int       cnt;
         size_t    size;
 
+        if (largest_disk_index == DL_INVAL_DISK_INDEX)
+        {
+            fds_panic("Maximum disk index reached. Can't continue.");
+        }
         size = DL_PAGE_SZ;
 
         if (dl_label == NULL)
@@ -211,7 +215,7 @@ namespace fds
         cnt = dsk_fill_disk_uuids(labels);
         fds_verify(cnt == dsk_cnt);
 
-        dsk_label_fixup_header();
+        dsk_label_fixup_header(largest_disk_index);
         dsk_label_comp_checksum(dl_label);
         fds_verify(dl_label->dl_used_sect <= dl_label->dl_total_sect);
     }
@@ -221,7 +225,7 @@ namespace fds
     // Clone the label from the master.  Fix up its own header with uuid and compute all
     // checksums.
     //
-    void DiskLabel::dsk_label_clone(DiskLabel *master)
+    void DiskLabel::dsk_label_clone(DiskLabel *master, fds_uint16_t& largest_disk_index)
     {
         dlabel_hdr_t   *src;
 
@@ -233,36 +237,19 @@ namespace fds
 
         // Restore back my disk uuid and fix up the index.
         dl_owner->rs_get_uuid().uuid_set_to_raw(dl_label->dl_disk_uuid);
-        dsk_label_fixup_header();
+        dsk_label_fixup_header(largest_disk_index);
     }
 
     // dsk_label_fixup_header
     // ----------------------
     //
-    void DiskLabel::dsk_label_fixup_header()
+    void DiskLabel::dsk_label_fixup_header(fds_uint16_t& largest_disk_index)
     {
-        int              i, cnt;
-        ResourceUUID     uuid, cmp;
-        dlabel_uuid_t   *rec;
-
-        rec = dl_disk_uuids->dl_disk_uuids;
-        cnt = dl_disk_uuids->dl_disk_rec.dl_rec_cnt;
+        int cnt = dl_disk_uuids->dl_disk_rec.dl_rec_cnt;
 
         dl_label->dl_num_quorum = cnt;
         dl_label->dl_used_sect  = FDS_ROUND_UP(DL_PAGE_SZ, dl_label->dl_sect_sz);
-        uuid.uuid_set_from_raw(dl_label->dl_disk_uuid);
-
-        for (i = 0; i < cnt; i++, rec++)
-        {
-            cmp.uuid_set_from_raw(rec->dl_uuid);
-
-            if (cmp == uuid)
-            {
-                dl_label->dl_my_disk_index = i;
-                return;
-            }
-        }
-        fds_panic("Corrupted super block");
+        dl_label->dl_my_disk_index = largest_disk_index++;
     }
 
     // dsk_fill_disk_uuids

@@ -728,11 +728,13 @@ class DiskManager (Base):
         ''' Partition and format each disk that needs formatting'''
 
         for disk in self.disk_list:
-            if disk.formatted == True :
+            if disk.formatted == True:
                 self.dbg_print("Skipping formatted disk %s" % disk.path)
                 continue
             if disk.get_os_usage():
                 disk.verifySystemDiskPartitionSize()
+                if not self.options.reset:
+                    continue
             print("Partitioning and formatting  disk %s" % disk.path)
 #            disk.partition (self.dm_index_MB, self.sm_index_MB / len (self.sm_index_partition_list))
             disk.partition (self.dm_index_MB, 0)

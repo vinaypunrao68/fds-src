@@ -91,7 +91,7 @@ void
 SmSuperblock::initSuperblock()
 {
     Header.initSuperblockHeader();
-
+    resync = true;
     DLTVersion = DLT_VER_INVALID;
 }
 
@@ -247,6 +247,20 @@ SmSuperblock::validateSuperblock()
     return err;
 }
 
+fds_bool_t
+SmSuperblock::doResync() const {
+    return resync;
+}
+
+void
+SmSuperblock::setResync() {
+    resync = true;
+}
+
+void
+SmSuperblock::resetResync() {
+    resync = false;
+}
 
 fds_bool_t
 SmSuperblock::operator ==(const SmSuperblock& rhs) const {
@@ -535,7 +549,7 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
         }
     }
     for (auto& badDiskId : badDisks) {
-        LOGDEBUG << "Disk with diskId = " << badDiskId << " is unaccessible";
+        LOGWARN << "Disk with diskId = " << badDiskId << " is unaccessible";
         markDiskBad(badDiskId);
         HDDs.erase(badDiskId);
         diskMap.erase(badDiskId);
@@ -551,7 +565,7 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
         }
     }
     for (auto& badDiskId : badDisks) {
-        LOGDEBUG << "Disk with diskId = " << badDiskId << " is unaccessible";
+        LOGWARN << "Disk with diskId = " << badDiskId << " is unaccessible";
         markDiskBad(badDiskId);
         SSDs.erase(badDiskId);
         diskMap.erase(badDiskId);
@@ -1079,10 +1093,36 @@ fds_uint64_t
 SmSuperblockMgr::getDLTVersion()
 {
     SCOPEDREAD(sbLock);
-
     return superblockMaster.DLTVersion;
 }
 
+fds_bool_t
+SmSuperblockMgr::doResync() {
+    SCOPEDREAD(sbLock);
+    return superblockMaster.doResync();
+}
+
+void
+SmSuperblockMgr::setResync() {
+    Error err(ERR_OK);
+    SCOPEDWRITE(sbLock);
+    superblockMaster.setResync();
+    err = syncSuperblock();
+    if (!err.ok()) {
+        LOGCRITICAL << "SM failed to persist resync pending notice";
+    }
+}
+
+void
+SmSuperblockMgr::resetResync() {
+    Error err(ERR_OK);
+    SCOPEDWRITE(sbLock);
+    superblockMaster.resetResync();
+    err = syncSuperblock();
+    if (!err.ok()) {
+        LOGCRITICAL << "SM failed to persist no resync pending notice";
+    }
+}
 
 fds_uint16_t
 SmSuperblockMgr::getDiskId(fds_token_id smTokId,

@@ -7,6 +7,7 @@ package com.formationds.tools.statgen;
 import com.formationds.client.v08.model.Size;
 import com.formationds.client.v08.model.Tenant;
 import com.formationds.client.v08.model.Volume;
+import com.formationds.tools.statgen.influxdb.InfluxDBStatWriter;
 import com.google.common.collect.Lists;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -34,6 +35,7 @@ import java.util.stream.Collectors;
 // "StatWriter" interfaces but haven't implemented influx, file, or other writers so right now it is OM only.
 public class StatGenerator {
 
+    public static final String ARG_WRITER        = "writer";
     public static final String ARG_OM_URL        = "om-url";
     public static final String ARG_USER          = "user";
     public static final String ARG_PWD           = "pwd";
@@ -42,6 +44,10 @@ public class StatGenerator {
     public static final String ARG_SINCE         = "since";
     public static final String ARG_LAST          = "last";
     public static final String ARG_FREQ          = "freq";
+    public static final String ARG_INFLUX_URL    = "influx";
+    public static final String ARG_INFLUX_USER   = "influx_user";
+    public static final String ARG_INFLUX_PWD    = "influx_pwd";
+    public static final String ARG_INFLUX_DB     = "influx_db";
 
     private static boolean has( OptionSet opts, String a ) {
         return opts.has( a ) && opts.hasArgument( a );
@@ -61,10 +67,21 @@ public class StatGenerator {
 
         OptionParser parser = new OptionParser();
         parser.allowsUnrecognizedOptions();
+        parser.accepts( ARG_WRITER, "Stat Writer {OM|INFLUXDB}" ).withRequiredArg().ofType( String.class ).defaultsTo( "OM" );
         parser.accepts( ARG_OM_URL, "Specify the OM REST API url" ).withRequiredArg().ofType( String.class )
               .defaultsTo( "http://localhost:7777" );
-        parser.accepts( ARG_USER, "OM user name" ).withRequiredArg().ofType( String.class ).defaultsTo( "admin" );
+        parser.accepts( ARG_INFLUX_URL, "Specify the InfluxDB REST API url (incl. db)" )
+              .withRequiredArg()
+              .ofType( String.class )
+              .defaultsTo( "http://localhost:8086/" );
+
+        parser.accepts( ARG_USER, "OM user name" ).withRequiredArg().ofType( String.class ).defaultsTo( "root" );
         parser.accepts( ARG_PWD, "OM password" ).withRequiredArg().ofType( String.class );
+
+        parser.accepts( ARG_INFLUX_USER, "InfluxDB user name" ).withRequiredArg().ofType( String.class ).defaultsTo( "admin" );
+        parser.accepts( ARG_INFLUX_PWD, "InfluxDB password" ).withRequiredArg().ofType( String.class );
+        parser.accepts( ARG_INFLUX_DB, "InfluxDB database" ).withRequiredArg().ofType( String.class ).defaultsTo( "om-metricdb" );
+
         parser.accepts( ARG_VOLUMES_COUNT, "Number of volumes to generate." ).withRequiredArg().ofType( Integer.class )
               .defaultsTo( 10 );
         parser.accepts( ARG_VOL_PREFIX, "Volume name prefix" ).withRequiredArg().ofType( String.class )
@@ -89,6 +106,11 @@ public class StatGenerator {
         }
 
         final String url = get( options, ARG_OM_URL, "http://localhost:7777" );
+
+        final String influxUrl = get( options, ARG_INFLUX_URL, "http://localhost:8086" );
+        final String influxUser = get( options, ARG_INFLUX_USER, "root" );
+        final String influxPwd = get( options, ARG_INFLUX_PWD, "root" );
+        final String influxDb = get( options, ARG_INFLUX_DB, "om-metricdb" );
 
         final String protocol = url.split( "://" )[0];
         final String[] hostport = url.split( "://" )[1].split( ":" );
@@ -117,8 +139,15 @@ public class StatGenerator {
         OMConfigServiceRestClient client = new OMConfigServiceRestClient( protocol, host, port );
         client.login( user, pwd );
 
+        StatWriter statWriter = null;
+        final String writerOpt = get( options, ARG_WRITER, "OM" );
+        if (writerOpt.equalsIgnoreCase( "OM" )) {
+            statWriter = client;
+        } else if (writerOpt.equalsIgnoreCase( "INFLUXDB" )) {
+            statWriter = new InfluxDBStatWriter(influxUrl, influxUser, influxPwd, influxDb);
+        }
         StatGenerator gen = new StatGenerator( client,
-                                               client,
+                                               statWriter,
                                                since,
                                                Duration.of( freq, ChronoUnit.SECONDS ),
                                                volumes,
@@ -137,6 +166,7 @@ public class StatGenerator {
             put( Metrics.LBYTES, StatValueGenerators.sequentialLong( 100L ) );
             put( Metrics.PBYTES, StatValueGenerators.sequentialLong( 0L ) );
             put( Metrics.MBYTES, StatValueGenerators.sequentialLong( 0L ) );
+            put( Metrics.UBYTES, StatValueGenerators.sequentialLong( 0L ) );
             put( Metrics.BLOBS, StatValueGenerators.sequentialLong( 0L ) );
             put( Metrics.OBJECTS, StatValueGenerators.sequentialLong( 0L ) );
             put( Metrics.ABS, StatValueGenerators.addDouble( 0.0D, 0.1F ) );

@@ -159,11 +159,15 @@ void ObjectStorMgr::handleResyncDoneOrPending(fds_bool_t startResync, fds_bool_t
     }
 
     if (startResync && g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
-        objStorMgr->migrationMgr->startResync(curDlt,
-                                              getUuid(),
-                                              curDlt->getNumBitsForToken(),
-                                              std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
-                                                        std::placeholders::_1, std::placeholders::_2));
+        if (objectStore->doResync()) {
+            objStorMgr->migrationMgr->startResync(curDlt,
+                                                  getUuid(),
+                                                  curDlt->getNumBitsForToken(),
+                                                  std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
+                                                            std::placeholders::_1, std::placeholders::_2));
+        } else {
+            objectStore->setResync();
+        }
     }
 }
 
@@ -342,6 +346,11 @@ void ObjectStorMgr::mod_enable_service()
         gSvcRequestPool->setDltManager(MODULEPROVIDER()->getSvcMgr()->getDltManager());
     }
 
+    // If the object store is in the READ ONLY state we need to send the read only command to other SMs
+    if (objectStore->isReadOnly()) {
+        sendReadOnlyModeCmd();
+    }
+
     Module::mod_enable_service();
 }
 
@@ -450,16 +459,23 @@ Error ObjectStorMgr::handleDltUpdate() {
     const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
     Error err = objStorMgr->objectStore->handleNewDlt(curDlt);
     if (err == ERR_SM_NOERR_NEED_RESYNC) {
-        LOGNOTIFY << "SM " << std::hex << getUuid() << " going to do"
-                  << " token diff resync";
+        migrationMgr->makeTokensAvailable(curDlt,
+                                          curDlt->getNumBitsForToken(),
+                                          getUuid());
 
         // Start the resync process
         if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync", true)) {
-            err = objStorMgr->migrationMgr->startResync(curDlt,
-                                                        getUuid(),
-                                                        curDlt->getNumBitsForToken(),
-                                                        std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
-                                                                  std::placeholders::_1, std::placeholders::_2));
+            if (objectStore->doResync()) {
+                LOGNOTIFY << "SM " << std::hex << getUuid() << " going to do"
+                          << " token diff resync";
+                err = objStorMgr->migrationMgr->startResync(curDlt,
+                                                            getUuid(),
+                                                            curDlt->getNumBitsForToken(),
+                                                            std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
+                                                                      std::placeholders::_1, std::placeholders::_2));
+            } else {
+                objectStore->setResync();
+            }
         } else {
             // not doing resync, making all DLT tokens ready
             migrationMgr->makeTokensAvailable(curDlt,
@@ -549,59 +565,107 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
     // Piggyback on the timer that runs this to check disk capacity
     if (sampleCounter % 5 == 0) {
         LOGDEBUG << "Checking disk utilization!";
-        float_t pct_used = objectStore->getUsedCapacityAsPct();
-
-        // We want to log which disk is too full here
-        if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
-            lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
-            LOGERROR << "ERROR: SM is utilizing " << pct_used << "% of available storage space!";
-
-            objectStore->setUnavailable();
-
-            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SERVICE_CAPACITY_FULL, "SM capacity is FULL! ");
-
-            lastCapacityMessageSentAt = pct_used;
-        } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
-                   lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
-            LOGWARN << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
-            lastCapacityMessageSentAt = pct_used;
-
-            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SERVICE_CAPACITY_DANGEROUS,
-                                   "SM is reaching dangerous capacity levels!");
-        } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
-                   lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
-            LOGNORMAL << "SM is utilizing " << pct_used << " of available storage space!";
-
-            sendEventMessageToOM(fpi::SYSTEM_EVENT, fpi::EVENT_CATEGORY_STORAGE,
-                                 fpi::EVENT_SEVERITY_WARNING,
-                                 fpi::EVENT_STATE_SOFT,
-                                 "sm.capacity.warn",
-                                 std::vector<fpi::MessageArgs>(), "");
-
-            lastCapacityMessageSentAt = pct_used;
-        } else {
-            // If the used pct drops below alert levels reset so we resend the message when
-            // we re-hit this condition
-
-            if (pct_used < DISK_CAPACITY_WARNING_THRESHOLD) {
-                if (lastCapacityMessageSentAt > DISK_CAPACITY_ALERT_THRESHOLD) {
-                    sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
-                                           "SM utilization no longer at dangerous levels.");
-                }
-                lastCapacityMessageSentAt = 0;
-            } else if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
-                lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
-                sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
-                                       "SM utilization no longer at dangerous levels.");
-            } else if (pct_used < DISK_CAPACITY_ERROR_THRESHOLD) {
-                lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
-                sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SERVICE_CAPACITY_DANGEROUS,
-                                       "SM is reaching dangerous capacity levels!");
-            }
-        }
+        checkDiskCapacities();
         sampleCounter = 0;
     }
     sampleCounter++;
+}
+
+/**
+ * Checks available disk capacities and takes appropriate action based on thresholds.
+ */
+void ObjectStorMgr::checkDiskCapacities() {
+    float_t pct_used = objectStore->getUsedCapacityAsPct();
+
+    if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
+        lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
+        LOGERROR << "ERROR: SM is utilizing " << pct_used << "% of available storage space!";
+
+        objectStore->setReadOnly();
+        sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SERVICE_CAPACITY_FULL, "SM capacity is FULL! ");
+        // Send the read only mode command to the other SMs
+        // sendReadOnlyModeCmd();
+        lastCapacityMessageSentAt = pct_used;
+
+    } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
+        lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
+        LOGWARN << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
+        lastCapacityMessageSentAt = pct_used;
+
+        sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SERVICE_CAPACITY_DANGEROUS,
+                               "SM is reaching dangerous capacity levels!");
+    } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
+        lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
+        LOGNORMAL << "SM is utilizing " << pct_used << " of available storage space!";
+
+        sendEventMessageToOM(fpi::SYSTEM_EVENT, fpi::EVENT_CATEGORY_STORAGE,
+                             fpi::EVENT_SEVERITY_WARNING,
+                             fpi::EVENT_STATE_SOFT,
+                             "sm.capacity.warn",
+                             std::vector<fpi::MessageArgs>(), "");
+
+        lastCapacityMessageSentAt = pct_used;
+    } else {
+        // If the used pct drops below alert levels reset so we resend the message when
+        // we re-hit this condition
+        if (pct_used < DISK_CAPACITY_WARNING_THRESHOLD) {
+            if (objectStore->isReadOnly()) {
+                objectStore->setAvailable();
+            }
+            if (lastCapacityMessageSentAt > DISK_CAPACITY_ALERT_THRESHOLD) {
+                sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
+                                       "SM utilization no longer at dangerous levels.");
+            }
+            lastCapacityMessageSentAt = 0;
+        } else if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
+            if (objectStore->isReadOnly()) {
+                objectStore->setAvailable();
+            }
+            lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
+                                   "SM utilization no longer at dangerous levels.");
+        } else if (pct_used < DISK_CAPACITY_ERROR_THRESHOLD) {
+            // sendReadWriteModeCmd();
+            objectStore->setAvailable();
+            lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SERVICE_CAPACITY_DANGEROUS,
+                                   "SM is reaching dangerous capacity levels!");
+        }
+    }
+}
+
+/**
+ * Sends an object store control message
+ */
+void ObjectStorMgr::sendObjectStoreCtrlMsg(fpi::ObjectStoreState type) {
+    SvcInfo info = MODULEPROVIDER()->getSvcMgr()->getSelfSvcInfo();
+
+    fpi::ObjectStoreCtrlMsgPtr msg(new fpi::ObjectStoreCtrlMsg());
+    msg->state = type;
+
+    auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+
+    // For each SM in the DLT we send the read-only message. Right now this has to be a domain wide thing. Perhaps
+    // in the future we can make it volume specific?
+    const DLT *curDlt = getDLT();
+    for (auto node: curDlt->getAllNodes()) {
+        auto request = svcMgr->newEPSvcRequest(node.toSvcUuid());
+        request->setPayload(FDSP_MSG_TYPEID(fpi::ObjectStoreCtrlMsg), msg);
+        request->invoke();
+    }
+}
+
+/**
+ * Send the read only message to other SMs to put them in read only mode as well.
+ */
+void ObjectStorMgr::sendReadOnlyModeCmd() {
+    sendObjectStoreCtrlMsg(fpi::OBJECTSTORE_READ_ONLY);
+}
+/**
+ * Send the command to re-enable writes if we were previously in read only mode
+ */
+void ObjectStorMgr::sendReadWriteModeCmd() {
+    sendObjectStoreCtrlMsg(fpi::OBJECTSTORE_NORMAL);
 }
 
 /**
@@ -1580,5 +1644,4 @@ bool
 ObjectStorMgr::haveAllObjectSets() const {
     return objectStore->haveAllObjectSets();
 }
-
 }  // namespace fds

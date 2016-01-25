@@ -15,49 +15,53 @@ import org.eclipse.jetty.server.Request;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 public class RegisterStream implements RequestHandler {
 
-	private ConfigurationApi configApi;
+    private ConfigurationApi configApi;
 
-	public RegisterStream() {
-	}
+    public RegisterStream() {
+    }
 
-	@Override
-	public Resource handle( Request request, Map<String, String> routeParameters )
-			throws Exception {
-		String source = IOUtils.toString( request.getInputStream() );
-		JSONObject o = new JSONObject( source );
-		String url = o.getString( "url" );
-		String httpMethod = o.getString( "method" );
-		List<String> volumeNames = asList( o.getJSONArray( "volumes" ) );
+    @Override
+    public Resource handle( Request request, Map<String, String> routeParameters )
+            throws Exception {
 
-		int sampleFreqSeconds = o.getInt( "frequency" );
-		int durationSeconds = o.getInt( "duration" );
+        try ( InputStream is = request.getInputStream() ) {
+            String source = IOUtils.toString( is );
+            JSONObject o = new JSONObject( source );
+            String url = o.getString( "url" );
+            String httpMethod = o.getString( "method" );
+            List<String> volumeNames = asList( o.getJSONArray( "volumes" ) );
 
-		int id = getConfigApi().registerStream( url, httpMethod, volumeNames, sampleFreqSeconds, durationSeconds );
-		JSONObject result = new JSONObject().put( "id", id );
-		return new JsonResource( result );
-	}
+            int sampleFreqSeconds = o.getInt( "frequency" );
+            int durationSeconds = o.getInt( "duration" );
 
-	private List<String> asList( JSONArray jsonArray ) {
-		ArrayList<String> result = new ArrayList<>();
-		for( int i = 0;
-				i < jsonArray.length();
-				i++ ) {
-			result.add( jsonArray.getString( i ) );
-		}
-		return result;
-	}
+            int id = getConfigApi().registerStream( url, httpMethod, volumeNames, sampleFreqSeconds, durationSeconds );
+            JSONObject result = new JSONObject().put( "id", id );
+            return new JsonResource( result );
+        }
+    }
 
-	private ConfigurationApi getConfigApi(){
-		if ( configApi == null ){
-			configApi = SingletonConfigAPI.instance().api();
-		}
+    private List<String> asList( JSONArray jsonArray ) {
+        ArrayList<String> result = new ArrayList<>();
+        for( int i = 0;
+                i < jsonArray.length();
+                i++ ) {
+            result.add( jsonArray.getString( i ) );
+        }
+        return result;
+    }
 
-		return configApi;
-	}
+    private ConfigurationApi getConfigApi(){
+        if ( configApi == null ){
+            configApi = SingletonConfigAPI.instance().api();
+        }
+
+        return configApi;
+    }
 }

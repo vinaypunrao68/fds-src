@@ -8,6 +8,7 @@ import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.repository.query.MetricQueryCriteria;
+import com.formationds.om.repository.query.QueryCriteria.QueryType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,14 +25,18 @@ public class MetricQueryCriteriaBuilder {
     private DateRange range;           // date range ; starting and ending
     private Integer points;            // number of points to provide in results
     private Long firstPoint;           // first point, i.e. row number
-    
+
     //TODO: Hack - see QueryCriteria
     private List<Volume> contexts;    // the context
+
+    // TODO: Hack to identify queries, hopefully for more intelligent caching
+    private QueryType queryType;
 
     /**
      * default constructor
      */
-    public MetricQueryCriteriaBuilder( ) {
+    public MetricQueryCriteriaBuilder( QueryType type) {
+    	queryType = type;
     }
 
     /**
@@ -122,7 +127,7 @@ public class MetricQueryCriteriaBuilder {
      * @return Returns the {@link MetricQueryCriteria}
      */
     public MetricQueryCriteria build( ) {
-        MetricQueryCriteria metricQueryCriteria = new MetricQueryCriteria();
+        MetricQueryCriteria metricQueryCriteria = new MetricQueryCriteria(queryType);
         metricQueryCriteria.setSeriesType( seriesType );
         metricQueryCriteria.setTenantAdmin( tenantAdmin );
         metricQueryCriteria.setAdmin( admin );

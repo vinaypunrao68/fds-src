@@ -2,6 +2,7 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
+#include <chrono>
 #include <string>
 #include <list>
 #include <vector>
@@ -22,6 +23,12 @@
 #include <fdsp/event_api_types.h>
 #include <fdsp/svc_types_types.h>
 #include <net/volumegroup_extensions.h>
+#include <dm-vol-cat/DmPersistVolDB.h>
+
+#include <timeline/timelinemanager.h>
+#include <refcount/refcountmanager.h>
+#include <requestmanager.h>
+#include <boost/filesystem.hpp>
 
 #define VOLUME_REQUEST_CHECK() \
     auto volMeta = parentDm->getVolumeMeta(io->volId); \
@@ -30,25 +37,6 @@
         io->cb(ERR_VOL_NOT_FOUND, io); \
         break; \
     } \
-    
-
-namespace {
-Error sendReloadVolumeRequest(fds::SvcRequestPool *requestMgr,
-                              const NodeUuid & nodeId, const fds_volid_t & volId) {
-    auto asyncReq = requestMgr->newEPSvcRequest(nodeId.toSvcUuid());
-
-    boost::shared_ptr<fpi::ReloadVolumeMsg> msg = boost::make_shared<fpi::ReloadVolumeMsg>();
-    msg->volume_id = volId.get();
-    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::ReloadVolumeMsg), msg);
-
-    SvcRequestCbTask<EPSvcRequest, fpi::ReloadVolumeRspMsg> waiter;
-    asyncReq->onResponseCb(waiter.cb);
-
-    asyncReq->invoke();
-    waiter.await();
-    return waiter.error;
-}
-} // namespace
 
 namespace fds {
 
@@ -69,43 +57,6 @@ struct RemoveErroredVolume {
 const std::hash<fds_volid_t> DataMgr::dmQosCtrl::volIdHash;
 const std::hash<std::string> DataMgr::dmQosCtrl::blobNameHash;
 const DataMgr::dmQosCtrl::SerialKeyHash DataMgr::dmQosCtrl::keyHash;
-
-/**
- * Send an Event to OM using the events API
- */
-
-void DataMgr::sendEventMessageToOM(fpi::EventType eventType,
-                                   fpi::EventCategory eventCategory,
-                                   fpi::EventSeverity eventSeverity,
-                                   fpi::EventState eventState,
-                                   const std::string& messageKey,
-                                   std::vector<fpi::MessageArgs> messageArgs,
-                                   const std::string& messageFormat) {
-
-    fpi::NotifyEventMsgPtr eventMsg(new fpi::NotifyEventMsg());
-
-    eventMsg->event.type = eventType;
-    eventMsg->event.category = eventCategory;
-    eventMsg->event.severity = eventSeverity;
-    eventMsg->event.state = eventState;
-
-    auto now = std::chrono::system_clock::now();
-    fds_uint64_t seconds = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
-    eventMsg->event.initialTimestamp = seconds;
-    eventMsg->event.modifiedTimestamp = seconds;
-    eventMsg->event.messageKey = messageKey;
-    eventMsg->event.messageArgs = messageArgs;
-    eventMsg->event.messageFormat = messageFormat;
-    eventMsg->event.defaultMessage = "DEFAULT MESSAGE";
-
-    auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
-    auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
-
-    request->setPayload(FDSP_MSG_TYPEID(fpi::NotifyEventMsg), eventMsg);
-    request->invoke();
-
-}
-
 
 /**
  * Receiver DM processing of volume sync state.
@@ -235,7 +186,7 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
             timeVolCat_->setUnavailable();
 
             // Send message to OM
-            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SERVICE_CAPACITY_FULL, "DM capacity is FULL! ");
+            requestMgr->sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SERVICE_CAPACITY_FULL, "DM capacity is FULL! ");
 
         } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
                    lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
@@ -243,18 +194,18 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
             lastCapacityMessageSentAt = pct_used;
 
             // Send message to OM
-            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED,
-                                   ERR_SERVICE_CAPACITY_DANGEROUS, "DM is reaching dangerous capacity levels!");
+            requestMgr->sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED,
+                                               ERR_SERVICE_CAPACITY_DANGEROUS, "DM is reaching dangerous capacity levels!");
 
         } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
                    lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
             LOGNORMAL << "DM is utilizing " << pct_used << " of available storage space!";
 
-            sendEventMessageToOM(fpi::SYSTEM_EVENT, fpi::EVENT_CATEGORY_STORAGE,
-                                 fpi::EVENT_SEVERITY_WARNING,
-                                 fpi::EVENT_STATE_SOFT,
-                                 "dm.capacity.warn",
-                                 std::vector<fpi::MessageArgs>(), "");
+            requestMgr->sendEventMessageToOM(fpi::SYSTEM_EVENT, fpi::EVENT_CATEGORY_STORAGE,
+                                             fpi::EVENT_SEVERITY_WARNING,
+                                             fpi::EVENT_STATE_SOFT,
+                                             "dm.capacity.warn",
+                                             std::vector<fpi::MessageArgs>(), "");
 
             lastCapacityMessageSentAt = pct_used;
         } else {
@@ -264,8 +215,8 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
                 lastCapacityMessageSentAt = 0;
 
                 // Send message to OM resetting us to OK state
-                sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
-                                       "DM utilization no longer at dangerous levels.");
+                requestMgr->sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
+                                                   "DM utilization no longer at dangerous levels.");
             }
         }
         sampleCounter = 0;
@@ -305,7 +256,7 @@ void DataMgr::sampleDMStatsForVol(fds_volid_t volume_id,
         return;
     }
 
-    LOGDEBUG << "volume " << std::hex << volume_id << std::dec
+    LOGDEBUG << "volume " << volume_id
              << " lbytes " << total_lbytes << " pbytes " << total_pbytes << " blobs "
              << total_blobs << " lobjects " << total_lobjects << " pobjects " << total_pobjects;
     StatsCollector::singleton()->recordEvent(volume_id,
@@ -328,29 +279,6 @@ void DataMgr::sampleDMStatsForVol(fds_volid_t volume_id,
                                              timestamp,
                                              STAT_DM_CUR_POBJECTS,
                                              total_pobjects);
-}
-
-void DataMgr::sendHealthCheckMsgToOM(fpi::HealthState serviceState,
-                                     fds_errno_t statusCode,
-                                     const std::string& statusInfo) {
-
-    fpi::SvcInfo info = MODULEPROVIDER()->getSvcMgr()->getSelfSvcInfo();
-
-    // Send health check thrift message to OM
-    fpi::NotifyHealthReportPtr healthRepMsg(new fpi::NotifyHealthReport());
-    healthRepMsg->healthReport.serviceInfo.svc_id = info.svc_id;
-    healthRepMsg->healthReport.serviceInfo.name = info.name;
-    healthRepMsg->healthReport.serviceInfo.svc_port = info.svc_port;
-    healthRepMsg->healthReport.serviceState = serviceState;
-    healthRepMsg->healthReport.statusCode = statusCode;
-    healthRepMsg->healthReport.statusInfo = statusInfo;
-
-    auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
-    auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
-
-    request->setPayload (FDSP_MSG_TYPEID (fpi::NotifyHealthReport), healthRepMsg);
-    request->invoke();
-
 }
 
 void DataMgr::handleLocalStatStream(fds_uint64_t start_timestamp,
@@ -526,9 +454,9 @@ void DataMgr::finishForwarding(fds_volid_t volid) {
 }
 
 /**
-* Note that volId may not necessarily match volume id in ioReq
-* Example when it will not match: if we enqueue request for volumeA
-* to shadow queue, we will pass shadow queue's volId (queue id)
+ * Note that volId may not necessarily match volume id in ioReq
+ * Example when it will not match: if we enqueue request for volumeA
+ * to shadow queue, we will pass shadow queue's volId (queue id)
  * but ioReq will contain actual volume id; so maybe we should change
  * this method to pass queue id as first param not volid
  */
@@ -575,8 +503,8 @@ VolumeMeta*  DataMgr::getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked) {
 /*
  * Meant to be called holding the vol_map_mtx.
  * @param vol_will_sync true if this volume's meta will be synced from
-* other DM first
-*/
+ * other DM first
+ */
 Error DataMgr::addVolume(const std::string& vol_name,
                          fds_volid_t vol_uuid,
                          VolumeDesc *vdesc) {
@@ -603,11 +531,6 @@ Error DataMgr::addVolume(const std::string& vol_name,
 
     bool fPrimary = false;
     bool fOldVolume = (!vdesc->isSnapshot() && vdesc->isStateCreated());
-    LOGDEBUG << "vol:" << vol_name
-             << " snap:" << vdesc->isSnapshot()
-             << " state:" << vdesc->getState()
-             << " created:" << vdesc->isStateCreated()
-             << " old:" << fOldVolume;
 
     if (vdesc->isClone()) {
         // clone happens only on primary
@@ -618,6 +541,15 @@ Error DataMgr::addVolume(const std::string& vol_name,
     } else {
         fPrimary = amIPrimary(vdesc->volUUID);
     }
+
+    LOGNORMAL << "vol:" << vol_name
+              << " clone:" << vdesc->isClone()
+              << " snap:" << vdesc->isSnapshot()
+              << " state:" << vdesc->getState()
+              << " created:" << vdesc->isStateCreated()
+              << " old:" << fOldVolume
+              << " primary:" << fPrimary;
+
 
     if (vdesc->isSnapshot() && !fPrimary) {
         LOGWARN << "not primary - nothing to do for snapshot "
@@ -666,25 +598,25 @@ Error DataMgr::addVolume(const std::string& vol_name,
         }
     }
 
-    if (err.ok() && vdesc->isClone() && fPrimary) {
-        // all actions were successful now rsync it to other DMs
-        DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(vdesc->srcVolumeId);
-        for (uint i = 1; i < nodes->getLength(); i++) {
-            LOGDEBUG << "rsyncing vol:" << vdesc->volUUID
-                     << "to node:" << nodes->get(i);
-            auto volDir = timeVolCat_->queryIface();
-            err = volDir->syncCatalog(vdesc->volUUID, nodes->get(i));
-            if (!err.ok()) {
-                LOGWARN << "catalog sync failed on clone, vol:" << vdesc->volUUID;
-            } else {
-                // send message to reload volume
-                err = sendReloadVolumeRequest(MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr(),
-                                              (*nodes)[i], vdesc->volUUID);
-                if (!err.ok()) {
-                    LOGWARN << "catalog reload failed on clone, vol:" << vdesc->volUUID;
-                }
-            }
+    if (err.ok() && vdesc->isClone() && fPrimary && !fOldVolume) {
+        err = copyVolumeToOtherDMs(vdesc->volUUID);
+        if (!err.ok()) {
+            LOGERROR << "failed to sync clone to other DMs. failing clone: " << vdesc->volUUID
+                     << " of src:" << vdesc->srcVolumeId;
+            return err;
         }
+    }
+
+    if (!vdesc->isSnapshot()) {
+        fds_uint64_t total_bytes = 0, total_blobs = 0, total_objects = 0;
+        err = timeVolCat_->queryIface()->statVolume(vdesc->volUUID,
+                                                    &total_bytes,
+                                                    &total_blobs,
+                                                    &total_objects);
+        LOGNORMAL << "vol:" << vdesc->volUUID << " name:" << vdesc->name
+                  << " loaded with [blobs:" << total_blobs
+                  << " objects:" << total_objects
+                  << " size:" << total_bytes << "]";
     }
 
     VolumeMeta *volmeta = new VolumeMeta(MODULEPROVIDER(),
@@ -791,20 +723,13 @@ Error DataMgr::addVolume(const std::string& vol_name,
         err = timeVolCat_->queryIface()->getVersion(vol_uuid, version);
         if (!err.ok()) {
             LOGERROR << "Failed to get version for volume id: "
-                << std::hex << vol_uuid << std::dec;
+                     << std::hex << vol_uuid << std::dec;
             return err;
         }
         volmeta->setVersion(version);
     }
 
-    /*
-     * XXX: The logic below will use source volume id to collect stats for clone,
-     *      but it will now stream the stats to AM because amIPrimary() check is
-     *      done there. Effective we are going to collect stats for clone but not
-     *      stream it.
-     * TODO(xxx): Migrate clone and then stream stats
-     */
-    if (err.ok() && amIPrimary(vdesc->isClone() ? vdesc->srcVolumeId : vol_uuid)) {
+    if (err.ok() && amIPrimary(vol_uuid)) {
         // will aggregate stats for this volume and log them
         statStreamAggr_->attachVolume(vol_uuid);
         // create volume stat  directory.
@@ -848,9 +773,17 @@ Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
                                          voldesc.iops_throttle,
                                          voldesc.relativePrio);
     vol_map_mtx->unlock();
-
-    LOGNOTIFY << "Modify policy for volume "
-              << voldesc.name << " RESULT: " << err.GetErrstr();
+    vm->vol_desc->contCommitlogRetention = voldesc.contCommitlogRetention;
+    auto volDb = getPersistDB(vol_uuid);
+    if (volDb) {
+        auto fArchiveLogs = features.isTimelineEnabled() &&
+                !voldesc.isSnapshot() && voldesc.contCommitlogRetention > 0;
+        volDb->setArchiveLogs(fArchiveLogs);
+    } else {
+        LOGERROR << "unable to get persist db for vol:" << vol_uuid;
+    }
+    LOGNORMAL << "Modify policy for volume:" << voldesc.name
+              << " RESULT: " << err;
 
     return err;
 }
@@ -993,8 +926,8 @@ Error DataMgr::getVolObjSize(fds_volid_t volId,
 }
 
 DataMgr::DataMgr(CommonModuleProviderIf *modProvider)
-    : HasModuleProvider(modProvider),
-    Module("dm")
+        : HasModuleProvider(modProvider),
+          Module("dm")
 {
     // NOTE: Don't put much stuff in the constructor.  Move any construction
     // into mod_init()
@@ -1018,7 +951,7 @@ int DataMgr::mod_init(SysParams const *const param)
     closedmt_timer_task = boost::make_shared<CloseDMTTimerTask>(*timer,
                                                                 std::bind(&DataMgr::finishCloseDMT,
                                                                           this));
-
+    requestMgr = new dm::RequestManager(this);
     // qos threadpool config
     qosThreadCount = MODULEPROVIDER()->get_fds_config()->\
             get<fds_uint32_t>("fds.dm.qos.default_qos_threads", 10);
@@ -1040,7 +973,7 @@ int DataMgr::mod_init(SysParams const *const param)
             get<bool>("fds.dm.testing.uturn_setmeta", false);
 
     // timeline feature toggle
-    features.setTimelineEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>("fds.feature_toggle.common.enable_timeline", true));
+    features.setTimelineEnabled(CONFIG_BOOL("fds.feature_toggle.common.enable_timeline", true));
     timelineMgr.reset(new timeline::TimelineManager(this));
 
     /**
@@ -1060,7 +993,7 @@ int DataMgr::mod_init(SysParams const *const param)
         "fds.dm.req_serialization", true));
 
     features.setVolumegroupingEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
-            "fds.feature_toggle.common.enable_volumegrouping", false));
+        "fds.feature_toggle.common.enable_volumegrouping", false));
 
     /**
      * FEATURE TOGGLE: Sample DM stats for a volume with each Volume update. If not enabled,
@@ -1117,6 +1050,7 @@ void DataMgr::initHandlers() {
     // handlers[FDS_DM_VOLUMEGROUP_UPDATE] = new dm::VolumegroupUpdateHandler(*this);
     handlers[FDS_CLOSE_VOLUME] = new dm::VolumeCloseHandler(*this);
     handlers[FDS_DM_RELOAD_VOLUME] = new dm::ReloadVolumeHandler(*this);
+    handlers[FDS_DM_LOAD_FROM_ARCHIVE] = new dm::LoadFromArchiveHandler(*this);
     handlers[FDS_DM_MIGRATION] = new dm::DmMigrationHandler(*this);
     handlers[FDS_DM_RESYNC_INIT_BLOB] = new dm::DmMigrationBlobFilterHandler(*this);
     handlers[FDS_DM_MIG_DELTA_BLOBDESC] = new dm::DmMigrationDeltaBlobDescHandler(*this);
@@ -1138,6 +1072,7 @@ DataMgr::~DataMgr()
         delete it->second;
     }
     vol_meta_map.clear();
+    delete requestMgr;
     delete sysTaskQueue;
     delete vol_map_mtx;
     delete qosCtrl;
@@ -1248,9 +1183,6 @@ void DataMgr::mod_enable_service() {
 
     LOGNORMAL << "Finished creating DM directory layout";
 
-    expungeMgr.reset(new ExpungeManager(this));
-
-    LOGNORMAL << "Finished creating expunge manager";
     // finish setting up time volume catalog
     timeVolCat_->mod_startup();
 
@@ -1265,7 +1197,7 @@ void DataMgr::mod_enable_service() {
 
     if (timeVolCat_->isUnavailable()) {
         // send health check msg to OM
-        sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_NODE_NOT_ACTIVE, "DM failed to start! ");
+        requestMgr->sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_NODE_NOT_ACTIVE, "DM failed to start! ");
     }
 }
 
@@ -1583,6 +1515,113 @@ DataMgr::getAllVolumeDescriptors()
     return err;
 }
 
+DmPersistVolDB::ptr DataMgr::getPersistDB(fds_volid_t volId) {
+    // get the correct catalog
+    DmVolumeCatalog::ptr volDirPtr =  boost::dynamic_pointer_cast
+            <DmVolumeCatalog>(timeVolCat_->queryIface());
+
+    if (volDirPtr.get() == NULL) {
+        LOGERROR << "unable to get the vol dir ptr";
+        return NULL;
+    }
+
+    DmPersistVolCat::ptr persistVolDirPtr = volDirPtr->getVolume(volId);
+    if (persistVolDirPtr.get() == NULL) {
+        LOGERROR << "unable to get the persist vol dir ptr for vol:" << volId;
+        return NULL;
+    }
+
+    DmPersistVolDB::ptr voldDBPtr = boost::dynamic_pointer_cast <DmPersistVolDB>(persistVolDirPtr);
+    return voldDBPtr;
+}
+
+Error DataMgr::copyVolumeToOtherDMs(fds_volid_t volId) {
+    Error err;
+    LOGNORMAL << "copying vol:" << volId << " to other dms";
+
+    auto volDB = getPersistDB(volId);
+    if (volDB.get() == NULL) {
+        LOGWARN << "unable to get vol-db for vol:" << volId;
+        return ERR_VOL_NOT_FOUND;
+    }
+
+    const fpi::SvcUuid me (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
+    DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volId);
+
+    if (nodes->getLength() == 1) {
+        LOGDEBUG << "no other node to copy to .. on a one node system!!";
+        return err;
+    }
+
+    std::string archiveDir = dmutil::getTempDir();
+    std::string archiveFileName = util::strformat("%ld.tgz",volId.get());
+    std::string archiveFile =  archiveFileName;
+    err = getPersistDB(volId)->archive(archiveDir, archiveFile);
+    if (!err.ok()) {
+        LOGWARN << "archiving failed for vol:" << volId << " error:" << err;
+        return err;
+    }
+
+    archiveFile = archiveDir + std::string("/") + archiveFile;
+    if (!util::fileExists(archiveFile)) {
+        LOGWARN << "archive file missing : " << archiveFile;
+        return ERR_NOT_FOUND;
+    }
+
+    LOGDEBUG << "archive file:" << archiveFile;
+
+    auto transferCb = [&](fds::net::FileTransferService::Handle::ptr handle,const Error& err,
+                          SHPTR<concurrency::TaskStatus> taskStatus) {
+        taskStatus->error = err;
+        taskStatus->done();
+    };
+
+    uint total = 0, failed = 0;
+    for (uint i = 0; i < nodes->getLength(); i++) {
+        if (nodes->get(i).toSvcUuid() == me) continue;
+        total ++;
+        SHPTR<concurrency::TaskStatus> taskStatus(new concurrency::TaskStatus());
+        LOGNORMAL << "copying vol:" << volId << " to node:" << nodes->get(i);
+        fileTransfer->send(nodes->get(i).toSvcUuid(), archiveFile, archiveFileName, std::bind(transferCb, PH_ARG1, PH_ARG2, taskStatus));
+        // 10 minutes
+        if (!taskStatus->await(10*60*1000)) {
+            LOGWARN << "filetransfer did not complete in expected time: [" << archiveFile
+                    << "] to:" << nodes->get(i);
+            failed ++;
+        } else {
+            if (!taskStatus->error.ok()) {
+                LOGWARN << "filetransfer did not complete : [" << archiveFile
+                        << "] to:" << nodes->get(i) << " error:" << taskStatus->error;
+                failed ++;
+            } else {
+                // send LOAD_FROM_ARCHIVE command to dm
+                err = requestMgr->sendLoadFromArchiveRequest(nodes->get(i), volId, archiveFileName);
+                if (!err.ok()) {
+                    failed++;
+                    LOGERROR << "could to send load from archive cmd to:" << nodes->get(i)
+                             << " vol:" << volId
+                             << " file:" << archiveFileName
+                             << " error:" << err;
+                }
+            }
+        }
+    }
+
+    LOGNORMAL << "vol:" << volId << " copied to [" << total << "] nodes with [" << failed << "] failures";
+    // remove archive file
+    boost::filesystem::remove(archiveFile);
+
+    if (total > 0 && failed >= (1.0*total/2.0)) {
+        LOGERROR << "volume copy failed : " << volId;
+        return ERR_INVALID;
+    }
+    return ERR_OK;
+}
+
+//************************************************************************//
+//   QOS Controller Functions                                             //
+//************************************************************************//
+
 Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
     Error err(ERR_OK);
 
@@ -1695,6 +1734,7 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_OPEN_VOLUME:
         case FDS_CLOSE_VOLUME:
         case FDS_DM_RELOAD_VOLUME:
+        case FDS_DM_LOAD_FROM_ARCHIVE:
         case FDS_DM_RESYNC_INIT_BLOB:
         case FDS_DM_MIG_DELTA_BLOB:
         case FDS_DM_MIG_DELTA_BLOBDESC:
@@ -1742,11 +1782,11 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
                                                         io));
             break;
         case FDS_DM_FUNCTOR:
-                serialExecutor->scheduleOnHashKey(io->volId.get(),
-                                                  std::bind(&DataMgr::handleDmFunctor, parentDm, io));
+            serialExecutor->scheduleOnHashKey(io->volId.get(),
+                                              std::bind(&DataMgr::handleDmFunctor, parentDm, io));
             break;
         default:
-            FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
+            LOGWARN << "Unknown IO Type received";
             assert(0);
             break;
     }
@@ -1785,7 +1825,8 @@ DataMgr::dmQosCtrl::~dmQosCtrl() {
 
 namespace dmutil {
 
-std::string getVolumeDir(const FdsRootDir* root, fds_volid_t volId, fds_volid_t snapId) {
+std::string getVolumeDir(const FdsRootDir* _root, fds_volid_t volId, fds_volid_t snapId) {
+    auto root = (_root == NULL)? MODULEPROVIDER()->proc_fdsroot() : _root;
     if (invalid_vol_id < snapId) {
         return util::strformat("%s/%ld/snapshot/%ld_vcat.ldb",
                                root->dir_user_repo_dm().c_str(),
@@ -1794,6 +1835,13 @@ std::string getVolumeDir(const FdsRootDir* root, fds_volid_t volId, fds_volid_t 
         return util::strformat("%s/%ld",
                                root->dir_sys_repo_dm().c_str(), volId.get());
     }
+}
+
+std::string getTempDir(const FdsRootDir* _root, fds_volid_t volId) {
+    auto root = (_root == NULL)? MODULEPROVIDER()->proc_fdsroot() : _root;
+    std::string dir=util::strformat("%s/tmp", root->dir_sys_repo_dm().c_str());
+    root->fds_mkdir(dir.c_str());
+    return dir;
 }
 
 // location of all snapshots for a volume
@@ -1831,11 +1879,6 @@ void getVolumeIds(const FdsRootDir* root, std::vector<fds_volid_t>& vecVolumes) 
 std::string getTimelineDBPath(const FdsRootDir* root) {
     const std::string dmDir = root->dir_sys_repo_dm();
     return util::strformat("%s/timeline.db", dmDir.c_str());
-}
-
-std::string getExpungeDBPath(const FdsRootDir* root) {
-    const std::string dmDir = root->dir_user_repo_dm();
-    return util::strformat("%s/expunge.ldb", dmDir.c_str());
 }
 
 }  // namespace dmutil
