@@ -252,9 +252,9 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
         InfluxDBConnection conn = getConnection();
         InfluxDBReader reader = conn.getDBReader();
         if ( conn.isChunkedResponseEnabled() && reader.suportsChunkedResponseQuery() ) {
-            ChunkedResponse response = reader.chunkedReponseQuery( queryString, TimeUnit.MILLISECONDS );
-
-            events = convertSeriesToEvents( response );
+            try (ChunkedResponse response = reader.chunkedReponseQuery( queryString, TimeUnit.MILLISECONDS ) ) {
+                events = convertSeriesToEvents( response );
+            }
         } else {
             List<Serie> series = reader.query( queryString, TimeUnit.MILLISECONDS );
 
@@ -367,7 +367,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
     /**
      * Convert an influxDB return type into VolumeDatapoints that we can use
      *
-     * @param response the chunked response with series to convert
+     * @param response the chunked response with series to convert. Possibly null
      *
      * @return the list of events
      */
@@ -388,7 +388,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
 
     /**
      *
-     * @param serie the serie to convert
+     * @param serie the serie to convert.  Possibly null.
      * @return the list of event from the series
      */
     protected List<? extends Event> convertSeriesToEvents( Serie serie ) {

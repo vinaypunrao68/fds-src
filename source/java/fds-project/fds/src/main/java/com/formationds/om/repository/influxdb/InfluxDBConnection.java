@@ -386,6 +386,12 @@ public class InfluxDBConnection {
 
         LoggingInfluxDBReader() { }
 
+        /**
+         * @param query
+         * @param preceision
+         *
+         * @return the list of results from the query.  An empty list is returned if there are no results.
+         */
         public List<Serie> query( String query, TimeUnit precision )
         {
             String marker = "";
@@ -432,6 +438,8 @@ public class InfluxDBConnection {
                 String msg = e.getMessage();
                 if ( msg != null && msg.startsWith( "Couldn't find series:" ) )
                 {
+                    // TODO: not going to change it here right now because it impacts call paths, but
+                    // I think this should re-throw the exception and allow the callers to handle it.
                     return (T)null;
                 }
                 else
@@ -461,17 +469,19 @@ public class InfluxDBConnection {
             return chunkedResponseEnabled;
         }
 
+        /**
+         * @param query
+         * @param precision
+         *
+         * @return a Chunked (Streaming) response to the query.  Null if there is no result (For example, the series not found)
+         */
         @Override
         public ChunkedResponse chunkedReponseQuery( String query, TimeUnit precision ) {
             if ( ! chunkedResponseEnabled ) {
                 throw new IllegalStateException("Chunked response queries disabled.");
             }
 
-            ChunkedResponse response = doExecQuery( query, precision, CHUNKED_MARKER );
-            if (response == null) {
-
-            }
-            return response;
+            return doExecQuery( query, precision, CHUNKED_MARKER );
         }
 
         private void logBacktrace() {

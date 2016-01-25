@@ -280,6 +280,9 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
                 .query( "select count(PUTS) from " + getEntityName(),
                         TimeUnit.MILLISECONDS );
 
+        if (series == null || series.isEmpty())
+            return 0;
+
         Object o = series.get( 0 ).getRows().get(0).get( "count" ) ;
         if (o instanceof Number)
             return ((Number)o).longValue();
@@ -296,19 +299,32 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
      * Convert an influxDB return type into VolumeDatapoints that we can use
      *
      * @param criteria the criteria that was used to query the database.
-     * @param series the series to convert
+     * @param series the series to convert.  possibly null
      *
-     * @return the list of volume data points from the series
+     * @return the list of volume data points from the series.  empty list if the series is null
      */
     protected List<IVolumeDatapoint> convertSeriesToPoints( QueryCriteria criteria, List<Serie> series ) {
+
         final List<IVolumeDatapoint> datapoints = new ArrayList<>();
+        if (series == null) {
+            return datapoints;
+        }
+
         for (Serie s : series) {
             datapoints.addAll( convertSeriesToPoints( criteria, s ) );
         }
         return datapoints;
     }
 
+    /**
+     *
+     * @param criteria the query criteria
+     * @param chunkedResponse the chunked query response.  possibly null.
+     *
+     * @return the list of datapoints. empty list if the chunked response is null
+     */
     protected List<IVolumeDatapoint> convertSeriesToPoints( QueryCriteria criteria, ChunkedResponse chunkedResponse ) {
+
         final List<IVolumeDatapoint> datapoints = new ArrayList<>();
 
         if (chunkedResponse == null)
@@ -321,6 +337,13 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         return datapoints;
     }
 
+    /**
+     *
+     * @param criteria the query criteria
+     * @param series the individual series.  possibly null
+     *
+     * @return the list of datapoints. empty list if the chunked response is null.
+     */
     protected List<IVolumeDatapoint> convertSeriesToPoints( QueryCriteria criteria, Serie series ) {
 
         final List<IVolumeDatapoint> datapoints = new ArrayList<>();
