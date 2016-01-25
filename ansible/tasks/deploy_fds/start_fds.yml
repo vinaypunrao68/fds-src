@@ -90,23 +90,49 @@
       - activate
 
 -   name: get auth token
-    uri: url=http://{{ fds_om_host }}:7777/api/auth/token?login={{ domain_admin_user }}&password={{ domain_admin_pass }}
+    uri: url=http://{{ fds_om_host }}:7777/fds/config/v08/token?login={{ domain_admin_user }}&password={{ domain_admin_pass }}
         method=POST
         return_content=yes
         status_code=200
     delegate_to: localhost
     register: auth_results
+    when: fds_installed
     run_once: true
     sudo: no
     tags:
       - startup
       - activate
 
--   name: activate local domain
-    uri: url=http://{{ fds_om_host }}:7777/local_domains/{{local_domain_name}}/services
+-   name: Collect Node UUIDs
+    when: (clean_fds is defined and clean_fds == "yes") and (force is defined and force == "yes")
+    uri: url=http://{{ fds_om_host }}:7777/fds/config/v08/nodes
+        method=GET
+        HEADER_Cookie="token={{auth_results['json']['token']}}"
+        return_content=yes
+        status_code=200
+    delegate_to: localhost
+    register: node_info_results
+    run_once: true
+    sudo: no
+    tags:
+      - startup
+      - activate
+
+
+- debug: var=node_info_results
+
+# here we need to loop through the node UUIDs calling AddNode
+#-   name: Add Nodes to new cluster
+#    when: (clean_fds is defined and clean_fds == "yes") and (force is defined and force == "yes")
+
+
+
+-   name: Startup domain services
+    when: fds_om_host is defined and fds_om_host == inventory_hostname and auth_results|success
+    uri: url=http://{{ fds_om_host }}:7777/fds/config/v08/local_domains/1
         method=PUT
         body_format=json
-        body="{{activate_local_domain_post_body_json}}"
+        body="{{startup_domain_put_body_json}}"
         HEADER_Content-Type="application/json"
         HEADER_Cookie="token={{auth_results['json']['token']}}"
         status_code=200
@@ -115,8 +141,7 @@
     run_once: true
     sudo: no
     tags:
-      - startup
-      - activate
+        - shutdown
 
 -   name: wait for services to be available on all nodes
     wait_for: host={{inventory_hostname}}
