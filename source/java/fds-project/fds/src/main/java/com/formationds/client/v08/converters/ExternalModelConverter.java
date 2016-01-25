@@ -292,12 +292,14 @@ public class ExternalModelConverter {
             volumeStatus = SingletonAmAPI.instance().api().volumeStatus("" /* TODO: Dummy domain name. */,
                                                                         internalVolume.getName()).get();
         } catch (Exception e) {
-            logger.error("Unknown Exception: " + e.getMessage());
+            logger.warn("Unknown Exception requesting volume status for " + internalVolume.getName() + ": " + e.getMessage());
             return new VolumeStatus(VolumeState.Unknown, Size.ZERO);
         }
 
         extUsage = Size.of(volumeStatus.getCurrentUsageInBytes(), SizeUnit.B);
-        logger.trace("Determined extUsage for " + internalVolume.getName() + " to be " + extUsage + ".");
+        if (logger.isTraceEnabled()) { 
+            logger.trace("Determined extUsage for " + internalVolume.getName() + " to be " + extUsage + ".");
+        }
 
         Instant[] instants = {Instant.EPOCH, Instant.EPOCH};
         extractTimestamps( fbResults, instants );
