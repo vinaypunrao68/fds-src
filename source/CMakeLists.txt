@@ -7,10 +7,9 @@ set(INCLUDE_DIRECTORIES
     .
 
     ./include
-    ./include/access-mgr
-    ./include/apis
     ./include/blob
     ./include/cache
+    ./include/catalogKeys
     ./include/concurrency
     ./include/fdsp
     ./include/hash
@@ -27,7 +26,6 @@ set(INCLUDE_DIRECTORIES
     ./include/util
     ./include
     ./lib
-    ./lib/misc
     ./platform/include
 
     ./access-mgr/include
@@ -248,21 +246,38 @@ set(SOURCE_FILES
     ./include/StatTypes.h
     ./include/Tracebuffer.h
 
-./include/blob/BlobTypes.h
-./include/cache/KvCache.h
-./include/cache/SharedKvCache.h
-./include/cache/VolumeKvCache.h
-./include/cache/VolumeSharedKvCache.h
-./include/concurrency/LFThreadpool.h
-./include/concurrency/Mutex.h
-./include/concurrency/RwLock.h
-./include/concurrency/Synchronization.h
-./include/concurrency/Thread.h
-./include/concurrency/ThreadPool.h
-./include/concurrency/eventtracker.h
-./include/concurrency/fds_actor.h
-./include/concurrency/fds_actor_request.h
-./include/concurrency/taskstatus.h
+    ./include/blob/BlobTypes.h
+    ./include/cache/KvCache.h
+    ./include/cache/SharedKvCache.h
+    ./include/cache/VolumeKvCache.h
+    ./include/cache/VolumeSharedKvCache.h
+    ./include/catalogKeys/BlobMetadataKey.h
+    ./include/catalogKeys/BlobObjectKey.h
+    ./include/catalogKeys/CatalogKey.h
+    ./include/catalogKeys/CatalogKeyComparator.h
+    ./include/catalogKeys/CatalogKeyComparator.tcc
+    ./include/catalogKeys/CatalogKeyType.h
+    ./include/catalogKeys/JournalTimestampKey.h
+    ./include/catalogKeys/ObjectExpungeKey.h
+    ./include/catalogKeys/ObjectRankKey.h
+    ./include/catalogKeys/VolumeMetadataKey.h
+
+    ./include/concurrency/eventtracker.h
+    ./include/concurrency/fds_actor.h
+    ./include/concurrency/fds_actor_request.h
+    ./include/concurrency/HashedLocks.hpp
+    ./include/concurrency/LeaderFollower.h
+    ./include/concurrency/LFThreadpool.h
+    ./include/concurrency/Mutex.h
+    ./include/concurrency/RwLock.h
+    ./include/concurrency/semaphore.h
+    ./include/concurrency/SpinLock.h
+    ./include/concurrency/Synchronization.h
+    ./include/concurrency/SynchronizedTaskExecutor.hpp
+    ./include/concurrency/taskstatus.h
+    ./include/concurrency/Thread.h
+    ./include/concurrency/ThreadPool.h
+
     ./include/cpplist.h
     ./include/data_mgr.h
     ./include/debughelpers.h
@@ -341,38 +356,47 @@ set(SOURCE_FILES
     ./include/fdsp_utils.h
     ./include/graphite_client.h
     ./include/has_state.h
-./include/hash/Bitvec.h
-./include/hash/Hashes.h
-./include/hash/MurmurHash1.h
-./include/hash/MurmurHash2.h
-./include/hash/MurmurHash3.h
-./include/hash/PMurHash.h
-./include/hash/Platform.h
-./include/hash/Random.h
-./include/hash/SpeedTest.h
-./include/hash/Spooky.h
-./include/hash/Types.h
-./include/hash/base64.h
-./include/hash/md5.h
-./include/hash/sha1.h
-./include/json/json-forwards.h
-./include/json/json.h
-./include/kvstore/configdb.h
-./include/kvstore/configdbmodule.h
-./include/kvstore/kvstore.h
-./include/kvstore/platformdb.h
-./include/kvstore/redis.h
-./include/kvstore/tokenstatedb.h
-./include/leveldb/cat_journal.h
-./include/leveldb/copy_env.h
-./include/net/MockSvcHandler.h
-./include/net/PlatNetSvcHandler.h
-./include/net/SvcRequest.h
-./include/net/SvcRequestPool.h
-./include/net/SvcRequestTracker.h
-./include/net/fdssocket.h
-./include/net/net-service.h
-./include/net/net_utils.h
+    ./include/hash/Bitvec.h
+    ./include/hash/Hashes.h
+    ./include/hash/MurmurHash1.h
+    ./include/hash/MurmurHash2.h
+    ./include/hash/MurmurHash3.h
+    ./include/hash/PMurHash.h
+    ./include/hash/Platform.h
+    ./include/hash/Random.h
+    ./include/hash/SpeedTest.h
+    ./include/hash/Spooky.h
+    ./include/hash/Types.h
+    ./include/hash/base64.h
+    ./include/hash/md5.h
+    ./include/hash/sha1.h
+    ./include/json/json-forwards.h
+    ./include/json/json.h
+    ./include/kvstore/configdb.h
+    ./include/kvstore/configdbmodule.h
+    ./include/kvstore/kvstore.h
+    ./include/kvstore/platformdb.h
+    ./include/kvstore/redis.h
+    ./include/kvstore/tokenstatedb.h
+    ./include/leveldb/cat_journal.h
+    ./include/leveldb/copy_env.h
+
+    ./include/net/fdssocket.h
+    ./include/net/filetransferservice.h
+    ./include/net/MockSvcHandler.h
+    ./include/net/net-service.h
+    ./include/net/net-service-tmpl.hpp
+    ./include/net/net_utils.h
+    ./include/net/PlatNetSvcHandler.h
+    ./include/net/SvcMgr.h
+    ./include/net/SvcProcess.h
+    ./include/net/SvcRequest.h
+    ./include/net/SvcRequestPool.h
+    ./include/net/SvcRequestTracker.h
+    ./include/net/SvcServer.h
+    ./include/net/volumegroup_extensions.h
+    ./include/net/VolumeGroupHandle.h
+
 ./include/odb.h
 ./include/orch-mgr/om-service.h
 ./include/persistent-layer/dm_io.h
@@ -476,25 +500,24 @@ set(SOURCE_FILES
     ./include/util/TraceBuffer.h
     ./include/util/type.h
 
-./lib/Catalog.h
-./lib/QoSWFQDispatcher.h
-./lib/StatsCollector.h
-./lib/VolumeCatalog.h
-./lib/blob/BlobTypes.cpp
-./lib/concurrency/eventtracker.cpp
-./lib/concurrency/taskstatus.cpp
-./lib/crypto/FdsCrypto.cpp
-./lib/fds_list.h
-./lib/kvstore/configdb.cpp
-./lib/kvstore/configdbmodule.cpp
-./lib/kvstore/kvstore.cpp
-./lib/kvstore/platformdb.cpp
-./lib/kvstore/redis.cpp
-./lib/kvstore/tokenstatedb.cpp
-./lib/leveldb/cat_journal.cpp
-./lib/leveldb/copy_env.cpp
-./lib/lru_policy_mgr.h
-
+    ./lib/blob/BlobTypes.cpp
+    ./lib/catalogKeys/BlobMetadataKey.cpp
+    ./lib/catalogKeys/BlobObjectKey.cpp
+    ./lib/catalogKeys/CatalogKey.cpp
+    ./lib/catalogKeys/CatalogKeyComparator.cpp
+    ./lib/catalogKeys/JournalTimestampKey.cpp
+    ./lib/catalogKeys/ObjectExpungeKey.cpp
+    ./lib/catalogKeys/ObjectRankKey.cpp
+    ./lib/catalogKeys/VolumeMetadataKey.cpp
+    ./lib/crypto/FdsCrypto.cpp
+    ./lib/kvstore/configdb.cpp
+    ./lib/kvstore/configdbmodule.cpp
+    ./lib/kvstore/kvstore.cpp
+    ./lib/kvstore/platformdb.cpp
+    ./lib/kvstore/redis.cpp
+    ./lib/kvstore/tokenstatedb.cpp
+    ./lib/leveldb/cat_journal.cpp
+    ./lib/leveldb/copy_env.cpp
     ./lib/misc/BitSet.cpp
     ./lib/misc/BufferReplay.cpp
     ./lib/misc/Catalog.cpp
@@ -525,16 +548,21 @@ set(SOURCE_FILES
     ./lib/misc/serialize.cpp
     ./lib/misc/StatsCollector.cpp
     ./lib/misc/VolumeCatalog.cpp
-
-./lib/msgqueue.h
-
-./lib/net/fdssocket.cpp
-./lib/net/net_utils.cpp
-./lib/qos/qos_ctrl.cpp
-./lib/qos_htb.h
-./lib/qos_min_prio.h
-./lib/qos_tokbucket.h
-./lib/simple_object_allocator.h
+    ./lib/net/fdssocket.cpp
+    ./lib/net/filetransferservice.cpp
+    ./lib/net/net_utils.cpp
+    ./lib/qos/qos_ctrl.cpp
+    ./lib/Catalog.h
+    ./lib/fds_list.h
+    ./lib/lru_policy_mgr.h
+    ./lib/msgqueue.h
+    ./lib/qos_htb.h
+    ./lib/qos_min_prio.h
+    ./lib/qos_tokbucket.h
+    ./lib/QoSWFQDispatcher.h
+    ./lib/simple_object_allocator.h
+    ./lib/StatsCollector.h
+    ./lib/VolumeCatalog.h
 
     ./net-service/endpoint/endpoint.cpp
     ./net-service/endpoint/ep-attr.cpp
@@ -946,6 +974,16 @@ osdep/umod-linux/fds_osdep.cpp
 ./unit-test/stor-mgr/svc-test/smperf_gtest.cpp
 ./unit-test/stor-mgr/svc-test/svc_gtest.cpp
 
+    ./unit-test/svc-misc/serializer_gtest.cpp
+    ./unit-test/svc-misc/th_am.cpp
+    ./unit-test/svc-misc/th_am_server.cpp
+    ./unit-test/svc-misc/th_bare.cpp
+    ./unit-test/svc-misc/th_dm.cpp
+    ./unit-test/svc-misc/th_sm.cpp
+    ./unit-test/svc-misc/Threadpool.h
+    ./unit-test/svc-misc/Threadpool2.h
+    ./unit-test/svc-misc/threadpool_test.cpp
+
     ./unit-test/svclayer/OMSvcProcess.cpp
     ./unit-test/svclayer/OMSvcProcess.h
     ./unit-test/svclayer/SvcMapChecker.cpp
@@ -954,7 +992,7 @@ osdep/umod-linux/fds_osdep.cpp
     ./unit-test/svclayer/SvcRequestMgr_gtest.cpp
     ./unit-test/svclayer/SvcServer_gtest.cpp
     ./unit-test/svclayer/TestSvcProcess.cpp
-    ./unit-test/svclayer/VolumeGrouping_gtest.cpp
+    ./unit-test/svclayer/VolumeGroupHandle_gtest.cpp
 
 ./unit-test/umod-lib/ThreadPoolTest.cpp
 ./unit-test/umod-lib/conc_unit_test.cpp
