@@ -16,19 +16,61 @@
     tags:
         - shutdown
 
--   name: shutdown_om
+-   name: Verify api is available
+    wait_for: host={{ fds_om_host }}
+        port=7777
+        delay=1
+        timeout=180
+        state=started
+    delegate_to: localhost
+    sudo: no
+    when: fds_om_host is defined and fds_om_host == inventory_hostname
+    tags:
+      - shutdown
+
+-   name: get auth token
+    uri: url=http://{{ fds_om_host }}:7777/fds/config/v08/token?login={{ domain_admin_user }}&password={{ domain_admin_pass }}
+        method=POST
+        return_content=yes
+        status_code=200
+    delegate_to: localhost
+    register: auth_results
+    when: fds_installed
+    run_once: true
+    sudo: no
+    tags:
+        - shutdown
+
+-   name: Gracefully shutdown domain services
+    when: fds_om_host is defined and fds_om_host == inventory_hostname and auth_results|success
+    uri: url=http://{{ fds_om_host }}:7777/fds/config/v08/local_domains/1
+        method=PUT
+        body_format=json
+        body="{{shutdown_domain_put_body_json}}"
+        HEADER_Content-Type="application/json"
+        HEADER_Cookie="token={{auth_results['json']['token']}}"
+        status_code=200
+        return_content=yes
+    delegate_to: localhost
+    ignore_errors: True
+    run_once: true
+    sudo: no
+    tags:
+        - shutdown
+
+-   name: Shutdown the OM
     service: name=fds-om state=stopped
     when: fds_om_host is defined and fds_om_host == inventory_hostname and fds_installed|success
     tags:
         - shutdown
 
--   name: shutdown_pm
+-   name: Shutdown the PM
     service: name=fds-pm state=stopped
     when: fds_installed|success
     tags:
         - shutdown
 
--   name: kill_all_procs
+-   name: Kill any lingering processes
     shell: pkill -9 -f {{item}} || true
     ignore_errors: True
     when: fds_installed|success
