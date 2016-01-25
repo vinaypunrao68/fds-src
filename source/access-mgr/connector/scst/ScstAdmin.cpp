@@ -104,7 +104,7 @@ ScstAdmin::currentIncomingUsers(std::string const& target_name) {
     auto res = glob(pattern.c_str(), GLOB_ERR, nullptr, &glob_buf);
     if (0 == res) {
         auto user = glob_buf.gl_pathv;
-        while (nullptr != user && 0 < glob_buf.gl_pathc) {
+        while (nullptr != *user && 0 < glob_buf.gl_pathc) {
             std::ifstream scst_user(*user, std::ios::in);
             if (scst_user.is_open()) {
                 std::string line;
@@ -137,7 +137,7 @@ ScstAdmin::currentInitiators(std::string const& target_name, initiator_set& curr
     auto res = glob(pattern.c_str(), GLOB_ERR, nullptr, &glob_buf);
     if (0 == res) {
         auto inititator = glob_buf.gl_pathv;
-        while (nullptr != inititator && 0 < glob_buf.gl_pathc) {
+        while (nullptr != *inititator && 0 < glob_buf.gl_pathc) {
             auto initiator_base = strdup(*inititator);
             auto initiator_name = std::string(basename(initiator_base));
             free(initiator_base);
@@ -322,7 +322,7 @@ void ScstAdmin::removeInitiators(std::string const& target_name) {
     auto res = glob(pattern.c_str(), GLOB_ERR, nullptr, &glob_buf);
     if (0 == res) {
         auto session = glob_buf.gl_pathv;
-        while (nullptr != session && 0 < glob_buf.gl_pathc) {
+        while (nullptr != *session && 0 < glob_buf.gl_pathc) {
             std::ofstream session_close(*session, std::ios::out);
 
             if (session_close.is_open()) {
