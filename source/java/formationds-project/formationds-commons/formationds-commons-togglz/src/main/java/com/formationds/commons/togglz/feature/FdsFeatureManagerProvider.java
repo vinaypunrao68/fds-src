@@ -20,7 +20,7 @@ public enum FdsFeatureManagerProvider {
     /**
      * singleton instance of FdsFeatureManagerProvider
      */
-    public static FeatureManager getFeatureManager()
+    public synchronized static FeatureManager getFeatureManager()
     {
         if( instance == null )
         {

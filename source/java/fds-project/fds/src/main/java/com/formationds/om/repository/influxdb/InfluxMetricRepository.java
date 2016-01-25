@@ -20,6 +20,7 @@ import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria.QueryType;
 
 import org.apache.thrift.TException;
+import org.influxdb.dto.ChunkedResponse;
 import org.influxdb.dto.Serie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -279,6 +280,9 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
                 .query( "select count(PUTS) from " + getEntityName(),
                         TimeUnit.MILLISECONDS );
 
+        if (series == null || series.isEmpty())
+            return 0;
+
         Object o = series.get( 0 ).getRows().get(0).get( "count" ) ;
         if (o instanceof Number)
             return ((Number)o).longValue();
@@ -295,28 +299,63 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
      * Convert an influxDB return type into VolumeDatapoints that we can use
      *
      * @param criteria the criteria that was used to query the database.
-     * @param series the series to convert
+     * @param series the series to convert.  possibly null
      *
-     * @return the list of volume data points from the series
+     * @return the list of volume data points from the series.  empty list if the series is null
      */
     protected List<IVolumeDatapoint> convertSeriesToPoints( QueryCriteria criteria, List<Serie> series ) {
+
+        final List<IVolumeDatapoint> datapoints = new ArrayList<>();
+        if (series == null) {
+            return datapoints;
+        }
+
+        for (Serie s : series) {
+            datapoints.addAll( convertSeriesToPoints( criteria, s ) );
+        }
+        return datapoints;
+    }
+
+    /**
+     *
+     * @param criteria the query criteria
+     * @param chunkedResponse the chunked query response.  possibly null.
+     *
+     * @return the list of datapoints. empty list if the chunked response is null
+     */
+    protected List<IVolumeDatapoint> convertSeriesToPoints( QueryCriteria criteria, ChunkedResponse chunkedResponse ) {
+
+        final List<IVolumeDatapoint> datapoints = new ArrayList<>();
+
+        if (chunkedResponse == null)
+            return datapoints;
+
+        Serie series = null;
+        while ((series = chunkedResponse.nextChunk()) != null) {
+            datapoints.addAll( convertSeriesToPoints( criteria, series ) );
+        }
+        return datapoints;
+    }
+
+    /**
+     *
+     * @param criteria the query criteria
+     * @param series the individual series.  possibly null
+     *
+     * @return the list of datapoints. empty list if the chunked response is null.
+     */
+    protected List<IVolumeDatapoint> convertSeriesToPoints( QueryCriteria criteria, Serie series ) {
 
         final List<IVolumeDatapoint> datapoints = new ArrayList<>();
 
         // we expect rows from one and only one series.  If there are more, we'll only use
         // the first one.  Note that this may change if we query using joins over multiple series
         // (we currently only have volume_metrics).
-        if ( series == null || series.size() == 0 ) {
+        if ( series == null || series.getRows().size() == 0 ) {
             return datapoints;
         }
 
-        if (series.size() > 1) {
-            logger.warn( "Expecting only one metric series.  Skipping " +
-                    (series.size() - 1) +
-                    " unexpected series." );
-        }
-
-        List<Map<String, Object>> rowList = series.get( 0 ).getRows();
+        List<Map<String, Object>> rowList = series.getRows();
 
         for ( Map<String, Object> row : rowList ) {
 
@@ -391,11 +430,21 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         // get the query string
         String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get() );
 
-        // execute the query
-        List<Serie> series = getConnection().getDBReader().query( queryString, TimeUnit.SECONDS );
+        List<IVolumeDatapoint> datapoints = null;
 
-        // convert from influxdb format to FDS model format
-        List<IVolumeDatapoint> datapoints = convertSeriesToPoints( queryCriteria, series );
+        // execute the query
+        InfluxDBConnection conn = getConnection();
+        InfluxDBReader reader = conn.getDBReader();
+        if ( conn.isChunkedResponseEnabled() && reader.suportsChunkedResponseQuery() ) {
+            try (ChunkedResponse response = reader.chunkedReponseQuery( queryString, TimeUnit.SECONDS ) ) {
+                datapoints = convertSeriesToPoints( queryCriteria, response );
+            }
+        } else {
+            List<Serie> series = reader.query( queryString, TimeUnit.SECONDS );
+
+            // convert from influxdb format to FDS model format
+            datapoints = convertSeriesToPoints( queryCriteria, series );
+        }
 
         return datapoints;
     }

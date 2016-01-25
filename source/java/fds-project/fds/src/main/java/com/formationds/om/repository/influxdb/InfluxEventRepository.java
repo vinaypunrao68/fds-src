@@ -18,6 +18,8 @@ import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.query.QueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria.QueryType;
 import com.google.common.collect.Lists;
+
+import org.influxdb.dto.ChunkedResponse;
 import org.influxdb.dto.Serie;
 
 import java.util.*;
@@ -142,13 +144,9 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
         // get the query string
         String queryString = formulateQueryString( queryCriteria, FBEVENT_VOL_ID_COLUMN_NAME );
 
-        // execute the query
-        List<Serie> series = getConnection().getDBReader().query( queryString, TimeUnit.MILLISECONDS );
+        List<? extends Event> events = executeEventQuery( queryString );
 
-        // convert from influxdb format to FDS model format
-        List<? extends Event> datapoints = convertSeriesToEvents( series );
-
-        return datapoints;
+        return events;
 	}
 
     @Override
@@ -199,18 +197,10 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
             queryString.append( " ) " );
         }
 
-        // execute the query
-        List<Serie> series = getConnection().getDBReader()
-                                            .query( queryString.toString(), TimeUnit.MILLISECONDS );
-
-        if ( series.size() == 0 ) {
-            return null;
-        }
-
         // convert from influxdb format to FDS model format
-        List<? extends Event> datapoints = convertSeriesToEvents( series );
+        List<? extends Event> events = executeEventQuery( queryString.toString() );
 
-        return (List<UserActivityEvent>)datapoints;
+        return (List<UserActivityEvent>)events;
 	}
 
     @Override
@@ -236,32 +226,42 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
                                         .append( "' " );
 
         // execute the query
-        List<Serie> series = getConnection().getDBReader().query( queryString.toString(), TimeUnit.MILLISECONDS );
+        List<? extends Event> events = executeEventQuery( queryString.toString() );
 
         EnumMap<FirebreakType, FirebreakEvent> results = new EnumMap<>( FirebreakType.class );
 
         // we only care about the latest event of each type, but there may be older events.
         // scan through the series until we have found both a perf and capacity event, or exhausted the list
-        for ( Serie s : series ) {
-
-            List<? extends Event> fbevents = convertSeriesToEvents( s );
-            for ( Event e : fbevents ) {
-                // unchecked cast.  if they are not FirebreakEvents, then the above query is broken.
-                FirebreakEvent fbe = (FirebreakEvent) e;
-                results.putIfAbsent( fbe.getFirebreakType(), fbe );
-
-                if ( results.size() == FirebreakType.values().length ) {
-                    break;
-                }
-            }
+        for ( Event e : events ) {
+            // unchecked cast.  if they are not FirebreakEvents, then the above query is broken.
+            FirebreakEvent fbe = (FirebreakEvent) e;
+            results.putIfAbsent( fbe.getFirebreakType(), fbe );
 
             if ( results.size() == FirebreakType.values().length ) {
                 break;
             }
-
         }
 
         return results;
+    }
+
+    private List<? extends Event> executeEventQuery( String queryString ) {
+        List<? extends Event> events = null;
+
+        // execute the query
+        InfluxDBConnection conn = getConnection();
+        InfluxDBReader reader = conn.getDBReader();
+        if ( conn.isChunkedResponseEnabled() && reader.suportsChunkedResponseQuery() ) {
+            try (ChunkedResponse response = reader.chunkedReponseQuery( queryString, TimeUnit.MILLISECONDS ) ) {
+                events = convertSeriesToEvents( response );
+            }
+        } else {
+            List<Serie> series = reader.query( queryString, TimeUnit.MILLISECONDS );
+
+            // convert from influxdb format to FDS model format
+            events = convertSeriesToEvents( series );
+        }
+        return events;
     }
 
     @Override
@@ -288,11 +288,8 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
                                  .append( EventType.FIREBREAK_EVENT.name() )
                                  .append( "' " ).toString();
 
-        // execute the query
-        List<Serie> series = getConnection().getDBReader().query( queryString, TimeUnit.MILLISECONDS );
-
-        // convert from influxdb format to FDS model format
-        List<? extends Event> datapoints = convertSeriesToEvents( series );
+        // execute the eventy query convert from influxdb format to FDS model format
+        List<? extends Event> datapoints = executeEventQuery( queryString );
 
         // TODO: can we map as Map<Volume, EnumMap<FirebreakType, FirebreakEvent>> in one stream expression?
         List<FirebreakEvent> fbevents = datapoints.stream()
@@ -362,18 +359,36 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
             return events;
         }
 
-        if (series.size() > 1) {
-            logger.warn( "Expecting only one event series.  Skipping " + (series.size() - 1) + " unexpected series." );
-        }
-
         series.stream().forEach( serie -> events.addAll( convertSeriesToEvents( serie ) ) );
 
         return events;
     }
 
     /**
+     * Convert an influxDB return type into VolumeDatapoints that we can use
      *
-     * @param serie the serie to convert
+     * @param response the chunked response with series to convert. Possibly null
+     *
+     * @return the list of events
+     */
+    protected List<? extends Event> convertSeriesToEvents( ChunkedResponse response ) {
+
+        final List<Event> events = new ArrayList<Event>();
+
+        if ( response == null ) {
+            return events;
+        }
+
+        Serie s = null;
+        while ((s = response.nextChunk()) != null) {
+            events.addAll( convertSeriesToEvents( s ) );
+        }
+        return events;
+    }
+
+    /**
+     *
+     * @param serie the serie to convert.  Possibly null.
      * @return the list of event from the series
      */
     protected List<? extends Event> convertSeriesToEvents( Serie serie ) {
@@ -401,7 +416,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
     protected Event convertSeriesRowToEvent( Serie serie, int i ) {
         Map<String, Object> row = serie.getRows().get( i );
 
-        Long ts = ( (Double)row.get( getTimestampColumnName() ) ).longValue();
+        Long ts = ( (Number)row.get( getTimestampColumnName() ) ).longValue();
         EventType type = EventType.valueOf( row.get( EVENT_TYPE_COLUMN_NAME ).toString().toUpperCase() );
         EventCategory category = EventCategory.valueOf( row.get( EVENT_CATEGORY_COLUMN_NAME ).toString().toUpperCase( ) );
         EventSeverity severity = EventSeverity.valueOf( row.get( EVENT_SEVERITY_COLUMN_NAME ).toString().toUpperCase( ) );
