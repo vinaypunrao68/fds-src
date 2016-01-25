@@ -21,6 +21,7 @@
 
 extern "C" {
 #include <glob.h>
+#include <libgen.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 }
@@ -43,10 +44,13 @@ static std::string scst_iscsi_cmd_remove    { "del_target" };
 static std::string scst_iscsi_ini_path      { "/ini_groups/" };
 static std::string scst_iscsi_ini_mgmt      { "/ini_groups/mgmt" };
 static std::string scst_secure_group_name   { "secure" };
+static std::string scst_secure_open_mask   { "*" };
 
-static std::string scst_iscsi_lun_mgmt      { "/luns/mgmt" };
+static std::string scst_iscsi_lun_path      { "/luns/" };
+static std::string scst_iscsi_lun_mgmt      { "mgmt" };
 
-static std::string scst_iscsi_host_mgmt      { "/initiators/mgmt" };
+static std::string scst_iscsi_host_mgmt_path { "/initiators/" };
+static std::string scst_iscsi_host_mgmt      { "mgmt" };
 
 /**
  * Is the target enabled
@@ -123,11 +127,36 @@ ScstAdmin::currentIncomingUsers(std::string const& target_name) {
 }
 
 /**
+ * Build a set of the current initiators known to SCST for a given target
+ */
+void
+ScstAdmin::currentInitiators(std::string const& target_name, initiator_set& current_set) {
+    current_set.clear();
+    glob_t glob_buf {};
+    auto pattern = scst_iscsi_target_path + target_name + scst_iscsi_ini_path + scst_secure_group_name + scst_iscsi_host_mgmt_path + "*";
+    auto res = glob(pattern.c_str(), GLOB_ERR, nullptr, &glob_buf);
+    if (0 == res) {
+        auto inititator = glob_buf.gl_pathv;
+        while (nullptr != inititator && 0 < glob_buf.gl_pathc) {
+            auto initiator_base = strdup(*inititator);
+            auto initiator_name = std::string(basename(initiator_base));
+            free(initiator_base);
+            if (scst_iscsi_host_mgmt != initiator_name) {
+                LOGDEBUG << "Found initiator: " << initiator_name;
+                current_set.emplace(std::move(initiator_name));
+            }
+            ++inititator; --glob_buf.gl_pathc;
+        }
+    }
+    globfree(&glob_buf);
+}
+
+/**
  * Add the given credential to the target's IncomingUser attributes
  */
 void ScstAdmin::addIncomingUser(std::string const& target_name,
-                     std::string const& user_name,
-                     std::string const& password) {
+                                std::string const& user_name,
+                                std::string const& password) {
     GLOGDEBUG << "Adding iSCSI target attribute IncomingUser [" << user_name
               << "] for: [" << target_name << "]";
     std::ofstream tgt_dev(scst_iscsi_target_path + scst_iscsi_target_mgmt, std::ios::out);
@@ -182,35 +211,55 @@ void ScstAdmin::removeIncomingUser(std::string const& target_name,
 
 bool ScstAdmin::mapDevices(std::string const& target_name,
                            device_map_type const& device_map,
-                           lun_iterator const lun_start,
-                           bool unsecure) {
-    // Map the luns to either the security group or default group depending on
-    // whether we have any assigned initiators.
+                           lun_iterator const lun_start) {
+    // Remove any lun in the default group, we always operate with a group
+    // whether we have any assigned initiators or not.
+    auto default_lun_path = scst_iscsi_target_path + target_name + scst_iscsi_lun_path + scst_iscsi_lun_mgmt;
+    std::ofstream lun_mgmt(default_lun_path, std::ios::out);
+    if (!lun_mgmt.is_open()) {
+        GLOGERROR << "Could not remove default luns for [" << target_name << "]";
+    } else {
+        auto lun_path = scst_iscsi_target_path + target_name + scst_iscsi_lun_path;
+        for (auto const& device : device_map) {
+            auto lun_number = std::distance(lun_start, device.second);
+            auto lun_dev = lun_path + std::to_string(lun_number);
+            struct stat info;
+            if ((0 == stat(lun_dev.c_str(), &info)) && (info.st_mode & S_IFDIR)) {
+                lun_mgmt << "del " << lun_number << std::endl;
+            }
+        }
+        lun_mgmt.close();
+    }
     
     // add to default group
-    auto lun_mgmt_path = (unsecure ?
-                         (scst_iscsi_target_path + target_name + scst_iscsi_lun_mgmt) :
-                         (scst_iscsi_target_path + target_name + scst_iscsi_ini_path
-                               + scst_secure_group_name + scst_iscsi_lun_mgmt));
+    auto lun_mgmt_path = scst_iscsi_target_path +
+                         target_name +
+                         scst_iscsi_ini_path +
+                         scst_secure_group_name +
+                         scst_iscsi_lun_path;
 
-    std::ofstream lun_mgmt(lun_mgmt_path, std::ios::out);
+    lun_mgmt.open(lun_mgmt_path + scst_iscsi_lun_mgmt, std::ios::out);
     if (!lun_mgmt.is_open()) {
         GLOGERROR << "Could not map luns for [" << target_name << "]";
         return false;
     }
 
     for (auto const& device : device_map) {
-        lun_mgmt << "add " << device.first
-                 << " " << std::distance(lun_start, device.second)
-                 << std::endl;
+        auto lun_number = std::distance(lun_start, device.second);
+        auto lun_dev = lun_mgmt_path + std::to_string(lun_number);
+        struct stat info;
+        if ((0 != stat(lun_dev.c_str(), &info))) {
+            lun_mgmt << "add " << device.first
+                     << " " << lun_number
+                     << std::endl;
+        }
     }
     return true;
 }
 
-bool ScstAdmin::applyMasking(std::string const& target_name,
-                             initiator_set const& current_set,
-                             initiator_set const& new_set) {
+bool ScstAdmin::applyMasking(std::string const& target_name, initiator_set const& new_set) {
     // Ensure ini group exists
+    initiator_set current_set;
     if (!groupExists(target_name, scst_secure_group_name)) {
         std::ofstream ini_mgmt(scst_iscsi_target_path + target_name + scst_iscsi_ini_mgmt,
                               std::ios::out);
@@ -219,6 +268,14 @@ bool ScstAdmin::applyMasking(std::string const& target_name,
             return false;
         }
         ini_mgmt << "create " << scst_secure_group_name << std::endl;
+    } else {
+        currentInitiators(target_name, current_set);
+    }
+
+    // If there are no masks, add a global one
+    auto copy_set = new_set;
+    if (copy_set.empty()) {
+        copy_set.emplace(scst_secure_open_mask);
     }
 
     {
@@ -226,45 +283,33 @@ bool ScstAdmin::applyMasking(std::string const& target_name,
                                    + target_name
                                    + scst_iscsi_ini_path
                                    + scst_secure_group_name
+                                   + scst_iscsi_host_mgmt_path
                                    + scst_iscsi_host_mgmt,
                                std::ios::out);
         if (!host_mgmt.is_open()) {
             GLOGWARN << "Could not open mgmt interface to add initiators to group.";
             return false;
         }
-        // For each ini that is no longer in the list, remove from group
         std::vector<std::string> manip_list;
-        std::set_difference(current_set.begin(), current_set.end(),
-                            new_set.begin(), new_set.end(),
-                            std::inserter(manip_list, manip_list.begin()));
-
-        for (auto const& host : manip_list) {
-            host_mgmt << "del " << host << std::endl;
-        }
-        manip_list.clear();
-
         // For each ini that is new to the list, add to the group
-        std::set_difference(new_set.begin(), new_set.end(),
+        std::set_difference(copy_set.begin(), copy_set.end(),
                             current_set.begin(), current_set.end(),
                             std::inserter(manip_list, manip_list.begin()));
         for (auto const& host : manip_list) {
             host_mgmt << "add " << host << std::endl;
         }
-    }
-    return true;
-}
+        manip_list.clear();
 
+        // For each ini that is no longer in the list, remove from group
+        std::set_difference(current_set.begin(), current_set.end(),
+                            copy_set.begin(), copy_set.end(),
+                            std::inserter(manip_list, manip_list.begin()));
 
-void ScstAdmin::clearMasking(std::string const& target_name) {
-    GLOGDEBUG << "Clearing initiator mask for: " << target_name;
-    // Remove the security group
-    if (groupExists(target_name, scst_secure_group_name)) {
-        std::ofstream ini_mgmt(scst_iscsi_target_path + target_name + scst_iscsi_ini_mgmt,
-                              std::ios::out);
-        if (ini_mgmt.is_open()) {
-            ini_mgmt << "del " << scst_secure_group_name << std::endl;
+        for (auto const& host : manip_list) {
+            host_mgmt << "del " << host << std::endl;
         }
     }
+    return true;
 }
 
 /**
