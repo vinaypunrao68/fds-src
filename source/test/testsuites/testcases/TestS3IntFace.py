@@ -206,8 +206,11 @@ class TestS3CrtBucket(TestCase.FDSTestCase):
         Attempt to create an S3 Bucket.
         """
 
-        # Make sure we're good to go with S3 and our bucket.
-        if not Helper.checkS3Info(self, self.passedBucket):
+        if not "s3" in self.parameters:
+            self.log.error("No S3 interface object with which to create a bucket.")
+            return False
+        elif self.parameters["s3"].conn is None:
+            self.log.error("No S3 connection with which to create a bucket.")
             return False
 
         self.log.info("Create an S3 bucket : [{}]".format(self.passedBucket))
