@@ -170,7 +170,6 @@ set(SOURCE_FILES
     ./data-mgr/dm-lib/DmMigrationExecutor.cpp
     ./data-mgr/dm-lib/DmMigrationMgr.cpp
     ./data-mgr/dm-lib/DMSvcHandler.cpp
-    ./data-mgr/dm-lib/expungemanager.cpp
     ./data-mgr/dm-lib/StatStreamAggregator.cpp
     ./data-mgr/dm-lib/VolumeMeta.cpp
     ./data-mgr/include/archive/ArchiveClient.h
@@ -199,7 +198,6 @@ set(SOURCE_FILES
     ./data-mgr/include/DmMigrationExecutor.h
     ./data-mgr/include/DmMigrationMgr.h
     ./data-mgr/include/DMSvcHandler.h
-    ./data-mgr/include/expungemanager.h
     ./data-mgr/include/StatStreamAggregator.h
     ./data-mgr/include/VcQueryIface.h
     ./data-mgr/include/VolumeMeta.h
@@ -624,7 +622,6 @@ osdep/umod-linux/fds_osdep.cpp
     ./platform/include/plat_work_item.h
     ./platform/include/platform_disk_obj.h
     ./platform/include/platform_ep_handler.h
-    ./platform/include/platform_net_svc.h
     ./platform/include/platform_plugin.h
     ./platform/include/pm_disk_inventory.h
     ./platform/include/state_switch.h
@@ -686,7 +683,6 @@ osdep/umod-linux/fds_osdep.cpp
     ./platform/source/platform.cpp
     ./platform/source/platform_ep_handler.cpp
     ./platform/source/platform_manager.cpp
-    ./platform/source/platform_net_svc.cpp
     ./platform/source/platform_process.cpp
     ./platform/source/platformd_plugin.cpp
     ./platform/source/pm_agent.cpp

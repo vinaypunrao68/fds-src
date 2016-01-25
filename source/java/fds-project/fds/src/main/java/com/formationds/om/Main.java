@@ -87,9 +87,7 @@ public class Main {
     public void start( String[] args )
         throws Exception {
 
-        final Configuration configuration =
-            SingletonConfiguration.instance()
-                                  .getConfig();
+        final Configuration configuration = SingletonConfiguration.getConfig();
 
         // Configuration class ensures that fds-root system property is defined.
         logger.trace( "FDS-ROOT: " + configuration.getFdsRoot() );
@@ -258,7 +256,8 @@ public class Main {
          * TODO(Tinius) should be using the https port here, but requires more SSL certs ( AM service )
          */
         configCache.createStatStreamRegistrationHandler( omHost,
-                                                         httpPort );
+                                                         httpPort,
+                                                         configuration );
 
         logger.info( "Starting Web toolkit" );
 

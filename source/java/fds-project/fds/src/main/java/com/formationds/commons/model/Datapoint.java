@@ -16,6 +16,19 @@ public class Datapoint
   private Double x;         // x-axis data point
   private Double y;         // y-axis time point
 
+  public Datapoint() {
+
+  }
+
+  /**
+   * @param x
+   * @param y
+   */
+  public Datapoint(Double x, Double y) {
+	  this.x = x;
+	  this.y = y;
+  }
+
   /**
    * @return Returns the {@link Long} representing the x-axis
    */

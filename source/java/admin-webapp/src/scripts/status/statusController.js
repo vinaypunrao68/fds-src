@@ -128,6 +128,14 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
         
         var data = response;
         
+        // when the data gets here, it could be in the wrong order.  We need it to be
+        // LBYTES first, UBYTES second.
+        if ( data.series.length > 1 && data.series[0].type !== 'LBYTES' && data.series[1].type === 'LBYTES' ){
+            var tmp = data.series[0];
+            data.series[0] = data.series[1];
+            data.series[1] = tmp;
+        }
+        
         $scope.capacityStats = data;
         
         var calculatedValues = data.calculated;

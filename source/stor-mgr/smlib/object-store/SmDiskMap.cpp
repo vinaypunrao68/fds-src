@@ -105,6 +105,9 @@ SmDiskMap::loadPersistentState() {
     return err;
 }
 
+/**
+ * Determines how much of the disk is currently being consumed.
+ */
 DiskUtils::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
 {
 

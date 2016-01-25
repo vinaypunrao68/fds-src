@@ -4,6 +4,7 @@
 
 package com.formationds.om.repository.influxdb;
 
+import org.influxdb.dto.ChunkedResponse;
 import org.influxdb.dto.Serie;
 
 import java.util.List;
@@ -37,4 +38,20 @@ public interface InfluxDBReader
      * @return the list of series that match the query
      */
     public List<Serie> query( String query, TimeUnit precision );
+
+    /**
+     *
+     * @return false.  Override if implementation supports chunked responses.
+     */
+    default boolean suportsChunkedResponseQuery() { return false; }
+
+    /**
+     * @param query
+     * @param precision
+     *
+     * @return the chunked resposne from the query
+     */
+    default public ChunkedResponse chunkedReponseQuery(String query, TimeUnit precision ) {
+        throw new UnsupportedOperationException();
+    }
 }

@@ -32,12 +32,12 @@ import java.util.Map;
 
 
 public class AddNode
-    implements RequestHandler {
+implements RequestHandler {
 
-	private static final String NODE_ARG = "node_id";
-	
+    private static final String NODE_ARG = "node_id";
+
     private static final Logger logger =
-        LoggerFactory.getLogger( AddNode.class );
+            LoggerFactory.getLogger( AddNode.class );
 
     private ConfigurationApi configApi;
 
@@ -46,53 +46,55 @@ public class AddNode
     @Override
     public Resource handle( final Request request,
                             final Map<String, String> routeParameters)
-        throws Exception {
+                                    throws Exception {
 
         long nodeUuid = requiredLong(routeParameters, NODE_ARG );
-        
+
         logger.debug( "Trying to add node: " + nodeUuid );
-        
-        final InputStreamReader reader = new InputStreamReader( request.getInputStream() );
-        Node node = ObjectModelHelper.toObject( reader, Node.class );
+
+        Node node = null;
+        try ( final InputStreamReader reader = new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
+            node = ObjectModelHelper.toObject( reader, Node.class );
+        }
 
         if( node == null ) {
-	  		throw new ApiException( "The specified node uuid " + nodeUuid + 
-	  				                " cannot be found", ErrorCode.MISSING_RESOURCE );
-  		}
-        
+            throw new ApiException( "The specified node uuid " + nodeUuid +
+                                    " cannot be found", ErrorCode.MISSING_RESOURCE );
+        }
+
         List<SvcInfo> svcInfList = new ArrayList<SvcInfo>();
         boolean pmPresent = false;
 
         logger.trace( "NODE::" + node.toString() );
         for(List<Service> svcList : node.getServices().values())
         {
-        	for(Service svc : svcList)
-        	{
-        		SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
-        				                                 (node.getAddress().getHostAddress(),
-                                                          svc);
-        		svcInfList.add(svcInfo);
-        		
-        		if (svc.getType() == ServiceType.PM) {
-        			pmPresent = true;
-        		}
-        		
-        	}
+            for(Service svc : svcList)
+            {
+                SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
+                        (node.getAddress().getHostAddress(),
+                         svc);
+                svcInfList.add(svcInfo);
+
+                if (svc.getType() == ServiceType.PM) {
+                    pmPresent = true;
+                }
+
+            }
         }
-        
+
         if (!pmPresent)
         {
-        	Service pmSvc = (new GetService()).getService(nodeUuid, nodeUuid);
-        	SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
-        			                                 (node.getAddress().getHostAddress(),
-                                                      pmSvc);
-        	svcInfList.add(svcInfo);
+            Service pmSvc = (new GetService()).getService(nodeUuid, nodeUuid);
+            SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
+                    (node.getAddress().getHostAddress(),
+                     pmSvc);
+            svcInfList.add(svcInfo);
         }
-        
+
         logger.debug("Adding and starting services on node");
         int status =
-        		getConfigApi().AddService(new NotifyAddServiceMsg(svcInfList));
-                
+                getConfigApi().AddService(new NotifyAddServiceMsg(svcInfList));
+
         if( status != 0 )
         {
             status= HttpServletResponse.SC_BAD_REQUEST;
@@ -100,10 +102,10 @@ public class AddNode
                                       nodeUuid );
         }
         else
-        {   
+        {
             // Now that we have added the services, go start them
             status = getConfigApi().StartService(new NotifyStartServiceMsg(svcInfList, true));
-       
+
             if( status != 0 )
             {
                 status= HttpServletResponse.SC_BAD_REQUEST;
@@ -116,31 +118,31 @@ public class AddNode
                                           nodeUuid );
             }
         }
-        
+
         Node newNode = (new GetNode()).getNode( nodeUuid );
-        
+
         String jsonString = ObjectModelHelper.toJSON( newNode );
-        
+
         return new TextResource( jsonString );
     }
-    
+
     private Boolean activateService( ServiceType type, Node node ){
-    	
-    	List<Service> services = node.getServices().get( type );
-    	
-    	if ( services.size() == 0 ){
-    		return false;
-    	}
-    	
-    	return true;
+
+        List<Service> services = node.getServices().get( type );
+
+        if ( services.size() == 0 ){
+            return false;
+        }
+
+        return true;
     }
-    
+
     private ConfigurationApi getConfigApi(){
-    	
-    	if ( configApi == null ){
-    		configApi = SingletonConfigAPI.instance().api();
-    	}
-    	
-    	return configApi;
+
+        if ( configApi == null ){
+            configApi = SingletonConfigAPI.instance().api();
+        }
+
+        return configApi;
     }
 }
