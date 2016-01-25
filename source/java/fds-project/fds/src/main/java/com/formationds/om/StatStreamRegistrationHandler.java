@@ -6,22 +6,20 @@ package com.formationds.om;
 
 import com.formationds.apis.StreamingRegistrationMsg;
 import com.formationds.protocol.commonConstants;
+
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import com.formationds.util.Configuration;
 import com.google.common.collect.Lists;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.TimeUnit;
-
 /**
- * The stat stream registration handler listens for create/delete volume requests and
- * queues them up.  When the scheduled time period expires, it gathers up all of
- * the requests and manages the stream registrations with the OM backend.
- * <p/>
- * This is intended to off-load stream registration/de-registration from the path of
- * the volume creation and deletion activities add address issues occurring on the
- * OM native backend where stream registrations appear to get out of sync and result
- * in assertions and crashes.
+ * Manage Statistic Stream Registrations.
  */
 public class StatStreamRegistrationHandler {
     public static Logger logger = LoggerFactory.getLogger( StatStreamRegistrationHandler.class );
@@ -33,73 +31,93 @@ public class StatStreamRegistrationHandler {
     private static final Long FREQUENCY = Long.valueOf(commonConstants.STAT_STREAM_FINE_GRAINED_FREQUENCY_SECONDS);
 
     private final OmConfigurationApi configApi;
+    private final Configuration platformDotConf;
 
     private final String urlHostname;
     private final int urlPortNo;
     private final String url;
 
     public StatStreamRegistrationHandler( final OmConfigurationApi configApi,
-                                          final String urlHostname,
-                                          final int urlPortNo) {
+                                          final Configuration platformDotConf, final String urlHostname,
+                                          final int urlPortNo ) {
         this.configApi = configApi;
+        this.platformDotConf = platformDotConf;
         this.urlHostname = urlHostname;
         this.urlPortNo = urlPortNo;
 
-        this.url = String.format( URL, urlHostname, urlPortNo );
-        logger.trace( "URL::{}", url );
+        this.url = String.format( URL, this.urlHostname, this.urlPortNo );
+        logger.trace( "Statistic Stream Registration URL::{}", url );
     }
 
     /**
-     * @param domainName the {@link String} representing the local domain name
-     * @param volumeName the {@link String} representing the volume name
+     * Manage OM Stream Registrations.
+     * <p/>
+     * In past releases we had a registration per-volume.  Now we use a single
+     * registration with an empty volume list, which will send stats for all
+     * volumes.
+     * <p/>
+     * This will look at the stream registrations and remove any old per-volume
+     * stream registrations with the OM url and then create the new registration.
      */
-    void notifyVolumeCreated(  @SuppressWarnings( "UnusedParameters" ) final String domainName,
-                               final String volumeName )
+    void manageOmStreamRegistrations() {
+        try {
+            List<StreamingRegistrationMsg> registrations = configApi.getStreamRegistrations( 0 );
+            List<StreamingRegistrationMsg> om_registrations =
+                    registrations.stream()
+                                 .filter( (r) -> { return r.getUrl().equalsIgnoreCase(  this.url ); } )
+                                 .collect( Collectors.toList() );
+
+            // Drop any registrations that include one or more volumes.
+            Iterator<StreamingRegistrationMsg> omregIter = om_registrations.iterator();
+            while (omregIter.hasNext()) {
+                StreamingRegistrationMsg msg = omregIter.next();
+                if (! msg.getVolume_names().isEmpty()) {
+                    deleteRegistration( msg );
+                    omregIter.remove();
+                }
+            }
+
+            if ( om_registrations.isEmpty() ) {
+                createOmStreamRegistration();
+            }
+
+        } catch ( TException e ) {
+            logger.error( "Failed to manage stat stream registrations for the OM" ,
+                          e );
+        }
+    }
+
+    /**
+     * Create the OM Stream Registration
+     */
+    private void createOmStreamRegistration( )
     {
         try
         {
             configApi.registerStream( url,
                                       METHOD,
-                                      Lists.newArrayList( volumeName ),
+                                      Collections.emptyList(),
                                       FREQUENCY.intValue( ),
                                       DURATION.intValue( ) );
         }
         catch( TException e )
         {
-            logger.error( "Failed to register stat stream for " + volumeName,
-                          e );
+            logger.error( "Failed to register stat stream for the OM" , e );
         }
     }
 
-        /**
-         * @param domainName the {@link String} representing the local domain name
-         * @param volumeName the {@link String} representing the volume name
-         */
-    void notifyVolumeDeleted(
-        @SuppressWarnings( "UnusedParameters" ) final String domainName,
-        final String volumeName ) {
-
-            try
-            {
-                int id = -1;
-                for( final StreamingRegistrationMsg msg :
-                    configApi.getStreamRegistrations( 0 ) )
-                {
-                    if( msg.getVolume_names().contains( volumeName ) )
-                    {
-                        id = msg.getId();
-                        break;
-                    }
-                }
-
-                configApi.deregisterStream( id );
-            }
-            catch( TException e )
-            {
-                logger.error(
-                    "Failed to de-register stat stream for " + volumeName,
-                    e );
-            }
-
+    /**
+     * @param reg the stream registration to remove
+     */
+    private void deleteRegistration(StreamingRegistrationMsg reg)
+    {
+        try
+        {
+            configApi.deregisterStream( reg.id );
         }
+        catch( TException e )
+        {
+            logger.error( "Failed to de-register stat stream for " + reg, e );
+        }
+    }
 }

@@ -1136,7 +1136,7 @@ AmDispatcher::getObjectCb(AmRequest* amReq,
 
     if (error == ERR_OK) {
         auto blobReq = static_cast<GetObjectReq*>(amReq);
-        LOGTRACE "Got object: " << blobReq->obj_id;
+        LOGTRACE "Got object: " << *blobReq->obj_id;
         blobReq->obj_data = boost::make_shared<std::string>(std::move(getObjRsp->data_obj));
     } else {
         LOGERROR << "blob name: " << amReq->getBlobName() << "offset: "
@@ -1199,26 +1199,16 @@ AmDispatcher::_getQueryCatalogCb(GetBlobReq* amReq, const Error& error, shared_s
             }
         }
 
-        auto new_ids = std::vector<ObjectID::ptr>();
 
         for (fpi::FDSP_BlobObjectList::const_iterator it = qryCatRsp->obj_list.cbegin();
              it != qryCatRsp->obj_list.cend();
              ++it) {
             fds_uint64_t cur_offset = it->offset;
             if (cur_offset >= amReq->blob_offset || cur_offset <= amReq->blob_offset_end) {
-                // found offset!!!
-                // TODO(bszmyd): Thu 21 May 2015 12:36:15 PM MDT
-                // Fix this when we support unaligned reads.
-                // Number of objects required to request given data length
-                auto objId = new ObjectID((*it).data_obj_id.digest);
-                GLOGTRACE << "Found object id: " << *objId
-                          << " for offset: 0x" << std::hex << cur_offset << std::dec;
-                new_ids.emplace_back(objId);
+                auto objectOffset = (cur_offset - amReq->blob_offset) / amReq->object_size;
+                amReq->object_ids[objectOffset].reset(new ObjectID((*it).data_obj_id.digest));
             }
         }
-
-        amReq->object_ids.swap(new_ids);
-        amReq->object_ids.shrink_to_fit();
     }
     AmDataProvider::getOffsetsCb(amReq, err);
 }

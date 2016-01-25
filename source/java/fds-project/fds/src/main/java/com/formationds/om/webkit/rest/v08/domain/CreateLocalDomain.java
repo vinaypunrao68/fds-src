@@ -23,59 +23,61 @@ import java.io.InputStreamReader;
 import java.util.Map;
 
 public class CreateLocalDomain implements RequestHandler {
-	
-	private static final Logger logger =
-			LoggerFactory.getLogger( CreateLocalDomain.class );
 
-	private ConfigurationApi configApi;
+    private static final Logger logger =
+            LoggerFactory.getLogger( CreateLocalDomain.class );
 
-	public CreateLocalDomain( final ConfigurationApi configApi, final AuthenticationToken token ) {
-		this.configApi = configApi;
-	}
+    private ConfigurationApi configApi;
 
-	@Override
-	public Resource handle( Request request, Map<String, String> routeParameters )
-			throws Exception {
+    public CreateLocalDomain( final ConfigurationApi configApi, final AuthenticationToken token ) {
+        this.configApi = configApi;
+    }
 
-		final InputStreamReader reader = new InputStreamReader( request.getInputStream() ); 
-		Domain domain = ObjectModelHelper.toObject( reader, Domain.class );
+    @Override
+    public Resource handle( Request request, Map<String, String> routeParameters )
+            throws Exception {
 
-		logger.debug( "Creating local domain {} at site {}.", domain.getName(), domain.getSite() );
+        Domain domain = null;
+        try ( final InputStreamReader reader = new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
+            domain = ObjectModelHelper.toObject( reader, Domain.class );
+        }
 
-		long domainId = -1;
-		
-		try {
-			domainId = getConfigApi().createLocalDomain( domain.getName(), domain.getSite() );
-		} catch( ApiException e ) {
+        logger.debug( "Creating local domain {} at site {}.", domain.getName(), domain.getSite() );
 
-			logger.error( "POST::FAILED::" + e.getMessage(), e );
+        long domainId = -1;
 
-			// allow dispatcher to handle
-			throw e;
-			
-		} catch ( TException | SecurityException se ) {
-			
-			logger.error( "POST::FAILED::" + se.getMessage(), se );
+        try {
+            domainId = getConfigApi().createLocalDomain( domain.getName(), domain.getSite() );
+        } catch( ApiException e ) {
 
-			// allow dispatcher to handle
-			throw se;
-		}
+            logger.error( "POST::FAILED::" + e.getMessage(), e );
 
-		Domain newDomain = (new GetLocalDomain()).getDomain( domainId );
+            // allow dispatcher to handle
+            throw e;
 
-		String jsonString = ObjectModelHelper.toJSON( newDomain );
-		
-		return new TextResource( jsonString );
-	}
-	
-	private ConfigurationApi getConfigApi(){
-		
-		if ( configApi == null ){
-			
-			configApi = SingletonConfigAPI.instance().api();
-		}
-		
-		return configApi;
-	}
+        } catch ( TException | SecurityException se ) {
+
+            logger.error( "POST::FAILED::" + se.getMessage(), se );
+
+            // allow dispatcher to handle
+            throw se;
+        }
+
+        Domain newDomain = (new GetLocalDomain()).getDomain( domainId );
+
+        String jsonString = ObjectModelHelper.toJSON( newDomain );
+
+        return new TextResource( jsonString );
+    }
+
+    private ConfigurationApi getConfigApi(){
+
+        if ( configApi == null ){
+
+            configApi = SingletonConfigAPI.instance().api();
+        }
+
+        return configApi;
+    }
 }
 

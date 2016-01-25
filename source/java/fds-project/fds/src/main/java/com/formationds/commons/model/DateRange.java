@@ -3,11 +3,11 @@
  */
 package com.formationds.commons.model;
 
+import com.formationds.client.v08.model.TimeUnit;
 import com.formationds.commons.model.abs.ModelBase;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.concurrent.TimeUnit;
 
 /**
  * @author ptinius
@@ -43,9 +43,7 @@ public class DateRange extends ModelBase {
         if ( unit.equals( TimeUnit.DAYS ) ) {
             startInstant = startInstant.minus( Duration.ofDays( start ) );
         } else {
-            startInstant = startInstant.minus( Duration.of( start,
-                                                            com.formationds.client.v08.model.TimeUnit.from( unit )
-                                                                                                     .get() ) );
+            startInstant = startInstant.minus( Duration.of( start, unit ) );
         }
         return new DateRange( startInstant.getEpochSecond() );
     }
@@ -80,7 +78,8 @@ public class DateRange extends ModelBase {
     /**
      * Empty constructor required for JSON marshalling from UI.
      */
-    private DateRange() {}
+    @SuppressWarnings("unused")
+	private DateRange() {}
 
     /**
      * @param start time since the epoch in seconds
@@ -118,5 +117,13 @@ public class DateRange extends ModelBase {
      */
     public TimeUnit getUnit() {
         return unit;
+    }
+
+    /**
+     * @return the Duration (in seconds) between the start and end time.
+     */
+    public Duration getDuration() {
+    	return Duration.between(Instant.ofEpochSecond(start),
+    							(end != null ? Instant.ofEpochSecond(end) : Instant.now()) );
     }
 }

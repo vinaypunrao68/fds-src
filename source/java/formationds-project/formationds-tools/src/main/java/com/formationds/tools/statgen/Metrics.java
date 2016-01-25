@@ -22,6 +22,7 @@ public enum Metrics {
     // System usage ( sum the most recent of each volume
     LBYTES( "Logical Bytes" ),
     PBYTES( "Physical Bytes" ),
+    UBYTES( "Used Bytes" ),
     // firebreak metrics
     STC_SIGMA( "Short Term Capacity Sigma" ),
     LTC_SIGMA( "Long Term Capacity Sigma" ),
