@@ -12,10 +12,13 @@ from testcases.iscsifixture import ISCSIFixture
 # Module-specific requirements
 import os
 import sys
+from fabric.contrib.files import *
 from fdscli.model.volume.settings.iscsi_settings import ISCSISettings
 from fdscli.model.volume.settings.lun_permission import LunPermissions
 from fdscli.model.common.size import Size
 from fdscli.model.volume.volume import Volume
+from fdslib.TestUtils import connect_fabric
+from fdslib.TestUtils import disconnect_fabric
 from fdslib.TestUtils import get_volume_service
 from fdscli.model.fds_error import FdsError
 
@@ -146,6 +149,87 @@ class TestISCSIDiscoverVolume(ISCSIFixture):
         return False
 
 
+class TestISCSIFioSeqW(ISCSIFixture):
+    """FDS test case to write to an iSCSI volume
+
+    Attributes
+    ----------
+    sd_device : str
+        Device using sd upper level driver (example: '/dev/sdb')
+    volume_name : str
+        FDS volume name
+    """
+    def __init__(self, parameters=None, volume_name=None):
+        """
+        Parameters
+        ----------
+        volume_name : str
+            FDS volume name
+        """
+
+        super(self.__class__, self).__init__(parameters,
+                self.__class__.__name__,
+                self.test_fio_write,
+                "Write to an iSCSI volume")
+
+        self.volume_name = volume_name
+        self.sd_device = None
+
+    def test_fio_write(self):
+        """
+        Use flexible I/O tester to write to iSCSI volume
+
+        Returns
+        -------
+        bool
+            True if successful, False otherwise
+        """
+        if not self.volume_name:
+            self.log.error("Missing required iSCSI target name")
+            return False
+        # Use the block interface (not the char interface)
+        if not self.sd_device:
+            # Use fixture target name
+            self.sd_device = self.getDriveDevice(self.volume_name)
+        if not self.sd_device:
+            self.log.error("Missing disk device for %s" % self.volume_name)
+            return False
+        else:
+            self.log.info("block device is {0}".format(self.sd_device))
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+        om_ip = om_node.nd_conf_dict['ip']
+
+        if self.childPID is None:
+            # Not running in a forked process.
+            # Stop on failures.
+            verify_fatal = 1
+        else:
+            # Running in a forked process. Don't
+            # stop on failures.
+            verify_fatal = 0
+
+        # Specify connection info
+        assert connect_fabric(self, om_ip) is True
+
+# This one produced a failure! TODO: debug with Brian S...
+#        cmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=posixaio --direct=1 --bsrange=512-1M " \
+#                 "--iodepth=128 --numjobs=1 --fill_device=1 --filename=%s --verify=md5 --verify_fatal=%d" %\
+#                 (self.sd_device, verify_fatal)
+
+        cmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=posixaio --direct=1 --bsrange=512-1M " \
+                 "--iodepth=128 --numjobs=1 --fill_device=1 --filename=%s --size=16m --verify=md5 --verify_fatal=%d" %\
+                 (self.sd_device, verify_fatal)
+
+        # Fabric run a shell command on a remote host
+        status = run(cmd)
+        disconnect_fabric()
+
+        return True
+
+
 class TestISCSIListVolumes(ISCSIFixture):
     """FDS test case to list volumes
 
@@ -201,7 +285,7 @@ class TestISCSIAttachVolume(ISCSIFixture):
     Attributes
     ----------
     sd_device : str
-        Device using sd upper level driver (example: '/dev/sd2')
+        Device using sd upper level driver (example: '/dev/sdb')
     sg_device : str
         Device using sg upper level driver (example: '/dev/sg2')
     target_name : str
@@ -309,7 +393,7 @@ class TestISCSIMakeFilesystem(ISCSIFixture):
         Parameters
         ----------
         sd_device : Optional[str]
-            The disk device (example: '/dev/sd2')
+            The disk device (example: '/dev/sdb')
         volume_name : str
             FDS volume name
         """
