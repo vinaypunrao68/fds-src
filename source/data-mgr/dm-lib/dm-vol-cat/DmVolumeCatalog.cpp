@@ -201,7 +201,7 @@ Error DmVolumeCatalog::reloadCatalog(const VolumeDesc & voldesc) {
             }
         }
         fds_uint64_t volSize=0, blobCount=0, objCount=0;
-        statVolume(voldesc.volUUID, &volSize, &blobCount, &objCount);
+        statVolumeLogical(voldesc.volUUID, &volSize, &blobCount, &objCount);
         LOGNORMAL << "reloaded vol:" << voldesc.volUUID << "["
                   << " size:" << volSize
                   << " blobs:" << blobCount

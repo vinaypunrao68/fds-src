@@ -609,10 +609,10 @@ Error DataMgr::addVolume(const std::string& vol_name,
 
     if (!vdesc->isSnapshot()) {
         fds_uint64_t total_bytes = 0, total_blobs = 0, total_objects = 0;
-        err = timeVolCat_->queryIface()->statVolume(vdesc->volUUID,
-                                                    &total_bytes,
-                                                    &total_blobs,
-                                                    &total_objects);
+        err = timeVolCat_->queryIface()->statVolumeLogical(vdesc->volUUID,
+                                                           &total_bytes,
+                                                           &total_blobs,
+                                                           &total_objects);
         LOGNORMAL << "vol:" << vdesc->volUUID << " name:" << vdesc->name
                   << " loaded with [blobs:" << total_blobs
                   << " objects:" << total_objects
