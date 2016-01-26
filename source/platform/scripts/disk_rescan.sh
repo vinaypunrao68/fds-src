@@ -2,6 +2,7 @@
 function usage
 {
     echo "$0 [--debug|-d] [--quiet|-q]"
+    exit 1
 }
 
 debug=0
@@ -29,6 +30,11 @@ if [[ $debug -eq 1 ]]; then
     arg="--debug"
 fi
 
+# trigger a scsi rescan just in case...
+echo "Rescanning disks..."
+echo "- - -" > /sys/class/scsi_host/host0/scan
+sleep 5
+
 if [[ $quiet -eq 0 ]]; then
     /fds/bin/disk_id.py $arg
     if [ $? -ne 0 ]; then
@@ -38,6 +44,9 @@ if [[ $quiet -eq 0 ]]; then
 fi
 
 /fds/bin/disk_id.py -w $args
+if [ $? -ne 0 ]; then
+    exit $?
+fi
 
 /fds/bin/disk_format.py --format $arg
 if [ $? -ne 0 ]; then
@@ -48,7 +57,8 @@ fi
 semaphore_file=/fds/etc/adddisk
 touch $semaphore_file
 if [ $? -ne 0 ]; then
+    ret=$?
     echo "Failed triggering PM disk rescan"
-    exit $?
+    exit $ret
 fi
 echo "PM disk rescan triggered, verify /fds/dev/disk-map"
