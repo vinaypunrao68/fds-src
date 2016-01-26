@@ -89,7 +89,7 @@ void DiskPlatModule::mod_startup()
     scan_and_discover_disks();
 }
 
-void DiskPlatModule::scan_and_discover_disks()
+fds_uint16_t DiskPlatModule::scan_and_discover_disks()
 {
     dsk_rescan();
     dsk_discover_mount_pts();
@@ -115,8 +115,9 @@ void DiskPlatModule::scan_and_discover_disks()
     }
 
     dsk_inuse->disk_read_capabilities(capabilities_manager);
-    dsk_inuse->disk_reconcile_label(label_manager);
+    dsk_inuse->disk_reconcile_label(label_manager, node_uuid, largest_disk_index);
     label_manager->clear();
+    return largest_disk_index;
 }
 
 // dsk_discover_mount_pts
@@ -350,6 +351,20 @@ void DiskPlatModule::dsk_monitor_hotplug()
     }
 }
 
+void DiskPlatModule::set_node_uuid(NodeUuid uuid)
+{
+    node_uuid = uuid;
+}
+
+void DiskPlatModule::set_largest_disk_index(fds_uint16_t disk_index)
+{
+    largest_disk_index = disk_index;
+}
+
+fds_uint16_t DiskPlatModule::get_largest_disk_index()
+{
+    return largest_disk_index;
+}
 
 // dsk_commit_label
 // ----------------

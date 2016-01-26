@@ -1,13 +1,15 @@
 import StringIO
 import struct
+import tabulate
 
 class DMT:
     # https://docs.python.org/2/library/struct.html#format-characters
-    def __init__(self):
+    def __init__(self, config=None):
         self.table = []
         self.width = 0
         self.depth = 0
         self.version = 0
+        self.config = config
 
     def load(self, data):
         reader=StringIO.StringIO(data)
@@ -20,7 +22,7 @@ class DMT:
         self.width, = struct.unpack('>i',reader.read(4))
 
         columns = pow(2, self.width);
-        
+
         #print 'dmt [version:{} width:{} depth={}]'.format(self.version, self.width, self.depth)
         #print columns
         for i in range(0, columns):
@@ -29,25 +31,34 @@ class DMT:
                 # b += d->readI64(i64);
                 uuid, = struct.unpack('>q',reader.read(8))
                 dmtcolumn.append(uuid)
+            if self.config != None:
+                dmtcolumn = [self.config.getServiceApi().getServiceName(node) for node in dmtcolumn]
+
             self.table.append(dmtcolumn)
 
     def dump(self):
         print 'dmt [version:{} width:{} depth={}]'.format(self.version, self.width, self.depth)
+        data = []
         for i in range(0, len(self.table)):
-            print 'column [{:<3}] : {}'.format(i, self.table[i])
+            row = [i] ; row.extend(self.table[i]); data.append(row)
+
+        hdrs= ['col']
+        hdrs.extend(['node']*self.depth)
+
+        print tabulate.tabulate(data, headers=hdrs)
 
     def getNodesForVolume(self, volid):
         return self.table[volid % len(self.table)]
 
-
 class DLT:
-    def __init__(self):
+    def __init__(self, config=None):
         self.table = []
         self.width = 0
         self.depth = 0
         self.version = 0
         self.timestamp = 0
         self.columns = 0
+        self.config = config
 
     def load(self, data):
         reader=StringIO.StringIO(data)
@@ -72,7 +83,7 @@ class DLT:
             #b += d->readI64(uuid);
             uuid, = struct.unpack('>q',reader.read(8))
             nodes.append(int(uuid))
-        
+
         fByte = (count <= 256);
         self.table=[]
         for n in range(0, self.columns):
@@ -83,26 +94,32 @@ class DLT:
                 else:
                     pos, = struct.unpack('>H',reader.read(2))
                 tokenGroup.append(nodes[pos])
+            if self.config != None:
+                tokenGroup = [self.config.getServiceApi().getServiceName(node) for node in tokenGroup]
             self.table.append(tokenGroup)
 
     def dump(self):
         s = 0
         e = -1
         tokenGroup = self.table[0]
+        data=[]
         for n in range(0, self.columns) :
             if self.table[n] != tokenGroup:
                 # end of range
-                print ' [{:<3} - {:<3}] : {}'.format(s, e, tokenGroup)
+                row = [s,e] ; row.extend(tokenGroup); data.append(row)
                 s = n
                 e = n
                 tokenGroup = self.table[n]
             elif n == self.columns - 1 :
                 # end of map
                 e = n
-                print ' [{:<3} - {:<3}] : {}'.format(s, e, tokenGroup)
+                row = [s,e] ; row.extend(tokenGroup); data.append(row)
             else:
                 # continue
                 e = n
+        hdrs= ['from','to']
+        hdrs.extend(['node']*len(tokenGroup))
+        print tabulate.tabulate(data, headers=hdrs)
 
     def getTokensOwnedBy(self, uuid):
         uuid=int(uuid)

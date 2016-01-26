@@ -533,6 +533,7 @@ class TestNodeRemove(TestCase.FDSTestCase):
         assert self.passedNode.nd_populate_metadata(om_node=om_node) is 0
         node_id = int(self.passedNode.nd_uuid, 16)
         remove_node_status = node_service.remove_node(node_id)
+        time.sleep(3) # Give some time to cli to update node state
         if isinstance(remove_node_status, FdsError) or type(remove_node_status).__name__ == 'FdsError':
             return False
         else:
@@ -614,6 +615,60 @@ def verify_with_logs(self, node_ip, service_list, log_entry_list, maxwait, pre_c
             continue
     self.log.error('FAILED. Log verification failed after %s min retires too.' %maxwait)
     return False
+
+
+class TestNodeAdd(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_NodeAdd,
+                                             "Add node in domain")
+
+        self.passedNode = node
+
+    def test_NodeAdd(self):
+        """
+        Test Case:
+        Attempt to activate the services of the specified node(s).
+        """
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+        nodes = fdscfg.rt_obj.cfg_nodes
+        om_ip = om_node.nd_conf_dict['ip']
+
+        for n in nodes:
+            # If we were provided a node, activate that one and exit.
+            if self.passedNode is not None:
+                n = self.passedNode
+
+            status = n.nd_populate_metadata(om_node=om_node)
+            if status != 0:
+                self.log.error("Getting meta-data for node %s returned status %d." %
+                               (n.nd_conf_dict['node-name'], status))
+                return False
+
+            # As of 01/19/2015, after removing a node from domain it goes in DISCOVERED state and
+            # none of the services are running on removed node, However via cli we can see removed
+            # node's PM in DISCOVERD state, we add back node using cli- POOJA
+            node_id = int(n.nd_uuid, 16)
+            node_service = get_node_service(self,om_ip)
+            node = node_service.get_node(node_id)
+            # Verify we are adding node which is in discovered state
+            assert str(node.state) == 'DISCOVERED'
+            status = node_service.add_node(node_id, node)
+            time.sleep(3)
+            assert node_is_up(self,om_ip, node_id) is True
+
+            if type(status).__name__ == 'FdsError':
+                self.log.error("Adding node %s returned status %s." %(node_id,status))
+                return False
+            if self.passedNode is not None:
+                # If we were passed a specific node, exit now.
+                return True
+
+        return True
 
 
 if __name__ == '__main__':

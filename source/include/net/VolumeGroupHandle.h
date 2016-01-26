@@ -128,6 +128,8 @@ std::ostream& operator << (std::ostream &out, const VolumeReplicaHandle &h);
 
 using VolumeResponseCb = std::function<void(const Error&, StringPtr)>;
 using OpenResponseCb = std::function<void(const Error&, const fpi::OpenVolumeRspMsgPtr&)>;
+using AddToVolumeGroupCb = std::function<void(const Error&,
+                                              const fpi::AddToVolumeGroupRespCtrlMsgPtr&)>;
 
 /**
 * @brief Base class for group requests that are related to VolumeGrouping
@@ -193,6 +195,12 @@ struct VolumeGroupHandleListener {
 * -Ensures IO is replicated in order to all the volumes in the group.
 * -Handles faults in a volume group
 * -Manages sync/repair of a failed volume replica.
+*
+* Following are states for VolumeGroupHandle
+* Unknown - Prior open is called
+* Initing - Open is in progress
+* Active - # of functional replicas >= quorum count
+* Offline - # of function replicas < qourm count
 */
 struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     using VolumeReplicaHandleList       = std::vector<VolumeReplicaHandle>;
@@ -245,7 +253,7 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
 
     virtual void handleAddToVolumeGroupMsg(
         const fpi::AddToVolumeGroupCtrlMsgPtr &addMsg,
-        const std::function<void(const Error&, const fpi::AddToVolumeGroupRespCtrlMsgPtr&)> &cb);
+        const AddToVolumeGroupCb &cb);
 
     virtual void handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
                                       const int32_t &replicaVersion,
@@ -304,12 +312,14 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
 
     bool replayFromWriteOpsBuffer_(const VolumeReplicaHandle &handle, const int64_t fromOpId);
     void toggleWriteOpsBuffering_(bool enable);
-    void resetGroup_();
+    void resetGroup_(fpi::ResourceState state);
     EPSvcRequestPtr createSetVolumeGroupCoordinatorMsgReq_();
     QuorumSvcRequestPtr createPreareOpenVolumeGroupMsgReq_();
     fpi::OpenVolumeRspMsgPtr determineFunctaionalReplicas_(QuorumSvcRequest* openReq);
     QuorumSvcRequestPtr createBroadcastGroupInfoReq_();
-    void changeState_(const fpi::ResourceState &targetState, const std::string& logCtx);
+    void changeState_(const fpi::ResourceState &targetState,
+                      bool cleanReplicas,
+                      const std::string& logCtx);
     Error changeVolumeReplicaState_(VolumeReplicaHandleItr &volumeHandle,
                                     const int32_t &replicaVersion,
                                     const fpi::ResourceState &targetState,
@@ -327,6 +337,7 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     VolumeReplicaHandleList             functionalReplicas_;
     VolumeReplicaHandleList             nonfunctionalReplicas_;
     VolumeReplicaHandleList             syncingReplicas_;
+    uint32_t                            groupSize_;
     /* # of volume replicas that need to respond success before client is acked with success */
     uint32_t                            quorumCnt_;
     /* State of the volume group */

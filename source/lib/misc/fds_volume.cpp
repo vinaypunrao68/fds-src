@@ -35,6 +35,8 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& volinfo,
 
     iscsiSettings = volinfo.iscsi;
     nfsSettings = volinfo.nfs;
+    
+    coordinator = volinfo.coordinator;
 }
 
 VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
@@ -91,6 +93,8 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
 
     iscsiSettings = voldesc.iscsi;
     nfsSettings = voldesc.nfs;
+
+    coordinator = voldesc.coordinator;
 }
 
 /*
@@ -219,6 +223,7 @@ void VolumeDesc::toFdspDesc(FDS_ProtocolInterface::FDSP_VolumeDescType& voldesc)
     voldesc.state = state;
     voldesc.iscsi = iscsiSettings;
     voldesc.nfs = nfsSettings;
+    voldesc.coordinator = coordinator;
 }
 
 bool VolumeDesc::operator==(const VolumeDesc &rhs) const {

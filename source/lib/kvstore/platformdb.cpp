@@ -110,6 +110,41 @@ bool PlatformDB::getNodeDiskCapability(fpi::FDSP_AnnounceDiskCapability& diskCap
     return bRetCode;
 }
 
+bool PlatformDB::setNodeLargestDiskIndex(const fds_uint16_t& largestDiskIndex) {
+    bool bRetCode = true;
+
+    try
+    {
+        kv_store.sendCommand("set node.disk.largestindex %ld", largestDiskIndex);
+        bRetCode =  true;
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        bRetCode = false;
+    }
+
+    return bRetCode;
+}
+
+bool PlatformDB::getNodeLargestDiskIndex(fds_uint16_t& largestDiskIndex) {
+    bool bRetCode = true;
+
+    try
+    {
+        Reply reply = kv_store.sendCommand("get node.disk.largestindex");
+        if (reply.isNil()) {
+            bRetCode = false;
+        } else {
+            largestDiskIndex = reply.getLong();
+            bRetCode = true;
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        bRetCode = false;
+    }
+
+    return bRetCode;
+}
+
 Reply PlatformDB::getInternal(const std::string &key) {
    return kv_store.get(computeKey(key));
 }

@@ -11,6 +11,8 @@
 #include <string>
 #include <vector>
 
+#include <boost/filesystem.hpp>
+
 // Internal includes.
 #include "catalogKeys/CatalogKeyComparator.h"
 #include "catalogKeys/CatalogKeyType.h"
@@ -104,7 +106,6 @@ Error DmPersistVolDB::activate() {
     fds_uint32_t cacheSize = configHelper_.get<fds_uint32_t>(CATALOG_CACHE_SIZE_STR,
             Catalog::CACHE_SIZE);
     fds_uint32_t maxLogFiles = configHelper_.get<fds_uint32_t>(CATALOG_MAX_LOG_FILES_STR, 5);
-    fds_bool_t timelineEnable = configHelper_.get<fds_bool_t>(ENABLE_TIMELINE_STR,false);
 
     std::string logDirName = snapshot_ ? "" : root->dir_sys_repo_dm() + getVolIdStr() + "/";
     std::string logFilePrefix(snapshot_ ? "" : "catalog.journal");
@@ -117,7 +118,7 @@ Error DmPersistVolDB::activate() {
                                    logDirName,
                                    logFilePrefix,
                                    maxLogFiles,
-                                   timelineEnable,
+                                   archiveLogs_,
                                    &cmp_));
     }
     catch(const CatalogException& e)
@@ -158,6 +159,44 @@ Error DmPersistVolDB::activate() {
 
 Error DmPersistVolDB::copyVolDir(const std::string & destName) {
     return catalog_->DbSnap(destName);
+}
+
+Error DmPersistVolDB::archive(const std::string& destDir, const std::string& filename) {
+    Error err(ERR_OK);
+    std::string archiveFile = destDir + std::string("/") + filename;
+    std::string tempArchiveDir = archiveFile + std::string("-tmpXXXXXX");
+    if (NULL == mkdtemp(const_cast<char*>(tempArchiveDir.c_str()))) {
+        LOGERROR << "unable to create a tempdir:[" << tempArchiveDir << "]"
+                 << " error " << errno;
+        return ERR_NOT_FOUND;
+    }
+
+    std::string dbName = util::strformat("%ld_vcat.ldb", volId_.get());
+    std::string tempDBDir = tempArchiveDir + std::string("/") + dbName;
+    err = catalog_->DbSnap(tempDBDir);
+    if (!err.ok()) {
+        LOGCRITICAL << "unable to snapshot vol-db:" << volId_.get()
+                    << " to:" << tempDBDir
+                    << " error:" << err;
+    } else {
+        // now tar the dir
+        std::ostringstream oss;
+        oss << "tar -zcvf " << archiveFile << " --directory=" << tempArchiveDir
+            << " " << dbName;
+
+        LOGDEBUG << "about to exec:[" << oss.str() << "]";
+        auto exitCode = std::system(oss.str().c_str());
+        if (exitCode != 0) {
+            LOGERROR << "unable to tar vol-db:[" << oss.str() << "]"
+                     << " exit:" << exitCode;
+            err = ERR_NOT_FOUND;
+        }
+    }
+    
+    // remove all temp files ..
+    boost::filesystem::remove_all(tempArchiveDir);
+
+    return err;
 }
 
 Error DmPersistVolDB::getVolumeMetaDesc(VolumeMetaDesc & volDesc) {

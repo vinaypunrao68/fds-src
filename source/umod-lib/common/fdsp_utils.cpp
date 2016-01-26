@@ -178,7 +178,7 @@ std::string logString(const fpi::CtrlNotifyFinishMigrationMsg &msg)
 std::string logString(const fpi::CtrlNotifyInitialBlobFilterSetMsg &msg)
 {
 	std::ostringstream oss;
-	oss << " CtrlNotifyInitialBlobFilterSetMsg Vol Id: " << msg.volumeId;
+	oss << " CtrlNotifyInitialBlobFilterSetMsg Vol Id: " << msg.volume_id;
 	return oss.str();
 }
 
@@ -441,6 +441,14 @@ DEFINE_OUTPUT_FUNCS(GenericCommandMsg) {
     out << "["
         << " command:" << msg.command
         << " args:" << msg.arg
+        << "]";
+    return out;
+}
+
+DEFINE_OUTPUT_FUNCS(LoadFromArchiveMsg) {
+    out << "["
+        << " file:" << msg.filename
+        << " vol:" << msg.volId
         << "]";
     return out;
 }

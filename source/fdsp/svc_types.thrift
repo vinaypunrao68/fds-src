@@ -152,6 +152,12 @@ enum ResourceState {
   InError,  /*in known erroneous state*/
 }
 
+/* Volumegroup coordinator information */
+struct VolumeGroupCoordinatorInfo {
+    1: required SvcUuid		                id;
+    2: i32				        version;
+}
+
 struct FDSP_VolumeDescType {
   1: required string            vol_name,  /* Name of the volume */
   2: i32                        tennantId,  // Tennant id that owns the volume
@@ -181,6 +187,7 @@ struct FDSP_VolumeDescType {
   19: i64                       createTime,
   20: common.IScsiTarget        iscsi,
   21: common.NfsOption          nfs
+  22: VolumeGroupCoordinatorInfo coordinator;
 }
 
 struct FDSP_PolicyInfoType {
@@ -306,6 +313,8 @@ enum  FDSPMsgTypeId {
   CtrlGetSecondRebalanceDeltaSetRspTypeId   = 2067;
   CtrlFinishClientTokenResyncMsgTypeId      = 2068;
   CtrlFinishClientTokenResyncRspMsgTypeId   = 2069;
+  ObjectStoreCtrlMsgTypeId;
+  RequestObjectStoreStateMsgTypeId;
 
   /** DM messages. */
   CtrlNotifyDMTCloseTypeId                  = 2081;
@@ -406,7 +415,9 @@ enum  FDSPMsgTypeId {
   StartRefScanMsgTypeId;
   CtrlNotifyRequestTxStateMsgTypeId;
   CtrlNotifyRequestTxStateRspMsgTypeId;
+  LoadFromArchiveMsgTypeId;
   CtrlNotifyFinishMigrationMsgTypeId;
+
   /* DM Debug Messages */
   DbgForceVolumeSyncMsgTypeId; 
 

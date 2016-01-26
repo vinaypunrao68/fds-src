@@ -252,7 +252,7 @@ class DomainContext(Context):
         omClient = ServiceMap.client(1028)
         msg = omClient.getDMT(0)
         #print msg
-        dmt = dmtdlt.DMT()
+        dmt = dmtdlt.DMT(self.config)
         dmt.load(msg.dmt_data.dmt_data)
         dmt.dump()
 
@@ -263,7 +263,7 @@ class DomainContext(Context):
         omClient = ServiceMap.client(1028)
         msg = omClient.getDLT(0)
         #print msg
-        dlt = dmtdlt.DLT()
+        dlt = dmtdlt.DLT(self.config)
         dlt.load(msg.dlt_data.dlt_data)
         dlt.dump()
 
