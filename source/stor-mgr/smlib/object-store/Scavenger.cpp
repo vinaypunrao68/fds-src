@@ -895,8 +895,8 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
 
     ScavState curState = std::atomic_load(&state);
     if (curState == SCAV_STATE_IDLE) {
-        LOGWARN << "[may be a race] Unexpected callback for token:" << token_id
-                << " error:" << error;
+        LOGDEBUG << "[may be a race] Unexpected callback for token:" << token_id
+                 << " error:" << error;
         OBJECTSTOREMGR(dataStoreReqHandler)->counters->compactorRunning.decr();
         return;
     }
