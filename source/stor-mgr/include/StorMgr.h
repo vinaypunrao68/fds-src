@@ -339,6 +339,10 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      NodeUuid getUuid() const;
      fds_bool_t amIPrimary(const ObjectID& objId);
 
+     /*
+      * Check disk capacities and take appropriate action if beyond thresholds
+      */
+     void checkDiskCapacities();
 
      virtual std::string log_string() {
          std::stringstream ret;
@@ -362,6 +366,10 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
                                const std::string& messageKey,
                                std::vector<fpi::MessageArgs> messageArgs,
                                const std::string& messageFormat);
+
+     void sendObjectStoreCtrlMsg(fpi::ObjectStoreState type);
+     void sendReadOnlyModeCmd();
+     void sendReadWriteModeCmd();
 
 
      static Error registerVolume(fds::fds_volid_t volume_id,

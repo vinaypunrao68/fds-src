@@ -182,6 +182,7 @@ std::string VolumeMeta::getStateInfo()
     state["version"] = version;
     state["opid"] = static_cast<Json::Value::Int64>(getOpId());
     state["sequenceid"] = static_cast<Json::Value::Int64>(sequence_id);
+    state["coordinator"] = static_cast<Json::Value::Int64>(getCoordinatorId().svc_uuid);
 
     std::stringstream ss;
     ss << state;
@@ -258,6 +259,7 @@ void VolumeMeta::startInitializer()
     /* Coordinator is set. We can go through sync protocol */
     setState(fpi::Loading, " - startInitializer");
     initializer = MAKE_SHARED<VolumeInitializer>(MODULEPROVIDER(), this);
+    initializer->run();
 }
 
 void VolumeMeta::cleanupInitializer()

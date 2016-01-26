@@ -5,6 +5,7 @@ from platformservice import *
 import FdspUtils
 import argparse
 import itertools
+import json
 
 class SMDebugContext(Context):
     def __init__(self, *args):
@@ -91,3 +92,21 @@ class SMDebugContext(Context):
         except Exception, e:
             log.exception(e)
             return 'send disk map change message failed'
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('sm', help= "Uuid of the SM to send the command to", type=long)
+    def MigrationTokenCheck(self, sm):
+        """
+        Check the state of SM tokens (Available or Unavailable) in migration manager
+        """
+        try:
+            state = ServiceMap.client(sm).getStateInfo('migrationmgr')
+            state = json.loads(state)
+            print (json.dumps(state, indent=2, sort_keys=True)) 
+        except Exception, e:
+            log.exception(e)
+            print e.message
+            return 'SM migration token state check failed'
+
+>>>>>>> 1e0e059f5ee7f698808ddbb855d7fa2e7a96ac28

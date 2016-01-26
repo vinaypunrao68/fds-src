@@ -132,18 +132,19 @@ void ScstConnector::_addTarget(VolumeDesc const& volDesc) {
     // Setup CHAP
     std::unordered_map<std::string, std::string> credentials;
     for (auto const& cred : volDesc.iscsiSettings.incomingUsers) {
-        if (minimum_chap_password_len > cred.passwd.size()) {
-            GLOGWARN << "User: [" << cred.name
-                     << "] has an undersized password of length: [" << cred.passwd.size()
-                     << "] where the minimum length is " << minimum_chap_password_len;
-            continue;
+        auto password = cred.passwd;
+        if (minimum_chap_password_len > password.size()) {
+            GLOGDEBUG << "User: [" << cred.name
+                      << "] has an undersized password of length: [" << password.size()
+                      << "] where the minimum length is " << minimum_chap_password_len
+                      << " password will be extended to meet criteria for now.";
+            password.resize(minimum_chap_password_len, '*');
         }
         auto cred_it = credentials.end();
         bool happened;
-        std::tie(cred_it, happened) = credentials.emplace(cred.name, cred.passwd);
+        std::tie(cred_it, happened) = credentials.emplace(cred.name, password);
         if (!happened) {
             GLOGWARN << "Duplicate user: [" << cred.name << "]";
-            continue;
         }
     }
     target.setCHAPCreds(credentials);

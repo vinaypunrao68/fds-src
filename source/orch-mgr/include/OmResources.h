@@ -1168,6 +1168,8 @@ class OM_NodeDomainMod : public Module
     std::mutex                    taskMapMutex;
     std::unordered_map<int64_t, FdsTimerTaskPtr> setupNewNodeTaskMap;
 
+    fds_mutex                     dbLock;
+
 
 };
 

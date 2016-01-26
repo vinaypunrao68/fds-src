@@ -24,6 +24,6 @@ script
   . ${fds_root}/etc/formation_env
   echo 'Loaded '${fds_root}/etc/formation_env >> ${fds_root}/bin/stats.out
   echo "\n ***** Starting Stats service *****\n" >> ${fds_root}/bin/stats.out
-  exec  /opt/fds-stats/embedded/scripts/./fds-stats-service >> ${fds_root}/bin/stats.out 2>&1
+  exec  /opt/fds/formation_one/packages/fds-stats-service-1.0.0/bin/fds-stats-service >> ${fds_root}/bin/stats.out 2>&1
 end script
 {% endblock %}

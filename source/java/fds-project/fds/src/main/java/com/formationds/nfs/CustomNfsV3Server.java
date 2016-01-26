@@ -56,7 +56,7 @@ public class CustomNfsV3Server extends nfs3_protServerStub {
     private static final int READDIRPLUS3RESOK_SIZE = 104;
     private static final Logger _log = LoggerFactory.getLogger(nfs3_protServerStub.class);
 
-    private final VirtualFileSystem _vfs;
+    private final XdiVfs _vfs;
     private final ExportFile _exports;
 
     private final Cache<InodeCacheEntry<cookieverf3>, List<DirectoryEntry>> _dlCacheFull;
@@ -65,7 +65,7 @@ public class CustomNfsV3Server extends nfs3_protServerStub {
 
     private final writeverf3 writeVerifier = generateInstanceWriteVerifier();
 
-    public CustomNfsV3Server(ExportFile exports, VirtualFileSystem fs, int maxLiveNfsCookies) throws OncRpcException, IOException {
+    public CustomNfsV3Server(ExportFile exports, XdiVfs fs, int maxLiveNfsCookies) throws OncRpcException, IOException {
         _dlCacheFull = CacheBuilder.newBuilder()
                 .expireAfterWrite(10, TimeUnit.MINUTES)
                 .softValues()
@@ -320,8 +320,8 @@ public class CustomNfsV3Server extends nfs3_protServerStub {
 
             res.status = nfsstat.NFS_OK;
             res.resok = new FSSTAT3resok();
-
-            FsStat fsStat = fs.getFsStat();
+            Inode inode = new Inode(arg1.fsroot.data);
+            FsStat fsStat = _vfs.getFsStat(inode.exportIndex());
             res.resok.tbytes = new size3(new uint64(fsStat.getTotalSpace()));
             res.resok.fbytes = new size3(new uint64(fsStat.getTotalSpace() - fsStat.getUsedSpace()));
             res.resok.abytes = new size3(new uint64(fsStat.getTotalSpace() - fsStat.getUsedSpace()));
@@ -336,7 +336,6 @@ public class CustomNfsV3Server extends nfs3_protServerStub {
             res.resok.obj_attributes.attributes_follow = true;
             res.resok.obj_attributes.attributes = new fattr3();
 
-            Inode inode = new Inode(arg1.fsroot.data);
 
             HimeraNfsUtils.fill_attributes(fs.getattr(inode), res.resok.obj_attributes.attributes);
 
