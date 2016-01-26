@@ -264,6 +264,8 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         // also skip rebalancing volumes which are in the process of
         // deleting (passed delete check)
         if (volinfo->isDeletePending()) continue;
+        // also skip snapshot volumes
+        if ( volinfo->vol_get_properties()->fSnapshot ) continue;
 
         // Populate volume descriptor
         volinfo->vol_fmt_desc_pkt(&vol_desc);

@@ -66,6 +66,8 @@ struct ScstAdmin
      */
     static credential_map currentIncomingUsers(std::string const& target_name);
 
+    static void currentInitiators(std::string const& target_name, initiator_set& current_set);
+
     /**
      * Add the given credential to the target's IncomingUser attributes
      */
@@ -89,14 +91,10 @@ struct ScstAdmin
 
     static bool mapDevices(std::string const& target_name,
                            device_map_type const& device_map,
-                           lun_iterator const lun_sttart,
-                           bool unsecure = true);
+                           lun_iterator const lun_start);
 
     static bool applyMasking(std::string const& target_name,
-                             initiator_set const& current_set,
                              initiator_set const& new_set);
-
-    static void clearMasking(std::string const& target);
 
     /**
      * Before a target can be removed, all sessions must be closed
