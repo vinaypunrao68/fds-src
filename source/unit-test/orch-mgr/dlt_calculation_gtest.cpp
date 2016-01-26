@@ -22,6 +22,7 @@
 using ::testing::AtLeast;
 using ::testing::Return;
 
+bool ignoreFailedSvcs = false;
 namespace fds {
 
 // The 7 lines below are to make this unit test compile,
@@ -95,7 +96,11 @@ void verifyNonFailedPrimaries(fds_uint32_t cols,
         DltTokenGroupPtr column = dlt->getNodes(i);
         for (fds_uint32_t j = 0; j < numPrimarySMs; ++j) {
             NodeUuid uuid = column->get(j);
-            EXPECT_EQ(failedSms.count(uuid), 0);
+            if ((failedSms.count(uuid) != 0 ) && !ignoreFailedSvcs) {
+                EXPECT_EQ(failedSms.count(uuid), 0);
+            } else {
+                LOGNORMAL << "Feature ignoreFailedSvcs is true, failed SM:" << uuid << " can be primary";
+            }
         }
     }
 }
@@ -724,10 +729,32 @@ TEST(DltCalculation, fail_add_2prim) {
     delete placeAlgo;
 }
 
+class DltCalcTest : public FdsProcess {
+  public:
+    DltCalcTest(int argc, char *argv[],
+                    Module **mod_vec) :
+            FdsProcess(argc,
+                       argv,
+                       "platform.conf",
+                       "fds.om.",
+                       "dltcalc-test.log",
+                       mod_vec) {
+        ignoreFailedSvcs = MODULEPROVIDER()->get_fds_config()->get<bool>("fds.feature_toggle.om.ignore_failed_svcs", true);
+    }
+    ~DltCalcTest() {
+    }
+    int run() override {
+        return 0;
+    }
+};
+
 }  // namespace fds
 
 int main(int argc, char * argv[]) {
     fds::init_process_globals(fds::logname);
+
+    fds::DltCalcTest dltTest(argc, argv, NULL);
+
     ::testing::InitGoogleMock(&argc, argv);
 
     namespace po = boost::program_options;
