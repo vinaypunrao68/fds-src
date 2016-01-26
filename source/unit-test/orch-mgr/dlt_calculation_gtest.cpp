@@ -96,10 +96,14 @@ void verifyNonFailedPrimaries(fds_uint32_t cols,
         DltTokenGroupPtr column = dlt->getNodes(i);
         for (fds_uint32_t j = 0; j < numPrimarySMs; ++j) {
             NodeUuid uuid = column->get(j);
-            if ((failedSms.count(uuid) != 0 ) && !ignoreFailedSvcs) {
-                EXPECT_EQ(failedSms.count(uuid), 0);
+            if ( failedSms.count(uuid) != 0 ) {
+                if ( !ignoreFailedSvcs ) {
+                    EXPECT_EQ(failedSms.count(uuid), 0);
+                } else {
+                    LOGNORMAL << "Feature ignoreFailedSvcs is true, failed SM:" << uuid << " can be primary";
+                }
             } else {
-                LOGNORMAL << "Feature ignoreFailedSvcs is true, failed SM:" << uuid << " can be primary";
+                EXPECT_EQ(failedSms.count(uuid), 0);
             }
         }
     }

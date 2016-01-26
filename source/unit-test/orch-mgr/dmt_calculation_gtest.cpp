@@ -324,11 +324,15 @@ TEST(DmtCalculation, compute_2prim) {
                     DmtColumnPtr column = dmt->getNodeGroup(i);
                     for (fds_uint32_t j = 0; j < numPrimaryDMs; ++j) {
                     NodeUuid uuid = column->get(j);
-                    if (failedDms.count(uuid) != 0 && !ignoreFailedSvcs) {
-                        EXPECT_EQ(failedDms.count(uuid), 0);
-                    } else {
-                        LOGNORMAL << "Feature ignoreFailedSvcs is true, failed DM:" << uuid << " can be primary";
-                    }
+                        if ( failedDms.count(uuid) != 0 ) {
+                            if ( !ignoreFailedSvcs ) {
+                                EXPECT_EQ(failedDms.count(uuid), 0);
+                            } else {
+                                LOGNORMAL << "Feature ignoreFailedSvcs is true, failed DM:" << uuid << " can be primary";
+                            }
+                        } else {
+                            EXPECT_EQ(failedDms.count(uuid), 0);
+                        }
                     }
                 }
             }
