@@ -51,7 +51,7 @@ __TRACER__::~__TRACER__() {
  * Delete oldest log of a process when directory reaches N Bytes
  * */
 #ifdef DEBUG
-#define MAX_DIR_SIZE 1024 * 1024 * 1024 * (uint64_t)200
+#define MAX_DIR_SIZE 1024 * 1024 * 1024 * (uint64_t)20
 #endif
 
 
