@@ -356,6 +356,10 @@ void ScavControl::startScavengeProcess()
     if (count <= max_disks_compacting) {
         nextDiskToCompact = SM_INVALID_DISK_ID;
     }
+
+    if (0 == count) {
+        LOGNORMAL << "Scavenger cycle - Done - No tokens to compact";
+    }
 }
 
 void ScavControl::stopScavengeProcess()
@@ -392,6 +396,11 @@ ScavControl::diskCompactionDoneCb(fds_uint16_t diskId, const Error& error) {
         }
         if (allDone) {
             LOGNORMAL << "Scavenger cycle - Done";
+            auto configuredThreshold = CONFIG_UINT32("fds.sm.scavenger.expunge_threshold",3);
+            if (fds::objDelCountThresh != configuredThreshold) {
+                LOGNORMAL << "resetting force.expunge back to [" << configuredThreshold << "]";
+                OBJECTSTOREMGR(dataStoreReqHandler)->objectStore->setObjectDelCnt(configuredThreshold);
+            }
         }
         return;
     }
@@ -779,11 +788,11 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
         if (stat.tkn_reclaim_size > 0 &&
             reclaim_percent >= token_reclaim_threshold) {
                 tokenDb.insert(stat.tkn_id);
-                LOGNOTIFY << "TC will run for token " << stat.tkn_id
-                          << "Disk " << disk_id
-                          << " total bytes " << stat.tkn_tot_size
-                          << ", deleted bytes " << stat.tkn_reclaim_size
-                          << " (" << reclaim_percent << "%)";
+                LOGNOTIFY << "TC will run for token:" << stat.tkn_id
+                          << " disk:" << disk_id
+                          << " [bytes total:" << stat.tkn_tot_size
+                          << " deleted:" << stat.tkn_reclaim_size
+                          << " (" << reclaim_percent << "%)]";
         }
     }
 }
@@ -886,8 +895,9 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
 
     ScavState curState = std::atomic_load(&state);
     if (curState == SCAV_STATE_IDLE) {
-        LOGWARN << "Unexpected callback for token: " << token_id
-                << " with error: " << error;
+        LOGWARN << "[may be a race] Unexpected callback for token:" << token_id
+                << " error:" << error;
+        OBJECTSTOREMGR(dataStoreReqHandler)->counters->compactorRunning.decr();
         return;
     }
 
@@ -928,7 +938,7 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
         noPersistScavStats = false;
         ScavState expectState = SCAV_STATE_INPROG;
         if (std::atomic_compare_exchange_strong(&state, &expectState, SCAV_STATE_IDLE)) {
-            LOGNOTIFY << "Scavenger process finished for disk_id " << disk_id;
+            LOGNOTIFY << "Scavenger process finished for disk:" << disk_id;
             if (done_evt_handler) {
                 done_evt_handler(disk_id, Error(ERR_OK));
             }
@@ -937,7 +947,7 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
             expectState = SCAV_STATE_STOPPING;
             if (std::atomic_compare_exchange_strong(&state, &expectState, SCAV_STATE_IDLE)) {
                 LOGNOTIFY << "Scavenger was stopped, but scavenging process completed for "
-                          << "disk id " << disk_id;
+                          << "disk:" << disk_id;
             }
         }
     }
