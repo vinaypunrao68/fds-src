@@ -377,9 +377,10 @@ class TestISCSIAttachVolume(ISCSIFixture):
 
         if not self.sd_device:
             self.log.error("Missing disk device for %s" % self.volume_name)
-            return False
         if not self.sg_device:
             self.log.error("Missing generic device for %s" % self.volume_name)
+        if not self.sd_device or not self.sg_device:
+            self.log.info('SG Map prior to iSCSI login: {0}'.format(g))
             return False
 
         return True
@@ -591,33 +592,30 @@ class TestISCSIDetachVolume(ISCSIFixture):
 
         path = '/mnt/{0}'.format(self.volume_name)
         # Fabric run a shell command on a remote host
-        response = run('umount -f -v {0}'.format(path))
-
-        if not response or response.count('has been unmounted') == 0:
-            self.log.info('Failed to unmount {0}: {1}.'.format(path, response))
+        result = run('umount -f -v {0}'.format(path))
+        if result.failed:
+            self.log.info('Failed to unmount {0}. Return code: {1}.'.format(path,
+                    result.return_code))
             disconnect_fabric()
             return False
 
         # Logout session
         cmd = 'iscsiadm -m node --targetname %s -p %s --logout' % (self.target_name, \
                 (om_node.nd_conf_dict['ip']))
-        # Parameter return_stdin is set to return stdout. ... Don't ask me!
-        status, stdout = om_node.nd_agent.exec_wait(cmd, return_stdin=True)
-
-        if status != 0:
-            self.log.error("Failed to detach iSCSI volume %s." % t)
+        result = run(cmd)
+        if result.failed:
+            self.log.error('Failed to detach iSCSI volume {0}. Return code: {1}.'.format(t,
+                    result.return_code))
             disconnect_fabric()
             return False
 
         # Remove the record
         cmd2 = 'iscsiadm -m node -o delete -T %s -p %s' % (self.target_name, \
                 (om_node.nd_conf_dict['ip']))
-
-        # Parameter return_stdin is set to return stdout. ... Don't ask me!
-        status, stdout = om_node.nd_agent.exec_wait(cmd2, return_stdin=True)
-
-        if status != 0:
-            self.log.error("Failed to remove iSCSI record %s." % self.target_name)
+        result = run(cmd2)
+        if result.failed:
+            self.log.error('Failed to remove iSCSI record {0}. Return code: {1}.'.format(self.target_name,
+                result.return_code))
             disconnect_fabric()
             return False
 
