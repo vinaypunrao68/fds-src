@@ -82,6 +82,7 @@ class Module
      * Used for modules derived to have ability to set / query test mode
      */
     inline void setTestMode(fds_bool_t value) {
+        LOGDEBUG << "Setting Test mode to " << value;
         testMode = value;
     }
 
