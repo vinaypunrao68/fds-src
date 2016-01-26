@@ -582,6 +582,21 @@ class TestISCSIDetachVolume(ISCSIFixture):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
+        om_ip = om_node.nd_conf_dict['ip']
+
+        # Unmount BEFORE breaking down the iSCSI node record
+
+        # Specify connection info
+        assert connect_fabric(self, om_ip) is True
+
+        path = '/mnt/{0}'.format(self.volume_name)
+        # Fabric run a shell command on a remote host
+        response = run('umount -f -v {0}'.format(path))
+
+        if not response or response.count('has been unmounted') == 0:
+            self.log.info('Failed to unmount {0}: {1}.'.format(path, response))
+            disconnect_fabric()
+            return False
 
         # Logout session
         cmd = 'iscsiadm -m node --targetname %s -p %s --logout' % (self.target_name, \
@@ -591,6 +606,7 @@ class TestISCSIDetachVolume(ISCSIFixture):
 
         if status != 0:
             self.log.error("Failed to detach iSCSI volume %s." % t)
+            disconnect_fabric()
             return False
 
         # Remove the record
@@ -602,9 +618,12 @@ class TestISCSIDetachVolume(ISCSIFixture):
 
         if status != 0:
             self.log.error("Failed to remove iSCSI record %s." % self.target_name)
+            disconnect_fabric()
             return False
 
         self.log.info("Detached volume %s and removed iSCSI record" % self.volume_name)
+
+        disconnect_fabric()
         return True
 
 
