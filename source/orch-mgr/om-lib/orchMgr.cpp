@@ -203,6 +203,11 @@ int OrchMgr::run()
     if (!test_mode) {
         deleteScheduler.start();
         runConfigService(this);
+    } else {
+        // not in test mode but need to spin
+        while (true) {
+            sleep(1000);
+        }
     }
     return 0;
 }

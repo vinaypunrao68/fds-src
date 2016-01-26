@@ -239,9 +239,6 @@ class OM_DMTMod : public Module
     // Batch add for dm cluster
     uint32_t        waitingDMs;
 };
-
-extern OM_DMTMod             gl_OMDmtMod;
-
 }  // namespace fds
 
 #endif  // SOURCE_ORCH_MGR_INCLUDE_OMDMTDEPLOY_H_

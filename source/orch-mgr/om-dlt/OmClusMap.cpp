@@ -9,8 +9,6 @@
 
 namespace fds {
 
-ClusterMap gl_OMClusMapMod;
-
 ClusterMap::ClusterMap()
         : Module("OM Cluster Map"),
           version(0),
