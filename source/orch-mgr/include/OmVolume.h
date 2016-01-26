@@ -246,6 +246,15 @@ class VolumeContainer : public RsContainer
     static inline VolumeInfo::pointer vol_from_iter(RsContainer::const_iterator it) {
         return static_cast<VolumeInfo *>(get_pointer(*it));
     }
+    void vol_foreach(void (*fn)(VolumeInfo::pointer elm)) {
+        VolumeInfo::pointer vol;
+        for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
+            vol = VolumeInfo::vol_cast_ptr(rs_array[i]);
+            if (vol != NULL) {
+                (*fn)(vol);
+            }
+        }
+    }
     template <typename T>
     void vol_foreach(T arg, void (*fn)(T arg, VolumeInfo::pointer elm)) {
         VolumeInfo::pointer vol;

@@ -278,6 +278,11 @@ bool VolumeDesc::isSystemVolume() const {
     return 0 == name.compare(0,7,"SYSTEM_",0,7);
 }
 
+void VolumeDesc::clearCoordinatorInfo() {
+    coordinator.~VolumeGroupCoordinatorInfo();
+    new (&coordinator) fpi::VolumeGroupCoordinatorInfo();
+}
+
 std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
     os << "["
        << " uuid:" << vol.volUUID

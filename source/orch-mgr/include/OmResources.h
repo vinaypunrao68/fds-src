@@ -647,6 +647,9 @@ class OM_NodeContainer : public DomainContainer
     virtual fds_uint32_t om_bcast_shutdown_msg(fpi::FDSP_MgrIdType svc_type);
     virtual fds_uint32_t om_bcast_dm_migration_abort(fds_uint64_t cur_dmt_version);
 
+    // Clears all volumes' coordinator info from every volume descriptor
+    void clearVolumesCoordinatorInfo();
+
     /**
      * Sends scavenger command (e.g. enable, disable, start, stop) to SMs
      */
