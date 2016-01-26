@@ -294,8 +294,6 @@ void SvcMgr::stopServer()
 
 void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries)
 {
-    GLOGDEBUG << "Updating service map. Incoming entries size: " << entries.size();
-
     fds_scoped_lock lock(svcHandleMapLock_);
     for (auto &e : entries) {
         auto svcHandleItr = svcHandleMap_.find(e.svc_id.svc_uuid);
@@ -312,7 +310,6 @@ void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries)
             svcHandleItr->second->updateSvcHandle(e);
         }
     }
-    GLOGDEBUG << "After update. Service map size: " << svcHandleMap_.size();
 }
 
 void SvcMgr::getSvcMap(std::vector<fpi::SvcInfo> &entries)

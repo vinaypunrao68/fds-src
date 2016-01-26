@@ -13,18 +13,19 @@ namespace fds
 {
     namespace fpi = FDS_ProtocolInterface;
 
-    // Used throughout multiple places
+    /*
+     * Used throughout multiple places
+     * TODO - whoever uses this macro needs to be fixed. We should be updating configDB
+     * based on the whole SvcInfo, (UUID + incarnation No), instead of just uuid.
+     * Once that is done, we can change this macro to take in SvcInfo as an argument
+     * instead of just a UUID.
+     */
     #define UPDATE_CONFIGDB_SERVICE_STATE(configdbPtr, uuid, status) \
-            fpi::SvcInfo tempSvcInfo; \
-            fpi::SvcInfoPtr svcInfoPtr; \
+            fpi::SvcInfoPtr svcInfoPtr = boost::make_shared<fpi::SvcInfo>(); \
             fds_mutex::scoped_lock l(dbLock); \
-            bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(uuid, tempSvcInfo); \
-            if (ret) { \
-                svcInfoPtr = boost::make_shared<fpi::SvcInfo>(tempSvcInfo); \
-            } else { \
-                svcInfoPtr = boost::make_shared<fpi::SvcInfo>(); \
-                svcInfoPtr->svc_id.svc_uuid.svc_uuid = uuid.svc_uuid; \
-            } \
+            svcInfoPtr = boost::make_shared<fpi::SvcInfo>(); \
+            svcInfoPtr->svc_id.svc_uuid.svc_uuid = uuid.svc_uuid; \
+            svcInfoPtr->svc_status = status; \
             fds::change_service_state(configdbPtr, \
                                       svcInfoPtr, \
                                       status, \

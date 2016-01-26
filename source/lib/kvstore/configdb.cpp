@@ -2540,7 +2540,8 @@ bool ConfigDB::changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr,
                 fromTo( *dbSvcInfoPtr, nodeInfo );
                 updateNode( nodeInfo );
             } else {
-                LOGDEBUG << "ConfigDB updates not applied.";
+                LOGDEBUG << "ConfigDB updates not applied. DB: " << logString(*dbSvcInfoPtr)
+                        << " vs: " << logString(*svcInfoPtr);
             }
         }
     }
