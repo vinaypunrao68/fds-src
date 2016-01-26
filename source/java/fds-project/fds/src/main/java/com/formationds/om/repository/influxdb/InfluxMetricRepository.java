@@ -102,6 +102,9 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
 
     private final VolumeMetricCache metricCache;
 
+    private boolean batchedWritesEnabled;
+    private int batchSize = DEFAULT_BATCH_SIZE;
+
     /**
      * @param url the url
      * @param adminUser the admin user
@@ -110,6 +113,11 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     public InfluxMetricRepository( String url, String adminUser, char[] adminCredentials ) {
         super( url, adminUser, adminCredentials );
         metricCache = new VolumeMetricCache( this );
+        batchedWritesEnabled = FdsFeatureToggles.INFLUX_WRITE_BATCHING.isActive();
+        batchSize = (batchedWritesEnabled ?
+                               SingletonConfiguration.getIntValue( "fds.om.influxdb.batch_write_size",
+                                                                   DEFAULT_BATCH_SIZE ) :
+                               1 );
     }
 
     public void initializeCache() {
@@ -198,11 +206,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         Map<Long, Map<String, List<IVolumeDatapoint>>> orderedVDPs =
                 VolumeDatapointHelper.sortByTimestampAndVolumeId( vdps, true );
 
-        boolean batchedWritesEnabled = FdsFeatureToggles.INFLUX_WRITE_BATCHING.isActive();
-        int batchSize = (batchedWritesEnabled ?
-                            SingletonConfiguration.getPlatformConfig().defaultInt( "fds.om.influxdb.batch_write_size", DEFAULT_BATCH_SIZE ) :
-                            1 );
-        List<Serie> batch = new ArrayList<>(batchSize);
+        SerieBuilder builder = newSerieBuilder();
 
         for ( Map.Entry<Long, Map<String, List<IVolumeDatapoint>>> e : orderedVDPs.entrySet() ) {
             Long ts = e.getKey();
@@ -233,31 +237,31 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
                 // update the metric cache
                 metricCache.updateLatestVolumeStats( Long.valueOf( volid ),  voldps );
 
-                Serie serie = new Serie.Builder( VOL_SERIES_NAME )
-                        .columns( VOL_METRIC_NAMES.toArray( new String[VOL_METRIC_NAMES.size()] ) )
-                        .values(metricValues)
-                        .build();
+                int batchCount = builder.addRow(metricValues);
 
                 if ( batchedWritesEnabled ) {
-                    batch.add( serie );
-                    if ( batch.size() == batchSize ) {
-                        Serie[] writeBatch = batch.toArray( new Serie[ batch.size() ] );
-                        batch.clear();
+
+                    if ( batchCount >= batchSize ) {
+
+                        // build (and reset) the batch
+                        Serie writeBatch = builder.build();
 
                         // We are now explicitly specifying the timestamp and since VolumeDatapoint timestamps are
                         // in seconds since the epoch, specify a SECONDS precision on the series
                         getConnection().getAsyncDBWriter().write( TimeUnit.SECONDS, writeBatch );
                     }
                 } else {
-                    getConnection().getAsyncDBWriter().write( TimeUnit.SECONDS, serie );
+
+                    Serie writeSingle = builder.build();
+                    getConnection().getAsyncDBWriter().write( TimeUnit.SECONDS, writeSingle );
                 }
             }
         }
 
         // if there are any remaining entries in the batch, make sure they are written
-        if ( batchedWritesEnabled && batch.size() > 0 ) {
-            Serie[] writeBatch = batch.toArray( new Serie[ batch.size() ] );
-            batch.clear();
+        if ( batchedWritesEnabled && builder.getRowCount() > 0 ) {
+
+            Serie writeBatch = builder.build();
 
             // We are now explicitly specifying the timestamp and since VolumeDatapoint timestamps are
             // in seconds since the epoch, specify a SECONDS precision on the series
@@ -265,6 +269,63 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         }
 
         return (List<R>)vdps;
+    }
+
+    /**
+     * Wrap a influxdb-java Serie.Builder to track the row count and reset the builder
+     *
+     * This class is not thread safe.
+     */
+    public static class SerieBuilder {
+
+        private final String seriesName;
+        private final List<String> columns;
+        private Serie.Builder serieBuilder;
+        private int rowCount = 0;
+
+        public SerieBuilder( String seriesName, List<String> columns ) {
+            super();
+            this.seriesName = seriesName;
+            this.columns = columns;
+        }
+
+        public int getRowCount() {
+            return rowCount;
+        }
+
+        private Serie.Builder getSerieBuilder() {
+            if (serieBuilder == null) {
+                serieBuilder = new Serie.Builder( seriesName )
+                        .columns( columns.toArray( new String[columns.size()] ) );
+                rowCount = 0;
+            }
+            return serieBuilder;
+        }
+
+        /**
+         *
+         * @param metricValues
+         * @return the current number of rows after addition
+         */
+        public int addRow( Object[] metricValues ) {
+            getSerieBuilder().values( metricValues );
+            return ++rowCount;
+        }
+
+        /**
+         * Build the series from the current set of rows and reset the builder.
+         *
+         * @return the series.
+         */
+        public Serie build() {
+            Serie s = getSerieBuilder().build();
+            serieBuilder = null;
+            return s;
+        }
+    }
+
+    private SerieBuilder newSerieBuilder() {
+        return new SerieBuilder( VOL_SERIES_NAME, VOL_METRIC_NAMES );
     }
 
     @Override
