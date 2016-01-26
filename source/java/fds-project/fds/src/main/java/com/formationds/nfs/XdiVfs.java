@@ -107,6 +107,13 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
         return new FsStat(1024l * 1024l * 1024l * 1024l * 1024l, Long.MAX_VALUE, usedBytes, totalFiles);
     }
 
+    public FsStat getFsStat(int exportIndex) throws IOException {
+        String volumeName = exportResolver.volumeName(exportIndex);
+        long usedSpace = inodeMap.usedBytes(volumeName);
+        long usedFiles = inodeMap.usedFiles(volumeName);
+        return new FsStat(1024l * 1024l * 1024l * 1024l * 1024l, Long.MAX_VALUE, usedSpace, usedFiles);
+    }
+
     @Override
     public Inode getRootInode() throws IOException {
         return InodeMap.ROOT;
