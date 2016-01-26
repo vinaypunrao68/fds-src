@@ -279,8 +279,8 @@ bool VolumeDesc::isSystemVolume() const {
 }
 
 void VolumeDesc::clearCoordinatorInfo() {
-    coordinator.~VolumeGroupCoordinatorInfo();
-    new (&coordinator) fpi::VolumeGroupCoordinatorInfo();
+    coordinator.id.svc_uuid = 0;
+    coordinator.version = fds::VolumeGroupConstants::VERSION_INVALID;
 }
 
 std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
