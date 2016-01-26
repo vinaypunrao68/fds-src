@@ -194,7 +194,6 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override
     protected <R extends IVolumeDatapoint> List<R> doPersist( Collection<R> entities ) {
-        Object[] metricValues = new Object[VOL_METRIC_NAMES.size()];
 
         // TODO: currently the collection of VolumeDatapoint objects is a list of individual data points
         // and may contain any number of volumes and timestamps.  Ironically, the AM receives the datapoints
@@ -209,10 +208,14 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         SerieBuilder builder = newSerieBuilder();
 
         for ( Map.Entry<Long, Map<String, List<IVolumeDatapoint>>> e : orderedVDPs.entrySet() ) {
+
             Long ts = e.getKey();
             Map<String, List<IVolumeDatapoint>> volumeDatapoints = e.getValue();
 
             for ( Map.Entry<String, List<IVolumeDatapoint>> e2 : volumeDatapoints.entrySet() ) {
+
+                Object[] metricValues = new Object[VOL_METRIC_NAMES.size()];
+
                 // TODO: need volume ids as long everywhere
                 Long volid = Long.valueOf( e2.getKey() );
                 String volDomain = "";
