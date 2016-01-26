@@ -136,7 +136,7 @@ def are_dir_trees_equal(dir1, dir2, logDiff=False):
     return True
 
 
-def canonMatch(canon, fileToCheck, adjustLines = False):
+def canonMatch(canon, fileToCheck, adjustLines = False, moreVersions=False):
     """
     Test whether the fileToCheck file matches the canon file.
     This is a regular expression check where the canon file may
@@ -169,19 +169,22 @@ def canonMatch(canon, fileToCheck, adjustLines = False):
 
     if len(canonLines) != len(linesToCheck):
         if (adjustLines) and (len(canonLines) > len(linesToCheck)):
-            log.error("Canon mis-match on line count: %s line count: %s. %s line count: %s." %
+            log.warn("Canon mis-match on line count: %s line count: %s. %s line count: %s." %
                       (canon, len(canonLines), fileToCheck, len(fileToCheck)))
             return False
 
     idx = 0
     for canonLine in canonLines:
         if re.match(canonLine.encode('string-escape'), linesToCheck[idx]) is None:
-            log.error("File %s, differs from canon file, %s, at line %d." %
-                      (fileToCheck, canon, idx + 1))
-            log.error("File line:")
-            log.error(linesToCheck[idx])
-            log.error("Canon line:")
-            log.error(canonLine)
+            if moreVersions:
+                log.info("No match.")
+            else:
+                log.warn("File %s, differs from canon file, %s, at line %d." %
+                          (fileToCheck, canon, idx + 1))
+                log.warn("File line:")
+                log.warn(linesToCheck[idx])
+                log.warn("Canon line:")
+                log.warn(canonLine)
             return False
         else:
             idx += 1
@@ -783,20 +786,28 @@ class TestCanonMatch(TestCase.FDSTestCase):
             listOfCanonDirFiles = os.listdir(canonFileDir)
 
             found = False
+            listOfCanons = []
+            i = 0
             for file in listOfCanonDirFiles:
                 if (re.search(canonFilePrefix + '[.]v[0-9]', file)):
                     found = True
-
-                    self.log.info("Comparing file %s to canon %s." %
-                                  (self.passedFileToCheck, canonFileDir + os.path.sep + file))
-
-                    if canonMatch(canonFileDir + os.path.sep + file, self.passedFileToCheck, adjustLines=self.passedAdjustLines):
-                        return True
-                    else:
-                        self.log.error("Canon match failed.")
+                    i += 1
+                    listOfCanons.append(file)
 
             if not found:
                 self.log.error("Canon file %s is not found." % (self.passedCanon))
+                return False
+
+            self.log.info("{0} versions for canon {1}.".format(i, self.passedCanon))
+
+            for file in listOfCanons:
+                i -= 1
+
+                self.log.info("Comparing file %s to canon %s." %
+                              (self.passedFileToCheck, canonFileDir + os.path.sep + file))
+
+                if canonMatch(canonFileDir + os.path.sep + file, self.passedFileToCheck, adjustLines=self.passedAdjustLines, moreVersions=(i > 0)):
+                    return True
 
             return False
         else:
