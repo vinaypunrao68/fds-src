@@ -54,28 +54,24 @@ public class TestSeriesHelper {
 		ubyteResults.add( new VolumeDatapoint( TimeUnit.MINUTES.toSeconds( 5L ), "1", "TestVol", "UBYTES", 4.1 ) );
 		ubyteResults.add( new VolumeDatapoint( TimeUnit.MINUTES.toSeconds( 6L ), "1", "TestVol", "UBYTES", 5.9 ) );
 	}
-	
+
 	@Test
 	public void testPbytesMax() {
 
-		SeriesHelper sh = new SeriesHelper();
-		
-		Series s = sh.generate( pbyteResults, 0L, Metrics.PBYTES, 10L, 100, StatOperation.MAX_X );
-		
+		Series s = SeriesHelper.generate( pbyteResults, 0L, Metrics.PBYTES, 10L, 100, StatOperation.MAX_X );
+
 		assertEquals( 4, s.getDatapoints().size() );
-		
+
 		Double maxSize = s.getDatapoints().stream().mapToDouble( Datapoint::getY ).max().getAsDouble();
 		assertEquals( new Double(1000000.0), maxSize);
-		
+
 		assertEquals( new Double( 1000000.0 ), s.getDatapoints().get( 3 ).getY() );
 	}
 
 	@Test
 	public void testUbytesMax() {
 
-		SeriesHelper sh = new SeriesHelper();
-
-		Series s = sh.generate( ubyteResults, 0L, Metrics.UBYTES, 10L, 100, StatOperation.MAX_X );
+		Series s = SeriesHelper.generate( ubyteResults, 0L, Metrics.UBYTES, 10L, 100, StatOperation.MAX_X );
 
 		assertEquals( 4, s.getDatapoints().size() );
 

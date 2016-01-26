@@ -15,7 +15,7 @@ public class Dlt {
         update(dltBuf);
     }
 
-    public void Dlt(long version, long timeStamp, long[][] lookup) {
+    public Dlt(long version, long timeStamp, long[][] lookup) {
         this.version = version;
         this.timeStamp = timeStamp;
 

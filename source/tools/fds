@@ -43,7 +43,7 @@ STATSDIR="/opt/fds/formation_one/packages/fds-stats-service-1.0.0"
 REDIS_ARG=
 
 # Variables
-applist="pm om dm sm am xdi stats rabbitmq"
+applist="pm om dm sm am xdi stats rabbitmq influxdb"
 declare -A proc
 proc["am"]="bare_am"
 proc["xdi"]="java"
@@ -864,7 +864,7 @@ do
             APP="${args[$n]}"
             ;;
         # detect app
-        om|am|dm|sm|pm|all|redis)
+        om|am|dm|sm|pm|all|redis|stat*|rabbit*|influx*)
             APP=$opt
             ;;
         *)

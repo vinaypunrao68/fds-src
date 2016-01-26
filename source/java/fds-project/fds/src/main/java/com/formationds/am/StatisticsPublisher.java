@@ -1,7 +1,7 @@
-package com.formationds.am;
 /*
- * Copyright 2014 Formation Data Systems, Inc.
+ * Copyright 2014-2016 Formation Data Systems, Inc.
  */
+package com.formationds.am;
 
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.StreamingRegistrationMsg;
@@ -14,14 +14,15 @@ import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.thrift.TException;
 import org.json.JSONArray;
 
 import java.util.List;
 
 public class StatisticsPublisher implements Streaming.Iface {
-    private static final Logger LOG = Logger.getLogger(StatisticsPublisher.class);
+    private static final Logger LOG = LogManager.getLogger(StatisticsPublisher.class);
     private ConfigurationService.Iface configClient;
 
     public StatisticsPublisher(ConfigurationService.Iface configClient) {
@@ -44,18 +45,28 @@ public class StatisticsPublisher implements Streaming.Iface {
     }
 
     private void publish(StreamingRegistrationMsg reg, List<volumeDataPoints> dataPoints) throws Exception {
-        LOG.info(String.format("Publishing %d datapoints to %s", dataPoints.size(), reg.getUrl()));
+        LOG.info( "Publishing stream registration {} with {} datapoints to {}", reg.getId(), dataPoints.size(), reg.getUrl() );
 
         JSONArray jsonArray = new JsonStatisticsFormatter().format(dataPoints);
         String url = reg.getUrl();
         String httpMethod = reg.getHttp_method();
-        CloseableHttpClient client = HttpClients.createDefault();
-        HttpRequestBase request = buildRequest(httpMethod, url, jsonArray);
-        client.execute(request);
+        try (CloseableHttpClient client = HttpClients.createDefault() ) {
+            HttpRequestBase request = buildRequest(reg.getId(), httpMethod, url, jsonArray);
+            client.execute(request);
+        }
     }
 
-    private HttpRequestBase buildRequest(String httpMethod, String url, JSONArray jsonArray) throws Exception {
-        StringEntity entity = new StringEntity(jsonArray.toString(4));
+    private HttpRequestBase buildRequest(int regId, String httpMethod, String url, JSONArray jsonArray) throws Exception {
+        if (LOG.isTraceEnabled()) {
+            LOG.trace( "Stream Registration {} sending {} elements to {} {}: [", regId, jsonArray.length(), httpMethod, url );
+            for (int i = 0; i < jsonArray.length(); i++) {
+                LOG.trace( "[regId={};i-{}]: {}", regId, i, jsonArray.get( i ).toString() );
+            }
+            LOG.trace(  "]" );
+        }
+
+        // put each element on a single line (rather than pretty-print).
+        StringEntity entity = new StringEntity( jsonArray.toString().replaceAll( "},\\s*", "}," + System.lineSeparator() ) );
         if (StringUtils.isBlank(httpMethod) || "post".equals(httpMethod.toLowerCase())) {
             HttpPost post = new HttpPost(url);
             post.setEntity(entity);

@@ -104,13 +104,13 @@ namespace fds
     // disk_read_label
     // --------------
     //
-    void FileDiskInventory::disk_reconcile_label(DiskLabelMgr *mgr, NodeUuid node_uuid)
+    void FileDiskInventory::disk_reconcile_label(DiskLabelMgr *mgr, NodeUuid node_uuid, fds_uint16_t& largest_disk_index)
     {
         DiskLabelOp    op(DISK_LABEL_READ, mgr);
 
         dsk_foreach(&op, &dsk_files, dsk_count);
 
-        mgr->dsk_reconcile_label(dsk_need_simulation(), node_uuid);
+        mgr->dsk_reconcile_label(dsk_need_simulation(), node_uuid, largest_disk_index);
     }
 
     // dsk_do_partition

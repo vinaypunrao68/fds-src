@@ -158,7 +158,8 @@ namespace fds {
     ADD(ERR_SM_NOERR_NOT_IN_DLT, ,"  "), \
     ADD(ERR_SM_RESYNC_SOURCE_DECLINE, ,"  "), \
     ADD(ERR_SM_NOT_READY_AS_MIGR_SRC, ,"  "), \
-    ADD(ERR_SM_NO_DISK, ," "), \
+    ADD(ERR_SM_NO_DISK, ,"  "), \
+    ADD(ERR_SM_READ_ONLY, ,"SM is currently in read-only mode."), \
     ADD(ERR_SM_TC_INVALID_STATE, ,"Token compactor in invalid state. "), \
     \
     /* Network errors */    \

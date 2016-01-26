@@ -1,7 +1,7 @@
 package com.formationds.index;
 
+import com.formationds.nfs.IoOps;
 import com.formationds.nfs.MemoryIoOps;
-import com.formationds.nfs.TransactionalIo;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.store.OutputStreamIndexOutput;
@@ -12,7 +12,7 @@ import static org.junit.Assert.assertEquals;
 public class ChunkedOutputStreamTest {
     @Test
     public void testWrite() throws Exception {
-        TransactionalIo io = new TransactionalIo(new MemoryIoOps());
+        IoOps io = new MemoryIoOps();
         int objectSize = 8;
         String DOMAIN = "foo";
         String VOLUME = "bar";
