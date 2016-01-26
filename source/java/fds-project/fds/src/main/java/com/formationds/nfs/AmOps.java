@@ -10,12 +10,10 @@ import com.formationds.xdi.RecoverableException;
 import com.google.common.collect.Sets;
 import org.apache.log4j.Logger;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -39,93 +37,90 @@ public class AmOps implements IoOps {
     }
 
     @Override
-    public Optional<Map<String, String>> readMetadata(String domain, String volumeName, String blobName) throws IOException {
+    public Optional<FdsMetadata> readMetadata(String domain, String volumeName, String blobName) throws IOException {
         String operationName = "AM.readMetadata";
         String description = "volume=" + volumeName + ", blobName=" + blobName;
 
-        WorkUnit<Optional<Map<String, String>>> unit = new WorkUnit<Optional<Map<String, String>>>(operationName, description) {
+        WorkUnit<Optional<FdsMetadata>> unit = new WorkUnit<Optional<FdsMetadata>>(operationName, description) {
             @Override
-            public Optional<Map<String, String>> supply() throws Exception {
+            public Optional<FdsMetadata> supply() throws Exception {
                 counters.increment(Counters.Key.AM_statBlob);
                 BlobDescriptor blobDescriptor = asyncAm.statBlob(domain, volumeName, blobName).get();
-                return Optional.of(blobDescriptor.getMetadata());
+                return Optional.of(new FdsMetadata(blobDescriptor.getMetadata()));
             }
         };
 
         return handleExceptions(new ErrorCode[]{ErrorCode.MISSING_RESOURCE}, ec -> {
-            LOG.error("Blob not found, volume=" + volumeName + ", blobName=" + blobName);
+            LOG.debug("Blob not found, volume=" + volumeName + ", blobName=" + blobName);
             return Optional.empty();
         }, unit);
     }
 
     @Override
-    public void writeMetadata(String domain, String volume, String blobName, Map<String, String> metadata, boolean deferrable) throws IOException {
-        String operationName = "AM.writeMetadata";
-        String description = "volume=" + volume + ", blobName=" + blobName + ", fieldCount=" + metadata.size();
-        WorkUnit<Void> workUnit = new WorkUnit<Void>(operationName, description) {
-            @Override
-            public Void supply() throws Exception {
-                counters.increment(Counters.Key.AM_updateMetadataTx);
-                TxDescriptor tx = asyncAm.startBlobTx(domain, volume, blobName, 0).get();
-                asyncAm.updateMetadata(domain, volume, blobName, tx, metadata).get();
-                asyncAm.commitBlobTx(domain, volume, blobName, tx).get();
-                return null;
-            }
-        };
+    public void writeMetadata(String domain, String volume, String blobName, FdsMetadata metadata, boolean deferrable) throws IOException {
+        metadata.lock(m -> {
+            String operationName = "AM.writeMetadata";
+            String description = "volume=" + volume + ", blobName=" + blobName + ", fieldCount=" + m.mutableMap().size();
+            WorkUnit<Void> workUnit = new WorkUnit<Void>(operationName, description) {
+                @Override
+                public Void supply() throws Exception {
+                    counters.increment(Counters.Key.AM_updateMetadataTx);
+                    TxDescriptor tx = asyncAm.startBlobTx(domain, volume, blobName, 0).get();
+                    asyncAm.updateMetadata(domain, volume, blobName, tx, m.mutableMap()).get();
+                    asyncAm.commitBlobTx(domain, volume, blobName, tx).get();
+                    return null;
+                }
+            };
 
-        handleExceptions(new ErrorCode[0], ec -> null, workUnit);
+            handleExceptions(new ErrorCode[0], ec -> null, workUnit);
+            return null;
+        });
     }
 
     @Override
-    public ByteBuffer readCompleteObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, int objectSize) throws IOException {
+    public FdsObject readCompleteObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, int maxObjectSize) throws IOException {
         String operation = "AM.readObject";
         String description = "volume=" + volumeName + ", blobName=" + blobName + ", objectOffset=" + objectOffset.getValue();
 
-        WorkUnit<ByteBuffer> unit = new WorkUnit<ByteBuffer>(operation, description) {
+        WorkUnit<FdsObject> unit = new WorkUnit<FdsObject>(operation, description) {
             @Override
-            public ByteBuffer supply() throws Exception {
+            public FdsObject supply() throws Exception {
                 counters.increment(Counters.Key.AM_getBlob);
-                ByteBuffer byteBuffer = asyncAm.getBlob(domain, volumeName, blobName, objectSize, objectOffset).get();
-                ByteBuffer bb = ByteBuffer.allocate(objectSize);
-                bb.limit(byteBuffer.remaining());
-                bb.put(byteBuffer);
-                bb.position(0);
-                return bb;
+                ByteBuffer byteBuffer = asyncAm.getBlob(domain, volumeName, blobName, maxObjectSize, objectOffset).get();
+                return new FdsObject(byteBuffer, maxObjectSize);
             }
         };
 
         return handleExceptions(
                 new ErrorCode[]{ErrorCode.MISSING_RESOURCE},
                 ec -> {
-                    throw new FileNotFoundException("Error reading object #" + objectOffset.getValue() + " for blob " + blobName);
+//                    throw new FileNotFoundException("Error reading object #" + objectOffset.getValue() + " for blob " + blobName);
+                    return new FdsObject(ByteBuffer.wrap(new byte[0]), maxObjectSize);
                 },
                 unit);
     }
 
     @Override
-    public void writeObject(String domain, String volume, String blobName, ObjectOffset objectOffset, ByteBuffer buf, int objectSize, boolean deferrable) throws IOException {
-        ByteBuffer dupe = buf.duplicate();
-        int length = dupe.remaining();
-        String description = "AM.writeObject";
-        String argumentsSummary = "volume=" + volume + ", blobName=" + blobName + ", objectOffset=" + objectOffset.getValue() + ", buf=" + length;
+    public void writeObject(String domain, String volume, String blobName, ObjectOffset objectOffset, FdsObject fdsObject, boolean deferrable) throws IOException {
+        fdsObject.lock(o -> {
+            int length = o.limit();
+            String description = "AM.writeObject";
+            String argumentsSummary = "volume=" + volume + ", blobName=" + blobName + ", objectOffset=" + objectOffset.getValue() + ", buf=" + length;
 
-        WorkUnit<Void> unit = new WorkUnit<Void>(description, argumentsSummary) {
-            @Override
-            public Void supply() throws Exception {
-                counters.increment(Counters.Key.AM_updateBlobTx);
-                int position = buf.position();
-                try {
+            WorkUnit<Void> unit = new WorkUnit<Void>(description, argumentsSummary) {
+                @Override
+                public Void supply() throws Exception {
+                    counters.increment(Counters.Key.AM_updateBlobTx);
                     TxDescriptor tx = asyncAm.startBlobTx(domain, volume, blobName, 0).get();
-                    asyncAm.updateBlob(domain, volume, blobName, tx, dupe, dupe.remaining(), objectOffset, false).get();
+                    asyncAm.updateBlob(domain, volume, blobName, tx, o.asByteBuffer(), o.limit(), objectOffset, false).get();
                     asyncAm.commitBlobTx(domain, volume, blobName, tx).get();
-                } finally {
-                    buf.position(position);
+                    return null;
                 }
-                return null;
-            }
-        };
+            };
 
-        handleExceptions(new ErrorCode[0], c -> null, unit);
+            handleExceptions(new ErrorCode[0], c -> null, unit);
+            return null;
+        });
     }
 
     @Override
@@ -140,7 +135,7 @@ public class AmOps implements IoOps {
                 List<BlobMetadata> result = asyncAm.volumeContents(domain, volume, Integer.MAX_VALUE, 0, blobNamePrefix, PatternSemantics.PREFIX, null, BlobListOrder.UNSPECIFIED, false).get()
                         .getBlobs()
                         .stream()
-                        .map(bd -> new BlobMetadata(bd.getName(), bd.getMetadata()))
+                        .map(bd -> new BlobMetadata(bd.getName(), new FdsMetadata(bd.getMetadata())))
                         .collect(Collectors.toList());
                 return result;
             }

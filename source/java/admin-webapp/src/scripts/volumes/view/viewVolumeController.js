@@ -101,8 +101,14 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         
         var datapoints =  series.datapoints;
         
-        return $byte_converter.convertBytesToString( datapoints[ datapoints.length-1 ].y ) + ' ' +
-            $filter( 'translate' )( key );
+        var legend_text = '0 ' + $filter( 'translate' )( key );
+        
+        if ( angular.isDefined( datapoints ) && datapoints.length > 0 ){
+            legend_text = $byte_converter.convertBytesToString( datapoints[ datapoints.length-1 ].y ) + ' ' +
+                $filter( 'translate' )( key );
+        }
+        
+        return legend_text;
     };
     
     var getPerformanceLegendText = function( series, key ){
@@ -189,7 +195,11 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         }
         
         $scope.logicalLabel = getCapacityLegendText( lbyteSeries, 'volumes.view.desc_logical_suffix' );
-        var lbyteTotal = lbyteSeries.datapoints[lbyteSeries.datapoints.length - 1].y;
+        var lbyteTotal = 0;
+        
+        if ( angular.isDefined( lbyteSeries ) && angular.isDefined( lbyteSeries.datapoints ) && lbyteSeries.datapoints.length > 0 ){
+            lbyteSeries.datapoints[lbyteSeries.datapoints.length - 1].y;
+        }
         
         var parts = $byte_converter.convertBytesToString( lbyteTotal );
         parts = parts.split( ' ' );
