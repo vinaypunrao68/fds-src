@@ -1,22 +1,21 @@
 package com.formationds.nfs;
 
-import java.nio.ByteBuffer;
 import java.util.Map;
 
 public class ObjectAndMetadata {
     private Map<String, String> map;
-    private ByteBuffer buf;
+    private FdsObject fdsObject;
 
-    public ObjectAndMetadata(Map<String, String> map, ByteBuffer buf) {
+    public ObjectAndMetadata(Map<String, String> map, FdsObject fdsObject) {
         this.map = map;
-        this.buf = buf;
+        this.fdsObject = fdsObject;
     }
 
     public Map<String, String> getMetadata() {
         return map;
     }
 
-    public ByteBuffer getBuf() {
-        return buf;
+    public FdsObject getFdsObject() {
+        return fdsObject;
     }
 }

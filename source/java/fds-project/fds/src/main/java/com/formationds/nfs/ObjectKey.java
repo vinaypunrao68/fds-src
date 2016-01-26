@@ -61,4 +61,9 @@ public class ObjectKey implements Comparable<ObjectKey> {
     public int compareTo(ObjectKey o) {
         return UnsignedBytes.lexicographicalComparator().compare(this.bytes, o.bytes);
     }
+
+    @Override
+    public String toString() {
+        return String.format("[ObjectKey domain=%s, volume=%s, blobName=%s, objectOffset=%s]", domain, volume, blobName, Long.toString(objectOffset));
+    }
 }

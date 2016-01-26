@@ -48,9 +48,6 @@ ScstTarget::ScstTarget(ScstConnector* parent_connector,
     ScstAdmin::addToScst(target_name);
     ScstAdmin::setQueueDepth(target_name, 64);
 
-    // Clear any mappings we might have left from before
-    ScstAdmin::clearMasking(target_name);
-
     // Start watching the loop
     evLoop = std::make_shared<ev::dynamic_loop>(ev::NOENV | ev::POLL);
     if (!evLoop) {
@@ -170,21 +167,20 @@ ScstTarget::setCHAPCreds(ScstAdmin::credential_map& credentials) {
 void
 ScstTarget::setInitiatorMasking(ScstAdmin::initiator_set const& new_members) {
     std::unique_lock<std::mutex> l(deviceLock);
-
     if ((ini_members == new_members) && luns_mapped) {
         return;
-    } else if (new_members.empty()) {
-        ScstAdmin::clearMasking(target_name);
-        ini_members.clear();
-    } else {
-        if (ScstAdmin::applyMasking(target_name, ini_members, new_members)) {
-            ini_members = new_members;
-        }
     }
-    luns_mapped = ScstAdmin::mapDevices(target_name,
-                                        device_map,
-                                        lun_table.begin(),
-                                        ini_members.empty());
+
+    if (ScstAdmin::applyMasking(target_name, new_members)) {
+        ini_members = new_members;
+    }
+
+    if (!luns_mapped) {
+        luns_mapped = ScstAdmin::mapDevices(target_name,
+                                            device_map,
+                                            lun_table.begin());
+    }
+
 }
 
 // Starting the devices has to happen inside the ev-loop

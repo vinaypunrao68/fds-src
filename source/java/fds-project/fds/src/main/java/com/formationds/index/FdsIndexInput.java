@@ -1,11 +1,13 @@
 package com.formationds.index;
 
 import com.formationds.nfs.Chunker;
-import com.formationds.nfs.TransactionalIo;
+import com.formationds.nfs.FdsMetadata;
+import com.formationds.nfs.IoOps;
 import org.apache.lucene.store.IndexInput;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Optional;
 
 public class FdsIndexInput extends IndexInput {
     private Chunker chunker;
@@ -16,9 +18,9 @@ public class FdsIndexInput extends IndexInput {
     private String volume;
     private String blobName;
     private int objectSize;
-    private TransactionalIo io;
+    private IoOps io;
 
-    public FdsIndexInput(TransactionalIo io, String resourceName, String domain, String volume, String blobName, int objectSize) throws IOException {
+    public FdsIndexInput(IoOps io, String resourceName, String domain, String volume, String blobName, int objectSize) throws IOException {
         super(resourceName);
         this.io = io;
         chunker = new Chunker(io);
@@ -28,16 +30,14 @@ public class FdsIndexInput extends IndexInput {
         this.objectSize = objectSize;
         this.offset = 0;
         this.position = 0;
-        this.length = io.mapMetadata(domain, volume, blobName, (x, om) -> {
-            if (!om.isPresent()) {
-                throw new FileNotFoundException();
-            }
-
-            return Long.parseLong(om.get().get(FdsLuceneDirectory.SIZE));
-        });
+        Optional<FdsMetadata> fdsMetadata = io.readMetadata(domain, volume, blobName);
+        if (!fdsMetadata.isPresent()) {
+            throw new FileNotFoundException("Volume=" + volume + ", blobName=" + blobName);
+        }
+        this.length = fdsMetadata.get().lock(m -> Long.parseLong(m.mutableMap().get(FdsLuceneDirectory.SIZE)));
     }
 
-    private FdsIndexInput(TransactionalIo io, String resourceName, String domain, String volume, String blobName, int objectSize, long offset, long length) {
+    private FdsIndexInput(IoOps io, String resourceName, String domain, String volume, String blobName, int objectSize, long offset, long length) {
         super(resourceName);
         this.io = io;
         chunker = new Chunker(io);
