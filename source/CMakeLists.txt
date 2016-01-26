@@ -185,8 +185,10 @@ set(SOURCE_FILES
     ./data-mgr/dm-lib/DmMigrationMgr.cpp
     ./data-mgr/dm-lib/DmMigrationSrc.cpp
     ./data-mgr/dm-lib/DMSvcHandler.cpp
+    ./data-mgr/dm-lib/requestmanager.cpp
     ./data-mgr/dm-lib/StatStreamAggregator.cpp
     ./data-mgr/dm-lib/VolumeMeta.cpp
+
     ./data-mgr/include/archive/ArchiveClient.h
     ./data-mgr/include/checker/DmChecker.h
     ./data-mgr/include/checker/LeveldbDiffer.h
