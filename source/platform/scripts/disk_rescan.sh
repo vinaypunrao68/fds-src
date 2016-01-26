@@ -30,10 +30,12 @@ if [[ $debug -eq 1 ]]; then
     arg="--debug"
 fi
 
-# trigger a scsi rescan just in case...
+# trigger a scsi rescan
 echo "Rescanning disks..."
-echo "- - -" > /sys/class/scsi_host/host0/scan
-sleep 5
+rescan-scsi-bus > /dev/null 2>&1
+if [[ $? -ne 0 ]]; then
+    read -n 1 -p "WARNING: Failed rescannning scsi bus. Press any key to continue or ^C to exit."
+fi
 
 if [[ $quiet -eq 0 ]]; then
     /fds/bin/disk_id.py $arg
