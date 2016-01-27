@@ -1,5 +1,6 @@
 package com.formationds.nfs.deferred;
 
+import com.formationds.nfs.SortableKey;
 import com.formationds.util.IoFunction;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -13,7 +14,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 
-public class EvictingCache<TKey, TValue> {
+public class EvictingCache<TKey extends SortableKey<TKey>, TValue> {
     private final static int LOCK_STRIPES = 1024 * 32;
     private static final Logger LOG = Logger.getLogger(EvictingCache.class);
 
@@ -107,6 +108,18 @@ public class EvictingCache<TKey, TValue> {
                 }
                 return null;
             });
+        }
+    }
+
+    public void flush(TKey prefix) {
+        Iterator<TKey> iterator = traversableView.tailMap(prefix).keySet().iterator();
+        while (iterator.hasNext()) {
+            TKey next = iterator.next();
+            if (next.beginsWith(prefix)) {
+                traversableView.remove(next);
+            } else {
+                break;
+            }
         }
     }
 

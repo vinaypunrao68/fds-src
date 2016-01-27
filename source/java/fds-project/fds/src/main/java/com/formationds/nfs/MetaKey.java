@@ -1,17 +1,15 @@
 package com.formationds.nfs;
 
-import com.google.common.primitives.UnsignedBytes;
-
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
 
-class MetaKey implements Comparable<MetaKey> {
-    String domain;
-    String volume;
-    String blobName;
-    private byte[] bytes;
+public class MetaKey implements SortableKey<MetaKey> {
+    final String domain;
+    final String volume;
+    final String blobName;
+    final byte[] bytes;
 
     public MetaKey(String domain, String volume, String blobName) {
         this.domain = domain;
@@ -31,6 +29,7 @@ class MetaKey implements Comparable<MetaKey> {
         this.bytes = baos.toByteArray();
     }
 
+    @Override
     public byte[] bytes() {
         return bytes;
     }
@@ -52,24 +51,6 @@ class MetaKey implements Comparable<MetaKey> {
         return Arrays.hashCode(bytes);
     }
 
-    @Override
-    public int compareTo(MetaKey o) {
-        return UnsignedBytes.lexicographicalComparator().compare(this.bytes, o.bytes);
-    }
-
-    public boolean beginsWith(MetaKey prefix) {
-        if (bytes.length < prefix.bytes.length) {
-            return false;
-        }
-
-        for (int i = 0; i < prefix.bytes.length; i++) {
-            if (bytes[i] != prefix.bytes[i]) {
-                return false;
-            }
-        }
-
-        return true;
-    }
 
     @Override
     public String toString() {

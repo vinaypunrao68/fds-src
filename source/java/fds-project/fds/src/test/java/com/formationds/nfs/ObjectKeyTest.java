@@ -19,6 +19,16 @@ public class ObjectKeyTest {
         assertTrue(center.compareTo(left) > 0);
     }
 
+    @Test
+    public void testSerialize() throws Exception {
+        assertNotEquals(new ObjectKey("a", "b", "c", new ObjectOffset(0)), new ObjectKey("a", "b", "c", new ObjectOffset(1)));
+        assertEquals(new ObjectKey("a", "b", "c", new ObjectOffset(0)), new ObjectKey("a", "b", "c", new ObjectOffset(0)));
+        ObjectKey key = new ObjectKey("a", "b", "c", new ObjectOffset(1));
+        assertTrue(key.beginsWith(new ObjectKey("a", "b", "", new ObjectOffset(0))));
+        assertFalse(key.beginsWith(new ObjectKey("a", "c", "", new ObjectOffset(0))));
+        assertFalse(key.beginsWith(new ObjectKey("a", "b", "", new ObjectOffset(1))));
+    }
+
     public void assertCommonPrefix(byte[] left, byte[] right, int prefixLength) {
         for (int i = 0; i < prefixLength; i++) {
             if (left[i] != right[i]) {

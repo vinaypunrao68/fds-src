@@ -1,18 +1,17 @@
 package com.formationds.nfs;
 
 import com.formationds.apis.ObjectOffset;
-import com.google.common.primitives.UnsignedBytes;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
 
-public class ObjectKey implements Comparable<ObjectKey> {
-    String domain;
-    String volume;
-    String blobName;
-    long objectOffset;
+public class ObjectKey implements SortableKey<ObjectKey> {
+    final String domain;
+    final String volume;
+    final String blobName;
+    final long objectOffset;
 
     private byte[] bytes;
 
@@ -28,7 +27,9 @@ public class ObjectKey implements Comparable<ObjectKey> {
             daos.write(domain.getBytes());
             daos.write(volume.getBytes());
             daos.write(blobName.getBytes());
-            daos.writeLong(objectOffset.getValue());
+            if (objectOffset.getValue() != 0) {
+                daos.writeLong(objectOffset.getValue());
+            }
             daos.flush();
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -55,11 +56,6 @@ public class ObjectKey implements Comparable<ObjectKey> {
     @Override
     public int hashCode() {
         return Arrays.hashCode(bytes);
-    }
-
-    @Override
-    public int compareTo(ObjectKey o) {
-        return UnsignedBytes.lexicographicalComparator().compare(this.bytes, o.bytes);
     }
 
     @Override

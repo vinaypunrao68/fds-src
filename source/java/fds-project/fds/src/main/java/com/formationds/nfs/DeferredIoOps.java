@@ -202,4 +202,12 @@ public class DeferredIoOps implements IoOps {
         metadataCache.flush();
         objectCache.flush();
     }
+
+    @Override
+    public void onVolumeDeletion(String domain, String volumeName) throws IOException {
+        LOG.debug("Received volume delete event for [" + volumeName + "], flushing caches");
+        metadataCache.flush(new MetaKey(domain, volumeName, ""));
+        objectCache.flush(new ObjectKey(domain, volumeName, "", new ObjectOffset(0)));
+    }
+
 }

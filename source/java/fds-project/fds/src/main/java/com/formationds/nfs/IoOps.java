@@ -11,8 +11,7 @@ public interface IoOps {
 
     public void writeMetadata(String domain, String volumeName, String blobName, FdsMetadata metadata, boolean deferrable) throws IOException;
 
-    public FdsObject readCompleteObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, int maxObjectSize
-    ) throws IOException;
+    public FdsObject readCompleteObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, int maxObjectSize) throws IOException;
 
     public void writeObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, FdsObject fdsObject, boolean deferrable) throws IOException;
 
@@ -23,4 +22,6 @@ public interface IoOps {
     public Collection<BlobMetadata> scan(String domain, String volume, String blobNamePrefix) throws IOException;
 
     public void flush() throws IOException;
+
+    public void onVolumeDeletion(String domain, String volumeName) throws IOException;
 }
