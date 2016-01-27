@@ -29,6 +29,8 @@ class AmTxDescriptor {
     std::string blobName;
     /// Volume context for the transaction
     fds_volid_t volId;
+    /// Blob mode (normal or trunc) for the tx
+    fds_int32_t blob_mode;
 
     /// Type of the staged transaction
     fds_io_op_t opType;
@@ -46,7 +48,8 @@ class AmTxDescriptor {
     AmTxDescriptor(fds_volid_t volUuid,
                    const BlobTxId &id,
                    fds_uint64_t dmtVer,
-                   const std::string &name);
+                   const std::string &name,
+                   const fds_int32_t mode);
     AmTxDescriptor(AmTxDescriptor const& rhs) = delete;
     AmTxDescriptor& operator=(AmTxDescriptor const& rhs) = delete;
     ~AmTxDescriptor() = default;

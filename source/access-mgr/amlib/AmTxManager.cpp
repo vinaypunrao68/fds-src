@@ -49,12 +49,13 @@ Error
 AmTxManager::addTx(fds_volid_t volId,
                    const BlobTxId &txId,
                    fds_uint64_t dmtVer,
-                   const std::string &name) {
+                   const std::string &name,
+                   const fds_int32_t blob_mode) {
     SCOPEDWRITE(txMapLock);
     if (txMap.count(txId) > 0) {
         return ERR_DUPLICATE_UUID;
     }
-    txMap[txId] = std::make_shared<AmTxDescriptor>(volId, txId, dmtVer, name);
+    txMap[txId] = std::make_shared<AmTxDescriptor>(volId, txId, dmtVer, name, blob_mode);
 
     return ERR_OK;
 }
@@ -228,7 +229,8 @@ AmTxManager::startBlobTxCb(AmRequest * amReq, Error const error) {
             err = addTx(blobReq->io_vol_id,
                         *blobReq->tx_desc,
                         blobReq->dmt_version,
-                        blobReq->getBlobName());
+                        blobReq->getBlobName(),
+                        blobReq->blob_mode);
         }
     }
     AmDataProvider::startBlobTxCb(blobReq, err);
@@ -256,6 +258,7 @@ AmTxManager::commitBlobTx(AmRequest *amReq) {
     } else {
         if (!blobReq->is_delete) {
             auto catUpdateReq = new UpdateCatalogReq(blobReq);
+            catUpdateReq->blob_mode = txMapIt->second->blob_mode;
             for (auto const& offset_pair : txMapIt->second->stagedBlobOffsets) {
                 auto const& obj_id = offset_pair.second.first;
                 auto const data_length = offset_pair.second.second;

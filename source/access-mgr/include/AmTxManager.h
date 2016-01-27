@@ -98,7 +98,8 @@ struct AmTxManager :
     Error addTx(fds_volid_t volId,
                 const BlobTxId &txId,
                 fds_uint64_t dmtVer,
-                const std::string &name);
+                const std::string &name,
+                const fds_int32_t blob_mode);
 
     void applyPut(PutBlobReq* blobReq);
 
