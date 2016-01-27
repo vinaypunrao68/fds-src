@@ -8,6 +8,7 @@ import sys
 import time
 import logging
 import logging.handlers
+import errno
 
 from optparse import OptionParser
 if sys.version_info[0] < 3:
@@ -693,3 +694,47 @@ def get_log_count_dict(self, om_node_ip, node_ip, service_list, log_entry_list):
         val = read_remote_log(self, node_ip, service_list[index], log_entry)
         log_count_dict[log_entry] = val
     return log_count_dict
+
+
+# A pseudo random SHA-1 generator.
+def sha1_generator(seed='seed'):
+    next_sha = hashlib.sha1(seed)
+
+    while True:
+        yield next_sha.digest(), next_sha.digestsize
+        next_sha = hashlib.sha1(next_sha.hexdigest())
+
+
+default_generated_file = "./generated.dat"  # Used in the generate_file() and remove_file() methods below.
+
+
+# A pseudo random file generator that generates the named file of the given
+# size using the given seed.
+#
+# @param size In bytes.
+def generate_file(qualified_file_name=default_generated_file, size=1024, seed='seed'):
+    with open(qualified_file_name, 'w') as generated_file:
+        bytes_written = 0
+        for next_content_block, block_size in sha1_generator(seed=seed):
+            bytes_to_write = block_size
+            if bytes_written + bytes_to_write > size:
+                bytes_to_write = size - bytes_to_write
+
+            content_to_write = bytearray(buffer(next_content_block, 0, bytes_to_write))
+            generated_file.write(content_to_write)
+
+            bytes_written += bytes_to_write
+
+            if (bytes_written >= size):
+                break
+
+    return generated_file.closed
+
+
+# Remove a file if it exists.
+def remove_file(qualified_file_name=default_generated_file):
+    try:
+        os.remove(qualified_file_name)
+    except OSError as e:
+        if e.errno != errno.ENOENT:
+            raise
