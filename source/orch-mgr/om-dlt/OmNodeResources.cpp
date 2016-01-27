@@ -1846,6 +1846,10 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
     fds_mutex::scoped_lock l(dbNodeInfoLock);
 
+    bool isSMRemoved = false;
+    bool isDMRemoved = false;
+    bool isAMRemoved = false;
+
     // Now that we allow unreachable(down) nodes to be removed, it is
     // possible that OM receives a req invocation error. In this case
     // allow rest of the clean up to happen
@@ -1854,26 +1858,57 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
         LOGDEBUG << "PM response is good, setting svcs to inactive";
          // Set SM service state to inactive
         if ( stop_sm && configDB->isPresentInSvcMap( smSvcId.svc_uuid ) ) {
-             change_service_state( configDB,
-                                   smSvcId.svc_uuid,
-                                   fpi::SVC_STATUS_INACTIVE_STOPPED );
-             activeSmAgent = nullptr;
+
+            if (configDB->getStateSvcMap(smSvcId.svc_uuid) != fpi::SVC_STATUS_REMOVED)
+            {
+                change_service_state( configDB,
+                                       smSvcId.svc_uuid,
+                                       fpi::SVC_STATUS_INACTIVE_STOPPED );
+                activeSmAgent = nullptr;
+            } else {
+                LOGDEBUG << "SM svc:" << smSvcId.svc_uuid << " already progressed to removed state"
+                         << ", will not set to inactive_stopped";
+                isSMRemoved = true;
+            }
          }
 
          // Set DM service state to inactive
          if ( stop_dm && configDB->isPresentInSvcMap( dmSvcId.svc_uuid ) ) {
-             change_service_state( configDB,
-                                   dmSvcId.svc_uuid,
-                                   fpi::SVC_STATUS_INACTIVE_STOPPED );
-             activeDmAgent = nullptr;
+             if (configDB->getStateSvcMap(dmSvcId.svc_uuid) != fpi::SVC_STATUS_REMOVED)
+             {
+                 change_service_state( configDB,
+                                       dmSvcId.svc_uuid,
+                                       fpi::SVC_STATUS_INACTIVE_STOPPED );
+                 activeDmAgent = nullptr;
+             } else {
+                 LOGDEBUG << "DM svc:" << dmSvcId.svc_uuid << " already progressed to removed state"
+                          << ", will not set to inactive_stopped";
+                 isDMRemoved = true;
+             }
          }
 
          // Set AM service state to inactive
-         if ( stop_am && configDB->isPresentInSvcMap( amSvcId.svc_uuid ) ) {
-             change_service_state( configDB,
-                                   amSvcId.svc_uuid,
-                                   fpi::SVC_STATUS_INACTIVE_STOPPED );
-             activeAmAgent = nullptr;
+         if ( stop_am ) {
+
+             if (configDB->isPresentInSvcMap( amSvcId.svc_uuid ) )
+             {
+                 if (configDB->getStateSvcMap(amSvcId.svc_uuid) != fpi::SVC_STATUS_REMOVED)
+                 {
+                     change_service_state( configDB,
+                                           amSvcId.svc_uuid,
+                                           fpi::SVC_STATUS_INACTIVE_STOPPED );
+                     activeAmAgent = nullptr;
+                 } else {
+                     LOGDEBUG << "AM svc:" << amSvcId.svc_uuid << " already progressed to removed state"
+                              << ", will not set to inactive_stopped";
+                     isAMRemoved = true;
+                 }
+             } else {
+                 // the AM gets deleted right away in send_remove_service
+                 // If stop_am is true but the svc is not present it can only mean remove has
+                 // already executed
+                 isAMRemoved = true;
+             }
          }
     } else {
         LOGERROR << "Failed to stop services on node " << get_node_name()
@@ -1881,18 +1916,40 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
                  << " not updating local state of PM agent .... " << error;
     }
 
+    bool noSMTransition = false;
+    bool noDMTransition = false;
+    bool noAMTransition = false;
+
     // On OM restart, cannot depend on agents being set. This logic
     // should still not do any harm either way
     if (!activeSmAgent && !activeDmAgent && !activeAmAgent){
         if (shutdownNode) {
-        // Node is being shutdown, change the state of platform
-        // to inactive, node state to down
-        LOGDEBUG << "Changing PM state to INACTIVE";
-        fds::change_service_state( configDB,
-                                   get_uuid().uuid_get_val(),
-                                   fpi::SVC_STATUS_INACTIVE_STOPPED );
-        // Also explicitly set the state to down
-        set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
+
+            // If stop_sm is false, (and from above activeAgent is NULL) it implies
+            // that the svc did not exist on node to begin with (set noTransition to true)
+            // If stop_sm is true, and smRemoved is true, it implies the node
+            // is being removed and this response is coming in too late to be meaningful
+            // send_remove_resp will take appropriate action now (set noTransition to true).
+            // if stop_sm is true, but it is not in REMOVED state, then further action
+            // here is required (noTransition is false)
+           noSMTransition = stop_sm ? (isSMRemoved ? true : false) : true;
+           noDMTransition = stop_dm ? (isDMRemoved ? true : false) : true;
+           noAMTransition = stop_am ? (isAMRemoved ? true : false) : true;
+
+           if ( !(noSMTransition && noDMTransition && noAMTransition) )
+           {
+               // Node is being shutdown, change the state of platform
+               // to inactive, node state to down
+               LOGDEBUG << "Changing PM state to INACTIVE";
+               fds::change_service_state( configDB,
+                                          get_uuid().uuid_get_val(),
+                                          fpi::SVC_STATUS_INACTIVE_STOPPED );
+               // Also explicitly set the state to down
+               set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
+           } else {
+               LOGNOTIFY << "Node:" << get_uuid().uuid_get_val() << " is being removed"
+                         << ", remove resp will set state now";
+           }
         }
 
     }
