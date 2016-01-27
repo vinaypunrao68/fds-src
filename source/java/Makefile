@@ -15,7 +15,9 @@ user_clean        := \
 include $(topdir)/Makefile.incl
 
 compile:
-	@echo "Building Java components"
+	@echo "==========================================="
+	@echo "-------- Building GUI Components ----------"
+	@echo "==========================================="
 
 	@mvn clean install -f pom.xml -Dosdep.target=$(osdep_target)
 
@@ -28,9 +30,13 @@ compile:
 	@cp -p -r formationds-project/formationds-external/formationds-ext-dist/target/formationds-ext-dist-*/formationds-ext-dist-*/lib/java/* $(comm_dir_lib)/java
 
 ifndef SKIP_UI_BUILD
+	@echo "==========================================="
+	@echo "-------- Building GUI Components ----------"
+	@echo "==========================================="
+
 	@rm -rf $(comm_dir_lib)/admin-webapp
 	@mkdir -p $(comm_dir_lib)/admin-webapp
-	@cd admin-webapp; npm install; CI=true node_modules/bower/bin/bower --allow-root install; node_modules/grunt-cli/bin/grunt release
+	@cd admin-webapp; ./nates_awesome_build_script.sh
 	@cp -r admin-webapp/app/* $(comm_dir_lib)/admin-webapp
 	@cp -r demo $(comm_dir_lib)
 endif
