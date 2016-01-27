@@ -212,6 +212,7 @@ namespace fds
     void NodeInventory::set_node_state(FdspNodeState state)
     {
         TRACEFUNC;
+        LOGNORMAL << "Setting node state to:" << state;
         nd_my_node_state = state;
     }
 

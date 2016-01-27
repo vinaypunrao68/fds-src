@@ -7,9 +7,7 @@ import org.apache.log4j.Logger;
 import org.joda.time.Duration;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.Collection;
-import java.util.Map;
 import java.util.Optional;
 
 public class RecoveryHandler implements IoOps {
@@ -25,12 +23,12 @@ public class RecoveryHandler implements IoOps {
     }
 
     @Override
-    public Optional<Map<String, String>> readMetadata(String domain, String volumeName, String blobName) throws IOException {
+    public Optional<FdsMetadata> readMetadata(String domain, String volumeName, String blobName) throws IOException {
         return attempt(() -> ops.readMetadata(domain, volumeName, blobName));
     }
 
     @Override
-    public void writeMetadata(String domain, String volumeName, String blobName, Map<String, String> metadata, boolean deferrable) throws IOException {
+    public void writeMetadata(String domain, String volumeName, String blobName, FdsMetadata metadata, boolean deferrable) throws IOException {
         attempt(() -> {
             ops.writeMetadata(domain, volumeName, blobName, metadata, deferrable);
             return null;
@@ -38,14 +36,14 @@ public class RecoveryHandler implements IoOps {
     }
 
     @Override
-    public ByteBuffer readCompleteObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, int objectSize) throws IOException {
-        return attempt(() -> ops.readCompleteObject(domain, volumeName, blobName, objectOffset, objectSize));
+    public FdsObject readCompleteObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, int maxObjectSize) throws IOException {
+        return attempt(() -> ops.readCompleteObject(domain, volumeName, blobName, objectOffset, maxObjectSize));
     }
 
     @Override
-    public void writeObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, ByteBuffer byteBuffer, int objectSize, boolean deferrable) throws IOException {
+    public void writeObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, FdsObject fdsObject, boolean deferrable) throws IOException {
         attempt(() -> {
-            ops.writeObject(domain, volumeName, blobName, objectOffset, byteBuffer, objectSize, deferrable);
+            ops.writeObject(domain, volumeName, blobName, objectOffset, fdsObject, deferrable);
             return null;
         });
     }
@@ -77,6 +75,11 @@ public class RecoveryHandler implements IoOps {
             ops.flush();
             return null;
         });
+    }
+
+    @Override
+    public void onVolumeDeletion(String domain, String volumeName) throws IOException {
+
     }
 
     private <T> T attempt(IoSupplier<T> supplier) throws IOException {

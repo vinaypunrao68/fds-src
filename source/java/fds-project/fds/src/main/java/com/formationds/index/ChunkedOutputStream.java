@@ -1,32 +1,39 @@
 package com.formationds.index;
 
 import com.formationds.nfs.Chunker;
-import com.formationds.nfs.TransactionalIo;
+import com.formationds.nfs.FdsMetadata;
+import com.formationds.nfs.IoOps;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Map;
+import java.util.Optional;
 
 public class ChunkedOutputStream extends OutputStream {
     private final String blobName;
     private final Chunker chunker;
     private long position;
-    private TransactionalIo io;
+    private IoOps io;
     private String domain;
     private String volume;
     private int objectSize;
 
-    public ChunkedOutputStream(TransactionalIo io, String luceneResourceName, String domain, String volume, String blobName, int objectSize) throws IOException {
+    public ChunkedOutputStream(IoOps io, String luceneResourceName, String domain, String volume, String blobName, int objectSize) throws IOException {
         this.io = io;
         this.domain = domain;
         this.volume = volume;
         this.objectSize = objectSize;
         chunker = new Chunker(io);
         this.blobName = blobName;
-        position = io.mutateMetadata(domain, volume, blobName, false, metadata -> {
+        this.position = io.readMetadata(domain, volume, blobName).orElse(new FdsMetadata()).lock(m -> {
+            Map<String, String> metadata = m.mutableMap();
             if (metadata.size() == 0) {
                 metadata.put(FdsLuceneDirectory.LUCENE_RESOURCE_NAME, luceneResourceName);
                 metadata.put(FdsLuceneDirectory.SIZE, Long.toString(0l));
             }
+
+            io.writeMetadata(domain, volume, blobName, m.fdsMetadata(), false);
             return 0l;
         });
     }
@@ -51,9 +58,14 @@ public class ChunkedOutputStream extends OutputStream {
 
     @Override
     public void flush() throws IOException {
-        io.mutateMetadata(domain, volume, blobName, false, metadata -> {
-            metadata.put(FdsLuceneDirectory.SIZE, Long.toString(position));
-            return 0l;
+        Optional<FdsMetadata> opt = io.readMetadata(domain, volume, blobName);
+        if (!opt.isPresent()) {
+            throw new FileNotFoundException("Volume=" + volume + ", blobName=" + blobName);
+        }
+        opt.get().lock(m -> {
+            m.mutableMap().put(FdsLuceneDirectory.SIZE, Long.toString(position));
+            io.writeMetadata(domain, volume, blobName, m.fdsMetadata(), false);
+            return null;
         });
     }
 
