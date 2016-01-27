@@ -32,8 +32,7 @@ DataPlacement::DataPlacement()
           prevDlt(NULL),
           commitedDlt(NULL),
           newDlt(NULL),
-          numOfFailures(0),
-          sendMigAbortAfterRestart(false)
+          numOfFailures(0)
 {
     numOfPrimarySMs = 0;
 }

@@ -66,6 +66,8 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule, bool initAsModule,
         svcStartThread->detach();
         svcStartRetryThread.reset(new std::thread(&OrchMgr::svcStartRetryMonitor, this));
         svcStartRetryThread->detach();
+    } else {
+        enableTimeline = false;
     }
     /*
      * Testing code for loading test info from disk.
