@@ -343,8 +343,8 @@ class TestISCSIAttachVolume(ISCSIFixture):
         generic_devices = []
         status, stdout = om_node.nd_agent.exec_wait('sg_map -sd', return_stdin=True)
         if status != 0:
-            self.log.error("Failed to get sg map");
-            return False;
+            self.log.error("Failed to get sg map")
+            return False
 
         g = stdout.split()
         for elem in g:
@@ -521,12 +521,12 @@ class TestISCSIUnitReady(ISCSIFixture):
             r = s.testunitready().result
             if not r:
                 # empty dictionary, which is the correct response!
-                return True;
+                return True
 
             for k, v in r.iteritems():
                 self.log.info('%s - %s' % (k, v))
         except Exception as e:
-            self.log.error(str(e));
+            self.log.error(str(e))
 
         return False
 
