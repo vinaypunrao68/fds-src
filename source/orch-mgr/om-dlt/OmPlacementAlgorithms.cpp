@@ -742,7 +742,7 @@ ConsistHashAlgorithm::computeNewDlt(const ClusterMap *currMap,
             LOGWARN << "We don't have enough non-failed SMs to place into primaries";
         } else {
             // rotate columns to place non-failed SMs into primary rows
-            LOGDEBUG << "Failed SMs count " << nonFailedCnt
+            LOGDEBUG << "Non-Failed SMs count " << nonFailedCnt
                      << " out of " << total_nodes << " total SMs";
             newDlt->generateNodeTokenMap();
             demoteFailedPrimaries(newDlt, numPrimarySMs, nonFailedSms);
