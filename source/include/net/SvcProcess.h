@@ -108,6 +108,18 @@ struct SvcProcess : FdsProcess, SvcServerListener {
                 handler, processor);
     }
 
+    template<typename Handler, typename Processor>
+    void init(int argc, char *argv[], bool initAsModule,
+              const std::string &def_cfg_file,
+              const std::string &base_path,
+              const std::string &def_log_file,
+              fds::Module **mod_vec) {
+        auto handler = boost::make_shared<Handler>(this);
+        auto processor = boost::make_shared<Processor>(handler);
+        init(argc, argv, initAsModule, def_cfg_file, base_path, def_log_file, mod_vec,
+                handler, processor);
+    }
+
     /**
      * @brief The entry point of where all the modules listed in the mod_vectors
      * get started.
