@@ -77,6 +77,11 @@ public class RecoveryHandler implements IoOps {
         });
     }
 
+    @Override
+    public void onVolumeDeletion(String domain, String volumeName) throws IOException {
+
+    }
+
     private <T> T attempt(IoSupplier<T> supplier) throws IOException {
         for (int i = 0; i < retryCount; i++) {
             try {
