@@ -2014,9 +2014,13 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                              << std::hex 
                              << svcInfo->svc_id.svc_uuid.svc_uuid 
                              << std::dec
-                             << " ) is a new node.";
+                             << " ) is a new node, setting to discovered.";
                     
-                    svcInfo->svc_status = fpi::SVC_STATUS_ACTIVE;
+                    svcInfo->svc_status = fpi::SVC_STATUS_DISCOVERED;
+
+                    auto pmNodes = om_locDomain->om_pm_nodes();
+                    auto pmAgent = OM_PmAgent::agt_cast_ptr(pmNodes->agent_info(node_uuid));
+                    pmAgent->set_node_state(fpi::FDS_Node_Discovered);
                 }
                 auto curTime         = std::chrono::system_clock::now().time_since_epoch();
                 double timeInMinutes = std::chrono::duration<double,std::ratio<60>>(curTime).count();
@@ -2314,9 +2318,19 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
             LOGDEBUG << "OM Restart, Successful Registered ( spoof ) Service: "
                      << fds::logDetailedString( svc );
             svc.incarnationNo = util::getTimeStampSeconds();
-            svc.svc_status = fpi::SVC_STATUS_ACTIVE;
             spoofed.push_back( svc );
-            configDB->updateSvcMap( svc );
+
+            // If PM is in DISCOVERED state, it means it is either a new node or a previously removed
+            // node. In both cases, we want the state to stay discovered
+
+            if ( !( (svc.svc_type == fpi::FDSP_PLATFORM) &&
+                    (svc.svc_status == fpi::SVC_STATUS_DISCOVERED) ) )
+            {
+                svc.svc_status = fpi::SVC_STATUS_ACTIVE;
+
+                fds_mutex::scoped_lock l(dbLock);
+                configDB->updateSvcMap( svc );
+            }
         }
         else 
         {
@@ -2453,8 +2467,7 @@ bool OM_NodeDomainMod::isAnyNonePlatformSvcActive(
             // cleaning up the cluster map and causing a DLT/DMT propagation
             if ( svc.svc_status == fpi::SVC_STATUS_ACTIVE ||
                  svc.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED ||
-                 svc.svc_status == fpi::SVC_STATUS_STARTED ||
-                 isPlatformSvc( svc) )
+                 svc.svc_status == fpi::SVC_STATUS_STARTED )
             {
                 if ( isPlatformSvc( svc ) )
                 {
@@ -2471,6 +2484,16 @@ bool OM_NodeDomainMod::isAnyNonePlatformSvcActive(
                 else if ( isAccessMgrSvc( svc ) )
                 {
                     amSvcs->push_back( svc );                
+                }
+            }
+
+            if (isPlatformSvc(svc))
+            {
+                if (svc.svc_status == fpi::SVC_STATUS_ACTIVE ||
+                    svc.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED ||
+                    svc.svc_status == fpi::SVC_STATUS_DISCOVERED)
+                {
+                    pmSvcs->push_back(svc);
                 }
             }
         }
