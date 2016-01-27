@@ -138,7 +138,7 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
                     var b_str = $byte_converter.convertFromUnitsToString( $scope.volumeType.capacity.value, $scope.volumeType.capacity.units );
                     var b_num = parseInt( b_str.split( ' ' )[0] );
                     
-                    $scope._selectedSize = b_num;//$scope.volumeType.capacity.value;
+                    $scope._selectedSize = b_num;
                     findUnit();
                 }
                 
