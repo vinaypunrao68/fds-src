@@ -12,9 +12,13 @@ import org.apache.lucene.store.*;
 import org.joda.time.Duration;
 import org.junit.Ignore;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 @Ignore
@@ -28,12 +32,12 @@ public class FdsLuceneDirectory extends Directory {
     private String volume;
     private int objectSize;
     private EvictingCache<String, MemoryLock> locks;
-    private TransactionalIo io;
+    private IoOps io;
 
 
     public FdsLuceneDirectory(IoOps ops, String domain, String volume, int objectSize) {
         init(domain, volume, objectSize);
-        io = new TransactionalIo(ops);
+        io = ops;
     }
 
     private void init(String domain, String volume, int objectSize) {
@@ -56,13 +60,17 @@ public class FdsLuceneDirectory extends Directory {
         AmOps amOps = new AmOps(asyncAm, counters);
         DeferredIoOps deferredIo = new DeferredIoOps(amOps, counters);
         deferredIo.start();
-        io = new TransactionalIo(deferredIo);
+        io = deferredIo;
     }
 
     @Override
     public String[] listAll() throws IOException {
-        return io.scan(domain, volume, INDEX_FILE_PREFIX,
-                (x, metadata) -> metadata.get().get(LUCENE_RESOURCE_NAME)).toArray(new String[0]);
+        Collection<BlobMetadata> bms = io.scan(domain, volume, INDEX_FILE_PREFIX);
+        List<String> result = new ArrayList<>(bms.size());
+        for (BlobMetadata bm : bms) {
+            result.add(bm.getMetadata().lock(m -> m.mutableMap().get(LUCENE_RESOURCE_NAME)));
+        }
+        return result.toArray(new String[0]);
     }
 
     @Override
@@ -73,19 +81,18 @@ public class FdsLuceneDirectory extends Directory {
     @Override
     public long fileLength(String s) throws IOException {
         String indexFile = blobName(s);
-        return io.mapMetadata(domain, volume, indexFile, (x, metadata) -> {
-            if (!metadata.isPresent()) {
-                return 0l;
-            }
-
-            return Long.parseLong(metadata.get().get(SIZE));
-        });
+        Optional<FdsMetadata> ofm = io.readMetadata(domain, volume, indexFile);
+        if (!ofm.isPresent()) {
+            return 0;
+        } else {
+            return ofm.get().lock(m -> Long.parseLong(m.mutableMap().get(SIZE)));
+        }
     }
 
     @Override
     public IndexOutput createOutput(String fileName, IOContext ioContext) throws IOException {
         String blobName = blobName(fileName);
-        boolean exists = io.mapMetadata(domain, volume, blobName, (x, metadata) -> metadata.isPresent());
+        boolean exists = io.readMetadata(domain, volume, blobName).isPresent();
         if (exists) {
             io.deleteBlob(domain, volume, blobName);
         }
@@ -102,11 +109,19 @@ public class FdsLuceneDirectory extends Directory {
     @Override
     public void renameFile(String from, String to) throws IOException {
         LOG.debug("Rename file " + from + " " + to);
-        io.mutateMetadata(domain, volume, blobName(from), false, metadata -> {
-            metadata.put(LUCENE_RESOURCE_NAME, to);
+        String blobName = blobName(from);
+
+        Optional<FdsMetadata> ofm = io.readMetadata(domain, volume, blobName);
+        if (!ofm.isPresent()) {
+            throw new FileNotFoundException("Volume=" + volume + ", blobName=" + blobName);
+        }
+
+        ofm.get().lock(m -> {
+            m.mutableMap().put(LUCENE_RESOURCE_NAME, to);
+            io.writeMetadata(domain, volume, blobName, m.fdsMetadata(), false);
+            io.renameBlob(domain, volume, blobName(from), blobName(to));
             return null;
         });
-        io.renameBlob(domain, volume, blobName(from), blobName(to));
     }
 
     private String blobName(String indexFile) {

@@ -183,6 +183,7 @@ var en_US = {
         l_create_blank_volume: 'Create a blank volume',
         l_current_state: 'Current state',
         l_data_connector: 'Data Connector',
+        l_iscsi_initiators: 'Initiators',
         l_delete_volume: 'Delete this volume.',
         l_edit_settings: 'Edit Settings',
         l_edit_volume: 'Edit Volume',

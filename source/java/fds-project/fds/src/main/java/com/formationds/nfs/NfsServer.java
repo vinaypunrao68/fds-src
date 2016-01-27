@@ -11,10 +11,9 @@ import com.formationds.xdi.XdiConfigurationApi;
 import org.apache.log4j.Logger;
 import org.dcache.nfs.ExportFile;
 import org.dcache.nfs.v3.MountServer;
+import org.dcache.nfs.v4.CustomNfsv4OperationFactory;
 import org.dcache.nfs.v4.DeviceManager;
-import org.dcache.nfs.v4.MDSOperationFactory;
 import org.dcache.nfs.v4.NFSServerV41;
-import org.dcache.nfs.vfs.VirtualFileSystem;
 import org.dcache.xdr.OncRpcProgram;
 import org.dcache.xdr.OncRpcSvc;
 import org.dcache.xdr.OncRpcSvcBuilder;
@@ -61,7 +60,7 @@ public class NfsServer {
         ExportFile exportFile = dynamicExports.exportFile();
 
 //        VirtualFileSystem vfs = new MemoryVirtualFileSystem();
-        VirtualFileSystem vfs = new XdiVfs(
+        XdiVfs vfs = new XdiVfs(
                 asyncAm,
                 dynamicExports,
                 counters,
@@ -89,7 +88,7 @@ public class NfsServer {
 
         // create NFS v4.1 server
         NFSServerV41 nfs4 = new NFSServerV41(
-                new MDSOperationFactory(),
+                new CustomNfsv4OperationFactory(),
                 new DeviceManager(),
                 vfs,
                 exportFile);

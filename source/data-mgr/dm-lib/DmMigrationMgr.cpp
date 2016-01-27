@@ -223,6 +223,16 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
         for (std::vector<fpi::FDSP_VolumeDescType>::iterator vdt = vmg->VolDescriptors.begin();
              vdt != vmg->VolDescriptors.end();
              ++vdt) {
+
+            if (vdt->fSnapshot) {
+                LOGNOTIFY << "IGNORING SNAPSHOT REQUEST migrationid: " << migrationId
+                          << "Pull Volume ID: " << vdt->volUUID
+                          << " Name: " << vdt->vol_name
+                          << " from SrcDmSvcUuid: " << vmg->source.svc_uuid;
+
+                continue;
+            }
+
             /**
              * If this is the last executor to be fired, anything from this point on should
              * have the autoIncrement flag set.
