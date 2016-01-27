@@ -8,6 +8,7 @@ import com.formationds.protocol.*;
 import com.formationds.sc.SvcState;
 import com.formationds.sc.api.SvcAsyncAm;
 import com.formationds.util.ByteBufferUtility;
+import com.formationds.util.ConsumerWithException;
 import com.formationds.xdi.*;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -147,6 +148,11 @@ public class AsyncAmTest extends BaseAmTest {
         @Override
         public int objectSize(String volume) {
             return OBJECT_SIZE;
+        }
+
+        @Override
+        public void addVolumeDeleteEventHandler(ConsumerWithException<String> consumer) {
+
         }
     }
 

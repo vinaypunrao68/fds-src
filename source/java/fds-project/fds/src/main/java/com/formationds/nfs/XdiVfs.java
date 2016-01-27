@@ -41,7 +41,9 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
     public XdiVfs(AsyncAm asyncAm, ExportResolver resolver, Counters counters, boolean deferMetadataWrites, int amRetryAttempts, Duration amRetryInterval) {
         IoOps ops = new RecoveryHandler(new AmOps(asyncAm, counters), amRetryAttempts, amRetryInterval);
         if (deferMetadataWrites) {
-            ops = new DeferredIoOps(ops, counters);
+            DeferredIoOps deferredOps = new DeferredIoOps(ops, counters);
+            ops = deferredOps;
+            // resolver.addVolumeDeleteEventHandler(v -> deferredOps.onVolumeDeletion(DOMAIN, v));
             ((DeferredIoOps) ops).start();
         }
         inodeMap = new InodeMap(ops, resolver);
@@ -82,7 +84,7 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
 
         String volume = exportResolver.volumeName(parent.exportIndex());
         long fileId = allocator.increment(volume);
-        LOG.debug("Allocating fileID " + fileId);
+        LOG.debug("Allocating fileID [" + fileId + "] for file [" + name + "]");
         InodeMetadata metadata = new InodeMetadata(type, subject, mode, fileId)
                 .withLink(inodeMap.fileId(parent), name);
 
