@@ -101,19 +101,22 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
     public FsStat getFsStat() throws IOException {
         long totalFiles = 0;
         long usedBytes = 0;
+        long totalCapacity = 0;
         Collection<String> volumes = exportResolver.exportNames();
         for (String volume : volumes) {
             usedBytes += inodeMap.usedBytes(volume);
             totalFiles += inodeMap.usedFiles(volume);
+            totalCapacity += exportResolver.maxVolumeCapacityInBytes(volume);
         }
-        return new FsStat(1024l * 1024l * 1024l * 1024l * 1024l, Long.MAX_VALUE, usedBytes, totalFiles);
+        return new FsStat(totalCapacity, Long.MAX_VALUE, usedBytes, totalFiles);
     }
 
     public FsStat getFsStat(int exportIndex) throws IOException {
         String volumeName = exportResolver.volumeName(exportIndex);
         long usedSpace = inodeMap.usedBytes(volumeName);
         long usedFiles = inodeMap.usedFiles(volumeName);
-        return new FsStat(1024l * 1024l * 1024l * 1024l * 1024l, Long.MAX_VALUE, usedSpace, usedFiles);
+        long maxCapacityInBytes = exportResolver.maxVolumeCapacityInBytes(volumeName);
+        return new FsStat(maxCapacityInBytes, Long.MAX_VALUE, usedSpace, usedFiles);
     }
 
     @Override
