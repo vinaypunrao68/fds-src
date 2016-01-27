@@ -159,10 +159,14 @@ class TestISCSIFioSeqW(ISCSIFixture):
     volume_name : str
         FDS volume name
     """
-    def __init__(self, parameters=None, volume_name=None):
+    def __init__(self, parameters=None, sd_device=None, volume_name=None):
         """
+        Volume name not required if device provided.
+
         Parameters
         ----------
+        sd_device : str
+            Device using sd upper level driver (example: '/dev/sdb')
         volume_name : str
             FDS volume name
         """
@@ -173,7 +177,7 @@ class TestISCSIFioSeqW(ISCSIFixture):
                 "Write to an iSCSI volume")
 
         self.volume_name = volume_name
-        self.sd_device = None
+        self.sd_device = sd_device
 
     def test_fio_write(self):
         """
@@ -184,11 +188,11 @@ class TestISCSIFioSeqW(ISCSIFixture):
         bool
             True if successful, False otherwise
         """
-        if not self.volume_name:
-            self.log.error("Missing required iSCSI target name")
-            return False
         # Use the block interface (not the char interface)
         if not self.sd_device:
+            if not self.volume_name:
+                self.log.error("Missing required iSCSI target name")
+                return False
             # Use fixture target name
             self.sd_device = self.getDriveDevice(self.volume_name)
         if not self.sd_device:
@@ -215,6 +219,7 @@ class TestISCSIFioSeqW(ISCSIFixture):
         assert connect_fabric(self, om_ip) is True
 
 # This one produced a failure! TODO: debug with Brian S...
+# Also, consider parameterizing this test case to provide the fio options below...
 #        cmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=posixaio --direct=1 --bsrange=512-1M " \
 #                 "--iodepth=128 --numjobs=1 --fill_device=1 --filename=%s --verify=md5 --verify_fatal=%d" %\
 #                 (self.sd_device, verify_fatal)
@@ -224,8 +229,10 @@ class TestISCSIFioSeqW(ISCSIFixture):
                  (self.sd_device, verify_fatal)
 
         # Fabric run a shell command on a remote host
-        status = run(cmd)
+        result = run(cmd)
         disconnect_fabric()
+        if result.failed:
+            return False
 
         return True
 

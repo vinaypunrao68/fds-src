@@ -64,7 +64,7 @@ def suiteConstruction(self):
     # WRITE_16
 
     # Run an fio sequential write workload
-    suite.addTest(testcases.TestISCSIIntFace.TestISCSIFioSeqW(None, 'volISCSI'))
+    suite.addTest(testcases.TestISCSIIntFace.TestISCSIFioSeqW(None, None, 'volISCSI'))
 
     # Run an fio random write workload
 #    suite.addTest(testcases.TestISCSIIntFace.TestBlockFioRandW())
