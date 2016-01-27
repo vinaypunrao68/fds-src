@@ -5,6 +5,7 @@
 #include <string>
 #include <queue>
 #include <fds_typedefs.h>
+#include <net/volumegroup_extensions.h>
 
 namespace fds {
 
