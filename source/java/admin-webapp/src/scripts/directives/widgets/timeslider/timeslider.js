@@ -87,7 +87,7 @@ angular.module( 'form-directives' ).directive( 'timeSlider', function(){
                     for ( var j = 0; j < i; j++ ){
                         var otherLabel = $scope.domainLabels[j];
                         
-                        if ( label.position > otherLabel.position && label.position < otherLabel.width + otherLabel.position ){
+                        if ( isNaN( label.position ) || (label.position > otherLabel.position && label.position < otherLabel.width + otherLabel.position) ){
                             label.show = false;
                             break;
                         }

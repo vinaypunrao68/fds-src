@@ -22,14 +22,14 @@ public class DeferredIoOps implements IoOps {
         this.io = io;
         this.counters = counters;
         metadataCache = new EvictingCache<>(
-                (key, entry) -> io.writeMetadata(key.domain, key.volume, key.blobName, entry.value, false),
+                (key, value) -> io.writeMetadata(key.domain, key.volume, key.blobName, value, false),
                 "Metadata cache",
                 100000,
                 1,
                 TimeUnit.MINUTES);
 
         objectCache = new EvictingCache<>(
-                (key, entry) -> io.writeObject(key.domain, key.volume, key.blobName, new ObjectOffset(key.objectOffset), entry.value, false),
+                (key, value) -> io.writeObject(key.domain, key.volume, key.blobName, new ObjectOffset(key.objectOffset), value, false),
                 "Object cache",
                 500,
                 1,
@@ -45,6 +45,7 @@ public class DeferredIoOps implements IoOps {
     @Override
     public Optional<FdsMetadata> readMetadata(String domain, String volumeName, String blobName) throws IOException {
         MetaKey key = new MetaKey(domain, volumeName, blobName);
+
         return metadataCache.lock(key, c -> {
             CacheEntry<FdsMetadata> ce = c.get(key);
             if (ce == null) {
@@ -202,4 +203,12 @@ public class DeferredIoOps implements IoOps {
         metadataCache.flush();
         objectCache.flush();
     }
+
+    @Override
+    public void onVolumeDeletion(String domain, String volumeName) throws IOException {
+        LOG.debug("Received volume delete event for [" + volumeName + "], flushing caches");
+        metadataCache.flush(new MetaKey(domain, volumeName));
+        objectCache.flush(new ObjectKey(domain, volumeName));
+    }
+
 }

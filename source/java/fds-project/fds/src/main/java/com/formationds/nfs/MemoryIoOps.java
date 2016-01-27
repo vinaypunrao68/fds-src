@@ -3,7 +3,6 @@ package com.formationds.nfs;
 import com.formationds.apis.ObjectOffset;
 import org.apache.log4j.Logger;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -34,9 +33,6 @@ public class MemoryIoOps implements IoOps {
 
     @Override
     public FdsObject readCompleteObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, int maxObjectSize) throws IOException {
-        if (!metadataCache.containsKey(new MetaKey(domain, volumeName, blobName))) {
-            throw new FileNotFoundException();
-        }
         ObjectKey key = new ObjectKey(domain, volumeName, blobName, objectOffset);
 
         FdsObject o = objectCache.get(key);
@@ -88,6 +84,25 @@ public class MemoryIoOps implements IoOps {
     @Override
     public void flush() throws IOException {
 
+    }
+
+    @Override
+    public void onVolumeDeletion(String domain, String volumeName) throws IOException {
+        Iterator<MetaKey> metaKeys = metadataCache.keySet().iterator();
+        while (metaKeys.hasNext()) {
+            MetaKey next = metaKeys.next();
+            if (next.volume.equals(volumeName)) {
+                metadataCache.remove(next);
+            }
+        }
+
+        Iterator<ObjectKey> objectKeys = objectCache.keySet().iterator();
+        while (objectKeys.hasNext()) {
+            ObjectKey next = objectKeys.next();
+            if (next.volume.equals(volumeName)) {
+                objectCache.remove(next);
+            }
+        }
     }
 
     @Override

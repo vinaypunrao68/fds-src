@@ -31,7 +31,7 @@ public class FdsLuceneDirectory extends Directory {
     private String domain;
     private String volume;
     private int objectSize;
-    private EvictingCache<String, MemoryLock> locks;
+    private EvictingCache<SimpleKey, MemoryLock> locks;
     private IoOps io;
 
 
@@ -45,7 +45,7 @@ public class FdsLuceneDirectory extends Directory {
         this.volume = volume;
         this.objectSize = objectSize;
         locks = new EvictingCache<>(
-                (key, entry) -> entry.value.invalidate(),
+                (key, value) -> value.invalidate(),
                 "Lucene-FDS locks",
                 1000000, 1, TimeUnit.HOURS);
         locks.start();
@@ -136,7 +136,8 @@ public class FdsLuceneDirectory extends Directory {
 
     @Override
     public Lock obtainLock(String name) throws IOException {
-        return locks.lock(name, c -> c.computeIfAbsent(name, k -> new CacheEntry<>(new MemoryLock(), true))).value;
+        SimpleKey key = new SimpleKey(name);
+        return locks.lock(key, c -> c.computeIfAbsent(key, k -> new CacheEntry<>(new MemoryLock(), true))).value;
     }
 
     @Override
