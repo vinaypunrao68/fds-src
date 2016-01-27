@@ -22,14 +22,14 @@ public class DeferredIoOps implements IoOps {
         this.io = io;
         this.counters = counters;
         metadataCache = new EvictingCache<>(
-                (key, entry) -> io.writeMetadata(key.domain, key.volume, key.blobName, entry.value, false),
+                (key, value) -> io.writeMetadata(key.domain, key.volume, key.blobName, value, false),
                 "Metadata cache",
                 100000,
                 1,
                 TimeUnit.MINUTES);
 
         objectCache = new EvictingCache<>(
-                (key, entry) -> io.writeObject(key.domain, key.volume, key.blobName, new ObjectOffset(key.objectOffset), entry.value, false),
+                (key, value) -> io.writeObject(key.domain, key.volume, key.blobName, new ObjectOffset(key.objectOffset), value, false),
                 "Object cache",
                 500,
                 1,
@@ -45,22 +45,7 @@ public class DeferredIoOps implements IoOps {
     @Override
     public Optional<FdsMetadata> readMetadata(String domain, String volumeName, String blobName) throws IOException {
         MetaKey key = new MetaKey(domain, volumeName, blobName);
-        Optional<FdsMetadata> result = Optional.empty();
 
-        // This is a workaround for a suspected metadata query race in AM
-        for (int i = 0; i < 5; i++) {
-            result = tryReadMetadata(domain, volumeName, blobName, key);
-            if (result.isPresent()) {
-                if (i != 0) {
-                    LOG.warn("Fascinating. Metadata re-appeared after " + (i + 1) + " read attempts.");
-                }
-                break;
-            }
-        }
-        return result;
-    }
-
-    private Optional<FdsMetadata> tryReadMetadata(String domain, String volumeName, String blobName, MetaKey key) throws IOException {
         return metadataCache.lock(key, c -> {
             CacheEntry<FdsMetadata> ce = c.get(key);
             if (ce == null) {

@@ -45,7 +45,7 @@ public class FdsLuceneDirectory extends Directory {
         this.volume = volume;
         this.objectSize = objectSize;
         locks = new EvictingCache<>(
-                (key, entry) -> entry.value.invalidate(),
+                (key, value) -> value.invalidate(),
                 "Lucene-FDS locks",
                 1000000, 1, TimeUnit.HOURS);
         locks.start();

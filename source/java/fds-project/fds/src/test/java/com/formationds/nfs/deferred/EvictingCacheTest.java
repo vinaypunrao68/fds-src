@@ -12,7 +12,7 @@ public class EvictingCacheTest {
     @Test
     public void testFlush() throws Exception {
         EvictingCache<SimpleKey, String> cache = new EvictingCache<>(
-                (key, entry) -> entry.isDirty = false,
+                (key, entry) -> {},
                 "test", 100, 1, TimeUnit.HOURS
         );
 
