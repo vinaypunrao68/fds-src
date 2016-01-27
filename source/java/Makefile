@@ -15,9 +15,9 @@ user_clean        := \
 include $(topdir)/Makefile.incl
 
 compile:
-	@echo "==========================================="
-	@echo "-------- Building GUI Components ----------"
-	@echo "==========================================="
+	@echo "============================================"
+	@echo "-------- Building Java Components ----------"
+	@echo "============================================"
 
 	@mvn clean install -f pom.xml -Dosdep.target=$(osdep_target)
 
