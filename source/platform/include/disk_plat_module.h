@@ -34,6 +34,7 @@ namespace fds
             DiskCapabilitiesMgr        *capabilities_manager;
             struct pollfd               pollfds[FD_COUNT];
             NodeUuid                    node_uuid;
+            fds_uint16_t                largest_disk_index = 0;
 
             void dsk_discover_mount_pts();
 
@@ -65,9 +66,11 @@ namespace fds
             void dsk_rescan();
             void dsk_monitor_hotplug();
             void dsk_commit_label();
-            void scan_and_discover_disks();
+            fds_uint16_t scan_and_discover_disks();
 
             void set_node_uuid(NodeUuid uuid);
+            void set_largest_disk_index(fds_uint16_t largest_disk_index);
+            fds_uint16_t get_largest_disk_index();
 
             // Module methods.
             ///

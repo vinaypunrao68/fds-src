@@ -3,7 +3,7 @@ user_std_libs    := true
 user_target      := exe
 user_rtime_env   := user
 speedup          = -j $(threads)
-user_build_dir   := include source python
+user_build_dir   := include source python scripts
 
 user_incl_dir    := include $(topdir)
 

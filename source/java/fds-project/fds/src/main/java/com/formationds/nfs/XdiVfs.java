@@ -44,13 +44,12 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
             ops = new DeferredIoOps(ops, counters);
             ((DeferredIoOps) ops).start();
         }
-        TransactionalIo txs = new TransactionalIo(ops);
-        inodeMap = new InodeMap(txs, resolver);
-        allocator = new PersistentCounter(txs, FILE_ID_WELL, MIN_FILE_ID, false);
+        inodeMap = new InodeMap(ops, resolver);
+        allocator = new PersistentCounter(ops, DOMAIN, FILE_ID_WELL, MIN_FILE_ID, false);
         this.exportResolver = resolver;
-        inodeIndex = new SimpleInodeIndex(txs, resolver);
+        inodeIndex = new SimpleInodeIndex(ops, resolver);
         idMap = new SimpleIdMap();
-        chunker = new Chunker(txs);
+        chunker = new Chunker(ops);
         this.counters = counters;
     }
 
@@ -106,6 +105,13 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
             totalFiles += inodeMap.usedFiles(volume);
         }
         return new FsStat(1024l * 1024l * 1024l * 1024l * 1024l, Long.MAX_VALUE, usedBytes, totalFiles);
+    }
+
+    public FsStat getFsStat(int exportIndex) throws IOException {
+        String volumeName = exportResolver.volumeName(exportIndex);
+        long usedSpace = inodeMap.usedBytes(volumeName);
+        long usedFiles = inodeMap.usedFiles(volumeName);
+        return new FsStat(1024l * 1024l * 1024l * 1024l * 1024l, Long.MAX_VALUE, usedSpace, usedFiles);
     }
 
     @Override

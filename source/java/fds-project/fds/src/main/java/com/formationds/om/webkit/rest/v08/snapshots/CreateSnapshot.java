@@ -22,51 +22,53 @@ import java.util.Map;
 
 public class CreateSnapshot implements RequestHandler {
 
-	private static final Logger logger = LoggerFactory.getLogger( CreateSnapshot.class );
-	private static final String VOLUME_ARG = "volume_id";
-	
-	private ConfigurationApi configApi;
+    private static final Logger logger = LoggerFactory.getLogger( CreateSnapshot.class );
+    private static final String VOLUME_ARG = "volume_id";
 
-	public CreateSnapshot() {}
+    private ConfigurationApi configApi;
 
-	@Override
-	public Resource handle(final Request request,
-			final Map<String, String> routeParameters) throws Exception {
+    public CreateSnapshot() {}
 
-		long volumeId = requiredLong( routeParameters, VOLUME_ARG );
-		
-		logger.debug( "Create a snapshot for volume {}.", volumeId );
-		
-		final InputStreamReader reader = new InputStreamReader( request.getInputStream() );
-		Snapshot inputSnapshot = ObjectModelHelper.toObject( reader, Snapshot.class );
-		
-		getConfigApi().createSnapshot( volumeId, 
-									   inputSnapshot.getName(), 
-									   inputSnapshot.getRetention().getSeconds(), 
-									   0 );
-		
-		List<Snapshot> snapshots = (new ListSnapshots()).listSnapshots( volumeId );
-		Snapshot mySnapshot = null;
-		
-		for ( Snapshot snapshot : snapshots ){
-			if ( snapshot.getVolumeId().equals( volumeId ) &&
-				 snapshot.getName().equals( inputSnapshot.getName() ) ){
-				mySnapshot = snapshot;
-				break;
-			}
-		}
-		
-		String jsonString = ObjectModelHelper.toJSON( mySnapshot );
-		
-		return new TextResource( jsonString );
-	}
-	
-	private ConfigurationApi getConfigApi(){
-		
-		if ( configApi == null ){
-			configApi = SingletonConfigAPI.instance().api();
-		}
-		
-		return configApi;
-	}
+    @Override
+    public Resource handle(final Request request,
+                           final Map<String, String> routeParameters) throws Exception {
+
+        long volumeId = requiredLong( routeParameters, VOLUME_ARG );
+
+        logger.debug( "Create a snapshot for volume {}.", volumeId );
+
+        Snapshot inputSnapshot = null;
+        try ( final InputStreamReader reader = new InputStreamReader( request.getInputStream() ) ) {
+            inputSnapshot = ObjectModelHelper.toObject( reader, Snapshot.class );
+        }
+
+        getConfigApi().createSnapshot( volumeId,
+                                       inputSnapshot.getName(),
+                                       inputSnapshot.getRetention().getSeconds(),
+                                       0 );
+
+        List<Snapshot> snapshots = (new ListSnapshots()).listSnapshots( volumeId );
+        Snapshot mySnapshot = null;
+
+        for ( Snapshot snapshot : snapshots ){
+            if ( snapshot.getVolumeId().equals( volumeId ) &&
+                    snapshot.getName().equals( inputSnapshot.getName() ) ){
+                mySnapshot = snapshot;
+                break;
+            }
+        }
+
+        String jsonString = ObjectModelHelper.toJSON( mySnapshot );
+
+        return new TextResource( jsonString );
+    }
+
+    private ConfigurationApi getConfigApi(){
+
+        if ( configApi == null ){
+            configApi = SingletonConfigAPI.instance().api();
+        }
+
+        return configApi;
+    }
 }

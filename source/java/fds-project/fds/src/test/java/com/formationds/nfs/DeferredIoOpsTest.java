@@ -5,7 +5,6 @@ import com.formationds.util.ByteBufferUtility;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -24,51 +23,63 @@ public class DeferredIoOpsTest {
 
     @Test
     public void testImmediateObjectWrites() throws Exception {
-        deferredIo.writeMetadata(DOMAIN, VOLUME, BLOB, new HashMap<>(), false);
+        deferredIo.writeMetadata(DOMAIN, VOLUME, BLOB, new FdsMetadata(), false);
         byte[] bytes = ByteBufferUtility.randomBytes(OBJECT_SIZE).array();
-        deferredIo.writeObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), ByteBuffer.wrap(bytes), OBJECT_SIZE, false);
-        ByteBuffer read = backend.readCompleteObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), OBJECT_SIZE);
-        assertArrayEquals(bytes, read.array());
+        deferredIo.writeObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), FdsObject.wrap(bytes, OBJECT_SIZE), false);
+        FdsObject fdsObject = backend.readCompleteObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), OBJECT_SIZE);
+        fdsObject.lock(o -> {
+            assertArrayEquals(bytes, o.toByteArray());
+            return null;
+        });
     }
 
     @Test
     public void testRenameBlob() throws Exception {
         Map<String, String> map = new HashMap<>();
         map.put("hello", "world");
-        deferredIo.writeMetadata(DOMAIN, VOLUME, BLOB, map, false);
+        deferredIo.writeMetadata(DOMAIN, VOLUME, BLOB, new FdsMetadata(map), false);
         byte[] bytes = ByteBufferUtility.randomBytes(OBJECT_SIZE).array();
-        deferredIo.writeObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), ByteBuffer.wrap(bytes), bytes.length, true);
-        assertArrayEquals(bytes, deferredIo.readCompleteObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), OBJECT_SIZE).array());
+        deferredIo.writeObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), FdsObject.wrap(bytes, OBJECT_SIZE), true);
+        deferredIo.readCompleteObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), OBJECT_SIZE).lock(o -> {
+            assertArrayEquals(bytes, o.toByteArray());
+            return null;
+        });
 
         deferredIo.renameBlob(DOMAIN, VOLUME, BLOB, "schmoops");
-        assertArrayEquals(bytes, backend.readCompleteObject(DOMAIN, VOLUME, "schmoops", new ObjectOffset(0), OBJECT_SIZE).array());
-        assertArrayEquals(bytes, backend.readCompleteObject(DOMAIN, VOLUME, "schmoops", new ObjectOffset(0), OBJECT_SIZE).array());
+        backend.readCompleteObject(DOMAIN, VOLUME, "schmoops", new ObjectOffset(0), OBJECT_SIZE).lock(o -> {
+            assertArrayEquals(bytes, o.toByteArray());
+            return null;
+        });
+        backend.readCompleteObject(DOMAIN, VOLUME, "schmoops", new ObjectOffset(0), OBJECT_SIZE).lock(o -> {
+            assertArrayEquals(bytes, o.toByteArray());
+            return null;
+        });
     }
 
     @Test
     public void testScanReturnsFreshEntries() throws Exception {
         Map<String, String> storedMetadata = new HashMap<>();
         storedMetadata.put("value", "old");
-        backend.writeMetadata(DOMAIN, VOLUME, BLOB, storedMetadata, false);
+        backend.writeMetadata(DOMAIN, VOLUME, BLOB, new FdsMetadata(storedMetadata), false);
 
         Map<String, String> cachedMetadata = new HashMap<>();
         cachedMetadata.put("value", "new");
 
-        deferredIo.writeMetadata(DOMAIN, VOLUME, BLOB, cachedMetadata, true);
+        deferredIo.writeMetadata(DOMAIN, VOLUME, BLOB, new FdsMetadata(cachedMetadata), true);
 
         Collection<BlobMetadata> results = deferredIo.scan(DOMAIN, VOLUME, BLOB);
         assertEquals(1, results.size());
-        assertEquals("new", results.iterator().next().getMetadata().get("value"));
+        assertEquals("new", results.iterator().next().getMetadata().lock(m -> m.mutableMap().get("value")));
     }
 
     @Test
     public void testScanReturnsBothStoredAndCachedEntries() throws Exception {
-        backend.writeMetadata(DOMAIN, VOLUME, "b/a", new HashMap<>(), true);
-        backend.writeMetadata(DOMAIN, VOLUME, "b/c", new HashMap<>(), true);
+        backend.writeMetadata(DOMAIN, VOLUME, "b/a", new FdsMetadata(), true);
+        backend.writeMetadata(DOMAIN, VOLUME, "b/c", new FdsMetadata(), true);
 
-        deferredIo.writeMetadata(DOMAIN, VOLUME, "a/a", new HashMap<>(), true);
-        deferredIo.writeMetadata(DOMAIN, VOLUME, "b/b", new HashMap<>(), true);
-        deferredIo.writeMetadata(DOMAIN, VOLUME, "c/a", new HashMap<>(), true);
+        deferredIo.writeMetadata(DOMAIN, VOLUME, "a/a", new FdsMetadata(), true);
+        deferredIo.writeMetadata(DOMAIN, VOLUME, "b/b", new FdsMetadata(), true);
+        deferredIo.writeMetadata(DOMAIN, VOLUME, "c/a", new FdsMetadata(), true);
 
         Collection<BlobMetadata> results = deferredIo.scan(DOMAIN, VOLUME, "b/");
         assertEquals(3, results.size());
