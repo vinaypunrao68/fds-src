@@ -187,6 +187,18 @@ FailoverSvcRequestPtr SvcRequestPool::newFailoverSvcRequest(const EpIdProviderPt
     return req;
 }
 
+FailoverSvcRequestPtr
+SvcRequestPool::newFailoverSvcRequest(const std::vector<fpi::SvcUuid> &svcUuids, 
+                                      fds_uint64_t const dlt_version)
+{
+    auto reqId = getNextAsyncReqId_();
+
+    FailoverSvcRequestPtr req(new FailoverSvcRequest(MODULEPROVIDER(), reqId, selfUuid_, dlt_version, svcUuids));
+    asyncSvcRequestInitCommon_(req);
+
+    return req;
+}
+
 QuorumSvcRequestPtr SvcRequestPool::newQuorumSvcRequest(const EpIdProviderPtr epProvider, fds_uint64_t const dlt_ver)
 {
     auto reqId = getNextAsyncReqId_();

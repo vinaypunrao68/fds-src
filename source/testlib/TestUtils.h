@@ -47,6 +47,8 @@ struct Waiter : concurrency::TaskStatus {
     Error error;
 };
 
+/* Finds fds src path relative to current path.  False is return is not found */
+bool findFdsSrcPath(std::string &fdsSrcPath);
 
 /* DEPRECATED.  DON'T USE */
 inline fpi::SvcUuid getAnyNonResidentSmSvcuuid(Platform* platform,

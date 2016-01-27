@@ -141,18 +141,6 @@ Error DmPersistVolDB::activate() {
         return ERR_DM_VOL_NOT_ACTIVATED;
     }
 
-    /* Update version */
-    if (!snapshot_) {
-        /* Read, increment, and persist new version */
-        int32_t version = getVersion();
-        if (version == VolumeGroupConstants::VERSION_INVALID) {
-            version = VolumeGroupConstants::VERSION_START;
-        } else {
-            version++;
-        }
-        setVersion(version);
-    }
-
     activated_ = true;
     return ERR_OK;
 }
@@ -780,6 +768,24 @@ void DmPersistVolDB::getObjectIds(const uint32_t &maxObjs,
             objects.push_back(ObjectID(dbItr->value().ToString()));
         }
     }
+}
+
+int32_t DmPersistVolDB::updateVersion()
+{
+    fds_verify(!snapshot_);
+    /* Read, increment, and persist new version */
+    int32_t version = getVersion();
+    if (version == VolumeGroupConstants::VERSION_INVALID) {
+        version = VolumeGroupConstants::VERSION_START;
+    } else {
+        version++;
+        if (version < VolumeGroupConstants::VERSION_INVALID) {
+            version = VolumeGroupConstants::VERSION_START;
+        }
+    }
+    setVersion(version);
+
+    return version;
 }
 
 int32_t DmPersistVolDB::getVersion()
