@@ -86,32 +86,6 @@ VolumeGroupHandle::~VolumeGroupHandle()
     }
 }
 
-#if 0
-VolumeGroupHandle::init(CommonModuleProviderIf* provider,
-                        const fpi::VolumeGroupInfo &groupInfo,
-                        int32_t quorumCnt)
-: HasModuleProvider(provider)
-{
-    taskExecutor_ = MODULEPROVIDER()->getSvcMgr()->getTaskExecutor();
-    requestMgr_ = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
-    quorumCnt_ = quorumCnt;
-    state_ = fpi::ResourceState::Unknown;
-    setGroupInfo_(groupInfo);
-    // TODO(Rao): Go through protocol figure out the states of the replicas
-    // For now set every handle as functional and start their op/commit ids
-    // from beginning
-    for (auto &r : functionalReplicas_) {
-        r.setInfo(VolumeGroupConstants::VERSION_START,
-                  fpi::ResourceState::Active,
-                  VolumeGroupConstants::OPSTARTID,
-                  VolumeGroupConstants::COMMITSTARTID);
-    }
-    // TODO(Rao): Set this to be the latest ids after querying the replicas
-    opSeqNo_ = VolumeGroupConstants::OPSTARTID;
-    commitNo_ = VolumeGroupConstants::COMMITSTARTID;
-}
-#endif
-
 void VolumeGroupHandle::setListener(VolumeGroupHandleListener *listener)
 {
     listener_ = listener;
@@ -781,15 +755,15 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
         /* Check if the group needs to become offline */
         if (state_ == fpi::ResourceState::Active &&
             functionalReplicas_.size() < quorumCnt_) {
-            if (functionalReplicas_.size() == 0) {
-                /* When we have zero functional replicas we reset opSeqNo_ */
-                opSeqNo_ = VolumeGroupConstants::OPSTARTID;
-                LOGNORMAL << logString()
-                    << " - # functional replicas is zero.  Resetting opid";
-            }
             changeState_(fpi::ResourceState::Offline,
                          false,  /* Don't clear replica lists */
                          " not enough active replicas");
+        } 
+        if (state_ == fpi::ResourceState::Offline && functionalReplicas_.size() == 0) {
+            /* When we have zero functional replicas we reset opSeqNo_ */
+            opSeqNo_ = VolumeGroupConstants::OPSTARTID;
+            LOGNORMAL << logString()
+                << " - # functional replicas is zero.  Resetting opid";
         }
     }
 
@@ -846,20 +820,6 @@ VolumeGroupHandle::getVolumeReplicaHandle_(const fpi::SvcUuid &svcUuid)
     CHECKIN(syncingReplicas_);
     return INVALID_REAPLICA_HANDLE();
 }
-
-#if 0
-void VolumeGroupHandle::sendVolumeBroadcastRequest_(const fpi::FDSPMsgTypeId &msgTypeId,
-                                                      const StringPtr &payload,
-                                                      const VolumeResponseCb &cb)
-{
-    auto req = requestMgr_->newSvcRequest<VolumeGroupBroadcastRequest>(this);
-    req->setPayloadBuf(msgTypeId, payload);
-    req->responseCb_ = cb;
-    req->onEPAppStatusCb(&VolumeGroupHandle::handleVolumeResponse, this, );
-    req->setTaskExecutorId(groupId_);
-    req->invoke();
-}
-#endif
 
 VolumeGroupRequest::VolumeGroupRequest(CommonModuleProviderIf* provider,
                                        const SvcRequestId &id,
