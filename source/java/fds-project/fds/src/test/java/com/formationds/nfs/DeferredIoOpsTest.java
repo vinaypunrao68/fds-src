@@ -5,12 +5,16 @@ import com.formationds.util.ByteBufferUtility;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
 public class DeferredIoOpsTest {
 
@@ -20,6 +24,50 @@ public class DeferredIoOpsTest {
     public static final int OBJECT_SIZE = 42;
     private MemoryIoOps backend;
     private IoOps deferredIo;
+
+    @Test
+    public void testVolumeDelete() throws Exception {
+        deferredIo.writeMetadata(DOMAIN, VOLUME, BLOB, new FdsMetadata(), true);
+        deferredIo.writeMetadata(DOMAIN, "wolume", BLOB, new FdsMetadata(), true);
+        deferredIo.writeObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), new FdsObject(ByteBuffer.allocate(10), OBJECT_SIZE), true);
+        assertTrue(deferredIo.readMetadata(DOMAIN, VOLUME, BLOB).isPresent());
+        deferredIo.onVolumeDeletion(DOMAIN, VOLUME);
+        assertFalse(deferredIo.readMetadata(DOMAIN, VOLUME, BLOB).isPresent());
+        assertTrue(deferredIo.readMetadata(DOMAIN, "wolume", BLOB).isPresent());
+
+        deferredIo.writeMetadata(DOMAIN, VOLUME, BLOB, new FdsMetadata(), true);
+        assertEquals(0, deferredIo.readCompleteObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), OBJECT_SIZE).limit());
+    }
+
+    @Test
+    public void testConcurrentBehavior() throws Exception {
+        deferredIo.writeMetadata(DOMAIN, VOLUME, BLOB, new FdsMetadata(), true);
+        ExecutorService executor = Executors.newFixedThreadPool(256);
+        Map<String, String> map = new HashMap<>();
+        map.put("hello", "panda");
+        deferredIo.writeMetadata(DOMAIN, VOLUME, BLOB, new FdsMetadata(map), true);
+
+        for (int i = 0; i < 1000; i++) {
+            executor.submit(() -> {
+                try {
+                    deferredIo.readMetadata(DOMAIN, VOLUME, BLOB).get().lock(m -> {
+                        assertEquals("panda", m.mutableMap().get("hello"));
+                        m.mutableMap().clear();
+                        m.mutableMap().put("hello", "world");
+                        assertEquals("world", m.mutableMap().get("hello"));
+                        m.mutableMap().put("hello", "panda");
+                        deferredIo.writeMetadata(DOMAIN, VOLUME, BLOB, m.fdsMetadata(), true);
+                        return null;
+                    });
+                } catch (IOException e) {
+                    fail("Got an exception " + e.getMessage());
+                }
+            });
+        }
+
+        executor.shutdown();
+        executor.awaitTermination(1, TimeUnit.MINUTES);
+    }
 
     @Test
     public void testImmediateObjectWrites() throws Exception {

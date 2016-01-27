@@ -1,5 +1,6 @@
 package com.formationds.nfs;
 
+import com.formationds.util.ConsumerWithException;
 import com.google.common.collect.Lists;
 
 import java.util.Collection;
@@ -45,5 +46,10 @@ public class StubExportResolver implements ExportResolver {
     @Override
     public int objectSize(String volume) {
         return objectSize;
+    }
+
+    @Override
+    public void addVolumeDeleteEventHandler(ConsumerWithException<String> consumer) {
+
     }
 }

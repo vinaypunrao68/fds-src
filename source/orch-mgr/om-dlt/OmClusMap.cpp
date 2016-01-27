@@ -331,6 +331,8 @@ ClusterMap::getDmResyncServices() const {
 NodeUuidSet
 ClusterMap::getNonfailedServices(fpi::FDSP_MgrIdType svc_type) const {
     NodeUuidSet retSet;
+    bool fIgnoreFailedSvcs = MODULEPROVIDER()->get_fds_config()->get<bool>
+                             ("fds.feature_toggle.om.ignore_failed_svcs", true);
     switch (svc_type) {
         case fpi::FDSP_STOR_MGR:
             {
@@ -339,6 +341,10 @@ ClusterMap::getNonfailedServices(fpi::FDSP_MgrIdType svc_type) const {
                      ++it) {
                     if (( ((*it).second)->node_state() == fpi::FDS_Node_Up ) ||
                         ( ((*it).second)->node_state() == fpi::FDS_Node_Discovered )) {
+                        retSet.insert(((*it).second)->get_uuid());
+
+                    } else if (fIgnoreFailedSvcs) {
+                        LOGNOTIFY << "Ignoring failed SM svc:" << (*it).second->get_uuid();
                         retSet.insert(((*it).second)->get_uuid());
                     }
                 }
@@ -351,6 +357,10 @@ ClusterMap::getNonfailedServices(fpi::FDSP_MgrIdType svc_type) const {
                      ++it) {
                     if (( ((*it).second)->node_state() == fpi::FDS_Node_Up ) ||
                         ( ((*it).second)->node_state() == fpi::FDS_Node_Discovered )) {
+                        retSet.insert(((*it).second)->get_uuid());
+
+                    } else if (fIgnoreFailedSvcs) {
+                        LOGNOTIFY << "Ignoring failed DM svc:" << (*it).second->get_uuid();
                         retSet.insert(((*it).second)->get_uuid());
                     }
                 }
