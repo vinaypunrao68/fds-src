@@ -2,43 +2,26 @@ package com.formationds.nfs;
 
 import com.formationds.apis.ObjectOffset;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
 import java.util.Arrays;
 
-public class ObjectKey implements SortableKey<ObjectKey> {
-    final String domain;
-    final String volume;
-    final String blobName;
-    final long objectOffset;
-
-    private byte[] bytes;
+public class ObjectKey extends SortableKey<ObjectKey> {
+    String domain;
+    String volume;
+    String blobName;
+    long objectOffset;
 
     public ObjectKey(String domain, String volume, String blobName, ObjectOffset objectOffset) {
+        super(domain, volume, blobName, Long.toString(objectOffset.getValue()));
         this.domain = domain;
         this.volume = volume;
         this.blobName = blobName;
         this.objectOffset = objectOffset.getValue();
-
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        DataOutputStream daos = new DataOutputStream(baos);
-        try {
-            daos.write(domain.getBytes());
-            daos.write(volume.getBytes());
-            daos.write(blobName.getBytes());
-            if (objectOffset.getValue() != 0) {
-                daos.writeLong(objectOffset.getValue());
-            }
-            daos.flush();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        this.bytes = baos.toByteArray();
     }
 
-    public byte[] bytes() {
-        return bytes;
+    public ObjectKey(String domain, String volume) {
+        super(domain, volume);
+        this.blobName = "";
+        this.objectOffset = 0;
     }
 
     @Override

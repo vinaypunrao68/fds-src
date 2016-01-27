@@ -1,37 +1,22 @@
 package com.formationds.nfs;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
 import java.util.Arrays;
 
-public class MetaKey implements SortableKey<MetaKey> {
-    final String domain;
-    final String volume;
-    final String blobName;
-    final byte[] bytes;
+public class MetaKey extends SortableKey<MetaKey> {
+    String domain;
+    String volume;
+    String blobName;
 
     public MetaKey(String domain, String volume, String blobName) {
+        super(domain, volume, blobName);
         this.domain = domain;
         this.volume = volume;
         this.blobName = blobName;
-
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        DataOutputStream daos = new DataOutputStream(baos);
-        try {
-            daos.write(domain.getBytes());
-            daos.write(volume.getBytes());
-            daos.write(blobName.getBytes());
-            daos.flush();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        this.bytes = baos.toByteArray();
     }
 
-    @Override
-    public byte[] bytes() {
-        return bytes;
+    public MetaKey(String domain, String volume) {
+        super(domain, volume);
+        this.blobName = "";
     }
 
     @Override

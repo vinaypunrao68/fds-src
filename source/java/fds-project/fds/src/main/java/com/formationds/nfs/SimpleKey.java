@@ -2,18 +2,10 @@ package com.formationds.nfs;
 
 import java.util.Arrays;
 
-public class SimpleKey implements SortableKey<SimpleKey> {
-    private byte[] bytes;
-
+public class SimpleKey extends SortableKey<SimpleKey> {
     public SimpleKey(String s) {
-        bytes = s.getBytes();
+        super(s);
     }
-
-    @Override
-    public byte[] bytes() {
-        return bytes;
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
