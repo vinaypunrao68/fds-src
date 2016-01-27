@@ -9,12 +9,15 @@ import com.formationds.commons.model.DateRange;
 import com.formationds.om.repository.query.QueryCriteria;
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.Database;
+import org.influxdb.dto.Serie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -75,13 +78,29 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
     }
 
 
+    /**
+     *
+     * @return the context filter threshold
+     */
     public int getVolumeContextFilterThreshold() {
 		return volumeContextFilterThreshold;
 	}
 
+    /**
+     *
+     * @param volumeContextFilterThreshold
+     */
 	public void setVolumeContextFilterThreshold(int volumeContextFilterThreshold) {
 		this.volumeContextFilterThreshold = volumeContextFilterThreshold;
 	}
+
+    /**
+     *
+     * @return the optional context id column name for filtering by context
+     */
+    public Optional<String> getContextIdColumnName() {
+        return Optional.empty();
+    }
 
 	/**
      * Open the influx database
@@ -151,14 +170,17 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
     }
 
     /**
-     * Method to create a string from the query object that matches influx format
+     * Method to create a string from the query object that matches influx format.
+     *
+     * This base implementation includes any contexts to filter in the where clause, unless
+     * the context filter threshold is reached in which case post-processing is done to
+     * filter the results.
      *
      * @param queryCriteria the query criteria
-     * @param volIdColumnName the name for the volume id column, required if the query criteria has volume contexts.
      *
      * @return a query string for influx event series based on the criteria
      */
-    protected String formulateQueryString( QueryCriteria queryCriteria, String volIdColumnName ) {
+    protected String formulateQueryString( QueryCriteria queryCriteria ) {
 
         StringBuilder sb = new StringBuilder();
 
@@ -203,8 +225,9 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
             }
         }
 
+        Optional<String> volIdColumnName = getContextIdColumnName();
         List<Volume> volumeContexts = queryCriteria.getContexts();
-        if ( volumeContexts != null && volumeContexts.size() > 0 ) {
+        if ( volumeContexts != null && volumeContexts.size() > 0 && volIdColumnName.isPresent() ) {
 
         	// if number of context filter predicates exceeds the threshold
         	// just select all and filter the results.
@@ -222,7 +245,7 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
 
 	                Volume volume = contextIt.next();
 
-	                sb.append( volIdColumnName ).append( " = " ).append( volume.getId() );
+	                sb.append( volIdColumnName.get() ).append( " = " ).append( volume.getId() );
 
 	                if ( contextIt.hasNext() ) {
 	                    sb.append( OR );
@@ -285,7 +308,7 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
     		InfluxDB idb;
 			idb = cs.getNow(null);
 			if (idb == null) {
-				throw new IllegalStateException("Expected InfluxDB connection to be available.");					
+				throw new IllegalStateException("Expected InfluxDB connection to be available.");
 			}
     		return CompletableFuture.supplyAsync( () -> r.apply(idb) );
     	}
@@ -342,6 +365,18 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
         // database does not already exist so create it
         admin.createDatabase( database.getDatabaseConfiguration() );
         return true;
+    }
+
+    /**
+     *
+     * @return the list of series currently defined in the database.
+     */
+    public List<String> listSeries()
+    {
+        List<Serie> series = getConnection().getDBReader().query( "list series", TimeUnit.SECONDS );
+        List<String> snames = new ArrayList<>();
+        series.stream().forEach( (s) -> snames.add( s.getName() ) );
+        return snames;
     }
 
     /**

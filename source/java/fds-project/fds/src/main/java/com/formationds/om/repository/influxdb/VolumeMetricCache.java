@@ -72,6 +72,7 @@ public class VolumeMetricCache {
     public VolumeMetricCache( InfluxMetricRepository repository ) {
         metricRepository = repository;
         volumeMetricLoader = ( volumeId ) -> {
+            logger.trace( "CACHE_MISS - Loading volume {}", volumeId );
             List<IVolumeDatapoint> vdps = metricRepository.loadMostRecentVolumeStats( volumeId );
             return toEnumMap( vdps );
         };

@@ -37,7 +37,16 @@ public enum FdsFeatureToggles implements Feature {
     INFLUX_CHUNKED_QUERY_RESPONSE( "fds.feature_toggle.om.enable_influxdb_chunked_query_response" ),
 
     @Label( "Enable web logging request wrapper")
-    WEB_LOGGING_REQUEST_WRAPPER( "fds.feature_toggle.common.enable_web_logging_request_wrapper" );
+    WEB_LOGGING_REQUEST_WRAPPER( "fds.feature_toggle.common.enable_web_logging_request_wrapper" ),
+
+    @Label( "Original influxdb implementation that uses a single series containing all volume metrics.")
+    INFLUX_ONE_SERIES( "fds.feature_toggle.om.enable_influxdb_one_series" ),
+
+    @Label( "Experimental influxdb implementation that uses a series per volume" )
+    INFLUX_SERIES_PER_VOLUME( "fds.feature_toggle.om.enable_influxdb_series_per_volume" ),
+
+    @Label( "If enabled, use query results from experimental series per volume influxdb schema." )
+    INFLUX_QUERY_SERIES_PER_VOLUME( "fds.feature_toggle.om.enable_influxdb_query_series_per_volume" );
 
     /**
      * @return Returns {@code true} if the feature associated with {@code this}

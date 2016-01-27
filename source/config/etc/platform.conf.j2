@@ -61,6 +61,18 @@ fds: {
            fs_2660_metric_firebreak_event_query = {{ ft_fs_2660_metric_firebreak_event_query }}
            enable_influxdb_write_batch = {{ ft_enable_influxdb_write_batch }}
            enable_influxdb_chunked_query_response = {{ ft_enable_influxdb_chunked_query_response }}
+
+           /* If both are enabled, then metrics are written to both and queries depend on
+              the enable_influxdb_query_series_per_volume flag */
+
+           /* default original implementation using a single series containing all volume metrics */
+           enable_influxdb_one_series = {{ ft_enable_influxdb_one_series }}
+
+           /* new implementation that uses a series per volume */
+           enable_influxdb_series_per_volume = {{ ft_enable_influxdb_series_per_volume }}
+
+           /** if enabled, query from new series per volume implementation */
+           enable_influxdb_query_series_per_volume = {{ ft_enable_influxdb_query_series_per_volume }}
         }
     }
 
