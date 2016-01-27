@@ -157,10 +157,6 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
     dltMgr_.reset(new DLTManager());
     dmtMgr_.reset(new DMTManager());
 
-    if (MODULEPROVIDER()->get_cntrs_mgr() != NULL) {
-        stateProviderId = "svcmgr";
-        MODULEPROVIDER()->get_cntrs_mgr()->add_for_export(this);
-    }
 }
 
 fpi::FDSP_MgrIdType SvcMgr::mapToSvcType(const std::string &svcName)
@@ -241,7 +237,6 @@ fpi::SvcUuid SvcMgr::mapToSvcUuid(const NodeUuid &in,
 
 SvcMgr::~SvcMgr()
 {
-    MODULEPROVIDER()->get_cntrs_mgr()->remove_from_export(this);
     svcServer_->stop();
     delete taskExecutor_;
     delete svcRequestMgr_;
@@ -259,6 +254,11 @@ int SvcMgr::mod_init(SysParams const *const p)
 
 void SvcMgr::mod_startup()
 {
+    if (MODULEPROVIDER()->get_cntrs_mgr() != NULL) {
+        stateProviderId = "svcmgr";
+        MODULEPROVIDER()->get_cntrs_mgr()->add_for_export(this);
+    }
+    
     GLOGNOTIFY;
 }
 
@@ -269,6 +269,7 @@ void SvcMgr::mod_enable_service()
 
 void SvcMgr::mod_shutdown()
 {
+    MODULEPROVIDER()->get_cntrs_mgr()->remove_from_export(this);
     GLOGNOTIFY;
 }
 
