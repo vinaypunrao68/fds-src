@@ -55,14 +55,12 @@ public class MutateVolume implements RequestHandler{
         // change the QOS
         (new CreateVolume( getAuthorizer(), getToken() )).setQosForVolume( volume );
 
-//        MutateSnapshotPolicy mutateEndpoint = new MutateSnapshotPolicy();
         CreateSnapshotPolicy cspEndpoint = new CreateSnapshotPolicy( getAuthorizer(), getToken() );
 
         // modify the snapshot policies
         volume.getDataProtectionPolicy().getSnapshotPolicies().stream().forEach( (snapshotPolicy) -> {
             try {
             	cspEndpoint.createSnapshotPolicy( volumeId, snapshotPolicy );
-//                mutateEndpoint.mutatePolicy( snapshotPolicy );
             } catch (Exception e) {
                 logger.warn( "Could not edit snapshot policy: " + snapshotPolicy.getName(), e  );
             }
