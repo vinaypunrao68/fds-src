@@ -1556,6 +1556,15 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
             return err;
         }
 
+        // Load Volume Grouping
+        unsigned activeGroups;
+        configDB->getVolumeGroupingActive(activeGroups);
+        volumeGroupDMTFired = activeGroups > 0 ? true : false;
+        // This msg is for system test
+        if (volumeGroupDMTFired) {
+            LOGDEBUG << "Volume Grouping mode enabled from configDB";
+        }
+
         // Load DMT
         err = vp->loadDmtsFromConfigDB(dm_services, deployed_dm_services);
         if (!err.ok()) {
@@ -3324,6 +3333,11 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
             // in case there are no volume acknowledge to wait
             dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
             volumeGroupDMTFired = true;
+            {
+                fds_mutex::scoped_lock l(dbLock);
+                LOGDEBUG << "Persisting VG mode in configDB";
+                configDB->setVolumeGroupingActive(1); // We only support 1 group for now
+            }
             dmtMod->clearWaitingDMs();
         } else {
             LOGDEBUG << "Volumegroup fired ? " << volumeGroupDMTFired

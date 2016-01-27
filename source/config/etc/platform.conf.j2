@@ -29,7 +29,7 @@ fds: {
             volume_open_support = {{ ft_common_enable_volume_open_support }}
 
     	    /* Volume grouping allows IO to volumes to driven by a coordinator at AM */
-    	    enable_volumegrouping = false
+    	    enable_volumegrouping = {{ ft_enable_volumegroup }}
 
     	    /* applies to OM and XDI web toolkit */
             enable_web_logging_request_wrapper = {{ ft_enable_web_logging_request_wrapper }}
