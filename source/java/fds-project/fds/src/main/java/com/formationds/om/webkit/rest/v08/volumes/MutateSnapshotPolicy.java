@@ -17,8 +17,6 @@ import com.formationds.client.v08.model.SnapshotPolicy;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.protocol.ApiException;
-import com.formationds.security.AuthenticationToken;
-import com.formationds.security.Authorizer;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -29,16 +27,10 @@ public class MutateSnapshotPolicy implements RequestHandler{
     private static final Logger logger = LoggerFactory.getLogger( MutateSnapshotPolicy.class );
     private static final String VOLUME_ARG = "volume_id";
     private static final String POLICY_ARG = "policy_id";
-    
-    private Authorizer authorizer;
-    private AuthenticationToken token;
 
     private ConfigurationApi configApi;
 
-    public MutateSnapshotPolicy( Authorizer authorizer, AuthenticationToken token ){
-        this.authorizer = authorizer;
-        this.token = token;
-    }
+    public MutateSnapshotPolicy(){}
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters)
@@ -77,8 +69,6 @@ public class MutateSnapshotPolicy implements RequestHandler{
         logger.trace( ObjectModelHelper.toJSON( policy ) );
 
         com.formationds.apis.SnapshotPolicy internalPolicy = ExternalModelConverter.convertToInternalSnapshotPolicy( policy );
-        
-        CreateSnapshotPolicy cspEndpoijt = new CreateSnapshotPolicy( getAuthorizer(), getToken() );
         getConfigApi().createSnapshotPolicy( internalPolicy );
     }
 
@@ -89,14 +79,6 @@ public class MutateSnapshotPolicy implements RequestHandler{
         }
 
         return configApi;
-    }
-    
-    private Authorizer getAuthorizer(){
-        return this.authorizer;
-    }
-
-    private AuthenticationToken getToken(){
-        return this.token;
     }
 
 }
