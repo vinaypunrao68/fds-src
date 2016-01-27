@@ -35,7 +35,6 @@ DataPlacement::DataPlacement()
           numOfFailures(0),
           sendMigAbortAfterRestart(false)
 {
-    curClusterMap = &gl_OMClusMapMod;
     numOfPrimarySMs = 0;
 }
 
