@@ -1502,10 +1502,15 @@ OM_PmAgent::send_start_service
                   item.svc_type ==fpi::FDSP_ACCESS_MGR))
                 continue;
 
+            /**
+             * the incoming svcInfos will contain the uuids of all the services requested to
+             * be started (sm, dm, am) aside from the pm uuids. The retrieveSvcId
+             * is a faster way to get to the service uuids, as opposed to iterating
+             * through the svcInfos, checking the type, and extracting the svc id.
+             */
             fds::retrieveSvcId(svc_uuid.svc_uuid, svcuuid, item.svc_type);
 
-            for (auto existingItem : existingSvcs)
-            {
+            for (auto existingItem : existingSvcs) {
                 // We *must* be able to find the associated svc in the svcMap
                 // If we are coming after a stop, we never removed the service
                 // from the map. If this is start of a new service, we must
@@ -1513,16 +1518,20 @@ OM_PmAgent::send_start_service
                 // service but with the right id into the map
                 if (svcuuid.svc_uuid == existingItem.svc_id.svc_uuid.svc_uuid) {
                     foundSvc = true;
+
+                    // Only if this is already in the map do we change state. Otherwise
+                    // it can lead to some weird behavior
+                    LOGDEBUG << "Starting svc:" << std::hex << svcuuid.svc_uuid << std::dec;
+                    // TODO: hack to get a svcInfo together. Should be svcinfo from the start
+                    // existingItem should already have the right incarnation number and UUID
+                    auto svcPtr = boost::make_shared<fpi::SvcInfo>(existingItem);
+                    // svcPtr->svc_id.svc_uuid.svc_uuid = svcuuid.svc_uuid;
+                    configDB->changeStateSvcMap(svcPtr, fpi::SVC_STATUS_STARTED);
                     break;
                 }
             }
 
-            if (foundSvc) {
-                // Only if this is already in the map do we change state. Otherwise
-                // it can lead to some weird behavior
-                LOGDEBUG << "Starting svc:" << std::hex << svcuuid.svc_uuid << std::dec;
-                configDB->changeStateSvcMap(svcuuid.svc_uuid, fpi::SVC_STATUS_STARTED);
-            } else {
+            if (!foundSvc) {
                 LOGERROR <<"StartError: could not retrieve valid svcId";
                 return ERR_NOT_FOUND;
             }
@@ -1959,6 +1968,28 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
     domain->local_domain_event(DeactAckEvt(error));
 }
 
+#define POPULATE_AND_REMOVE_SERVICE_STATE(serviceTypeId) \
+    bool found = false; \
+    fpi::SvcInfoPtr svcPtr; \
+    for (std::vector<fpi::SvcInfo>::const_iterator iter = svcInfos.begin(); \
+            iter != svcInfos.end(); ++iter) { \
+        if (iter->svc_id.svc_uuid.svc_uuid == serviceTypeId.svc_uuid) { \
+            svcPtr = boost::make_shared<fpi::SvcInfo>(*iter); \
+            found = true; \
+            break; \
+        } \
+    } \
+    if (!found) { \
+        LOGDEBUG << "Unable to find service in list. Making a fake svcPtr. Fix this?"; \
+        svcPtr = boost::make_shared<fpi::SvcInfo>(); \
+        svcPtr->svc_id.svc_uuid.svc_uuid = serviceTypeId.svc_uuid; \
+    } \
+    DltDmtUtil::getInstance()->addToRemoveList(smId.svc_uuid); \
+    change_service_state( configDB, \
+                          svcPtr, \
+                          fpi::SVC_STATUS_REMOVED, \
+                          true );
+
 /**
  * Name: send_remove_service
  * For provided list of services, send request to platform to remove
@@ -2024,28 +2055,13 @@ OM_PmAgent::send_remove_service
     {
         fds_mutex::scoped_lock l(dbNodeInfoLock);
         if (remove_sm) {
-
-            DltDmtUtil::getInstance()->addToRemoveList(smId.svc_uuid);
-
-            change_service_state( configDB,
-                                  smId.svc_uuid,
-                                  fpi::SVC_STATUS_REMOVED,
-                                  true);
+            POPULATE_AND_REMOVE_SERVICE_STATE(smId);
         }
         if (remove_dm) {
-
-            DltDmtUtil::getInstance()->addToRemoveList(dmId.svc_uuid);
-
-            change_service_state( configDB,
-                                  dmId.svc_uuid,
-                                  fpi::SVC_STATUS_REMOVED,
-                                  true );
+            POPULATE_AND_REMOVE_SERVICE_STATE(dmId);
         }
         if (remove_am) {
-            change_service_state( configDB,
-                                  amId.svc_uuid,
-                                  fpi::SVC_STATUS_REMOVED,
-                                  true );
+            POPULATE_AND_REMOVE_SERVICE_STATE(amId);
         }
     }
 
