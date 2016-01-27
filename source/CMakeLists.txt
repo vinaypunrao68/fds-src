@@ -220,6 +220,7 @@ set(SOURCE_FILES
     ./data-mgr/include/DmMigrationMgr.h
     ./data-mgr/include/DmMigrationSrc.h
     ./data-mgr/include/DMSvcHandler.h
+    ./data-mgr/include/requestmanager.h
     ./data-mgr/include/StatStreamAggregator.h
     ./data-mgr/include/VcQueryIface.h
     ./data-mgr/include/VolumeInitializer.h
