@@ -1335,7 +1335,7 @@ OM_NodeDomainMod::OM_NodeDomainMod(char const *const name)
           fsm_lock("OM_NodeDomainMod fsm lock"),
           configDB(nullptr),
           domainDown(false),
-          volumeGroupDMTFired(false),
+          activeVolumeGroups(0),
           dbLock("ConfigDB access lock")
 {
     om_locDomain = new OM_NodeContainer();
@@ -1973,6 +1973,9 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                 gl_orch_mgr->removeFromSentQ(item);
             }
         }
+
+
+
         /* Convert new registration request to existing registration request */
         fpi::FDSP_RegisterNodeTypePtr reg_node_req;
         reg_node_req.reset( new FdspNodeReg() );
