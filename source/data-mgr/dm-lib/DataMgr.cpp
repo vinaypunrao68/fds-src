@@ -147,12 +147,8 @@ void DataMgr::handleDmFunctor(DmRequest *io)
 //
 void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
     LOGTRACE << "Sampling DM stats";
-    Error err(ERR_OK);
     std::unordered_set<fds_volid_t> prim_vols;
     std::unordered_set<fds_volid_t>::const_iterator cit;
-    fds_uint64_t total_bytes = 0;
-    fds_uint64_t total_blobs = 0;
-    fds_uint64_t total_objects = 0;
 
     // find all volumes for which this DM is primary (we only need
     // to collect capacity stats from DMs that are primary).
@@ -168,36 +164,9 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
     }
     vol_map_mtx->unlock();
 
-    // collect capacity stats for volumes for which this DM is primary
+    // collect usage stats for volumes for which this DM is primary
     for (cit = prim_vols.cbegin(); cit != prim_vols.cend(); ++cit) {
-        err = timeVolCat_->queryIface()->statVolume(*cit,
-                                                    &total_bytes,
-                                                    &total_blobs,
-                                                    &total_objects);
-        if (!err.ok()) {
-            LOGERROR << "Failed to get volume meta for vol " << std::hex
-                     << *cit << std::dec << " " << err;
-            continue;  // try other volumes
-        }
-        LOGTRACE << "volume " << *cit
-                 << " bytes " << total_bytes << " blobs "
-                 << total_blobs << " objects " << total_objects;
-        StatsCollector::singleton()->recordEvent(*cit,
-                                                 timestamp,
-                                                 STAT_DM_CUR_TOTAL_BYTES,
-                                                 total_bytes);
-        StatsCollector::singleton()->recordEvent(*cit,
-                                                 timestamp,
-                                                 STAT_DM_CUR_TOTAL_BLOBS,
-                                                 total_blobs);
-        StatsCollector::singleton()->recordEvent(*cit,
-                                                 timestamp,
-                                                 STAT_DM_CUR_TOTAL_OBJECTS,
-                                                 total_objects);
-
-        total_bytes = 0;
-        total_blobs = 0;
-        total_objects = 0;
+        sampleDMStatsForVol(*cit, timestamp);
     }
 
     /*
@@ -254,6 +223,62 @@ void DataMgr::sampleDMStats(fds_uint64_t timestamp) {
     }
     sampleCounter++;
 
+}
+
+void DataMgr::sampleDMStatsForVol(fds_volid_t volume_id,
+                                  fds_uint64_t timestamp) {
+    Error err(ERR_OK);
+
+    fds_uint64_t total_lbytes = 0;
+    fds_uint64_t total_pbytes = 0;
+    fds_uint64_t total_blobs = 0;
+    fds_uint64_t total_lobjects = 0;
+    fds_uint64_t total_pobjects = 0;
+
+    if (timestamp == 0) {
+        timestamp = util::getTimeStampNanos();
+    }
+
+    err = timeVolCat_->queryIface()->statVolumeLogical(volume_id,
+                                                       &total_lbytes,
+                                                       &total_blobs,
+                                                       &total_lobjects);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get logical usage for vol " << volume_id << " " << err;
+        return;
+    }
+
+    err = timeVolCat_->queryIface()->statVolumePhysical(volume_id,
+                                                        &total_pbytes,
+                                                        &total_pobjects);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get physical usage for vol " << volume_id << " " << err;
+        return;
+    }
+
+    LOGDEBUG << "volume " << volume_id
+             << " lbytes " << total_lbytes << " pbytes " << total_pbytes << " blobs "
+             << total_blobs << " lobjects " << total_lobjects << " pobjects " << total_pobjects;
+    StatsCollector::singleton()->recordEvent(volume_id,
+                                             timestamp,
+                                             STAT_DM_CUR_LBYTES,
+                                             total_lbytes);
+    StatsCollector::singleton()->recordEvent(volume_id,
+                                             timestamp,
+                                             STAT_DM_CUR_PBYTES,
+                                             total_pbytes);
+    StatsCollector::singleton()->recordEvent(volume_id,
+                                             timestamp,
+                                             STAT_DM_CUR_BLOBS,
+                                             total_blobs);
+    StatsCollector::singleton()->recordEvent(volume_id,
+                                             timestamp,
+                                             STAT_DM_CUR_LOBJECTS,
+                                             total_lobjects);
+    StatsCollector::singleton()->recordEvent(volume_id,
+                                             timestamp,
+                                             STAT_DM_CUR_POBJECTS,
+                                             total_pobjects);
 }
 
 void DataMgr::handleLocalStatStream(fds_uint64_t start_timestamp,
@@ -584,10 +609,10 @@ Error DataMgr::addVolume(const std::string& vol_name,
 
     if (!vdesc->isSnapshot()) {
         fds_uint64_t total_bytes = 0, total_blobs = 0, total_objects = 0;
-        err = timeVolCat_->queryIface()->statVolume(vdesc->volUUID,
-                                                    &total_bytes,
-                                                    &total_blobs,
-                                                    &total_objects);
+        err = timeVolCat_->queryIface()->statVolumeLogical(vdesc->volUUID,
+                                                           &total_bytes,
+                                                           &total_blobs,
+                                                           &total_objects);
         LOGNORMAL << "vol:" << vdesc->volUUID << " name:" << vdesc->name
                   << " loaded with [blobs:" << total_blobs
                   << " objects:" << total_objects
@@ -968,6 +993,18 @@ int DataMgr::mod_init(SysParams const *const param)
 
     features.setVolumegroupingEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
         "fds.feature_toggle.common.enable_volumegrouping", false));
+
+    /**
+     * FEATURE TOGGLE: Sample DM stats for a volume with each Volume update. If not enabled,
+     * DM stats are sampled at regular intervals according to schedule and the values presented
+     * to a stats consumer may appear as if they do not match recent WRITEs against the volume.
+     * The scheduled sampling will always be a minute or two behind. If enabled, the sampling
+     * will be realtime (in addition to the scheduled sampling), taking place as soon as the
+     * WRITE against the volume is committed. While the these numbers will look better, there
+     * may be an intollerable impact on performance.
+     */
+    features.setRealTimeStatSamplingEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
+            "fds.dm.realtime_stats_sampling", false));
 
     vol_map_mtx = new fds_mutex("Volume map mutex");
 

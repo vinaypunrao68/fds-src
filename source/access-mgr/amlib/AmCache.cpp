@@ -6,6 +6,7 @@
 #include <climits>
 #include <fds_process.h>
 #include <PerfTrace.h>
+#include <lib/StatsCollector.h>
 #include "AmDispatcher.h"
 #include "AmTxDescriptor.h"
 #include "requests/AttachVolumeReq.h"
@@ -139,6 +140,22 @@ AmCache::getObjects(GetBlobReq* blobReq) {
 
         ++hit_cnt;
         PerfTracer::incr(PerfEventType::AM_OBJECT_CACHE_HIT, blobReq->io_vol_id);
+
+        auto io_done_ts = util::getTimeStampNanos();
+        fds_uint64_t total_nano = io_done_ts - blobReq->enqueue_ts;
+
+        auto io_total_time = static_cast<double>(total_nano) / 1000.0;
+
+        StatsCollector::singleton()->recordEvent(blobReq->io_vol_id,
+                                                 io_done_ts,
+                                                 STAT_AM_GET_OBJ,
+                                                 io_total_time);
+
+        StatsCollector::singleton()->recordEvent(blobReq->io_vol_id,
+                                                 io_done_ts,
+                                                 STAT_AM_GET_CACHED_OBJ,
+                                                 io_total_time);
+
         data_it->swap(blobObjectPtr);
     }
 
@@ -194,7 +211,7 @@ AmCache::getObjectCb(AmRequest* amReq, Error const error) {
     auto const& obj_id = *static_cast<GetObjectReq*>(amReq)->obj_id;
     std::unique_ptr<std::deque<GetObjectReq*>> queue;
     {
-        // Find the waiting get requeust queue
+        // Find the waiting get request queue
         std::lock_guard<std::mutex> g(obj_get_lock);
         auto q = obj_get_queue.find(obj_id);
         if (obj_get_queue.end() != q) {
@@ -223,6 +240,17 @@ AmCache::getObjectCb(AmRequest* amReq, Error const error) {
         if (done) {
             getBlobCb(objReq->blobReq, err);
         }
+
+        auto io_done_ts = util::getTimeStampNanos();
+        fds_uint64_t total_nano = io_done_ts - static_cast<GetObjectReq*>(amReq)->blobReq->enqueue_ts;
+
+        auto io_total_time = static_cast<double>(total_nano) / 1000.0;
+
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 io_done_ts,
+                                                 STAT_AM_GET_OBJ,
+                                                 io_total_time);
+
         delete objReq;
     }
 }

@@ -548,13 +548,18 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
         if (volTbl->isSnapshot(*vit)) {
             continue;
         }
-        fds_uint64_t dedup_bytes = volTbl->getDedupBytes(*vit);
+        std::pair<double, double> dedup_bytes = volTbl->getDedupBytes(*vit);
         LOGDEBUG << "Volume " << std::hex << *vit << std::dec
-                 << " deduped bytes " << dedup_bytes;
+                 << " deduped bytes " << dedup_bytes.first
+                 << " domain deduped bytes fraction " << dedup_bytes.second;
         StatsCollector::singleton()->recordEvent(*vit,
                                                  timestamp,
                                                  STAT_SM_CUR_DEDUP_BYTES,
-                                                 dedup_bytes);
+                                                 dedup_bytes.first);
+        StatsCollector::singleton()->recordEvent(*vit,
+                                                 timestamp,
+                                                 STAT_SM_CUR_DOMAIN_DEDUP_BYTES_FRAC,
+                                                 dedup_bytes.second);
     }
 
     // Piggyback on the timer that runs this to check disk capacity
