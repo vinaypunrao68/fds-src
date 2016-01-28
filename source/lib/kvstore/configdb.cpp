@@ -3116,12 +3116,11 @@ ConfigDB::ReturnType ConfigDB::getSubscription(const std::string& name, const st
     return ReturnType::CONFIGDB_EXCEPTION;
 }
 
-ConfigDB::ReturnType ConfigDB::setVolumeGroupingActive(unsigned &value) {
+ConfigDB::ReturnType ConfigDB::setVolumeGroupingActive(unsigned value) {
     ReturnType ret = ReturnType::CONFIGDB_EXCEPTION;
-    Reply reply;
     try {
         LOGDEBUG << "Saving number of volume groups in configDB to: " << value;
-        reply = kv_store.sendCommand("volume_groups", value);
+        Reply reply = kv_store.sendCommand("volume_groups", value);
         if (reply.isOk()) {
             ret = ReturnType::SUCCESS;
         }
@@ -3133,9 +3132,8 @@ ConfigDB::ReturnType ConfigDB::setVolumeGroupingActive(unsigned &value) {
 
 ConfigDB::ReturnType ConfigDB::getVolumeGroupingActive(unsigned &value) {
     ReturnType ret = ReturnType::CONFIGDB_EXCEPTION;
-    Reply reply;
     try {
-        reply = kv_store.sendCommand("exists volume_groups");
+        Reply reply = kv_store.sendCommand("exists volume_groups");
         if (reply.isOk()) {
             reply = kv_store.get("volume_groups");
             auto ret_value = reply.getLong();

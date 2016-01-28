@@ -1170,6 +1170,7 @@ class OM_NodeDomainMod : public Module
 
     fds_mutex                     dbLock;
 
+    unsigned                      activeVolumeGroups;
 
 };
 

@@ -1557,11 +1557,9 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         }
 
         // Load Volume Grouping
-        unsigned activeGroups;
-        configDB->getVolumeGroupingActive(activeGroups);
-        volumeGroupDMTFired = activeGroups > 0 ? true : false;
+        configDB->getVolumeGroupingActive(activeVolumeGroups);
         // This msg is for system test
-        if (volumeGroupDMTFired) {
+        if (activeVolumeGroups > 0) {
             LOGDEBUG << "Volume Grouping mode enabled from configDB";
         }
 
@@ -3309,7 +3307,6 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     OM_DMTMod *dmtMod = om->om_dmt_mod();
     // ClusterMap *cmMod =  om->om_clusmap_mod();
     // For volume grouping mode, we support only 1 version of DMT atm.
-    static bool volumeGroupDMTFired = false;
     uint32_t awaitingDMs = dmtMod->getWaitingDMs();
 
     if (dmPrevRegistered) {
@@ -3326,13 +3323,13 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     } else {
         auto dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
                                         get<uint32_t>("fds.common.volume_group.dm_cluster_size", 1));
-        if (!volumeGroupDMTFired && (awaitingDMs == dmClusterSize)) {
+        if ((activeVolumeGroups == 0) && (awaitingDMs == dmClusterSize)) {
             LOGNOTIFY << "Volume Group Mode has reached quorum with " << dmClusterSize
                     << " DMs. Calculating DMT now.";
             dmtMod->dmt_deploy_event(DmtDeployEvt(dmPrevRegistered));
             // in case there are no volume acknowledge to wait
             dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
-            volumeGroupDMTFired = true;
+            ++activeVolumeGroups;
             {
                 fds_mutex::scoped_lock l(dbLock);
                 LOGDEBUG << "Persisting VG mode in configDB";
@@ -3340,7 +3337,7 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
             }
             dmtMod->clearWaitingDMs();
         } else {
-            LOGDEBUG << "Volumegroup fired ? " << volumeGroupDMTFired
+            LOGDEBUG << "Volumegroup fired ? " << (activeVolumeGroups > 0)
                     << " size: " << awaitingDMs << "/" << dmClusterSize;
         }
     }
