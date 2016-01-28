@@ -1,17 +1,23 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#include <string>
+
 #include <limits>
+#include <string>
+#include <unordered_map>
 #include <vector>
-#include <fdsp/fds_stream_types.h>
-#include <fds_process.h>
-#include <net/SvcMgr.h>
-#include <util/math-util.h>
-#include <DataMgr.h>
-#include <StatStreamAggregator.h>
-#include <fdsp/Streaming.h>
+
 #include <time.h>
+
+#include <StatsConnFactory.h>
+
+#include "fdsp/fds_stream_types.h"
+#include "fdsp/Streaming.h"
+#include "net/SvcMgr.h"
+#include "util/math-util.h"
+#include "DataMgr.h"
+#include "fds_process.h"
+#include "StatStreamAggregator.h"
 
 namespace fds {
 
@@ -743,6 +749,7 @@ void StatStreamTimerTask::runTimerTask() {
     }
 
     bool logLocal = reg_->method == std::string("log-local");
+    std::unordered_map<std::string, fds_volid_t> volumeIds;
     for (auto volId : volumes) {
         std::vector<StatSlot> slots;
         std::map<fds_uint64_t, std::vector<fpi::DataPointPair> > volDataPointsMap;  // NOLINT
@@ -752,6 +759,8 @@ void StatStreamTimerTask::runTimerTask() {
             continue;
         }
         const std::string & volName = dataManager_.volumeName(volId);
+
+        volumeIds.emplace(volName, volId);
 
         /**
          * For non-logLocal registrations, we'll always stream the fine-grained stats because they
@@ -915,6 +924,26 @@ void StatStreamTimerTask::runTimerTask() {
             // XXX: hard-coded to bind to java endpoint in AM
             EpInvokeRpc(fpi::StreamingClient, publishMetaStream, info.ip, 8911,
                     reg_->id, dataPoints);
+
+            std::list<StatDataPoint> stats;
+            for (auto const& dataPoint : dataPoints)
+            {
+                for (auto const& metric : dataPoint.meta_list)
+                {
+                    stats.emplace_back(dataPoint.timestamp,
+                                       metric.key,
+                                       metric.value,
+                                       StatConstants::singleton()->FdsStatFGStreamPeriodFactorSec,
+                                       TimeUnit::SECONDS,
+                                       1,
+                                       volumeIds[dataPoint.volume_name].get(),
+                                       ContextType::VOLUME,
+                                       AggregationType::UNKNOWN);
+                }
+            }
+
+            auto conn = StatsConnFactory::newConnection("localhost", 11011, "stats-service", "$t@t$");
+            conn->publishStatistics(stats);
         }
     }
 }
