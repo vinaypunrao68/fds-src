@@ -154,16 +154,47 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
      * Method to create a string from the query object that matches influx format
      *
      * @param queryCriteria the query criteria
-     * @param volIdColumnName the name for the volume id column, required if the query criteria has volume contexts.
+     * @param volIdColumnName the name for the volume id column, required if the series has a volume id
+     * @param volNameColumnName the name of the volumne name column, requred if the series has volume name column
      *
      * @return a query string for influx event series based on the criteria
      */
-    protected String formulateQueryString( QueryCriteria queryCriteria, String volIdColumnName ) {
+    protected String formulateQueryString( QueryCriteria queryCriteria, String volIdColumnName, String volNameColumnName ) {
 
         StringBuilder sb = new StringBuilder();
 
         // * if no columns, otherwise comma-separated list of column names
-        String projection = queryCriteria.getColumnString();
+        // this used to be (well, still is) done in getColumnString().  However,
+        // we need to add metadata columns for the volume id and name to make sure
+        // we have those in our volume results.  
+        // This is also used in InfluxEventRepository, where the name is not 
+        // necessarily relevant, so it may be null.
+        StringBuilder projection = new StringBuilder();
+        List<String> cols = queryCriteria.getColumns();
+        if ( cols == null || cols.isEmpty() ) {
+            projection.append("*");
+        } else {
+            // first add required metadata columns.
+            if (volIdColumnName != null && !volIdColumnName.isEmpty()) {
+                projection.append( volIdColumnName );
+                if (volNameColumnName != null && !volNameColumnName.isEmpty())
+                    projection.append( ", " );
+            }
+            if (volNameColumnName != null && !volNameColumnName.isEmpty()) {
+                projection.append(volNameColumnName);
+            }
+
+            Iterator<String> iter = cols.iterator();
+
+            if (projection.length() > 0 && iter.hasNext()) {
+                projection.append(", " );
+            }
+            while ( iter.hasNext() ) {
+                projection.append( iter.next() );
+                if ( iter.hasNext() )
+                    projection.append( ", " );
+            }
+        }
 
         String prefix = SELECT + projection + FROM + getEntityName();
         sb.append( prefix );
@@ -285,7 +316,7 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
     		InfluxDB idb;
 			idb = cs.getNow(null);
 			if (idb == null) {
-				throw new IllegalStateException("Expected InfluxDB connection to be available.");					
+				throw new IllegalStateException("Expected InfluxDB connection to be available.");
 			}
     		return CompletableFuture.supplyAsync( () -> r.apply(idb) );
     	}

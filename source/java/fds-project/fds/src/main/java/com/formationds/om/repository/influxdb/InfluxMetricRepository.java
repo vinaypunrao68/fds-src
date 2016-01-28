@@ -201,7 +201,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         List<IVolumeDatapoint> vdps = (entities instanceof List ? (List) entities : new ArrayList<>( entities ));
 
         // timestamp, map<volname, List<vdp>>>
-        // TODO: why do we care if they are ordered?  Influx
+        // TODO: why do we care if they are ordered?  Influx should handle that
         Map<Long, Map<String, List<IVolumeDatapoint>>> orderedVDPs =
                 VolumeDatapointHelper.sortByTimestampAndVolumeId( vdps, true );
 
@@ -416,10 +416,16 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         // the first one.  Note that this may change if we query using joins over multiple series
         // (we currently only have volume_metrics).
         if ( series == null || series.getRows().size() == 0 ) {
+            logger.trace("Series results from {} query was null or empty", criteria.getQueryType());
             return datapoints;
         }
 
         List<Map<String, Object>> rowList = series.getRows();
+
+        logger.trace("Processing series '{}' with columns={} and {} rows",
+                     series.getName(), Arrays.toString( series.getColumns() ),
+                     rowList.size() );
+
 
         for ( Map<String, Object> row : rowList ) {
 
@@ -433,22 +439,29 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
                 volumeIdO = row.get( getVolumeIdColumnName().get() );
                 volumeNameO = row.get( getVolumeNameColumnName().get() );
             } catch ( NoSuchElementException nsee ) {
+                logger.warn( "Failed to locate expected metadata row: " + nsee.getMessage() );
                 continue;
             }
 
             // we expect a value for all of these fields.  If not, bail
             if ( timestampO == null || volumeIdO == null || volumeNameO == null ) {
+                logger.warn( "Failed to locate expected metadata row: ts={}; voldId={}; volName={}",
+                             timestampO, volumeIdO, volumeNameO );
                 continue;
             }
 
-            Long timestamp = ((Double) timestampO).longValue();
-            String volumeName = volumeIdO.toString();
-            String volumeId = String.valueOf(((Double)volumeIdO).longValue());
+            Long timestamp = ((Number) timestampO).longValue();
+            String volumeName = volumeNameO.toString();
+            Long volumeId = ((Number)volumeIdO).longValue();
+            String volumeIdStr = String.valueOf(volumeId);
 
             List<Volume> volumeContexts = criteria.getContexts();
             boolean postFilterVolumes = volumeContexts.size() > super.getVolumeContextFilterThreshold();
             if ( postFilterVolumes &&
-                    volumeContexts.stream().anyMatch( (v) -> v.getId().equals( ((Double)volumeIdO).longValue() ) ) ) {
+                    ! volumeContexts.stream()
+                                    .anyMatch( (v) -> v.getId().equals( volumeId ) ) ) {
+                logger.trace( "Volume id={} not found in requested context list. Skipping",
+                              volumeId );
                 continue;
             }
 
@@ -480,11 +493,15 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
                     numberValue = Double.parseDouble( value.toString() );
                 }
 
-                VolumeDatapoint point = new VolumeDatapoint( timestamp, volumeId, volumeName, key, numberValue );
+                VolumeDatapoint point = new VolumeDatapoint( timestamp, volumeIdStr, volumeName, key, numberValue );
                 datapoints.add( point );
             } );
         } // for each row
 
+        logger.trace( "Completed processing series '{}' aand {} rows.  Returning {} datapoints.",
+                      series.getName(),
+                      rowList.size(),
+                      datapoints.size() );
         return datapoints;
     }
 
@@ -492,7 +509,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     public List<IVolumeDatapoint> query( QueryCriteria queryCriteria ) {
 
         // get the query string
-        String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get() );
+        String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get(), getVolumeNameColumnName().get() );
 
         List<IVolumeDatapoint> datapoints = null;
 
@@ -618,7 +635,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         queryCriteria.setPoints(1);
 
         // get the query string
-        String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get() );
+        String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get(), getVolumeNameColumnName().get() );
 
         // execute the query -  limiting it to the most recent row for the volume is now done in
         // formulateQueryString
