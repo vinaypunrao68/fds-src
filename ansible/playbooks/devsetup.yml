@@ -203,6 +203,7 @@
         - libhiredis0.10
         - libhiredis-dev
         - libsqlite3-dev
+        - scsitools
         - swig3.0
         - sshpass
         - nbd-client

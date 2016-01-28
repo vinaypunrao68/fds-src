@@ -256,6 +256,10 @@ namespace fds
             dl_map = NULL;
 
             LOGNORMAL << "Found total " << dl_valid_labels << " labels. Wrote total " << total_disks << " disks";
+            if (total_disks == 0)
+            {
+                fds_panic("PM found no disks to use. Exiting.");
+            }
         }
         dl_mtx.unlock();
     }
