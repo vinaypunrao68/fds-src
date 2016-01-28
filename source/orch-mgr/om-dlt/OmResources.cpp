@@ -1974,13 +1974,25 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
             }
         }
 
-
-
         /* Convert new registration request to existing registration request */
         fpi::FDSP_RegisterNodeTypePtr reg_node_req;
         reg_node_req.reset( new FdspNodeReg() );
 
         fromSvcInfoToFDSP_RegisterNodeTypePtr( svcInfo, reg_node_req );
+
+        /**
+         * Before registering, check if volume group is active,
+         * and if so, do not let non-DM cluster DM register a new DM
+         * Once we support multiple volume groups, this may need to go away
+         */
+        auto vgMode = OM_Module::om_singleton()->om_dmt_mod()->volumeGrpMode();
+        if (vgMode && (activeVolumeGroups > 0) && isDataMgrSvc(*svcInfo) &&
+                !isKnownService( *svcInfo )) {
+            LOGERROR << "Volume group is active and we're trying to add a DM "
+                    << "that did is not a part of the volume group. This is not allowed.";
+            err = ERR_DM_NOT_IN_VG;
+            return err;
+        }
 
         /* Do the registration */
         NodeUuid node_uuid(static_cast<uint64_t>(reg_node_req->service_uuid.uuid));
