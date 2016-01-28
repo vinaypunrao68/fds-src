@@ -380,7 +380,7 @@ public class ExternalModelConverter {
                              snapshotName,
                              volumeId,
                              Duration.ofSeconds( retentionInSeconds ),
-                             Instant.ofEpochMilli( creation ) );
+                             Instant.ofEpochSecond( creation ) );
     }
 
     public static SnapshotPolicy convertToExternalSnapshotPolicy( com.formationds.apis.SnapshotPolicy internalPolicy ) {

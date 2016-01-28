@@ -25,8 +25,10 @@ angular.module( 'volumes' ).controller( 'cloneVolumeController', ['$scope', '$vo
         
         for ( var i = 0; i < snapshots.length; i++ ){
             
+            var ms = parseInt( snapshots[i].creationTime.seconds ) * 1000;
+            
             var range = {
-                min: new Date( snapshots[i].creation )
+                min: new Date( ms )
             };
             
             $scope.ranges.push( range );
