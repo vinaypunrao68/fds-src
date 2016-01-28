@@ -67,6 +67,12 @@ AmDataProvider::unknownTypeResume(AmRequest * amReq) {
         case fds::FDS_PUT_BLOB_ONCE:
             AmDataProvider::putBlobOnce(amReq);
             break;
+        case fds::FDS_SM_PUT_OBJECT:
+            AmDataProvider::putObject(amReq);
+            break;
+        case fds::FDS_CAT_UPD:
+            AmDataProvider::updateCatalog(amReq);
+            break;
         default:
             fds_panic("Unknown request type!");
             break;
@@ -128,6 +134,12 @@ AmDataProvider::unknownTypeCb(AmRequest * amReq, Error const error) {
             break;
         case fds::FDS_PUT_BLOB_ONCE:
             AmDataProvider::putBlobOnceCb(amReq, error);
+            break;
+        case fds::FDS_SM_PUT_OBJECT:
+            AmDataProvider::putObjectCb(amReq, error);
+            break;
+        case fds::FDS_CAT_UPD:
+            AmDataProvider::updateCatalogCb(amReq, error);
             break;
         default:
             fds_panic("Unknown request type!");

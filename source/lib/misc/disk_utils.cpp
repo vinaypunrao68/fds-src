@@ -16,7 +16,7 @@ extern "C" {
 }
 
 namespace fds {
-DiskUtils::capacity_tuple
+DiskUtils::CapacityPair
 DiskUtils::getDiskConsumedSize(const std::string &mount_path, bool use_stat) {
 
     // Stat won't give us an accurate total size, so we always want to statvfs to get the totalSize
@@ -43,7 +43,7 @@ DiskUtils::getDiskConsumedSize(const std::string &mount_path, bool use_stat) {
         LOGDEBUG << "use_stat was TRUE found " << consumedSize << " as consumed size.";
     }
 
-    return DiskUtils::capacity_tuple(consumedSize, totalSize);
+    return DiskUtils::CapacityPair(consumedSize, totalSize);
 }
 
 fds_bool_t

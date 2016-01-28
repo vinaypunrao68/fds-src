@@ -91,7 +91,7 @@ class StatsCollector : public boost::noncopyable {
      */
     void recordEvent(fds_volid_t volume_id,
                      fds_uint64_t timestamp,
-                     FdsStatType event_type,
+                     FdsVolStatType event_type,
                      fds_uint64_t value);
 
     void print();
@@ -154,6 +154,7 @@ class StatsCollector : public boost::noncopyable {
     FdsTimerPtr pushTimer;
     FdsTimerTaskPtr pushTimerTask;
     stream_svc_stats_t stream_stats_cb_;  // if streaming to same module
+    std::unordered_map<fds_volid_t, fds_uint64_t> last_rel_sec_sstream_;
 
     /**
      * Timer and callback for a service to do any
@@ -162,7 +163,7 @@ class StatsCollector : public boost::noncopyable {
     record_svc_stats_t record_stats_cb_;
     FdsTimerPtr sampleTimer;
     FdsTimerTaskPtr sampleTimerTask;
-    fds_uint64_t last_sample_ts_;
+    fds_uint64_t next_sample_ts_;
 
     /**
      * Timer to print qos stats

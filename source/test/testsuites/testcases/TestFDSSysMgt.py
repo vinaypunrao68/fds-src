@@ -233,8 +233,8 @@ class TestNodeActivate(TestCase.FDSTestCase):
                     time.sleep(3)
                     get_service = node_service.get_service(node_id,start_service.id)
                     if isinstance(get_service, FdsError) or get_service.status.state == "NOT_RUNNING":
-                        self.log.error("Service activation of node %s returned status %d." %
-                                   (n.nd_conf_dict['node-name'], status))
+                        self.log.error("Service activation of node %s returned status state %s." %
+                                   (n.nd_conf_dict['node-name'], get_service.status.state))
                         return False
 
             if self.passedNode is not None:
