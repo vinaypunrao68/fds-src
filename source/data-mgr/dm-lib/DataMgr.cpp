@@ -1581,6 +1581,92 @@ Error DataMgr::copyVolumeToOtherDMs(fds_volid_t volId) {
     return ERR_OK;
 }
 
+Error DataMgr::copyVolumeToTargetDM(fpi::SvcUuid dmUuid, fds_volid_t volId) {
+    Error err;
+    LOGNORMAL << "copying vol:" << volId << " to other Target DM:" << dmUuid;
+
+    auto volDB = getPersistDB(volId);
+    if (volDB.get() == NULL) {
+        LOGWARN << "unable to get vol-db for vol:" << volId;
+        return ERR_VOL_NOT_FOUND;
+    }
+
+    const fpi::SvcUuid me (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
+    DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volId);
+
+    if (dmUuid == me) {
+        LOGDEBUG << "Nothing to do... both host and target DM Uuids are the same";
+        return err;
+    }
+
+    std::string archiveDir = dmutil::getTempDir();
+    std::string archiveFileName = util::strformat("%ld.tgz",volId.get());
+    std::string archiveFile =  archiveFileName;
+
+    err = getPersistDB(volId)->archive(archiveDir, archiveFile);
+    if (!err.ok()) {
+        LOGWARN << "archiving failed for vol:" << volId << " error:" << err;
+        return err;
+    }
+
+    archiveFile = archiveDir + std::string("/") + archiveFile;
+    if (!util::fileExists(archiveFile)) {
+        LOGWARN << "archive file missing : " << archiveFile;
+        return ERR_NOT_FOUND;
+    }
+
+    LOGDEBUG << "archive file:" << archiveFile;
+
+    auto transferCb = [&](fds::net::FileTransferService::Handle::ptr handle,const Error& err,
+                          SHPTR<concurrency::TaskStatus> taskStatus) {
+      taskStatus->error = err;
+      taskStatus->done();
+    };
+    //fileTransfer->send(dmUuid,
+    //                  archiveFile, archiveFileName,
+    //                   std::bind(transferCb, PH_ARG1, PH_ARG2, taskStatus));
+    uint total = 0, failed = 0;
+    for (uint i = 0; i < nodes->getLength(); i++) {
+        if (nodes->get(i).toSvcUuid() == me) continue;
+        total ++;
+        SHPTR<concurrency::TaskStatus> taskStatus(new concurrency::TaskStatus());
+        LOGNORMAL << "copying vol:" << volId << " to node:" << nodes->get(i);
+        fileTransfer->send(nodes->get(i).toSvcUuid(), archiveFile, archiveFileName, std::bind(transferCb, PH_ARG1, PH_ARG2, taskStatus));
+        // 10 minutes
+        if (!taskStatus->await(10*60*1000)) {
+            LOGWARN << "filetransfer did not complete in expected time: [" << archiveFile
+                        << "] to:" << nodes->get(i);
+            failed ++;
+        } else {
+            if (!taskStatus->error.ok()) {
+                LOGWARN << "filetransfer did not complete : [" << archiveFile
+                            << "] to:" << nodes->get(i) << " error:" << taskStatus->error;
+                failed ++;
+            } else {
+                // send LOAD_FROM_ARCHIVE command to dm
+                err = requestMgr->sendLoadFromArchiveRequest(nodes->get(i), volId, archiveFileName);
+                if (!err.ok()) {
+                    failed++;
+                    LOGERROR << "could to send load from archive cmd to:" << nodes->get(i)
+                                << " vol:" << volId
+                                << " file:" << archiveFileName
+                                << " error:" << err;
+                }
+            }
+        }
+    }
+
+    LOGNORMAL << "vol:" << volId << " copied to [" << total << "] nodes with [" << failed << "] failures";
+    // remove archive file
+    boost::filesystem::remove(archiveFile);
+
+    if (total > 0 && failed >= (1.0*total/2.0)) {
+        LOGERROR << "volume copy failed : " << volId;
+        return ERR_INVALID;
+    }
+    return ERR_OK;
+}
+
 //************************************************************************//
 //   QOS Controller Functions                                             //
 //************************************************************************//

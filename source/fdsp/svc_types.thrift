@@ -419,7 +419,8 @@ enum  FDSPMsgTypeId {
   CtrlNotifyFinishMigrationMsgTypeId;
 
   /* DM Debug Messages */
-  DbgForceVolumeSyncMsgTypeId; 
+  DbgForceVolumeSyncMsgTypeId;
+  DbgForceVolArchiveMsgTypeId;
 
   /* VolumeGroup messages */
   VolumeGroupInfoUpdateCtrlMsgTypeId = 30000;

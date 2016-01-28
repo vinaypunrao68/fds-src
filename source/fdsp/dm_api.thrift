@@ -760,6 +760,10 @@ struct LoadFromArchiveMsg {
     2: string                   filename;
 }
 
+struct DbgForceVolArchiveMsg {
+    1: i64                      volId;
+}
+
 /* ------------------------------------------------------------
    Other specified services
    ------------------------------------------------------------*/

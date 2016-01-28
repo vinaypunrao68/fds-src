@@ -35,6 +35,7 @@ DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManage
 
     /* DM Debug messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::DbgForceVolumeSyncMsg, handleDbgForceVolumeSyncMsg);
+    REGISTER_FDSP_MSG_HANDLER(fpi::DbgForceVolArchiveMsg, handleDbgForceArchiveMsg);
 
     registerDmVolumeReqHandler<DmIoVolumegroupUpdate>();
     registerDmVolumeReqHandler<DmIoFinishStaticMigration>();
@@ -512,4 +513,14 @@ DMSvcHandler::handleDbgForceVolumeSyncMsg(SHPTR<fpi::AsyncHdr>& hdr,
     });
     func();
 }
+
+void
+DMSvcHandler::handleDbgForceArchiveMsg(SHPTR<fpi::AsyncHdr> &hdr, SHPTR<fpi::DbgForceVolArchiveMsg> &archiveMsg) {
+    auto volMeta = dataManager_.getVolumeMeta(fds_volid_t(archiveMsg->volId));
+
+    //std::string archiveDir = dmutil::getTempDir();
+    //std::string archiveFileName = util::strformat("%ld.tgz",volId.get());
+    //std::string archiveFile =  archiveFileName;
+}
+
 }  // namespace fds
