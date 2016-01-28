@@ -3279,6 +3279,13 @@ om_send_vol_info(NodeAgent::pointer me, fds_uint32_t *cnt, VolumeInfo::pointer v
                                                     vol_flag);
 }
 
+static void
+om_clear_vol_coordinator(VolumeInfo::pointer vol)
+{
+    LOGDEBUG << "Clearing volume coordinator info for vol: " << vol->vol_get_name();
+    vol->vol_get_properties()->clearCoordinatorInfo();
+}
+
 // om_bcast_vol_list
 // -----------------
 //
@@ -3805,6 +3812,13 @@ void OM_NodeContainer::om_bcast_svcmap()
     // TODO(Rao): add the filter so that we don't send the broad cast to om
     svcMgr->broadcastAsyncSvcReqMessage(header, buf,
                                         [](const fpi::SvcInfo& info) {return true;});
+}
+
+void
+OM_NodeContainer::clearVolumesCoordinatorInfo()
+{
+    LOGDEBUG << "Clearing all volumes' coordinator info.";
+    om_volumes->vol_foreach(om_clear_vol_coordinator);
 }
 
 }  // namespace fds
