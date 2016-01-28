@@ -451,7 +451,7 @@ public class InfluxDBConnection {
             }
             finally
             {
-                queryLogger.trace( "QUERY_END   {}  [{}]: {} [result={}; conn={} ms; query={} ms]",
+                queryLogger.trace( "QUERY_END   {} [{}]: {} [result={}; conn={} ms; query={} ms]",
                                    marker, start, query, ( failed != null
                                                    ? "'" + failed.getMessage() + "'"
                                                    : (result instanceof List ?
