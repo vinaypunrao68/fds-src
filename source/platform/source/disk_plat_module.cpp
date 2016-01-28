@@ -319,7 +319,6 @@ void DiskPlatModule::dsk_monitor_hotplug()
         }
         else if (pollfds[FD_INOTIFY_IDX].revents > 0)
         {
-            LOGDEBUG << "Received an inotify event";
             len = read(pollfds[FD_INOTIFY_IDX].fd, buffer, BUF_LEN);
             if (len < 0)
             {
@@ -330,8 +329,9 @@ void DiskPlatModule::dsk_monitor_hotplug()
                 for (char * p = buffer; p < buffer + len; )
                 {
                     struct inotify_event * event = reinterpret_cast<struct inotify_event *>(p);
-                    LOGDEBUG << "Received an inotify event " << event->name;
-                    if (strcmp(event->name, "adddisk") == 0) {
+                    if (strcmp(event->name, "adddisk") == 0)
+                    {
+                        LOGDEBUG << "Received an inotify event " << event->name;
                         do_rescan = true;
                         break;
                     }

@@ -170,24 +170,45 @@ class VolumeStats {
     double perf_recent_wma_;
 
     /**
-     * For processing finegrain stats
+     * For processing finegrain stats. Initialization value indicates first time.
      */
-    fds_uint64_t last_process_rel_secs_;
+    fds_uint64_t last_process_rel_secs_ = std::numeric_limits<fds_uint64_t>::max();
 };
 
 class StatHelper {
   public:
-    static fds_uint64_t getTotalPuts(const StatSlot& slot);
-    static fds_uint64_t getTotalGets(const StatSlot& slot);
+    static fds_uint64_t getCountObjPuts(const StatSlot &slot);
+    static fds_uint64_t getCountExplicitTxBlobPuts(const StatSlot &slot);  // Multi-Data Object
+    static fds_uint64_t getCountImplicitTxBlobPuts(const StatSlot &slot);  // Single Data Object
+    static fds_uint64_t getCountObjGets(const StatSlot &slot);
+    static fds_uint64_t getCountCachedObjGets(const StatSlot& slot);
+    static fds_uint64_t getCountSSDObjGets(const StatSlot& slot);  // The "real" SSD Data Object GETs.
+    static fds_uint64_t getCountBlobGets(const StatSlot& slot);
     static fds_bool_t getQueueFull(const StatSlot& slot);
+    static fds_uint64_t getQueueBacklog(const StatSlot& slot);
+    static fds_uint64_t getQueueWaitTime(const StatSlot& slot);
     static fds_uint64_t getTotalLogicalBytes(const StatSlot& slot);
+    static fds_uint64_t getTotalPhysicalBytes(const StatSlot& slot);
+    static fds_uint64_t getTotalDomainDedupBytesFrac(const StatSlot &slot);
+    static fds_uint64_t getTotalDedupBytes(const StatSlot &slot);
     static fds_uint64_t getTotalBlobs(const StatSlot& slot);
-    static fds_uint64_t getTotalObjects(const StatSlot& slot);
+    static fds_uint64_t getTotalLogicalObjects(const StatSlot &slot);
+    static fds_uint64_t getTotalPhysicalObjects(const StatSlot &slot);
     static fds_uint64_t getTotalMetadataBytes(const StatSlot& slot);
     static double getAverageBytesInBlob(const StatSlot& slot);
     static double getAverageObjectsInBlob(const StatSlot& slot);
     static fds_uint64_t getTotalSsdGets(const StatSlot& slot);
-    static fds_uint64_t getTotalPhysicalBytes(const StatSlot& slot);
+    static fds_uint64_t getCountAttachVol(const StatSlot& slot);
+    static fds_uint64_t getCountDetachVol(const StatSlot& slot);
+    static fds_uint64_t getCountVolStat(const StatSlot &slot);
+    static fds_uint64_t getCountPutVolMeta(const StatSlot& slot);
+    static fds_uint64_t getCountGetVolMeta(const StatSlot& slot);
+    static fds_uint64_t getCountGetVolContents(const StatSlot& slot);
+    static fds_uint64_t getCountStartBlobTx(const StatSlot& slot);
+    static fds_uint64_t getCountCommitBlobTx(const StatSlot& slot);
+    static fds_uint64_t getCountAbortBlobTx(const StatSlot& slot);
+    static fds_uint64_t getCountDeleteBlob(const StatSlot& slot);
+    static fds_uint64_t getCountRenameBlob(const StatSlot& slot);
 };
 
 /**

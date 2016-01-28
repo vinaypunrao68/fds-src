@@ -119,7 +119,7 @@ class OrchMgr: public SvcProcess {
     virtual void setupConfigDb_() override;
 
   public:
-    OrchMgr(int argc, char *argv[], OM_Module *omModule);
+    OrchMgr(int argc, char *argv[], OM_Module *omModule, bool initAsModule = false, bool testMode = false);
     ~OrchMgr();
     void start_cfgpath_server();
 

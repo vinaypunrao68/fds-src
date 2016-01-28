@@ -30,3 +30,4 @@ Build/linux-x86_64.debug/tests/bitset_gtest
 Build/linux-x86_64.debug/tests/rs_container_ut
 Build/linux-x86_64.debug/tests/dmt_calc_gtest --fds-root=./config/ --dmt-width=4 --dmt-depth=4
 Build/linux-x86_64.debug/tests/dlt_calc_gtest --fds-root=./config/ --dlt-width=8 --dlt-depth=4
+Build/linux-x86_64.debug/tests/volumegrouping_gtest

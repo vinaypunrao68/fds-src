@@ -735,7 +735,9 @@ class DiskManager (Base):
                 disk.verifySystemDiskPartitionSize()
                 if not self.options.reset:
                     continue
-            print("Partitioning and formatting  disk %s" % disk.path)
+                print("Formatting FDS superblock partition on %s" % disk.path)
+            else:
+                print("Partitioning and formatting  disk %s" % disk.path)
 #            disk.partition (self.dm_index_MB, self.sm_index_MB / len (self.sm_index_partition_list))
             disk.partition (self.dm_index_MB, 0)
             disk.format()

@@ -66,6 +66,7 @@ declare -A TESTS
 TESTS["restart-full"]="FullRestartMultiNodeTest"
 TESTS["restart-simple"]="SimpleRestartMultiNodeTest"
 TESTS["restart"]="SimpleRestartTest"
+TESTS["restart-activeio"]="ActiveIORestartTest/ActiveIORestartTest"
 TESTS["smoke"]="BuildSmokeTest_onpr"
 TESTS["4node"]="FourNodeStart"
 TESTS["2node"]="TwoNodeStart"
@@ -749,7 +750,7 @@ function runScenario() {
         exit 0
     fi
 
-    local TEMPINIFILE=/tmp/${SCENENAME}.${UID}.ini
+    local TEMPINIFILE=/tmp/${SCENENAME//\//_}.${UID}.ini
 
     echo "
 [harness]
@@ -770,10 +771,13 @@ fds_source_dir: ${SOURCEDIR}
 }
 
 function cleanlogs() {
-    (
-        rm -f $(find /${FDSROOT}/var/ -type f | grep -v redis)
-        rm -f $(find /${FDSROOT}/logs -type f | grep -v redis)
-    ) 2>/dev/null
+    for node in ${FDSROOT} ${FDSROOT}/node{1..4} ; do
+        loginfo "cleaning logs in : ${node}"
+        (
+            rm -f $(find ${node}/var/ -type f | grep -v redis)
+            rm -f $(find ${node}/logs -type f | grep -v redis)
+        ) 2>/dev/null
+    done
 }
 
 ########################################################################

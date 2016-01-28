@@ -203,6 +203,7 @@
         - libhiredis0.10
         - libhiredis-dev
         - libsqlite3-dev
+        - scsitools
         - swig3.0
         - sshpass
         - nbd-client
@@ -238,7 +239,7 @@
         - psutil
         - fstab
         - pyudev
-        - PyInstaller
+        - "PyInstaller==3.1"
         - "tabulate==0.7.4"
         - "urllib3==1.10.1"
         - python-iptables
@@ -250,8 +251,8 @@
         state=present
         extra_args="--extra-index-url=https://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/pypi/formation-pip/simple"
       with_items:
-        - "fdscli==0.1.16"
-        - "fdsutil==0.3.6"
+        - "fdscli==0.1.17"
+        - "fdsutil==0.3.7"
 
     - name: install perl modules
       cpanm: name={{ item }} mirror=http://cpan.mirror.vexxhost.com notest=true

@@ -12,7 +12,25 @@
 namespace fds 
 {
     namespace fpi = FDS_ProtocolInterface;
-    
+
+    /*
+     * Used throughout multiple places
+     * TODO - whoever uses this macro needs to be fixed. We should be updating configDB
+     * based on the whole SvcInfo, (UUID + incarnation No), instead of just uuid.
+     * Once that is done, we can change this macro to take in SvcInfo as an argument
+     * instead of just a UUID.
+     */
+    #define UPDATE_CONFIGDB_SERVICE_STATE(configdbPtr, uuid, status) \
+            fpi::SvcInfoPtr svcInfoPtr = boost::make_shared<fpi::SvcInfo>(); \
+            fds_mutex::scoped_lock l(dbLock); \
+            svcInfoPtr = boost::make_shared<fpi::SvcInfo>(); \
+            svcInfoPtr->svc_id.svc_uuid.svc_uuid = uuid.svc_uuid; \
+            svcInfoPtr->svc_status = status; \
+            fds::change_service_state(configdbPtr, \
+                                      svcInfoPtr, \
+                                      status, \
+                                      false);
+
     /**
      * This is case insensitive
      */
@@ -22,8 +40,15 @@ namespace fds
     void change_service_state( kvstore::ConfigDB* configDB,
                                const fds_uint64_t svc_uuid, 
                                const fpi::ServiceStatus svc_status );
+
+    /**
+     * Changes the service state of a specific service.
+     * If the incarnation number is given as part of svcInfo, it will update
+     * and check to see if the specified operation has completed successfully.
+     * If it has completed, then will it persist the changes into configDB.
+     */
     void change_service_state( kvstore::ConfigDB* configDB,
-                               const fds_uint64_t svc_uuid, 
+                               const fpi::SvcInfoPtr svcInfo,
                                const fpi::ServiceStatus svc_status,
                                const bool updateSvcMap );
     bool isSameSvcInfoInstance( fpi::SvcInfo svcInfo );
