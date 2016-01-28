@@ -149,6 +149,94 @@ class TestISCSIDiscoverVolume(ISCSIFixture):
         return False
 
 
+class TestISCSIFioSeqW(ISCSIFixture):
+    """FDS test case to write to an iSCSI volume
+
+    Attributes
+    ----------
+    sd_device : str
+        Device using sd upper level driver (example: '/dev/sdb')
+    volume_name : str
+        FDS volume name
+    """
+    def __init__(self, parameters=None, sd_device=None, volume_name=None):
+        """
+        Volume name not required if device provided.
+
+        Parameters
+        ----------
+        sd_device : str
+            Device using sd upper level driver (example: '/dev/sdb')
+        volume_name : str
+            FDS volume name
+        """
+
+        super(self.__class__, self).__init__(parameters,
+                self.__class__.__name__,
+                self.test_fio_write,
+                "Write to an iSCSI volume")
+
+        self.volume_name = volume_name
+        self.sd_device = sd_device
+
+    def test_fio_write(self):
+        """
+        Use flexible I/O tester to write to iSCSI volume
+
+        Returns
+        -------
+        bool
+            True if successful, False otherwise
+        """
+        # Use the block interface (not the char interface)
+        if not self.sd_device:
+            if not self.volume_name:
+                self.log.error("Missing required iSCSI target name")
+                return False
+            # Use fixture target name
+            self.sd_device = self.getDriveDevice(self.volume_name)
+        if not self.sd_device:
+            self.log.error("Missing disk device for %s" % self.volume_name)
+            return False
+        else:
+            self.log.info("block device is {0}".format(self.sd_device))
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+        om_ip = om_node.nd_conf_dict['ip']
+
+        if self.childPID is None:
+            # Not running in a forked process.
+            # Stop on failures.
+            verify_fatal = 1
+        else:
+            # Running in a forked process. Don't
+            # stop on failures.
+            verify_fatal = 0
+
+        # Specify connection info
+        assert connect_fabric(self, om_ip) is True
+
+# This one produced a failure! TODO: debug with Brian S...
+# Also, consider parameterizing this test case to provide the fio options below...
+#        cmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=posixaio --direct=1 --bsrange=512-1M " \
+#                 "--iodepth=128 --numjobs=1 --fill_device=1 --filename=%s --verify=md5 --verify_fatal=%d" %\
+#                 (self.sd_device, verify_fatal)
+
+        cmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=posixaio --direct=1 --bsrange=512-1M " \
+                 "--iodepth=128 --numjobs=1 --fill_device=1 --filename=%s --size=16m --verify=md5 --verify_fatal=%d" %\
+                 (self.sd_device, verify_fatal)
+
+        # Fabric run a shell command on a remote host
+        result = run(cmd)
+        disconnect_fabric()
+        if result.failed:
+            return False
+
+        return True
+
+
 class TestISCSIListVolumes(ISCSIFixture):
     """FDS test case to list volumes
 
@@ -204,7 +292,7 @@ class TestISCSIAttachVolume(ISCSIFixture):
     Attributes
     ----------
     sd_device : str
-        Device using sd upper level driver (example: '/dev/sd2')
+        Device using sd upper level driver (example: '/dev/sdb')
     sg_device : str
         Device using sg upper level driver (example: '/dev/sg2')
     initiator_name : str
@@ -318,9 +406,10 @@ class TestISCSIAttachVolume(ISCSIFixture):
         passed = True
         if not self.sd_device:
             self.log.error("Missing disk device for %s" % self.volume_name)
-            passed = False
         if not self.sg_device:
             self.log.error("Missing generic device for %s" % self.volume_name)
+        if not self.sd_device or not self.sg_device:
+            self.log.info('SG Map prior to iSCSI login: {0}'.format(g))
             passed = False
 
         disconnect_fabric()
@@ -335,7 +424,7 @@ class TestISCSIMakeFilesystem(ISCSIFixture):
         Parameters
         ----------
         sd_device : Optional[str]
-            The disk device (example: '/dev/sd2')
+            The disk device (example: '/dev/sdb')
         volume_name : str
             FDS volume name
         """
@@ -462,12 +551,12 @@ class TestISCSIUnitReady(ISCSIFixture):
             r = s.testunitready().result
             if not r:
                 # empty dictionary, which is the correct response!
-                return True;
+                return True
 
             for k, v in r.iteritems():
                 self.log.info('%s - %s' % (k, v))
         except Exception as e:
-            self.log.error(str(e));
+            self.log.error(str(e))
 
         return False
 
@@ -524,29 +613,45 @@ class TestISCSIDetachVolume(ISCSIFixture):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
+        om_ip = om_node.nd_conf_dict['ip']
+
+        # Unmount BEFORE breaking down the iSCSI node record
+
+        # Specify connection info
+        assert connect_fabric(self, om_ip) is True
+
+        path = '/mnt/{0}'.format(self.volume_name)
+        # Fabric run a shell command on a remote host
+        result = run('umount -f -v {0}'.format(path))
+        if result.failed:
+            self.log.info('Failed to unmount {0}. Return code: {1}.'.format(path,
+                    result.return_code))
+            disconnect_fabric()
+            return False
 
         # Logout session
         cmd = 'iscsiadm -m node --targetname %s -p %s --logout' % (self.target_name, \
                 (om_node.nd_conf_dict['ip']))
-        # Parameter return_stdin is set to return stdout. ... Don't ask me!
-        status, stdout = om_node.nd_agent.exec_wait(cmd, return_stdin=True)
-
-        if status != 0:
-            self.log.error("Failed to detach iSCSI volume %s." % t)
+        result = run(cmd)
+        if result.failed:
+            self.log.error('Failed to detach iSCSI volume {0}. Return code: {1}.'.format(t,
+                    result.return_code))
+            disconnect_fabric()
             return False
 
         # Remove the record
         cmd2 = 'iscsiadm -m node -o delete -T %s -p %s' % (self.target_name, \
                 (om_node.nd_conf_dict['ip']))
-
-        # Parameter return_stdin is set to return stdout. ... Don't ask me!
-        status, stdout = om_node.nd_agent.exec_wait(cmd2, return_stdin=True)
-
-        if status != 0:
-            self.log.error("Failed to remove iSCSI record %s." % self.target_name)
+        result = run(cmd2)
+        if result.failed:
+            self.log.error('Failed to remove iSCSI record {0}. Return code: {1}.'.format(self.target_name,
+                result.return_code))
+            disconnect_fabric()
             return False
 
         self.log.info("Detached volume %s and removed iSCSI record" % self.volume_name)
+
+        disconnect_fabric()
         return True
 
 
