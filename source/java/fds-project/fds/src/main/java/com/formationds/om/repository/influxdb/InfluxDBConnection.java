@@ -35,8 +35,6 @@ import java.util.concurrent.locks.ReentrantLock;
  * against the influxdb database.  The default configuration is to allow concurrent reads and writes, but we have
  * observed problems with InfluxDB handling concurrent operations so this is in place to workaround those issues.
  * <ul>
- * <li>If the serialize_all flag is set, then we use a shared lock in both the DBWriter and the DBReader preventing concurrent reads or writes.</li>
- * <li>if the serialize_reads flag is set, then we use a query lock in the DBReader to prevent concurrent reads</li>
  * <li>If the serialize_writes flag is set, then we use a write lock in the DBWriter to prevent concurrent writes.</li>
  * <li>Otherwise, we return a no-op implementation of a lock that does no locking at all</li>
  * </ul>

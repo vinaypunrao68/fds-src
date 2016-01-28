@@ -956,8 +956,14 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                       (scenario.nd_conf_dict['scenario-name']))
             raise Exception
 
+        if ('adjustLines' not in scenario.nd_conf_dict):
+            adjustLines = False
+        else:
+            adjustLines = bool(scenario.nd_conf_dict['adjustLines'])
+
         suite.addTest(TestFDSSysVerify.TestCanonMatch(canon=scenario.nd_conf_dict['canon'],
-                                                                fileToCheck=scenario.nd_conf_dict['filetocheck']))
+                                                      fileToCheck=scenario.nd_conf_dict['filetocheck'],
+                                                      adjustLines=adjustLines))
 
         # Give the test some time if requested.
         if 'delay_wait' in scenario.nd_conf_dict:
@@ -1353,6 +1359,76 @@ class TestLogMarker(TestCase.FDSTestCase):
             self.log.info("{}".format('*' * (12*2 + 2 + len(self.passedScenario))))
 
         return True
+
+
+# This class contains the attributes and methods to
+# generate a file in the SysTest framework's resources
+# directory. The file generated may be considered
+# "pseudo random" in that the same seed generates the
+# same content.
+#
+# @param size In bytes.
+#
+class TestGenerateFile(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, filename=TestUtils.default_generated_file, size=1024, seed='seed'):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_GenerateFile,
+                                             "generate a resource file")
+
+        self.passedFileName = filename
+        self.passedSeed = seed
+
+        self.passedSize = 0
+        if size is not None:
+            if isinstance(size, int):
+                self.passedSize = size
+            else:
+                self.passedSize = int(size)
+
+    def test_GenerateFile(self):
+        """
+        Test Case:
+        Generate the named file in the resources directory.
+        """
+
+        self.log.info("Generating 'pseudo random' test resource file <{0}> of size <{1}> using seed <{2}>.".
+                      format(self.passedFileName, self.passedSize, self.passedSeed))
+
+        qualifiedFileName = TestUtils.get_resource(self, os.path.basename(self.passedFileName))
+
+        TestUtils.generate_file(qualified_file_name=qualifiedFileName, size=self.passedSize, seed=self.passedSeed)
+
+        return True
+
+
+# This class contains the attributes and methods to
+# remove a file in the SysTest framework's resources
+# directory. It is intended to be a complement to
+# TestGenerateFile.
+class TestRemoveFile(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, filename=TestUtils.default_generated_file):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_RemoveFile,
+                                             "remove a resource file")
+
+        self.passedFileName = filename
+
+    def test_RemoveFile(self):
+        """
+        Test Case:
+        Remove the named file in the resources directory.
+        """
+
+        self.log.info("Removing file <{0}>.".format(self.passedFileName))
+
+        qualifiedFileName = TestUtils.get_resource(self, os.path.basename(self.passedFileName))
+
+        TestUtils.remove_file(qualified_file_name=qualifiedFileName)
+
+        return True
+
 
 
 if __name__ == '__main__':

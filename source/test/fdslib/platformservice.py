@@ -4,7 +4,7 @@
 #
 import threading
 import time
-
+import socket
 from thrift import Thrift
 from thrift.transport import TSocket
 from thrift.transport import TTransport
@@ -95,7 +95,7 @@ class PlatSvc(object):
         svcinfo.svc_status = ServiceStatus.SVC_STATUS_ACTIVE;
         svcinfo.svc_auto_name = 'Formation Console Service';
         # TODO(Rao): Get IP
-        svcinfo.ip = '127.0.0.1'
+        svcinfo.ip = socket.gethostname()
         svcinfo.incarnationNo =  int(time.time());
         svcinfo.name = 'FDS Debug Tool'
         svcinfo.props = {};

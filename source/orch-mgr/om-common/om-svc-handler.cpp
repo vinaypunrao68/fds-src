@@ -475,16 +475,17 @@ void OmSvcHandler::healthReportRunning( boost::shared_ptr<fpi::NotifyHealthRepor
 
        if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
        {
-           NodeUuid uuid( msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid );
            auto domain = OM_NodeDomainMod::om_local_domain();
 
            LOGNORMAL << "Will set service to state ( "
                      << msg->healthReport.serviceInfo.svc_status
                      << " ) : " << msg->healthReport.serviceInfo.name
-                     << ":0x" << std::hex << uuid.uuid_get_val() << std::dec;
+                     << ":0x" << std::hex << service_UUID.uuid_get_val() << std::dec;
 
-           domain->om_change_svc_state_and_bcast_svcmap( uuid, service_type, msg->healthReport.serviceInfo.svc_status );
-           domain->om_service_up( uuid, service_type );
+           auto svcInfoPtr = boost::make_shared<fpi::SvcInfo>(msg->healthReport.serviceInfo);
+           domain->om_change_svc_state_and_bcast_svcmap(svcInfoPtr, service_type, msg->healthReport.serviceInfo.svc_status);
+           NodeUuid nodeUuid(svcInfoPtr->svc_id.svc_uuid);
+           domain->om_service_up(nodeUuid, service_type);
        }
        break;
      default:
@@ -598,7 +599,8 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
             // don't mark this to inactive failed if it is already in stopped state
             if (gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.uuid_get_val()) != fpi::SVC_STATUS_INACTIVE_STOPPED)
             {
-                domain->om_change_svc_state_and_bcast_svcmap( uuid, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
+                auto svcPtr = boost::make_shared<fpi::SvcInfo>(msg->healthReport.serviceInfo);
+                domain->om_change_svc_state_and_bcast_svcmap( svcPtr, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
             } else {
                 LOGWARN << "Svc:" << std::hex << uuid.uuid_get_val() << std::dec
                         << "has been set to inactive from a previous stop request";
@@ -674,7 +676,8 @@ void OmSvcHandler::healthReportError(fpi::FDSP_MgrIdType &svc_type,
             LOGNOTIFY << "Received Flapping error from PM for service:"
                       << std::hex << uuid.uuid_get_val() << std::dec
                       << " , setting to state INACTIVE_FAILED";
-            domain->om_change_svc_state_and_bcast_svcmap( uuid, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
+            auto svcPtr = boost::make_shared<fpi::SvcInfo>(msg->healthReport.serviceInfo);
+            domain->om_change_svc_state_and_bcast_svcmap( svcPtr, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
 
         } else if (status == fpi::SVC_STATUS_INACTIVE_FAILED) {
             LOGNOTIFY << "Flapping service:"<< std::hex << uuid.uuid_get_val() << std::dec

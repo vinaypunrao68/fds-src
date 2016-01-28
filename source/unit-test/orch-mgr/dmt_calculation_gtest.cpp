@@ -22,6 +22,8 @@
 using ::testing::AtLeast;
 using ::testing::Return;
 
+bool ignoreFailedSvcs = false;
+
 namespace fds {
 
 // The 7 lines below are to make this unit test compile,
@@ -322,7 +324,15 @@ TEST(DmtCalculation, compute_2prim) {
                     DmtColumnPtr column = dmt->getNodeGroup(i);
                     for (fds_uint32_t j = 0; j < numPrimaryDMs; ++j) {
                     NodeUuid uuid = column->get(j);
-                    EXPECT_EQ(failedDms.count(uuid), 0);
+                        if ( failedDms.count(uuid) != 0 ) {
+                            if ( !ignoreFailedSvcs ) {
+                                EXPECT_EQ(failedDms.count(uuid), 0);
+                            } else {
+                                LOGNORMAL << "Feature ignoreFailedSvcs is true, failed DM:" << uuid << " can be primary";
+                            }
+                        } else {
+                            EXPECT_EQ(failedDms.count(uuid), 0);
+                        }
                     }
                 }
             }
@@ -685,11 +695,32 @@ TEST(DmtCalculation, fail_add_2prim) {
     delete placeAlgo;
 }
 
+class DmtCalcTest : public FdsProcess {
+  public:
+    DmtCalcTest(int argc, char *argv[],
+                    Module **mod_vec) :
+            FdsProcess(argc,
+                       argv,
+                       "platform.conf",
+                       "fds.om.",
+                       "dmtcalc-test.log",
+                       mod_vec) {
+        ignoreFailedSvcs = MODULEPROVIDER()->get_fds_config()->get<bool>("fds.feature_toggle.om.ignore_failed_svcs", true);
+    }
+    ~DmtCalcTest() {
+    }
+    int run() override {
+        return 0;
+    }
+};
 
 }  // namespace fds
 
 int main(int argc, char * argv[]) {
     fds::init_process_globals(fds::logname);
+
+    fds::DmtCalcTest dltTest(argc, argv, NULL);
+
     ::testing::InitGoogleMock(&argc, argv);
 
     namespace po = boost::program_options;

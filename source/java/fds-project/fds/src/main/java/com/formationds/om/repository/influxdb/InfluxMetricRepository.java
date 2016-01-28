@@ -102,6 +102,9 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
 
     private final VolumeMetricCache metricCache;
 
+    private boolean batchedWritesEnabled;
+    private int batchSize = DEFAULT_BATCH_SIZE;
+
     /**
      * @param url the url
      * @param adminUser the admin user
@@ -110,6 +113,11 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     public InfluxMetricRepository( String url, String adminUser, char[] adminCredentials ) {
         super( url, adminUser, adminCredentials );
         metricCache = new VolumeMetricCache( this );
+        batchedWritesEnabled = FdsFeatureToggles.INFLUX_WRITE_BATCHING.isActive();
+        batchSize = (batchedWritesEnabled ?
+                               SingletonConfiguration.getIntValue( "fds.om.influxdb.batch_write_size",
+                                                                   DEFAULT_BATCH_SIZE ) :
+                               1 );
     }
 
     public void initializeCache() {
@@ -186,7 +194,6 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override
     protected <R extends IVolumeDatapoint> List<R> doPersist( Collection<R> entities ) {
-        Object[] metricValues = new Object[VOL_METRIC_NAMES.size()];
 
         // TODO: currently the collection of VolumeDatapoint objects is a list of individual data points
         // and may contain any number of volumes and timestamps.  Ironically, the AM receives the datapoints
@@ -194,21 +201,21 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         List<IVolumeDatapoint> vdps = (entities instanceof List ? (List) entities : new ArrayList<>( entities ));
 
         // timestamp, map<volname, List<vdp>>>
-        // TODO: why do we care if they are ordered?  Influx
+        // TODO: why do we care if they are ordered?  Influx should handle that
         Map<Long, Map<String, List<IVolumeDatapoint>>> orderedVDPs =
                 VolumeDatapointHelper.sortByTimestampAndVolumeId( vdps, true );
 
-        boolean batchedWritesEnabled = FdsFeatureToggles.INFLUX_WRITE_BATCHING.isActive();
-        int batchSize = (batchedWritesEnabled ?
-                            SingletonConfiguration.getPlatformConfig().defaultInt( "fds.om.influxdb.batch_write_size", DEFAULT_BATCH_SIZE ) :
-                            1 );
-        List<Serie> batch = new ArrayList<>(batchSize);
+        SerieBuilder builder = newSerieBuilder();
 
         for ( Map.Entry<Long, Map<String, List<IVolumeDatapoint>>> e : orderedVDPs.entrySet() ) {
+
             Long ts = e.getKey();
             Map<String, List<IVolumeDatapoint>> volumeDatapoints = e.getValue();
 
             for ( Map.Entry<String, List<IVolumeDatapoint>> e2 : volumeDatapoints.entrySet() ) {
+
+                Object[] metricValues = new Object[VOL_METRIC_NAMES.size()];
+
                 // TODO: need volume ids as long everywhere
                 Long volid = Long.valueOf( e2.getKey() );
                 String volDomain = "";
@@ -224,7 +231,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
                     // find the metric position
                     int midx = indexOf( vdp.getKey() );
                     if (midx == -1) {
-                        logger.warn( "Metric {} not found in Volume Metrics list.  Skipping.", vdp.getKey() );
+                        logger.debug( "Metric {} not found in Volume Metrics list.  Skipping.", vdp.getKey() );
                         continue;
                     }
                     metricValues[midx] = vdp.getValue();
@@ -233,31 +240,31 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
                 // update the metric cache
                 metricCache.updateLatestVolumeStats( Long.valueOf( volid ),  voldps );
 
-                Serie serie = new Serie.Builder( VOL_SERIES_NAME )
-                        .columns( VOL_METRIC_NAMES.toArray( new String[VOL_METRIC_NAMES.size()] ) )
-                        .values(metricValues)
-                        .build();
+                int batchCount = builder.addRow(metricValues);
 
                 if ( batchedWritesEnabled ) {
-                    batch.add( serie );
-                    if ( batch.size() == batchSize ) {
-                        Serie[] writeBatch = batch.toArray( new Serie[ batch.size() ] );
-                        batch.clear();
+
+                    if ( batchCount >= batchSize ) {
+
+                        // build (and reset) the batch
+                        Serie writeBatch = builder.build();
 
                         // We are now explicitly specifying the timestamp and since VolumeDatapoint timestamps are
                         // in seconds since the epoch, specify a SECONDS precision on the series
                         getConnection().getAsyncDBWriter().write( TimeUnit.SECONDS, writeBatch );
                     }
                 } else {
-                    getConnection().getAsyncDBWriter().write( TimeUnit.SECONDS, serie );
+
+                    Serie writeSingle = builder.build();
+                    getConnection().getAsyncDBWriter().write( TimeUnit.SECONDS, writeSingle );
                 }
             }
         }
 
         // if there are any remaining entries in the batch, make sure they are written
-        if ( batchedWritesEnabled && batch.size() > 0 ) {
-            Serie[] writeBatch = batch.toArray( new Serie[ batch.size() ] );
-            batch.clear();
+        if ( batchedWritesEnabled && builder.getRowCount() > 0 ) {
+
+            Serie writeBatch = builder.build();
 
             // We are now explicitly specifying the timestamp and since VolumeDatapoint timestamps are
             // in seconds since the epoch, specify a SECONDS precision on the series
@@ -265,6 +272,63 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         }
 
         return (List<R>)vdps;
+    }
+
+    /**
+     * Wrap a influxdb-java Serie.Builder to track the row count and reset the builder
+     *
+     * This class is not thread safe.
+     */
+    public static class SerieBuilder {
+
+        private final String seriesName;
+        private final List<String> columns;
+        private Serie.Builder serieBuilder;
+        private int rowCount = 0;
+
+        public SerieBuilder( String seriesName, List<String> columns ) {
+            super();
+            this.seriesName = seriesName;
+            this.columns = columns;
+        }
+
+        public int getRowCount() {
+            return rowCount;
+        }
+
+        private Serie.Builder getSerieBuilder() {
+            if (serieBuilder == null) {
+                serieBuilder = new Serie.Builder( seriesName )
+                        .columns( columns.toArray( new String[columns.size()] ) );
+                rowCount = 0;
+            }
+            return serieBuilder;
+        }
+
+        /**
+         *
+         * @param metricValues
+         * @return the current number of rows after addition
+         */
+        public int addRow( Object[] metricValues ) {
+            getSerieBuilder().values( metricValues );
+            return ++rowCount;
+        }
+
+        /**
+         * Build the series from the current set of rows and reset the builder.
+         *
+         * @return the series.
+         */
+        public Serie build() {
+            Serie s = getSerieBuilder().build();
+            serieBuilder = null;
+            return s;
+        }
+    }
+
+    private SerieBuilder newSerieBuilder() {
+        return new SerieBuilder( VOL_SERIES_NAME, VOL_METRIC_NAMES );
     }
 
     @Override
@@ -352,10 +416,16 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         // the first one.  Note that this may change if we query using joins over multiple series
         // (we currently only have volume_metrics).
         if ( series == null || series.getRows().size() == 0 ) {
+            logger.trace("Series results from {} query was null or empty", criteria.getQueryType());
             return datapoints;
         }
 
         List<Map<String, Object>> rowList = series.getRows();
+
+        logger.trace("Processing series '{}' with columns={} and {} rows",
+                     series.getName(), Arrays.toString( series.getColumns() ),
+                     rowList.size() );
+
 
         for ( Map<String, Object> row : rowList ) {
 
@@ -369,22 +439,29 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
                 volumeIdO = row.get( getVolumeIdColumnName().get() );
                 volumeNameO = row.get( getVolumeNameColumnName().get() );
             } catch ( NoSuchElementException nsee ) {
+                logger.warn( "Failed to locate expected metadata row: " + nsee.getMessage() );
                 continue;
             }
 
             // we expect a value for all of these fields.  If not, bail
             if ( timestampO == null || volumeIdO == null || volumeNameO == null ) {
+                logger.warn( "Failed to locate expected metadata row: ts={}; voldId={}; volName={}",
+                             timestampO, volumeIdO, volumeNameO );
                 continue;
             }
 
-            Long timestamp = ((Double) timestampO).longValue();
-            String volumeName = volumeIdO.toString();
-            String volumeId = String.valueOf(((Double)volumeIdO).longValue());
+            Long timestamp = ((Number) timestampO).longValue();
+            String volumeName = volumeNameO.toString();
+            Long volumeId = ((Number)volumeIdO).longValue();
+            String volumeIdStr = String.valueOf(volumeId);
 
             List<Volume> volumeContexts = criteria.getContexts();
             boolean postFilterVolumes = volumeContexts.size() > super.getVolumeContextFilterThreshold();
             if ( postFilterVolumes &&
-                    volumeContexts.stream().anyMatch( (v) -> v.getId().equals( ((Double)volumeIdO).longValue() ) ) ) {
+                    ! volumeContexts.stream()
+                                    .anyMatch( (v) -> v.getId().equals( volumeId ) ) ) {
+                logger.trace( "Volume id={} not found in requested context list. Skipping",
+                              volumeId );
                 continue;
             }
 
@@ -416,11 +493,15 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
                     numberValue = Double.parseDouble( value.toString() );
                 }
 
-                VolumeDatapoint point = new VolumeDatapoint( timestamp, volumeId, volumeName, key, numberValue );
+                VolumeDatapoint point = new VolumeDatapoint( timestamp, volumeIdStr, volumeName, key, numberValue );
                 datapoints.add( point );
             } );
         } // for each row
 
+        logger.trace( "Completed processing series '{}' aand {} rows.  Returning {} datapoints.",
+                      series.getName(),
+                      rowList.size(),
+                      datapoints.size() );
         return datapoints;
     }
 
@@ -428,7 +509,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     public List<IVolumeDatapoint> query( QueryCriteria queryCriteria ) {
 
         // get the query string
-        String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get() );
+        String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get(), getVolumeNameColumnName().get() );
 
         List<IVolumeDatapoint> datapoints = null;
 
@@ -554,7 +635,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         queryCriteria.setPoints(1);
 
         // get the query string
-        String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get() );
+        String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get(), getVolumeNameColumnName().get() );
 
         // execute the query -  limiting it to the most recent row for the volume is now done in
         // formulateQueryString

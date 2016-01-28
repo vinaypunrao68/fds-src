@@ -174,19 +174,6 @@ class FDSTestCase(unittest.TestCase):
         """
         pass
 
-    def checkS3Info(self, bucket=None):
-        if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
-            self.log.error("No S3 connection")
-            return False
-
-        if bucket is not None:
-            self.parameters["s3"].bucket1 = self.parameters["s3"].conn.lookup(bucket)
-
-        if not self.parameters["s3"].bucket1:
-            self.log.error("No S3 bucket info")
-            return False
-
-        return True
 
     def runTest(self):
         """

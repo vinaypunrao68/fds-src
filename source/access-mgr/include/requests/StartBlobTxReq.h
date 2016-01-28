@@ -18,6 +18,8 @@ struct StartBlobTxReq :
 {
     fds_int32_t     blob_mode;
 
+    AmRequest* delete_request { nullptr };
+
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob

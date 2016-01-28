@@ -1502,10 +1502,15 @@ OM_PmAgent::send_start_service
                   item.svc_type ==fpi::FDSP_ACCESS_MGR))
                 continue;
 
+            /**
+             * the incoming svcInfos will contain the uuids of all the services requested to
+             * be started (sm, dm, am) aside from the pm uuids. The retrieveSvcId
+             * is a faster way to get to the service uuids, as opposed to iterating
+             * through the svcInfos, checking the type, and extracting the svc id.
+             */
             fds::retrieveSvcId(svc_uuid.svc_uuid, svcuuid, item.svc_type);
 
-            for (auto existingItem : existingSvcs)
-            {
+            for (auto existingItem : existingSvcs) {
                 // We *must* be able to find the associated svc in the svcMap
                 // If we are coming after a stop, we never removed the service
                 // from the map. If this is start of a new service, we must
@@ -1513,16 +1518,20 @@ OM_PmAgent::send_start_service
                 // service but with the right id into the map
                 if (svcuuid.svc_uuid == existingItem.svc_id.svc_uuid.svc_uuid) {
                     foundSvc = true;
+
+                    // Only if this is already in the map do we change state. Otherwise
+                    // it can lead to some weird behavior
+                    LOGDEBUG << "Starting svc:" << std::hex << svcuuid.svc_uuid << std::dec;
+                    // TODO: hack to get a svcInfo together. Should be svcinfo from the start
+                    // existingItem should already have the right incarnation number and UUID
+                    auto svcPtr = boost::make_shared<fpi::SvcInfo>(existingItem);
+                    // svcPtr->svc_id.svc_uuid.svc_uuid = svcuuid.svc_uuid;
+                    configDB->changeStateSvcMap(svcPtr, fpi::SVC_STATUS_STARTED);
                     break;
                 }
             }
 
-            if (foundSvc) {
-                // Only if this is already in the map do we change state. Otherwise
-                // it can lead to some weird behavior
-                LOGDEBUG << "Starting svc:" << std::hex << svcuuid.svc_uuid << std::dec;
-                configDB->changeStateSvcMap(svcuuid.svc_uuid, fpi::SVC_STATUS_STARTED);
-            } else {
+            if (!foundSvc) {
                 LOGERROR <<"StartError: could not retrieve valid svcId";
                 return ERR_NOT_FOUND;
             }
@@ -1846,6 +1855,10 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
     fds_mutex::scoped_lock l(dbNodeInfoLock);
 
+    bool isSMRemoved = false;
+    bool isDMRemoved = false;
+    bool isAMRemoved = false;
+
     // Now that we allow unreachable(down) nodes to be removed, it is
     // possible that OM receives a req invocation error. In this case
     // allow rest of the clean up to happen
@@ -1854,26 +1867,57 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
         LOGDEBUG << "PM response is good, setting svcs to inactive";
          // Set SM service state to inactive
         if ( stop_sm && configDB->isPresentInSvcMap( smSvcId.svc_uuid ) ) {
-             change_service_state( configDB,
-                                   smSvcId.svc_uuid,
-                                   fpi::SVC_STATUS_INACTIVE_STOPPED );
-             activeSmAgent = nullptr;
+
+            if (configDB->getStateSvcMap(smSvcId.svc_uuid) != fpi::SVC_STATUS_REMOVED)
+            {
+                change_service_state( configDB,
+                                       smSvcId.svc_uuid,
+                                       fpi::SVC_STATUS_INACTIVE_STOPPED );
+                activeSmAgent = nullptr;
+            } else {
+                LOGDEBUG << "SM svc:" << smSvcId.svc_uuid << " already progressed to removed state"
+                         << ", will not set to inactive_stopped";
+                isSMRemoved = true;
+            }
          }
 
          // Set DM service state to inactive
          if ( stop_dm && configDB->isPresentInSvcMap( dmSvcId.svc_uuid ) ) {
-             change_service_state( configDB,
-                                   dmSvcId.svc_uuid,
-                                   fpi::SVC_STATUS_INACTIVE_STOPPED );
-             activeDmAgent = nullptr;
+             if (configDB->getStateSvcMap(dmSvcId.svc_uuid) != fpi::SVC_STATUS_REMOVED)
+             {
+                 change_service_state( configDB,
+                                       dmSvcId.svc_uuid,
+                                       fpi::SVC_STATUS_INACTIVE_STOPPED );
+                 activeDmAgent = nullptr;
+             } else {
+                 LOGDEBUG << "DM svc:" << dmSvcId.svc_uuid << " already progressed to removed state"
+                          << ", will not set to inactive_stopped";
+                 isDMRemoved = true;
+             }
          }
 
          // Set AM service state to inactive
-         if ( stop_am && configDB->isPresentInSvcMap( amSvcId.svc_uuid ) ) {
-             change_service_state( configDB,
-                                   amSvcId.svc_uuid,
-                                   fpi::SVC_STATUS_INACTIVE_STOPPED );
-             activeAmAgent = nullptr;
+         if ( stop_am ) {
+
+             if (configDB->isPresentInSvcMap( amSvcId.svc_uuid ) )
+             {
+                 if (configDB->getStateSvcMap(amSvcId.svc_uuid) != fpi::SVC_STATUS_REMOVED)
+                 {
+                     change_service_state( configDB,
+                                           amSvcId.svc_uuid,
+                                           fpi::SVC_STATUS_INACTIVE_STOPPED );
+                     activeAmAgent = nullptr;
+                 } else {
+                     LOGDEBUG << "AM svc:" << amSvcId.svc_uuid << " already progressed to removed state"
+                              << ", will not set to inactive_stopped";
+                     isAMRemoved = true;
+                 }
+             } else {
+                 // the AM gets deleted right away in send_remove_service
+                 // If stop_am is true but the svc is not present it can only mean remove has
+                 // already executed
+                 isAMRemoved = true;
+             }
          }
     } else {
         LOGERROR << "Failed to stop services on node " << get_node_name()
@@ -1881,18 +1925,40 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
                  << " not updating local state of PM agent .... " << error;
     }
 
+    bool noSMTransition = false;
+    bool noDMTransition = false;
+    bool noAMTransition = false;
+
     // On OM restart, cannot depend on agents being set. This logic
     // should still not do any harm either way
     if (!activeSmAgent && !activeDmAgent && !activeAmAgent){
         if (shutdownNode) {
-        // Node is being shutdown, change the state of platform
-        // to inactive, node state to down
-        LOGDEBUG << "Changing PM state to INACTIVE";
-        fds::change_service_state( configDB,
-                                   get_uuid().uuid_get_val(),
-                                   fpi::SVC_STATUS_INACTIVE_STOPPED );
-        // Also explicitly set the state to down
-        set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
+
+            // If stop_sm is false, (and from above activeAgent is NULL) it implies
+            // that the svc did not exist on node to begin with (set noTransition to true)
+            // If stop_sm is true, and smRemoved is true, it implies the node
+            // is being removed and this response is coming in too late to be meaningful
+            // send_remove_resp will take appropriate action now (set noTransition to true).
+            // if stop_sm is true, but it is not in REMOVED state, then further action
+            // here is required (noTransition is false)
+           noSMTransition = stop_sm ? (isSMRemoved ? true : false) : true;
+           noDMTransition = stop_dm ? (isDMRemoved ? true : false) : true;
+           noAMTransition = stop_am ? (isAMRemoved ? true : false) : true;
+
+           if ( !(noSMTransition && noDMTransition && noAMTransition) )
+           {
+               // Node is being shutdown, change the state of platform
+               // to inactive, node state to down
+               LOGDEBUG << "Changing PM state to INACTIVE";
+               fds::change_service_state( configDB,
+                                          get_uuid().uuid_get_val(),
+                                          fpi::SVC_STATUS_INACTIVE_STOPPED );
+               // Also explicitly set the state to down
+               set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
+           } else {
+               LOGNOTIFY << "Node:" << get_uuid().uuid_get_val() << " is being removed"
+                         << ", remove resp will set state now";
+           }
         }
 
     }
@@ -1901,6 +1967,28 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     domain->local_domain_event(DeactAckEvt(error));
 }
+
+#define POPULATE_AND_REMOVE_SERVICE_STATE(serviceTypeId) \
+    bool found = false; \
+    fpi::SvcInfoPtr svcPtr; \
+    for (std::vector<fpi::SvcInfo>::const_iterator iter = svcInfos.begin(); \
+            iter != svcInfos.end(); ++iter) { \
+        if (iter->svc_id.svc_uuid.svc_uuid == serviceTypeId.svc_uuid) { \
+            svcPtr = boost::make_shared<fpi::SvcInfo>(*iter); \
+            found = true; \
+            break; \
+        } \
+    } \
+    if (!found) { \
+        LOGDEBUG << "Unable to find service in list. Making a fake svcPtr. Fix this?"; \
+        svcPtr = boost::make_shared<fpi::SvcInfo>(); \
+        svcPtr->svc_id.svc_uuid.svc_uuid = serviceTypeId.svc_uuid; \
+    } \
+    DltDmtUtil::getInstance()->addToRemoveList(smId.svc_uuid); \
+    change_service_state( configDB, \
+                          svcPtr, \
+                          fpi::SVC_STATUS_REMOVED, \
+                          true );
 
 /**
  * Name: send_remove_service
@@ -1967,28 +2055,13 @@ OM_PmAgent::send_remove_service
     {
         fds_mutex::scoped_lock l(dbNodeInfoLock);
         if (remove_sm) {
-
-            DltDmtUtil::getInstance()->addToRemoveList(smId.svc_uuid);
-
-            change_service_state( configDB,
-                                  smId.svc_uuid,
-                                  fpi::SVC_STATUS_REMOVED,
-                                  true);
+            POPULATE_AND_REMOVE_SERVICE_STATE(smId);
         }
         if (remove_dm) {
-
-            DltDmtUtil::getInstance()->addToRemoveList(dmId.svc_uuid);
-
-            change_service_state( configDB,
-                                  dmId.svc_uuid,
-                                  fpi::SVC_STATUS_REMOVED,
-                                  true );
+            POPULATE_AND_REMOVE_SERVICE_STATE(dmId);
         }
         if (remove_am) {
-            change_service_state( configDB,
-                                  amId.svc_uuid,
-                                  fpi::SVC_STATUS_REMOVED,
-                                  true );
+            POPULATE_AND_REMOVE_SERVICE_STATE(amId);
         }
     }
 
@@ -3206,6 +3279,13 @@ om_send_vol_info(NodeAgent::pointer me, fds_uint32_t *cnt, VolumeInfo::pointer v
                                                     vol_flag);
 }
 
+static void
+om_clear_vol_coordinator(VolumeInfo::pointer vol)
+{
+    LOGDEBUG << "Clearing volume coordinator info for vol: " << vol->vol_get_name();
+    vol->vol_get_properties()->clearCoordinatorInfo();
+}
+
 // om_bcast_vol_list
 // -----------------
 //
@@ -3732,6 +3812,13 @@ void OM_NodeContainer::om_bcast_svcmap()
     // TODO(Rao): add the filter so that we don't send the broad cast to om
     svcMgr->broadcastAsyncSvcReqMessage(header, buf,
                                         [](const fpi::SvcInfo& info) {return true;});
+}
+
+void
+OM_NodeContainer::clearVolumesCoordinatorInfo()
+{
+    LOGDEBUG << "Clearing all volumes' coordinator info.";
+    om_volumes->vol_foreach(om_clear_vol_coordinator);
 }
 
 }  // namespace fds
