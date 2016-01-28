@@ -32,6 +32,16 @@ class GenericCounter: public serialize::Serializable {
     GenericCounter & operator +=(const fds_uint64_t & val);
     GenericCounter & operator =(const GenericCounter & rhs);
     GenericCounter & operator =(const fds_uint64_t & val);
+
+    /**
+     * Use this instead of "operator +=" when the counter
+     * is monitoring rather than counting. For example,
+     * when we observe PUTs, we count them. (How many
+     * took place within our sample period?) On the other
+     * hand when we observe volume LBYTEs, we monitor
+     * them. (What is the current value at this point in
+     * our sample period?)
+     */
     void updateTotal(const GenericCounter & rhs);
 
     /**
@@ -66,7 +76,7 @@ class GenericCounter: public serialize::Serializable {
     fds_uint64_t max_;
 };
 
-typedef std::unordered_map<FdsStatType, GenericCounter, FdsStatHash> counter_map_t;
+typedef std::unordered_map<FdsVolStatType, GenericCounter, FdsStatHash> counter_map_t;
 
 /**
  * This class describes one slot in the volume performance history.
@@ -92,9 +102,9 @@ class StatSlot: public serialize::Serializable {
     /**
      * Add counter of type 'counter_type' to this slot
      */
-    void add(FdsStatType stat_type,
+    void add(FdsVolStatType stat_type,
              const GenericCounter& counter);
-    void add(FdsStatType stat_type,
+    void add(FdsVolStatType stat_type,
              fds_uint64_t value);
 
     /**
@@ -109,23 +119,28 @@ class StatSlot: public serialize::Serializable {
     /**
      * count / time interval of this slot in seconds
      */
-    double getEventsPerSec(FdsStatType type) const;
+    double getEventsPerSec(FdsVolStatType type) const;
     /**
      * total value of event 'type'
      */
-    fds_uint64_t getTotal(FdsStatType type) const;
-    fds_uint64_t getCount(FdsStatType type) const;
+    fds_uint64_t getTotal(FdsVolStatType type) const;
+    fds_uint64_t getCount(FdsVolStatType type) const;
     /**
      * total / count for event 'type'
      */
-    double getAverage(FdsStatType type) const;
-    double getMin(FdsStatType type) const;
-    double getMax(FdsStatType type) const;
+    double getAverage(FdsVolStatType type) const;
+    double getMin(FdsVolStatType type) const;
+    double getMax(FdsVolStatType type) const;
     /**
      * Get counter of a given type
      */
-    void getCounter(FdsStatType type,
+    void getCounter(FdsVolStatType type,
                     GenericCounter* out_counter) const;
+
+    /**
+     * How many counters are recorded in our stat_map.
+     */
+    std::size_t getCounterCount() const;
 
     /*
      * For serializing and de-serializing
@@ -138,7 +153,12 @@ class StatSlot: public serialize::Serializable {
 
   private:
     counter_map_t stat_map;
-    fds_uint64_t rel_sec;  /**< timestamp in seconds, relative to start of collection. */
+
+    /**
+     * Timestamp in seconds, relative to start of collection.
+     * Set to MAX to start with to aid identification of rel_sec 0 stats.
+     */
+    fds_uint64_t rel_sec = std::numeric_limits<fds_uint64_t>::max();
     fds_uint32_t interval_sec;  /**< time interval between slots of this type. */
 };
 
@@ -165,7 +185,7 @@ class VolumePerfHistory {
      * @param[in] counter is the counter to record
      */
     void recordPerfCounter(fds_uint64_t ts,
-                           FdsStatType stat_type,
+                           FdsVolStatType stat_type,
                            const GenericCounter& counter);
 
     /**
@@ -175,7 +195,7 @@ class VolumePerfHistory {
      * @param[in] value is the value of the stat
      */
     void recordEvent(fds_uint64_t ts,
-                     FdsStatType stat_type,
+                     FdsVolStatType stat_type,
                      fds_uint64_t value);
 
     /**
@@ -188,7 +208,7 @@ class VolumePerfHistory {
      * @param interval_sec interval in seconds for which calculate SMA, 0
      * if calculate for the whole history
      */
-    double getSMA(FdsStatType stat_type,
+    double getSMA(FdsVolStatType stat_type,
                   fds_uint64_t end_ts = 0,
                   fds_uint32_t interval_sec = 0);
 
@@ -200,19 +220,22 @@ class VolumePerfHistory {
     void mergeSlots(const std::vector<StatSlot>& stat_list);
 
     /**
-     * Copies history into FDSP volume stat list.
-     * @param[in] fdsp_volstats Collected volume statistics.
+     * Copies history into FDSP volume stat list. Only slots with relative
+     * seconds that are greater than last_rel_sec are copied
+     * @param[out] fdsp_volstats Collected volume statistics.
+     * @param[in] last_rel_sec is a relative timestamp in seconds. std::numeric_limits<fds_uint64_t>::max()
+     *            indicates the initial call so that we can pick up rel_sec 0 stats.
      * @return last timestamp copied into FDSP volume stat list
      */
-    void toFdspPayload(fpi::VolStatList& fdsp_volstats);
+    fds_uint64_t toFdspPayload(fpi::VolStatList& fdsp_volstats,
+                               fds_uint64_t last_rel_sec);
 
     /**
      * Copies the history in the StatSlot array where index 0 contains the
      * earliest timestamp copied. Only slots with relative seconds that are greater than
      * last_rel_sec are copied
-     * @param[in] last_rel_sec is a relative timestamp in seconds
-     * @param[in] max_slots maximum number of slots to return; if 0, then all
-     * slots from last_rel_sec discounting last_seconds_to_ignore;
+     * @param[in] last_rel_sec is a relative timestamp in seconds. std::numeric_limits<fds_uint64_t>::max()
+     *            indicates the initial call so that we can pick up rel_sec 0 stats.
      * @param[in] last_seconds_to_ignore number of most recent seconds
      * that will not be copied into the list; 0 means copy all most recent
      * history
@@ -220,7 +243,6 @@ class VolumePerfHistory {
      */
     fds_uint64_t toSlotList(std::vector<StatSlot>& stat_list,
                             fds_uint64_t last_rel_sec,
-                            fds_uint32_t max_slots = 0,
                             fds_uint32_t last_seconds_to_ignore = 0);
 
     friend std::ostream& operator<< (std::ostream &out,
@@ -232,7 +254,8 @@ class VolumePerfHistory {
      * Format:
      * [curts],volid,seconds_since_beginning_of_history,iops,ave_lat,min_lat,max_lat
      * @param[in] cur_ts timestamp that will be printed
-     * @param[in] last_rel_sec will print relative timestamps in seconds > last_rel_sec
+     * @param[in] last_rel_sec will print relative timestamps in seconds > last_rel_sec. std::numeric_limits<fds_uint64_t>::max()
+     *            indicates the initial call so that we can pick up rel_sec 0 stats.
      * @param[in] last_seconds_to_ignore number of most recent seconds
      * that will not be printed; 0 means print all most recent
      * history
@@ -291,6 +314,28 @@ class VolumePerfHistory {
     fds_uint64_t last_slot_generation_;  // The last generation (in historical line of descent) of slots since local_start_ts_. One generation every slot_interval_sec_ seconds.
     fds_rwlock stat_lock_;  // protects stat_slots_ and last_slot_generation_
 };
+
+/**
+ * TODO(Greg): Replace with macro DEFINE_OUTPUT_FUNCS from .../source/umod-lib/common/fdsp_utils.cpp.
+ *
+ * A "helper" class so that we can override Thrift's operator<< definition
+ * for fpi::VolStatList.
+ */
+class VolStatListWrapper {
+    public:
+        VolStatListWrapper() = delete;
+        explicit VolStatListWrapper(fpi::VolStatList& volStatList) : volStatList_(volStatList) {};
+
+        fpi::VolStatList getVolStatList() const {
+            return volStatList_;
+        }
+
+    private:
+        fpi::VolStatList& volStatList_;
+};
+
+std::ostream& operator<< (std::ostream &out,
+                          const VolStatListWrapper& volStatListWrapper);
 
 }  // namespace fds
 

@@ -603,12 +603,20 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public long getVolumeId( String volumeName ) throws TException {
-        return getConfig().getVolumeId( volumeName );
+        VolumeDescriptor vd = statVolume( "unused", volumeName );
+        if (vd != null) {
+            return vd.getVolId();
+        }
+        return 0;
     }
 
     @Override
     public String getVolumeName( long volumeId ) throws TException {
-        return getConfig().getVolumeName( volumeId );
+        VolumeDescriptor v = getCache().getVolume( volumeId );
+        if (v == null) {
+            v = refreshCacheMaybe().getVolume( volumeId );
+        }
+        return v.getName();
     }
 
     @Override
@@ -640,10 +648,12 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public List<VolumeDescriptor> listVolumes( String domainName ) throws TException {
-        // todo: may want to always do version check in refresh here.
-        List<VolumeDescriptor> v = getCache().getVolumes();
-        if ( v == null || v.isEmpty() ) {
-            v = refreshCacheMaybe().getVolumes();
+        // always check the config version and refresh if changed.
+        // the add/delete volume calls handle cache updates, but add/delete requests
+        // are not guaranteed to come through this instance.
+        List<VolumeDescriptor> v = refreshCacheMaybe().getVolumes();
+        if ( v == null ) {
+            v = new ArrayList<>();
         }
         return v;
     }

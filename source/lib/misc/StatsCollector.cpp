@@ -154,7 +154,7 @@ void StatsCollector::startStreaming(record_svc_stats_t record_stats_cb,
         // if callback is provided, start timer to sample stats
         if (record_stats_cb) {
             record_stats_cb_ = record_stats_cb;
-            last_sample_ts_ = util::getTimeStampNanos();
+            next_sample_ts_ = util::getTimeStampNanos();
 
             fds_bool_t ret = sampleTimer->scheduleRepeated(sampleTimerTask,
                                                  std::chrono::seconds(slotsec_stat_));
@@ -216,12 +216,12 @@ fds_bool_t StatsCollector::isQosStatsEnabled() const {
 
 void StatsCollector::recordEvent(fds_volid_t volume_id,
                                  fds_uint64_t timestamp,
-                                 FdsStatType event_type,
+                                 FdsVolStatType event_type,
                                  fds_uint64_t value) {
     switch (event_type) {
         case STAT_AM_PUT_OBJ:       // end-to-end put in AM in usec
         case STAT_AM_GET_OBJ:       // end-to-end get in AM in usec
-        case STAT_AM_QUEUE_FULL:    // que size (recorded when que size > threshold)
+        case STAT_AM_QUEUE_BACKLOG:    // que size (recorded when que size > threshold)
             if (isQosStatsEnabled()) {
                 getQosHistory(volume_id)->recordEvent(timestamp,
                                                       event_type, value);
@@ -327,12 +327,12 @@ void StatsCollector::print()
 // record service-specific stats
 //
 void StatsCollector::sampleStats() {
-    fds_uint64_t stat_slot_nanos = (fds_uint64_t)slotsec_stat_*(fds_uint64_t)NANOS_IN_SECOND;
-    last_sample_ts_ += stat_slot_nanos;
-
     if (record_stats_cb_) {
-        record_stats_cb_(last_sample_ts_);
+        record_stats_cb_(next_sample_ts_);
     }
+
+    fds_uint64_t stat_slot_nanos = (fds_uint64_t)slotsec_stat_*(fds_uint64_t)NANOS_IN_SECOND;
+    next_sample_ts_ += stat_slot_nanos;
 }
 
 //
@@ -361,7 +361,7 @@ void StatsCollector::sendStatStream() {
     if (stream_stats_cb_) {
         for (cit = snap_map.cbegin(); cit != snap_map.cend(); ++cit) {
             if (last_rel_sec_smap_.count(cit->first) == 0) {
-                last_rel_sec_smap_[cit->first] = 0;
+                last_rel_sec_smap_[cit->first] = std::numeric_limits<fds_uint64_t>::max();  // Indicates first time.
             }
 
             fds_uint64_t last_rel_sec = last_rel_sec_smap_[cit->first];
@@ -408,15 +408,26 @@ void StatsCollector::sendStatStream() {
         }
 
         /**
-         * Copy our volume stats to an FDSP payload structure.
+         * Copy our volume stats from where we left off
+         * to an FDSP payload structure.
          */
-        fpi::VolStatList volstats;
-        cit->second->toFdspPayload(volstats);
-        (msg_map[dm_uuid]->volstats).push_back(volstats);
+        if (last_rel_sec_sstream_.count(cit->first) == 0) {
+            last_rel_sec_sstream_[cit->first] = std::numeric_limits<fds_uint64_t>::max();  // Indicates first time.
+        }
 
-        LOGTRACE << "Sending stats to DM " << std::hex
-                 << dm_uuid.uuid_get_val() << std::dec
-                 << " " << *(cit->second);
+        fds_uint64_t last_rel_sec = last_rel_sec_sstream_[cit->first];
+
+        fpi::VolStatList volStatList;
+        last_rel_sec = cit->second->toFdspPayload(volStatList, last_rel_sec);
+        last_rel_sec_sstream_[cit->first] = last_rel_sec;
+
+        if (volStatList.statlist.size() > 0) {
+            (msg_map[dm_uuid]->volstats).push_back(volStatList);
+
+            LOGTRACE << "Sending " << volStatList.statlist.size() << " generations of stats for volume <" << cit->first << "> to DM " << std::hex
+                     << dm_uuid.uuid_get_val() << std::dec
+                     << "\n" << VolStatListWrapper(volStatList);
+        }
     }
 
     // send messages to primary DMs
