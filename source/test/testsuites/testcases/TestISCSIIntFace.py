@@ -12,10 +12,13 @@ from testcases.iscsifixture import ISCSIFixture
 # Module-specific requirements
 import os
 import sys
+from fabric.contrib.files import *
 from fdscli.model.volume.settings.iscsi_settings import ISCSISettings
 from fdscli.model.volume.settings.lun_permission import LunPermissions
 from fdscli.model.common.size import Size
 from fdscli.model.volume.volume import Volume
+from fdslib.TestUtils import connect_fabric
+from fdslib.TestUtils import disconnect_fabric
 from fdslib.TestUtils import get_volume_service
 from fdscli.model.fds_error import FdsError
 
@@ -204,6 +207,8 @@ class TestISCSIAttachVolume(ISCSIFixture):
         Device using sd upper level driver (example: '/dev/sd2')
     sg_device : str
         Device using sg upper level driver (example: '/dev/sg2')
+    initiator_name : str
+        The node name for the initiator (client)
     target_name : str
         The iSCSI node record name to login.
         Target name is expected to follow IQN convention.
@@ -212,10 +217,12 @@ class TestISCSIAttachVolume(ISCSIFixture):
         FDS volume name
     """
 
-    def __init__(self, parameters=None, target_name=None, volume_name=None):
+    def __init__(self, initiator_name, parameters=None, target_name=None, volume_name=None):
         """
         Parameters
         ----------
+        initiator_name : str
+            The initiator node name that matches FdsConfigFile section
         target_name : str
             The iSCSI node record name to login
         volume_name : str
@@ -227,6 +234,7 @@ class TestISCSIAttachVolume(ISCSIFixture):
                 self.test_login_target,
                 "Attaching iSCSI volume")
 
+        self.initiator_name = initiator_name
         self.volume_name = volume_name
         self.target_name = target_name
         self.sd_device = None
@@ -253,34 +261,50 @@ class TestISCSIAttachVolume(ISCSIFixture):
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
 
+        # Attach the volume to the given initiator
+        initiators = fdscfg.rt_obj.cfg_initiators
+
+        # Initiator is localhost, unless specified otherwise in FdsConfigFile
+        initiator_ip = 'localhost'
+        for i in initiators:
+            if i.nd_conf_dict['node-name'] == self.initiator_name:
+                initiator_ip = i.nd_conf_dict['ip']
+                break;
+
+        # Specify connection info
+        assert connect_fabric(self, initiator_ip) is True
+
         # Cache the device names prior to login
-        # Parameter return_stdin is set to return stdout. ... Don't ask me!
         disk_devices = []
         generic_devices = []
-        status, stdout = om_node.nd_agent.exec_wait('sg_map -sd', return_stdin=True)
-        if status != 0:
-            self.log.error("Failed to get sg map");
-            return False;
+        # Fabric run a shell command on a remote host
+        result = run('sg_map -sd')
+        if result.failed:
+            self.log.error('Failed to get sg map. Return code {0}.'.format(
+                    result.return_code))
+            disconnect_fabric()
+            return False
 
-        g = stdout.split()
+        g = result.split()
         for elem in g:
             if elem[:7] == '/dev/sd':
                 disk_devices.append(elem)
             elif elem[:7] == '/dev/sg':
                 generic_devices.append(elem)
 
+        # TODO: use AM node as target ip!
         cmd = 'iscsiadm -m node --targetname %s -p %s --login' % (self.target_name, (om_node.nd_conf_dict['ip']))
-        # Parameter return_stdin is set to return stdout. ... Don't ask me!
-        status, stdout = om_node.nd_agent.exec_wait(cmd, return_stdin=True)
 
-        if status != 0:
-            self.log.info("Failed to login iSCSI target %s." % self.target_name)
+        result = run(cmd)
+        if result.failed:
+            self.log.error("Failed to login iSCSI target %s." % self.target_name)
+            disconnect_fabric()
             return False
 
         # Compute device names
-        status, stdout = om_node.nd_agent.exec_wait('sg_map -sd', return_stdin=True)
-        if status == 0:
-            gprime = stdout.split()
+        result = run('sg_map -sd')
+        if result.succeeded:
+            gprime = result.split()
             for elem in gprime:
                 if elem[:7] == '/dev/sd' and not elem in disk_devices:
                     self.sd_device = elem
@@ -291,14 +315,16 @@ class TestISCSIAttachVolume(ISCSIFixture):
                     self.setGenericDevice(elem, self.volume_name)
                     self.log.info("Added generic device %s" % elem)
 
+        passed = True
         if not self.sd_device:
             self.log.error("Missing disk device for %s" % self.volume_name)
-            return False
+            passed = False
         if not self.sg_device:
             self.log.error("Missing generic device for %s" % self.volume_name)
-            return False
+            passed = False
 
-        return True
+        disconnect_fabric()
+        return passed
 
 
 class TestISCSIMakeFilesystem(ISCSIFixture):

@@ -34,7 +34,9 @@ def suiteConstruction(self):
     suite.addTest(testcases.TestISCSIIntFace.TestISCSIDiscoverVolume())
 
     # Attach iSCSI device
-    suite.addTest(testcases.TestISCSIIntFace.TestISCSIAttachVolume(None, None, 'volISCSI'))
+    initiator_name = 'initiator1'
+    suite.addTest(testcases.TestISCSIIntFace.TestISCSIAttachVolume(initiator_name,
+        None, None, 'volISCSI'))
 
     # Need a file system...
     suite.addTest(testcases.TestISCSIIntFace.TestISCSIMakeFilesystem(None, None, 'volISCSI'))
