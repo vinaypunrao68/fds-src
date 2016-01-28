@@ -150,6 +150,7 @@ public class DynamicExports implements ExportResolver {
         }
     }
 
+    @Override
     public void addVolumeDeleteEventHandler(ConsumerWithException<String> consumer) {
         volumeDeleteEventHandlers.add(consumer);
     }

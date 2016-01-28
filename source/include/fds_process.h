@@ -326,7 +326,7 @@ class FdsProcess : public boost::noncopyable,
     std::string proc_id;
 
     /* Use it for making sure all the setup is complete mostly in tests.
-     * Set it in the derived main()
+     * Set it in the derived run()
      */
     concurrency::TaskStatus readyWaiter;
     

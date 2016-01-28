@@ -152,6 +152,7 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     */
     int32_t getVersion() override;
     void setVersion(int32_t version) override;
+    int32_t updateVersion();
 
   private:
     std::string getVersionFile_();

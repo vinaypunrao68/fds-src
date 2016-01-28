@@ -236,6 +236,7 @@ void getVolumeDescriptor(apis::VolumeDescriptor& volDescriptor, VolumeInfo::poin
             break;
         case fpi::FDSP_VOL_NFS_TYPE:
             volDescriptor.policy.volumeType = apis::NFS;
+            volDescriptor.policy.blockDeviceSizeInBytes = ( int64_t ) ( volDesc->capacity * ( 1024 * 1024 ) );
             volDescriptor.policy.maxObjectSizeInBytes = volDesc->maxObjSizeInBytes;
             volDescriptor.policy.nfsOptions = volDesc->nfsSettings;
 
