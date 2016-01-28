@@ -9,9 +9,12 @@
 #include "AmDispatcher.h"
 #include "AmTxDescriptor.h"
 #include "requests/AttachVolumeReq.h"
+#include "requests/CommitBlobTxReq.h"
 #include "requests/GetBlobReq.h"
 #include "requests/GetObjectReq.h"
+#include "requests/PutObjectReq.h"
 #include "requests/RenameBlobReq.h"
+#include "requests/UpdateCatalogReq.h"
 
 namespace fds {
 
@@ -242,9 +245,10 @@ AmCache::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint6
                  << txDesc->volId << " blob " << txDesc->blobName;
 
         for (auto& offset_pair : txDesc->stagedBlobOffsets) {
+            auto const& obj_id = offset_pair.second.first;
             offset_cache.add(txDesc->volId,
                              offset_pair.first,
-                             boost::make_shared<ObjectID>(offset_pair.second));
+                             boost::make_shared<ObjectID>(obj_id));
         }
 
         // Add blob descriptor from tx to descriptor cache
@@ -301,15 +305,16 @@ AmCache::statBlob(AmRequest *amReq) {
 }
 
 void
-AmCache::deleteBlobCb(AmRequest* amReq, Error const error) {
-    if (error.ok()) {
+AmCache::commitBlobTxCb(AmRequest* amReq, Error const error) {
+    auto blobReq = static_cast<CommitBlobTxReq*>(amReq);
+    if (blobReq->is_delete && error.ok()) {
         descriptor_cache.remove(amReq->io_vol_id, amReq->getBlobName());
         offset_cache.remove_if(amReq->io_vol_id,
                                [amReq] (BlobOffsetPair const& blob_pair) -> bool {
                                     return (amReq->getBlobName() == blob_pair.getName());
                                });
     }
-    AmDataProvider::deleteBlobCb(amReq, error);
+    AmDataProvider::commitBlobTxCb(amReq, error);
 }
 
 void
@@ -462,6 +467,34 @@ AmCache::getBlobCb(AmRequest *amReq, Error const error) {
     }
 
     AmDataProvider::getBlobCb(amReq, ERR_OK);
+}
+
+void
+AmCache::putObjectCb(AmRequest * amReq, Error const error) {
+    if (error.ok()) {
+        auto objReq = static_cast<PutObjectReq*>(amReq);
+        object_cache.add(objReq->io_vol_id, objReq->obj_id, objReq->dataPtr);
+    }
+    AmDataProvider::putObjectCb(amReq, error);
+}
+
+void
+AmCache::updateCatalogCb(AmRequest * amReq, Error const error) {
+    auto blobReq = static_cast<UpdateCatalogReq*>(amReq);
+    // If this was a PutBlobOnce we can stash the metadata changes
+    if (error.ok() && fds::FDS_PUT_BLOB != blobReq->parent->io_type) {
+        for (auto const& obj_upd : blobReq->object_list) {
+            offset_cache.add(blobReq->io_vol_id,
+                             BlobOffsetPair(blobReq->getBlobName(), obj_upd.second.first),
+                             boost::make_shared<ObjectID>(obj_upd.first));
+        }
+        auto blobDesc = boost::make_shared<BlobDescriptor>(blobReq->getBlobName(),
+                                                           blobReq->io_vol_id.get(),
+                                                           blobReq->final_blob_size,
+                                                           blobReq->final_meta_data);
+        descriptor_cache.add(blobReq->io_vol_id, blobReq->getBlobName(), blobDesc);
+    }
+    AmDataProvider::updateCatalogCb(amReq, error);
 }
 
 }  // namespace fds
