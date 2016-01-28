@@ -306,7 +306,9 @@ std::string VolumeGroupHandle::getStateInfo()
         state[id]["version"] = h.version;
         state[id]["lasterror"] = h.lastError.GetErrName();
         state[id]["appliedopid"] = static_cast<Json::Value::Int64>(h.appliedOpId);
+#ifdef COMMITID_SUPPORTED
         state[id]["appliedsequenceid"] = static_cast<Json::Value::Int64>(h.appliedCommitId);
+#endif
     };
     for_each(functionalReplicas_.begin(), functionalReplicas_.end(), f);
     for_each(syncingReplicas_.begin(), syncingReplicas_.end(), f);
@@ -533,7 +535,7 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
                                              const fpi::FDSPMsgTypeId &msgTypeId,
                                              const bool writeReq,
                                              const Error &inStatus,
-                                             uint8_t &successAcks)
+                                             VolumeGroupRequest::Acks &successAcks)
 {
     ASSERT_SYNCHRONIZED();
     GROUPHANDLE_FUNCTIONAL_CHECK();
@@ -555,19 +557,9 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
 
     if (volumeHandle->isFunctional() ||
         volumeHandle->isSyncing()) {
-        Error outStatus = inStatus;
-        if (inStatus != ERR_OK) {
-            /* If either volume handle or listener doesn't consider it to be an error
-             * it's not an error
-             */
-            bool isVolumeHandleError = volumeHandle->isError(inStatus);
-            bool isListenerError = (!listener_ || listener_->isError(msgTypeId, inStatus));
-            if (!isVolumeHandleError || !isListenerError) {
-                outStatus = ERR_OK;
-            }
-        }
+        bool isError = isVolumeGroupError(inStatus);
 
-        if (outStatus == ERR_OK) {
+        if (!isError) {
             /* Do opid sequence checks only for requests that mutate state on replica */
             if (writeReq) {
                 fds_verify(volumeHandle->appliedOpId+1 == hdr.opId);
@@ -579,7 +571,7 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
 #endif
             }
             if (volumeHandle->isFunctional()) {
-                successAcks++;
+                successAcks.emplace_back(std::make_pair(srcSvcUuid, inStatus));
             }
         } else {
             LOGWARN << "Received an error.  svcuuid: "
@@ -589,7 +581,7 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
                                                        volumeHandle->version,
                                                        fpi::ResourceState::Offline,
                                                        opSeqNo_,
-                                                       outStatus,
+                                                       inStatus,
                                                        __FUNCTION__);
             fds_verify(changeErr == ERR_OK);
         }
@@ -827,8 +819,7 @@ VolumeGroupRequest::VolumeGroupRequest(CommonModuleProviderIf* provider,
                                        VolumeGroupHandle *groupHandle)
 : MultiEpSvcRequest(provider, id, myEpId, 0, {}),
     groupHandle_(groupHandle),
-    nAcked_(0),
-    nSuccessAcked_(0)
+    nAcked_(0)
 {
     /* NOTE: This should be under coordinator synchronized context */
     groupHandle_->incRef();
@@ -887,7 +878,7 @@ void VolumeGroupBroadcastRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
     }
     epReq->completeReq(header->msg_code, header, payload);
 
-    auto prevSuccessCnt = nSuccessAcked_;
+    auto prevSuccessCnt = successAcks_.size();
 
     /* Have coordinator handle the response */
     groupHandle_->handleVolumeResponse(header->msg_src_uuid,
@@ -896,9 +887,9 @@ void VolumeGroupBroadcastRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
                                        msgTypeId_,
                                        true,
                                        header->msg_code,
-                                       nSuccessAcked_);
+                                       successAcks_);
 
-    if (prevSuccessCnt == nSuccessAcked_ && /* VolumeGroup considered it an error */
+    if (prevSuccessCnt == successAcks_.size() && /* VolumeGroup considered it an error */
         response_.ok()) {
         /* Caching first error code. Used when quorum isn't met */
         if (header->msg_code == ERR_OK) {  /* when group is down this can happen */
@@ -908,11 +899,11 @@ void VolumeGroupBroadcastRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
         }
     }
 
-    if (nSuccessAcked_ == groupHandle_->getQuorumCnt() &&
+    if (successAcks_.size() == groupHandle_->getQuorumCnt() &&
         responseCb_) {
         /* Met the quorum count.  Returning the last error code */
         // TODO(Rao): Ensure all replicas returned the same error code
-        responseCb_(header->msg_code, payload); 
+        responseCb_(successAcks_[0].second, payload); 
         responseCb_ = 0;
     }
     ++nAcked_;
@@ -977,8 +968,8 @@ void VolumeGroupFailoverRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
                                        msgTypeId_,
                                        false,
                                        header->msg_code,
-                                       nSuccessAcked_);
-    if (nSuccessAcked_ == 1) {
+                                       successAcks_);
+    if (successAcks_.size() == 1) {
         /* Atleast one replica succeeded */
         fds_assert(groupHandle_->isFunctional());
         responseCb_(header->msg_code, payload); 

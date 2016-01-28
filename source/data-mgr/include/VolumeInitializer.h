@@ -289,20 +289,13 @@ void ReplicaInitializer<T>::startBuffering_()
                                      const Error &e,
                                      StringPtr) {
                 if (e != ERR_OK) {
-                    if (e == ERR_INVALID_ARG ||
-                        e == ERR_DM_OP_NOT_ALLOWED ||
-                        e == ERR_VOLUME_ACCESS_DENIED ||
-                        e == ERR_HASH_COLLISION ||
-                        e == ERR_BLOB_SEQUENCE_ID_REGRESSION ||
-                        e == ERR_CAT_ENTRY_NOT_FOUND ||
-                        e == ERR_BLOB_NOT_FOUND ||
-                        e == ERR_BLOB_OFFSET_INVALID) {
-                        LOGWARN << replica_->logString() << bufferReplay_->logString()
+                    if (!isVolumeGroupError(e)) {
+                        LOGNORMAL << replica_->logString() << bufferReplay_->logString()
                             << " buffer replay encountered "
                             << e << " - ignoring the error";
                     } else {
                         LOGWARN << replica_->logString() << bufferReplay_->logString()
-                            << " buffer replay encountered "
+                            << " buffer replay encountered volume group error: "
                             << e << " - aborting buffer replay";
                         /* calling abort mutiple times should be ok */
                         bufferReplay_->abort();
