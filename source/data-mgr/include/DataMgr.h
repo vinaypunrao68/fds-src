@@ -351,6 +351,7 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     void handleDmFunctor(DmRequest *io);
     Error copyVolumeToOtherDMs(fds_volid_t volId);
     Error processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete);
+    Error copyVolumeToTargetDM(fpi::SvcUuid dmUuid, fds_volid_t volId);
 
     /**
      * Timeout to send DMT close ack if not sent yet and stop forwarding
