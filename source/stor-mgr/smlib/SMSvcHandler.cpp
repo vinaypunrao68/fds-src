@@ -1331,6 +1331,9 @@ void SMSvcHandler::genericCommand(ASYNC_HANDLER_PARAMS(GenericCommandMsg)) {
             SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_START, SM_CMD_INITIATOR_NOT_SET);
             Error err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
         }
+    } else if (msg->command == "force.expunge") {
+        LOGCRITICAL << "force expunge command received";
+        objStorMgr->objectStore->setObjectDelCnt(1);
     } else {
         LOGCRITICAL << "unexpected command received : " << msg;
     }
