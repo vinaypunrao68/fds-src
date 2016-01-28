@@ -22,16 +22,20 @@ import java.util.concurrent.CompletableFuture;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 public class Dispatcher extends HttpServlet {
+    private static final long serialVersionUID = -7864317214814653580L;
+
     private static final Logger LOG = LogManager.getLogger(Dispatcher.class);
 
     private RouteFinder routeFinder;
     private String webDir;
     private List<AsyncRequestExecutor> asyncRequestExecutorList;
+    private Boolean featureLoggingRequestWrapperEnabled = false;
 
     public Dispatcher(RouteFinder routeFinder, String webDir, List<AsyncRequestExecutor> executors) {
         this.routeFinder = routeFinder;
         this.webDir = webDir;
         this.asyncRequestExecutorList = executors;
+        featureLoggingRequestWrapperEnabled = FdsFeatureToggles.WEB_LOGGING_REQUEST_WRAPPER.isActive();
     }
 
     @Override
@@ -58,7 +62,6 @@ public class Dispatcher extends HttpServlet {
     public void service(HttpServletRequest httpServletRequest, HttpServletResponse response) throws IOException, ServletException {
         long then = System.currentTimeMillis();
 
-        boolean featureLoggingRequestWrapperEnabled = FdsFeatureToggles.WEB_LOGGING_REQUEST_WRAPPER.isActive();
         Request request = ( featureLoggingRequestWrapperEnabled ?
                               RequestLog.newJettyRequestLogger( (Request) httpServletRequest ) :
                               (Request) httpServletRequest );
@@ -67,7 +70,25 @@ public class Dispatcher extends HttpServlet {
 		String requestLogEntryBase = (featureLoggingRequestWrapperEnabled ?
 		                                 ((RequestLog.LoggingRequestWrapper<Request>)request).getRequestInfoHeader() :
 		                                 String.format( "%s %s", request.getMethod(), request.getRequestURI() ) );
-        LOG.info("{} Starting", requestLogEntryBase);
+
+        @SuppressWarnings("unchecked")
+        long requestId = ( featureLoggingRequestWrapperEnabled &&
+                           request instanceof RequestLog.LoggingRequestWrapper<?> ) ?
+                               ((RequestLog.LoggingRequestWrapper<Request>)request).getRequestId() :
+                               RequestLog.nextRequestId();
+
+        // Add Dispatcher and request URI to thread name for the duration of the request processing.
+        // This has value as long as the request is all processed on the same thread.  Requests that
+        // are passed along to other threads for asynchronous handling will not have this thread
+        // name.  That is not a problem, you just don't get the same tracking ability.
+        String threadBaseName = Thread.currentThread().getName();
+        String dispatchContextName = String.format( "Dispatcher[%d:%d:%s]",
+                                                    Thread.currentThread().getId(),
+                                                    requestId,
+                                                    request.getRequestURI() );
+
+        Thread.currentThread().setName( dispatchContextName );
+        LOG.info("{} Starting request", requestLogEntryBase);
         Resource resource = new FourOhFour();
         try {
 	        RequestHandler requestHandler;
@@ -123,6 +144,7 @@ public class Dispatcher extends HttpServlet {
         	if ( featureLoggingRequestWrapperEnabled ) {
         	    RequestLog.requestComplete(request);
         	}
+            Thread.currentThread().setName( threadBaseName );
         }
     }
 

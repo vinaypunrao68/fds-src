@@ -22,15 +22,16 @@ namespace fds {
 
 OrchMgr *orchMgr;
 
-OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
+OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule, bool initAsModule, bool testMode)
     : conf_port_num(0),
       ctrl_port_num(0),
-      test_mode(false),
+      test_mode(testMode),
       deleteScheduler(this),
       enableTimeline(true)
 {
     om_mutex = new fds_mutex("OrchMgrMutex");
     fds::gl_orch_mgr = this;
+    orchMgr = this;
 
     static fds::Module *omVec[] = {
         omModule,
@@ -45,26 +46,27 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
         node_id_to_name[i] = "";
     }
 
-    init<fds::OmSvcHandler, fpi::OMSvcProcessor>(argc, argv, "platform.conf",
+    init<fds::OmSvcHandler, fpi::OMSvcProcessor>(argc, argv, initAsModule, "platform.conf",
                                                  "fds.om.", "om.log", omVec);
 
-    enableTimeline = MODULEPROVIDER()->get_fds_config()->get<bool>(
+    enableTimeline = get_fds_config()->get<bool>(
             "fds.feature_toggle.common.enable_timeline", true);
-    counters.reset(new fds::om::Counters(MODULEPROVIDER()->get_cntrs_mgr().get()));
+    counters.reset(new fds::om::Counters(get_cntrs_mgr().get()));
 
-    if (enableTimeline) {
+    if (!test_mode && enableTimeline) {
         snapshotMgr.reset(new fds::snapshot::Manager(this));
     }
 
     /*
      * Start the PM monitoring thread
      */
-    omMonitor.reset(new OMMonitorWellKnownPMs());
-
-    svcStartThread.reset(new std::thread(&OrchMgr::svcStartMonitor, this));
-    svcStartThread->detach();
-    svcStartRetryThread.reset(new std::thread(&OrchMgr::svcStartRetryMonitor, this));
-    svcStartRetryThread->detach();
+    if (!test_mode) {
+        omMonitor.reset(new OMMonitorWellKnownPMs());
+        svcStartThread.reset(new std::thread(&OrchMgr::svcStartMonitor, this));
+        svcStartThread->detach();
+        svcStartRetryThread.reset(new std::thread(&OrchMgr::svcStartRetryMonitor, this));
+        svcStartRetryThread->detach();
+    }
     /*
      * Testing code for loading test info from disk.
      */
@@ -75,7 +77,9 @@ OrchMgr::~OrchMgr()
 {
     LOGDEBUG << "Destructor for Orchestration Manager ( called )";
 
-    cfgserver_thread->join();
+    if (!test_mode) {
+        cfgserver_thread->join();
+    }
 
     if (policy_mgr) {
         delete policy_mgr;
@@ -192,10 +196,14 @@ void OrchMgr::registerSvcProcess()
 
 int OrchMgr::run()
 {
+    // At this point, all module has init and started. So signal the waiters.
+    readyWaiter.done();
     // run server to listen for OMControl messages from
     // SM, DM and SH
-    deleteScheduler.start();
-    runConfigService(this);
+    if (!test_mode) {
+        deleteScheduler.start();
+        runConfigService(this);
+    }
     return 0;
 }
 
@@ -284,7 +292,7 @@ void OrchMgr::svcStartRetryMonitor()
 
             fpi::SvcInfo svcInfo;
 
-            if (MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo)) {
+            if (getSvcMgr()->getSvcInfo(svcUuid, svcInfo)) {
                 if ( svcInfo.svc_status == fpi::SVC_STATUS_INACTIVE_STOPPED ||
                      svcInfo.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED ) {
 

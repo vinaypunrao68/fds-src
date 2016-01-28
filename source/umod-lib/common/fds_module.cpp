@@ -13,7 +13,8 @@ namespace fds {
 
 Module::Module(char const *const name)
     : mod_lstp_idx(-1), mod_intern_cnt(0), mod_exec_state(MOD_ST_NULL),
-      mod_intern(NULL), mod_owner(NULL), mod_name(name), mod_params(NULL) {}
+      mod_intern(NULL), mod_owner(NULL), mod_name(name), mod_params(NULL),
+      testMode(false) {}
 
 Module::~Module() {}
 

@@ -86,7 +86,7 @@
 {% set am_cache_max_metadata_entries = fds_am_cache_max_metadata_entries if fds_am_cache_max_metadata_entries is defined else '200' %}
 {% set am_testing_toggleDisableStreamingStats = fds_am_testing_toggleDisableStreamingStats if fds_am_testing_toggleDisableStreamingStats is defined else 'false' %}
 {% set am_req_serialization = fds_am_req_serialization if fds_am_req_serialization is defined else 'volume' %}
-{% set am_safe_atomic_write = fds_am_safe_atomic_write if fds_am_safe_atomic_write is defined else 'true' %}
+{% set am_all_atomic_ops = fds_am_all_atomic_ops if fds_am_all_atomic_ops is defined else 'false' %}
 {% set am_nbd_server_threads = fds_am_nbd_server_threads if fds_am_nbd_server_threads is defined else '1' %}
 {% set am_scst_target_prefix = fds_am_scst_target_prefix if fds_am_scst_target_prefix is defined else 'iqn.2012-05.com.formationds:' %}
 {% set am_scst_target_threads = fds_am_scst_target_threads if fds_am_scst_target_threads is defined else '1' %}
@@ -153,12 +153,13 @@
 {% set ft_enable_web_logging_request_wrapper      = fds_ft_enable_web_logging_request_wrapper      if fds_ft_enable_web_logging_request_wrapper      is defined else 'false' %}
 {% set ft_enable_influxdb_write_batch             = fds_ft_enable_influxdb_write_batch             if fds_ft_enable_influxdb_write_batch             is defined else 'false' %}
 {% set ft_enable_influxdb_chunked_query_response  = fds_ft_enable_influxdb_chunked_query_response  if fds_ft_enable_influxdb_chunked_query_response  is defined else 'false' %}
+{% set ft_ignore_failed_svcs                      = fds_ft_ignore_failed_svcs                      if fds_ft_ignore_failed_svcs                      is defined else 'true'  %}
 {#
     Java Options -- not stored in platform.conf, but rather in formation_env and ultimately in environment variables
     The Logging and service name configuration in the defaults are important.  Without it, the logging may not be configured properly.
     -XX:ErrorFile=/corefiles/*_hs_err_pid%p..log specifies the JVM crash report file location.
 #}
 {% set common_java_opts = fds_common_java_opts if fds_common_java_opts is defined else '-Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -XX:ErrorFile=/corefiles/hs_err_pid-%p.log' %}
-{% set om_java_opts = fds_om_java_opts if fds_om_java_opts is defined else '-Xmx4096M' %}
+{% set om_java_opts = fds_om_java_opts if fds_om_java_opts is defined else '' %}
 {% set xdi_java_opts = fds_xdi_java_opts if fds_xdi_java_opts is defined else '' %}
 {% block content %}{% endblock %}
