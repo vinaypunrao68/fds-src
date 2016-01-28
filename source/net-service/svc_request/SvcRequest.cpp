@@ -759,6 +759,11 @@ void FailoverSvcRequest::onResponseCb(FailoverSvcRequestRespCb cb)
     respCb_ = cb;
 }
 
+fpi::SvcUuid FailoverSvcRequest::getLastRespondedSvcUuid() const
+{
+    return epReqs_[curEpIdx_]->peerEpId_;
+}
+
 /**
 * @brief
 */

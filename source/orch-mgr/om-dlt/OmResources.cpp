@@ -985,6 +985,12 @@ NodeDomainFSM::DACT_ShutAm::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         OM_NodeContainer *dom_ctrl = domain->om_loc_domain_ctrl();
 
+        /**
+         * Volume coordinator currently lives as part of the AM.
+         * We'll clear the VC information from the OM as part of the AM shutdown.
+         */
+        dom_ctrl->clearVolumesCoordinatorInfo();
+
         // broadcast shutdown message to all AMs
         dst.am_acks_to_wait = dom_ctrl->om_bcast_shutdown_msg(fpi::FDSP_ACCESS_MGR);
         LOGDEBUG << "Will wait for acks from " << dst.am_acks_to_wait << " AMs";
@@ -1329,6 +1335,7 @@ OM_NodeDomainMod::OM_NodeDomainMod(char const *const name)
           fsm_lock("OM_NodeDomainMod fsm lock"),
           configDB(nullptr),
           domainDown(false),
+          volumeGroupDMTFired(false),
           dbLock("ConfigDB access lock")
 {
     om_locDomain = new OM_NodeContainer();
@@ -1352,6 +1359,8 @@ OM_NodeDomainMod::mod_init(SysParams const *const param)
     FdsConfigAccessor conf_helper(g_fdsprocess->get_conf_helper());
     om_test_mode = conf_helper.get<bool>("test_mode");
     om_locDomain->om_init_domain();
+    dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
+                             get<uint32_t>("fds.common.volume_group.dm_cluster_size", 1));
     return 0;
 }
 
@@ -2014,9 +2023,13 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                              << std::hex 
                              << svcInfo->svc_id.svc_uuid.svc_uuid 
                              << std::dec
-                             << " ) is a new node.";
+                             << " ) is a new node, setting to discovered.";
                     
-                    svcInfo->svc_status = fpi::SVC_STATUS_ACTIVE;
+                    svcInfo->svc_status = fpi::SVC_STATUS_DISCOVERED;
+
+                    auto pmNodes = om_locDomain->om_pm_nodes();
+                    auto pmAgent = OM_PmAgent::agt_cast_ptr(pmNodes->agent_info(node_uuid));
+                    pmAgent->set_node_state(fpi::FDS_Node_Discovered);
                 }
                 auto curTime         = std::chrono::system_clock::now().time_since_epoch();
                 double timeInMinutes = std::chrono::duration<double,std::ratio<60>>(curTime).count();
@@ -2314,9 +2327,19 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
             LOGDEBUG << "OM Restart, Successful Registered ( spoof ) Service: "
                      << fds::logDetailedString( svc );
             svc.incarnationNo = util::getTimeStampSeconds();
-            svc.svc_status = fpi::SVC_STATUS_ACTIVE;
             spoofed.push_back( svc );
-            configDB->updateSvcMap( svc );
+
+            // If PM is in DISCOVERED state, it means it is either a new node or a previously removed
+            // node. In both cases, we want the state to stay discovered
+
+            if ( !( (svc.svc_type == fpi::FDSP_PLATFORM) &&
+                    (svc.svc_status == fpi::SVC_STATUS_DISCOVERED) ) )
+            {
+                svc.svc_status = fpi::SVC_STATUS_ACTIVE;
+
+                fds_mutex::scoped_lock l(dbLock);
+                configDB->updateSvcMap( svc );
+            }
         }
         else 
         {
@@ -2453,8 +2476,7 @@ bool OM_NodeDomainMod::isAnyNonePlatformSvcActive(
             // cleaning up the cluster map and causing a DLT/DMT propagation
             if ( svc.svc_status == fpi::SVC_STATUS_ACTIVE ||
                  svc.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED ||
-                 svc.svc_status == fpi::SVC_STATUS_STARTED ||
-                 isPlatformSvc( svc) )
+                 svc.svc_status == fpi::SVC_STATUS_STARTED )
             {
                 if ( isPlatformSvc( svc ) )
                 {
@@ -2471,6 +2493,16 @@ bool OM_NodeDomainMod::isAnyNonePlatformSvcActive(
                 else if ( isAccessMgrSvc( svc ) )
                 {
                     amSvcs->push_back( svc );                
+                }
+            }
+
+            if (isPlatformSvc(svc))
+            {
+                if (svc.svc_status == fpi::SVC_STATUS_ACTIVE ||
+                    svc.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED ||
+                    svc.svc_status == fpi::SVC_STATUS_DISCOVERED)
+                {
+                    pmSvcs->push_back(svc);
                 }
             }
         }
@@ -3270,6 +3302,13 @@ OM_NodeDomainMod::om_shutdown_domain()
     return err;
 }
 
+fds_bool_t
+OM_NodeDomainMod::checkDmtModVGMode() {
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
+    return (dmtMod->volumeGrpMode());
+}
+
 void
 OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     LOGNOTIFY << "Attempt to update DMT";
@@ -3277,7 +3316,6 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     OM_DMTMod *dmtMod = om->om_dmt_mod();
     // ClusterMap *cmMod =  om->om_clusmap_mod();
     // For volume grouping mode, we support only 1 version of DMT atm.
-    static bool volumeGroupDMTFired = false;
     uint32_t awaitingDMs = dmtMod->getWaitingDMs();
 
     if (dmPrevRegistered) {
@@ -3292,8 +3330,6 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
         // in case there are no volume acknowledge to wait
         dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
     } else {
-        auto dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
-                                        get<uint32_t>("fds.common.volume_group.dm_cluster_size", 1));
         if (!volumeGroupDMTFired && (awaitingDMs == dmClusterSize)) {
             LOGNOTIFY << "Volume Group Mode has reached quorum with " << dmClusterSize
                     << " DMs. Calculating DMT now.";
@@ -3333,14 +3369,14 @@ OM_NodeDomainMod::om_dlt_update_cluster() {
 }
 
 void
-OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap( const NodeUuid& svcUuid,
+OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap(boost::shared_ptr<fpi::SvcInfo> svcInfo,
                                                         fpi::FDSP_MgrIdType svcType,
-                                                        const fpi::ServiceStatus status )
+                                                        const fpi::ServiceStatus status)
 {
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
     {
         fds_mutex::scoped_lock l(dbLock);
-        change_service_state( configDB, svcUuid.uuid_get_val(), status, true );
+        change_service_state( configDB, svcInfo, status, true );
     }
     om_locDomain->om_bcast_svcmap();
 }

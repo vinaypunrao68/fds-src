@@ -8,6 +8,7 @@ import sys
 import time
 import logging
 import logging.handlers
+import errno
 
 from optparse import OptionParser
 if sys.version_info[0] < 3:
@@ -20,9 +21,9 @@ import socket
 from fdscli.services.fds_auth import *
 from fdscli.model.volume.settings.object_settings import ObjectSettings
 from fdscli.model.volume.settings.block_settings import BlockSettings
+from fdscli.model.volume.settings.nfs_settings import NfsSettings
 from fdscli.model.common.size import Size
 from fdscli.model.volume.volume import Volume
-from fdscli.model.platform.service import Service
 from fdscli.services.volume_service import VolumeService
 from fdscli.model.volume.qos_policy import QosPolicy
 from fdscli.services.node_service import NodeService
@@ -464,6 +465,12 @@ def convertor(volume, fdscfg):
                 raise Exception('Volume section %s must have "size" keyword.' % volume.nd_conf_dict['vol-name'])
             access = BlockSettings()
             access.capacity = Size( size = volume.nd_conf_dict['size'], unit = 'B')
+        elif access == 'nfs':
+            if 'size' not in volume.nd_conf_dict:
+                raise Exception('Volume section %s must have "size" keyword.' % volume.nd_conf_dict['vol-name'])
+            access = NfsSettings()
+            access.max_object_size = Size( size = volume.nd_conf_dict['size'], unit = 'B')
+
     new_volume.settings = access
     if 'policy' in volume.nd_conf_dict:
         #Set QOS policy which is defined is volume definition.
@@ -620,10 +627,33 @@ def core_hunter_aws(self,node_ip):
     disconnect_fabric()
     return 1
 
+# Returns a path to the named resource. Does not validate that the resource exists.
+def get_resource(self, resource):
+
+    fdscfg = self.parameters["fdscfg"]
+    resourceDir = fdscfg.rt_env.get_fds_source() + "test/testsuites/resources/"
+
+    self.log.debug("Retrieving resource {}.".format(resourceDir + resource))
+
+    return resourceDir + resource
+    
 def connect_fabric(self,node_ip):
+    """Specify connection info at runtime
+
+    Fabric is a library of subroutines to make executing shell commands over SSH
+    easy and Pythonic.
+
+    Parameters
+    ----------
+    self : obj
+    node_ip : str
+    """
     #TODO: pooja finish fs-4280 to read use/pwd form inventory
+    # 'env' is a global dictionary-like object driving many of Fabric's settings.
     env.user = 'root'
     env.password = 'passwd'
+    # 'host_string' defines the current user/host/port which Fabric will connect
+    # to when executing run, put, and so forth.
     env.host_string = node_ip
     timeout_start = time.time()
     timeout = 600  # Max 10 minutes wait considering bare metal/ pxe reboot
@@ -677,3 +707,47 @@ def get_log_count_dict(self, om_node_ip, node_ip, service_list, log_entry_list):
         val = read_remote_log(self, node_ip, service_list[index], log_entry)
         log_count_dict[log_entry] = val
     return log_count_dict
+
+
+# A pseudo random SHA-1 generator.
+def sha1_generator(seed='seed'):
+    next_sha = hashlib.sha1(seed)
+
+    while True:
+        yield next_sha.digest(), next_sha.digestsize
+        next_sha = hashlib.sha1(next_sha.hexdigest())
+
+
+default_generated_file = "./generated.dat"  # Used in the generate_file() and remove_file() methods below.
+
+
+# A pseudo random file generator that generates the named file of the given
+# size using the given seed.
+#
+# @param size In bytes.
+def generate_file(qualified_file_name=default_generated_file, size=1024, seed='seed'):
+    with open(qualified_file_name, 'w') as generated_file:
+        bytes_written = 0
+        for next_content_block, block_size in sha1_generator(seed=seed):
+            bytes_to_write = block_size
+            if bytes_written + bytes_to_write > size:
+                bytes_to_write = size - bytes_to_write
+
+            content_to_write = bytearray(buffer(next_content_block, 0, bytes_to_write))
+            generated_file.write(content_to_write)
+
+            bytes_written += bytes_to_write
+
+            if (bytes_written >= size):
+                break
+
+    return generated_file.closed
+
+
+# Remove a file if it exists.
+def remove_file(qualified_file_name=default_generated_file):
+    try:
+        os.remove(qualified_file_name)
+    except OSError as e:
+        if e.errno != errno.ENOENT:
+            raise

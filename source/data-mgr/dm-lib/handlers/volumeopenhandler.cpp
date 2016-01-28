@@ -61,10 +61,13 @@ void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
     if (dataManager.features.isVolumegroupingEnabled()) {
         if (volMeta->isInitializerInProgress()) {
             LOGWARN << volMeta->logString() << " Failed to open.  Sync is in progress";
-            fds_assert(!"sync already in progress");
             helper.err = ERR_SYNC_INPROGRESS;
             return;
         }
+        volMeta->setCoordinatorId(request->client_uuid_);
+        volMeta->setState(fpi::Loading,
+                          util::strformat(" - openvolume from coordinator: %ld",
+                                          volMeta->getCoordinatorId().svc_uuid));
     }
 
     helper.err = dataManager.timeVolCat_->openVolume(request->volId,
@@ -78,12 +81,6 @@ void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
         LOGDEBUG << "on opening vol: " << request->volId
                  << ", latest sequence was determined to be "
                  << request->sequence_id;
-        if (dataManager.features.isVolumegroupingEnabled()) {
-            volMeta->setCoordinatorId(request->client_uuid_);
-            volMeta->setState(fpi::Loading,
-                              util::strformat(" - openvolume from coordinator: %ld",
-                                              volMeta->getCoordinatorId().svc_uuid));
-        }
     }
 }
 

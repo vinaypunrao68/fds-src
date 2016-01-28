@@ -6,7 +6,7 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
         transclude: false,
         templateUrl: 'scripts/directives/fds-components/data-connector/data-connector.html',
         scope: { volumeType: '=ngModel', editable: '@', enable: '=?'},
-        controller: function( $scope, $data_connector_api ){
+        controller: function( $scope, $data_connector_api, $byte_converter ){
             
             var SYNC = 'sync';
             var ASYNC = 'async';
@@ -134,7 +134,11 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
                 $scope.$emit( 'change' );
                 
                 if ( angular.isDefined( $scope.volumeType.capacity ) ){
-                    $scope._selectedSize = $scope.volumeType.capacity.value;
+                    
+                    var b_str = $byte_converter.convertFromUnitsToString( $scope.volumeType.capacity.value, $scope.volumeType.capacity.units );
+                    var b_num = parseInt( b_str.split( ' ' )[0] );
+                    
+                    $scope._selectedSize = b_num;
                     findUnit();
                 }
                 

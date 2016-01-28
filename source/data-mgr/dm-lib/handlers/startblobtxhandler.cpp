@@ -75,7 +75,8 @@ void StartBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
     auto volMetaIter = dataManager.vol_meta_map.find(typedRequest->volId);
     if (dataManager.vol_meta_map.end() != volMetaIter) {
         VolumeMeta* vol_meta = volMetaIter->second;
-        if ((!vol_meta->isForwarding() || vol_meta->isForwardFinishing()) &&
+        if (!dataManager.features.isVolumegroupingEnabled() &&
+            (!vol_meta->isForwarding() || vol_meta->isForwardFinishing()) &&
             (typedRequest->dmt_version != dataManager.getModuleProvider()->getSvcMgr()->getDMTVersion())) {
             helper.err = ERR_IO_DMT_MISMATCH;
         }

@@ -108,7 +108,7 @@ SmDiskMap::loadPersistentState() {
 /**
  * Determines how much of the disk is currently being consumed.
  */
-DiskUtils::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
+DiskUtils::CapacityPair SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
 {
 
     // Cause method to return capacity
@@ -117,7 +117,7 @@ DiskUtils::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
               fiu_disable("sm.diskmap.cause_used_capacity_warn"); \
               LOGDEBUG << "Err injection: (" << DISK_CAPACITY_ERROR_THRESHOLD
                        << ", 100). This should cause an alert."; \
-              DiskUtils::capacity_tuple retVals(DISK_CAPACITY_ERROR_THRESHOLD, 100); \
+              DiskUtils::CapacityPair retVals(DISK_CAPACITY_ERROR_THRESHOLD, 100); \
               return retVals; \
     );
 
@@ -126,7 +126,7 @@ DiskUtils::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
               fiu_disable("sm.diskmap.cause_used_capacity_warn"); \
               LOGDEBUG << "Err injection: (" << DISK_CAPACITY_ALERT_THRESHOLD + 1
                        << ", 100). This should cause an alert."; \
-              DiskUtils::capacity_tuple retVals(DISK_CAPACITY_ALERT_THRESHOLD + 1, 100); \
+              DiskUtils::CapacityPair retVals(DISK_CAPACITY_ALERT_THRESHOLD + 1, 100); \
               return retVals; \
     );
 
@@ -135,7 +135,7 @@ DiskUtils::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
               fiu_disable("sm.diskmap.cause_used_capacity_alert"); \
               LOGDEBUG << "Err injection: (" << DISK_CAPACITY_WARNING_THRESHOLD + 1
                        << ", 100). This should cause a warning."; \
-              DiskUtils::capacity_tuple retVals(DISK_CAPACITY_WARNING_THRESHOLD + 1, 100); \
+              DiskUtils::CapacityPair retVals(DISK_CAPACITY_WARNING_THRESHOLD + 1, 100); \
               return retVals; \
     );
 
@@ -144,7 +144,7 @@ DiskUtils::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
     // Get the total size info for the disk regardless of type
     std::string diskPath = getDiskPath(disk_id);
 
-    DiskUtils::capacity_tuple out = DiskUtils::getDiskConsumedSize(diskPath);
+    DiskUtils::CapacityPair out = DiskUtils::getDiskConsumedSize(diskPath);
 
     // If we got an SSD disk id and have HDDs we still need to check metadata size
     if ((ssd_ids.find(disk_id) != ssd_ids.end()) && (hdd_ids.size() != 0)) {
@@ -162,12 +162,12 @@ DiskUtils::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
                  ++cit) {
                 // Calculate a consumedSize based on the size of the level DBs
                 std::string filename = ObjectMetadataDb::getObjectMetaFilename(diskPath, *cit);
-                DiskUtils::capacity_tuple tmp = DiskUtils::getDiskConsumedSize(filename, true);
+                DiskUtils::CapacityPair tmp = DiskUtils::getDiskConsumedSize(filename, true);
 
-                acc += tmp.first;
+                acc += tmp.usedCapacity;
             }
-            LOGDEBUG << "Returning " << acc << "/" << out.second << " after calculating SSD metadata size.";
-            return DiskUtils::capacity_tuple(acc, out.second);
+            LOGDEBUG << "Returning " << acc << "/" << out.totalCapacity << " after calculating SSD metadata size.";
+            return DiskUtils::CapacityPair(acc, out.totalCapacity);
         }
     }
 
