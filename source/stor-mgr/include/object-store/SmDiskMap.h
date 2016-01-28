@@ -73,6 +73,7 @@ class SmDiskMap : public Module, public boost::noncopyable {
     SmTokenSet getSmTokens() const;
     SmTokenSet getSmTokens(fds_uint16_t diskId) const;
 
+    inline DiskLocMap getDiskLocMap() { return disk_map; }
     /**
      * Get disk ID where ObjectID (or SM token) data and metadata
      * resides on a given tier.
@@ -81,6 +82,8 @@ class SmDiskMap : public Module, public boost::noncopyable {
                            diskio::DataTier tier) const;
     fds_uint16_t getDiskId(fds_token_id smTokId,
                            diskio::DataTier tier) const;
+    DiskIdSet getDiskIds(fds_token_id smTokId,
+                         diskio::DataTier tier) const;
 
     /**
      * Get the root path to disk for a given SM token and tier
@@ -174,6 +177,19 @@ class SmDiskMap : public Module, public boost::noncopyable {
      */
     void removeDiskAndRecompute(DiskId& diskId, const diskio::DataTier& tier);
 
+    // Remove disk from disk map data structures.
+    void eraseLostDiskReferences(DiskId& diskId, const diskio::DataTier& tier);
+
+    /**
+     * Goes and reads the updated disk map.
+     */
+    Error handleNewDiskMap();
+
+    // check for disk status.
+    bool isDiskAlive(DiskId& diskId);
+
+    void diskMapInitialize();
+
     /**
      * Module methods
      */
@@ -184,15 +200,18 @@ class SmDiskMap : public Module, public boost::noncopyable {
   private:  // methods
     /**
      * Reads existing HDDs and SSDs from /disk-map file
-     * created by platform. Later we may do that through
-     * shared memory
+     * created by platform.
      */
-    void getDiskMap();
+    bool getDiskMap();
 
     /**
      * To handle disk errors
      */
     void initDiskErrorHandlers();
+
+    // Reset disk map
+    void reset();
+
   private:
     fds_uint32_t bitsPerToken_;
 
@@ -218,7 +237,7 @@ class SmDiskMap : public Module, public boost::noncopyable {
     fds_bool_t test_mode;
 
     /// Map from disk idx to SSD capacity array idx
-    std::unordered_map<fds_uint16_t, fds_uint8_t> * ssdIdxMap;
+    std::unordered_map<fds_uint16_t, fds_uint8_t> ssdIdxMap;
     // For now we'll assume no more than 60 SSDs.
     std::atomic<fds_uint64_t> maxSSDCapacity[60];
     std::atomic<fds_uint64_t> consumedSSDCapacity[60];

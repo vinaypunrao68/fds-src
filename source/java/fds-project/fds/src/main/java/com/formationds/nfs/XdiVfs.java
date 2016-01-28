@@ -43,7 +43,7 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
         if (deferMetadataWrites) {
             DeferredIoOps deferredOps = new DeferredIoOps(ops, counters);
             ops = deferredOps;
-            // resolver.addVolumeDeleteEventHandler(v -> deferredOps.onVolumeDeletion(DOMAIN, v));
+            resolver.addVolumeDeleteEventHandler(v -> deferredOps.onVolumeDeletion(DOMAIN, v));
             ((DeferredIoOps) ops).start();
         }
         inodeMap = new InodeMap(ops, resolver);

@@ -20,7 +20,8 @@ whitelist = [
         ['/bin/bash', '-l', 'jenkins_scripts/jenkins_build_test_coroner_cleanup.sh'],
         ['/bin/bash', '-l', 'jenkins_scripts/long_system_test.sh'],
         ['/bin/bash', '-l', 'jenkins_scripts/jenkins_build_test_coroner_cleanup.sh', 'jenkins_build_aborted'],
-        ['/bin/bash', '-l', 'jenkins_scripts/jenkins_build_test_coroner_cleanup.sh', 'jenkins_build_on_master_commit']
+        ['/bin/bash', '-l', 'jenkins_scripts/jenkins_build_test_coroner_cleanup.sh', 'jenkins_build_on_master_commit'],
+        ['/bin/bash', '-l', 'jenkins_scripts/aws_long_system_test.sh']
 ]
 
 # Be very careful adding stuff here - if you add 'java' you will

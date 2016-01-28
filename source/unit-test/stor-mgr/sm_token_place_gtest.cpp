@@ -13,13 +13,14 @@
 #include <gtest/gtest.h>
 #include <fds_process.h>
 #include <object-store/SmTokenPlacement.h>
+#include <persistent-layer/persistentdata.h>
 
 using ::testing::AtLeast;
 using ::testing::Return;
 
 namespace fds {
 
-static std::string logname = "smtokenplace";
+static std::string logname = "sm_token_place";
 
 void discoverDisks(fds_uint32_t hdd_count,
                    fds_uint32_t ssd_count,
@@ -197,7 +198,7 @@ TEST(SmTokenPlacement, recompute1)
     // compute sm token placement
     ObjectLocationTable olt;
     SmTokenPlacement::compute(baseHdds, baseSsds, &olt);
-    GLOGNORMAL << olt;
+    //GLOGNORMAL << olt;
 
     SmTokenMultiSet totalTokens;
     for (auto diskId : baseHdds) {
@@ -215,15 +216,16 @@ TEST(SmTokenPlacement, recompute1)
 
     SmTokenSet toks = olt.getSmTokens(1);
     GLOGNORMAL << "tokens on disk 1 == " << toks.size() << std::endl;
-
+    DiskLocMap diskLocMap;
     SmTokenPlacement::recompute(baseHdds,
                                 addedHdds,
                                 removedHdds,
                                 diskio::diskTier,
                                 &olt,
+                                diskLocMap,
                                 err);
 
-    GLOGNORMAL << olt;
+    //GLOGNORMAL << olt;
 
     SmTokenSet finalTokens = olt.getSmTokens(2);
     EXPECT_EQ(SMTOKEN_COUNT, finalTokens.size());
@@ -248,7 +250,7 @@ TEST(SmTokenPlacement, recompute2)
     // compute sm token placement
     ObjectLocationTable olt;
     SmTokenPlacement::compute(baseHdds, baseSsds, &olt);
-    GLOGNORMAL << olt;
+    //GLOGNORMAL << olt;
 
     SmTokenMultiSet preTotalTokens;
     for (auto diskId : baseHdds) {
@@ -264,14 +266,16 @@ TEST(SmTokenPlacement, recompute2)
     std::set<fds_uint16_t> removedHdds;
     addedHdds.insert(3);
 
+    DiskLocMap diskLocMap;
     SmTokenPlacement::recompute(baseHdds,
                                 addedHdds,
                                 removedHdds,
                                 diskio::diskTier,
                                 &olt,
+                                diskLocMap, 
                                 err);
 
-    GLOGNORMAL << olt;
+    //GLOGNORMAL << olt;
 
     std::set<fds_uint16_t> totalHdds;
     totalHdds.insert(baseHdds.begin(), baseHdds.end());
@@ -284,12 +288,13 @@ TEST(SmTokenPlacement, recompute2)
             postTotalTokens.insert(tmpTokens.begin(), tmpTokens.end());
         }
     }
-
-    EXPECT_EQ(SMTOKEN_COUNT, postTotalTokens.size());
+    auto disk3Tokens = olt.getNumSmTokens(3);
+    disk3Tokens += SMTOKEN_COUNT;
+    EXPECT_EQ(disk3Tokens, postTotalTokens.size());
 
     std::set<uint16_t> diskSet = olt.getDiskSet(diskio::diskTier);
     std::set<uint16_t>::iterator diskSetIter = diskSet.find(3);
-    ASSERT_TRUE(diskSetIter == diskSet.end());
+    ASSERT_FALSE(diskSetIter == diskSet.end());
 }
 
 // 3) 1, 2, 3 => remove 1, add 4
@@ -305,7 +310,7 @@ TEST(SmTokenPlacement, recompute3)
     // compute sm token placement
     ObjectLocationTable olt;
     SmTokenPlacement::compute(baseHdds, baseSsds, &olt);
-    GLOGNORMAL << olt;
+    //GLOGNORMAL << olt;
 
     SmTokenMultiSet preTotalTokens;
     for (auto diskId : baseHdds) {
@@ -321,14 +326,16 @@ TEST(SmTokenPlacement, recompute3)
     removedHdds.insert(1);
     addedHdds.insert(4);
 
+    DiskLocMap diskLocMap;
     SmTokenPlacement::recompute(baseHdds,
                                 addedHdds,
                                 removedHdds,
                                 diskio::diskTier,
                                 &olt,
+                                diskLocMap, 
                                 err);
 
-    GLOGNORMAL << olt;
+    //GLOGNORMAL << olt;
 
     std::set<fds_uint16_t> totalHdds;
     totalHdds.insert(baseHdds.begin(), baseHdds.end());
@@ -368,7 +375,7 @@ TEST(SmTokenPlacement, recompute4)
     // compute sm token placement
     ObjectLocationTable olt;
     SmTokenPlacement::compute(baseHdds, baseSsds, &olt);
-    GLOGNORMAL << olt;
+    //GLOGNORMAL << olt;
 
     SmTokenMultiSet preTotalTokens;
     for (auto diskId : baseHdds) {
@@ -376,6 +383,7 @@ TEST(SmTokenPlacement, recompute4)
         if (tmpTokens.size() > 0) {
             preTotalTokens.insert(tmpTokens.begin(), tmpTokens.end());
         }
+        olt.printSmTokens(diskId);
     }
     EXPECT_EQ(SMTOKEN_COUNT, preTotalTokens.size());
 
@@ -387,14 +395,18 @@ TEST(SmTokenPlacement, recompute4)
     addedHdds.insert(6);
     addedHdds.insert(7);
 
+    auto disk1Tokens = olt.getNumSmTokens(1);
+    auto disk2Tokens = olt.getNumSmTokens(2);
+    DiskLocMap diskLocMap;
     SmTokenPlacement::recompute(baseHdds,
                                 addedHdds,
                                 removedHdds,
                                 diskio::diskTier,
                                 &olt,
+                                diskLocMap,
                                 err);
 
-    GLOGNORMAL << olt;
+    //GLOGNORMAL << olt;
 
     std::set<fds_uint16_t> totalHdds;
     totalHdds.insert(baseHdds.begin(), baseHdds.end());
@@ -404,15 +416,26 @@ TEST(SmTokenPlacement, recompute4)
     totalHdds.insert(6);
     totalHdds.insert(7);
 
-    SmTokenMultiSet postTotalTokens;
     for (auto diskId : totalHdds) {
-        SmTokenSet tmpTokens = olt.getSmTokens(diskId);
-        if (tmpTokens.size() > 0) {
-            postTotalTokens.insert(tmpTokens.begin(), tmpTokens.end());
-        }
+        olt.printSmTokens(diskId);
     }
 
-    EXPECT_EQ(SMTOKEN_COUNT, postTotalTokens.size());
+    int multipleTokenFiles = 0;
+    for (fds_token_id i = 0; i < SMTOKEN_COUNT; i++) {
+        auto diskIds = olt.getDiskIds(i, diskio::diskTier);
+        if (diskIds.size() > 1) {
+            ++multipleTokenFiles;
+        }
+    }
+    auto disk5Tokens = olt.getNumSmTokens(5);
+    auto disk6Tokens = olt.getNumSmTokens(6);
+    auto disk7Tokens = olt.getNumSmTokens(7);
+    LOGNOTIFY << "disk5Tokens = " << disk5Tokens;
+    LOGNOTIFY << "disk6Tokens = " << disk6Tokens;
+    LOGNOTIFY << "disk7Tokens = " << disk7Tokens;
+    auto totalMovedTokens = (disk5Tokens + disk6Tokens + disk7Tokens) -
+                            (disk1Tokens + disk2Tokens);
+    EXPECT_EQ(totalMovedTokens, multipleTokenFiles);
 
     std::set<uint16_t> diskSet = olt.getDiskSet(diskio::diskTier);
     std::set<uint16_t>::iterator diskSetIter;
@@ -429,7 +452,7 @@ TEST(SmTokenPlacement, recompute4)
 }
 
 
-// 5) 1, 2, 3, 4 -> remove 3
+// 5) 1, 2, 3, 4 -> remove 1, 2 add 5, 6, 7
 TEST(SmTokenPlacement, recompute5)
 {
     GLOGNORMAL << "Testing SmTokenPlacement recompute5";
@@ -442,7 +465,68 @@ TEST(SmTokenPlacement, recompute5)
     // compute sm token placement
     ObjectLocationTable olt;
     SmTokenPlacement::compute(baseHdds, baseSsds, &olt);
-    GLOGNORMAL << olt;
+    //GLOGNORMAL << olt;
+
+    SmTokenMultiSet preTotalTokens;
+    for (auto diskId : baseHdds) {
+        SmTokenSet tmpTokens = olt.getSmTokens(diskId);
+        if (tmpTokens.size() > 0) {
+            preTotalTokens.insert(tmpTokens.begin(), tmpTokens.end());
+        }
+        olt.printSmTokens(diskId);
+    }
+    EXPECT_EQ(SMTOKEN_COUNT, preTotalTokens.size());
+
+    std::set<fds_uint16_t> addedHdds;
+    std::set<fds_uint16_t> removedHdds;
+    removedHdds.insert(1);
+    removedHdds.insert(2);
+    addedHdds.insert(5);
+    addedHdds.insert(6);
+    addedHdds.insert(7);
+
+    DiskLocMap diskLocMap;
+    SmTokenPlacement::recompute(baseHdds,
+                                addedHdds,
+                                removedHdds,
+                                diskio::diskTier,
+                                &olt,
+                                diskLocMap,
+                                err);
+
+    //GLOGNORMAL << olt;
+
+    std::set<fds_uint16_t> totalHdds;
+    totalHdds.insert(baseHdds.begin(), baseHdds.end());
+    totalHdds.erase(1);
+    totalHdds.erase(2);
+    totalHdds.insert(5);
+    totalHdds.insert(6);
+    totalHdds.insert(7);
+
+    fds_uint32_t totalTokens = 0;
+    for (DiskId id = 3; id < 8; id++) {
+        auto tokens = olt.getOwnedSmTokens(id);
+        totalTokens += tokens.size();
+    }
+
+    EXPECT_EQ(totalTokens, SMTOKEN_COUNT);
+}
+
+// 6) 1, 2, 3, 4 -> remove 3
+TEST(SmTokenPlacement, recompute6)
+{
+    GLOGNORMAL << "Testing SmTokenPlacement recompute6";
+
+    Error err(ERR_OK);
+    std::set<fds_uint16_t> baseHdds;
+    std::set<fds_uint16_t> baseSsds;
+    discoverDisks(4, 0, &baseHdds, &baseSsds);
+
+    // compute sm token placement
+    ObjectLocationTable olt;
+    SmTokenPlacement::compute(baseHdds, baseSsds, &olt);
+    //GLOGNORMAL << olt;
 
     SmTokenMultiSet preTotalTokens;
     for (auto diskId : baseHdds) {
@@ -457,14 +541,16 @@ TEST(SmTokenPlacement, recompute5)
     std::set<fds_uint16_t> removedHdds;
     removedHdds.insert(3);
 
+    DiskLocMap diskLocMap;
     SmTokenPlacement::recompute(baseHdds,
                                 addedHdds,
                                 removedHdds,
                                 diskio::diskTier,
                                 &olt,
+                                diskLocMap,
                                 err);
 
-    GLOGNORMAL << olt;
+    //GLOGNORMAL << olt;
 
     std::set<fds_uint16_t> totalHdds;
     totalHdds.insert(baseHdds.begin(), baseHdds.end());
