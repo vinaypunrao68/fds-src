@@ -142,7 +142,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
     @Override
 	public List<? extends Event> query(QueryCriteria queryCriteria) {
         // get the query string
-        String queryString = formulateQueryString( queryCriteria, FBEVENT_VOL_ID_COLUMN_NAME );
+        String queryString = formulateQueryString( queryCriteria, FBEVENT_VOL_ID_COLUMN_NAME, null );
 
         List<? extends Event> events = executeEventQuery( queryString );
 
@@ -166,7 +166,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
 			List<Long> tenantUsers) {
 
         QueryCriteria criteria = new QueryCriteria( QueryType.USER_ACTIVITY_EVENT );
-        String queryBase = formulateQueryString( criteria, FBEVENT_VOL_ID_COLUMN_NAME );
+        String queryBase = formulateQueryString( criteria, FBEVENT_VOL_ID_COLUMN_NAME, null );
         StringBuilder queryString = new StringBuilder( queryBase );
 
         if ( ! queryBase.contains( WHERE )) {
@@ -214,7 +214,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
                                                                           v.getName() ) );
 
         String queryBase = formulateQueryString( criteria,
-                                                 FBEVENT_VOL_ID_COLUMN_NAME );
+                                                 FBEVENT_VOL_ID_COLUMN_NAME, null );
 
         StringBuilder queryString = new StringBuilder( queryBase )
                                         .append( " " )
@@ -278,7 +278,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
 
         // create base query (select * from EVENT_SERIES_NAME where
         QueryCriteria criteria = new QueryCriteria( QueryType.FIREBREAK_EVENT, DateRange.last24Hours() );
-        String queryBase = formulateQueryString( criteria, FBEVENT_VOL_ID_COLUMN_NAME );
+        String queryBase = formulateQueryString( criteria, FBEVENT_VOL_ID_COLUMN_NAME, null );
         String queryString = new StringBuilder( queryBase )
                                  .append( " " )
                                  .append( AND )

@@ -22,6 +22,7 @@
 #include <DmMigrationDest.h>
 #include <DmMigrationSrc.h>
 #include <VolumeInitializer.h>
+#include <dm-vol-cat/DmPersistVolDB.h>
 
 namespace fds {
 
@@ -38,9 +39,11 @@ using migrationDestDoneCb = std::function<void (NodeUuid srcNodeUuid,
 * @brief Container for volume related information.
 * VolumeMeta state
 * State: Offline
-* Ops: No read/writes.  Open, volume initilization protocol are allowed to start.
+* Open, volume initilization protocol are allowed to start.
+* Ops: No read/writes.
 *
 * State: Loading
+* In this state either initialization or open from coordinator can be in progress
 * Ops:
 *
 * State: Syncing
@@ -115,7 +118,8 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     inline bool isSyncing() const { return vol_desc->state == fpi::Syncing; }
 
     void startInitializer();
-    void cleanupInitializer();
+    void notifyInitializerComplete(const Error &completionError);
+    void scheduleInitializer(bool fNow);
     inline bool isInitializerInProgress() const {
         return initializer &&
             (vol_desc->state == fpi::Loading || vol_desc->state == fpi::Syncing);
@@ -137,6 +141,8 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     inline bool isReplayOp(const fpi::AsyncHdrPtr &hdr) {
         return hdr->msg_src_uuid == selfSvcUuid;
     }
+
+    void setPersistVolDB(DmPersistVolDB::ptr dbPtr);
 
     void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
 
@@ -212,9 +218,10 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     /*
      * per volume queue
      */
-    boost::intrusive_ptr<FDS_VolumeQueue>  dmVolQueue;
+    boost::intrusive_ptr<FDS_VolumeQueue>   dmVolQueue;
     /* For runinng the sync protocol */
-    VolumeInitializerPtr                   initializer;
+    VolumeInitializerPtr                    initializer;
+    uint32_t                                initializerTriesCnt;
 
  private:
     /*
@@ -258,6 +265,9 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
      * persisted to disk as well
      */
     int32_t version;
+
+    /* Reference to voldb */
+    DmPersistVolDB::ptr volDb;
 
     /**
      * This volume could be a source of migration to multiple nodes.

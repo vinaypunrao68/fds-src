@@ -5,6 +5,7 @@
 #include <string>
 #include <queue>
 #include <fds_typedefs.h>
+#include <net/volumegroup_extensions.h>
 
 namespace fds {
 
@@ -276,6 +277,11 @@ fds_volid_t VolumeDesc::getLookupVolumeId() const {
 
 bool VolumeDesc::isSystemVolume() const {
     return 0 == name.compare(0,7,"SYSTEM_",0,7);
+}
+
+void VolumeDesc::clearCoordinatorInfo() {
+    coordinator.id.svc_uuid = 0;
+    coordinator.version = fds::VolumeGroupConstants::VERSION_INVALID;
 }
 
 std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {

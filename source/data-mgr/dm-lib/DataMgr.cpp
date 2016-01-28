@@ -636,13 +636,12 @@ Error DataMgr::addVolume(const std::string& vol_name,
         if (fActivated) {
             if (features.isVolumegroupingEnabled() &&
                 !(vdesc->isSnapshot())) {
+                volmeta->setPersistVolDB(getPersistDB(vol_uuid));
                 if (volmeta->isCoordinatorSet()) {
                     /* Coordinator is set. We can go through sync protocol */
-                    volmeta->setState(fpi::Loading, 
-                                    util::strformat(" - addVolume:coordinator set: %ld",
-                                                    volmeta->getCoordinatorId().svc_uuid));
-                    volmeta->initializer = MAKE_SHARED<VolumeInitializer>(MODULEPROVIDER(), volmeta);
                     fSyncRequired = true;
+                    volmeta->setState(fpi::Offline,
+                                      " - addVolume:coordinator set. Will start initializer");
                 } else {
                     /* Coordinator isn't available yet.  We wait until coordinator tries to
                      * do an open
@@ -718,7 +717,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
         timelineMgr->loadSnapshot(vol_uuid);
     }
     if (fSyncRequired) {
-        volmeta->initializer->run();
+        volmeta->scheduleInitializer(true);
     }
 
     return err;
@@ -1323,7 +1322,18 @@ DataMgr::amIPrimary(fds_volid_t volUuid) {
 fds_bool_t
 DataMgr::amIPrimaryGroup(fds_volid_t volUuid) {
     if (features.isVolumegroupingEnabled()) {
-        return true;
+        if (MODULEPROVIDER()->getSvcMgr()->hasCommittedDMT()) {
+            const DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->\
+                                       getDMTNodesForVolume(volUuid);
+            fds_verify(nodes->getLength() > 0);
+            const fpi::SvcUuid myUuid (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
+            for (uint i = 0; i < nodes->getLength() ; i++) {
+                if (nodes->get(i).toSvcUuid() == myUuid) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
     return (_amIPrimaryImpl(volUuid, false));
 }

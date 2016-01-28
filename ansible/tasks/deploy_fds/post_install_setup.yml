@@ -205,3 +205,18 @@
     tags:
         - post-install
         - init
+
+-   name: Remove disktype.conf (initd script) when using new superblock
+    file: path=/etc/init/disktype.conf state=absent
+    when: fds_ft_platform_use_new_superblock is defined and fds_ft_platform_use_new_superblock == "true"
+    tags:
+        - post-install
+        - init
+
+-   name: add cron job to gzip logs
+    cron: name="compress logs" minute=49 hour=*/4
+        user="root" job="find /fds/var/log -type f -size +50000000c -mmin +180 | /usr/bin/nice /usr/bin/xargs gzip --quiet --best >> /var/log/fds-gzip-cron.log"
+        cron_file=fds-gzip-cron
+    tags:
+        - post-install
+
