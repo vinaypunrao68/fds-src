@@ -116,7 +116,7 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
             
             $scope.$watch( 'volumeType.clients', function( newVal ){
                 
-                if ( angular.isDefined( newVal ) && newVal.trim().length === 0 ){
+                if ( !angular.isDefined( newVal ) || newVal.trim().length === 0 ){
                     return;
                 }
                 
