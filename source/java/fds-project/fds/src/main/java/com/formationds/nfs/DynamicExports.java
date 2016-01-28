@@ -151,6 +151,15 @@ public class DynamicExports implements ExportResolver {
     }
 
     @Override
+    public long maxVolumeCapacityInBytes(String volume) throws IOException {
+        try {
+            return config.statVolume(XdiVfs.DOMAIN, volume).getPolicy().getBlockDeviceSizeInBytes();
+        } catch (TException e) {
+            throw new IOException(e);
+        }
+    }
+
+    @Override
     public void addVolumeDeleteEventHandler(ConsumerWithException<String> consumer) {
         volumeDeleteEventHandlers.add(consumer);
     }
