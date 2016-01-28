@@ -5,6 +5,7 @@ package com.formationds.om.repository.influxdb;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -100,40 +101,16 @@ public class InfluxMetricSeriesPerVolumeRepo extends InfluxMetricRepository {
      * @param adminCredentials
      */
     public InfluxMetricSeriesPerVolumeRepo( String url, String adminUser, char[] adminCredentials ) {
-        super( url, adminUser, adminCredentials, VOLUME_METRIC_DB, getMetricNames() );
+        super( url, adminUser, adminCredentials, VOLUME_METRIC_DB, getMetricNames(), Collections.emptyList() );
     }
 
 
-    /**
-     * Overridden to return Optional.empty.  The volume name is in the series name
-     * instead of stored as a column
-     *
-     * @see com.formationds.om.repository.influxdb.InfluxMetricRepository#getVolumeNameColumnName()
-     */
-    @Override
-    public Optional<String> getVolumeNameColumnName() {
-        return Optional.empty();
-    }
 
-    /**
-     * Overridden to return Optional.empty.  The volume id is in the series name
-     * instead of stored as a column
-     *
-     * @see com.formationds.om.repository.influxdb.InfluxMetricRepository#getVolumeIdColumnName()
+    /* (non-Javadoc)
+     * @see com.formationds.om.repository.influxdb.InfluxMetricRepository#getContextIdColumnName()
      */
     @Override
-    public Optional<String> getVolumeIdColumnName() {
-        return Optional.empty();
-    }
-
-    /**
-     * Overridden to return Optional.empty.  The volume domain is in the series name
-     * instead of stored as a column
-     *
-     * @see com.formationds.om.repository.influxdb.InfluxMetricRepository#getVolumeDomainColumnName()
-     */
-    @Override
-    public Optional<String> getVolumeDomainColumnName() {
+    public Optional<String> getContextIdColumnName() {
         return Optional.empty();
     }
 

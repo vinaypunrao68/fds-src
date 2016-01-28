@@ -171,12 +171,10 @@ VolumePlacement::computeDMT(const ClusterMap* cmap)
 //    fds_verify(!dmtMgr->hasTargetDMT());
     err = dmtMgr->add(newDmt, DMT_TARGET);
     LOGDEBUG << "Adding new DMT target, result: " << err;
-    if ( err.ok() )
-    {
+    if (err.ok() && !isInTestMode()) {
 //    fds_verify(err.ok());
 //    fds_verify(configDB != NULL);
-        if ( !configDB->storeDmt( *newDmt, "target" ) )
-        {
+        if (!configDB->storeDmt(*newDmt, "target")) {
             GLOGWARN << "unable to store dmt to config db "
                      << "[ " << newDmt->getVersion() << " ]";
         }
@@ -264,6 +262,8 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         // also skip rebalancing volumes which are in the process of
         // deleting (passed delete check)
         if (volinfo->isDeletePending()) continue;
+        // also skip snapshot volumes
+        if ( volinfo->vol_get_properties()->fSnapshot ) continue;
 
         // Populate volume descriptor
         volinfo->vol_fmt_desc_pkt(&vol_desc);

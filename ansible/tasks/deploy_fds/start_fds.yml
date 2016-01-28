@@ -90,23 +90,81 @@
       - activate
 
 -   name: get auth token
-    uri: url=http://{{ fds_om_host }}:7777/api/auth/token?login={{ domain_admin_user }}&password={{ domain_admin_pass }}
+    uri: url=http://{{ fds_om_host }}:7777/fds/config/v08/token?login={{ domain_admin_user }}&password={{ domain_admin_pass }}
         method=POST
         return_content=yes
         status_code=200
     delegate_to: localhost
     register: auth_results
+    when: fds_installed
     run_once: true
     sudo: no
     tags:
       - startup
       - activate
 
--   name: activate local domain
-    uri: url=http://{{ fds_om_host }}:7777/local_domains/{{local_domain_name}}/services
+-   name: Copy add nodes script to OM node
+    when: (clean_fds is defined and clean_fds == "yes") and
+      (force is defined and force == "yes") and
+      fds_om_host is defined and
+      fds_om_host == inventory_hostname
+    copy: src='../../scripts/add_nodes.py'
+        dest="/root/add_nodes.py"
+        mode=0777
+    tags:
+        - startup
+        - activate
+
+-   name: render fdscli config
+    when: (clean_fds is defined and clean_fds == "yes") and
+      (force is defined and force == "yes") and
+      fds_om_host is defined and
+      fds_om_host == inventory_hostname
+    template:
+        src=../../scripts/fdscli.conf.j2
+        dest=/root/.fdscli.conf
+        mode=0644
+    tags:
+        - post-install
+        - influxdb
+
+-   name: Add Nodes to new cluster
+    when: (clean_fds is defined and clean_fds == "yes") and
+      (force is defined and force == "yes") and
+      fds_om_host is defined and
+      fds_om_host == inventory_hostname
+    command: '/root/add_nodes.py'
+    register: command_results
+    run_once: true
+
+-   name: remove add node script
+    when: (clean_fds is defined and clean_fds == "yes") and
+      (force is defined and force == "yes") and
+      fds_om_host is defined and
+      fds_om_host == inventory_hostname
+    file:
+        path=/root/add_nodes.py
+        state=absent
+
+-   name: remove fdscli conf
+    when: (clean_fds is defined and clean_fds == "yes") and
+      (force is defined and force == "yes") and
+      fds_om_host is defined and
+      fds_om_host == inventory_hostname
+    file:
+        path=/root/.fdscli.conf
+        state=absent
+
+-   name: Startup domain services
+    when: fds_om_host is defined and
+      fds_om_host == inventory_hostname and
+      auth_results|success and
+      (clean_fds is not defined or clean_fds == "no") and
+      (force is not defined or force == "no")
+    uri: url=http://{{ fds_om_host }}:7777/fds/config/v08/local_domains/1
         method=PUT
         body_format=json
-        body="{{activate_local_domain_post_body_json}}"
+        body="{{startup_domain_put_body_json}}"
         HEADER_Content-Type="application/json"
         HEADER_Cookie="token={{auth_results['json']['token']}}"
         status_code=200
@@ -115,8 +173,8 @@
     run_once: true
     sudo: no
     tags:
-      - startup
-      - activate
+        - startup
+        - activate
 
 -   name: wait for services to be available on all nodes
     wait_for: host={{inventory_hostname}}

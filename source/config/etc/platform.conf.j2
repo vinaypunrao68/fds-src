@@ -52,7 +52,7 @@ fds: {
             scst_connector = {{ ft_am_scst_enabled }}
             nbd_connector = {{ ft_am_nbd_enabled }}
             serialization = "{{ am_req_serialization }}"
-            safe_atomic_write = {{ am_safe_atomic_write }}
+            all_atomic_ops = {{ am_all_atomic_ops }}
         }
         om: {
            allow_service_reregistration = {{ ft_allow_service_reregistration }}
@@ -73,6 +73,8 @@ fds: {
 
            /** if enabled, query from new series per volume implementation */
            enable_influxdb_query_series_per_volume = {{ ft_enable_influxdb_query_series_per_volume }}
+
+           ignore_failed_svcs = {{ ft_ignore_failed_svcs }}
         }
     }
 
@@ -251,6 +253,7 @@ fds: {
         catalog_log_max_files = 5
         number_of_primary = 2
         req_serialization = {{ dm_req_serialization }}
+        realtime_stats_sampling = {{ dm_realtime_stats_sampling }}
 
         /* process id */
         id      = "dm"

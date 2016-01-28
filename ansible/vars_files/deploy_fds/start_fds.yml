@@ -15,3 +15,20 @@ activate_node_services_post_body:
     sm: "true"
 
 activate_node_services_post_body_json: "{{ activate_node_services_post_body | to_json }}"
+
+shutdown_domain_put_body:
+    id: "1"
+    name: "local"
+    site: "local"
+    state: "DOWN"
+
+shutdown_domain_put_body_json: "{{ shutdown_domain_put_body | to_json }}"
+
+startup_domain_put_body:
+    id: "1"
+    name: "local"
+    site: "local"
+    state: "UP"
+
+startup_domain_put_body_json: "{{ startup_domain_put_body | to_json }}"
+

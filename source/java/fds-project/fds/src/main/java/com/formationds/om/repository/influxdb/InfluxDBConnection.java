@@ -443,16 +443,15 @@ public class InfluxDBConnection {
                 else
                 {
                     failed = e;
-                    queryLogger
-                            .trace( "QUERY_FAIL {} [{}]: {} [ex={}; conn={} ms; query={} ms]",
-                                    marker, start, query,
-                                    e.getMessage(), connTime, queryTime );
+                    queryLogger.warn( "QUERY_FAIL  {} [{}]: {} [ex={}; conn={} ms; query={} ms]",
+                                        marker, start, query,
+                                        e.getMessage(), connTime, queryTime );
                     throw e;
                 }
             }
             finally
             {
-                queryLogger.trace( "QUERY_END {}  [{}]: {} [result={}; conn={} ms; query={} ms]",
+                queryLogger.trace( "QUERY_END   {}  [{}]: {} [result={}; conn={} ms; query={} ms]",
                                    marker, start, query, ( failed != null
                                                    ? "'" + failed.getMessage() + "'"
                                                    : (result instanceof List ?

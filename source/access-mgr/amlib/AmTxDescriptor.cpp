@@ -9,11 +9,13 @@ namespace fds {
 AmTxDescriptor::AmTxDescriptor(fds_volid_t volUuid,
                                const BlobTxId &id,
                                fds_uint64_t dmtVer,
-                               const std::string &name)
+                               const std::string &name,
+                               const fds_int32_t mode)
         : volId(volUuid),
           txId(id),
           originDmtVersion(dmtVer),
           blobName(name),
+          blob_mode(mode),
           opType(FDS_PUT_BLOB),
           stagedBlobDesc(new BlobDescriptor()) {
     stagedBlobDesc->setVolId(volId.get());

@@ -203,6 +203,7 @@
         - libhiredis0.10
         - libhiredis-dev
         - libsqlite3-dev
+        - scsitools
         - swig3.0
         - sshpass
         - nbd-client
@@ -238,7 +239,7 @@
         - psutil
         - fstab
         - pyudev
-        - PyInstaller
+        - "PyInstaller==3.1"
         - "tabulate==0.7.4"
         - "urllib3==1.10.1"
         - python-iptables

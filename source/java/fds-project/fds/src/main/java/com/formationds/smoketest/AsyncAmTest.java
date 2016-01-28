@@ -8,6 +8,7 @@ import com.formationds.protocol.*;
 import com.formationds.sc.SvcState;
 import com.formationds.sc.api.SvcAsyncAm;
 import com.formationds.util.ByteBufferUtility;
+import com.formationds.util.ConsumerWithException;
 import com.formationds.xdi.*;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -35,21 +36,37 @@ public class AsyncAmTest extends BaseAmTest {
     private static SvcState svc;
     private Counters counters;
 
+
+    @Test
+    public void testChunker() throws Exception {
+        AmOps amOps = new AmOps(asyncAm, counters);
+        Chunker chunker = new Chunker(amOps);
+        int length = (int) Math.round(OBJECT_SIZE * 10.5);
+        byte[] bytes = new byte[length];
+        new Random().nextBytes(bytes);
+        chunker.write(domainName, volumeName, blobName, OBJECT_SIZE, bytes, 0, length, m -> m.put("foo", "bar"));
+        byte[] read = new byte[length];
+        chunker.read(domainName, volumeName, blobName, OBJECT_SIZE, read, 0, length);
+        assertArrayEquals(bytes, read);
+    }
+
     @Test
     public void testDmSupportsSmallObjects() throws Exception {
         AmOps amOps = new AmOps(asyncAm, counters);
-        amOps.writeObject(domainName, volumeName, blobName, new ObjectOffset(0), ByteBuffer.allocate(10), OBJECT_SIZE, false);
-        ByteBuffer byteBuffer = amOps.readCompleteObject(domainName, volumeName, blobName, new ObjectOffset(0), OBJECT_SIZE);
-        assertEquals(10, byteBuffer.remaining());
-        assertEquals(OBJECT_SIZE, byteBuffer.capacity());
+        amOps.writeObject(domainName, volumeName, blobName, new ObjectOffset(0), FdsObject.allocate(10, OBJECT_SIZE), false);
+        FdsObject fdsObject = amOps.readCompleteObject(domainName, volumeName, blobName, new ObjectOffset(0), OBJECT_SIZE);
+        fdsObject.lock(o -> {
+            assertEquals(10, o.limit());
+            assertEquals(OBJECT_SIZE, o.maxObjectSize());
+            return null;
+        });
     }
 
     @Test
     public void testUpdate() throws Exception {
         AmOps amOps = new AmOps(asyncAm, counters);
         DeferredIoOps io = new DeferredIoOps(amOps, counters);
-        TransactionalIo txs = new TransactionalIo(io);
-        InodeIndex index = new SimpleInodeIndex(txs, new MyExportResolver());
+        InodeIndex index = new SimpleInodeIndex(io, new MyExportResolver());
         InodeMetadata dir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3);
         InodeMetadata child = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4)
                 .withLink(dir.getFileId(), "panda");
@@ -65,8 +82,7 @@ public class AsyncAmTest extends BaseAmTest {
     @Test
     public void testLookup() throws Exception {
         DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
-        TransactionalIo txs = new TransactionalIo(io);
-        InodeIndex index = new SimpleInodeIndex(txs, new MyExportResolver());
+        InodeIndex index = new SimpleInodeIndex(io, new MyExportResolver());
         InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2);
         InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3);
 
@@ -88,8 +104,7 @@ public class AsyncAmTest extends BaseAmTest {
     @Test
     public void testListDirectory() throws Exception {
         DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
-        TransactionalIo txs = new TransactionalIo(io);
-        InodeIndex index = new SimpleInodeIndex(txs, new MyExportResolver());
+        InodeIndex index = new SimpleInodeIndex(io, new MyExportResolver());
         InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 1);
         InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2);
 
@@ -133,6 +148,11 @@ public class AsyncAmTest extends BaseAmTest {
         @Override
         public int objectSize(String volume) {
             return OBJECT_SIZE;
+        }
+
+        @Override
+        public void addVolumeDeleteEventHandler(ConsumerWithException<String> consumer) {
+
         }
     }
 

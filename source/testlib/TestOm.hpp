@@ -30,12 +30,17 @@ struct TestOm : SvcProcess {
 
     virtual int run() override;
 
+    void addVolume(const fds_volid_t &volId,
+                   const SHPTR<VolumeDesc>& volume,
+                   bool broadcast = false);
+
     /* Messages invoked by handler */
     void registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo);
     void getSvcMap(std::vector<fpi::SvcInfo> & svcMap);
     void getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& _return, const int64_t nullarg);
     void getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& _return, const int64_t nullarg);
     void getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return, const int64_t nullarg);
+    Error setVolumeGroupCoordinator(const fpi::SetVolumeGroupCoordinatorMsg &msg);
 
  protected:
     /**
@@ -45,6 +50,9 @@ struct TestOm : SvcProcess {
 
     fds_mutex svcMapLock_;
     std::unordered_map<fpi::SvcUuid, fpi::SvcInfo, SvcUuidHash> svcMap_;
+
+    fds_mutex volumeLock;
+    std::unordered_map<fds_volid_t, SHPTR<VolumeDesc>> volumeTbl;
 };
 
 struct TestOmHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler {
@@ -52,6 +60,7 @@ struct TestOmHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler {
     : PlatNetSvcHandler(om)
     {
         om_ = om;
+        REGISTER_FDSP_MSG_HANDLER(fpi::SetVolumeGroupCoordinatorMsg, setVolumeGroupCoordinator);
     }
 
     void registerService(const fpi::SvcInfo& svcInfo) {}
@@ -78,13 +87,23 @@ struct TestOmHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler {
     void getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& _return, boost::shared_ptr<int64_t>& nullarg) {
     }
 
-    void getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return, boost::shared_ptr<int64_t>& nullarg) {
+    void getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return,
+                                 boost::shared_ptr<int64_t>& nullarg) {
+        om_->getAllVolumeDescriptors(_return, *nullarg);
     }
 
     virtual void getSvcInfo(fpi::SvcInfo & _return,
                             boost::shared_ptr< fpi::SvcUuid>& svcUuid) override
     {
     }
+
+    void setVolumeGroupCoordinator(SHPTR<fpi::AsyncHdr> &hdr,
+                                   SHPTR<fpi::SetVolumeGroupCoordinatorMsg> &msg)
+    {
+        hdr->msg_code = om_->setVolumeGroupCoordinator(*msg).GetErrno();
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+    }
+
 
     TestOm *om_;
 };
@@ -178,6 +197,44 @@ void TestOm::getSvcMap(std::vector<fpi::SvcInfo> & svcMap)
 {
     fds_scoped_lock l(svcMapLock_);
     svcMgr_->getSvcMap(svcMap);
+}
+
+void TestOm::addVolume(const fds_volid_t &volId,
+                       const SHPTR<VolumeDesc>& volume,
+                       bool broadcast)
+{
+    fds_scoped_lock l(volumeLock);
+    volumeTbl[volId] = volume;
+
+    fds_assert(!broadcast); // broadcast not supported
+}
+
+void TestOm::getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return,
+                                     const int64_t nullarg)
+{
+    fds_scoped_lock l(volumeLock);
+    for (const auto &v : volumeTbl) {
+        _return.volumeList.emplace_back();
+        auto &volAdd = _return.volumeList.back();
+        v.second->toFdspDesc(volAdd.vol_desc);
+    }
+}
+
+Error TestOm::setVolumeGroupCoordinator(const fpi::SetVolumeGroupCoordinatorMsg &msg)
+{
+    fds_scoped_lock l(volumeLock);
+    auto itr = volumeTbl.find(fds_volid_t(msg.volumeId));
+    if (itr == volumeTbl.end()) {
+        LOGWARN << "Failed to set coordinator for volume: " << msg.volumeId;
+        return ERR_VOL_NOT_FOUND;
+    }
+    auto &volDescPtr = itr->second;
+    auto &volCoordinatorInfo = msg.coordinator;
+    volDescPtr->setCoordinatorId(volCoordinatorInfo.id);
+    volDescPtr->setCoordinatorVersion(volCoordinatorInfo.version);
+    LOGNOTIFY << "Set volume coordinator for volid: " << msg.volumeId
+        << " coordinator: " << volCoordinatorInfo.id.svc_uuid;
+    return ERR_OK;
 }
 }  // namespace fds
 #endif  // SOURCE_INCLUDE_NET_OMSVCPROCESS_H_
