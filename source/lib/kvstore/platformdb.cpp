@@ -115,7 +115,8 @@ bool PlatformDB::setNodeLargestDiskIndex(const fds_uint16_t& largestDiskIndex) {
 
     try
     {
-        kv_store.sendCommand("set node.disk.largestindex %ld", largestDiskIndex);
+        const std::string key("set " + computeKey("node.disk.largestindex") +" %ld");
+        kv_store.sendCommand(key.c_str(), largestDiskIndex);
         bRetCode =  true;
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
@@ -130,7 +131,8 @@ bool PlatformDB::getNodeLargestDiskIndex(fds_uint16_t& largestDiskIndex) {
 
     try
     {
-        Reply reply = kv_store.sendCommand("get node.disk.largestindex");
+        const std::string key("get " + computeKey("node.disk.largestindex"));
+        Reply reply = kv_store.sendCommand(key.c_str());
         if (reply.isNil()) {
             bRetCode = false;
         } else {

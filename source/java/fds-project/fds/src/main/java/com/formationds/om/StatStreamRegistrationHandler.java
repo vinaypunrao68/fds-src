@@ -12,6 +12,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.formationds.util.Configuration;
+import com.google.common.collect.Lists;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,15 +31,17 @@ public class StatStreamRegistrationHandler {
     private static final Long FREQUENCY = Long.valueOf(commonConstants.STAT_STREAM_FINE_GRAINED_FREQUENCY_SECONDS);
 
     private final OmConfigurationApi configApi;
+    private final Configuration platformDotConf;
 
     private final String urlHostname;
     private final int urlPortNo;
     private final String url;
 
     public StatStreamRegistrationHandler( final OmConfigurationApi configApi,
-                                          final String urlHostname,
-                                          final int urlPortNo) {
+                                          final Configuration platformDotConf, final String urlHostname,
+                                          final int urlPortNo ) {
         this.configApi = configApi;
+        this.platformDotConf = platformDotConf;
         this.urlHostname = urlHostname;
         this.urlPortNo = urlPortNo;
 
@@ -46,13 +50,13 @@ public class StatStreamRegistrationHandler {
     }
 
     /**
-     * Manage OM Stream Registrations.  
+     * Manage OM Stream Registrations.
      * <p/>
-     * In past releases we had a registration per-volume.  Now we use a single 
-     * registration with an empty volume list, which will send stats for all 
+     * In past releases we had a registration per-volume.  Now we use a single
+     * registration with an empty volume list, which will send stats for all
      * volumes.
      * <p/>
-     * This will look at the stream registrations and remove any old per-volume 
+     * This will look at the stream registrations and remove any old per-volume
      * stream registrations with the OM url and then create the new registration.
      */
     void manageOmStreamRegistrations() {

@@ -52,7 +52,7 @@ fds: {
             scst_connector = {{ ft_am_scst_enabled }}
             nbd_connector = {{ ft_am_nbd_enabled }}
             serialization = "{{ am_req_serialization }}"
-            safe_atomic_write = {{ am_safe_atomic_write }}
+            all_atomic_ops = {{ am_all_atomic_ops }}
         }
         om: {
            allow_service_reregistration = {{ ft_allow_service_reregistration }}
@@ -60,7 +60,9 @@ fds: {
            rest_07_feature = {{ ft_fds_rest_07_feature }}
            fs_2660_metric_firebreak_event_query = {{ ft_fs_2660_metric_firebreak_event_query }}
            enable_influxdb_write_batch = {{ ft_enable_influxdb_write_batch }}
-        }
+           enable_influxdb_chunked_query_response = {{ ft_enable_influxdb_chunked_query_response }}
+           ignore_failed_svcs = {{ ft_ignore_failed_svcs }}
+	}
     }
 
     /* Use this section for settings that are shared (or needed) by most or all processes */
@@ -693,6 +695,12 @@ fds: {
 
         task_scheduler_pool: {
             min = {{ om_task_scheduler_pool_min }}
+        }
+
+        stats: {
+            frequency={{ om_stats_frequency }}
+            duration={{ om_stats_duration }}
+            method="{{ om_stats_method }}"
         }
 
         test_mode=false

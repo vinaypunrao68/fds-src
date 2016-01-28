@@ -1,9 +1,11 @@
 package com.formationds.nfs.deferred;
 
+import com.formationds.nfs.SortableKey;
 import com.formationds.util.IoFunction;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalCause;
+import org.apache.log4j.Logger;
 
 import java.io.IOException;
 import java.util.*;
@@ -12,17 +14,18 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 
-public class EvictingCache<TKey, TValue> {
+public class EvictingCache<TKey extends SortableKey<TKey>, TValue> {
     private final static int LOCK_STRIPES = 1024 * 32;
+    private static final Logger LOG = Logger.getLogger(EvictingCache.class);
 
     private final Cache<TKey, CacheEntry<TValue>> cache;
     private TraversableView traversableView;
-    private Evictor<TKey, CacheEntry<TValue>> evictor;
+    private Evictor<TKey, TValue> evictor;
     private final Object[] locks;
     private String name;
     private final BlockingDeque<Exception> exceptions;
 
-    public EvictingCache(Evictor<TKey, CacheEntry<TValue>> evictor, String name, int maxSize, int evictionInterval, TimeUnit evictionTimeUnit) {
+    public EvictingCache(Evictor<TKey, TValue> evictor, String name, int maxSize, int evictionInterval, TimeUnit evictionTimeUnit) {
         this.evictor = evictor;
         this.name = name;
         exceptions = new LinkedBlockingDeque<>();
@@ -33,12 +36,13 @@ public class EvictingCache<TKey, TValue> {
                 .expireAfterAccess(evictionInterval, evictionTimeUnit)
                 .removalListener(notification -> {
                     RemovalCause cause = notification.getCause();
+                    TKey key = (TKey) notification.getKey();
+                    LOG.debug("EvictingCache removalListener, cause=" + cause + ", key=" + key.toString());
                     if (!(cause.equals(RemovalCause.EXPLICIT) || cause.equals(RemovalCause.REPLACED))) {
-                        TKey key = (TKey) notification.getKey();
                         CacheEntry<TValue> entry = (CacheEntry<TValue>) notification.getValue();
                         if (entry.isDirty) {
                             try {
-                                evictor.flush(key, entry);
+                                evictor.flush(key, entry.value);
                                 entry.isDirty = false;
                             } catch (Exception e) {
                                 exceptions.add(e);
@@ -99,11 +103,23 @@ public class EvictingCache<TKey, TValue> {
             lock(key, c -> {
                 CacheEntry<TValue> entry = c.get(key);
                 if (entry.isDirty) {
-                    evictor.flush(key, entry);
+                    evictor.flush(key, entry.value);
                     entry.isDirty = false;
                 }
                 return null;
             });
+        }
+    }
+
+    public void flush(TKey prefix) {
+        Iterator<TKey> iterator = traversableView.tailMap(prefix).keySet().iterator();
+        while (iterator.hasNext()) {
+            TKey next = iterator.next();
+            if (next.beginsWith(prefix)) {
+                traversableView.remove(next);
+            } else {
+                break;
+            }
         }
     }
 
@@ -113,37 +129,39 @@ public class EvictingCache<TKey, TValue> {
 
         @Override
         public int size() {
-            return cache.asMap().size();
+            return inner.size();
         }
 
         @Override
         public boolean isEmpty() {
-            return cache.asMap().isEmpty();
+            return inner.isEmpty();
         }
 
         @Override
         public boolean containsKey(Object key) {
-            return cache.asMap().containsKey(key);
+            return inner.containsKey(key);
         }
 
         @Override
         public boolean containsValue(Object value) {
-            return cache.asMap().containsValue(value);
+            return inner.containsValue(value);
         }
 
         @Override
         public CacheEntry<TValue> get(Object key) {
-            return cache.asMap().get(key);
+            return inner.get(key);
         }
 
         @Override
         public CacheEntry<TValue> put(TKey key, CacheEntry<TValue> value) {
+            LOG.debug("EvictingCache PUT " + key.toString());
             cache.put(key, value);
             return inner.put(key, value);
         }
 
         @Override
         public CacheEntry<TValue> remove(Object key) {
+            LOG.debug("EvictingCache REMOVE " + key.toString());
             cache.asMap().remove(key);
             return inner.remove(key);
         }
@@ -154,14 +172,14 @@ public class EvictingCache<TKey, TValue> {
 
         @Override
         public void putAll(Map<? extends TKey, ? extends CacheEntry<TValue>> m) {
-            cache.putAll(m);
             inner.putAll(m);
+            cache.putAll(m);
         }
 
         @Override
         public void clear() {
-            cache.asMap().clear();
             inner.clear();
+            cache.asMap().clear();
         }
 
         @Override
@@ -196,17 +214,17 @@ public class EvictingCache<TKey, TValue> {
 
         @Override
         public Set<TKey> keySet() {
-            return cache.asMap().keySet();
+            return inner.keySet();
         }
 
         @Override
         public Collection<CacheEntry<TValue>> values() {
-            return cache.asMap().values();
+            return inner.values();
         }
 
         @Override
         public Set<Entry<TKey, CacheEntry<TValue>>> entrySet() {
-            return cache.asMap().entrySet();
+            return inner.entrySet();
         }
     }
 }

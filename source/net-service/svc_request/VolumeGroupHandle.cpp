@@ -774,8 +774,7 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
         /* Check if offline volumegroup needs to become functional again */
         if (state_ == fpi::ResourceState::Offline &&
             functionalReplicas_.size() == quorumCnt_) {
-            changeState_(fpi::ResourceState::Active,
-                         false, /* This is a noop */
+            changeState_(fpi::ResourceState::Active, false, /* This is a noop */
                          " - funcationl again.  Met the quorum count");
         }
     } else if (VolumeReplicaHandle::isNonFunctional(targetState)) {
@@ -783,7 +782,7 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
         if (state_ == fpi::ResourceState::Active &&
             functionalReplicas_.size() < quorumCnt_) {
             if (functionalReplicas_.size() == 0) {
-                /* When we zero functional replicas we reset opSeqNo_ */
+                /* When we have zero functional replicas we reset opSeqNo_ */
                 opSeqNo_ = VolumeGroupConstants::OPSTARTID;
                 LOGNORMAL << logString()
                     << " - # functional replicas is zero.  Resetting opid";
@@ -939,7 +938,7 @@ void VolumeGroupBroadcastRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
                                        header->msg_code,
                                        nSuccessAcked_);
 
-    if (prevSuccessCnt == nSuccessAcked_ && /* header->msg_code is an error */
+    if (prevSuccessCnt == nSuccessAcked_ && /* VolumeGroup considered it an error */
         response_.ok()) {
         /* Caching first error code. Used when quorum isn't met */
         if (header->msg_code == ERR_OK) {  /* when group is down this can happen */
@@ -951,7 +950,7 @@ void VolumeGroupBroadcastRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
 
     if (nSuccessAcked_ == groupHandle_->getQuorumCnt() &&
         responseCb_) {
-        /* Met the quorum count.  Returning the last error code*/
+        /* Met the quorum count.  Returning the last error code */
         // TODO(Rao): Ensure all replicas returned the same error code
         responseCb_(header->msg_code, payload); 
         responseCb_ = 0;

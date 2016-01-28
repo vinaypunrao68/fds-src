@@ -378,9 +378,16 @@
       </dependency>
 
       <dependency>
+      <!-- NOTE: Using forked version with chunked response streaming support
+           from git@github.com:davefds/influxdb-java.git (0.8.x.chunked_response branch)
         <groupId>org.influxdb</groupId>
         <artifactId>influxdb-java</artifactId>
         <version>${influxdb.version}</version>
+        -->
+        <groupId>com.formationds</groupId>
+        <artifactId>influxdb-java</artifactId>
+        <version>1.6.1-SNAPSHOT</version>
+        
       </dependency>
 
       <dependency>
@@ -456,6 +463,27 @@
         <!-- add scope back in once test code is removed from production -->
         <!--<scope>test</scope>-->
       </dependency>
+
+      <!-- InfluxDB-Java dependencies
+        Note that we should not have to declare these explicitly, but we are having
+        problems with the pom file in artifactory with our custom version of
+        the influxdb-java library and it being unable to find the transitive dependencies -->
+      <dependency>
+         <groupId>com.squareup.retrofit</groupId>
+         <artifactId>retrofit</artifactId>
+         <version>1.9.0</version>
+      </dependency>
+      <dependency>
+         <groupId>com.squareup.okhttp</groupId>
+         <artifactId>okhttp</artifactId>
+         <version>2.4.0</version>
+      </dependency>
+      <dependency>
+         <groupId>com.squareup.okhttp</groupId>
+         <artifactId>okhttp-urlconnection</artifactId>
+         <version>2.4.0</version>
+      </dependency>
+
     </dependencies>
   </dependencyManagement>
 

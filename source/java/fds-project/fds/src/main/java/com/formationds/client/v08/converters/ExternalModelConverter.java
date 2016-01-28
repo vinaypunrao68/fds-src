@@ -292,12 +292,14 @@ public class ExternalModelConverter {
             volumeStatus = SingletonAmAPI.instance().api().volumeStatus("" /* TODO: Dummy domain name. */,
                                                                         internalVolume.getName()).get();
         } catch (Exception e) {
-            logger.error("Unknown Exception: " + e.getMessage());
+            logger.warn("Unknown Exception requesting volume status for " + internalVolume.getName() + ": " + e.getMessage());
             return new VolumeStatus(VolumeState.Unknown, Size.ZERO);
         }
 
         extUsage = Size.of(volumeStatus.getCurrentUsageInBytes(), SizeUnit.B);
-        logger.trace("Determined extUsage for " + internalVolume.getName() + " to be " + extUsage + ".");
+        if (logger.isTraceEnabled()) { 
+            logger.trace("Determined extUsage for " + internalVolume.getName() + " to be " + extUsage + ".");
+        }
 
         Instant[] instants = {Instant.EPOCH, Instant.EPOCH};
         extractTimestamps( fbResults, instants );
@@ -378,7 +380,7 @@ public class ExternalModelConverter {
                              snapshotName,
                              volumeId,
                              Duration.ofSeconds( retentionInSeconds ),
-                             Instant.ofEpochMilli( creation ) );
+                             Instant.ofEpochSecond( creation ) );
     }
 
     public static SnapshotPolicy convertToExternalSnapshotPolicy( com.formationds.apis.SnapshotPolicy internalPolicy ) {
@@ -573,8 +575,8 @@ public class ExternalModelConverter {
 
             if( nfsOptions != null )
             {
-                Size blockSize = Size.of( settings.getBlockDeviceSizeInBytes( ), SizeUnit.B );
-                Size maxObjectSize = Size.of( settings.getMaxObjectSizeInBytes( ), SizeUnit.B );
+                final Size maxObjectSize = Size.of( settings.getMaxObjectSizeInBytes( ), SizeUnit.B );
+                final Size capacity = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.B );
 
                 try
                 {
@@ -582,6 +584,7 @@ public class ExternalModelConverter {
                         .withOptions( convertToExternalNfsOptions( nfsOptions ) )
                         .withClient( convertToExternalNfsClients( nfsOptions ) )
                         .withMaxObjectSize( Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B ) )
+                        .withCapacity( capacity )
                         .build();
                 }
                 catch ( UnknownHostException e )
@@ -971,6 +974,11 @@ public class ExternalModelConverter {
             VolumeSettingsNfs nfsSettings = ( VolumeSettingsNfs ) externalVolume.getSettings( );
 
             Size maxObjSize = nfsSettings.getMaxObjectSize();
+
+            internalSettings
+                .setBlockDeviceSizeInBytes( nfsSettings.getCapacity( )
+                                                         .getValue( SizeUnit.B )
+                                                         .longValue( ) );
 
             if ( maxObjSize != null &&
                  maxObjSize.getValue( SizeUnit.B ).longValue() >= Size.of( 4, SizeUnit.KB )

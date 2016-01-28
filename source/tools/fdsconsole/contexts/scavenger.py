@@ -46,9 +46,13 @@ class ScavengerContext(Context):
     #--------------------------------------------------------------------------------------
     @clidebugcmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
-    def start(self, sm):
+    @arg('--force', help= "force immediate expunge by passing threshold", default=False, action='store_true')
+    def startscavenger(self, sm, force=False):
         'start garbage collection on sm'
         try:
+            if force:
+                self.forceexpunge()
+
             for uuid in self.config.getServiceApi().getServiceIds(sm):
                 print 'starting scavenger on {}'.format(self.config.getServiceApi().getServiceName(uuid))
                 getScavMsg = FdspUtils.newStartScavengerMsg()
@@ -57,6 +61,41 @@ class ScavengerContext(Context):
         except Exception, e:
             log.exception(e)
             return 'start failed'
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    def forceexpunge(self):
+        'send force expunge command to SMs'
+        try:
+            print 'will ask SMs to do immediate expunge for current run'
+            msg = FdspUtils.newSvcMsgByTypeId(FDSPMsgTypeId.GenericCommandMsgTypeId)
+            msg.command="force.expunge";
+            for uuid in self.config.getServiceApi().getServiceIds("sm"):
+                cb = WaitedCallback()
+                print 'sending force expunge to {}'.format(self.config.getServiceApi().getServiceName(uuid))
+                self.smClient().sendAsyncSvcReq(uuid, msg, cb)
+        except Exception, e:
+            log.exception(e)
+            print 'set force expunge failed'
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('dm', help= "DM id to send the command to", type=str, default='dm', nargs='?')
+    @arg('--force', help= "force immediate expunge by passing threshold", default=False, action='store_true')
+    def start(self, dm, force=False):
+        'start gc process'
+        try:
+            if force:
+                self.forceexpunge();
+
+            for uuid in self.config.getServiceApi().getServiceIds(dm):
+                print 'starting gc refscan on {}'.format(self.config.getServiceApi().getServiceName(uuid))
+                msg = FdspUtils.newSvcMsgByTypeId(FDSPMsgTypeId.StartRefScanMsgTypeId)
+                cb = WaitedCallback()
+                self.smClient().sendAsyncSvcReq(uuid, msg, cb)
+        except Exception, e:
+            log.exception(e)
+            return 'start gc via dm failed'
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd

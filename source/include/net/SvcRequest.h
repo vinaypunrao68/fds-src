@@ -464,6 +464,12 @@ struct FailoverSvcRequest : MultiEpSvcRequest {
 
     void onResponseCb(FailoverSvcRequestRespCb cb);
 
+    /**
+    * @brief  Returns uuid of last service that responsed.  Only use after responsed cb
+    * has been invoked
+    */
+    fpi::SvcUuid getLastRespondedSvcUuid() const;
+
  protected:
     virtual void invokeWork_() override;
 
