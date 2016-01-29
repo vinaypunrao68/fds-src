@@ -1187,7 +1187,5 @@ class OM_NodeDomainMod : public Module
     unsigned                      activeVolumeGroups;
 };
 
-extern OM_NodeDomainMod      gl_OMNodeDomainMod;
-
 }  // namespace fds
 #endif  // SOURCE_ORCH_MGR_INCLUDE_OMRESOURCES_H_

@@ -66,6 +66,8 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule, bool initAsModule,
         svcStartThread->detach();
         svcStartRetryThread.reset(new std::thread(&OrchMgr::svcStartRetryMonitor, this));
         svcStartRetryThread->detach();
+    } else {
+        enableTimeline = false;
     }
     /*
      * Testing code for loading test info from disk.
@@ -203,6 +205,11 @@ int OrchMgr::run()
     if (!test_mode) {
         deleteScheduler.start();
         runConfigService(this);
+    } else {
+        // not in test mode but need to spin
+        while (true) {
+            sleep(1000);
+        }
     }
     return 0;
 }

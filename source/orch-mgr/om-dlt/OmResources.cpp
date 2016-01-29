@@ -30,8 +30,6 @@
 
 namespace fds {
 
-OM_NodeDomainMod             gl_OMNodeDomainMod("OM-Node");
-
 //---------------------------------------------------------
 // Node Domain state machine
 //--------------------------------------------------------
@@ -1381,7 +1379,7 @@ OM_NodeDomainMod::mod_shutdown()
 OM_NodeDomainMod *
 OM_NodeDomainMod::om_local_domain()
 {
-    return &gl_OMNodeDomainMod;
+    return (OM_Module::om_singleton()->om_nodedomain_mod());
 }
 
 // om_local_domain_up
@@ -1584,9 +1582,7 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                    (sm_services.size() > 0 && dm_services.size() > 0));
     }
 
-    if ( ( sm_services.size() > 0 ) ||
-         ( dm_services.size() > 0 ) )
-    {
+    if (( sm_services.size() > 0) || (dm_services.size() > 0)) {
         std::vector<fpi::SvcInfo> pmSvcs;
         std::vector<fpi::SvcInfo> amSvcs;
         std::vector<fpi::SvcInfo> smSvcs;
@@ -1676,9 +1672,7 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
             local_domain_event( WaitNdsEvt( deployed_sm_services,
                                             deployed_dm_services ) );
         }
-    } 
-    else
-    {
+    } else {
         LOGNOTIFY << "We didn't persist any SMs or DMs or we couldn't load "
                   << "persistent state, so OM will come up in a moment.";
         local_domain_event( NoPersistEvt( ) );
@@ -2933,6 +2927,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     /**
      * Note this is a temporary hack to return the node registration call 
      * immediately and wait for 3 seconds before broadcast...
+     * In test mode, the unit test has to manually call setupNewNode()
      */
     
     if (err.ok() && (msg->node_type != fpi::FDSP_PLATFORM)) {
@@ -3032,7 +3027,7 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
      *  For PM configDB updates are done along with svcLayer updates in om_register_svc
      *  Update the configDB svcMap now for other services
     */
-    if (msg->node_type != fpi::FDSP_PLATFORM) {
+    if ((msg->node_type != fpi::FDSP_PLATFORM) && !isInTestMode()) {
 
         SvcInfoPtr infoPtr;
         Error err = getRegisteringSvc(infoPtr, uuid.uuid_get_val());
