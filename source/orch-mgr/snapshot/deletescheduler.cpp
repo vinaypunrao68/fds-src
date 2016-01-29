@@ -30,7 +30,7 @@ bool DeleteScheduler::addSnapshot(const fpi::Snapshot& snapshot) {
     atc::Synchronized s(monitor);
     // check if the volume is already here
     bool fModified = false;
-    uint64_t deleteTime  = snapshot.creationTimestamp/1000 + snapshot.retentionTimeSeconds;
+    uint64_t deleteTime  = snapshot.creationTimestamp + snapshot.retentionTimeSeconds;
     auto snapVolId = fds_volid_t(snapshot.volumeId);
     auto handleptr = handleMap.find(snapVolId);
     if (handleptr != handleMap.end()) {
@@ -75,7 +75,7 @@ bool DeleteScheduler::removeVolume(fds_volid_t volumeId) {
 }
 
 void DeleteScheduler::dump() {
-    LOGDEBUG << " --- delete scheduler queue ---";
+    LOGDEBUG << " --- snapshot delete scheduler queue ---";
     for (PriorityQueue::ordered_iterator it = pq.ordered_begin(); it != pq.ordered_end(); ++it) {
         LOGDEBUG << *(*it) << ' ';
     }
