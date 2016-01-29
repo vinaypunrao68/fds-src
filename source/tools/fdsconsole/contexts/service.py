@@ -9,6 +9,8 @@ import time
 import socket
 import dmtdlt
 import humanize
+import json
+
 class ServiceContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
@@ -516,6 +518,9 @@ class ServiceContext(Context):
         try:
             for uuid in self.getServiceIds(svc):
                 helpers.printHeader('info for {}'.format(self.getServiceName(uuid)))
+                #print state
+                state = ServiceMap.client(uuid).getStateInfo('svcmgr')
+                state = json.loads(state)
                 svcMap = ServiceMap.client(uuid).getSvcMap(None)
                 #print svcMap
                 myinfo = {}
@@ -527,6 +532,7 @@ class ServiceContext(Context):
                     myinfo['status'] = e.svc_status
                     myinfo['ip'] = e.ip
                     myinfo['port'] = e.svc_port
+                    myinfo['outstanding_svc_reqs'] = state['outstandingRequestsCount']
 
                 # add service map properties
                 for s in svcMap:
@@ -540,3 +546,4 @@ class ServiceContext(Context):
         except Exception, e:
             log.exception(e)
             return 'unable to get svcmap'
+
