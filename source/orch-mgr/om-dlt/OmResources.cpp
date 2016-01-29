@@ -1335,8 +1335,8 @@ OM_NodeDomainMod::OM_NodeDomainMod(char const *const name)
           fsm_lock("OM_NodeDomainMod fsm lock"),
           configDB(nullptr),
           domainDown(false),
-          activeVolumeGroups(0),
-          dbLock("ConfigDB access lock")
+          dbLock("ConfigDB access lock"),
+          dmClusterPresent_(false)
 {
     om_locDomain = new OM_NodeContainer();
     domain_fsm = new FSM_NodeDomain();
@@ -1565,13 +1565,6 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
             return err;
         }
 
-        // Load Volume Grouping
-        configDB->getVolumeGroupingActive(activeVolumeGroups);
-        // This msg is for system test
-        if (activeVolumeGroups > 0) {
-            LOGDEBUG << "Volume Grouping mode enabled from configDB";
-        }
-
         // Load DMT
         err = vp->loadDmtsFromConfigDB(dm_services, deployed_dm_services);
         if (!err.ok()) {
@@ -1582,6 +1575,7 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         }
         fds_verify((sm_services.size() == 0 && dm_services.size() == 0) ||
                    (sm_services.size() > 0 && dm_services.size() > 0));
+
     }
 
     if ( ( sm_services.size() > 0 ) ||
@@ -1684,6 +1678,12 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         local_domain_event( NoPersistEvt( ) );
     }
 
+    // VG persist check
+    if (OM_Module::om_singleton()->om_dmt_mod()->volumeGrpMode() &&
+            vp->hasCommittedDMT()) {
+        LOGDEBUG << "Volume Grouping mode is active after OM restart";
+        dmClusterPresent_ = true;
+    }
     return err;
 }
 
@@ -3319,6 +3319,11 @@ OM_NodeDomainMod::checkDmtModVGMode() {
     return (dmtMod->volumeGrpMode());
 }
 
+fds_bool_t
+OM_NodeDomainMod::dmClusterPresent() {
+    return dmClusterPresent_;
+}
+
 void
 OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     LOGNOTIFY << "Attempt to update DMT";
@@ -3342,21 +3347,18 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     } else {
         auto dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
                                         get<uint32_t>("fds.common.volume_group.dm_cluster_size", 1));
-        if ((activeVolumeGroups == 0) && (awaitingDMs == dmClusterSize)) {
+        if ((!dmClusterPresent()) && (awaitingDMs == dmClusterSize)) {
             LOGNOTIFY << "Volume Group Mode has reached quorum with " << dmClusterSize
                     << " DMs. Calculating DMT now.";
             dmtMod->dmt_deploy_event(DmtDeployEvt(dmPrevRegistered));
             // in case there are no volume acknowledge to wait
             dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
-            ++activeVolumeGroups;
-            {
-                fds_mutex::scoped_lock l(dbLock);
-                LOGDEBUG << "Persisting VG mode in configDB";
-                configDB->setVolumeGroupingActive(1); // We only support 1 group for now
-            }
+            dmClusterPresent_ = true;
+            LOGDEBUG << "Volumegroup fired ? " << dmClusterPresent()
+                    << " size: " << awaitingDMs << "/" << dmClusterSize;
             dmtMod->clearWaitingDMs();
         } else {
-            LOGDEBUG << "Volumegroup fired ? " << (activeVolumeGroups > 0)
+            LOGDEBUG << "Volumegroup fired ? " << dmClusterPresent()
                     << " size: " << awaitingDMs << "/" << dmClusterSize;
         }
     }

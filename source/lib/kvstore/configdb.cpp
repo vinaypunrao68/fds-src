@@ -3126,43 +3126,5 @@ ConfigDB::ReturnType ConfigDB::getSubscription(const std::string& name, const st
     return ReturnType::CONFIGDB_EXCEPTION;
 }
 
-ConfigDB::ReturnType ConfigDB::setVolumeGroupingActive(unsigned value) {
-    ReturnType ret = ReturnType::CONFIGDB_EXCEPTION;
-    try {
-        LOGDEBUG << "Saving number of volume groups in configDB to: " << value;
-        Reply reply = kv_store.sendCommand("volume_groups", value);
-        if (reply.isOk()) {
-            ret = ReturnType::SUCCESS;
-        }
-    } catch (RedisException &e) {
-        LOGCRITICAL << "Exception with Redis: " << e.what();
-    }
-    return ret;
-}
-
-ConfigDB::ReturnType ConfigDB::getVolumeGroupingActive(unsigned &value) {
-    ReturnType ret = ReturnType::CONFIGDB_EXCEPTION;
-    try {
-        Reply reply = kv_store.sendCommand("exists volume_groups");
-        if (reply.isOk()) {
-            reply = kv_store.get("volume_groups");
-            auto ret_value = reply.getLong();
-            if (ret_value < 0) {
-                LOGERROR << "Shouldn't be negative";
-                value = 0;
-                return ret;
-            } else {
-                value = static_cast<unsigned>(ret_value);
-            }
-        } else {
-            ret = ReturnType::NOT_FOUND;
-            value = 0;
-        }
-    } catch (RedisException &e) {
-        LOGCRITICAL << "Exception with Redis: " << e.what();
-    }
-    return ret;
-}
-
 }  // namespace kvstore
 }  // namespace fds

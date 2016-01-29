@@ -201,11 +201,6 @@ struct ConfigDB : KVStore {
     ReturnType getSubscription(fds_subid_t id, Subscription& subscription);
     ReturnType getSubscription(const std::string& name, const std::int64_t tenantId, Subscription& subscription);
 
-    // VolumeGrouping
-    // value means the number of groups that are active
-    ReturnType getVolumeGroupingActive(unsigned &value);
-    ReturnType setVolumeGroupingActive(unsigned value);
-
   protected:
     void setModified();
     struct ModificationTracker {
