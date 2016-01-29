@@ -13,8 +13,6 @@
 
 namespace fds {
 
-OM_DLTMod                    gl_OMDltMod("OM-DLT");
-
 namespace msm = boost::msm;
 namespace mpl = boost::mpl;
 namespace msf = msm::front;
