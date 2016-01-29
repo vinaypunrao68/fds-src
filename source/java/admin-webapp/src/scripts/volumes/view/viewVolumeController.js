@@ -198,7 +198,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         var lbyteTotal = 0;
         
         if ( angular.isDefined( lbyteSeries ) && angular.isDefined( lbyteSeries.datapoints ) && lbyteSeries.datapoints.length > 0 ){
-            lbyteSeries.datapoints[lbyteSeries.datapoints.length - 1].y;
+            lbyteTotal = lbyteSeries.datapoints[lbyteSeries.datapoints.length - 1].y;
         }
         
         var parts = $byte_converter.convertBytesToString( lbyteTotal );
