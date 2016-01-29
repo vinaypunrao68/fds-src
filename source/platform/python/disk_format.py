@@ -109,6 +109,12 @@ class extendedFstab (fstab.Fstab):
         self.lines.append (fstab.Line (line + '\n'))
         self.altered = True
 
+    def get_devices_by_mount_point (self, mount_point):
+        devices = []
+        for line in self.lines:
+            if line.has_filesystem() and line.directory == mount_point:
+                devices.append(line.device) 
+        return devices
 
     def backup_if_altered (self, fstab_file):
         if self.altered:
@@ -501,6 +507,13 @@ class DiskUtils (Base, BaseDisk):
 
         return mount_points
 
+    def is_mounted (self, mount_point):
+        input_file = open ('/proc/mounts', 'r')
+        for line in input_file:
+            if mount_point in line:
+                items = line.strip ('\r\n').split()
+                return items[0]
+        return None
 
     def cleanup_mounted_file_systems (self, fstab, partition_list):
         ''' Unmount all files sytems that are FDS based '''
@@ -513,7 +526,7 @@ class DiskUtils (Base, BaseDisk):
                 call_list = self.UMOUNT_COMMAND_1 + mount.split()
                 self.call_subproc (call_list)
             fstab.remove_mount_point_by_uuid (self.get_uuid (part))
-
+   
     def find_disk_type (self, disk_list, part):
         ''' Given a disk list and a partition (e.g., /dev/sdc2), return the disk type for the base disk '''
         disk_path = part.rstrip ('1234567890')
@@ -522,6 +535,12 @@ class DiskUtils (Base, BaseDisk):
                 return disk.get_type()
         self.system_exit ('Unable to determine disk type for ' + disk_path);
 
+    def find_device_by_uuid_str(self, uuid_str):
+        call_list = ['findfs']
+        call_list.append(uuid_str)
+        devnull = open(os.devnull, 'wb')
+        output = subprocess.Popen (call_list, stdout=subprocess.PIPE, stderr=devnull).stdout
+        return output.read().strip ('\r\n')
 
 class DiskManager (Base):
     ''' The manager of a list of disk in a given node '''
@@ -742,14 +761,23 @@ class DiskManager (Base):
             disk.partition (self.dm_index_MB, 0)
             disk.format()
 
-
+    def cleanup_fstab (self, uuid, mount_point):
+        ''' cleanup stale entries for this mount point'''
+        uuid_strs = self.fstab.get_devices_by_mount_point(mount_point)
+        self.dbg_print_list(uuid_strs)
+        for uuid_str in uuid_strs:
+            if uuid not in uuid_str : # different uuid
+                device = self.disk_utils.find_device_by_uuid_str(uuid_str)
+                if not device:
+                    print "Found an entry for %s in fstab corresponding to a non-existent device, deleting" % mount_point
+                    self.fstab.remove_mount_point_by_uuid (uuid_str)
+ 
     def add_mount_point (self, uuid, mount_point):
         added = self.fstab.add_mount_point_by_uuid (uuid, 'UUID=' + uuid + WHITE_SPACE + mount_point + WHITE_SPACE + PARTITION_TYPE + WHITE_SPACE + MOUNT_OPTIONS + WHITE_SPACE + '0 2')
         if added:
             self.dbg_print("added mount point %s" % (mount_point))
         else:
             self.dbg_print("mount point for %s & already exists" % (mount_point)) 
-
 
 #    def add_sm_mount_point (self):
 #        ''' Create a raid array (if multiple sm_index_paritions are defined).  Add the new sm index mount point '''
@@ -771,7 +799,22 @@ class DiskManager (Base):
         dm_uuid = self.disk_utils.get_uuid (self.dm_index_partition_list[0])
         self.add_mount_point (dm_uuid, DM_INDEX_MOUNT_POINT)
 
-
+    def generate_mount_point_index(self, base_name, count, uuid):
+       ''' Find the first unused hdd/ssd index '''
+       index = count
+       while True: 
+           cur_name = base_name + str (index)
+           self.cleanup_fstab(uuid, cur_name)
+           devs = self.fstab.get_devices_by_mount_point(cur_name)
+           if len(devs) > 0:
+              index += 1
+           mount_dev = self.disk_utils.is_mounted(cur_name)
+           if mount_dev:
+               print "%s is already mounted on %s " % (cur_name, mount_dev)
+               index += 1 
+               continue
+           return index
+        
     def add_data_mount_points (self):
         ''' Add mount points for each data storage partition '''
         hdd_count = 1
@@ -779,14 +822,16 @@ class DiskManager (Base):
 
         for part in self.data_partition_list:
             part_uuid = self.disk_utils.get_uuid (part)
+            if self.fstab.mount_point_exists(part_uuid):
+                self.dbg_print("Mount point for %s already exists, not adding" % part_uuid)
+                continue
             disk_type = self.disk_utils.find_disk_type (self.disk_list, part)
-
             if Disk.DISK_TYPE_HDD == disk_type:
+                hdd_count = self.generate_mount_point_index(BASE_HDD_MOUNT_POINT, hdd_count, part_uuid)
                 mount_point = BASE_HDD_MOUNT_POINT + str (hdd_count)
-                hdd_count += 1
             else:
+                hdd_count = self.generate_mount_point_index(BASE_SSD_MOUNT_POINT, ssd_count, part_uuid)
                 mount_point = BASE_SSD_MOUNT_POINT + str (ssd_count)
-                ssd_count += 1
 
             self.add_mount_point (part_uuid, mount_point)
 
