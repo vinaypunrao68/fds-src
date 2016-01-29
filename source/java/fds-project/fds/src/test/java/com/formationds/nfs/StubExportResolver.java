@@ -3,16 +3,19 @@ package com.formationds.nfs;
 import com.formationds.util.ConsumerWithException;
 import com.google.common.collect.Lists;
 
+import java.io.IOException;
 import java.util.Collection;
 
 public class StubExportResolver implements ExportResolver {
     public static final int EXPORT_ID = 1;
     private String volumeName;
     private int objectSize;
+    private long maxVolumeCapacityInBytes;
 
-    public StubExportResolver(String volumeName, int objectSize) {
+    public StubExportResolver(String volumeName, int objectSize, long maxVolumeCapacityInBytes) {
         this.volumeName = volumeName;
         this.objectSize = objectSize;
+        this.maxVolumeCapacityInBytes = maxVolumeCapacityInBytes;
     }
 
     @Override
@@ -46,6 +49,11 @@ public class StubExportResolver implements ExportResolver {
     @Override
     public int objectSize(String volume) {
         return objectSize;
+    }
+
+    @Override
+    public long maxVolumeCapacityInBytes(String volume) throws IOException {
+        return maxVolumeCapacityInBytes;
     }
 
     @Override
