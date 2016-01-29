@@ -3050,45 +3050,47 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
         }
     }
 
-    // ANNA -- I don't want to mess with platform service state, so
-    // calling this method for SM and DM only. The register service method
-    // set correct discovered/active state for these services based on
-    // whether this is known service or restarting service. We are
-    // going to set node state based on service state in svc map
-    if (msg->node_type == fpi::FDSP_STOR_MGR) {
-        OM_SmAgent::pointer smAgent = om_sm_agent(newNode->get_uuid());
-        smAgent->set_state_from_svcmap();
-    } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
-        OM_DmAgent::pointer dmAgent = om_dm_agent(newNode->get_uuid());
-        dmAgent->set_state_from_svcmap();
-    }
-
-
-    // since we already checked above that we could add service, verify error ok
-    // Vy: we could get duplicate if the agent already registered by platform lib.
-    // fds_verify(err.ok());
-
-        if ( fpi::FDSP_CONSOLE == msg->node_type || 
-             fpi::FDSP_TEST_APP == msg->node_type ) {
-            return;
+    if (!isInTestMode()) {
+        // ANNA -- I don't want to mess with platform service state, so
+        // calling this method for SM and DM only. The register service method
+        // set correct discovered/active state for these services based on
+        // whether this is known service or restarting service. We are
+        // going to set node state based on service state in svc map
+        if (msg->node_type == fpi::FDSP_STOR_MGR) {
+            OM_SmAgent::pointer smAgent = om_sm_agent(newNode->get_uuid());
+            smAgent->set_state_from_svcmap();
+        } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
+            OM_DmAgent::pointer dmAgent = om_dm_agent(newNode->get_uuid());
+            dmAgent->set_state_from_svcmap();
         }
 
-    // Let this new node know about existing node list.
-    // TODO(Andrew): this should change into dissemination of the cur cluster map.
-    //
-    if (msg->node_type == fpi::FDSP_STOR_MGR) {
-        // Activate and account node capacity only when SM registers with OM.
+
+        // since we already checked above that we could add service, verify error ok
+        // Vy: we could get duplicate if the agent already registered by platform lib.
+        // fds_verify(err.ok());
+
+            if ( fpi::FDSP_CONSOLE == msg->node_type ||
+                 fpi::FDSP_TEST_APP == msg->node_type ) {
+                return;
+            }
+
+        // Let this new node know about existing node list.
+        // TODO(Andrew): this should change into dissemination of the cur cluster map.
         //
-        auto pm = OM_PmAgent::agt_cast_ptr(pmNodes->\
-                                           agent_info(NodeUuid(msg->node_uuid.uuid)));
-        if (pm != NULL) {
-            om_locDomain->om_update_capacity(pm, true);
-        } else {
-            LOGERROR << "Cannot find platform agent for node UUID ( "
-                     << std::hex << msg->node_uuid.uuid << std::dec << " )";
+        if (msg->node_type == fpi::FDSP_STOR_MGR) {
+            // Activate and account node capacity only when SM registers with OM.
+            //
+            auto pm = OM_PmAgent::agt_cast_ptr(pmNodes->\
+                                               agent_info(NodeUuid(msg->node_uuid.uuid)));
+            if (pm != NULL) {
+                om_locDomain->om_update_capacity(pm, true);
+            } else {
+                LOGERROR << "Cannot find platform agent for node UUID ( "
+                         << std::hex << msg->node_uuid.uuid << std::dec << " )";
+            }
+        } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
+            om_locDomain->om_bcast_stream_reg_list(newNode);
         }
-    } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
-        om_locDomain->om_bcast_stream_reg_list(newNode);
     }
 
     // AM & SM services query for a DMT on startup, and DM node will get DMT

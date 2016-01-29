@@ -68,6 +68,14 @@ struct DmGroupFixture : BaseTestFixture {
     // Create a OM state machine - only once
     void SetUp()
     {
+        std::string fdsSrcPath;
+        auto findRet = TestUtils::findFdsSrcPath(fdsSrcPath);
+        fds_verify(findRet);
+
+        std::string homedir = boost::filesystem::path(getenv("HOME")).string();
+        std::string baseDir =  homedir + "/temp";
+        setupDmClusterEnv(fdsSrcPath, baseDir);
+
         testOmModule = omModule = new OM_Module("testOmModule");
         testOm = new OrchMgr(argc_, argv_, testOmModule, true, true);
         g_fdsprocess = testOm;
@@ -80,11 +88,10 @@ struct DmGroupFixture : BaseTestFixture {
     void TearDown()
     {
         if (testOm != nullptr) {
-            // currently fails
-            // delete testOm;
+        //     delete testOm;
         }
         if (testOmModule != nullptr) {
-             delete testOmModule;
+        //     delete testOmModule;
         }
     }
 
@@ -139,7 +146,7 @@ struct DmGroupFixture : BaseTestFixture {
         auto nodeName = msg->node_name;
         auto retVal = domainMod->om_del_services(nodeUuid, nodeName, false, true, false);
         ASSERT_TRUE(retVal.OK());
-        sleep(4); // sleep for DMT state machine to churn
+        sleep(2); // sleep for DMT state machine to churn
     }
 
     void setNewNodeUuid(NodeUuid value) {
@@ -177,11 +184,17 @@ TEST_F(DmGroupFixture, DmClusterAddNodeTest) {
     ASSERT_FALSE(hasCommittedDMT());
 
     // Add fourth node
-    addNewFakeDm();
+    auto lastNodePtr = addNewFakeDm();
     ASSERT_TRUE(hasCommittedDMT());
     // Should only have the first DMT published
     ASSERT_TRUE(getCommittedDMTVersion() == 1);
     ASSERT_TRUE(testOmModule->om_dmt_mod()->getWaitingDMs() == 0);
+
+    // Make sure that the node is in svcmap. We will be removing it and re-adding it later.
+    fpi::SvcUuid fourthNode;
+    fpi::SvcInfo dummyInfo;
+    fourthNode.svc_uuid = lastNodePtr->service_uuid.uuid;
+    // ASSERT_TRUE(MODULEPROVIDER()->getSvcMgr()->getSvcInfo(fourthNode, dummyInfo));
 
     // Add fifth node - should be no-op
     addNewFakeDm();
@@ -201,6 +214,10 @@ TEST_F(DmGroupFixture, DmClusterAddNodeTest) {
 
 }
 
+/**
+ * Currently we can't delete OM_Module so we can't support multiple fixtures
+ * in one cpp test file.
+ */
 TEST_F(DmGroupFixture, DISABLED_DmClusterRemoveNodeTest) {
     // Create an OM module instance
 
