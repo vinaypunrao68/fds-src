@@ -808,6 +808,7 @@ class DiskManager (Base):
            devs = self.fstab.get_devices_by_mount_point(cur_name)
            if len(devs) > 0:
               index += 1
+              continue
            mount_dev = self.disk_utils.is_mounted(cur_name)
            if mount_dev:
                print "%s is already mounted on %s " % (cur_name, mount_dev)
