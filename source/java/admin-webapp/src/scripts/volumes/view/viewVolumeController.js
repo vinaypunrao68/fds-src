@@ -338,7 +338,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         for ( var i = 0; i < $scope.snapshots.length; i++ ){
             
             var range = {
-                min: new Date( $scope.snapshots[i].creation )
+                min: new Date( $scope.snapshots[i].creationTime.seconds * 1000 )
             };
             
             $scope.ranges.push( range );
