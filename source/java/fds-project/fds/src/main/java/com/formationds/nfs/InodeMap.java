@@ -2,6 +2,7 @@ package com.formationds.nfs;
 
 import org.apache.log4j.Logger;
 import org.dcache.nfs.status.NoEntException;
+import org.dcache.nfs.status.NoSpcException;
 import org.dcache.nfs.vfs.FileHandle;
 import org.dcache.nfs.vfs.Inode;
 import org.dcache.nfs.vfs.Stat;
@@ -14,7 +15,6 @@ import java.util.Optional;
 
 public class InodeMap {
     private static final Logger LOG = Logger.getLogger(InodeMap.class);
-
     private final IoOps io;
     private PersistentCounter usedBytes;
     private PersistentCounter usedFiles;
@@ -104,6 +104,7 @@ public class InodeMap {
                 long oldByteCount = inodeMetadata.getSize();
                 int length = Math.min(data.length, count);
                 long newByteCount = Math.max(oldByteCount, offset + length);
+                enforceVolumeLimit(volumeName, newByteCount - oldByteCount);
                 last[0] = inodeMetadata
                         .withUpdatedAtime()
                         .withUpdatedMtime()
@@ -115,9 +116,17 @@ public class InodeMap {
                 return null;
             });
             return last[0];
-        } catch (Exception e) {
+        } catch (IOException e) {
             String message = "Error writing " + volumeName + "." + blobName;
-            throw new IOException(message, e);
+            LOG.error(message, e);
+            throw e;
+        }
+    }
+
+    private void enforceVolumeLimit(String volumeName, long increment) throws IOException {
+        long currentlyUsedBytes = usedBytes(volumeName);
+        if (currentlyUsedBytes + increment > exportResolver.maxVolumeCapacityInBytes(volumeName)) {
+            throw new NoSpcException();
         }
     }
 

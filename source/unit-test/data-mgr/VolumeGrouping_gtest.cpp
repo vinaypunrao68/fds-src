@@ -1,5 +1,5 @@
 /* Copyright 2015 Formation Data Systems, Inc.
- */
+*/
 #define GTEST_USE_OWN_TR1_TUPLE 0
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -49,10 +49,10 @@ struct TestAm : SvcProcess {
             addMsg,
             [this, asyncHdr](const Error& e,
                              const fpi::AddToVolumeGroupRespCtrlMsgPtr &payload) {
-                asyncHdr->msg_code = e.GetErrno();
-                handler_->sendAsyncResp(*asyncHdr,
-                              FDSP_MSG_TYPEID(fpi::AddToVolumeGroupRespCtrlMsg),
-                              *payload);
+            asyncHdr->msg_code = e.GetErrno();
+            handler_->sendAsyncResp(*asyncHdr,
+                                    FDSP_MSG_TYPEID(fpi::AddToVolumeGroupRespCtrlMsg),
+                                    *payload);
             });
     }
     PlatNetSvcHandlerPtr handler_;
@@ -69,7 +69,7 @@ struct DmGroupFixture : BaseTestFixture {
         std::string fdsSrcPath;
         auto findRet = findFdsSrcPath(fdsSrcPath);
         fds_verify(findRet);
-        
+
         std::string homedir = boost::filesystem::path(getenv("HOME")).string();
         std::string baseDir =  homedir + "/temp";
         setupDmClusterEnv(fdsSrcPath, baseDir);
@@ -80,20 +80,20 @@ struct DmGroupFixture : BaseTestFixture {
         }
 
         omHandle.start({"am",
-            roots[0],
-            "--fds.pm.platform_uuid=1024",
-            "--fds.pm.platform_port=7000",
-            "--fds.om.threadpool.num_threads=2"
-        });
+                       roots[0],
+                       "--fds.pm.platform_uuid=1024",
+                       "--fds.pm.platform_port=7000",
+                       "--fds.om.threadpool.num_threads=2"
+                       });
         g_fdsprocess = omHandle.proc;
         g_cntrs_mgr = omHandle.proc->get_cntrs_mgr();
 
         amHandle.start({"am",
-            roots[0],
-            "--fds.pm.platform_uuid=2048",
-            "--fds.pm.platform_port=9850",
-            "--fds.am.threadpool.num_threads=3"
-        });
+                       roots[0],
+                       "--fds.pm.platform_uuid=2048",
+                       "--fds.pm.platform_port=9850",
+                       "--fds.am.threadpool.num_threads=3"
+                       });
 
         int uuid = 2048;
         int port = 9850;
@@ -115,7 +115,39 @@ struct DmGroupFixture : BaseTestFixture {
             uuid +=256;
             port += 10;
         }
+    }
 
+    void setupVolumeGroup(uint32_t quorumCnt)
+    {
+        /* Create a coordinator with quorum of 1*/
+        v1 = MAKE_SHARED<VolumeGroupHandle>(amHandle.proc, v1Id, quorumCnt);
+        amHandle.proc->setVolumeHandle(v1.get());
+
+        /* Add DMT to AM with the DM group */
+        std::vector<fpi::SvcUuid> dms;
+        for (const auto &dm : dmGroup) {
+            dms.push_back(dm->proc->getSvcMgr()->getSelfSvcUuid());
+        }
+        std::string dmtData;
+        dmt = DMT::newDMT(dms);
+        dmt->getSerialized(dmtData);
+        Error e = amHandle.proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
+                                                                                nullptr,
+                                                                                DMT_COMMITTED);
+        ASSERT_TRUE(e == ERR_OK);
+
+        /* Add volume to DM group */
+        v1Desc = generateVolume(v1Id);
+        omHandle.proc->addVolume(v1Id, v1Desc);
+        for (uint32_t i = 0; i < dmGroup.size(); i++) {
+            e = dmGroup[i]->proc->getDataMgr()->addVolume("test1", v1Id, v1Desc.get());
+            ASSERT_TRUE(e == ERR_OK);
+            ASSERT_TRUE(dmGroup[i]->proc->getDataMgr()->\
+                        getVolumeMeta(v1Id)->getState() == fpi::Offline);
+        }
+        /* open should succeed */
+        openVolume(*v1, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
     }
 
     SHPTR<VolumeDesc> generateVolume(const fds_volid_t &volId) {
@@ -155,57 +187,70 @@ struct DmGroupFixture : BaseTestFixture {
         vdesc->qosQueueId = invalid_vol_id;
         return vdesc;
     }
-    void openVolume(VolumeGroupHandle &v, Waiter &waiter)
+
+    void openVolume(VolumeGroupHandle &v, Waiter &w)
     {
-        waiter.reset(1);
+        w.reset(1);
         v.open(MAKE_SHARED<fpi::OpenVolumeMsg>(),
-               [this, &waiter](const Error &e, const fpi::OpenVolumeRspMsgPtr& resp) {
+               [this, &w](const Error &e, const fpi::OpenVolumeRspMsgPtr& resp) {
                    if (e == ERR_OK) {
                        sequenceId = resp->sequence_id;
                    }
-                   waiter.doneWith(e);
+                   w.doneWith(e);
                });
     }
+
+    void doIo(uint32_t count)
+    {
+        /* Do more IO.  IO should succeed */
+        for (uint32_t i = 0; i < count; i++) {
+            sendUpdateOnceMsg(*v1, blobName, waiter);
+            ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+            sendQueryCatalogMsg(*v1, blobName, waiter);
+            ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+        }
+    }
+
     void sendUpdateOnceMsg(VolumeGroupHandle &v,
                            const std::string &blobName,
-                           Waiter &waiter)
+                           Waiter &w)
     {
         auto updateMsg = SvcMsgFactory::newUpdateCatalogOnceMsg(v.getGroupId(), blobName); 
         updateMsg->txId = txId++;
         updateMsg->sequence_id = ++sequenceId;
-        waiter.reset(1);
+        w.reset(1);
         v.sendCommitMsg<fpi::UpdateCatalogOnceMsg>(
             FDSP_MSG_TYPEID(fpi::UpdateCatalogOnceMsg),
             updateMsg,
-            [&waiter](const Error &e, StringPtr) {
-                waiter.doneWith(e);
+            [&w](const Error &e, StringPtr) {
+                w.doneWith(e);
             });
     }
     void sendStartBlobTxMsg(VolumeGroupHandle &v,
-                       const std::string &blobName,
-                       Waiter &waiter)
+                            const std::string &blobName,
+                            Waiter &w)
     {
         auto startMsg = SvcMsgFactory::newStartBlobTxMsg(v.getGroupId(), blobName); 
         startMsg->txId = txId++;
-        waiter.reset(1);
+        w.reset(1);
         v.sendModifyMsg<fpi::StartBlobTxMsg>(
             FDSP_MSG_TYPEID(fpi::StartBlobTxMsg),
             startMsg,
-            [&waiter](const Error &e, StringPtr) {
-                waiter.doneWith(e);
+            [&w](const Error &e, StringPtr) {
+                w.doneWith(e);
             });
     }
     void sendQueryCatalogMsg(VolumeGroupHandle &v,
                              const std::string &blobName,
-                             Waiter &waiter)
+                             Waiter &w)
     {
         auto queryMsg= SvcMsgFactory::newQueryCatalogMsg(v.getGroupId(), blobName, 0);
-        waiter.reset(1);
+        w.reset(1);
         v.sendReadMsg<fpi::QueryCatalogMsg>(
             FDSP_MSG_TYPEID(fpi::QueryCatalogMsg),
             queryMsg,
-            [&waiter](const Error &e, StringPtr) {
-                waiter.doneWith(e);
+            [&w](const Error &e, StringPtr) {
+                w.doneWith(e);
             });
     }
     void doGroupStateCheck(fds_volid_t vId)
@@ -216,35 +261,47 @@ struct DmGroupFixture : BaseTestFixture {
         }
     }
 
-    OmHandle                omHandle;
-    AmHandle                amHandle;
-    std::vector<std::unique_ptr<DmHandle>> dmGroup;
-    int64_t                 sequenceId;
-    int64_t                 txId {0};
+    void doVolumeStateCheck(int idx,
+                            fds_volid_t volId,
+                            fpi::ResourceState desiredState,
+                            int32_t step = 500,
+                            int32_t total = 8000)
+    {
+        POLL_MS(dmGroup[idx]->proc->getDataMgr()->getVolumeMeta(volId)->getState() == desiredState, step, total);
+        ASSERT_TRUE(dmGroup[idx]->proc->getDataMgr()->getVolumeMeta(volId)->getState() == desiredState);
+    }
+
+    OmHandle                                omHandle;
+    AmHandle                                amHandle;
+    std::vector<std::unique_ptr<DmHandle>>  dmGroup;
+    int64_t                                 sequenceId;
+    int64_t                                 txId {0};
+    Waiter                                  waiter{0};
+    std::string                             blobName{"blob1"};
+    fds_volid_t                             v1Id{10};
+    SHPTR<VolumeGroupHandle>                v1;
+    SHPTR<VolumeDesc>                       v1Desc;
+    DMTPtr                                  dmt;
 };
 
 TEST_F(DmGroupFixture, singledm) {
     /* Start with one dm */
     createCluster(1);
 
-    Waiter waiter(0);
-    fds_volid_t v1Id(10);
-    std::string blobName = "blob1";
-
     /* Create a DM group */
     /* Create a coordinator */
-    VolumeGroupHandle v1(amHandle.proc, v1Id, 1);
-    amHandle.proc->setVolumeHandle(&v1);
+    v1 = MAKE_SHARED<VolumeGroupHandle>(amHandle.proc, v1Id, 1);
+    amHandle.proc->setVolumeHandle(v1.get());
 
     /* Open the group without DMT.  Open should fail */
-    openVolume(v1, waiter);
+    openVolume(*v1, waiter);
     ASSERT_TRUE(waiter.awaitResult() != ERR_OK);
 
     /* Add DMT */
     std::string dmtData;
-    auto dmt = DMT::newDMT({
-                           dmGroup[0]->proc->getSvcMgr()->getSelfSvcUuid(),
-                           });
+    dmt = DMT::newDMT({
+                      dmGroup[0]->proc->getSvcMgr()->getSelfSvcUuid(),
+                      });
     dmt->getSerialized(dmtData);
     Error e = amHandle.proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
                                                                             nullptr,
@@ -252,11 +309,11 @@ TEST_F(DmGroupFixture, singledm) {
     ASSERT_TRUE(e == ERR_OK);
 
     /* Open without volume being add to DM.  Open should fail */
-    openVolume(v1, waiter);
+    openVolume(*v1, waiter);
     ASSERT_TRUE(waiter.awaitResult() == ERR_VOL_NOT_FOUND);
 
     /* Generate volume descriptor */
-    auto v1Desc = generateVolume(v1Id);
+    v1Desc = generateVolume(v1Id);
     omHandle.proc->addVolume(v1Id, v1Desc);
 
     /* Add volume to DM */
@@ -264,84 +321,44 @@ TEST_F(DmGroupFixture, singledm) {
     ASSERT_TRUE(e == ERR_OK);
     ASSERT_TRUE(dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Offline);
     /* Any IO should fail */
-    sendUpdateOnceMsg(v1, blobName, waiter);
+    sendUpdateOnceMsg(*v1, blobName, waiter);
     ASSERT_TRUE(waiter.awaitResult() == ERR_VOLUMEGROUP_DOWN);
 
     /* Now open should succeed */
-    openVolume(v1, waiter);
+    openVolume(*v1, waiter);
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 
     /* Do some io. After Io is done, every volume replica must have same state */
-    sendUpdateOnceMsg(v1, blobName, waiter);
+    sendUpdateOnceMsg(*v1, blobName, waiter);
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
     ASSERT_TRUE(dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Active);
-    sendQueryCatalogMsg(v1, blobName, waiter);
+    sendQueryCatalogMsg(*v1, blobName, waiter);
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 
     /* Bring a dm down */
     dmGroup[0]->stop();
     /* Do more IO.  IO should fail */
-    sendQueryCatalogMsg(v1, blobName, waiter);
+    sendQueryCatalogMsg(*v1, blobName, waiter);
     ASSERT_TRUE(waiter.awaitResult() != ERR_OK);
-    
+
     /* Close volumegroup handle */
     waiter.reset(1);
-    v1.close([&waiter]() { waiter.doneWith(ERR_OK); });
+    v1->close([this]() { waiter.doneWith(ERR_OK); });
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
 TEST_F(DmGroupFixture, staticio_restarts) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::trace);
+
     /* Create two dms */
     createCluster(2);
-
-    Waiter waiter(0);
-    fds_volid_t v1Id(10);
-    std::string blobName = "blob1";
-
-    /* Create a coordinator with quorum of 1*/
-    VolumeGroupHandle v1(amHandle.proc, v1Id, 1);
-    amHandle.proc->setVolumeHandle(&v1);
-
-    /* Add DMT to AM with the DM group */
-    std::string dmtData;
-    auto dmt = DMT::newDMT({
-                           dmGroup[0]->proc->getSvcMgr()->getSelfSvcUuid(),
-                           dmGroup[1]->proc->getSvcMgr()->getSelfSvcUuid(),
-                           });
-    dmt->getSerialized(dmtData);
-    Error e = amHandle.proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
-                                                                            nullptr,
-                                                                            DMT_COMMITTED);
-    ASSERT_TRUE(e == ERR_OK);
-
-    /* Open without volume being add to DM.  Open should fail */
-    openVolume(v1, waiter);
-    ASSERT_TRUE(waiter.awaitResult() == ERR_VOL_NOT_FOUND);
-
-    auto v1Desc = generateVolume(v1Id);
-    omHandle.proc->addVolume(v1Id, v1Desc);
-
-    /* Add volume to DM group */
-    for (uint32_t i = 0; i < dmGroup.size(); i++) {
-        e = dmGroup[i]->proc->getDataMgr()->addVolume("test1", v1Id, v1Desc.get());
-        ASSERT_TRUE(e == ERR_OK);
-        ASSERT_TRUE(dmGroup[i]->proc->getDataMgr()->\
-                    getVolumeMeta(v1Id)->getState() == fpi::Offline);
-    }
-    /* Any IO should fail prior open */
-    sendUpdateOnceMsg(v1, blobName, waiter);
-    ASSERT_TRUE(waiter.awaitResult() == ERR_VOLUMEGROUP_DOWN);
-
-    /* Now open should succeed */
-    openVolume(v1, waiter);
-    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+    setupVolumeGroup(1);
 
     /* Do some io. After Io is done, every volume replica must have same state */
     for (uint32_t i = 0; i < 10; i++) {
-        sendUpdateOnceMsg(v1, blobName, waiter);
+        sendUpdateOnceMsg(*v1, blobName, waiter);
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
-        sendQueryCatalogMsg(v1, blobName, waiter);
+        sendQueryCatalogMsg(*v1, blobName, waiter);
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
         doGroupStateCheck(v1Id);
     }
@@ -351,14 +368,14 @@ TEST_F(DmGroupFixture, staticio_restarts) {
     /* Do more IO.  IO should succeed */
     for (uint32_t i = 0; i < 10; i++) {
         blobName = "blob" + std::to_string(i);
-        sendUpdateOnceMsg(v1, blobName, waiter);
+        sendUpdateOnceMsg(*v1, blobName, waiter);
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
-        sendQueryCatalogMsg(v1, blobName, waiter);
+        sendQueryCatalogMsg(*v1, blobName, waiter);
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
     }
     /* Send few more non-commit updates so that we have active Txs */
     for (uint32_t i = 0; i < 5; i++) {
-        sendStartBlobTxMsg(v1, blobName, waiter);
+        sendStartBlobTxMsg(*v1, blobName, waiter);
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
     }
 
@@ -370,9 +387,9 @@ TEST_F(DmGroupFixture, staticio_restarts) {
          (i < 100 &&
           dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() != fpi::Active);
          i++) {
-        sendUpdateOnceMsg(v1, blobName, waiter);
+        sendUpdateOnceMsg(*v1, blobName, waiter);
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
-        sendQueryCatalogMsg(v1, blobName, waiter);
+        sendQueryCatalogMsg(*v1, blobName, waiter);
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
         if (i % 10 == 0) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -382,16 +399,11 @@ TEST_F(DmGroupFixture, staticio_restarts) {
     ASSERT_TRUE(dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Active);
 
     /* Do more IO.  IO should succeed */
-    for (uint32_t i = 0; i < 10; i++) {
-        sendUpdateOnceMsg(v1, blobName, waiter);
-        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
-        sendQueryCatalogMsg(v1, blobName, waiter);
-        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
-    }
+    doIo(10);
 
     /* Close volumegroup handle */
     waiter.reset(1);
-    v1.close([&waiter]() { waiter.doneWith(ERR_OK); });
+    v1->close([this]() { waiter.doneWith(ERR_OK); });
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
@@ -399,49 +411,16 @@ TEST_F(DmGroupFixture, activeio_restart) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
     /* Create two dms */
     createCluster(2);
-
-    Waiter waiter(0);
-    fds_volid_t v1Id(10);
-    std::string blobName = "blob1";
-
-    /* Create a coordinator with quorum of 1*/
-    VolumeGroupHandle v1(amHandle.proc, v1Id, 1);
-    amHandle.proc->setVolumeHandle(&v1);
-
-    /* Add DMT to AM with the DM group */
-    std::string dmtData;
-    auto dmt = DMT::newDMT({
-                           dmGroup[0]->proc->getSvcMgr()->getSelfSvcUuid(),
-                           dmGroup[1]->proc->getSvcMgr()->getSelfSvcUuid(),
-                           });
-    dmt->getSerialized(dmtData);
-    Error e = amHandle.proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
-                                                                            nullptr,
-                                                                            DMT_COMMITTED);
-    ASSERT_TRUE(e == ERR_OK);
-
-    auto v1Desc = generateVolume(v1Id);
-    omHandle.proc->addVolume(v1Id, v1Desc);
-
-    /* Add volume to DM group */
-    for (uint32_t i = 0; i < dmGroup.size(); i++) {
-        e = dmGroup[i]->proc->getDataMgr()->addVolume("test1", v1Id, v1Desc.get());
-        ASSERT_TRUE(e == ERR_OK);
-        ASSERT_TRUE(dmGroup[i]->proc->getDataMgr()->\
-                    getVolumeMeta(v1Id)->getState() == fpi::Offline);
-    }
-    /* open should succeed */
-    openVolume(v1, waiter);
-    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+    setupVolumeGroup(1);
 
     /* Start io thread */
     bool ioAbort = false;
-    std::thread iothread([this, &ioAbort, &v1, &blobName, &waiter]() {
+    std::thread iothread([this, &ioAbort]() {
         int ioCnt = 0;
         while (!ioAbort) {
-            sendUpdateOnceMsg(v1, blobName, waiter);
+            sendUpdateOnceMsg(*v1, blobName, waiter);
             ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
-            sendQueryCatalogMsg(v1, blobName, waiter);
+            sendQueryCatalogMsg(*v1, blobName, waiter);
             ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
             ioCnt++;
             if (ioCnt % 10) {
@@ -456,8 +435,7 @@ TEST_F(DmGroupFixture, activeio_restart) {
 
         /* Bring 1st dm up again */
         dmGroup[0]->start();
-        POLL_MS(dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Active, 500, 8000);
-        ASSERT_TRUE(dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Active);
+        doVolumeStateCheck(0, v1Id, fpi::Active);
     }
 
     ioAbort = true;
@@ -465,59 +443,23 @@ TEST_F(DmGroupFixture, activeio_restart) {
 
     /* Close volumegroup handle */
     waiter.reset(1);
-    v1.close([&waiter]() { waiter.doneWith(ERR_OK); });
+    v1->close([this]() { waiter.doneWith(ERR_OK); });
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
 TEST_F(DmGroupFixture, domain_reboot) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
+
     /* Create two dms */
     createCluster(2);
-
-    Waiter waiter(0);
-    fds_volid_t v1Id(10);
-    std::string blobName = "blob1";
-
-    /* Create a coordinator with quorum of 1*/
-    VolumeGroupHandle v1(amHandle.proc, v1Id, 1);
-    amHandle.proc->setVolumeHandle(&v1);
-
-    /* Add DMT to AM with the DM group */
-    std::string dmtData;
-    auto dmt = DMT::newDMT({
-                           dmGroup[0]->proc->getSvcMgr()->getSelfSvcUuid(),
-                           dmGroup[1]->proc->getSvcMgr()->getSelfSvcUuid(),
-                           });
-    dmt->getSerialized(dmtData);
-    Error e = amHandle.proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
-                                                                            nullptr,
-                                                                            DMT_COMMITTED);
-    ASSERT_TRUE(e == ERR_OK);
-
-    /* Add volume to DM group */
-    auto v1Desc = generateVolume(v1Id);
-    omHandle.proc->addVolume(v1Id, v1Desc);
-    for (uint32_t i = 0; i < dmGroup.size(); i++) {
-        e = dmGroup[i]->proc->getDataMgr()->addVolume("test1", v1Id, v1Desc.get());
-        ASSERT_TRUE(e == ERR_OK);
-        ASSERT_TRUE(dmGroup[i]->proc->getDataMgr()->\
-                    getVolumeMeta(v1Id)->getState() == fpi::Offline);
-    }
-    /* open should succeed */
-    openVolume(v1, waiter);
-    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+    setupVolumeGroup(1);
 
     /* Do more IO.  IO should succeed */
-    for (uint32_t i = 0; i < 10; i++) {
-        sendUpdateOnceMsg(v1, blobName, waiter);
-        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
-        sendQueryCatalogMsg(v1, blobName, waiter);
-        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
-    }
+    doIo(10);
 
     /* Close volumegroup handle */
     waiter.reset(1);
-    v1.close([&waiter]() { waiter.doneWith(ERR_OK); });
+    v1->close([this]() { waiter.doneWith(ERR_OK); });
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 
     /* Stop all the DMs */
@@ -525,30 +467,57 @@ TEST_F(DmGroupFixture, domain_reboot) {
         dmGroup[i]->stop();
     }
 
-    /* Start all dms and manually add volumes */
+    /* Start all dms */
     for (uint32_t i = 0; i < dmGroup.size(); i++) {
         dmGroup[i]->start();
     }
 
     /* Open the handle */
-    openVolume(v1, waiter);
+    openVolume(*v1, waiter);
     waiter.awaitResult();
-    POLL_MS(v1.getFunctionalReplicasCnt() == dmGroup.size(), 1000, 8000);
-    ASSERT_TRUE(v1.getFunctionalReplicasCnt() == dmGroup.size());
+    POLL_MS(v1->getFunctionalReplicasCnt() == dmGroup.size(), 1000, 8000);
+    ASSERT_TRUE(v1->getFunctionalReplicasCnt() == dmGroup.size());
 
 
     /* Do more IO.  IO should succeed */
-    for (uint32_t i = 0; i < 10; i++) {
-        sendUpdateOnceMsg(v1, blobName, waiter);
-        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
-        sendQueryCatalogMsg(v1, blobName, waiter);
-        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
-    }
+    doIo(10);
 
     /* Close volumegroup handle */
     waiter.reset(1);
-    v1.close([&waiter]() { waiter.doneWith(ERR_OK); });
+    v1->close([this]() { waiter.doneWith(ERR_OK); });
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+}
+
+TEST_F(DmGroupFixture, allDownFollowedBySequentialUp) {
+    g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
+
+    /* Create two dms */
+    createCluster(3);
+    setupVolumeGroup(2);
+
+    /* Do more IO.  IO should succeed */
+    doIo(10);
+
+    /* stop two dms with out active.  So coordinator still thinks all dms are active */
+    dmGroup[0]->stop();
+    dmGroup[1]->stop();
+    dmGroup[2]->stop();
+    LOGNORMAL << "Stopped all the dms";
+
+    /* Bring up one dm at a time */
+    dmGroup[2]->start();
+    LOGNORMAL << "Started dm2";
+
+
+    dmGroup[1]->start();
+    LOGNORMAL << "Started dm1";
+
+    dmGroup[0]->start();
+    LOGNORMAL << "Started dm0";
+
+    doVolumeStateCheck(0, v1Id, fpi::Active);
+    doVolumeStateCheck(1, v1Id, fpi::Active, 1000, 10000);
+    doVolumeStateCheck(2, v1Id, fpi::Active, 1000, 10000);
 }
 
 int main(int argc, char* argv[]) {

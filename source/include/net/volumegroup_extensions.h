@@ -6,6 +6,7 @@
 #include <sstream>
 #include <fdsp/volumegroup_types.h>
 #include <fds_defines.h>
+#include <fds_error.h>
 
 namespace fpi = FDS_ProtocolInterface;
 
@@ -42,6 +43,27 @@ template<class MsgT>
 int64_t getVolIdFromSvcMsgWithIoHdr(const MsgT &msg)
 {
     return getVolumeIoHdrRef<MsgT>(msg).groupId;
+}
+
+inline bool isVolumeGroupError(const Error &e)
+{
+    switch (e.GetErrno())
+    {
+        case ERR_OK:
+            return false;
+        case ERR_SVC_REQUEST_TIMEOUT:
+        case ERR_SVC_REQUEST_INVOCATION:
+        case ERR_SVC_REQUEST_FAILED:
+        case ERR_IO_OPID_MISMATCH:
+        case ERR_SYNC_INPROGRESS:
+        case ERR_DM_VOL_NOT_ACTIVATED:
+        case ERR_VOL_NOT_FOUND:
+            return true;
+        default:
+            return false;
+    }
+    return false;
+
 }
 
 std::string logString(const fpi::VolumeIoHdr &hdr);

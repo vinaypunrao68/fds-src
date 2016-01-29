@@ -67,4 +67,13 @@ SvcRequestTracker::getSvcRequest(const SvcRequestId& id)
     }
     return nullptr;
 }
+
+/**
+ * Return number of outstanding requests for cli debug
+ */
+uint64_t
+SvcRequestTracker::getOutstandingSvcReqsCount() {
+    return svcReqMap_.size();
+}
+
 }  // namespace fds
