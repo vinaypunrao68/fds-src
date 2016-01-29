@@ -830,7 +830,7 @@ class DiskManager (Base):
                 hdd_count = self.generate_mount_point_index(BASE_HDD_MOUNT_POINT, hdd_count, part_uuid)
                 mount_point = BASE_HDD_MOUNT_POINT + str (hdd_count)
             else:
-                hdd_count = self.generate_mount_point_index(BASE_SSD_MOUNT_POINT, ssd_count, part_uuid)
+                ssd_count = self.generate_mount_point_index(BASE_SSD_MOUNT_POINT, ssd_count, part_uuid)
                 mount_point = BASE_SSD_MOUNT_POINT + str (ssd_count)
 
             self.add_mount_point (part_uuid, mount_point)
