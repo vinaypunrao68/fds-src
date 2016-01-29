@@ -418,8 +418,9 @@ class TestISCSIAttachVolume(ISCSIFixture):
                 elif elem[:7] == '/dev/sg':
                     generic_devices.append(elem)
 
-        # TODO: use AM node as target ip!
-        cmd = 'iscsiadm -m node --targetname %s -p %s --login' % (self.target_name, (om_node.nd_conf_dict['ip']))
+        # Uses CLI to identify an AM node. Targets are presented on AM node.
+        am_ip = self.getAMEndpoint(om_node)
+        cmd = 'iscsiadm -m node --targetname %s -p %s --login' % (self.target_name, am_ip)
 
         if status:
             if initiator_ip:
@@ -715,7 +716,6 @@ class TestISCSIDetachVolume(ISCSIFixture):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
-        om_ip = om_node.nd_conf_dict['ip']
 
         # Unmount BEFORE breaking down the iSCSI node record
 
@@ -740,10 +740,12 @@ class TestISCSIDetachVolume(ISCSIFixture):
                     result.return_code))
             status = False
 
+        # Uses CLI to identify an AM node. Targets are presented on AM node.
+        am_ip = self.getAMEndpoint(om_node)
+
         if status:
             # Logout session
-            cmd = 'iscsiadm -m node --targetname %s -p %s --logout' % (self.target_name, \
-                    (om_node.nd_conf_dict['ip']))
+            cmd = 'iscsiadm -m node --targetname %s -p %s --logout' % (self.target_name, am_ip) 
             if initiator_ip:
                 result = run(cmd)
             else:
@@ -756,8 +758,7 @@ class TestISCSIDetachVolume(ISCSIFixture):
 
         if status:
             # Remove the record
-            cmd2 = 'iscsiadm -m node -o delete -T %s -p %s' % (self.target_name, \
-                    (om_node.nd_conf_dict['ip']))
+            cmd2 = 'iscsiadm -m node -o delete -T %s -p %s' % (self.target_name, am_ip)
             if initiator_ip:
                 result = run(cmd2)
             else:
