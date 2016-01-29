@@ -371,12 +371,19 @@ Error VolumeMeta::handleMigrationDeltaBlobs(DmRequest *dmRequest)
 }
 
 Error VolumeMeta::serveMigration(DmRequest *dmRequest) {
+
     Error err(ERR_OK);
     NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
     DmIoResyncInitialBlob* typedRequest = static_cast<DmIoResyncInitialBlob*>(dmRequest);
     NodeUuid destDmUuid(typedRequest->destNodeUuid);
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr migReqMsg = typedRequest->message;
     StatusCb cleanupCb = typedRequest->localCb;
+
+    if (getState() != fpi::ResourceState::Active) {
+        LOGWARN << "Rejecting serve migration request: " << *migReqMsg
+            << logString();
+        return ERR_NOT_READY;
+    }
 
     LOGNOTIFY << "migrationid: " << migReqMsg->DMT_version
         <<" received msg for volume " << migReqMsg->volume_id

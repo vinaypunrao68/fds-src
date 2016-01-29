@@ -638,9 +638,22 @@ def get_resource(self, resource):
     return resourceDir + resource
     
 def connect_fabric(self,node_ip):
+    """Specify connection info at runtime
+
+    Fabric is a library of subroutines to make executing shell commands over SSH
+    easy and Pythonic.
+
+    Parameters
+    ----------
+    self : obj
+    node_ip : str
+    """
     #TODO: pooja finish fs-4280 to read use/pwd form inventory
+    # 'env' is a global dictionary-like object driving many of Fabric's settings.
     env.user = 'root'
     env.password = 'passwd'
+    # 'host_string' defines the current user/host/port which Fabric will connect
+    # to when executing run, put, and so forth.
     env.host_string = node_ip
     timeout_start = time.time()
     timeout = 600  # Max 10 minutes wait considering bare metal/ pxe reboot

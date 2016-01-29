@@ -33,6 +33,8 @@ from contexts import scavenger
 from contexts import ScavengerPolicy
 from contexts import SMDebug
 from contexts import DMDebug
+from contexts import timeline
+from contexts import configdb
 
 import warnings
 # this is soooo bad
@@ -483,6 +485,8 @@ class FDSConsole(cmd.Cmd):
 
     def init(self):
         self.root.add_sub_context(domain.DomainContext(self.config,'domain'))
+        self.root.add_sub_context(timeline.TimelineContext(self.config,'timeline'))
+        self.root.add_sub_context(configdb.ConfigDBContext(self.config,'configdb'))
         vol = self.root.add_sub_context(volume.VolumeContext(self.config,'volume'))
         snap = vol.add_sub_context(snapshot.SnapshotContext(self.config,'snapshot'))
         snap.add_sub_context(snapshotpolicy.SnapshotPolicyContext(self.config,'policy'))

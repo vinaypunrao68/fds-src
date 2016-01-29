@@ -414,7 +414,12 @@ DataPlacement::commitDlt( const bool unsetTarget ) {
 
     fds_mutex::scoped_lock l(placementMutex);
     
-    fds_verify(newDlt != NULL);
+    if ( newDlt == NULL )
+    {
+        LOGWARN << "Target/New DLT value is NULL, nothing to commit, return";
+        return;
+    }
+
     fds_uint64_t oldVersion = -1;
     if (commitedDlt) {
         oldVersion = commitedDlt->getVersion();

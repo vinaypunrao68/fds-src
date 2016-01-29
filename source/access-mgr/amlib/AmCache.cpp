@@ -225,6 +225,7 @@ AmCache::getObjectCb(AmRequest* amReq, Error const error) {
         return;
     }
 
+    auto io_done_ts = util::getTimeStampNanos();
     // For each request waiting on this object, respond to it and set the buffer
     // data member from the first request (the one that was actually dispatched)
     // and populate the volume's cache
@@ -234,6 +235,8 @@ AmCache::getObjectCb(AmRequest* amReq, Error const error) {
             objReq->obj_data = buf;
             object_cache.add(objReq->io_vol_id, obj_id, objReq->obj_data);
         }
+        fds_uint64_t total_nano = io_done_ts - static_cast<GetObjectReq*>(objReq)->blobReq->enqueue_ts;
+
         bool done;
         Error err;
         std::tie(done, err) = objReq->blobReq->notifyResponse(error);
@@ -241,12 +244,10 @@ AmCache::getObjectCb(AmRequest* amReq, Error const error) {
             getBlobCb(objReq->blobReq, err);
         }
 
-        auto io_done_ts = util::getTimeStampNanos();
-        fds_uint64_t total_nano = io_done_ts - static_cast<GetObjectReq*>(amReq)->blobReq->enqueue_ts;
 
         auto io_total_time = static_cast<double>(total_nano) / 1000.0;
 
-        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+        StatsCollector::singleton()->recordEvent(objReq->io_vol_id,
                                                  io_done_ts,
                                                  STAT_AM_GET_OBJ,
                                                  io_total_time);
