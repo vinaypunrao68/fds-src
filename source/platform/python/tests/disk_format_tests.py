@@ -6,6 +6,7 @@ import unittest
 import mock
 import disk_format
 import copy
+import subprocess
 
 
 ''' extendedFstab class unit tests -- these could use improvements '''
@@ -554,13 +555,22 @@ class testDiskUtils (unittest.TestCase):
         dev = self.du.is_mounted("blah")
         assert not dev # bad mount point
 
+    def my_find_fs (self, param):
+        if param == 'UUID=cazzoomar':
+            return '/dev/sda'
+        return None
+
     def testFindDeviceByUUIDStr (self):
         dev = self.du.find_device_by_uuid_str("blah")
         assert not dev
-        dev = ("/dev/sda1")
-        uuid = self.du.get_uuid(dev)
-        retdev = self.du.find_device_by_uuid_str("UUID="+uuid)
-        assert retdev == dev 
+        call_list = ['blkid', '-o', 'device']
+        output = subprocess.Popen (call_list, stdout=subprocess.PIPE).stdout
+        for line in output:
+            dev = line.strip ('\r\n')
+            uuid = self.du.get_uuid(dev)
+            if uuid:   
+                retdev = self.du.find_device_by_uuid_str("UUID="+uuid)
+                assert retdev == dev 
 
     @mock.patch ('disk_format.DiskUtils.call_subproc')
     def testCleanUpMounted (self, mock_subproc):

@@ -526,7 +526,7 @@ class DiskUtils (Base, BaseDisk):
                 call_list = self.UMOUNT_COMMAND_1 + mount.split()
                 self.call_subproc (call_list)
             fstab.remove_mount_point_by_uuid (self.get_uuid (part))
-   
+
     def find_disk_type (self, disk_list, part):
         ''' Given a disk list and a partition (e.g., /dev/sdc2), return the disk type for the base disk '''
         disk_path = part.rstrip ('1234567890')
