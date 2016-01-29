@@ -1004,14 +1004,24 @@ class TestVerifyInfluxDBDown(TestCase.FDSTestCase):
         return True
 
 
-# This class contains the attributes and methods to test
-# verifying that scst service is started.
 class TestVerifySCSTUpIfEnabled(TestCase.FDSTestCase):
+    """
+    FDS test case to validate SCST service status against inventory
+
+    Attributes
+    ----------
+    passedNode : str or FdsNodeConfig
+        A node name or an instance of FdsNodeConfig.
+    """
     def __init__(self, parameters=None, node=None):
         """
-        When run by a qaautotest module test runner,
-        "parameters" will have been populated with
-        .ini configuration.
+        Parameters
+        ----------
+        node : str or FdsNodeConfig
+            A node name or an instance of FdsNodeConfig.
+        parameters : str
+            When run by a qaautotest module test runner, "parameters" will have
+            been populated with .ini configuration.
         """
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
@@ -1022,11 +1032,14 @@ class TestVerifySCSTUpIfEnabled(TestCase.FDSTestCase):
 
     def test_VerifySCSTUp(self):
         """
-        Test Case:
-        Attempt to verify scst service started.
-        """
+        Check inventory and conditionally validate scst service status
 
-        # No operation unless inventory file asks for SCST
+        Returns
+        -------
+        bool
+            True if successful, False otherwise
+        """
+        # No operation unless inventory file specifies SCST
         inventory_file = self.parameters['inventory_file']
         result = get_inventory_value(inventory_file, KEY_ENABLE_SCST, self.log)
         if not result:
@@ -1038,6 +1051,17 @@ class TestVerifySCSTUpIfEnabled(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
+        # Implementation alternatives:
+        # 1. Use the list of FdsNodeConfig objects to identify node(s) that
+        #    should have scst service running. Communicate with the node(s)
+        #    using FdsNodeConfig nd_agent to manage the connection.
+        # 2. Use CLI NodeService to get the AM node(s). Communicate with the
+        #    node(s) using the Fabric package to manage the connection.
+
+        # The choice for this test case is #1 above. We want to validate the
+        # scst service status orthogonal to whether OM or AM are running. Using
+        # CLI NodeService requires OM to be running (there is an authentication
+        # required).
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
             # If a specific node was passed in, use that one and get out.
@@ -1046,7 +1070,6 @@ class TestVerifySCSTUpIfEnabled(TestCase.FDSTestCase):
 
             # Make sure there is supposed to be an AM service on node n
             if n.nd_services.count("am") == 0:
-                self.log.warning("AM service not configured for node %s." % n.nd_conf_dict["node-name"])
                 if self.passedNode is None:
                     continue
                 else:
@@ -1063,7 +1086,7 @@ class TestVerifySCSTUpIfEnabled(TestCase.FDSTestCase):
 
             self.log.info(stdout)
 
-            if stdout.count("NOT") > 0:
+            if stdout.count("OK") == 0:
                 return False
             else:
                 status = 0

@@ -594,6 +594,10 @@ public class QueryHelper {
     	});
 
     	Double secondsToFull = systemCapacity / linearRegression.getSlope();
+        if( secondsToFull < 0.0 )
+        {
+            secondsToFull = Double.MAX_VALUE;
+        }
 
         final CapacityToFull to = new CapacityToFull();
         to.setToFull( secondsToFull.longValue() );
