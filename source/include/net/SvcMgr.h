@@ -82,6 +82,7 @@ using StringPtr = boost::shared_ptr<std::string>;
 class PlatNetSvcHandler;
 struct DLT;
 struct DLTManager;
+struct DMT;
 struct DMTManager;
 using DLTManagerPtr = boost::shared_ptr<DLTManager>;
 using DMTManagerPtr = boost::shared_ptr<DMTManager>;
@@ -331,6 +332,11 @@ struct SvcMgr : HasModuleProvider, Module {
     * @brief Return current dlt
     */
     const DLT* getCurrentDLT();
+
+    /**
+    * @brief Return current dlt
+    */
+    SHPTR<DMT> getCurrentDMT();
 
     /**
     * @brief Returns dlt manager

@@ -604,6 +604,11 @@ const DLT* SvcMgr::getCurrentDLT() {
     return dltMgr_->getDLT();
 }
 
+DMTPtr SvcMgr::getCurrentDMT()
+{
+    return dmtMgr_->hasCommittedDMT() ? dmtMgr_->getDMT(DMT_COMMITTED) : nullptr;
+}
+
 bool SvcMgr::hasCommittedDMT() const {
     return dmtMgr_->hasCommittedDMT();
 }
