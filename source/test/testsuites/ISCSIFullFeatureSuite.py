@@ -46,7 +46,8 @@ def suiteConstruction(self):
             initiator_name, None, 'volISCSI'))
 
     # Use the char device interface
-    suite.addTest(testcases.TestISCSIIntFace.TestISCSIUnitReady(None, None, 'volISCSI'))
+    suite.addTest(testcases.TestISCSIIntFace.TestISCSIUnitReady(None, 
+            initiator_name, None, 'volISCSI'))
 
     # This is where we will add char device interface tests, if they make sense,
     # for all of:

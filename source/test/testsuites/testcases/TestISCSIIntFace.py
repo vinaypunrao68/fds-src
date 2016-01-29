@@ -598,7 +598,7 @@ class TestISCSIUnitReady(ISCSIFixture):
     """FDS test case to send TEST_UNIT_READY CDB and check response
 
     """
-    def __init__(self, parameters=None, sg_device=None, volume_name=None):
+    def __init__(self, parameters=None, initiator_name=None, sg_device=None, volume_name=None):
         """Only one of sg_device or volume_name is required
 
         Parameters
@@ -613,6 +613,7 @@ class TestISCSIUnitReady(ISCSIFixture):
                 self.test_unit_ready,
                 "Testing TEST_UNIT_READY CDB in full feature phase")
 
+        self.initiator_name = initiator_name
         self.sg_device = sg_device
         self.volume_name = volume_name
 
@@ -641,22 +642,47 @@ class TestISCSIUnitReady(ISCSIFixture):
             self.log.error("Missing required iCSSI generic device")
             return False
 
-        # If test case not run as root, creating the SCSIDevice throws!
-        try:
-            # untrusted execute
-            sd = SCSIDevice(self.sg_device, True)
-            s = SCSI(sd)
-            r = s.testunitready().result
-            if not r:
-                # empty dictionary, which is the correct response!
-                return True
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        initiator_ip = None
+        if self.initiator_name:
+            initiator_ip = self.getInitiatorEndpoint(self.initiator_name, fdscfg)
 
-            for k, v in r.iteritems():
-                self.log.info('%s - %s' % (k, v))
-        except Exception as e:
-            self.log.error(str(e))
+        if not initiator_ip:
+            # If test case not run as root, creating the SCSIDevice throws!
+            try:
+                # untrusted execute
+                sd = SCSIDevice(self.sg_device, True)
+                s = SCSI(sd)
+                r = s.testunitready().result
+                if not r:
+                    # empty dictionary, which is the correct response!
+                    return True
 
-        return False
+                for k, v in r.iteritems():
+                    self.log.info('%s - %s' % (k, v))
+            except Exception as e:
+                self.log.error(str(e))
+
+            return False
+
+        else:
+            # TODO: need to decide the best way to run on the initiator
+
+            # Alternative 1 is to cat the commands to stream and pipe to python run
+            # Alternative 2 is to put the test case into a .py file and pipe to python run
+            # Alternative 3 is to use an initiator utility like sg_turs and stop using the ioctl
+            #  based C code
+
+            # Specify connection info
+            assert connect_fabric(self, initiator_ip) is True
+            cmd = "sg_turs {0}".format(self.sg_device)
+            result = run(cmd)
+            disconnect_fabric()
+            if result.failed:
+                return False
+
+        return True
 
 
 class TestISCSIDetachVolume(ISCSIFixture):
