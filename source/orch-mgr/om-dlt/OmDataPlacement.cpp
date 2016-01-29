@@ -34,7 +34,6 @@ DataPlacement::DataPlacement()
           newDlt(NULL),
           numOfFailures(0)
 {
-    curClusterMap = &gl_OMClusMapMod;
     numOfPrimarySMs = 0;
 }
 
