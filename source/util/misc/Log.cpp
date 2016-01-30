@@ -47,6 +47,14 @@ __TRACER__::~__TRACER__() {
  */
 #define ROTATION_SIZE 50 * 1024 * 1024
 
+/*
+ * Delete oldest log of a process when directory reaches N Bytes
+ * */
+#ifdef DEBUG
+#define MAX_DIR_SIZE 1024 * 1024 * 1024 * (uint64_t)20
+#endif
+
+
 BOOST_LOG_ATTRIBUTE_KEYWORD(process_name, "ProcessName", std::string)
 
 /*
@@ -131,6 +139,20 @@ void fds_log::init(const std::string& logfile,
     /*
      * Setup log sub-directory location
      */
+#ifdef DEBUG
+    /*
+     * NOTE: From local testing MAX_DIR_SIZE and the collector will ONLY affect the matching fdslog files
+     * i.e. SM collector will only affect SM logs and DM collector will only affect DM logs. I am enclosing this
+     * in DEBUG for the time being to make sure that this does not
+     */
+    if (logloc.empty()) {
+        sink->locked_backend()->set_file_collector(boost::log::sinks::file::make_collector(
+            boost::log::keywords::target = ".", boost::log::keywords::max_size = MAX_DIR_SIZE));
+    } else {
+        sink->locked_backend()->set_file_collector(boost::log::sinks::file::make_collector(
+            boost::log::keywords::target = logloc, boost::log::keywords::max_size = MAX_DIR_SIZE));
+    }
+#else
     if (logloc.empty()) {
         sink->locked_backend()->set_file_collector(boost::log::sinks::file::make_collector(
             boost::log::keywords::target = "."));
@@ -138,6 +160,7 @@ void fds_log::init(const std::string& logfile,
         sink->locked_backend()->set_file_collector(boost::log::sinks::file::make_collector(
             boost::log::keywords::target = logloc));
     }
+#endif
 
     /*
      * Set to defaulty scan for existing log files and

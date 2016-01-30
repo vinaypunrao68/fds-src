@@ -88,6 +88,9 @@ class SvcRequestPool : HasModuleProvider {
     /// If it's not set, the version will default to invalid.
     void setDltManager(DLTManagerPtr dltManager);
 
+    /* For debug cli */
+    uint64_t getOutstandingRequestsCount();
+
     static fpi::AsyncHdr swapSvcReqHeader(const fpi::AsyncHdr &reqHdr);
     static SvcRequestId SVC_UNTRACKED_REQ_ID;
 

@@ -80,10 +80,11 @@ struct DmGroupFixture : BaseTestFixture {
     void TearDown()
     {
         if (testOm != nullptr) {
-        //     delete testOm;
+            // currently fails
+            // delete testOm;
         }
         if (testOmModule != nullptr) {
-        //     delete testOmModule;
+             delete testOmModule;
         }
     }
 
@@ -127,7 +128,7 @@ struct DmGroupFixture : BaseTestFixture {
         domainMod->setupNewNode(newUuid, msgPtr, newNode, false);
 
         // Gotta sleep because we don't have control over boost state machine
-        sleep(2);
+        sleep(4);
         return msgPtr;
     }
 
@@ -138,7 +139,7 @@ struct DmGroupFixture : BaseTestFixture {
         auto nodeName = msg->node_name;
         auto retVal = domainMod->om_del_services(nodeUuid, nodeName, false, true, false);
         ASSERT_TRUE(retVal.OK());
-        sleep(2); // sleep for DMT state machine to churn
+        sleep(4); // sleep for DMT state machine to churn
     }
 
     void setNewNodeUuid(NodeUuid value) {

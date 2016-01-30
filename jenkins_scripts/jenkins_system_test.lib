@@ -13,7 +13,7 @@ PYTHON_UNITTEST_DISCOVERY_DIRECTORIES="source/tools"
 # The list of system test scenarios, do not include the .ini"
 SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest RestartDataPersistence ActiveIORndKillTest MultiAMVolOpsTest RestartClusterKillServices StaticMigration BuildSmokeTest_onpr QosTest ActiveMigration DmMigrationFailover VolumeGroupMode"
 # Jenkins job runs tests on AWS nodes
-AWS_TEST_SCENARIO_LIST = "AWS_tests MultiAMVolOpsTest"
+AWS_TEST_SCENARIO_LIST="RebootNodeTest"
 function performance_report
 {
     unit=${1}
@@ -154,7 +154,7 @@ function clean_up_environment
    find /corefiles -type f -name "*.core" -print -delete
    find /corefiles -type f -name "*.hprof" -print -delete
    find /corefiles -type f -name "*hs_err_pid*.log" -print -delete
-        
+
    capture_process_list ${FUNCNAME}
 }
 
@@ -442,13 +442,8 @@ function aws_test_scenario_wrapper
     message " *** RUNNING System Test Scenario: ${scenario} on AWS nodes"
     ./ScenarioDriverSuite.py -q ./${scenario}.ini -d dummy --verbose -l ../../cit/ --install -z aws_long_system_test --reusecluster || system_test_error ${scenario}
     echo " *** Scenario completed :  ${scenario} passed"
-/
     do_popd
 
     capture_process_list SysTest.${scenario}
-
-    check_xunit_errors ${scenario}
-    check_xunit_failures ${scenario}
     check_for_cores
 }
-

@@ -29,7 +29,7 @@ fds: {
             volume_open_support = {{ ft_common_enable_volume_open_support }}
 
     	    /* Volume grouping allows IO to volumes to driven by a coordinator at AM */
-    	    enable_volumegrouping = false
+    	    enable_volumegrouping = {{ ft_enable_volumegrouping }}
 
     	    /* applies to OM and XDI web toolkit */
             enable_web_logging_request_wrapper = {{ ft_enable_web_logging_request_wrapper }}
@@ -240,6 +240,7 @@ fds: {
         catalog_log_max_files = 5
         number_of_primary = 2
         req_serialization = {{ dm_req_serialization }}
+        realtime_stats_sampling = {{ dm_realtime_stats_sampling }}
 
         /* process id */
         id      = "dm"

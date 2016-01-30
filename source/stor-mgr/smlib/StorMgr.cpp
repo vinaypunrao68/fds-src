@@ -116,7 +116,8 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
                                                           std::bind(&ObjectStorMgr::handleDiskChanges, this,
                                                                     std::placeholders::_1,
                                                                     std::placeholders::_2,
-                                                                    std::placeholders::_3),
+                                                                    std::placeholders::_3,
+                                                                    std::placeholders::_4),
                                                           std::bind(&ObjectStorMgr::changeTokensState, this,
                                                                     std::placeholders::_1)));
 
@@ -135,10 +136,23 @@ void ObjectStorMgr::changeTokensState(const std::set<fds_token_id>& dltTokens) {
     }
 }
 
-void ObjectStorMgr::handleDiskChanges(const DiskId& removedDiskId,
+void ObjectStorMgr::handleNewDiskMap() {
+
+    auto tokens = objectStore->getSmTokens();
+    std::vector<nullary_always> token_locks;
+    for (auto& token: tokens) {
+        token_locks.push_back(getTokenLock(token, true));
+    }
+
+    objStorMgr->objectStore->handleNewDiskMap();
+}
+
+void ObjectStorMgr::handleDiskChanges(const bool &added,
+                                      const DiskId& diskId,
                                       const diskio::DataTier& tierType,
                                       const TokenDiskIdPairSet& tokenDiskPairs) {
-    objStorMgr->objectStore->handleDiskChanges(removedDiskId, tierType, tokenDiskPairs);
+    objStorMgr->objectStore->handleDiskChanges(added, diskId,
+                                               tierType, tokenDiskPairs);
 }
 
 void ObjectStorMgr::handleResyncDoneOrPending(fds_bool_t startResync, fds_bool_t resyncDone) {
@@ -548,13 +562,18 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
         if (volTbl->isSnapshot(*vit)) {
             continue;
         }
-        fds_uint64_t dedup_bytes = volTbl->getDedupBytes(*vit);
+        std::pair<double, double> dedup_bytes = volTbl->getDedupBytes(*vit);
         LOGDEBUG << "Volume " << std::hex << *vit << std::dec
-                 << " deduped bytes " << dedup_bytes;
+                 << " deduped bytes " << dedup_bytes.first
+                 << " domain deduped bytes fraction " << dedup_bytes.second;
         StatsCollector::singleton()->recordEvent(*vit,
                                                  timestamp,
                                                  STAT_SM_CUR_DEDUP_BYTES,
-                                                 dedup_bytes);
+                                                 dedup_bytes.first);
+        StatsCollector::singleton()->recordEvent(*vit,
+                                                 timestamp,
+                                                 STAT_SM_CUR_DOMAIN_DEDUP_BYTES_FRAC,
+                                                 dedup_bytes.second);
     }
 
     // Piggyback on the timer that runs this to check disk capacity
@@ -1217,8 +1236,10 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
               exit(1));
 
     SmIoReadObjDeltaSetReq *readDeltaSetReq = static_cast<SmIoReadObjDeltaSetReq *>(ioReq);
-    fds_verify(NULL != readDeltaSetReq);
-
+    if (!readDeltaSetReq) {
+        LOGWARN << "Invalid read delta set request";
+        return;
+    }
     LOGMIGRATE << "Filling DeltaSet:"
                << " destinationSmId " << readDeltaSetReq->destinationSmId
                << " executorID=" << std::hex << readDeltaSetReq->executorId << std::dec
@@ -1259,10 +1280,16 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
             /* TODO(sean): For now, just panic. Need to know why
              * object read failed.
              */
-            fds_verify(err.ok());
-
-            /* Copy the object data */
-            objMetaDataPropagate.objectData = *dataPtr;
+            if (!err.ok()) {
+                LOGERROR << "getObjectData failed for read delta set"
+                         << " destinationSmId: " << readDeltaSetReq->destinationSmId
+                         << " executorID: " << std::hex << readDeltaSetReq->executorId << std::dec
+                         << " object: " << objID;
+                         continue;
+            } else {
+                /* Copy the object data */
+                objMetaDataPropagate.objectData = *dataPtr;
+            }
         }
 
         /* Add metadata and data to the delta set */

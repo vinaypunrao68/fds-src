@@ -198,7 +198,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         var lbyteTotal = 0;
         
         if ( angular.isDefined( lbyteSeries ) && angular.isDefined( lbyteSeries.datapoints ) && lbyteSeries.datapoints.length > 0 ){
-            lbyteSeries.datapoints[lbyteSeries.datapoints.length - 1].y;
+            lbyteTotal = lbyteSeries.datapoints[lbyteSeries.datapoints.length - 1].y;
         }
         
         var parts = $byte_converter.convertBytesToString( lbyteTotal );
@@ -338,7 +338,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         for ( var i = 0; i < $scope.snapshots.length; i++ ){
             
             var range = {
-                min: new Date( $scope.snapshots[i].creation )
+                min: new Date( $scope.snapshots[i].creationTime.seconds * 1000 )
             };
             
             $scope.ranges.push( range );

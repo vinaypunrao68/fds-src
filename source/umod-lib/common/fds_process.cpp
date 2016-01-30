@@ -489,6 +489,7 @@ FdsProcess::fds_catch_signal(int sig) {
     }
 
     GLOGNOTIFY << signalNotification << sig << sigName;
+    g_fdslog->flush();
     syslog(LOG_NOTICE, "%s%d %s", signalNotification, sig, sigName.c_str());
 
     /*
@@ -506,6 +507,7 @@ FdsProcess::fds_catch_signal(int sig) {
         }
 
         GLOGNOTIFY << normalSignOff;
+        g_fdslog->flush();
         syslog(LOG_NOTICE, "%s", normalSignOff);
 
         exit(EXIT_SUCCESS);
@@ -517,6 +519,7 @@ FdsProcess::fds_catch_signal(int sig) {
              SERVICE_NAME_FROM_ID((g_fdsprocess != nullptr) ? g_fdsprocess->getProcId().c_str() : "unknown"));
 
     GLOGERROR << abnormalSignOff;
+    g_fdslog->flush();
     syslog(LOG_ALERT, "%s", abnormalSignOff);
 
     /*

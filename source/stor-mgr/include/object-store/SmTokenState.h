@@ -15,6 +15,15 @@ namespace fds {
 /// SM token is in the middle of GC
 #define SMTOKEN_FLAG_COMPACTING  0x0002
 
+struct SmTokenLoc {
+    fds_token_id id;
+    DiskId hdd;
+    DiskId ssd;
+    bool operator <(const SmTokenLoc &rhs) const {
+        return (id < rhs.id);
+    }
+};
+
 /**
  * <tier, SM token> descriptor includes write file ID (file ID where
  * writes go for that tier, SM token) and state.
@@ -22,14 +31,17 @@ namespace fds {
  * tier it resides on; in that case, the state is repeated on both tiers
  */
 struct __attribute__((__packed__)) SmTokenDesc {
-    SmTokenDesc() : writeFileId(SM_INVALID_FILE_ID), tokenFlags(0) {}
-    SmTokenDesc(fds_uint16_t writeFid, fds_uint16_t f) :
-        writeFileId(writeFid), tokenFlags(f) {}
+    SmTokenDesc() : diskId(SM_INVALID_DISK_ID),
+                    writeFileId(SM_INVALID_FILE_ID),
+                    tokenFlags(0) {}
+    SmTokenDesc(DiskId dId, fds_uint16_t writeFid, fds_uint16_t f) :
+        diskId(dId), writeFileId(writeFid), tokenFlags(f) {}
 
     inline void setValid() {
         tokenFlags |= SMTOKEN_FLAG_VALID;
     }
     inline void setInvalid() {
+        diskId = SM_INVALID_DISK_ID;
         tokenFlags = 0;
         writeFileId = SM_INVALID_FILE_ID;
     }
@@ -45,7 +57,10 @@ struct __attribute__((__packed__)) SmTokenDesc {
     inline fds_bool_t isCompacting() const {
         return (tokenFlags & SMTOKEN_FLAG_COMPACTING);
     }
-
+    inline DiskId getDiskId() const {
+        return diskId;
+    }
+    DiskId diskId;
     fds_uint16_t writeFileId;
     fds_uint16_t tokenFlags;
 };
@@ -77,7 +92,7 @@ struct __attribute__((__packed__)) TokenDescTable {
      * @return true if at least one token was initialized to "valid"
      *         false if all given tokes were already valid
      */
-    fds_bool_t initializeSmTokens(const SmTokenSet& smToksValid);
+    fds_bool_t initializeSmTokens(const std::set<SmTokenLoc>& smToksValid);
 
     /**
      * Resets given set of tokens into "invalid" state
@@ -101,25 +116,33 @@ struct __attribute__((__packed__)) TokenDescTable {
     /**
      * Sets write file id for a given sm token id and tier
      */
-    void setWriteFileId(fds_token_id smToken,
+    void setWriteFileId(DiskId diskId,
+                        fds_token_id smToken,
                         diskio::DataTier tier,
                         fds_uint16_t fileId);
-    fds_uint16_t getWriteFileId(fds_token_id smToken,
+    fds_uint16_t getWriteFileId(DiskId diskId,
+                                fds_token_id smToken,
                                 diskio::DataTier tier) const;
 
     /**
      * Set/get token compaction status
      */
-    void setCompactionState(fds_token_id smToken,
+    void setCompactionState(DiskId diskId,
+                            fds_token_id smToken,
                             diskio::DataTier tier,
                             fds_bool_t inProgress);
-    fds_bool_t isCompactionInProgress(fds_token_id smToken,
+    fds_bool_t isCompactionInProgress(DiskId diskId,
+                                      fds_token_id smToken,
                                       diskio::DataTier tier) const;
 
     /**
      * Checks whether token is valid on at least one tier
      */
     fds_bool_t isValidOnAnyTier(fds_token_id smToken) const;
+
+    fds_uint16_t getIdx(DiskId diskId,
+                        fds_token_id smToken,
+                        diskio::DataTier tier) const;
 
     /**
      * Get a set of SM tokens that reside on this SM
@@ -131,7 +154,7 @@ struct __attribute__((__packed__)) TokenDescTable {
     fds_bool_t operator ==(const TokenDescTable& rhs) const;
 
     /// POD data
-    SmTokenDesc stateTbl[SM_TIER_COUNT][SMTOKEN_COUNT];
+    SmTokenDesc stateTbl[SM_TIER_COUNT][SMTOKEN_COUNT][MAX_HOST_DISKS];
 
   private:
     fds_uint32_t row(diskio::DataTier tier) const;

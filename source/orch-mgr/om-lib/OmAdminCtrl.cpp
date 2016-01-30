@@ -176,7 +176,7 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
         // We expect the max object size to be at least some min size
         // and a multiple of that size
         LOGERROR << "Invalid maximum object size of " << pVolDesc->maxObjSizeInBytes
-                 << ", the minimum size is " << minVolObjSize;
+                 << ". The maximum size must be at least and evenly divisible by " << minVolObjSize;
         return Error(ERR_VOL_ADMISSION_FAILED);
     }
 
