@@ -1236,8 +1236,10 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
               exit(1));
 
     SmIoReadObjDeltaSetReq *readDeltaSetReq = static_cast<SmIoReadObjDeltaSetReq *>(ioReq);
-    fds_verify(NULL != readDeltaSetReq);
-
+    if (!readDeltaSetReq) {
+        LOGWARN << "Invalid read delta set request";
+        return;
+    }
     LOGMIGRATE << "Filling DeltaSet:"
                << " destinationSmId " << readDeltaSetReq->destinationSmId
                << " executorID=" << std::hex << readDeltaSetReq->executorId << std::dec
@@ -1278,10 +1280,16 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
             /* TODO(sean): For now, just panic. Need to know why
              * object read failed.
              */
-            fds_verify(err.ok());
-
-            /* Copy the object data */
-            objMetaDataPropagate.objectData = *dataPtr;
+            if (!err.ok()) {
+                LOGERROR << "getObjectData failed for read delta set"
+                         << " destinationSmId: " << readDeltaSetReq->destinationSmId
+                         << " executorID: " << std::hex << readDeltaSetReq->executorId << std::dec
+                         << " object: " << objID;
+                         continue;
+            } else {
+                /* Copy the object data */
+                objMetaDataPropagate.objectData = *dataPtr;
+            }
         }
 
         /* Add metadata and data to the delta set */

@@ -448,6 +448,7 @@ ObjectStore::doResync() const {
 void
 ObjectStore::setResync() {
     if (diskMap) {
+        LOGNOTIFY << "Persist that resync is required";
         return diskMap->setResync();
     }
 }
@@ -455,6 +456,7 @@ ObjectStore::setResync() {
 void
 ObjectStore::resetResync() {
     if (diskMap) {
+        LOGNOTIFY << "Persist that no resync is required";
         return diskMap->resetResync();
     }
 }
@@ -602,7 +604,10 @@ ObjectStore::putObject(fds_volid_t volId,
             return err;
         }
     }
-    fds_verify(err.ok() || (err == ERR_DUPLICATE));
+    if (!(err.ok() || (err == ERR_DUPLICATE))) {
+        LOGERROR << "Put failed for " << objId.ToHex().c_str() << "with error: " << err;
+        return err;
+    }
 
     // If the TokenMigration reconcile is still required, then treat the object as not valid.
     if (!updatedMeta->isObjReconcileRequired()) {
