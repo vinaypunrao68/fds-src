@@ -116,6 +116,16 @@ struct DmGroupFixture : BaseTestFixture {
         return volmod->getCommittedDMTVersion();
     }
 
+    void addNewFakeDMSvc(const NodeUuid &uuid) {
+        std::vector<fpi::SvcInfo> entries;
+        entries.emplace_back(); // just 1 entry
+        auto entry = entries.begin();
+        entry->svc_id.svc_uuid.svc_uuid = uuid.uuid_get_val();
+        entry->svc_type = fpi::FDSP_MgrIdType::FDSP_DATA_MGR;
+        // Everything else is zero
+        MODULEPROVIDER()->getSvcMgr()->updateSvcMap(entries);
+    }
+
     // Returns the ptr for book keeping, if the caller wants to
     fpi::FDSP_RegisterNodeTypePtr addNewFakeDm() {
         NodeUuid newUuid(nodeUuidCounter);
@@ -128,10 +138,18 @@ struct DmGroupFixture : BaseTestFixture {
         msgPtr->node_name = nodename;
         msgPtr->node_type = fpi::FDSP_MgrIdType::FDSP_DATA_MGR;
         msgPtr->node_uuid.uuid = newUuid.uuid_get_val();
+        msgPtr->service_uuid.uuid = newUuid.uuid_get_val();
 
         auto domainMod = testOmModule->om_nodedomain_mod();
         auto om_locDomain = domainMod->om_loc_domain_ctrl();
+
+        // Fake a svc map entry
+        addNewFakeDMSvc(newUuid);
+
+        // Fake the setupNewNode info
         om_locDomain->dc_register_node(newUuid, msgPtr, &newNode);
+
+        // Call setupNewNode directly instead of scheduling it
         domainMod->setupNewNode(newUuid, msgPtr, newNode, false);
 
         // Gotta sleep because we don't have control over boost state machine
@@ -157,6 +175,8 @@ struct DmGroupFixture : BaseTestFixture {
 
 TEST_F(DmGroupFixture, DmClusterAddNodeTest) {
     // Create an OM module instance
+    fpi::SvcUuid dummySvcInfo;
+    fpi::SvcInfo dummyInfo;
 
     // We'll be testing with X DMs... so set it here.
     setDmClusterSize(4);
@@ -191,17 +211,18 @@ TEST_F(DmGroupFixture, DmClusterAddNodeTest) {
     ASSERT_TRUE(testOmModule->om_dmt_mod()->getWaitingDMs() == 0);
 
     // Make sure that the node is in svcmap. We will be removing it and re-adding it later.
-    fpi::SvcUuid fourthNode;
-    fpi::SvcInfo dummyInfo;
-    fourthNode.svc_uuid = lastNodePtr->service_uuid.uuid;
-    // ASSERT_TRUE(MODULEPROVIDER()->getSvcMgr()->getSvcInfo(fourthNode, dummyInfo));
+    dummySvcInfo.svc_uuid = lastNodePtr->service_uuid.uuid;
+    ASSERT_TRUE(MODULEPROVIDER()->getSvcMgr()->getSvcInfo(dummySvcInfo, dummyInfo));
 
     // Add fifth node - should be no-op
-    addNewFakeDm();
+    lastNodePtr = addNewFakeDm();
     ASSERT_TRUE(hasCommittedDMT());
     ASSERT_TRUE(getCommittedDMTVersion() == 1);
     // Since we only support 1 set of 4 DMs, we shouldn't have waiting DMs
     ASSERT_TRUE(testOmModule->om_dmt_mod()->getWaitingDMs() == 0);
+    // We shouldn't see it in the service map
+    dummySvcInfo.svc_uuid = lastNodePtr->service_uuid.uuid;
+    ASSERT_TRUE(MODULEPROVIDER()->getSvcMgr()->getSvcInfo(dummySvcInfo, dummyInfo));
 
     // Add all the way to 8 nodes... should be no-op. This will change once we support
     // multiple dm clusters

@@ -1980,7 +1980,7 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
          * Once we support multiple volume groups, this may need to go away
          */
         auto vgMode = OM_Module::om_singleton()->om_dmt_mod()->volumeGrpMode();
-        if (vgMode && (activeVolumeGroups > 0) && isDataMgrSvc(*svcInfo) &&
+        if (vgMode && dmClusterPresent()  && isDataMgrSvc(*svcInfo) &&
                 !isKnownService( *svcInfo )) {
             LOGERROR << "Volume group is active and we're trying to add a DM "
                     << "that did is not a part of the volume group. This is not allowed.";
