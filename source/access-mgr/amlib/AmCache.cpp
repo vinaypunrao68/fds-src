@@ -385,6 +385,9 @@ AmCache::statBlobCb(AmRequest* amReq, Error const error) {
         descriptor_cache.add(amReq->io_vol_id,
                              amReq->getBlobName(),
                              std::dynamic_pointer_cast<StatBlobCallback>(amReq->cb)->blobDesc);
+    } else if (cache_missing_cat && ERR_BLOB_NOT_FOUND == error) {
+        /// FEATURE TOGGLE: Cache missing entry
+        descriptor_cache.add(amReq->io_vol_id, amReq->getBlobName(), nullptr);
     }
     AmDataProvider::statBlobCb(amReq, error);
 }
