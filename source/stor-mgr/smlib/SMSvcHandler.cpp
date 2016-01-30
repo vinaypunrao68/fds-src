@@ -1094,7 +1094,7 @@ SMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     err = MODULEPROVIDER()->getSvcMgr()->updateDlt(dlt->dlt_data.dlt_type,
                                                    dlt->dlt_data.dlt_data, nullptr);
     const DLT *curDlt = objStorMgr->getDLT();
-    if (err.ok() || curDlt->getVersion() < dlt->dlt_version) {
+    if (err.ok() || curDlt->getVersion() < (fds_uint64_t)(dlt->dlt_version)) {
         err = objStorMgr->handleDltUpdate();
     } else if (err == ERR_DUPLICATE) {
         LOGWARN << "Received duplicate DLT, ignoring";
