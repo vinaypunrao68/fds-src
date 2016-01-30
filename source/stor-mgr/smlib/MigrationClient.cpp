@@ -256,7 +256,10 @@ void
 MigrationClient::migClientReadObjDeltaSetCb(const Error& error,
                                             SmIoReadObjDeltaSetReq *req)
 {
-    fds_verify(NULL != req);
+    if (!req) {
+        LOGWARN << "Invalid request; error: " << error;
+        return;
+    }
     LOGMIGRATE << "MigClientState=" << getMigClientState()
                << ": Complete ReadObjectDelta: "
                << " seqNum=" << req->seqNum
