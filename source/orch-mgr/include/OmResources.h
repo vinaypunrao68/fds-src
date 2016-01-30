@@ -1129,9 +1129,7 @@ class OM_NodeDomainMod : public Module
 
     void removeNodeComplete(NodeUuid uuid);
 
-    inline fds_bool_t dmClusterPresent() {
-        return (activeVolumeGroups > 0);
-    }
+    fds_bool_t dmClusterPresent();
 
     // used for unit test
     inline void setDmClusterSize(uint32_t size) {
@@ -1184,7 +1182,8 @@ class OM_NodeDomainMod : public Module
     std::mutex                    taskMapMutex;
     std::unordered_map<int64_t, FdsTimerTaskPtr> setupNewNodeTaskMap;
     fds_mutex                     dbLock;
-    unsigned                      activeVolumeGroups;
+
+    fds_bool_t                    dmClusterPresent_;
 };
 
 }  // namespace fds
