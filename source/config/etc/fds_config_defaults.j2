@@ -88,6 +88,7 @@
 {% set am_testing_toggleDisableStreamingStats = fds_am_testing_toggleDisableStreamingStats if fds_am_testing_toggleDisableStreamingStats is defined else 'false' %}
 {% set am_req_serialization = fds_am_req_serialization if fds_am_req_serialization is defined else 'volume' %}
 {% set am_all_atomic_ops = fds_am_all_atomic_ops if fds_am_all_atomic_ops is defined else 'false' %}
+{% set am_cache_missing_cat = fds_am_cache_missing_cat if fds_am_cache_missing_cat is defined else 'false' %}
 {% set am_nbd_server_threads = fds_am_nbd_server_threads if fds_am_nbd_server_threads is defined else '1' %}
 {% set am_scst_target_prefix = fds_am_scst_target_prefix if fds_am_scst_target_prefix is defined else 'iqn.2012-05.com.formationds:' %}
 {% set am_scst_target_threads = fds_am_scst_target_threads if fds_am_scst_target_threads is defined else '1' %}
