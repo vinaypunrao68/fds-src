@@ -96,25 +96,29 @@ public class IngestVolumeStats implements RequestHandler {
              *  The stat stream is per volume; we need to have used bytes (UBYTES) included with every
              *  volume, we divide the used capacity across all volumes so when we sum it later we should
              *  have a total used capacity be correct, well at least close.
+             *
+             *  Also, make sure that UBYTES is added to all time series data points
              */
             final Double usedCapacity = RedisSingleton.INSTANCE.api( )
                     .getDomainUsedCapacity( )
                     .getValue( SizeUnit.B )
                     .doubleValue( ) / volumeNames.size();
+
+            List<IVolumeDatapoint> newList = new ArrayList<>( );
             for( final IVolumeDatapoint vdp : volumeDatapoints )
             {
-                if( vdp.getKey().equalsIgnoreCase( Metrics.LBYTES.key() ) )
+                newList.add( vdp );
+                if( Metrics.LBYTES.matches( vdp.getKey() ) )
                 {
-                    volumeDatapoints.add( new VolumeDatapoint( vdp.getTimestamp(),
-                                                               vdp.getVolumeId( ),
-                                                               vdp.getVolumeName( ),
-                                                               Metrics.UBYTES.key( ),
-                                                               usedCapacity ) );
-                    break;
-                }
+                    newList.add( new VolumeDatapoint( vdp.getTimestamp(),
+                                                      vdp.getVolumeId( ),
+                                                      vdp.getVolumeName( ),
+                                                      Metrics.UBYTES.key( ),
+                                                      usedCapacity ) );
+               }
             }
 
-            SingletonRepositoryManager.instance().getMetricsRepository().save(volumeDatapoints);
+            SingletonRepositoryManager.instance().getMetricsRepository().save( newList );
         }
 
         return new JsonResource(new JSONObject().put("status", "OK"));

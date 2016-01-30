@@ -128,15 +128,26 @@ class DmVolumeCatalog : public HasModuleProvider,
     Error deleteEmptyCatalog(fds_volid_t volId, bool checkDeleted = true);
 
     /**
-     * Returns size of volume and number of blob in the volume 'volume_id'
-     * @param[out] size size of volume in bytes
+     * Returns logical size of volume and number of blob in the volume 'volume_id'
+     * @param[out] size logical size of volume in bytes
      * @param[in] blob_count number of blobs in the volume
-     * @param[out] object_count object count per volume
+     * @param[out] object_count logical object count per volume
      * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
      * to volume catalog
      */
-    Error statVolume(fds_volid_t volId, fds_uint64_t* volSize,
-                     fds_uint64_t* blobCount, fds_uint64_t* objCount) override;
+    Error statVolumeLogical(fds_volid_t volId, fds_uint64_t* volSize,
+                            fds_uint64_t* blobCount, fds_uint64_t* objCount) override;
+
+    /**
+     * Returns physical size of the volume.
+     *
+     * @param[in] volId volume identifier
+     * @param[out] pbytes Volume physical size in bytes.
+     * @param[out] pobjects Number of physical oData Objects comprising the volume.
+     *
+     * @return ERR_OK on success
+     */
+    Error statVolumePhysical(fds_volid_t volId, fds_uint64_t* pbytes, fds_uint64_t* pObjCount);
 
     /**
      * Sets the key-value metadata pairs for the volume. Any keys that already

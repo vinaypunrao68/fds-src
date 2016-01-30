@@ -196,6 +196,7 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
         DEF_FEATURE(TestMode     , false);
         DEF_FEATURE(Expunge      , true);
         DEF_FEATURE(Volumegrouping, false);
+        DEF_FEATURE(RealTimeStatSampling, false);
     } features;
 
     dm::Counters* counters;
@@ -286,6 +287,17 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
      * A callback from stats collector to sample DM-specific stats
      */
     void sampleDMStats(fds_uint64_t timestamp);
+
+    /**
+     * Sample stats for a specific Volume.
+     *
+     * @param[in] volume_id ID of Volume for whome to sample stats.
+     * @param[in] timestamp Timestamp to be associated with sampled
+     *                      stats. If 0, generate a timestamp on behalf
+     *                      of caller.
+     */
+    void sampleDMStatsForVol(fds_volid_t volume_id,
+                             fds_uint64_t timestamp=0);
 
     /**
      * A callback from stats collector with stats for a given volume

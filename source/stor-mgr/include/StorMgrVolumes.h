@@ -89,12 +89,17 @@ class StorMgrVolume : public FDS_Volume, public HasLogger {
      std::atomic<fds_uint64_t> hddByteCnt;
      /**
       * Bytes deduped since the service was started
-      * TODO(xxx) make it actual deduped bytes for this volume
-      * -- need to load from DB
+      * TODO(xxx) need to load from DB
       */
      double dedupBytes_;
 
-     /*
+     /**
+      * Fraction of Domain Bytes deduped since the service was started
+      * TODO(xxx) need to load from DB
+      */
+     double domainDedupBytesFrac_;
+
+        /*
       *  per volume stats
       */
      CounterHist8bit  objStats;
@@ -117,9 +122,14 @@ class StorMgrVolume : public FDS_Volume, public HasLogger {
                    fds_log *parent_log);
      ~StorMgrVolume();
 
-     void updateDedupBytes(double dedup_bytes_added) {
+     void updateDedupBytes(double dedup_bytes_added /* may be negative */) {
          dedupBytes_ += dedup_bytes_added;
      }
+
+     void updateDomainDedupBytesFrac(double dedup_bytes_added /* may be negative */) {
+         domainDedupBytesFrac_ += dedup_bytes_added;
+     }
+
      // at the moment, dedup bytes could be < 0 because
      // we may have SM coming from persistent state we are
      // not loading yet
@@ -127,6 +137,14 @@ class StorMgrVolume : public FDS_Volume, public HasLogger {
          if (dedupBytes_ < 0) return 0;
          return dedupBytes_;
      }
+
+    // at the moment, domain dedup bytes fraction could be < 0 because
+    // we may have SM coming from persistent state we are
+    // not loading yet
+    fds_uint64_t getDomainDedupBytesFrac() const {
+        if (domainDedupBytesFrac_ < 0) return 0;
+        return domainDedupBytesFrac_;
+    }
 };
 
 class StorMgrVolumeTable : public HasLogger {
@@ -147,7 +165,7 @@ class StorMgrVolumeTable : public HasLogger {
                        fds_uint32_t obj_size,
                        fds_bool_t incr,
                        std::map<fds_volid_t, fds_uint64_t>& vol_refcnt);
-     double getDedupBytes(fds_volid_t volid);
+     std::pair<double, double> getDedupBytes(fds_volid_t volid);
 
      inline fds_bool_t isSnapshot(fds_volid_t volid) {
          SCOPEDREAD(map_rwlock);

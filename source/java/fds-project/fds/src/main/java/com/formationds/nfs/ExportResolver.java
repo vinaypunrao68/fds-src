@@ -2,6 +2,7 @@ package com.formationds.nfs;
 
 import com.formationds.util.ConsumerWithException;
 
+import java.io.IOException;
 import java.util.Collection;
 
 public interface ExportResolver {
@@ -12,5 +13,6 @@ public interface ExportResolver {
     public boolean exists(String volumeName);
     public int objectSize(String volume);
 
+    public long maxVolumeCapacityInBytes(String volume) throws IOException;
     void addVolumeDeleteEventHandler(ConsumerWithException<String> consumer);
 }

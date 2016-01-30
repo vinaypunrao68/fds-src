@@ -276,7 +276,7 @@ angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity
     };
     
     $scope.capacityLabelFx = function( data ){
-        return $byte_converter.convertBytesToString( data, 0 );
+        return $byte_converter.convertBytesToString( data, 1 );
     };
     
     $scope.getActivityClass = function( category ){
