@@ -230,7 +230,6 @@ SMSvcHandler::migrationAbort(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // TODO(Sean):
     // For now, assert that enqueueMsg() does not fail.  Need to think about what
     // error to reply to the OM.
-    fds_verify(err.ok());
 }
 
 void
@@ -285,19 +284,6 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
               << " migration dest: " << asyncHdr->msg_src_uuid.svc_uuid
               << std::dec << " target dlt version: " << filterObjSet->targetDltVersion;
 
-    // first disable GC and Tier Migration. If this SM is also a destination and
-    // we already disabled GC and Tier Migration, disabling them again is a noop
-    // Note that after disabling GC, GC work in QoS queue will still
-    // finish... however, there is no correctness issue if we are running
-    // GC job along with token migration, we just want to reduce the amount
-    // of system work we do at the same time (for now, we should be able
-    // to make it work running fully in parallel in the future).
-    SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_DISABLE,
-                                 SM_CMD_INITIATOR_TOKEN_MIGRATION);
-    err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
-    SmTieringCmd tierCmd(SmTieringCmd::TIERING_DISABLE);
-    err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
-
     // tell migration mgr to start object rebalance
     const DLT* dlt = MODULEPROVIDER()->getSvcMgr()->getDltManager()->getDLT();
 
@@ -311,10 +297,10 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                     << objStorMgr->getUuid() << std::dec;
     } else if (fault_enabled || !(objStorMgr->objectStore->isReady())) {
         err = ERR_SM_NOT_READY_AS_MIGR_SRC;
-        LOGDEBUG << "SM not ready as Migration source " << std::hex
-                 << objStorMgr->getUuid() << std::dec
-                 << " for token: " << filterObjSet->tokenId << std::hex
-                 << " executor: " << filterObjSet->executorID;
+        LOGNOTIFY << "SM not ready as Migration source " << std::hex
+                  << objStorMgr->getUuid() << std::dec
+                  << " for token: " << filterObjSet->tokenId << std::hex
+                  << " executor: " << filterObjSet->executorID;
         fiu_disable("resend.dlt.token.filter.set");
     } else {
         fds_verify(dlt != NULL);
@@ -521,14 +507,6 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // start measuring E2E latency
     PerfTracer::tracePointBegin(getReq->opReqLatencyCtx);
 
-    // check if DLT token ready -- we are doing it after creating
-    // get request, because callback needs it
-    if (!objStorMgr->migrationMgr->isDltTokenReady(objId)) {
-        LOGDEBUG << "DLT token not ready, not going to do GET for " << objId;
-        getObjectCb(asyncHdr, ERR_TOKEN_NOT_READY, getReq);
-        return;
-    }
-
     err = objStorMgr->enqueueMsg(getReq->getVolId(), getReq);
     if (err != fds::ERR_OK) {
         LOGERROR << "Failed to enqueue to SmIoGetObjectReq to StorMgr.  Error: "
@@ -644,7 +622,7 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // put request, because callback needs it
     if (!putObjMsg->forwardedReq && !objStorMgr->migrationMgr->isDltTokenReady(objId)) {
         LOGDEBUG << "DLT token not ready, not going to do PUT for " << objId;
-        putObjectCb(asyncHdr, ERR_TOKEN_NOT_READY, putReq);
+        putObjectCb(asyncHdr, ERR_NOT_READY, putReq);
         return;
     }
 
@@ -1115,7 +1093,8 @@ SMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
              << dlt->dlt_version;
     err = MODULEPROVIDER()->getSvcMgr()->updateDlt(dlt->dlt_data.dlt_type,
                                                    dlt->dlt_data.dlt_data, nullptr);
-    if (err.ok()) {
+    const DLT *curDlt = objStorMgr->getDLT();
+    if (err.ok() || curDlt->getVersion() < dlt->dlt_version) {
         err = objStorMgr->handleDltUpdate();
     } else if (err == ERR_DUPLICATE) {
         LOGWARN << "Received duplicate DLT, ignoring";
@@ -1152,7 +1131,7 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &asyncHdr,
         LOGNOTIFY << "SM received DLT close for the version " << (dlt->dlt_close).DLT_version
                   << ", but the current DLT version is " << curDlt->getVersion()
                   << ". SM will ignore this DLT close";
-        fds_verify((fds_uint64_t)((dlt->dlt_close).DLT_version) < curDlt->getVersion());
+        fds_assert((fds_uint64_t)((dlt->dlt_close).DLT_version) < curDlt->getVersion());
         // otherwise OK to OM
         sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
         return;
@@ -1183,7 +1162,6 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &asyncHdr,
     // TODO(Sean):
     // For now, assert that enqueueMsg() does not fail.  Need to think about what
     // error to reply to the OM.
-    fds_verify(err.ok());
 }
 
 void
