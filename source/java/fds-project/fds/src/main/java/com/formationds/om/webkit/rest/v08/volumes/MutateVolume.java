@@ -38,7 +38,7 @@ public class MutateVolume implements RequestHandler{
     public Resource handle(Request request, Map<String, String> routeParameters)
             throws Exception {
 
-        long volumeId = requiredLong( routeParameters, VOLUME_ARG );
+        final long volumeId = requiredLong( routeParameters, VOLUME_ARG );
 
         logger.debug( "Editing volume: {}.", volumeId );
 
@@ -55,12 +55,12 @@ public class MutateVolume implements RequestHandler{
         // change the QOS
         (new CreateVolume( getAuthorizer(), getToken() )).setQosForVolume( volume );
 
-        MutateSnapshotPolicy mutateEndpoint = new MutateSnapshotPolicy();
+        CreateSnapshotPolicy cspEndpoint = new CreateSnapshotPolicy( getAuthorizer(), getToken() );
 
         // modify the snapshot policies
         volume.getDataProtectionPolicy().getSnapshotPolicies().stream().forEach( (snapshotPolicy) -> {
             try {
-                mutateEndpoint.mutatePolicy( snapshotPolicy );
+            	cspEndpoint.createSnapshotPolicy( volumeId, snapshotPolicy );
             } catch (Exception e) {
                 logger.warn( "Could not edit snapshot policy: " + snapshotPolicy.getName(), e  );
             }

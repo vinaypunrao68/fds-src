@@ -74,14 +74,20 @@ struct AmTxManager :
     void setBlobMetadataCb(AmRequest * AmReq, Error const error) override;
     void deleteBlobCb(AmRequest * amReq, Error const error) override;
     void renameBlobCb(AmRequest * amReq, Error const error) override;
-    void putBlobCb(AmRequest * amReq, Error const error) override;
-    void putBlobOnceCb(AmRequest * amReq, Error const error) override;
+    void putObjectCb(AmRequest * amReq, Error const error) override;
+    void updateCatalogCb(AmRequest * amReq, Error const error) override;
 
   private:
     descriptor_ptr_type pop_descriptor(const BlobTxId& txId);
 
     /// Unique ptr to a random num generator for tx IDs
     std::unique_ptr<RandNumGenerator> randNumGen;
+
+    /**
+     * FEATURE TOGGLE: All atomic OPs toggle
+     * Wed Jan 20 18:59:22 2016
+     */
+    bool all_atomic_ops { false };
 
     /**
      * Adds a new transaction to the manager. An error is returned
@@ -92,22 +98,19 @@ struct AmTxManager :
     Error addTx(fds_volid_t volId,
                 const BlobTxId &txId,
                 fds_uint64_t dmtVer,
-                const std::string &name);
+                const std::string &name,
+                const fds_int32_t blob_mode);
 
     void applyPut(PutBlobReq* blobReq);
 
-    /**
-     * Removes an existing transaction from the manager, destroying
-     * any staged object updates. An error is returned if the transaction
-     * ID does not already exist.
-     */
-    Error abortTx(const BlobTxId &txId);
     void abortOnError(AmRequest *amReq, Error const error);
 
     /**
      * Updates an existing transaction with a new operation
      */
     Error updateTxOpType(const BlobTxId &txId, fds_io_op_t op);
+
+    void _putBlobCb(AmRequest * amReq, Error const error);
 
     /**
      * Removes the transaction and pushes all updates into the cache.
@@ -130,7 +133,8 @@ struct AmTxManager :
     Error updateStagedBlobOffset(const BlobTxId &txId,
                                  const std::string &blobName,
                                  fds_uint64_t blobOffset,
-                                 const ObjectID &objectId);
+                                 const ObjectID &objectId,
+                                 const size_t length);
 
     Error updateStagedBlobDesc(const BlobTxId &txId,
                                fpi::FDSP_MetaDataList const& metaDataList);

@@ -26,28 +26,43 @@ namespace fds
         return fds_get_uuid64(name);
     }
 
+    /**
+     * TODO(Neil)
+     * We should *really* be doing changing service states with SvcInfo
+     * instead of just UUIDs. This will prevent incorrect overwrites of the
+     * service states due to the lack of incarnation number.
+     * This method stays here for legacy purposes, but we need to change all the
+     * callers to use SvcInfo. Right now, many callers do not have that info, but
+     * only UUID.
+     */
     void change_service_state( kvstore::ConfigDB* configDB,
                                const fds_uint64_t svc_uuid, 
                                const fpi::ServiceStatus svc_status )
     {
-        change_service_state( configDB, svc_uuid, svc_status, false );
+        // No incarnation number provided... do lookup and call the one below
+        fpi::SvcUuid uuid;
+        uuid.svc_uuid = svc_uuid;
+        fds_mutex dbLock; // for macro only
+        UPDATE_CONFIGDB_SERVICE_STATE(configDB, uuid, svc_status);
     }
 
+    // See header file
     void change_service_state( kvstore::ConfigDB* configDB,
-                               const fds_uint64_t svc_uuid, 
+                               const fpi::SvcInfoPtr svcInfo,
                                const fpi::ServiceStatus svc_status,
                                const bool updateSvcMap )
     {       
+        fpi::SvcUuid svcUuid;
+        svcUuid.svc_uuid = svcInfo->svc_id.svc_uuid.svc_uuid;
+
         /*
          * Update configDB with the new status for the given service on the given node
+         *
          */
-        if ( configDB && configDB->changeStateSvcMap( svc_uuid, svc_status ) )
+        if ( configDB && configDB->changeStateSvcMap( svcInfo, svc_status ) )
         {
-            fpi::SvcUuid svcUuid;
-            svcUuid.svc_uuid = svc_uuid;
-            
             LOGDEBUG << "Successfully updated configdbs service ID ( " 
-                     << std::hex << svc_uuid << std::dec 
+                     << std::hex << svcUuid << std::dec
                      << " ) state to ( " << svc_status << " )";
 
             if ( updateSvcMap )
@@ -66,7 +81,7 @@ namespace fds
                     configDB->updateSvcMap( svc );
 
                     LOGDEBUG << "Successfully updated svcmaps service ID ( " 
-                             << std::hex << svc_uuid << std::dec 
+                             << std::hex << svcUuid << std::dec
                              << " ) state to ( " << svc_status << " )";     
                 }
             }     
@@ -74,7 +89,7 @@ namespace fds
         else
         {
             LOGWARN << "Failed to changed service ID ( " 
-                    << std::hex << svc_uuid << std::dec << " ) "
+                    << std::hex << svcUuid << std::dec << " ) "
                     << "state to ( " << svc_status << " )";
         }
     }

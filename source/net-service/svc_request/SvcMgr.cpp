@@ -24,6 +24,7 @@
 #include <fds_dmt.h>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
+#include <json/json.h>
 
 namespace fds {
 
@@ -155,6 +156,7 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
 
     dltMgr_.reset(new DLTManager());
     dmtMgr_.reset(new DMTManager());
+
 }
 
 fpi::FDSP_MgrIdType SvcMgr::mapToSvcType(const std::string &svcName)
@@ -252,6 +254,11 @@ int SvcMgr::mod_init(SysParams const *const p)
 
 void SvcMgr::mod_startup()
 {
+    if (MODULEPROVIDER()->get_cntrs_mgr() != NULL) {
+        stateProviderId = "svcmgr";
+        MODULEPROVIDER()->get_cntrs_mgr()->add_for_export(this);
+    }
+    
     GLOGNOTIFY;
 }
 
@@ -262,6 +269,7 @@ void SvcMgr::mod_enable_service()
 
 void SvcMgr::mod_shutdown()
 {
+    MODULEPROVIDER()->get_cntrs_mgr()->remove_from_export(this);
     GLOGNOTIFY;
 }
 
@@ -294,8 +302,6 @@ void SvcMgr::stopServer()
 
 void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries)
 {
-    GLOGDEBUG << "Updating service map. Incoming entries size: " << entries.size();
-
     fds_scoped_lock lock(svcHandleMapLock_);
     for (auto &e : entries) {
         auto svcHandleItr = svcHandleMap_.find(e.svc_id.svc_uuid);
@@ -312,7 +318,6 @@ void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries)
             svcHandleItr->second->updateSvcHandle(e);
         }
     }
-    GLOGDEBUG << "After update. Service map size: " << svcHandleMap_.size();
 }
 
 void SvcMgr::getSvcMap(std::vector<fpi::SvcInfo> &entries)
@@ -703,6 +708,20 @@ void SvcMgr::setUnreachableInjection(float frequency) {
     LOGNOTIFY << "Enabling unreachable fault injections at a probability of " << frequency;
 }
 
+std::string SvcMgr::getStateProviderId() {
+    return stateProviderId;
+}
+
+std::string SvcMgr::getStateInfo() {
+
+    Json::Value state;
+    state["outstandingRequestsCount"] = static_cast<Json::Value::UInt64>(svcRequestMgr_->getOutstandingRequestsCount());
+
+    std::stringstream ss;
+    ss << state;
+    return ss.str();
+}
+
 SvcHandle::SvcHandle(CommonModuleProviderIf *moduleProvider,
                      const fpi::SvcInfo &info)
 : HasModuleProvider(moduleProvider)
@@ -802,32 +821,57 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
     return false;
 }
 
+bool
+SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr &current, const fpi::SvcInfoPtr &incoming)
+{
+    fds_bool_t ret(false);
+
+    if ( current->incarnationNo < incoming->incarnationNo ) {
+        ret = true;
+    } else if ( (current->incarnationNo == incoming->incarnationNo) &&
+                (current->svc_status != incoming->svc_status) &&
+                (current->svc_status != fpi::SVC_STATUS_INACTIVE_FAILED) ) {
+        /**
+         * Once a process is declared INACTIVE_FAILED, then nothing can revive it,
+         * until a new incarnation number has come.
+         *
+         * If a identical incarnation number that attempts to revive a service from
+         * an inactive to active, then it's considered an invalid operation.
+         * The only allowable use case is if a dead service were to restart, in which
+         * it would then come with a newer incarnation number.
+         *
+         * TODO(Neil): make this check more detailed and centralize the conditionals...
+         * Will happen in another PR.
+         */
+        ret = true;
+    } else if (incoming->incarnationNo == 0) {
+        /**
+         * TODO
+         * This is a workaround to handle when no incarnation number is given...
+         * we have to assume that this is newer than the old incarnation number in the
+         * configDB. Until all areas of PM and OM are sending incarnation number,
+         * this has to be here... and bugs may be coming in.
+         */
+        LOGWARN << "THIS NEEDS TO BE FIXED. Should be passing in with complete info.";
+        ret = true;
+    }
+
+    return (ret);
+}
+
 void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
 {
     fds_scoped_lock lock(lock_);
-    if ( svcInfo_.incarnationNo < newInfo.incarnationNo ) {
-        /* Update to new incaration information.  Invalidate the old rpc client */
+    auto currentPtr = boost::make_shared<fpi::SvcInfo>(svcInfo_);
+    auto newPtr = boost::make_shared<fpi::SvcInfo>(newInfo);
+    GLOGDEBUG << "Incoming update: " << fds::logString(*newPtr) << " vs current status: "
+            << fds::logString(*currentPtr);
+    if (shouldUpdateSvcHandle(currentPtr, newPtr)) {
         svcInfo_ = newInfo;
         svcClient_.reset();
-        GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
-            << " Operation: update to new incarnation. After update " << logString();
-    } else if (svcInfo_.incarnationNo == newInfo.incarnationNo &&
-               newInfo.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED) {
-        /* Mark current incaration inactivnewInfo.  Invalidate the rpc client */
-        svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE_FAILED;
-        svcClient_.reset();
-        GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
-            << " Operation: set current incarnation as down.  After update" << logString();
-    } else if ( (svcInfo_.incarnationNo == newInfo.incarnationNo) &&
-                (svcInfo_.svc_status != newInfo.svc_status) ) {
-        svcInfo_ = newInfo;
-        svcClient_.reset();
-        GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
-            << " Operation: update to current incarnation. After update " << logString();
-
+        GLOGDEBUG << "Operation Applied.";
     } else {
-        GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
-            << " Operation: not applied.  After update" << logString();
+        GLOGDEBUG << "Operation not Applied.";
     }
 }
 
@@ -862,6 +906,5 @@ void SvcHandle::markSvcDown_()
         svcMgr->notifyOMSvcIsDown(svcInfo_);
     }
 }
-
 
 }  // namespace fds

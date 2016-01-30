@@ -271,38 +271,48 @@ class VolumeContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clicmd
-    @arg('cnt', help= "count of objs to get", type=long, default=100)
-    def bulkget(self, vol_name, cnt):
+    @arg('volume', help= "vol name/id")
+    @arg('count', help= "count of objs to put", type=long, default=10, nargs="?")
+    @arg('--seed', help= "seed the key name", default='1')
+    def bulkget(self, volume, count, seed='1'):
         '''
         Does bulk gets.
         TODO: Make it do random gets as well
         '''
-        b = self.s3Api().get_bucket(vol_name)
-        i = 0
-        while i < cnt:
-            for key in b.list():
-                print "Getting object#: {}".format(i)
-                print self.get(vol_name, key.name.encode('ascii','ignore'))
-                i = i + 1
-                if i >= cnt:
-                    break
-        return 'Done!'
+        for i in xrange(0, count):
+            k = "key_{}_{}".format(seed, i)
+            print self.get(volume, k)
 
     #--------------------------------------------------------------------------------------
     @clicmd
-    @arg('cnt', help= "count of objs to put", type=long, default=100)
-    @arg('seed', help= "count of objs to put", default='seed')
-    def bulkput(self, vol_name, cnt, seed):
+    @arg('volume', help= "vol name/id")
+    @arg('count', help= "count of objs to put", type=long, default=10, nargs="?")
+    @arg('--seed', help= "seed the key name", default='1')
+    def bulkput(self, volume, count, seed='1'):
         '''
         Does bulk put
-        TODO: Make it do random put as well
         '''
-        for i in xrange(0, cnt):
+        for i in xrange(0, count):
             k = "key_{}_{}".format(seed, i)
             v = "value_{}_{}".format(seed, i)
-            print "Putting object#: {}".format(i)
-            print self.put(vol_name, k, v)
-        return 'Done!'
+            print self.put(volume, k, v)
+
+    #--------------------------------------------------------------------------------------
+    @clicmd
+    @arg('volume', help= "vol name/id")
+    @arg('count', help= "count of objs to put", type=long, default=10, nargs="?")
+    @arg('--seed', help= "seed the key name", default='1')
+    def bulkdelete(self, volume, count, seed='1'):
+        'bulk delete from a volume'
+        try:
+            for i in xrange(0, count):
+                k = "key_{}_{}".format(seed, i)
+                print 'deleting : {}'.format(k)
+                self.deleteobject(volume, k)
+        except Exception, e:
+            log.exception(e)
+            return 'delete failed on volume: {}'.format(volume)
+
     #--------------------------------------------------------------------------------------
     @clidebugcmd
     def get(self, vol_name, key):

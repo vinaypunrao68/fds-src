@@ -6,12 +6,16 @@
 #include <climits>
 #include <fds_process.h>
 #include <PerfTrace.h>
+#include <lib/StatsCollector.h>
 #include "AmDispatcher.h"
 #include "AmTxDescriptor.h"
 #include "requests/AttachVolumeReq.h"
+#include "requests/CommitBlobTxReq.h"
 #include "requests/GetBlobReq.h"
 #include "requests/GetObjectReq.h"
+#include "requests/PutObjectReq.h"
 #include "requests/RenameBlobReq.h"
+#include "requests/UpdateCatalogReq.h"
 
 namespace fds {
 
@@ -136,6 +140,22 @@ AmCache::getObjects(GetBlobReq* blobReq) {
 
         ++hit_cnt;
         PerfTracer::incr(PerfEventType::AM_OBJECT_CACHE_HIT, blobReq->io_vol_id);
+
+        auto io_done_ts = util::getTimeStampNanos();
+        fds_uint64_t total_nano = io_done_ts - blobReq->enqueue_ts;
+
+        auto io_total_time = static_cast<double>(total_nano) / 1000.0;
+
+        StatsCollector::singleton()->recordEvent(blobReq->io_vol_id,
+                                                 io_done_ts,
+                                                 STAT_AM_GET_OBJ,
+                                                 io_total_time);
+
+        StatsCollector::singleton()->recordEvent(blobReq->io_vol_id,
+                                                 io_done_ts,
+                                                 STAT_AM_GET_CACHED_OBJ,
+                                                 io_total_time);
+
         data_it->swap(blobObjectPtr);
     }
 
@@ -191,7 +211,7 @@ AmCache::getObjectCb(AmRequest* amReq, Error const error) {
     auto const& obj_id = *static_cast<GetObjectReq*>(amReq)->obj_id;
     std::unique_ptr<std::deque<GetObjectReq*>> queue;
     {
-        // Find the waiting get requeust queue
+        // Find the waiting get request queue
         std::lock_guard<std::mutex> g(obj_get_lock);
         auto q = obj_get_queue.find(obj_id);
         if (obj_get_queue.end() != q) {
@@ -205,6 +225,7 @@ AmCache::getObjectCb(AmRequest* amReq, Error const error) {
         return;
     }
 
+    auto io_done_ts = util::getTimeStampNanos();
     // For each request waiting on this object, respond to it and set the buffer
     // data member from the first request (the one that was actually dispatched)
     // and populate the volume's cache
@@ -214,12 +235,23 @@ AmCache::getObjectCb(AmRequest* amReq, Error const error) {
             objReq->obj_data = buf;
             object_cache.add(objReq->io_vol_id, obj_id, objReq->obj_data);
         }
+        fds_uint64_t total_nano = io_done_ts - static_cast<GetObjectReq*>(objReq)->blobReq->enqueue_ts;
+
         bool done;
         Error err;
         std::tie(done, err) = objReq->blobReq->notifyResponse(error);
         if (done) {
             getBlobCb(objReq->blobReq, err);
         }
+
+
+        auto io_total_time = static_cast<double>(total_nano) / 1000.0;
+
+        StatsCollector::singleton()->recordEvent(objReq->io_vol_id,
+                                                 io_done_ts,
+                                                 STAT_AM_GET_OBJ,
+                                                 io_total_time);
+
         delete objReq;
     }
 }
@@ -242,9 +274,10 @@ AmCache::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint6
                  << txDesc->volId << " blob " << txDesc->blobName;
 
         for (auto& offset_pair : txDesc->stagedBlobOffsets) {
+            auto const& obj_id = offset_pair.second.first;
             offset_cache.add(txDesc->volId,
                              offset_pair.first,
-                             boost::make_shared<ObjectID>(offset_pair.second));
+                             boost::make_shared<ObjectID>(obj_id));
         }
 
         // Add blob descriptor from tx to descriptor cache
@@ -301,15 +334,16 @@ AmCache::statBlob(AmRequest *amReq) {
 }
 
 void
-AmCache::deleteBlobCb(AmRequest* amReq, Error const error) {
-    if (error.ok()) {
+AmCache::commitBlobTxCb(AmRequest* amReq, Error const error) {
+    auto blobReq = static_cast<CommitBlobTxReq*>(amReq);
+    if (blobReq->is_delete && error.ok()) {
         descriptor_cache.remove(amReq->io_vol_id, amReq->getBlobName());
         offset_cache.remove_if(amReq->io_vol_id,
                                [amReq] (BlobOffsetPair const& blob_pair) -> bool {
                                     return (amReq->getBlobName() == blob_pair.getName());
                                });
     }
-    AmDataProvider::deleteBlobCb(amReq, error);
+    AmDataProvider::commitBlobTxCb(amReq, error);
 }
 
 void
@@ -462,6 +496,34 @@ AmCache::getBlobCb(AmRequest *amReq, Error const error) {
     }
 
     AmDataProvider::getBlobCb(amReq, ERR_OK);
+}
+
+void
+AmCache::putObjectCb(AmRequest * amReq, Error const error) {
+    if (error.ok()) {
+        auto objReq = static_cast<PutObjectReq*>(amReq);
+        object_cache.add(objReq->io_vol_id, objReq->obj_id, objReq->dataPtr);
+    }
+    AmDataProvider::putObjectCb(amReq, error);
+}
+
+void
+AmCache::updateCatalogCb(AmRequest * amReq, Error const error) {
+    auto blobReq = static_cast<UpdateCatalogReq*>(amReq);
+    // If this was a PutBlobOnce we can stash the metadata changes
+    if (error.ok() && fds::FDS_PUT_BLOB != blobReq->parent->io_type) {
+        for (auto const& obj_upd : blobReq->object_list) {
+            offset_cache.add(blobReq->io_vol_id,
+                             BlobOffsetPair(blobReq->getBlobName(), obj_upd.second.first),
+                             boost::make_shared<ObjectID>(obj_upd.first));
+        }
+        auto blobDesc = boost::make_shared<BlobDescriptor>(blobReq->getBlobName(),
+                                                           blobReq->io_vol_id.get(),
+                                                           blobReq->final_blob_size,
+                                                           blobReq->final_meta_data);
+        descriptor_cache.add(blobReq->io_vol_id, blobReq->getBlobName(), blobDesc);
+    }
+    AmDataProvider::updateCatalogCb(amReq, error);
 }
 
 }  // namespace fds

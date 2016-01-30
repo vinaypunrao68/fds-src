@@ -100,14 +100,9 @@ struct VolumeReplicaHandle {
         setState(state);
         this->version = version;
         appliedOpId = opId;
+#ifdef COMMITID_SUPPORTED
         appliedCommitId = commitId;
-    }
-    inline bool isError(const Error &e) {
-        if (e == ERR_OK ||
-            (isSyncing() && e == ERR_WRITE_OP_BUFFERED)) {
-            return false;
-        }
-        return true;
+#endif
     }
     inline std::string logString() const;
 
@@ -137,6 +132,7 @@ using AddToVolumeGroupCb = std::function<void(const Error&,
 * applied in order.
 */
 struct VolumeGroupRequest : MultiEpSvcRequest {
+    using Acks = std::vector<std::pair<fpi::SvcUuid, Error>>;
     VolumeGroupRequest(CommonModuleProviderIf* provider,
                         const SvcRequestId &id,
                         const fpi::SvcUuid &myEpId,
@@ -149,7 +145,7 @@ struct VolumeGroupRequest : MultiEpSvcRequest {
     fpi::VolumeIoHdr            volumeIoHdr_; 
     VolumeResponseCb            responseCb_;
     uint8_t                     nAcked_;
-    uint8_t                     nSuccessAcked_;
+    Acks                        successAcks_;
     
     friend class VolumeGroupHandle;
 };
@@ -261,7 +257,7 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
                                       const fpi::FDSPMsgTypeId &msgTypeId,
                                       const bool writeReq,
                                       const Error &inStatus,
-                                      uint8_t &successAcks);
+                                      VolumeGroupRequest::Acks &successAcks);
 
     std::string getStateInfo() override;
     std::string getStateProviderId() override;
@@ -412,6 +408,8 @@ void VolumeGroupHandle::sendCommitMsg(const fpi::FDSPMsgTypeId &msgTypeId,
 
         opSeqNo_++;
         commitNo_++;
+        // TODO(Rao): We should set sequence_id here
+        fds_assert(msg->sequence_id == commitNo_);
         sendWriteReq_<MsgT, VolumeGroupBroadcastRequest>(msgTypeId, msg, cb);
     });
 }

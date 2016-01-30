@@ -24,6 +24,7 @@ import sm_types as smtypes
 from sm_api.ttypes import *
 from sm_api.constants import *
 from pm_service.ttypes import *
+from config_types.ttypes import *
 
 log = logging.getLogger(__name__)
 
@@ -65,6 +66,13 @@ def getMsgTypeId(msg):
 # @return 
 def deserializeSvcMsg(asyncHdr, payload):
     svcMsg = newSvcMsgByTypeId(asyncHdr.msg_type_id)
+    transportIn = TTransport.TMemoryBuffer(payload)
+    protocolIn = TBinaryProtocol.TBinaryProtocol(transportIn)
+    svcMsg.read(protocolIn)
+    return svcMsg
+
+def deserialize(name, payload):
+    svcMsg = newSvcMsgByTypeId(name)
     transportIn = TTransport.TMemoryBuffer(payload)
     protocolIn = TBinaryProtocol.TBinaryProtocol(transportIn)
     svcMsg.read(protocolIn)

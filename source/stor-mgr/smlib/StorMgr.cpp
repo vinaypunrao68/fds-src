@@ -562,17 +562,22 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
         if (volTbl->isSnapshot(*vit)) {
             continue;
         }
-        fds_uint64_t dedup_bytes = volTbl->getDedupBytes(*vit);
+        std::pair<double, double> dedup_bytes = volTbl->getDedupBytes(*vit);
         LOGDEBUG << "Volume " << std::hex << *vit << std::dec
-                 << " deduped bytes " << dedup_bytes;
+                 << " deduped bytes " << dedup_bytes.first
+                 << " domain deduped bytes fraction " << dedup_bytes.second;
         StatsCollector::singleton()->recordEvent(*vit,
                                                  timestamp,
                                                  STAT_SM_CUR_DEDUP_BYTES,
-                                                 dedup_bytes);
+                                                 dedup_bytes.first);
+        StatsCollector::singleton()->recordEvent(*vit,
+                                                 timestamp,
+                                                 STAT_SM_CUR_DOMAIN_DEDUP_BYTES_FRAC,
+                                                 dedup_bytes.second);
     }
 
     // Piggyback on the timer that runs this to check disk capacity
-    if (sampleCounter % 5 == 0) {
+    if (sampleCounter % 3 == 0) {
         LOGDEBUG << "Checking disk utilization!";
         checkDiskCapacities();
         sampleCounter = 0;
@@ -584,16 +589,13 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
  * Checks available disk capacities and takes appropriate action based on thresholds.
  */
 void ObjectStorMgr::checkDiskCapacities() {
+
     float_t pct_used = objectStore->getUsedCapacityAsPct();
 
     if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
         lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
         LOGERROR << "ERROR: SM is utilizing " << pct_used << "% of available storage space!";
-
-        objectStore->setReadOnly();
         sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SERVICE_CAPACITY_FULL, "SM capacity is FULL! ");
-        // Send the read only mode command to the other SMs
-        // sendReadOnlyModeCmd();
         lastCapacityMessageSentAt = pct_used;
 
     } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
@@ -634,8 +636,9 @@ void ObjectStorMgr::checkDiskCapacities() {
             sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
                                    "SM utilization no longer at dangerous levels.");
         } else if (pct_used < DISK_CAPACITY_ERROR_THRESHOLD) {
-            // sendReadWriteModeCmd();
-            objectStore->setAvailable();
+            if (objectStore->isReadOnly()) {
+                objectStore->setAvailable();
+            }
             lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
             sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SERVICE_CAPACITY_DANGEROUS,
                                    "SM is reaching dangerous capacity levels!");

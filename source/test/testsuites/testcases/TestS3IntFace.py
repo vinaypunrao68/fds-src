@@ -5,7 +5,6 @@
 
 # FDS test-case pattern requirements.
 import unittest
-import traceback
 import TestCase
 
 # Module-specific requirements
@@ -26,6 +25,7 @@ import string
 import re
 from threading import Timer
 import logging
+from fdslib.TestUtils import get_resource
 
 class Helper:
     @staticmethod
@@ -64,6 +64,20 @@ class Helper:
     def keyName(seed=None):
         return 'key-{}'.format( Helper.genData(12, seed))
 
+    @staticmethod
+    def checkS3Info(self, bucket=None):
+        if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
+            self.log.error("No S3 connection")
+            return False
+
+        if bucket is not None:
+            self.parameters["s3"].bucket1 = self.parameters["s3"].conn.lookup(bucket)
+
+        if not self.parameters["s3"].bucket1:
+            self.log.error("No S3 bucket info for {}.".format(bucket))
+            return False
+
+        return True
 
 # Class to contain S3 objects used by these test cases.
 class S3(object):
@@ -105,7 +119,7 @@ class TestS3GetConn(TestCase.FDSTestCase):
                                om_node.nd_conf_dict['node-name'])
             s3conn = None
             retryCount = 0
-            maxRetries = 20;
+            maxRetries = 20
             backoff_factor = 0.5
             while retryCount < maxRetries:
               s3conn = boto.connect_s3(aws_access_key_id='admin',
@@ -198,15 +212,15 @@ class TestS3CrtBucket(TestCase.FDSTestCase):
         elif self.parameters["s3"].conn is None:
             self.log.error("No S3 connection with which to create a bucket.")
             return False
-        else:
-            self.log.info("Create an S3 bucket : [{}]".format(self.passedBucket))
-            s3 = self.parameters["s3"]
 
-            s3.bucket1 = s3.conn.create_bucket(self.passedBucket)
+        self.log.info("Create an S3 bucket : [{}]".format(self.passedBucket))
+        s3 = self.parameters["s3"]
 
-            if not s3.bucket1:
-                self.log.error("s3.conn.create_bucket() failed to create bucket bucket1.")
-                return False
+        s3.bucket1 = s3.conn.create_bucket(self.passedBucket)
+
+        if not s3.bucket1:
+            self.log.error("s3.conn.create_bucket() failed to create bucket bucket1.")
+            return False
 
         return True
 
@@ -272,9 +286,6 @@ class TestS3LoadZBLOB(TestCase.FDSTestCase):
         Attempt to load a zero-length BLOB into an S3 Bucket.
         """
 
-        # Get the FdsConfigRun object for this test.
-        fdscfg = self.parameters["fdscfg"]
-
         if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
             self.log.error("No S3 connection with which to load a BLOB.")
             return False
@@ -332,8 +343,6 @@ class TestS3LoadSBLOB(TestCase.FDSTestCase):
         Attempt to load a 'small' BLOB (<= 2MiB) into an S3 Bucket.
         """
 
-        # Get the FdsConfigRun object for this test.
-        fdscfg = self.parameters["fdscfg"]
         bin_dir = '../../Build/linux-x86_64.debug/bin'
 
         if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
@@ -388,52 +397,81 @@ class TestS3LoadSBLOB(TestCase.FDSTestCase):
 # You must have successfully created an S3 connection
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
+#
+# @param bucket If provided, overrides whatever is stored in self.parameters["s3"].bucket1
+# @param verify If "true" verifies the blob loaded against the file from which it was loaded.
+# @param inputfile If provided, overrides the default input file. If the input file is actually
+#                  located in the SysTest resources directory, you may indicate that by using the
+#                  value "RESOURCES/<inputfile.name>".
+# @param key If provided this will be the object key of the loaded Blob. Otherwise a default is used.
 class TestS3LoadFBLOB(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, bucket=None, verify="true", inputfile=None, key=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_S3LoadFBLOB,
                                              "Upload a 'largish' (<= 2MiB) BLOB into an S3 bucket in one piece")
 
+        self.passedBucket = bucket
+
+        if verify == "true":
+            self.passedVerify = True
+        else:
+            self.passedVerify = False
+
+        self.passedInputFile = inputfile
+        self.passedKey = key
+
     def test_S3LoadFBLOB(self):
         """
         Test Case:
-        Attempt to load a 'largish' BLOB (<= 2MiB) into an S3 Bucket in one piece.
+        Attempt to load a 'largish' BLOB (<= 2MiB and therefore may not cross data object boundaries) into an S3 Bucket in one piece.
         """
 
-        # Get the FdsConfigRun object for this test.
-        fdscfg = self.parameters["fdscfg"]
+        # TODO: Need to *not* hard-code this.
         bin_dir = '../../Build/linux-x86_64.debug/bin'
 
-        if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
-            self.log.error("No S3 connection with which to load a BLOB.")
+        # Make sure we're good to go with S3 and our bucket.
+        if not Helper.checkS3Info(self, self.passedBucket):
             return False
-        elif not self.parameters["s3"].bucket1:
-            self.log.error("No S3 bucket with which to load a BLOB.")
-            return False
+
+        s3 = self.parameters["s3"]
+
+        # Get file to be loaded.
+        source_path = ""
+        if self.passedInputFile is None:
+            source_path = bin_dir + "/disk_type.py"  # Our default will not cross object boundaries.
         else:
-            self.log.info("Load a 'largish' BLOB (<= 2Mib) into an S3 bucket in one piece.")
-            s3 = self.parameters["s3"]
+            # If our HLQ is "RESOURCES", then we'll pull the file from the SysTest framework's resources repository.
+            if os.path.dirname(self.passedInputFile) == "RESOURCES":
+                source_path = get_resource(self, os.path.basename(self.passedInputFile))
+            else:
+                source_path = self.passedInputFile
 
-            # Get file info
-            source_path = bin_dir + "/disk_type.py"
-            source_size = os.stat(source_path).st_size
+        source_size = os.stat(source_path).st_size
 
-            # Get a Key/Value object for the bucket.
-            k = Key(s3.bucket1)
+        # Get a Key/Value object for the bucket.
+        k = Key(s3.bucket1)
 
-            # Set the key.
-            s3.keys.append("largish")
-            k.key = "largish"
+        # Set the key.
+        lkey = "largish"
+        if self.passedKey is not None:
+            lkey = self.passedKey
 
-            self.log.info("Loading %s of size %d using Boto's Key.set_contents_from_filename() interface." %
-                          (source_path, source_size))
+        s3.keys.append(lkey)
+        k.key = lkey
 
-            # Set the value and write it to the bucket.
-            k.set_contents_from_filename(source_path)
+        self.log.info("Loading %s of size %d bytes with key %s with "
+                      "Boto's Key.set_contents_from_filename() interface." %
+                      (source_path, source_size, lkey))
 
+        # Set the value and write it to the bucket.
+        k.set_contents_from_filename(source_path)
+
+        test_passed = True
+        if self.passedVerify:
             # Read it back to a file and then compare.
-            dest_path = bin_dir + "/disk_type.py.boto"
+            dest_path = bin_dir + "/TestS3LoadFBLOB-loadedfile.dump"
+
             k.get_contents_to_filename(dest_path)
 
             test_passed = filecmp.cmp(source_path, dest_path, shallow=False)
@@ -442,7 +480,7 @@ class TestS3LoadFBLOB(TestCase.FDSTestCase):
 
             os.remove(dest_path)
 
-            return test_passed
+        return test_passed
 
 
 # This class contains the attributes and methods to test
@@ -466,72 +504,59 @@ class TestS3LoadMBLOB(TestCase.FDSTestCase):
         Attempt to load a 'largish' BLOB (<= 2MiB) into an S3 Bucket in one piece with meta-data.
         """
 
-        # Get the FdsConfigRun object for this test.
-        fdscfg = self.parameters["fdscfg"]
         bin_dir = '../../Build/linux-x86_64.debug/bin'
 
-        if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
-            self.log.error("No S3 connection with which to load a BLOB.")
+        # Make sure we're good to go with S3 and our bucket.
+        if not Helper.checkS3Info(self, self.passedBucket):
             return False
 
-        # Check if a bucket was passed to us.
-        if self.passedBucket is not None:
-            self.parameters["s3"].bucket1 = self.parameters["s3"].conn.lookup(self.passedBucket)
-            if self.parameters["s3"].bucket1 is None:
-                self.log.error("Cannot find passed bucket named %s." % self.passedBucket)
-                return False
+        self.log.info("Load a 'largish' BLOB (<= 2Mib) into an S3 bucket in one piece with meta-data.")
+        s3 = self.parameters["s3"]
 
-        if not self.parameters["s3"].bucket1:
-            self.log.error("No S3 bucket with which to load a BLOB.")
-            return False
+        # Get file info
+        source_path = bin_dir + "/disk_type.py"
+        source_size = os.stat(source_path).st_size
+
+        # Get a Key/Value object for the bucket.
+        k = Key(s3.bucket1)
+
+        # Set the key.
+        s3.keys.append("largishWITHmetadata")
+        k.key = "largishWITHmetadata"
+
+        self.log.info("Loading %s of size %d using Boto's Key.set_contents_from_filename() interface "
+                      "and setting meta-data." %
+                      (source_path, source_size))
+
+        # Set the value and write it to the bucket.
+        k.set_metadata('meta1', 'This is the first metadata value')
+        k.set_metadata('meta2', 'This is the second metadata value')
+        k.set_contents_from_filename(source_path)
+
+        # Read it back to a file and then compare.
+        dest_path = bin_dir + "/disk_type.py.boto"
+        k.get_contents_to_filename(dest_path)
+
+        # Check the file.
+        test_passed = filecmp.cmp(source_path, dest_path, shallow=False)
+
+        # If the file looked OK, check the meta-data.
+        if test_passed:
+            meta = k.get_metadata('meta1')
+            if meta != 'This is the first metadata value':
+                self.log.error("Meta-data 1 is incorrect: %s" % meta)
+                test_passed = False
+
+            meta = k.get_metadata('meta2')
+            if meta != 'This is the second metadata value':
+                self.log.error("Meta-data 2 is incorrect: %s" % meta)
+                test_passed = False
         else:
-            self.log.info("Load a 'largish' BLOB (<= 2Mib) into an S3 bucket in one piece with meta-data.")
-            s3 = self.parameters["s3"]
+            self.log.error("File mis-match")
 
-            # Get file info
-            source_path = bin_dir + "/disk_type.py"
-            source_size = os.stat(source_path).st_size
+        os.remove(dest_path)
 
-            # Get a Key/Value object for the bucket.
-            k = Key(s3.bucket1)
-
-            # Set the key.
-            s3.keys.append("largishWITHmetadata")
-            k.key = "largishWITHmetadata"
-
-            self.log.info("Loading %s of size %d using Boto's Key.set_contents_from_filename() interface "
-                          "and setting meta-data." %
-                          (source_path, source_size))
-
-            # Set the value and write it to the bucket.
-            k.set_metadata('meta1', 'This is the first metadata value')
-            k.set_metadata('meta2', 'This is the second metadata value')
-            k.set_contents_from_filename(source_path)
-
-            # Read it back to a file and then compare.
-            dest_path = bin_dir + "/disk_type.py.boto"
-            k.get_contents_to_filename(dest_path)
-
-            # Check the file.
-            test_passed = filecmp.cmp(source_path, dest_path, shallow=False)
-
-            # If the file looked OK, check the meta-data.
-            if test_passed:
-                meta = k.get_metadata('meta1')
-                if meta != 'This is the first metadata value':
-                    self.log.error("Meta-data 1 is incorrect: %s" % meta)
-                    test_passed = False
-
-                meta = k.get_metadata('meta2')
-                if meta != 'This is the second metadata value':
-                    self.log.error("Meta-data 2 is incorrect: %s" % meta)
-                    test_passed = False
-            else:
-                self.log.error("File mis-match")
-
-            os.remove(dest_path)
-
-            return test_passed
+        return test_passed
 
 
 # This class contains the attributes and methods to test
@@ -611,83 +636,102 @@ class TestS3VerifyMBLOB(TestCase.FDSTestCase):
 # You must have successfully created an S3 connection
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
+#
+# @param bucket If provided, overrides whatever is stored in self.parameters["s3"].bucket1
+# @param verify If "true" verifies the blob loaded against the file from which it was loaded.
+# @param inputfile If provided, overrides the default input file. If the input file is actually
+#                  located in the SysTest resources directory, you may indicate that by using the
+#                  value "RESOURCES/<inputfile.name>".
+# @param key If provided this will be the object key of the loaded Blob. Otherwise a default is used.
 class TestS3LoadLBLOB(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, bucket=None):
+    def __init__(self, parameters=None, bucket=None, verify="true", inputfile=None, key=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_S3LoadLBLOB,
                                              "Upload a 'large' (> 2MiB) BLOB into an S3 bucket")
 
-        self.passedBucket=bucket
+        self.passedBucket = bucket
+
+        if verify == "true":
+            self.passedVerify = True
+        else:
+            self.passedVerify = False
+
+        self.passedInputFile = inputfile
+        self.passedKey = key
 
     def test_S3LoadLBLOB(self):
         """
         Test Case:
-        Attempt to load a 'large BLOB (> 2MiB) into an S3 Bucket.
+        Attempt to load a file into an S3 Bucket by parts. By default we would like this file to
+        be large enough to cross data object boundaries.
         """
 
-        # Get the FdsConfigRun object for this test.
-        fdscfg = self.parameters["fdscfg"]
+        # TODO: Need to *not* hard-code this.
         bin_dir = '../../Build/linux-x86_64.debug/bin'
-        if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
-            self.log.error("No S3 connection with which to load a BLOB.")
+
+        # Make sure we're good to go with S3 and our bucket.
+        if not Helper.checkS3Info(self, self.passedBucket):
             return False
 
-        # Check if a bucket was passed to us.
-        if self.passedBucket is not None:
-            self.parameters["s3"].bucket1 = self.parameters["s3"].conn.lookup(self.passedBucket)
-            if self.parameters["s3"].bucket1 is None:
-                self.log.error("Cannot find passed bucket named %s." % self.passedBucket)
-                return False
+        s3 = self.parameters["s3"]
 
-        if not self.parameters["s3"].bucket1:
-            self.log.error("No S3 bucket with which to load a BLOB.")
+        # Get file to be loaded.
+        source_path = ""
+        if self.passedInputFile is None:
+            source_path = bin_dir + "/StorMgr"  # We want our default to be big enough to cross object boundaries.
+        else:
+            # If our HLQ is "RESOURCES", then we'll pull the file from the SysTest framework's resources repository.
+            if os.path.dirname(self.passedInputFile) == "RESOURCES":
+                source_path = get_resource(self, os.path.basename(self.passedInputFile))
+            else:
+                source_path = self.passedInputFile
+
+        source_size = os.stat(source_path).st_size
+
+        # Create a multipart upload request
+        lkey = "large"
+        if self.passedKey is not None:
+            lkey = self.passedKey
+
+        s3.keys.append(lkey)
+        mp = s3.bucket1.initiate_multipart_upload(lkey)
+
+        # Use a chunk size of 50 MiB (feel free to change this)
+        chunk_size = 52428800
+        chunk_count = int(math.ceil(float(source_size) / chunk_size))
+        md5sum = str(hashlib.md5(open(source_path, 'rb').read()).hexdigest())
+
+        self.log.info("Loading %s of size %d bytes [md5: %s] with key %s using %d chunks of max size %d with "
+                      "Boto's 'multi-part' upload interface." %
+                      (source_path, source_size, md5sum, lkey, chunk_count, chunk_size))
+
+        # Send the file parts, using FileChunkIO to create a file-like object
+        # that points to a certain byte range within the original file. We
+        # set bytes to never exceed the original file size.
+        for i in range(chunk_count):
+            self.log.info("Sending chunk %d." % (i + 1))
+            offset = chunk_size * i
+            bytes = min(chunk_size, source_size - offset)
+            with FileChunkIO(source_path, 'r', offset=offset,
+                     bytes=bytes) as fp:
+                mp.upload_part_from_file(fp, part_num=i + 1)
+
+        # Finish the upload
+        completed_upload = mp.complete_upload()
+        if not md5sum != completed_upload.etag:
+            self.log.info("Etag does not match md5 sum of file: [ " + md5sum + " ] != [ " + completed_upload.etag + "]")
             return False
         else:
-            self.log.info("Load a 'large' BLOB (> 2MiB) into an S3 bucket.")
-            s3 = self.parameters["s3"]
+            self.log.info("Etag matched: [" + completed_upload.etag + "]")
 
-            # Get file info
-            source_path = bin_dir + "/StorMgr"
-            source_size = os.stat(source_path).st_size
-
-            # Create a multipart upload request
-            s3.keys.append("large")
-            mp = s3.bucket1.initiate_multipart_upload("large")
-
-            # Use a chunk size of 50 MiB (feel free to change this)
-            chunk_size = 52428800
-            chunk_count = int(math.ceil(float(source_size) / chunk_size))
-            md5sum = str(hashlib.md5(open(source_path, 'rb').read()).hexdigest())
-
-            self.log.info("Loading %s of size %d [md5: %s] using %d chunks of max size %d. using "
-                          "Boto's 'multi-part' upload interface" %
-                          (source_path, source_size, md5sum, chunk_count, chunk_size))
-
-            # Send the file parts, using FileChunkIO to create a file-like object
-            # that points to a certain byte range within the original file. We
-            # set bytes to never exceed the original file size.
-            for i in range(chunk_count):
-                self.log.info("Sending chunk %d." % (i + 1))
-                offset = chunk_size * i
-                bytes = min(chunk_size, source_size - offset)
-                with FileChunkIO(source_path, 'r', offset=offset,
-                         bytes=bytes) as fp:
-                    mp.upload_part_from_file(fp, part_num=i + 1)
-
-            # Finish the upload
-            completed_upload = mp.complete_upload()
-            if not md5sum != completed_upload.etag:
-                self.log.info("Etag does not match md5 sum of file: [ " + md5sum + " ] != [ " + completed_upload.etag + "]")
-                return False
-            else:
-                self.log.info("Etag matched: [" + completed_upload.etag + "]")
-
+        test_passed = True
+        if self.passedVerify:
             # Read it back to a file and then compare.
-            dest_path = bin_dir + "/StorMgr.boto"
+            dest_path = bin_dir + "/TestS3LoadLBLOB-loadedfile.dump"
 
             k = Key(s3.bucket1)
-            k.key = 'large'
+            k.key = lkey
 
             k.get_contents_to_filename(filename=dest_path)
 
@@ -698,7 +742,7 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
 
             os.remove(dest_path)
 
-            return test_passed
+        return test_passed
 
 
 # This class contains the attributes and methods to test
@@ -726,43 +770,29 @@ class TestS3LoadVerifiableObject(TestCase.FDSTestCase):
         Attempt to load an object with verifiable contents into a bucket
         """
 
-        # Get the FdsConfigRun object for this test.
-        fdscfg = self.parameters["fdscfg"]
-
-        if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
-            self.log.error("No S3 connection with which to load an object.")
+        # Make sure we're good to go with S3 and our bucket.
+        if not Helper.checkS3Info(self, self.passedBucket):
             return False
 
-        # Check if a bucket was passed to us.
-        if self.passedBucket is not None:
-            self.parameters["s3"].bucket1 = self.parameters["s3"].conn.lookup(self.passedBucket)
-            if self.parameters["s3"].bucket1 is None:
-                self.log.error("Cannot find passed bucket named %s." % self.passedBucket)
-                return False
+        if self.passedLogInfo:
+            self.log.info("Load a blob with verifiable contents using key {0}_{1} into an S3 bucket.".
+                          format(self.passBlobKey, self.passedSeedValue))
+        bucket = self.parameters["s3"].bucket1
 
-        if not self.parameters["s3"].bucket1:
-            self.log.error("No S3 bucket with which to load an object.")
+        verifiable_file_contents = self.passedSeedValue * 1024
+        try:
+            verifiable_object = bucket.new_key('{0}_{1}'.format(self.passBlobKey, self.passedSeedValue))
+            verifiable_object.set_contents_from_string(verifiable_file_contents)
+        except Exception as e:
+            self.log.warning("Failed to create S3 blob with key {0}_{1}".format(self.passBlobKey, self.passedSeedValue))
+            self.log.warning(e.message)
             return False
         else:
-            if self.passedLogInfo:
-                self.log.info("Load a blob with verifiable contents using key {0}_{1} into an S3 bucket.".
-                              format(self.passBlobKey, self.passedSeedValue))
-            bucket = self.parameters["s3"].bucket1
+            # Capture the hash for verification
+            stored_hash = hashlib.sha1(verifiable_file_contents).hexdigest()
+            self.parameters["s3"].verifiers['{0}_{1}'.format(self.passBlobKey, self.passedSeedValue)] = stored_hash
 
-            verifiable_file_contents = self.passedSeedValue * 1024
-            try:
-                verifiable_object = bucket.new_key('{0}_{1}'.format(self.passBlobKey, self.passedSeedValue))
-                verifiable_object.set_contents_from_string(verifiable_file_contents)
-            except Exception as e:
-                self.log.warning("Failed to create S3 blob with key {0}_{1}".format(self.passBlobKey, self.passedSeedValue))
-                self.log.warning(e.message)
-                return False
-            else:
-                # Capture the hash for verification
-                stored_hash = hashlib.sha1(verifiable_file_contents).hexdigest()
-                self.parameters["s3"].verifiers['{0}_{1}'.format(self.passBlobKey, self.passedSeedValue)] = stored_hash
-
-                return True
+            return True
 
 
 # This class contains the attributes and methods to test
@@ -790,48 +820,34 @@ class TestS3CheckVerifiableObject(TestCase.FDSTestCase):
         checksum matches what we have stored
         """
 
-        # Get the FdsConfigRun object for this test.
-        fdscfg = self.parameters["fdscfg"]
-
-        if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
-            self.log.error("No S3 connection with which to get an object.")
+        # Make sure we're good to go with S3 and our bucket.
+        if not Helper.checkS3Info(self, self.passedBucket):
             return False
 
-        # Check if a bucket was passed to us.
-        if self.passedBucket is not None:
-            self.parameters["s3"].bucket1 = self.parameters["s3"].conn.lookup(self.passedBucket)
-            if self.parameters["s3"].bucket1 is None:
-                self.log.error("Cannot find passed bucket named %s." % self.passedBucket)
-                return False
+        if self.passedLogInfo:
+            self.log.info("Verify contents of object using key {0}_{1} in an S3 bucket.".
+                          format(self.passedBlobKey, self.passedSeedValue))
+        bucket = self.parameters["s3"].bucket1
 
-        if not self.parameters["s3"].bucket1:
-            self.log.error("No S3 bucket with which to get an object.")
-            return False
+        test_passed = False
+        try:
+            verifiable_object = bucket.get_key(key_name='{0}_{1}'.format(self.passedBlobKey, self.passedSeedValue))
+            verify_hash = hashlib.sha1(verifiable_object.get_contents_as_string()).hexdigest()
+        except Exception as e:
+            self.log.warning("Could not get object to be verified with key <{0}_{1}>".
+                           format(self.passedBlobKey, self.passedSeedValue))
+            self.log.warning(e.message)
         else:
-            if self.passedLogInfo:
-                self.log.info("Verify contents of object using key {0}_{1} in an S3 bucket.".
-                              format(self.passedBlobKey, self.passedSeedValue))
-            bucket = self.parameters["s3"].bucket1
-
-            test_passed = False
-            try:
-                verifiable_object = bucket.get_key(key_name='{0}_{1}'.format(self.passedBlobKey, self.passedSeedValue))
-                verify_hash = hashlib.sha1(verifiable_object.get_contents_as_string()).hexdigest()
-            except Exception as e:
-                self.log.warning("Could not get object to be verified with key <{0}_{1}>".
-                               format(self.passedBlobKey, self.passedSeedValue))
-                self.log.warning(e.message)
+            stored_verify_hash = self.parameters['s3'].verifiers['{0}_{1}'.format(self.passedBlobKey, self.passedSeedValue)]
+            if stored_verify_hash == verify_hash:
+                test_passed = True
             else:
-                stored_verify_hash = self.parameters['s3'].verifiers['{0}_{1}'.format(self.passedBlobKey, self.passedSeedValue)]
-                if stored_verify_hash == verify_hash:
-                    test_passed = True
-                else:
-                    self.log.info("Hash of object read with key <{0}_{1}>: {2}".
-                                  format(self.passedBlobKey, self.passedSeedValue, verify_hash))
-                    self.log.info("Hash of object stored from LoadVerifiableObject: %s" % stored_verify_hash)
-                    self.log.error("S3 Verifiable Object hash did not match")
+                self.log.info("Hash of object read with key <{0}_{1}>: {2}".
+                              format(self.passedBlobKey, self.passedSeedValue, verify_hash))
+                self.log.info("Hash of object stored from LoadVerifiableObject: %s" % stored_verify_hash)
+                self.log.error("S3 Verifiable Object hash did not match")
 
-            return test_passed
+        return test_passed
 
 
 # This class contains the attributes and methods to test
@@ -858,49 +874,35 @@ class TestS3DeleteVerifiableObject(TestCase.FDSTestCase):
         Attempt to delete an object.
         """
 
-        # Get the FdsConfigRun object for this test.
-        fdscfg = self.parameters["fdscfg"]
-
-        if (not "s3" in self.parameters) or (self.parameters["s3"].conn is None):
-            self.log.error("No S3 connection with which to delete an object.")
+        # Make sure we're good to go with S3 and our bucket.
+        if not Helper.checkS3Info(self, self.passedBucket):
             return False
 
-        # Check if a bucket was passed to us.
-        if self.passedBucket is not None:
-            self.parameters["s3"].bucket1 = self.parameters["s3"].conn.lookup(self.passedBucket)
-            if self.parameters["s3"].bucket1 is None:
-                self.log.error("Cannot find passed bucket named %s." % self.passedBucket)
-                return False
+        if self.passedLogInfo:
+            self.log.info("Delete object seeded with <{0}> from an S3 bucket.".format(self.passedSeedValue))
+        bucket = self.parameters["s3"].bucket1
 
-        if not self.parameters["s3"].bucket1:
-            self.log.error("No S3 bucket from which to delete an object.")
-            return False
+        test_passed = False
+        try:
+            deleted_object_key = bucket.delete_key('s3VerifiableObject_{0}'.format(self.passedSeedValue))
+        except Exception as e:
+            self.log.error("Could not delete object with key <s3VerifiableObject_{0}>".
+                           format(self.passedSeedValue))
+            self.log.error(e.message)
         else:
-            if self.passedLogInfo:
-                self.log.info("Delete object seeded with <{0}> from an S3 bucket.".format(self.passedSeedValue))
-            bucket = self.parameters["s3"].bucket1
-
-            test_passed = False
-            try:
-                deleted_object_key = bucket.delete_key('s3VerifiableObject_{0}'.format(self.passedSeedValue))
-            except Exception as e:
-                self.log.error("Could not delete object with key <s3VerifiableObject_{0}>".
-                               format(self.passedSeedValue))
-                self.log.error(e.message)
-            else:
-                if self.passedVerify:
-                    # Verify the delete.
-                    checkObject = TestS3CheckVerifiableObject(self.parameters, bucket=self.passedBucket,
-                                                              seedValue=self.passedSeedValue)
-                    if not checkObject.test_S3CheckVerifiableObject():
-                        if self.passedLogInfo:
-                            self.log.info("Verified delete of object with key <s3VerifiableObject_{0}>".
-                                             format(self.passedSeedValue))
-                        test_passed = True
-                else:
+            if self.passedVerify:
+                # Verify the delete.
+                checkObject = TestS3CheckVerifiableObject(self.parameters, bucket=self.passedBucket,
+                                                          seedValue=self.passedSeedValue)
+                if not checkObject.test_S3CheckVerifiableObject():
+                    if self.passedLogInfo:
+                        self.log.info("Verified delete of object with key <s3VerifiableObject_{0}>".
+                                         format(self.passedSeedValue))
                     test_passed = True
+            else:
+                test_passed = True
 
-            return test_passed
+        return test_passed
 
 
 # This class contains the attributes and methods to test
@@ -947,83 +949,69 @@ class TestS3VerifiableObjectLoop(TestCase.FDSTestCase):
         Attempt to loop on creating, reading and deleting an object.
         """
 
-        # Get the FdsConfigRun object for this test.
-        fdscfg = self.parameters["fdscfg"]
-
-        if (not "s3" in self.parameters) or (self.parameters["s3"].conn is None):
-            self.log.error("No S3 connection with which to loop on an object.")
+        # Make sure we're good to go with S3 and our bucket.
+        if not Helper.checkS3Info(self, self.passedBucket):
             return False
 
-        # Check if a bucket was passed to us.
-        if self.passedBucket is not None:
-            self.parameters["s3"].bucket1 = self.parameters["s3"].conn.lookup(self.passedBucket)
-            if self.parameters["s3"].bucket1 is None:
-                self.log.error("Cannot find passed bucket named %s." % self.passedBucket)
-                return False
+        logging.getLogger('boto').setLevel(logging.CRITICAL)
 
-        if not self.parameters["s3"].bucket1:
-            self.log.error("No S3 bucket on which to loop an object.")
-            return False
-        else:
-            logging.getLogger('boto').setLevel(logging.CRITICAL)
+        self.log.info("Loop on objects for {0} seconds.".format(float(self.passedRunTime)))
+        t = Timer(float(self.passedRunTime), self.timeout)
+        t.start()
 
-            self.log.info("Loop on objects for {0} seconds.".format(float(self.passedRunTime)))
-            t = Timer(float(self.passedRunTime), self.timeout)
-            t.start()
+        test_passed = True
+        seedOrd = 0
+        while (self.loopControl != "stop") and (test_passed):
+            seedChr = chr(ord('A') + (seedOrd % (ord('z') - ord('A') + 1)))
 
-            test_passed = True
-            seedOrd = 0
-            while (self.loopControl != "stop") and (test_passed):
-                seedChr = chr(ord('A') + (seedOrd % (ord('z') - ord('A') + 1)))
+            if (self.loopControl != "stop") and (test_passed):
+                objectCreate = TestS3LoadVerifiableObject(parameters=self.parameters, bucket=self.passedBucket,
+                                                          seedValue=seedChr, logInfo=(seedOrd % 100 == 0))
+                retryCnt = self.passedRetryMax
+                while (retryCnt > 0):
+                    test_passed = objectCreate.test_S3LoadVerifiableObject()
+                    if test_passed:
+                        break
+                    elif self.passedRetry:
+                        self.log.warning("Retry.")
+                        retryCnt -= 1
+                    else:
+                        break
 
-                if (self.loopControl != "stop") and (test_passed):
-                    objectCreate = TestS3LoadVerifiableObject(parameters=self.parameters, bucket=self.passedBucket,
-                                                              seedValue=seedChr, logInfo=(seedOrd % 100 == 0))
-                    retryCnt = self.passedRetryMax
-                    while (retryCnt > 0):
-                        test_passed = objectCreate.test_S3LoadVerifiableObject()
-                        if test_passed:
-                            break
-                        elif self.passedRetry:
-                            self.log.warning("Retry.")
-                            retryCnt -= 1
-                        else:
-                            break
+            if (self.loopControl != "stop") and (test_passed):
+                objectRead = TestS3CheckVerifiableObject(parameters=self.parameters, bucket=self.passedBucket,
+                                                         seedValue=seedChr, logInfo=(seedOrd % 100 == 0))
+                retryCnt = self.passedRetryMax
+                while (retryCnt > 0):
+                    test_passed = objectRead.test_S3CheckVerifiableObject()
+                    if test_passed:
+                        break
+                    elif self.passedRetry:
+                        self.log.warning("Retry.")
+                        retryCnt -= 1
+                    else:
+                        break
 
-                if (self.loopControl != "stop") and (test_passed):
-                    objectRead = TestS3CheckVerifiableObject(parameters=self.parameters, bucket=self.passedBucket,
-                                                             seedValue=seedChr, logInfo=(seedOrd % 100 == 0))
-                    retryCnt = self.passedRetryMax
-                    while (retryCnt > 0):
-                        test_passed = objectRead.test_S3CheckVerifiableObject()
-                        if test_passed:
-                            break
-                        elif self.passedRetry:
-                            self.log.warning("Retry.")
-                            retryCnt -= 1
-                        else:
-                            break
+            if (self.loopControl != "stop") and (test_passed):
+                objectDelete = TestS3DeleteVerifiableObject(parameters=self.parameters, bucket=self.passedBucket,
+                                                            seedValue=seedChr, verify=self.passedVerifyDelete,
+                                                            logInfo=(seedOrd % 100 == 0))
+                retryCnt = self.passedRetryMax
+                while (retryCnt > 0):
+                    test_passed = objectDelete.test_S3DeleteVerifiableObject()
+                    if test_passed:
+                        break
+                    elif self.passedRetry:
+                        self.log.warning("Retry.")
+                        retryCnt -= 1
+                    else:
+                        break
 
-                if (self.loopControl != "stop") and (test_passed):
-                    objectDelete = TestS3DeleteVerifiableObject(parameters=self.parameters, bucket=self.passedBucket,
-                                                                seedValue=seedChr, verify=self.passedVerifyDelete,
-                                                                logInfo=(seedOrd % 100 == 0))
-                    retryCnt = self.passedRetryMax
-                    while (retryCnt > 0):
-                        test_passed = objectDelete.test_S3DeleteVerifiableObject()
-                        if test_passed:
-                            break
-                        elif self.passedRetry:
-                            self.log.warning("Retry.")
-                            retryCnt -= 1
-                        else:
-                            break
+            seedOrd += 1
 
-                seedOrd += 1
+        t.cancel()
 
-            t.cancel()
-
-            return test_passed
+        return test_passed
 
 
 # This class contains the attributes and methods to test
@@ -1050,44 +1038,30 @@ class TestS3VerifiableBlobCreate(TestCase.FDSTestCase):
         Attempt to create the specified number of blobs.
         """
 
-        # Get the FdsConfigRun object for this test.
-        fdscfg = self.parameters["fdscfg"]
-
-        if (not "s3" in self.parameters) or (self.parameters["s3"].conn is None):
-            self.log.error("No S3 connection with which to create blobs.")
+        # Make sure we're good to go with S3 and our bucket.
+        if not Helper.checkS3Info(self, self.passedBucket):
             return False
 
-        # Check if a bucket was passed to us.
-        if self.passedBucket is not None:
-            self.parameters["s3"].bucket1 = self.parameters["s3"].conn.lookup(self.passedBucket)
-            if self.parameters["s3"].bucket1 is None:
-                self.log.error("Cannot find passed bucket named %s." % self.passedBucket)
-                return False
+        logging.getLogger('boto').setLevel(logging.CRITICAL)
 
-        if not self.parameters["s3"].bucket1:
-            self.log.error("No S3 bucket on which to create blobs.")
-            return False
-        else:
-            logging.getLogger('boto').setLevel(logging.CRITICAL)
+        self.log.info("CREATE {} blobs.".format(self.passedNumBlobs))
 
-            self.log.info("CREATE {} blobs.".format(self.passedNumBlobs))
+        test_passed = True
+        blobCnt = 0
+        while (blobCnt < self.passedNumBlobs) and (test_passed):
+            seedChr = chr(ord('A') + (blobCnt % (ord('z') - ord('A') + 1)))
 
-            test_passed = True
-            blobCnt = 0
-            while (blobCnt < self.passedNumBlobs) and (test_passed):
-                seedChr = chr(ord('A') + (blobCnt % (ord('z') - ord('A') + 1)))
+            objectCreate = TestS3LoadVerifiableObject(parameters=self.parameters, bucket=self.passedBucket,
+                                                      blobKey="blob{}".format(blobCnt), seedValue=seedChr,
+                                                      logInfo=(blobCnt % 100 == 0))
+            test_passed = objectCreate.test_S3LoadVerifiableObject()
 
-                objectCreate = TestS3LoadVerifiableObject(parameters=self.parameters, bucket=self.passedBucket,
-                                                          blobKey="blob{}".format(blobCnt), seedValue=seedChr,
-                                                          logInfo=(blobCnt % 100 == 0))
-                test_passed = objectCreate.test_S3LoadVerifiableObject()
+            if not test_passed:
+                break
 
-                if not test_passed:
-                    break
+            blobCnt += 1
 
-                blobCnt += 1
-
-            return test_passed
+        return test_passed
 
 
 # This class contains the attributes and methods to test
@@ -1137,65 +1111,51 @@ class TestS3VerifiableBlobRead(TestCase.FDSTestCase):
         Attempt to randomly READ blobs for the specified amount of time.
         """
 
-        # Get the FdsConfigRun object for this test.
-        fdscfg = self.parameters["fdscfg"]
-
-        if (not "s3" in self.parameters) or (self.parameters["s3"].conn is None):
-            self.log.error("No S3 connection with which to read blobs.")
+        # Make sure we're good to go with S3 and our bucket.
+        if not Helper.checkS3Info(self, self.passedBucket):
             return False
 
-        # Check if a bucket was passed to us.
-        if self.passedBucket is not None:
-            self.parameters["s3"].bucket1 = self.parameters["s3"].conn.lookup(self.passedBucket)
-            if self.parameters["s3"].bucket1 is None:
-                self.log.error("Cannot find passed bucket named %s." % self.passedBucket)
-                return False
+        logging.getLogger('boto').setLevel(logging.CRITICAL)
 
-        if not self.parameters["s3"].bucket1:
-            self.log.error("No S3 bucket on which to read blobs.")
-            return False
-        else:
-            logging.getLogger('boto').setLevel(logging.CRITICAL)
+        self.log.info("Loop on blob READs for {0} seconds.".format(float(self.passedRunTime)))
+        t = Timer(float(self.passedRunTime), self.timeout)
+        t.start()
 
-            self.log.info("Loop on blob READs for {0} seconds.".format(float(self.passedRunTime)))
-            t = Timer(float(self.passedRunTime), self.timeout)
-            t.start()
+        test_passed = True
+        loopCnt = 0
+        while (self.loopControl != "stop") and (test_passed):
+            blobID = random.randrange(0, self.passedNumBlobs)
+            seedChr = chr(ord('A') + (blobID % (ord('z') - ord('A') + 1)))
 
-            test_passed = True
-            loopCnt = 0
-            while (self.loopControl != "stop") and (test_passed):
-                blobID = random.randrange(0, self.passedNumBlobs)
-                seedChr = chr(ord('A') + (blobID % (ord('z') - ord('A') + 1)))
+            if (self.loopControl != "stop") and (test_passed):
+                objectRead = TestS3CheckVerifiableObject(parameters=self.parameters, bucket=self.passedBucket,
+                                                         blobKey="blob{}".format(blobID), seedValue=seedChr,
+                                                         logInfo=(loopCnt % 100 == 0))
+                # Capture the hash of the blob we expect for verification
+                verifiable_file_contents = seedChr * 1024
+                stored_hash = hashlib.sha1(verifiable_file_contents).hexdigest()
+                self.parameters["s3"].verifiers['{0}_{1}'.format("blob{}".format(blobID), seedChr)] = stored_hash
 
-                if (self.loopControl != "stop") and (test_passed):
-                    objectRead = TestS3CheckVerifiableObject(parameters=self.parameters, bucket=self.passedBucket,
-                                                             blobKey="blob{}".format(blobID), seedValue=seedChr,
-                                                             logInfo=(loopCnt % 100 == 0))
-                    # Capture the hash of the blob we expect for verification
-                    verifiable_file_contents = seedChr * 1024
-                    stored_hash = hashlib.sha1(verifiable_file_contents).hexdigest()
-                    self.parameters["s3"].verifiers['{0}_{1}'.format("blob{}".format(blobID), seedChr)] = stored_hash
+                retryCnt = self.passedRetryMax
+                while (retryCnt > 0):
+                    test_passed = objectRead.test_S3CheckVerifiableObject()
 
-                    retryCnt = self.passedRetryMax
-                    while (retryCnt > 0):
-                        test_passed = objectRead.test_S3CheckVerifiableObject()
+                    if self.passedAllowMisses:
+                        test_passed = True
 
-                        if self.passedAllowMisses:
-                            test_passed = True
+                    if test_passed:
+                        break
+                    elif self.passedRetry:
+                        self.log.warning("Retry.")
+                        retryCnt -= 1
+                    else:
+                        break
 
-                        if test_passed:
-                            break
-                        elif self.passedRetry:
-                            self.log.warning("Retry.")
-                            retryCnt -= 1
-                        else:
-                            break
+            loopCnt += 1
 
-                loopCnt += 1
+        t.cancel()
 
-            t.cancel()
-
-            return test_passed
+        return test_passed
 
 
 # This class contains the attributes and methods to test
@@ -1245,6 +1205,52 @@ class TestS3ListBucketKeys(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
+# the FDS S3 interface to delete a specific key from a bucket.
+#
+# You must have successfully created an S3 connection
+# and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
+# and created a bucket and stored it in self.parameters["s3"].bucket1 or passed it in.
+#
+# @param bucket The bucket from which to delete the key.
+# @param key The key to be deleted.
+# @param verify "true" if the delete should have deleted something and you want to
+#               know if it did not. "false" if you don't care.
+class TestS3DelKey(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, bucket=None, key=None, verify="false"):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3DelKey,
+                                             "Deleting a specific key of an S3 bucket")
+
+        self.passedBucket = bucket
+        self.passedKey = key
+        self.passedVerify = verify
+
+    def test_S3DelKey(self):
+        """
+        Test Case:
+        Attempt to delete the given key from an S3 Bucket.
+        """
+
+        if not Helper.checkS3Info(self, self.passedBucket):
+            return False
+
+        s3 = self.parameters["s3"]
+        self.log.info("Delete key [{}] from bucket [{}]".format(self.passedKey, self.passedBucket))
+
+        try:
+            k = Key(s3.bucket1, self.passedKey)
+            k.delete()
+        except:
+            if self.passedVerify:
+                self.log.error('Delete failed for key [{}]'.format(self.passedKey))
+                return False
+
+        return True
+
+
+
+# This class contains the attributes and methods to test
 # the FDS S3 interface to delete all the keys of a bucket.
 #
 # You must have successfully created an S3 connection
@@ -1257,14 +1263,14 @@ class TestS3DelBucketKeys(TestCase.FDSTestCase):
                                              self.test_S3DelBucketKeys,
                                              "Deleting all the keys of an S3 bucket")
 
-        self.passedBucket = bucket;
+        self.passedBucket = bucket
     def test_S3DelBucketKeys(self):
         """
         Test Case:
         Attempt to delete all the keys of an S3 Bucket.
         """
 
-        if not self.checkS3Info(self.passedBucket):
+        if not Helper.checkS3Info(self, self.passedBucket):
             return False
 
         s3 = self.parameters["s3"]
@@ -1299,7 +1305,7 @@ class TestS3DelBucket(TestCase.FDSTestCase):
         Attempt to delete an S3 Bucket.
         """
 
-        if not self.checkS3Info(self.passedBucket):
+        if not Helper.checkS3Info(self, self.passedBucket):
             return False
         else:
             s3 = self.parameters["s3"]
@@ -1328,7 +1334,7 @@ class TestPuts(TestCase.FDSTestCase):
         self.fail    = fail
 
     def test_Puts(self):
-        if not self.checkS3Info(self.passedBucket):
+        if not Helper.checkS3Info(self, self.passedBucket):
             return False
 
         s3 = self.parameters["s3"]
@@ -1372,7 +1378,7 @@ class TestGets(TestCase.FDSTestCase):
         self.fail    = fail
 
     def test_Gets(self):
-        if not self.checkS3Info(self.passedBucket):
+        if not Helper.checkS3Info(self, self.passedBucket):
             return False
 
         s3 = self.parameters["s3"]
@@ -1422,7 +1428,7 @@ class TestDeletes(TestCase.FDSTestCase):
         self.fail    = fail
 
     def test_Deletes(self):
-        if not self.checkS3Info(self.passedBucket):
+        if not Helper.checkS3Info(self, self.passedBucket):
             return False
 
         s3 = self.parameters["s3"]
@@ -1462,7 +1468,7 @@ class TestKeys(TestCase.FDSTestCase):
         self.passedBucket=bucket
 
     def test_Keys(self):
-        if not self.checkS3Info(self.passedBucket):
+        if not Helper.checkS3Info(self, self.passedBucket):
             return False
 
         s3 = self.parameters["s3"]

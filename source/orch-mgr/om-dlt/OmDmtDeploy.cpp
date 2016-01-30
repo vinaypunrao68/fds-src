@@ -15,8 +15,6 @@
 
 namespace fds {
 
-OM_DMTMod                    gl_OMDmtMod("OM-DMT");
-
 namespace msm = boost::msm;
 namespace mpl = boost::mpl;
 namespace msf = msm::front;
@@ -517,6 +515,13 @@ OM_DMTMod::dmt_deploy_event(DmtRecoveryEvt const &evt)
     dmt_dply_fsm->process_event(evt);
 }
 
+void
+OM_DMTMod::addWaitingDMs() {
+    auto nodeDomMod = OM_Module::om_singleton()->om_nodedomain_mod();
+    if (!nodeDomMod->dmClusterPresent()) {
+        ++waitingDMs;
+    }
+}
 // --------------------------------------------------------------------------------------
 // OM DMT Deployment FSM Implementation
 // --------------------------------------------------------------------------------------
@@ -712,7 +717,7 @@ DmtDplyFSM::DACT_Start::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
 
     dst.dms_to_ack.clear();
 
-    if (!dmResync)  {
+    if (!dmResync && !om->isInTestMode())  {
         for (NodeUuidSet::const_iterator cit = addDms.cbegin();
         		cit != addDms.cend(); ++cit) {
             OM_DmAgent::pointer dm_agent = loc_domain->om_dm_agent(*cit);
@@ -866,8 +871,9 @@ DmtDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
 
     // broadcast DMT to DMs first, once we receive acks, will broadcast
     // to AMs
-    dst.commit_acks_to_wait = loc_domain->om_bcast_dmt(fpi::FDSP_DATA_MGR,
-                                                       vp->getCommittedDMT());
+    dst.commit_acks_to_wait = !om->isInTestMode() ?
+              loc_domain->om_bcast_dmt(fpi::FDSP_DATA_MGR, vp->getCommittedDMT()) : 0;
+
     // there are must be nodes to which we send new DMT
     // unless all failed? -- in that case we should handle errors
     //    fds_verify(dst.commit_acks_to_wait > 0);

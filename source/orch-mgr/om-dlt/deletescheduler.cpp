@@ -13,8 +13,10 @@ DeleteScheduler::DeleteScheduler(OrchMgr* om) {
 
 DeleteScheduler::~DeleteScheduler() {
     shutdown();
-    runner->join();
-    delete runner;
+    if (runner) {
+        runner->join();
+        delete runner;
+    }
 }
 
 void DeleteScheduler::start() {

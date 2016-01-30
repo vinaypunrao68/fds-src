@@ -633,6 +633,11 @@ void FailoverSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
         return;
     }
 
+    if (epReqs_[curEpIdx_]->isComplete()) {
+        GLOGWARN << epReqs_[curEpIdx_]->logString() << " Already completed";
+        return;
+    }
+
     epReqs_[curEpIdx_]->complete(header->msg_code);
 
     bool bSuccess = (header->msg_code == ERR_OK);
@@ -759,6 +764,11 @@ void FailoverSvcRequest::onResponseCb(FailoverSvcRequestRespCb cb)
     respCb_ = cb;
 }
 
+fpi::SvcUuid FailoverSvcRequest::getLastRespondedSvcUuid() const
+{
+    return epReqs_[curEpIdx_]->peerEpId_;
+}
+
 /**
 * @brief
 */
@@ -875,7 +885,11 @@ void QuorumSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
         /* Drop responses from uknown endpoint src ids */
         GLOGWARN << logString() << " Unkonwn EpId";
         return;
+    } else if (epReq->isComplete()) {
+        GLOGWARN << epReq->logString() << " Already completed";
+        return;
     }
+
 
     epReq->completeReq(header->msg_code, header, payload);
 

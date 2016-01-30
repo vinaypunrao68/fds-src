@@ -50,6 +50,8 @@ VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
     version = VolumeGroupConstants::VERSION_INVALID;
 
     threadId = dataManager->getQosCtrl()->threadPool->getThreadId(_uuid.get());
+
+    initializerTriesCnt = 0;
 }
 
 VolumeMeta::~VolumeMeta()
@@ -58,6 +60,7 @@ VolumeMeta::~VolumeMeta()
 
     delete vol_desc;
     delete vol_mtx;
+    volDb.reset();
 }
 
 std::string VolumeMeta::getBaseDirPath() const
@@ -82,6 +85,11 @@ void VolumeMeta::finishForwarding() {
     vol_mtx->unlock();
     LOGMIGRATE << "finishForwarding for volume " << *vol_desc
                << ", state " << fwd_state;
+}
+
+void VolumeMeta::setPersistVolDB(DmPersistVolDB::ptr dbPtr)
+{
+    volDb = dbPtr;
 }
 
 void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
@@ -165,7 +173,14 @@ std::string VolumeMeta::logString() const
 void VolumeMeta::setState(const fpi::ResourceState &state,
                           const std::string &logCtx)
 {
+    // TODO(Rao): Ensure setState is invoked under volume synchronized context
     vol_desc->state = state;
+    if (state == fpi::ResourceState::Loading) {
+        /* Every time volume goes into loading state version is incremented */
+        version = volDb->updateVersion();
+    } else if (state == fpi::ResourceState::Active) {
+        initializerTriesCnt = 0;
+    }
     LOGNORMAL << logString() << logCtx;
 }
 
@@ -254,19 +269,45 @@ void VolumeMeta::startInitializer()
     fds_assert(getState() == fpi::Offline);
     fds_assert(!isInitializerInProgress());
 
-    LOGDEBUG << "Starting initializer: " << logString();
-
     /* Coordinator is set. We can go through sync protocol */
-    setState(fpi::Loading, " - startInitializer");
+    initializerTriesCnt++;
+    setState(fpi::Loading,
+             util::strformat(" - startInitializer.  Try #: %d", initializerTriesCnt));
     initializer = MAKE_SHARED<VolumeInitializer>(MODULEPROVIDER(), this);
     initializer->run();
 }
 
-void VolumeMeta::cleanupInitializer()
+void VolumeMeta::notifyInitializerComplete(const Error &completionError)
 {
     fds_assert(initializer->getProgress() == VolumeInitializer::COMPLETE);
     initializer.reset();
     LOGDEBUG << "Cleanedup initializer: " << logString();
+
+    if (completionError != ERR_OK) {
+        scheduleInitializer(false);
+    }
+}
+
+void VolumeMeta::scheduleInitializer(bool fNow)
+{
+    auto func = makeSynchronized([this]() {
+        if (getState() == fpi::Offline) {
+            startInitializer();
+        } else {
+            LOGNORMAL << "Not going to start initializer.  Volume is not offline"
+                << logString();
+        }
+    });
+
+    if (fNow) {
+        func();
+    } else {
+        auto nextScheduleTime =  std::min(1 << initializerTriesCnt, 60);
+        LOGNORMAL << "Scheduling volume initializer retry in: " << nextScheduleTime
+            << " seconds. " << logString();
+        MODULEPROVIDER()->getTimer()->scheduleFunction(
+            std::chrono::seconds(nextScheduleTime), func);
+    }
 }
 
 Error VolumeMeta::startMigration(const fpi::SvcUuid &srcDmUuid,
@@ -330,12 +371,19 @@ Error VolumeMeta::handleMigrationDeltaBlobs(DmRequest *dmRequest)
 }
 
 Error VolumeMeta::serveMigration(DmRequest *dmRequest) {
+
     Error err(ERR_OK);
     NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
     DmIoResyncInitialBlob* typedRequest = static_cast<DmIoResyncInitialBlob*>(dmRequest);
     NodeUuid destDmUuid(typedRequest->destNodeUuid);
     fpi::CtrlNotifyInitialBlobFilterSetMsgPtr migReqMsg = typedRequest->message;
     StatusCb cleanupCb = typedRequest->localCb;
+
+    if (getState() != fpi::ResourceState::Active) {
+        LOGWARN << "Rejecting serve migration request: " << *migReqMsg
+            << logString();
+        return ERR_NOT_READY;
+    }
 
     LOGNOTIFY << "migrationid: " << migReqMsg->DMT_version
         <<" received msg for volume " << migReqMsg->volume_id
@@ -481,8 +529,12 @@ void VolumeMeta::handleVolumegroupUpdate(DmRequest *dmRequest)
              << std::hex << request->volId << std::dec << "'";
     if (getState() != fpi::Loading) {
         LOGWARN << "Failed setting volumegroup info vol: " << request->volId
-            << ". Volume isn't in loading state";
+            << ". Volume isn't in loading state " << logString();
         helper.err = ERR_INVALID;
+        return;
+    } else if (isInitializerInProgress()) {
+        LOGWARN << "Failed setting volumegroup info vol: " << logString();
+        helper.err = ERR_SYNC_INPROGRESS;
         return;
     } else if (getSequenceId() !=
                static_cast<uint64_t>(request->reqMessage->group.lastCommitId)) {

@@ -36,6 +36,12 @@ public class VolumeSettingsNfs
             return this;
         }
 
+        public Builder withCapacity( final Size capacity )
+        {
+            this.capacity = capacity;
+            return this;
+        }
+
         public VolumeSettingsNfs build()
         {
             return new VolumeSettingsNfs( this );
@@ -43,9 +49,11 @@ public class VolumeSettingsNfs
 
         private String options = "";
         private Size maxObjectSize = Size.mb( 1 );
+        private Size capacity;
         private String clients = "*";
     }
 
+    private final Size capacity;
     private final String options;
     private final String clients;
 
@@ -54,6 +62,7 @@ public class VolumeSettingsNfs
         super( );
 
         setMaxObjectSize( builder.maxObjectSize );
+        this.capacity = builder.capacity;
         this.options = builder.options;
         this.clients = builder.clients;
 
@@ -62,16 +71,19 @@ public class VolumeSettingsNfs
 
     /**
      * @param maxObjectSize the max object size
+     * @param capacity the capacity limit
      * @param clients the nfs clients
      * @param options the nfs options
      */
     public VolumeSettingsNfs( final Size maxObjectSize,
+                              final Size capacity,
                               final NfsClients clients,
                               final NfsOptions options )
     {
         super( );
 
         setMaxObjectSize( maxObjectSize );
+        this.capacity = capacity;
         this.options = options.getOptions();
         this.clients = clients.getClient();
 
@@ -79,12 +91,14 @@ public class VolumeSettingsNfs
     }
 
     public VolumeSettingsNfs( final Size maxObjectSize,
+                              final Size capacity,
                               final String clients,
                               final String options )
     {
         super( );
 
         setMaxObjectSize( maxObjectSize );
+        this.capacity = capacity;
         this.options = options;
         this.clients = clients;
 
@@ -102,6 +116,11 @@ public class VolumeSettingsNfs
     public String getClients( ) { return clients; }
 
     /**
+     * @return Returns the capacity limit
+     */
+    public Size getCapacity( ) { return  capacity; }
+
+    /**
      * Create a copy of the settings based on the current settings
      *
      * @return a copy of the settings
@@ -109,7 +128,7 @@ public class VolumeSettingsNfs
     @Override
     public VolumeSettingsNfs newSettingsFrom( )
     {
-        return new VolumeSettingsNfs( getMaxObjectSize(), getClients(), getOptions() );
+        return new VolumeSettingsNfs( getMaxObjectSize(), getCapacity(), getClients(), getOptions() );
     }
 
     @Override

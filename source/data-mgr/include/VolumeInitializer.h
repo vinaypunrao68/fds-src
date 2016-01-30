@@ -66,6 +66,7 @@ struct ReplicaInitializer : HasModuleProvider,
     void abort();
     Error tryAndBufferIo(const BufferReplay::Op &op);
     inline Progress getProgress() const { return progress_; }
+    bool syncPreemptionChecks(const fpi::AddToVolumeGroupRespCtrlMsgPtr &responseMsg);
 
 #if 0
     template <class F>
@@ -82,7 +83,8 @@ struct ReplicaInitializer : HasModuleProvider,
      * If cb is null response cb isn't set i.e fire/forget message to the coordinator
      */
     void notifyCoordinator_(const EPSvcRequestRespCb &cb = nullptr);
-    void copyActiveStateFromPeer_(const EPSvcRequestRespCb &cb); 
+    void copyActiveStateFromPeer_(const std::vector<fpi::SvcUuid> &syncPeers,
+                                  const EPSvcRequestRespCb &cb); 
     void startBuffering_();
     void doQucikSyncWithPeer_(const StatusCb &cb);
     void doStaticMigrationWithPeer_(const StatusCb &cb);
@@ -139,28 +141,22 @@ void ReplicaInitializer<T>::run()
             return;
         }
 
-        if (responseMsg->group.functionalReplicas.size() == 0) {
-            /* When the functional group size is zero, if the latest sequence id matches
-             * with what coordinator has we can become functional
-             */
-            if (responseMsg->group.lastCommitId == replica_->getSequenceId()) {
-                fds_assert(responseMsg->group.lastOpId == VolumeGroupConstants::OPSTARTID);
-                /* To become functional, the sequence is go into syncing and become functional */
-                replica_->setState(fpi::ResourceState::Syncing,
-                                   "- no sync peers.  This volume is first functional replica");
-                 /* This will notify coordinator we are in sync state */
-                notifyCoordinator_();
-                /* Complet with OK will notify coordinator we are funcational */
-                complete_(ERR_OK, "- no sync peers.  This volume is first functional replica");
-            } else {
-                complete_(ERR_SYNCPEER_UNAVAILABLE, " - no sync peer is available");
-            }
+        auto &syncPeers = responseMsg->group.functionalReplicas;
+        auto selfUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
+        fds_assert(std::find(syncPeers.begin(), syncPeers.end(), selfUuid) == syncPeers.end());
+
+        /* Based on the first response from coordinator sync can be preempted */
+        if (syncPreemptionChecks(responseMsg)) {
             return;
         }
-        // TODO(Rao): Need to handle retries
-        syncPeer_ = responseMsg->group.functionalReplicas.front();
 
-        copyActiveStateFromPeer_(replica_->makeSynchronized([this](EPSvcRequest*,
+        /* Try and copy active state from peers in a failover manner.  The first successful
+         * responder is the peer we will do quick sync/static migration with.
+         * NOTE: In case we fail while doing quick sync/static migration we try the
+         * initilization sequence from the beginning
+         */
+        copyActiveStateFromPeer_(syncPeers,
+                                 replica_->makeSynchronized([this](EPSvcRequest*,
                                                         const Error &e_,
                                                         StringPtr payload) {
            ABORT_CHECK();
@@ -212,6 +208,28 @@ void ReplicaInitializer<T>::run()
             }));
         }));
     }));
+}
+
+template <class T>
+bool ReplicaInitializer<T>::
+syncPreemptionChecks(const fpi::AddToVolumeGroupRespCtrlMsgPtr &responseMsg)
+{
+    if (responseMsg->group.lastCommitId == replica_->getSequenceId() && 
+        responseMsg->group.lastOpId == VolumeGroupConstants::OPSTARTID) {
+        /* Short-circuit migration if we match state with coordinator and
+         * no writes have happened on the coordinator
+         */
+        replica_->setState(fpi::ResourceState::Syncing,
+                           "- Sync prevented. No writes since last open. About to become functional");
+        notifyCoordinator_();
+        complete_(ERR_OK, "- Sync prevente. dNo writes since last open. Become functional");
+        return true;
+    } else if (responseMsg->group.functionalReplicas.size() == 0) {
+        complete_(ERR_SYNCPEER_UNAVAILABLE, " - no sync peer is available");
+        return true;
+    }
+
+    return false;
 }
 
 template <class T>
@@ -271,20 +289,13 @@ void ReplicaInitializer<T>::startBuffering_()
                                      const Error &e,
                                      StringPtr) {
                 if (e != ERR_OK) {
-                    if (e == ERR_INVALID_ARG ||
-                        e == ERR_DM_OP_NOT_ALLOWED ||
-                        e == ERR_VOLUME_ACCESS_DENIED ||
-                        e == ERR_HASH_COLLISION ||
-                        e == ERR_BLOB_SEQUENCE_ID_REGRESSION ||
-                        e == ERR_CAT_ENTRY_NOT_FOUND ||
-                        e == ERR_BLOB_NOT_FOUND ||
-                        e == ERR_BLOB_OFFSET_INVALID) {
-                        LOGWARN << replica_->logString() << bufferReplay_->logString()
+                    if (!isVolumeGroupError(e)) {
+                        LOGNORMAL << replica_->logString() << bufferReplay_->logString()
                             << " buffer replay encountered "
                             << e << " - ignoring the error";
                     } else {
                         LOGWARN << replica_->logString() << bufferReplay_->logString()
-                            << " buffer replay encountered "
+                            << " buffer replay encountered volume group error: "
                             << e << " - aborting buffer replay";
                         /* calling abort mutiple times should be ok */
                         bufferReplay_->abort();
@@ -320,7 +331,8 @@ void ReplicaInitializer<T>::notifyCoordinator_(const EPSvcRequestRespCb &cb)
 }
 
 template <class T>
-void ReplicaInitializer<T>::copyActiveStateFromPeer_(const EPSvcRequestRespCb &cb)
+void ReplicaInitializer<T>::copyActiveStateFromPeer_(const std::vector<fpi::SvcUuid> &syncPeers,
+                                                     const EPSvcRequestRespCb &cb)
 {
     fds_assert(isSynchronized_());
     setProgress_(COPY_ACTIVE_STATE);
@@ -329,9 +341,14 @@ void ReplicaInitializer<T>::copyActiveStateFromPeer_(const EPSvcRequestRespCb &c
     msg->volume_id = replica_->getId();
     msg->version = replica_->getVersion();
     auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
-    auto req = requestMgr->newEPSvcRequest(syncPeer_);
+    auto req = requestMgr->newFailoverSvcRequest(syncPeers);
     req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyRequestTxStateMsg), msg);
-    req->onResponseCb(cb);
+    req->onResponseCb([this, cb](FailoverSvcRequest* req,
+                                 const Error &e,
+                                 StringPtr payload) {
+        syncPeer_ = req->getLastRespondedSvcUuid();
+        cb(nullptr, e, payload);
+    });
     req->invoke();
 }
 
@@ -426,10 +443,11 @@ void ReplicaInitializer<T>::complete_(const Error &e, const std::string &context
         replica_->setState(fpi::ResourceState::Offline, context);
     }
     notifyCoordinator_();
+
     /* This must be the last thing we do on ReplicaInitializer object.  After this call, 
      * ReplicaInitializer will be deleted
      */
-    replica_->cleanupInitializer();
+    replica_->notifyInitializerComplete(completionError_);
 }
 
 }  // namespace fds
