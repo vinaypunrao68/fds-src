@@ -109,4 +109,3 @@ class SMDebugContext(Context):
             print e.message
             return 'SM migration token state check failed'
 
->>>>>>> 1e0e059f5ee7f698808ddbb855d7fa2e7a96ac28

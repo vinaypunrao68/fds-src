@@ -295,18 +295,18 @@ ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& ti
     }
     if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.useSsdForMeta")) {
         if (diskMap->getTotalDisks(tier) > 1) {
+            diskMap->eraseLostDiskReferences(diskId, tier);
             diskMap->removeDiskAndRecompute(diskId, tier);
             movedTokensFileCleanup();
-            diskMap->eraseLostDiskReferences(diskId, tier);
         } else {
             LOGCRITICAL << "Disk Failure. Node is out of disks!";
             return ERR_SM_NO_DISK;
         }
     } else {
         if (diskMap->getTotalDisks() > 1) {
+            diskMap->eraseLostDiskReferences(diskId, tier);
             diskMap->removeDiskAndRecompute(diskId, tier);
             movedTokensFileCleanup();
-            diskMap->eraseLostDiskReferences(diskId, tier);
         } else {
             LOGCRITICAL << "Disk Failure. Node is out of disks!";
             return ERR_SM_NO_DISK;
