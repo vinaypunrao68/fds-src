@@ -159,31 +159,29 @@ ScavControl::updateDiskScavenger(const SmDiskMap::const_ptr& diskMap,
                                  const DiskId& diskId,
                                  const bool& added) {
     if (!diskMap) {
-        LOGERROR << "Scavenger cannot create disk scavenger(s) without a disk map";
+        LOGERROR << "Cannot create disk scavenger(s) without a disk map";
         return ERR_NOT_READY;
     }
 
     fds_mutex::scoped_lock l(scav_lock);
     if (added) {
+        if (diskScavTbl.count(diskId) != 0) {
+            LOGNOTIFY << "Scavenger already exists for disk: " << diskId;
+            return ERR_OK;
+        }
         DiskScavenger *diskScav = new DiskScavenger(diskId,
                                                     diskMap->diskMediaType(diskId),
                                                     dataStoreReqHandler,
                                                     persistStoreGcHandler,
                                                     diskMap,
                                                     noPersistScavStats);
-        fds_assert(diskScavTbl.count(diskId) == 0);
-        if (diskScavTbl.count(diskId) != 0) {
-            LOGERROR << "Scavenger already exists for disk=" << diskId;
-            delete diskScav;
-            return ERR_DUPLICATE;
-        }
         diskScavTbl[diskId] = diskScav;
-        LOGNORMAL << "Added scavenger for Disk " << diskId;
+        LOGNOTIFY << "Added scavenger for disk: " << diskId;
     } else {
         DiskScavenger *diskScav = diskScavTbl[diskId];
         if (diskScav) {
             diskScav->handleScavengeError(ERR_SM_NO_DISK);
-            LOGNORMAL << "Disabled scavenger for disk=" << diskId;
+            LOGNOTIFY << "Disabled scavenger for disk: " << diskId;
         }
     }
 
@@ -200,7 +198,7 @@ ScavControl::updateDiskScavengers(const SmDiskMap::const_ptr& diskMap,
                                   const bool& added) {
     Error err(ERR_OK);
     if (!diskMap) {
-        LOGERROR << "Scavenger cannot create disk scavenger(s) without a disk map";
+        LOGERROR << "Cannot create disk scavenger(s) without a disk map";
         return ERR_NOT_READY;
     }
 
@@ -620,32 +618,13 @@ DiskScavenger::getPolicy() const {
 }
 
 Error
-DiskScavenger::getDiskStats(diskio::DiskStat* retStat) {
-    Error err(ERR_OK);
-    struct statvfs statbuf;
-    std::string diskPath = smDiskMap->getDiskPath(disk_id);
-    if (statvfs(diskPath.c_str(), &statbuf) < 0) {
-        return fds::Error(fds::ERR_DISK_READ_FAILED);
+DiskScavenger::getDiskStats(diskio::DiskStat *retStat) {
+    if (retStat) {
+        std::string diskPath = smDiskMap->getDiskPath(disk_id);
+        return getDiskUsageInfo(diskPath, *retStat);
+    } else {
+        return ERR_INVALID_ARG;
     }
-
-    // aggregate token stats for total deleted bytes
-    SmTokenSet diskToks = smDiskMap->getSmTokens(disk_id);
-    fds_uint64_t totDeletedBytes = 0;
-    for (SmTokenSet::const_iterator cit = diskToks.cbegin();
-         cit != diskToks.cend();
-         ++cit) {
-        diskio::TokenStat stat;
-        persistStoreGcHandler->getSmTokenStats(*cit, tier, &stat);
-        totDeletedBytes += stat.tkn_reclaim_size;
-        LOGDEBUG << "Disk id " << disk_id << " SM token " << *cit
-                 << " reclaim bytes " << stat.tkn_reclaim_size;
-    }
-
-    fds_verify(retStat);
-    (*retStat).dsk_tot_size = statbuf.f_blocks * statbuf.f_frsize;
-    (*retStat).dsk_avail_size = statbuf.f_bfree * statbuf.f_bsize;
-    (*retStat).dsk_reclaim_size = totDeletedBytes;
-    return err;
 }
 
 fds_bool_t DiskScavenger::updateDiskStats(fds_bool_t verify_data,
@@ -669,7 +648,7 @@ fds_bool_t DiskScavenger::updateDiskStats(fds_bool_t verify_data,
     LOGDEBUG << "Tier " << tier << " disk " << disk_id
              << " total " << disk_stat.dsk_tot_size
              << ", avail " << disk_stat.dsk_avail_size << " ("
-             << avail_percent << "%), reclaim " << disk_stat.dsk_reclaim_size;
+             << avail_percent << "%).";
 
     // Decide if we want to GC this disk and which tokens
     if (avail_percent < scav_policy.dsk_avail_threshold_1) {
@@ -756,7 +735,6 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
              * Evaluate all bloom filters for this particular SM token.
              * and calculate SM token threshold.
              */
-
             bool fHasNewObjects = true;
             if (storMgr) {
                 fHasNewObjects = storMgr->objectStore->liveObjectsTable->hasNewObjectSets(*cit, disk_id);
@@ -772,7 +750,7 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
                 persistStoreGcHandler->evaluateSMTokenObjSets(*cit, tier, stat);
             }
         } else {
-            persistStoreGcHandler->getSmTokenStats(*cit, tier, &stat);
+            persistStoreGcHandler->getSmTokenStats(disk_id, *cit, tier, &stat);
         }
         double tot_size = stat.tkn_tot_size;
         reclaim_percent = (stat.tkn_reclaim_size / tot_size) * 100;

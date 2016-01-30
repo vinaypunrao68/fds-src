@@ -225,7 +225,9 @@ SmObjectPersistDataTest::getTokenStats(fds_uint64_t* totSize,
          cit != smToks.cend();
          ++cit) {
         diskio::TokenStat stat;
-        persistData->getSmTokenStats(*cit, diskio::diskTier, &stat);
+        diskio::DataTier tier = diskio::diskTier;
+        DiskId diskId = smDiskMap->getDiskId(*cit, tier);
+        persistData->getSmTokenStats(diskId, *cit, tier, &stat);
         GLOGDEBUG << "SM token " << *cit << " total bytes "
                   << stat.tkn_tot_size << ", reclaimable bytes "
                   << stat.tkn_reclaim_size;
@@ -380,16 +382,8 @@ TEST_F(SmObjectPersistDataTest, write_delete) {
     // read dataset back and validate
     readDataset(objSize, testdata, locMap);
 
-    // "delete" half of dataset
-    fds_uint32_t delObjCount = dsize / 2;
-    for (fds_uint32_t i = 0; i < delObjCount; ++i) {
-        ObjectID oid = testdata.dataset_[i];
-        persistData->notifyDataDeleted(oid, objSize, locMap[oid]);
-    }
-
     GLOGDEBUG << "Initially put " << dsize << " objects of size "
-              << objSize << ", marked for deletion " << delObjCount
-              << " objects";
+              << objSize;
 
     // get stats for all the tokens and calculate total size and
     // total reclaimable size
@@ -399,9 +393,7 @@ TEST_F(SmObjectPersistDataTest, write_delete) {
 
     // verify stats
     fds_uint64_t expectTotalSize = objSize * dsize;
-    fds_uint64_t expectReclaimSize = objSize * delObjCount;
     EXPECT_EQ(expectTotalSize, totalSize);
-    EXPECT_EQ(expectReclaimSize, reclaimSize);
 
     // restart
     restart();
@@ -411,22 +403,20 @@ TEST_F(SmObjectPersistDataTest, write_delete) {
     // verify stats after restart
     getTokenStats(&totalSize, &reclaimSize);
     EXPECT_EQ(expectTotalSize, totalSize);
-    // TODO(Anna) below verification will fail, because
-    // our reclaim size is not persistent, need to revisit
-    // EXPECT_EQ(expectReclaimSize, reclaimSize);
 
     // "start GC" which will create a new file to which we will write
     SmTokenSet smToks = smDiskMap->getSmTokens();
     for (SmTokenSet::const_iterator cit = smToks.cbegin();
          cit != smToks.cend();
          ++cit) {
-        persistData->notifyStartGc(*cit, diskio::diskTier);
+        diskio::DataTier tier = diskio::diskTier;
+        DiskId diskId = smDiskMap->getDiskId(*cit, tier);
+        persistData->notifyStartGc(diskId, *cit, tier);
     }
 
     // at this point new files are empty
     getTokenStats(&totalSize, &reclaimSize);
     EXPECT_EQ(0u, totalSize);
-    EXPECT_EQ(0u, reclaimSize);
 
     // write the same dataset (data store layer does not check dup, so
     // this will write all data to new file)
@@ -436,13 +426,14 @@ TEST_F(SmObjectPersistDataTest, write_delete) {
     // get stats (which are always for new file we are writing)
     getTokenStats(&totalSize, &reclaimSize);
     EXPECT_EQ(expectTotalSize, totalSize);
-    EXPECT_EQ(0u, reclaimSize);
 
     // "stop GC" which will remove old files
     for (SmTokenSet::const_iterator cit = smToks.cbegin();
          cit != smToks.cend();
          ++cit) {
-        persistData->notifyEndGc(*cit, diskio::diskTier);
+        diskio::DataTier tier = diskio::diskTier;
+        DiskId diskId = smDiskMap->getDiskId(*cit, tier);
+        persistData->notifyEndGc(diskId, *cit, tier);
     }
 
     // read dataset back from the new location and validate

@@ -81,6 +81,20 @@ class SMDebugContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
+    @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
+    def diskmapchange(self, sm):
+        """
+        Debug message for sending disk map change notification to SM.
+        """
+        try:
+            dskmpmsg = FdspUtils.newNotifyDiskMapChangeMsg()
+            self.smClient().sendAsyncSvcReq(sm, dskmpmsg, None)
+        except Exception, e:
+            log.exception(e)
+            return 'send disk map change message failed'
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
     @arg('sm', help= "Uuid of the SM to send the command to", type=long)
     def MigrationTokenCheck(self, sm):
         """
