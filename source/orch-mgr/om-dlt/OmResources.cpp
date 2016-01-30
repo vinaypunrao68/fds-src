@@ -1333,8 +1333,8 @@ OM_NodeDomainMod::OM_NodeDomainMod(char const *const name)
           fsm_lock("OM_NodeDomainMod fsm lock"),
           configDB(nullptr),
           domainDown(false),
-          volumeGroupDMTFired(false),
-          dbLock("ConfigDB access lock")
+          dbLock("ConfigDB access lock"),
+          dmClusterPresent_(false)
 {
     om_locDomain = new OM_NodeContainer();
     domain_fsm = new FSM_NodeDomain();
@@ -1573,6 +1573,7 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         }
         fds_verify((sm_services.size() == 0 && dm_services.size() == 0) ||
                    (sm_services.size() > 0 && dm_services.size() > 0));
+
     }
 
     if (( sm_services.size() > 0) || (dm_services.size() > 0)) {
@@ -1671,6 +1672,12 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         local_domain_event( NoPersistEvt( ) );
     }
 
+    // VG persist check
+    if (OM_Module::om_singleton()->om_dmt_mod()->volumeGrpMode() &&
+            vp->hasCommittedDMT()) {
+        LOGDEBUG << "Volume Grouping mode is active after OM restart";
+        dmClusterPresent_ = true;
+    }
     return err;
 }
 
@@ -1960,6 +1967,9 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                 gl_orch_mgr->removeFromSentQ(item);
             }
         }
+
+
+
         /* Convert new registration request to existing registration request */
         fpi::FDSP_RegisterNodeTypePtr reg_node_req;
         reg_node_req.reset( new FdspNodeReg() );
@@ -3304,6 +3314,11 @@ OM_NodeDomainMod::checkDmtModVGMode() {
     return (dmtMod->volumeGrpMode());
 }
 
+fds_bool_t
+OM_NodeDomainMod::dmClusterPresent() {
+    return dmClusterPresent_;
+}
+
 void
 OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     LOGNOTIFY << "Attempt to update DMT";
@@ -3325,16 +3340,20 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
         // in case there are no volume acknowledge to wait
         dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
     } else {
-        if (!volumeGroupDMTFired && (awaitingDMs == dmClusterSize)) {
+        auto dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
+                                        get<uint32_t>("fds.common.volume_group.dm_cluster_size", 1));
+        if ((!dmClusterPresent()) && (awaitingDMs == dmClusterSize)) {
             LOGNOTIFY << "Volume Group Mode has reached quorum with " << dmClusterSize
                     << " DMs. Calculating DMT now.";
             dmtMod->dmt_deploy_event(DmtDeployEvt(dmPrevRegistered));
             // in case there are no volume acknowledge to wait
             dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
-            volumeGroupDMTFired = true;
+            dmClusterPresent_ = true;
+            LOGDEBUG << "Volumegroup fired ? " << dmClusterPresent()
+                    << " size: " << awaitingDMs << "/" << dmClusterSize;
             dmtMod->clearWaitingDMs();
         } else {
-            LOGDEBUG << "Volumegroup fired ? " << volumeGroupDMTFired
+            LOGDEBUG << "Volumegroup fired ? " << dmClusterPresent()
                     << " size: " << awaitingDMs << "/" << dmClusterSize;
         }
     }
