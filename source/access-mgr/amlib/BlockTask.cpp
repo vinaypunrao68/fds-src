@@ -74,8 +74,8 @@ BlockTask::handleRMWResponse(boost::shared_ptr<std::string> const& retBuf,
     auto& writeBytes = bufVec[seqId];
     boost::shared_ptr<std::string> fauxBytes;
     if ((fpi::MISSING_RESOURCE == err)
-        || (0 == retBuf->size())
-        || !retBuf) {
+        || !retBuf
+        || (0 == retBuf->size())) {
         // we tried to read unwritten block, so create
         // an empty block buffer to place the data
         fauxBytes = boost::make_shared<std::string>(maxObjectSizeInBytes, '\0');
