@@ -1175,38 +1175,27 @@ AmDispatcher::_getQueryCatalogCb(GetBlobReq* amReq, const Error& error, shared_s
 {
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
 
-    Error err = error;
-    if (err != ERR_OK && err != ERR_BLOB_OFFSET_INVALID) {
-        // TODO(Andrew): We should consider logging this error at a
-        // higher level when the volume is not block
-        LOGDEBUG << "blob name: " << amReq->getBlobName() << " offset: "
-                 << amReq->blob_offset << " Error: " << error;
-        err = (err == ERR_CAT_ENTRY_NOT_FOUND ? ERR_BLOB_NOT_FOUND : err);
-    }
+    Error err = (ERR_CAT_ENTRY_NOT_FOUND == error) ? ERR_BLOB_NOT_FOUND : error;
 
-    auto qryCatRsp = deserializeFdspMsg<fpi::QueryCatalogMsg>(err, payload);
-
-    if (err.ok()) {
-        // Copy the metadata into the callback, if needed
-        if (true == amReq->get_metadata) {
-            auto cb = std::dynamic_pointer_cast<GetObjectWithMetadataCallback>(amReq->cb);
-            // Fill in the data here
-            cb->blobDesc = boost::make_shared<BlobDescriptor>();
-            cb->blobDesc->setBlobName(amReq->getBlobName());
-            cb->blobDesc->setBlobSize(qryCatRsp->byteCount);
-            for (const auto& meta : qryCatRsp->meta_list) {
-                cb->blobDesc->addKvMeta(meta.key,  meta.value);
-            }
+    if (ERR_OK == err || ERR_BLOB_OFFSET_INVALID == err) {
+        Error dummy { ERR_OK };
+        auto qryCatRsp = deserializeFdspMsg<fpi::QueryCatalogMsg>(dummy, payload);
+        amReq->blobDesc = boost::make_shared<BlobDescriptor>();
+        amReq->blobDesc->setBlobName(amReq->getBlobName());
+        amReq->blobDesc->setBlobSize(qryCatRsp->byteCount);
+        for (const auto& meta : qryCatRsp->meta_list) {
+            amReq->blobDesc->addKvMeta(meta.key,  meta.value);
         }
 
-
-        for (fpi::FDSP_BlobObjectList::const_iterator it = qryCatRsp->obj_list.cbegin();
-             it != qryCatRsp->obj_list.cend();
-             ++it) {
-            fds_uint64_t cur_offset = it->offset;
-            if (cur_offset >= amReq->blob_offset || cur_offset <= amReq->blob_offset_end) {
-                auto objectOffset = (cur_offset - amReq->blob_offset) / amReq->object_size;
-                amReq->object_ids[objectOffset].reset(new ObjectID((*it).data_obj_id.digest));
+        if (ERR_OK == err) {
+            for (fpi::FDSP_BlobObjectList::const_iterator it = qryCatRsp->obj_list.cbegin();
+                 it != qryCatRsp->obj_list.cend();
+                 ++it) {
+                fds_uint64_t cur_offset = it->offset;
+                if (cur_offset >= amReq->blob_offset || cur_offset <= amReq->blob_offset_end) {
+                    auto objectOffset = (cur_offset - amReq->blob_offset) / amReq->object_size;
+                    amReq->object_ids[objectOffset].reset(new ObjectID((*it).data_obj_id.digest));
+                }
             }
         }
     }
