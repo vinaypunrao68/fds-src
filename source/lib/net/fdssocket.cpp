@@ -32,6 +32,7 @@ Socket::Socket(std::string host, int port) : att::TSocket(host, port),
                                              monitor(&mutex),
                                              connChecker(&Socket::checkConnection, this) { // NOLINT
     setLinger(false, 0);
+    setSendTimeout(5000);       // 5 seconds
 }
 
 void Socket::setEventHandler(SocketEventHandler* evtHandler) {
