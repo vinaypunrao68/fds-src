@@ -29,16 +29,31 @@ endif
 
 # Stats CPP settings.
 #
-toolchain_rabbitmq-c_lib  := -L/opt/rabbitmq-c/libs
-toolchain_rabbitmq-c_incl := -I/opt/rabbitmq-c/include
-toolchain_simpleamqpclient_lib  := -L/opt/simpleamqpclient/libs
-toolchain_simpleamqpclient_incl := -I/opt/simpleamqpclient/include
-toolchain_statscpp_lib  := -L/opt/fds-stats-client-c/libs
+toolchain_rabbitmq-c_lib  := -L/opt/fds/formation_one/packages/rabbitmq-c-0.7.1/lib
+toolchain_rabbitmq-c_incl := -I/opt/fds/formation_one/packages/rabbitmq-c-0.7.1/include
+toolchain_simpleamqpclient_lib  := -L/opt/fds/formation_one/packages/simpleamqpclient-0.7.1/lib
+toolchain_simpleamqpclient_incl := -I/opt/fds/formation_one/packages/simpleamqpclient-0.7.1/include
+toolchain_statscpp_lib  := -L/opt/fds/formation_one/packages/fds-stats-client-c-1.0.0/lib
+toolchain_statscpp_incl := -I/opt/fds/formation_one/packages/fds-stats-client-c-1.0.0/include
 toolchain_statscpp_lib  += $(toolchain_simpleamqpclient_lib)
 toolchain_statscpp_lib  += $(toolchain_rabbitmq-c_lib)
-toolchain_statscpp_incl := -I/opt/fds-stats-client-c/include
 toolchain_statscpp_incl += $(toolchain_simpleamqpclient_incl)
 toolchain_statscpp_incl += $(toolchain_rabbitmq-c_incl)
+
+# Start support for old stats directory structure
+dep_toolchain_rabbitmq-c_lib  := -L/opt/rabbitmq-c/libs
+dep_toolchain_rabbitmq-c_incl := -I/opt/rabbitmq-c/include
+dep_toolchain_simpleamqpclient_lib  += -L/opt/simpleamqpclient/libs
+dep_toolchain_simpleamqpclient_incl += -I/opt/simpleamqpclient/include
+
+toolchain_statscpp_lib  += -L/opt/fds-stats-client-c/libs
+toolchain_statscpp_incl += -I/opt/fds-stats-client-c/include
+toolchain_statscpp_lib  += $(dep_toolchain_simpleamqpclient_lib)
+toolchain_statscpp_lib  += $(dep_toolchain_rabbitmq-c_lib)
+toolchain_statscpp_incl += $(dep_toolchain_simpleamqpclient_incl)
+toolchain_statscpp_incl += $(dep_toolchain_rabbitmq-c_incl)
+# End support for old stats directory structure
+
 
 # Boost settings.
 #
