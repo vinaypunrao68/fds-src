@@ -247,8 +247,8 @@ class DomainContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
-    @arg('svcid', type=str, default='om')
-    def showdmt(self):
+    @arg('svcid', help="service id", nargs='?', default='om')
+    def showdmt(self, svcid):
         'display dmt info'
         if svcid == 'om':
             omClient = ServiceMap.client(1028)
@@ -258,9 +258,9 @@ class DomainContext(Context):
             dmt.load(msg.dmt_data.dmt_data)
             dmt.dump()
         else:
-            for uuid in self.getServiceIds(svcid):
+            for uuid in self.config.getServiceApi().getServiceIds(svcid):
                 try:
-                    print "==>From service: {}".format(uuid)
+                    print "==>From service: {}".format(self.config.getServiceApi().getServiceName(uuid))
                     msg = ServiceMap.client(uuid).getDMT(None)
                     dmt = dmtdlt.DMT(self.config)
                     dmt.load(msg.dmt_data.dmt_data)
@@ -268,13 +268,13 @@ class DomainContext(Context):
                     print "\n"
                 except Exception, e:
                     log.exception(e)
-                    print "unable to get dmt from service: {}".format(uuid)
+                    print "unable to get dmt from service: {}".format(self.config.getServiceApi().getServiceName(uuid))
 
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
-    @arg('svcid', type=str, default='om')
-    def showdlt(self):
+    @arg('svcid', help="service id", nargs='?', default='om')
+    def showdlt(self, svcid):
         'display dlt info'
         if svcid == 'om':
             omClient = ServiceMap.client(1028)
@@ -284,9 +284,9 @@ class DomainContext(Context):
             dlt.load(msg.dlt_data.dlt_data)
             dlt.dump()
         else:
-            for uuid in self.getServiceIds(svcid):
+            for uuid in self.config.getServiceApi().getServiceIds(svcid):
                 try:
-                    print "==>From service: {}".format(uuid)
+                    print "==>From service: {}".format(self.config.getServiceApi().getServiceName(uuid))
                     msg = ServiceMap.client(uuid).getDLT(None)
                     dlt = dmtdlt.DLT(self.config)
                     dlt.load(msg.dlt_data.dlt_data)
@@ -294,7 +294,7 @@ class DomainContext(Context):
                     print "\n"
                 except Exception, e:
                     log.exception(e)
-                    print "unable to get dlt from service: {}".format(uuid)
+                    print "unable to get dmt from service: {}".format(self.config.getServiceApi().getServiceName(uuid))
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
