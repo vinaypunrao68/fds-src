@@ -53,6 +53,7 @@ fds: {
             nbd_connector = {{ ft_am_nbd_enabled }}
             serialization = "{{ am_req_serialization }}"
             all_atomic_ops = {{ am_all_atomic_ops }}
+            cache_missing_cat_entries = {{ am_cache_missing_cat }}
         }
         om: {
            allow_service_reregistration = {{ ft_allow_service_reregistration }}
