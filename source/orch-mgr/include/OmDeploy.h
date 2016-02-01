@@ -166,9 +166,6 @@ class OM_DLTMod : public Module
     // to protect access to msm process_event
     fds_mutex               fsm_lock;
 };
-
-extern OM_DLTMod             gl_OMDltMod;
-
 }  // namespace fds
 
 #endif  // SOURCE_ORCH_MGR_INCLUDE_OMDEPLOY_H_

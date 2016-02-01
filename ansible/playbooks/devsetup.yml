@@ -189,6 +189,7 @@
         - libcurl4-openssl-dev
         - npm
         - nodejs-legacy
+        - open-iscsi
         - ruby1.9.1-full
         - ruby-sass
         - python-concurrent.futures
@@ -203,6 +204,7 @@
         - libhiredis0.10
         - libhiredis-dev
         - libsqlite3-dev
+        - sg3-utils
         - scsitools
         - swig3.0
         - sshpass
@@ -251,8 +253,8 @@
         state=present
         extra_args="--extra-index-url=https://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/pypi/formation-pip/simple"
       with_items:
-        - "fdscli==0.1.17"
-        - "fdsutil==0.3.7"
+        - "fdscli==0.1.18"
+        - "fdsutil==0.3.8"
 
     - name: install perl modules
       cpanm: name={{ item }} mirror=http://cpan.mirror.vexxhost.com notest=true

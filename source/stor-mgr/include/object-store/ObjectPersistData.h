@@ -51,7 +51,8 @@ class SmPersistStoreHandler {
      * @param[out] retStat stats of active file (which we are writing,
      * not gc) for a given SM token and tier
      */
-    virtual void getSmTokenStats(fds_token_id smTokId,
+    virtual void getSmTokenStats(DiskId diskId,
+                                 fds_token_id smTokId,
                                  diskio::DataTier tier,
                                  diskio::TokenStat* retStat) = 0;
 
@@ -61,20 +62,23 @@ class SmPersistStoreHandler {
      * disk will be compacted. All new writes will be re-routed to the
      * appropriate (new) token file.
      */
-    virtual void notifyStartGc(fds_token_id smTokId,
+    virtual void notifyStartGc(DiskId diskId,
+                               fds_token_id smTokId,
                                diskio::DataTier tier) = 0;
 
     /**
      * Notify about end of garbage collection for a given token id
      * 'tok_id' and tier.
      */
-    virtual Error notifyEndGc(fds_token_id smTokId,
+    virtual Error notifyEndGc(DiskId diskId,
+                              fds_token_id smTokId,
                               diskio::DataTier tier) = 0;
 
     /**
      * Returns true if a given location is a shadow file
      */
-    virtual fds_bool_t isShadowLocation(obj_phy_loc_t* loc,
+    virtual fds_bool_t isShadowLocation(DiskId diskId,
+                                        obj_phy_loc_t* loc,
                                         fds_token_id smTokId) = 0;
 
     virtual void evaluateSMTokenObjSets(const fds_token_id &smToken,
@@ -187,13 +191,17 @@ class ObjectPersistData : public Module,
                            const obj_phy_loc_t* loc);
 
      // Implementation of SmScavengerHandler
-    void notifyStartGc(fds_token_id smTokId,
+    void notifyStartGc(DiskId diskId,
+                       fds_token_id smTokId,
                        diskio::DataTier tier);
-    Error notifyEndGc(fds_token_id smTokId,
+    Error notifyEndGc(DiskId diskId,
+                      fds_token_id smTokId,
                       diskio::DataTier tier);
-    fds_bool_t isShadowLocation(obj_phy_loc_t* loc,
+    fds_bool_t isShadowLocation(DiskId diskId,
+                                obj_phy_loc_t* loc,
                                 fds_token_id smTokId);
-    void getSmTokenStats(fds_token_id smTokId,
+    void getSmTokenStats(DiskId diskId,
+                         fds_token_id smTokId,
                          diskio::DataTier tier,
                          diskio::TokenStat* retStat);
 
@@ -213,7 +221,8 @@ class ObjectPersistData : public Module,
     /**
      * Opens SM token file on a given tier and given file id
      */
-    Error openTokenFile(diskio::DataTier tier,
+    Error openTokenFile(DiskId diskId,
+                        diskio::DataTier tier,
                         fds_token_id smTokId,
                         fds_uint16_t fileId);
 
@@ -222,33 +231,40 @@ class ObjectPersistData : public Module,
      * and removes associated entry from tokFileTbl
      * @param delFile true if file should be deleted
      */
-    void closeTokenFile(diskio::DataTier tier,
+    void closeTokenFile(DiskId diskId,
+                        diskio::DataTier tier,
                         fds_token_id smTokId,
                         fds_uint16_t fileId,
                         fds_bool_t delFile);
     /**
-     * Translates <tier, SM token id, file id> into uint64 key
+     * Translates <disk id, tier, SM token id, file id> into uint64 key
      * into tokFileTbl
      * 0...31 bits: SM token id
      * 32..47 bits: file id
-     * 48..63 bits: tier
+     * 48..51 bits: tier
+     * 52..63 bits: disk id
      */
-    inline fds_uint64_t getFileKey(diskio::DataTier tier,
+    inline fds_uint64_t getFileKey(DiskId diskId,
+                                   diskio::DataTier tier,
                                    fds_token_id smTokId,
                                    fds_uint16_t fileId) const {
         fds_uint64_t key = tier;
+        key |= (diskId << 4);
         return (((key << 16) | fileId) << 16) | smTokId;
     }
 
     /**
-     * Translates <tier, token id> into uint64 key into writeFileIdMap
+     * Translates <disk id, tier, token id> into uint64 key
+     * into writeFileIdMap
      * 0...31 bits: token id
      * 32..47 bits: 0
-     * 48..63 bits: tier
+     * 48..51 bits: tier
+     * 52..63 bits: disk id
      */
-    inline fds_uint64_t getWriteFileIdKey(diskio::DataTier tier,
-                                          fds_token_id smTokId) const {
-        return getFileKey(tier, smTokId, 0);
+    inline fds_uint64_t getWriteFileKey(DiskId diskId,
+                                        diskio::DataTier tier,
+                                        fds_token_id smTokId) const {
+        return getFileKey(diskId, tier, smTokId, 0);
     }
 
     /**
@@ -267,10 +283,12 @@ class ObjectPersistData : public Module,
      * tuple. If garbage collection is in progress, this will be the index of
      * of a shadow file, otherwise it will be the index of an active file
      */
-    fds_uint16_t getWriteFileId(diskio::DataTier tier,
+    fds_uint16_t getWriteFileId(DiskId diskId,
+                                diskio::DataTier tier,
                                 fds_token_id smTokId);
 
-    diskio::FilePersisDataIO::shared_ptr getTokenFile(diskio::DataTier tier,
+    diskio::FilePersisDataIO::shared_ptr getTokenFile(DiskId diskId,
+                                                      diskio::DataTier tier,
                                                       fds_token_id smTokId,
                                                       fds_uint16_t fileId,
                                                       fds_bool_t openIfNotExist);

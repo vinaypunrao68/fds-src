@@ -86,7 +86,7 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
     // start garbage collection for this token -- tell persistent layer
     // to start routing requests to shadow (new) file to which we will
     // copy non-garbage objects
-    persistGcHandler->notifyStartGc(token_id, cur_tier);
+    persistGcHandler->notifyStartGc(cur_disk_id, token_id, cur_tier);
 
     /*
     // we may have writes currently in flight that are writing to old file.
@@ -219,7 +219,7 @@ void TokenCompactor::snapDoneCb(const Error& error,
         // filter out objects that are already in shadow file --
         // this could happen between times we started writing objs
         // to shadow file and we took this db snapshot
-        if (persistGcHandler->isShadowLocation(loc, token_id)) {
+        if (persistGcHandler->isShadowLocation(cur_disk_id, loc, token_id)) {
             LOGDEBUG << id << " already in shadow file (disk_id "
                      << loc->obj_stor_loc_id << " file_id "
                      << loc->obj_file_id << " tok " << token_id
@@ -393,7 +393,7 @@ Error TokenCompactor::handleCompactionDone(const Error& tc_error)
                   << " error:" << err;
         if (err.ok()) {
             // tell persistent layer we are done copying -- remove the old file
-            persistGcHandler->notifyEndGc(token_id, cur_tier);
+            persistGcHandler->notifyEndGc(cur_disk_id, token_id, cur_tier);
         }
 
         // notify the requester about the completion
