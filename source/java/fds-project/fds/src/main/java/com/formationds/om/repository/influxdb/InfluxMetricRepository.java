@@ -553,7 +553,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
 
     @Override
     public Double sumPhysicalBytes() {
-        return sumMetric( Metrics.UBYTES );
+        return sumMetric( Metrics.PBYTES );
     }
 
     protected Double sumMetric( Metrics metrics ) {

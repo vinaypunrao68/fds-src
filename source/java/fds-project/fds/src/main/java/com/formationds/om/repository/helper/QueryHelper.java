@@ -149,7 +149,7 @@ public class QueryHelper {
 
                 // let's get the physical bytes consumed.
                 Series physicalBytes = series.stream()
-                                             .filter( ( s ) -> Metrics.UBYTES.matches( s.getType( ) ) )
+                                             .filter( ( s ) -> Metrics.PBYTES.matches( s.getType( ) ) )
                                              .findFirst()
                                              .orElse( null );
 
