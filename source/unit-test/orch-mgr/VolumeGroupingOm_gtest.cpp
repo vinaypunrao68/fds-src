@@ -224,9 +224,17 @@ TEST_F(DmGroupFixture, DmClusterAddNodeTest) {
     dummySvcInfo.svc_uuid = lastNodePtr->service_uuid.uuid;
     ASSERT_TRUE(MODULEPROVIDER()->getSvcMgr()->getSvcInfo(dummySvcInfo, dummyInfo));
 
+    // Remove the fourth node and re-add it. This should go through.
+    deleteFakeDm(lastNodePtr);
+    nodeUuidCounter = lastNodePtr->node_uuid.uuid;
+    addNewFakeDm();
+    // Make sure that the node is in svcmap.
+    dummySvcInfo.svc_uuid = lastNodePtr->service_uuid.uuid;
+    ASSERT_TRUE(MODULEPROVIDER()->getSvcMgr()->getSvcInfo(dummySvcInfo, dummyInfo));
+
     // Add all the way to 8 nodes... should be no-op. This will change once we support
     // multiple dm clusters
-    for (int i = 0; i < 3; ++i) {
+    for (int i = 0; i < 4; ++i) {
         addNewFakeDm();
     }
     ASSERT_TRUE(hasCommittedDMT());
