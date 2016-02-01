@@ -38,6 +38,7 @@ import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria;
+import com.formationds.om.repository.query.builder.MetricQueryCriteriaBuilder;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 
@@ -46,6 +47,7 @@ import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -53,6 +55,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalLong;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
@@ -149,7 +152,7 @@ public class QueryHelper {
 
                 // let's get the physical bytes consumed.
                 Series physicalBytes = series.stream()
-                                             .filter( ( s ) -> Metrics.PBYTES.matches( s.getType( ) ) )
+                                             .filter( ( s ) -> Metrics.UBYTES.matches( s.getType( ) ) )
                                              .findFirst()
                                              .orElse( null );
 
@@ -182,7 +185,9 @@ public class QueryHelper {
 	                calculatedList.add( totalCap );
 
 	            	if ( physicalBytes != null ){
-	            		calculatedList.add( toFull( physicalBytes, systemCapacityInBytes ) );
+	            		calculatedList.add( secondsToFullThirtyDays( query.getContexts(),
+                                                                     Size.of( systemCapacityInBytes,
+                                                                              SizeUnit.B ) ) );
 
 	            	}
 	            	else {
@@ -358,7 +363,7 @@ public class QueryHelper {
             // get earliest data point
             OptionalLong oLong = volumeDatapoints.stream()
             		.filter( ( p ) -> metrics.matches( p.getKey() ) )
-            		.mapToLong( ( vdp ) -> vdp.getTimestamp() )
+            		.mapToLong( IVolumeDatapoint::getTimestamp )
             		.min();
 
             if ( oLong.isPresent() && oLong.getAsLong() > dateRange.getStart() && volumeDatapoints.size() > 0 ){
@@ -427,7 +432,7 @@ public class QueryHelper {
 
                             try {
                                 volumeId = String.valueOf(api.getVolumeId(vd.getName()));
-                            } catch (TException e) {
+                            } catch (TException ignored ) {
 
                             }
 
@@ -447,7 +452,7 @@ public class QueryHelper {
     		contexts = contexts.stream().filter( c -> {
                 boolean hasAccess = authorizer.ownsVolume(token, ((Volume) c).getName());
 
-                if ( hasAccess == false ){
+                if ( !hasAccess ){
     				// TODO: Add an audit event here because someone may be trying an attack
     				logger.warn( "User does not have access to query for volume: " + ((Volume)c).getName() +
     					".  It will be removed from the query context." );
@@ -502,10 +507,10 @@ public class QueryHelper {
      */
     protected List<PercentageConsumed> getTieringPercentage( List<Series> series ){
 
-    	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.HDD_GETS.name() ) )
-        	.findFirst().get();
-
+//    	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.HDD_GETS.name() ) )
+//        	.findFirst().get();
 //    	Double getsHdd = gets.getDatapoints().stream().mapToDouble( Datapoint::getY ).sum();
+
     	Double getsHdd = RedisSingleton.INSTANCE
                                        .api()
                                        .getDomainUsedCapacity()
@@ -536,7 +541,7 @@ public class QueryHelper {
     	PercentageConsumed hdd = new PercentageConsumed();
     	hdd.setPercentage( (double)hddPerc );
 
-    	List<PercentageConsumed> percentages = new ArrayList<PercentageConsumed>();
+    	List<PercentageConsumed> percentages = new ArrayList<>( );
     	percentages.add( ssd );
     	percentages.add( hdd );
 
@@ -557,7 +562,8 @@ public class QueryHelper {
                                       .getMetricsRepository()
                                       .sumPhysicalBytes();
         final CapacityDeDupRatio dedup = new CapacityDeDupRatio();
-        dedup.setRatio( Calculation.ratio( lbytes, pbytes ) );
+        final Double d = Calculation.ratio( lbytes, pbytes );
+        dedup.setRatio( d < 1.0 ? 1.0 : d );
         return dedup;
     }
 
@@ -578,6 +584,46 @@ public class QueryHelper {
         return full;
     }
 
+    private CapacityToFull capacityToFull = null;
+    private Instant lastUpdated;
+    private static final long SecondsIn24Hours = TimeUnit.HOURS.toSeconds( 24 );
+    public CapacityToFull secondsToFullThirtyDays( final List<Volume> volumes,
+                                                   final Size systemCapacity )
+    {
+        if( ( capacityToFull == null ) || lastUpdated.isAfter( Instant.now( )
+                                                                      .plusSeconds(
+                                                                          SecondsIn24Hours ) ) )
+        {
+            MetricQueryCriteriaBuilder queryBuilder =
+                new MetricQueryCriteriaBuilder( QueryCriteria.QueryType.SYSHEALTH_CAPACITY );
+
+            // TODO: for capacity time-to-full we need enough history to calculate the regression
+            // This was previously querying from 0 for all possible datapoints.  I think reducing to
+            // the last 30 days is sufficient, but will need to validate that.
+            DateRange range = DateRange.last( 30L, com.formationds.client.v08.model.TimeUnit.DAYS );
+            MetricQueryCriteria query = queryBuilder.withContexts( volumes )
+                                                    .withSeriesType( Metrics.UBYTES )
+                                                    .withRange( range )
+                                                    .build( );
+            query.setColumns( new ArrayList<>( ) );
+
+            final MetricRepository metricsRepository = SingletonRepositoryManager.instance( )
+                                                                                 .getMetricsRepository( );
+
+            @SuppressWarnings( "unchecked" ) final List<IVolumeDatapoint> queryResults =
+                ( List<IVolumeDatapoint> ) metricsRepository.query( query );
+
+            List<Series> series = SeriesHelper.getRollupSeries( queryResults, query.getRange( ),
+                                                                query.getSeriesType( ),
+                                                                StatOperation.SUM );
+
+            capacityToFull = toFull( series.get( 0 ), systemCapacity.getValue( SizeUnit.B ).doubleValue() );
+            lastUpdated = Instant.now();
+        }
+
+        return capacityToFull;
+    }
+
     /**
      * @return Returns {@link CapacityFull}
      */
@@ -589,9 +635,9 @@ public class QueryHelper {
          */
     	final SimpleRegression linearRegression = new SimpleRegression();
 
-    	pSeries.getDatapoints().stream().forEach( ( point ) -> {
-    		linearRegression.addData( point.getX(), point.getY() );
-    	});
+    	pSeries.getDatapoints()
+               .stream()
+               .forEach( ( point ) -> linearRegression.addData( point.getX( ), point.getY( ) ) );
 
     	Double secondsToFull = systemCapacity / linearRegression.getSlope();
         if( secondsToFull < 0.0 )
@@ -601,6 +647,12 @@ public class QueryHelper {
 
         final CapacityToFull to = new CapacityToFull();
         to.setToFull( secondsToFull.longValue() );
+
+        logger.trace( "To Full {} seconds; {} hours; {} days",
+                      secondsToFull.longValue(),
+                      TimeUnit.SECONDS.toHours( secondsToFull.longValue() ),
+                      TimeUnit.SECONDS.toDays( secondsToFull.longValue() ) );
+
         return to;
     }
 
