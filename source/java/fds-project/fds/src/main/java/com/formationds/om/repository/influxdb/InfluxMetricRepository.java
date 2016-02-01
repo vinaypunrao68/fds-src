@@ -273,6 +273,14 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         return (List<R>)vdps;
     }
 
+    /**
+     * Extract volume metadata from the given list of datapoints.  It is assumed that
+     * the list of datapoints contains data for only one volume.
+     *
+     * @param volumeId
+     * @param dps
+     * @return the VolumeInfo for the datapoints.
+     */
     private VolumeInfo extractVolumeMetadata(Long volumeId, List<IVolumeDatapoint> dps) {
         if (dps == null || dps.size() == 0 ) {
             return new VolumeInfo(volumeId);
@@ -282,11 +290,15 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     }
 
     /**
+     * Convert the set of volume data points to an array of metric values for
+     * insertion into an InfluxDB Serie row.
      *
      * @param ts
      * @param volumeId
      * @param voldps
-     * @return
+     *
+     * @return the metric values from the volume datapoints, ordered by the index of
+     *    columns defined by {@link #getVolumeMetricColumnNames()}
      */
     protected Object[] convertPointsToSeriesRow( Long ts, VolumeInfo volumeInfo, List<IVolumeDatapoint> voldps ) {
         Object[] metricValues = new Object[getVolumeMetricColumnNames().size()];
@@ -296,6 +308,19 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         metricValues[2] = volumeInfo.getDomainName();
         metricValues[3] = volumeInfo.getVolumeName();
 
+        populateMetricValues( voldps, metricValues );
+
+        return metricValues;
+    }
+
+    /**
+     * For each volume datapoint, populate the corresponding entry in the
+     * metric values array.
+     *
+     * @param voldps the volume datapoints
+     * @param metricValues the metric values array to populate
+     */
+    protected void populateMetricValues( List<IVolumeDatapoint> voldps, Object[] metricValues ) {
         for ( IVolumeDatapoint vdp : voldps ) {
 
             // TODO: assert that volume name in datapoint matches the volume info volume name.
@@ -311,14 +336,21 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
             }
             metricValues[midx] = vdp.getValue();
         }
-
-        return metricValues;
     }
 
+    /**
+     *
+     * @param v the volume
+     * @return the series name for the specified volume
+     */
     protected String getSeriesName(VolumeInfo v) {
         return getEntityName();
     }
 
+    /**
+     *
+     * @return a new InfluxDB SerieBuilder populated by the series name function and list of metric columns
+     */
     protected SerieBuilder newSerieBuilder() {
         return new SerieBuilder( (v)-> {return getSeriesName(v); }, getVolumeMetricColumnNames() );
     }

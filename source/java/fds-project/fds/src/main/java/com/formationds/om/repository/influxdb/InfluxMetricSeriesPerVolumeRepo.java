@@ -36,7 +36,7 @@ public class InfluxMetricSeriesPerVolumeRepo extends InfluxMetricRepository {
     private static final String METRICS_TOKEN = "&metrics";
 
     /**
-     * domain.${volumeDomain}_volname.${volumeName}_volid.${volumeId}_metrics
+     * domain=${volumeDomain}&volname=${volumeName}&volid=${volumeId}&metrics
      */
     public static final String SERIES_NAME_FMT = "domain=%s&volname=%s&volid=%d&metrics";
 
@@ -50,26 +50,62 @@ public class InfluxMetricSeriesPerVolumeRepo extends InfluxMetricRepository {
     // TODO: tenant id would be useful to have here too!  It is not in IVolumeDatapoint
     // or VolumeDatapoint so either need to add it there or look it up from cache...
 
+    /**
+     *
+     * @param domain the domain the volume belongs to
+     * @param volumeName the volume name
+     *
+     * @return the series name regular expression for querying by a known domain and volume name
+     */
     static final String querySeriesByVolumeName(String domain, String volumeName) {
         return String.format( SERIES_QUERY_BY_VOLNAME_DOMAIN_FMT, domain, volumeName );
     }
 
+    /**
+     * Series name regex for querying by a known volume domain and name
+     *
+     * @param domain the domain the volume belongs to
+     * @param volumeName the volume name
+     *
+     * @return the series name regular expression for querying by a known domain and volume name
+     */
     static final String querySeriesByVolumeDomain(String domain) {
         return String.format( SERIES_QUERY_ALL_FOR_VOLDOMAIN_FMT, domain );
     }
 
+    /**
+     * Series name regex for querying by a volume name.  If the same volume name is defined in
+     * multiple domains, the resulting query will return all of them.
+     *
+     * @param volumeName the volume name
+     *
+     * @return the series name regular expression for querying by a known volume name
+     */
     static final String querySeriesByVolumeName(String volumeName) {
         return String.format( SERIES_QUERY_BY_VOLNAME_FMT, volumeName );
     }
 
+    /**
+     * Series name regex for querying by a specific volume id
+     *
+     * @param volumeId the volume id
+     *
+     * @return the series name regular expression for querying by a known volume id
+     */
     static final String querySeriesByVolumeId(Long volumeId) {
         return String.format( SERIES_QUERY_BY_VOLID_FMT, volumeId );
     }
 
+    /**
+     * @return the series name regular expression for querying for all volumes
+     */
     static final String querySeriesAllVolumes() {
         return SERIES_QUERY_ALL_VOL_FMT;
     }
 
+    /**
+     * The default configuration for the Volume Metric DB
+     */
     public static final InfluxDatabase VOLUME_METRIC_DB =
             new InfluxDatabase.Builder( "om-volume-metricdb" )
             .addShardSpace( "default", "30d", "1d", "/.*/", 1, 1 )
@@ -260,32 +296,25 @@ public class InfluxMetricSeriesPerVolumeRepo extends InfluxMetricRepository {
 
 
     /**
+     * Convert the set of volume data points to an array of metric values for
+     * insertion into an InfluxDB Serie row.
+     *
+     * This implementation overrides the base implementation to eliminate the volume
+     * metadata columns that are now encoded in the series name.
      *
      * @param ts
      * @param volumeId
      * @param voldps
-     * @return
+     *
+     * @return the metric values from the volume datapoints, ordered by the index of
+     *    columns defined by {@link #getVolumeMetricColumnNames()}
      */
     protected Object[] convertPointsToSeriesRow( Long ts, VolumeInfo volumeInfo, List<IVolumeDatapoint> voldps ) {
         Object[] metricValues = new Object[getVolumeMetricColumnNames().size()];
 
         metricValues[0] = ts;
 
-        for ( IVolumeDatapoint vdp : voldps ) {
-
-            // TODO: assert that volume name in datapoint matches the volume info volume name.
-
-            // find the metric position
-            int midx = indexOf( vdp.getKey() );
-            if (midx == -1) {
-                // NOTE: We currently only populate InfluxDB with metrics explicitly defined in the
-                // Metrics enum.  Additional metrics were recently added to the stat stream that we
-                // are NOT writing to Influx at this time.
-                logger.trace( "Metric {} not found in Volume Metrics list.  Skipping.", vdp.getKey() );
-                continue;
-            }
-            metricValues[midx] = vdp.getValue();
-        }
+        populateMetricValues( voldps, metricValues );
 
         return metricValues;
     }
