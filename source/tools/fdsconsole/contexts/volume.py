@@ -199,40 +199,41 @@ class VolumeContext(Context):
         try:
             dmClient = self.config.getPlatform();
 
-            dmUuids = dmClient.svcMap.svcUuids('dm')
-            volId = dmClient.svcMap.omConfig().getVolumeId(volname)
+            for uuid in self.config.getServiceApi().getServiceIds('dm'):
+                volId = dmClient.svcMap.omConfig().getVolumeId(volname)
 
-            getblobmsg = FdspUtils.newGetBucketMsg(volId, startpos, count);
-            getblobmsg.pattern = pattern;
-            if orderby == 'BLOBNAME':
-                getblobmsg.orderBy = 1;
-            elif orderby == 'BLOBSIZE':
-                getblobmsg.orderBy = 2;
-            else:
-                getblobmsg.orderBy = 0;
-            getblobmsg.descending = descending;
-            listcb = WaitedCallback();
-            if patternSemantics == 'PCRE':
-                getblobmsg.patternSemantics = 0
-            elif patternSemantics == 'PREFIX':
-                getblobmsg.patternSemantics = 1
-            elif patternSemantics == 'PREFIX_AND_DELIMITER':
-                getblobmsg.patternSemantics = 2
-            getblobmsg.delimiter = delimiter
-            dmClient.sendAsyncSvcReq(dmUuids[0], getblobmsg, listcb)
+                getblobmsg = FdspUtils.newGetBucketMsg(volId, startpos, count);
+                getblobmsg.pattern = pattern;
+                if orderby == 'BLOBNAME':
+                    getblobmsg.orderBy = 1;
+                elif orderby == 'BLOBSIZE':
+                    getblobmsg.orderBy = 2;
+                else:
+                    getblobmsg.orderBy = 0;
+                getblobmsg.descending = descending;
+                cb = WaitedCallback();
+                if patternSemantics == 'PCRE':
+                    getblobmsg.patternSemantics = 0
+                elif patternSemantics == 'PREFIX':
+                    getblobmsg.patternSemantics = 1
+                elif patternSemantics == 'PREFIX_AND_DELIMITER':
+                    getblobmsg.patternSemantics = 2
+                getblobmsg.delimiter = delimiter
+                dmClient.sendAsyncSvcReq(uuid, getblobmsg, cb)
 
-            if not listcb.wait():
-                print 'async listblob request failed'
+                if not cb.wait():
+                    print 'req failed : {} : error={}'.format(self.config.getServiceApi().getServiceName(uuid), cb.header.msg_code if cb.header!= None else "--")
+                    continue
 
-            #import pdb; pdb.set_trace()
-            blobs = listcb.payload.blob_info_list;
-            # blobs.sort(key=attrgetter('blob_name'))
-            return tabulate([(x.blob_name, x.blob_size) for x in blobs],headers=
-                 ['blobname', 'blobsize'], tablefmt=self.config.getTableFormat())
+                #import pdb; pdb.set_trace()
+                blobs = cb.payload.blob_descr_list;
+                # blobs.sort(key=attrgetter('blob_name'))
+                print tabulate([(x.name, x.byteCount) for x in blobs],headers=
+                     ['blobname', 'blobsize'], tablefmt=self.config.getTableFormat())
 
         except Exception, e:
             log.exception(e)
-            return 'unable to get volume meta list'
+            print 'unable to get blob list'
 
     #--------------------------------------------------------------------------------------
     @clicmd
@@ -417,7 +418,7 @@ class VolumeContext(Context):
             helpers.printHeader('errors detected ...')
             for e in errors:
                 print e
-        
+
     #--------------------------------------------------------------------------------------
     @clidebugcmd
     @arg('volname', help='-volume name')
@@ -478,12 +479,14 @@ class VolumeContext(Context):
     #--------------------------------------------------------------------------------------
     @clidebugcmd
     @arg('objid', help='-objectid')
-    def getobject(self, objid):
+    @arg('--service', help='services to query', default='sm')
+    @arg('--size', help='size to dispplay', default=0)
+    def getobject(self, objid, service='sm', size=0):
         'get objects from sm'
         data = []
         dlt = self.config.getServiceApi().getDLT()
         errors = []
-        for uuid in self.config.getServiceApi().getServiceIds('sm'):
+        for uuid in self.config.getServiceApi().getServiceIds(service):
             msg = FdspUtils.newGetObjectMsg(1, binascii.a2b_hex(objid))
             cb = WaitedCallback();
             try:
@@ -491,7 +494,7 @@ class VolumeContext(Context):
             except Exception,e :
                 log.exception(e)
                 print 'error on connecting to {}'.format(self.config.getServiceApi().getServiceName(uuid))
-            
+
             if not cb.wait(10):
                 if cb.header.msg_code == 9:
                     errors.append('obj [{}] not found @ {}'.format(objid, self.config.getServiceApi().getServiceName(uuid)))
@@ -507,6 +510,9 @@ class VolumeContext(Context):
                 data += [('length' , str(len(value)))]
                 data += [('begin' , str(value[:30]))]
                 data += [('end' , str(value[-30:]))]
+                if size > 0:
+                    data += [('value', value[0:size])]
+
                 helpers.printHeader('info from {}'.format(self.config.getServiceApi().getServiceName(uuid)))
                 print tabulate(data, tablefmt=self.config.getTableFormat())
 
