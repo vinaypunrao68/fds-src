@@ -44,7 +44,7 @@ class Disk:
         assert re.match(Disk.DSK_PREFIX, path)
 
         self.dsk_path = path
-        self.dsk_cap  = 0
+        self.dsk_cap  = -1
         self.dsk_typ  = Disk.DSK_TYP_UNKNOWN
         self.dsk_formatted = 'Unknown'
         self.dsk_index_use = False
@@ -85,7 +85,8 @@ class Disk:
         if not header_output:
             print >>dest, '#path      os_use  index_use  type  bus   capacity (GB)'
             header_output = True
-        print >>dest, '%-11s%-8s%-11s%-6s%-6s%-d' % (self.dsk_path, self.dsk_os_use, self.dsk_index_use, self.dsk_typ, self.dsk_bus, self.dsk_cap)
+        if self.dsk_cap > 0:
+            print >>dest, '%-11s%-8s%-11s%-6s%-6s%-d' % (self.dsk_path, self.dsk_os_use, self.dsk_index_use, self.dsk_typ, self.dsk_bus, self.dsk_cap)
 
 ## ----------------------------------------------------------------
 
@@ -123,17 +124,22 @@ class Disk:
                 continue
 
             node_size = node.find('size')
-            assert node_size != None
+
+            if node_size is None:
+                continue
 
             units = node_size.get('units')
+
             if units == 'bytes':
                 self.dsk_cap = int(node_size.text) / Disk.DSK_GSIZE
                 break
             else:
                 self.dsk_cap = 0
-                print 'ERROR: lshw units size not implemented for:  ', node_logicalname.text
+                print 'WARNING: lshw units size not implemented for:  ', node_logicalname.text, ', ignoring. '
                 assert False
-        assert self.dsk_cap != 0
+
+        if self.dsk_cap < 0:
+            print 'WARNING: Size not detected for " ', node_logicalname.text, '", will ignore this device'
 
         # match type
         dev = re.split('/', path)
