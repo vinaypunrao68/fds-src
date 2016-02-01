@@ -1143,7 +1143,14 @@ void StatStreamTimerTask::runTimerTask() {
             }
 
             auto conn = StatsConnFactory::newConnection("localhost", 11011, "stats-service", "$t@t$");
-            conn->publishStatistics(stats);
+            if (conn)
+            {
+                conn->publishStatistics(stats);
+            }
+            else
+            {
+                GLOGERROR << "Unable to connect to stats service on localhost port 11011.";
+            }
         }
     }
 }
