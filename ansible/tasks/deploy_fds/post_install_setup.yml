@@ -76,6 +76,7 @@
 -   name: manual disk identification
     pause: prompt="Please examine /fds/dev/disk-config.conf on each node in your cluster, verify correctness and update as necessary for this deployment............  When you have completed the inspection, please return here and press enter to finish the deployment"
 
+    any_errors_fatal: true
     when: (clean_fds is defined and clean_fds == "yes") and (force is defined and force == "yes") and (fds_ft_platform_use_new_superblock is defined ) and (fds_ft_platform_use_new_superblock == "true") and (auto_disk_id is not defined or auto_disk_id == "false")
     tags:
         - post-install
