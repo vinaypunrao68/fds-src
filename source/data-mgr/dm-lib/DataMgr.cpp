@@ -607,6 +607,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
         }
     }
 
+#if 0
     if (!vdesc->isSnapshot()) {
         fds_uint64_t total_bytes = 0, total_blobs = 0, total_objects = 0;
         err = timeVolCat_->queryIface()->statVolumeLogical(vdesc->volUUID,
@@ -618,6 +619,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
                   << " objects:" << total_objects
                   << " size:" << total_bytes << "]";
     }
+#endif
 
     VolumeMeta *volmeta = new VolumeMeta(MODULEPROVIDER(),
                                          vol_name,
