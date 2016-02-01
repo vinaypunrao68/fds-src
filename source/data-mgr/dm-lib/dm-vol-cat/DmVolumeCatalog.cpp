@@ -515,7 +515,7 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volId, const std::string& blobName,
     *blobSize = 0;
     Error rc = getBlobMeta(volId, blobName, blobVersion, blobSize, metaList);
     if (!rc.ok()) {
-        LOGNOTIFY << "Failed to retrieve blob '" << blobName << "' volume '" <<
+        LOGDEBUG << "Failed to retrieve blob '" << blobName << "' volume '" <<
                 std::hex << volId << std::dec << "'";
         return rc;
     }
@@ -524,7 +524,7 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volId, const std::string& blobName,
         // empty blob
         return rc;
     } else if (startOffset >= *blobSize) {
-        LOGNOTIFY << "For Blob '" << blobName
+        LOGDEBUG  << "For Blob '" << blobName
                   << "', Volume '" << std::hex << volId << std::dec
                   << "', start offset of <" << startOffset
                   << "> not less than Blob size <" << *blobSize
