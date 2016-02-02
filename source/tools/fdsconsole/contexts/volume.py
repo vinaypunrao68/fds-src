@@ -392,10 +392,17 @@ class VolumeContext(Context):
         msg.volume_id = volId
         dlt = self.config.getServiceApi().getDLT()
         errors = []
+        callbacks={}
         for uuid in self.config.getServiceApi().getServiceIds('dm'):
             cb = WaitedCallback();
-            self.config.getPlatform().sendAsyncSvcReq(uuid, msg, cb, None, dlt.version)
+            try:
+                self.config.getPlatform().sendAsyncSvcReq(uuid, msg, cb, None, dlt.version)
+                callbacks[uuid]=cb
+            except Exception,e :
+                log.exception(e)
+                print 'error on connecting to {}'.format(self.config.getServiceApi().getServiceName(uuid))
 
+        for uuid, cb in callbacks.items():
             if not cb.wait(10):
                 errors.append('volume stats failed:{} error:{}'.format(self.config.getServiceApi().getServiceName(uuid), cb.header.msg_code if cb.header!= None else "--"))
             else:
@@ -415,7 +422,9 @@ class VolumeContext(Context):
     @clidebugcmd
     @arg('volname', help='-volume name')
     @arg('blobname', help='-blob name')
-    def blobinfo(self, volname, blobname):
+    @arg('--start', help='start offset', default=0)
+    @arg('--end', help='end offset', default=-1)
+    def blobinfo(self, volname, blobname, start=0, end=-1):
         'display objects/meta in a blob'
         data = []
         volId = self.getVolumeId(volname)
@@ -429,10 +438,18 @@ class VolumeContext(Context):
             msg = FdspUtils.newSvcMsgByTypeId('QueryCatalogMsg');
             msg.volume_id = volId
             msg.blob_name = blobname
+            msg.start_offset = start
+            msg.end_offset = end
             cb = WaitedCallback();
-            self.config.getPlatform().sendAsyncSvcReq(uuid, msg, cb, None, dlt.version)
+            try:
+                self.config.getPlatform().sendAsyncSvcReq(uuid, msg, cb, None, dlt.version)
+            except Exception,e :
+                log.exception(e)
+                print 'error on connecting to {}'.format(self.config.getServiceApi().getServiceName(uuid))
 
             if not cb.wait(10):
+                if cb.header == None:
+                    break
                 if cb.header.msg_code == 6:
                     errors.append('>>> blob [{}] not found @ {}'.format(blobname, self.config.getServiceApi().getServiceName(uuid)))
                 else:
@@ -469,8 +486,12 @@ class VolumeContext(Context):
         for uuid in self.config.getServiceApi().getServiceIds('sm'):
             msg = FdspUtils.newGetObjectMsg(1, binascii.a2b_hex(objid))
             cb = WaitedCallback();
-            self.config.getPlatform().sendAsyncSvcReq(uuid, msg, cb, None, dlt.version)
-
+            try:
+                self.config.getPlatform().sendAsyncSvcReq(uuid, msg, cb, None, dlt.version)
+            except Exception,e :
+                log.exception(e)
+                print 'error on connecting to {}'.format(self.config.getServiceApi().getServiceName(uuid))
+            
             if not cb.wait(10):
                 if cb.header.msg_code == 9:
                     errors.append('obj [{}] not found @ {}'.format(objid, self.config.getServiceApi().getServiceName(uuid)))
