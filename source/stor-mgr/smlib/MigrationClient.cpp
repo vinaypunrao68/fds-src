@@ -294,7 +294,11 @@ MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr,
                                                                executorID,
                                                                getSeqNumDeltaSet(),
                                                                lastSet);
-    fds_verify(NULL != readDeltaSetReq);
+    if (!readDeltaSetReq) {
+        err = ERR_OUT_OF_MEMORY;
+        LOGERROR << "Memory allocation failed for readDeltaSet request with " << err;
+        return;
+    }
 
     readDeltaSetReq->io_type = FDS_SM_READ_DELTA_SET;
     readDeltaSetReq->smioReadObjDeltaSetReqCb = std::bind(

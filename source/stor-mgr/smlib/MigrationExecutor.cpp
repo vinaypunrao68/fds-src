@@ -357,10 +357,10 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         omd.syncObjectMetaData(omdFilter);
 
         if (omdFilter.objRefCnt > 0) {
-            LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
-                       << " FilterSet add ObjId=" << id << ", dltToken=" << dltTokId
-                       << " refcnt=" << omdFilter.objRefCnt << " to thrift msg to source SM "
-                       << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+            LOGTRACE << "Executor " << std::hex << executorId << std::dec
+                     << " FilterSet add ObjId=" << id << ", dltToken=" << dltTokId
+                     << " refcnt=" << omdFilter.objRefCnt << " to thrift msg to source SM "
+                     << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
             perTokenMsgs[dltTokId]->objectsToFilter.push_back(omdFilter);
             objAddedToFilterSet = true;
         }
