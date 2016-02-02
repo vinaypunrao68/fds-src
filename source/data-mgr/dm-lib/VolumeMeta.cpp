@@ -264,13 +264,14 @@ BufferReplay::ProgressCb VolumeMeta::synchronizedProgressCb(const BufferReplay::
     };
     return newCb;
 }
-void VolumeMeta::startInitializer()
+
+void VolumeMeta::startInitializer(bool force)
 {
     fds_assert(getState() == fpi::Offline);
     fds_assert(!isInitializerInProgress());
 
     /* Coordinator is set. We can go through sync protocol */
-    ++initializerTriesCnt;
+    initializerTriesCnt = force ? 1 : initializerTriesCnt + 1;
 
     setState(fpi::Loading,
              util::strformat(" - startInitializer.  Try #: %d", initializerTriesCnt));
@@ -286,6 +287,8 @@ void VolumeMeta::notifyInitializerComplete(const Error &completionError)
 
     if (completionError != ERR_OK) {
         scheduleInitializer(false);
+    } else {
+        initializerTriesCnt = 0;
     }
 }
 
@@ -302,7 +305,7 @@ void VolumeMeta::scheduleInitializer(bool fNow)
 
     if (fNow) {
         func();
-    } else if (initializerTriesCnt < maxInitializerTriesCnt) {
+    } else if (initializerTriesCnt > maxInitializerTriesCnt) {
         setState(fpi::Offline,
                 util::strformat(" - scheduleInitializer.  Failed too many times #: %d",
                         initializerTriesCnt));
