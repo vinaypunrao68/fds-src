@@ -572,11 +572,16 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
         if (DiskUtils::isDiskUnreachable(diskMap[diskId],
                                          diskDevMap[diskId],
                                          tempMountDir)) {
-            badDisks.insert(diskId);
+            std::string path = diskMap[diskId] + "/.tmp";
+            // check again
+            if (DiskUtils::diskFileTest(path)) {
+               //something's wrong with disk. Declare failed.
+               badDisks.insert(diskId);
+            }
         }
     }
     for (auto& badDiskId : badDisks) {
-        LOGWARN << "Disk with diskId = " << badDiskId << " is unaccessible";
+        LOGWARN << "Disk: " << badDiskId << " is unaccessible";
         markDiskBad(badDiskId);
         HDDs.erase(badDiskId);
         diskMap.erase(badDiskId);
@@ -589,11 +594,16 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
         if (DiskUtils::isDiskUnreachable(diskMap[diskId],
                                          diskDevMap[diskId],
                                          tempMountDir)) {
-            badDisks.insert(diskId);
+            std::string path = diskMap[diskId] + "/.tmp";
+            // check again.
+            if (DiskUtils::diskFileTest(path)) {
+                //something's wrong with disk. Declare failed.
+                badDisks.insert(diskId);
+            }
         }
     }
     for (auto& badDiskId : badDisks) {
-        LOGWARN << "Disk with diskId = " << badDiskId << " is unaccessible";
+        LOGWARN << "Disk: " << badDiskId << " is unaccessible";
         markDiskBad(badDiskId);
         SSDs.erase(badDiskId);
         diskMap.erase(badDiskId);
@@ -639,6 +649,8 @@ SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
     bool recomputed = false;
     bool diskAdded = true;
     LOGDEBUG << "Checking disk topology";
+
+    checkDisksAlive(newHDDs, newSSDs);
 
     /* Get the list of unique disk IDs from the OLT table.  This is
      * used to compare with the new set of HDDs and SSDs to determine

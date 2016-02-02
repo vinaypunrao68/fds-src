@@ -265,21 +265,23 @@ public class ExternalModelConverter {
                                                                  EnumMap<FirebreakType, ?> fbResults ) {
         VolumeState volumeState = convertToExternalVolumeState( internalVolume.getState() );
 
-        final Optional<com.formationds.apis.VolumeStatus> optionalStatus =
-            SingletonRepositoryManager.instance()
-                                      .getMetricsRepository().getLatestVolumeStatus( internalVolume.getName() );
-
-        Size extUsage = Size.of( 0L, SizeUnit.B );
+        Size extUsage;
 
         /**
          * We used to do the following in an attempt to get current usage. It seems to try to
          * make use of collected volume stats.
+         *
+         *
+         *   final Optional<com.formationds.apis.VolumeStatus> optionalStatus =
+         *       SingletonRepositoryManager.instance()
+         *                                 .getMetricsRepository()
+         *                                 .getLatestVolumeStatus( internalVolume.getName() );
+         *   if ( optionalStatus.isPresent() ) {
+         *       com.formationds.apis.VolumeStatus internalStatus = optionalStatus.get();
+         *       extUsage = Size.of( internalStatus.getCurrentUsageInBytes(), SizeUnit.B );
+         * }
          */
-        //if ( optionalStatus.isPresent() ) {
-        //    com.formationds.apis.VolumeStatus internalStatus = optionalStatus.get();
-        //
-        //    extUsage = Size.of( internalStatus.getCurrentUsageInBytes(), SizeUnit.B );
-        //}
+
         /**
          * But currently (01/07/2016) there seems to be some difficulty with this method.
          * Most likely, given the delay in reporting volume stats, the difficulty is in the
@@ -292,14 +294,15 @@ public class ExternalModelConverter {
             volumeStatus = SingletonAmAPI.instance().api().volumeStatus("" /* TODO: Dummy domain name. */,
                                                                         internalVolume.getName()).get();
         } catch (Exception e) {
-            logger.warn("Unknown Exception requesting volume status for " + internalVolume.getName() + ": " + e.getMessage());
-            return new VolumeStatus(VolumeState.Unknown, Size.ZERO);
+            logger.warn("Unknown Exception requesting volume status for " +
+                        internalVolume.getName() +
+                        ": " + e.getMessage());
+
+            return new VolumeStatus(volumeState, Size.ZERO);
         }
 
         extUsage = Size.of(volumeStatus.getCurrentUsageInBytes(), SizeUnit.B);
-        if (logger.isTraceEnabled()) { 
-            logger.trace("Determined extUsage for " + internalVolume.getName() + " to be " + extUsage + ".");
-        }
+        logger.trace("Determined extUsage for " + internalVolume.getName() + " to be " + extUsage + ".");
 
         Instant[] instants = {Instant.EPOCH, Instant.EPOCH};
         extractTimestamps( fbResults, instants );
