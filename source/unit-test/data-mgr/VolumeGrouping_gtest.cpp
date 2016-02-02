@@ -128,12 +128,15 @@ struct DmGroupFixture : BaseTestFixture {
         for (const auto &dm : dmGroup) {
             dms.push_back(dm->proc->getSvcMgr()->getSelfSvcUuid());
         }
+        
+        /* Add the DMT to om and am */
         std::string dmtData;
         dmt = DMT::newDMT(dms);
         dmt->getSerialized(dmtData);
+        omHandle.proc->addDmt(dmt);
         Error e = amHandle.proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
-                                                                                nullptr,
-                                                                                DMT_COMMITTED);
+                                                                          nullptr,
+                                                                          DMT_COMMITTED);
         ASSERT_TRUE(e == ERR_OK);
 
         /* Add volume to DM group */

@@ -537,7 +537,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
         fPrimary = amIPrimary(vdesc->srcVolumeId);
     } else if (vdesc->isSnapshot()) {
         // snapshot happens on all nodes
-        fPrimary = amIPrimaryGroup(vdesc->srcVolumeId);
+        fPrimary = amIinVolumeGroup(vdesc->srcVolumeId);
     } else {
         fPrimary = amIPrimary(vdesc->volUUID);
     }
@@ -606,20 +606,6 @@ Error DataMgr::addVolume(const std::string& vol_name,
             return err;
         }
     }
-
-#if 0
-    if (!vdesc->isSnapshot()) {
-        fds_uint64_t total_bytes = 0, total_blobs = 0, total_objects = 0;
-        err = timeVolCat_->queryIface()->statVolumeLogical(vdesc->volUUID,
-                                                           &total_bytes,
-                                                           &total_blobs,
-                                                           &total_objects);
-        LOGNORMAL << "vol:" << vdesc->volUUID << " name:" << vdesc->name
-                  << " loaded with [blobs:" << total_blobs
-                  << " objects:" << total_objects
-                  << " size:" << total_bytes << "]";
-    }
-#endif
 
     VolumeMeta *volmeta = new VolumeMeta(MODULEPROVIDER(),
                                          vol_name,
@@ -1359,7 +1345,7 @@ DataMgr::amIPrimary(fds_volid_t volUuid) {
 }
 
 fds_bool_t
-DataMgr::amIPrimaryGroup(fds_volid_t volUuid) {
+DataMgr::amIinVolumeGroup(fds_volid_t volUuid) {
     if (features.isVolumegroupingEnabled()) {
         if (MODULEPROVIDER()->getSvcMgr()->hasCommittedDMT()) {
             const DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->\
@@ -1519,6 +1505,9 @@ DataMgr::getAllVolumeDescriptors()
         GLOGNOTIFY << "Pulled create for vol "
                    << "[" << vol_uuid << ", "
                    << desc.getName() << "]";
+        if (features.isVolumegroupingEnabled() && !amIinVolumeGroup(vol_uuid)) {
+            continue;
+        }
         err = addVolume(getPrefix() + std::to_string(vol_uuid.get()),
                         vol_uuid,
                         &desc);
