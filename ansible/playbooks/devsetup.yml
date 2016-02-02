@@ -247,6 +247,7 @@
         - python-iptables
         - retry
         - humanize
+        - numpy
 
     - name: install fdscli from Artifactory
       pip: name={{item}}
