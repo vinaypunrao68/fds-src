@@ -253,8 +253,8 @@
         state=present
         extra_args="--extra-index-url=https://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/pypi/formation-pip/simple"
       with_items:
-        - "fdscli==0.1.18"
-        - "fdsutil==0.3.8"
+        - "fdscli==0.1.19"
+        - "fdsutil==0.3.9"
 
     - name: install perl modules
       cpanm: name={{ item }} mirror=http://cpan.mirror.vexxhost.com notest=true
