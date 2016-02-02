@@ -30,17 +30,24 @@ def suiteConstruction(self):
     # Test a list volumes
     suite.addTest(testcases.TestISCSIIntFace.TestISCSIListVolumes(None, 'volISCSI'))
 
+    # Test cases can run local or on an initiator node named in the FdsConfigFile.
+    # This suite specifies an initiator.
+    initiator_name = 'initiator1'
     # Save target name to fixture
-    suite.addTest(testcases.TestISCSIIntFace.TestISCSIDiscoverVolume())
+    suite.addTest(testcases.TestISCSIIntFace.TestISCSIDiscoverVolume(None,
+            initiator_name, 'volISCSI'))
 
     # Attach iSCSI device
-    suite.addTest(testcases.TestISCSIIntFace.TestISCSIAttachVolume(None, None, 'volISCSI'))
+    suite.addTest(testcases.TestISCSIIntFace.TestISCSIAttachVolume(None,
+            initiator_name, None, 'volISCSI'))
 
     # Need a file system...
-    suite.addTest(testcases.TestISCSIIntFace.TestISCSIMakeFilesystem(None, None, 'volISCSI'))
+    suite.addTest(testcases.TestISCSIIntFace.TestISCSIMakeFilesystem(None,
+            initiator_name, None, 'volISCSI'))
 
     # Use the char device interface
-    suite.addTest(testcases.TestISCSIIntFace.TestISCSIUnitReady(None, None, 'volISCSI'))
+    suite.addTest(testcases.TestISCSIIntFace.TestISCSIUnitReady(None, 
+            initiator_name, None, 'volISCSI'))
 
     # This is where we will add char device interface tests, if they make sense,
     # for all of:
@@ -64,7 +71,8 @@ def suiteConstruction(self):
     # WRITE_16
 
     # Run an fio sequential write workload
-    suite.addTest(testcases.TestISCSIIntFace.TestISCSIFioSeqW(None, None, 'volISCSI'))
+    suite.addTest(testcases.TestISCSIIntFace.TestISCSIFioSeqW(None,
+            initiator_name, None, 'volISCSI'))
 
     # Run an fio random write workload
 #    suite.addTest(testcases.TestISCSIIntFace.TestBlockFioRandW())
@@ -77,7 +85,8 @@ def suiteConstruction(self):
 
     # Detach iSCSI volume by logging out of iSCSI node record.
     # Also cleans up by deleting iSCSI node record.
-    suite.addTest(testcases.TestISCSIIntFace.TestISCSIDetachVolume(None, None, 'volISCSI'))
+    suite.addTest(testcases.TestISCSIIntFace.TestISCSIDetachVolume(None,
+            initiator_name, None, 'volISCSI'))
 
     return suite
 

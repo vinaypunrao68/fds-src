@@ -104,12 +104,21 @@ struct PlatNetSvcHandler : HasModuleProvider,
                    const std::string& payload) override;
     void asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                    boost::shared_ptr<std::string>& payload) override;
-    virtual void getSvcMap(std::vector<fpi::SvcInfo> & _return,
+    void getSvcMap(std::vector<fpi::SvcInfo> & _return,
                            const int64_t nullarg) override;
-    virtual void getSvcMap(std::vector<fpi::SvcInfo> & _return,
+    void getSvcMap(std::vector<fpi::SvcInfo> & _return,
                            boost::shared_ptr<int64_t>& nullarg) override;
-    virtual void getSvcMap(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+    void getSvcMap(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                            boost::shared_ptr<fpi::GetSvcMapMsg> &msg);
+    void getDLT( fpi::CtrlNotifyDLTUpdate& _return, const int64_t nullarg) override {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+    void getDMT( fpi::CtrlNotifyDMTUpdate& _return, const int64_t nullarg) override {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+        return;
+    }
+    void getDLT(fpi::CtrlNotifyDLTUpdate& _return, SHPTR<int64_t>& nullarg) override;
+    void getDMT(fpi::CtrlNotifyDMTUpdate& _return, SHPTR<int64_t>& nullarg) override;
 
     // void asyncResp2(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                     // boost::shared_ptr<std::string>& payload);

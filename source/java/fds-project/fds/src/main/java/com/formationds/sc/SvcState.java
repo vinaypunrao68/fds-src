@@ -255,6 +255,18 @@ public class SvcState implements AutoCloseable, PlatNetSvc.Iface {
     }
 
     @Override
+    public CtrlNotifyDMTUpdate getDMT(long nullarg) throws TException
+    {
+        return null;
+    }
+
+    @Override
+    public CtrlNotifyDLTUpdate getDLT(long nullarg) throws TException
+    {
+    	return null;
+    }
+
+    @Override
     public void notifyNodeActive(FDSP_ActivateNodeType info) throws TException {
 
     }

@@ -254,7 +254,7 @@ int SvcMgr::mod_init(SysParams const *const p)
 
 void SvcMgr::mod_startup()
 {
-    if (MODULEPROVIDER()->get_cntrs_mgr() != NULL) {
+    if (MODULEPROVIDER()->get_cntrs_mgr() != nullptr) {
         stateProviderId = "svcmgr";
         MODULEPROVIDER()->get_cntrs_mgr()->add_for_export(this);
     }
@@ -269,7 +269,9 @@ void SvcMgr::mod_enable_service()
 
 void SvcMgr::mod_shutdown()
 {
-    MODULEPROVIDER()->get_cntrs_mgr()->remove_from_export(this);
+    if (MODULEPROVIDER()->get_cntrs_mgr() != nullptr) {
+        MODULEPROVIDER()->get_cntrs_mgr()->remove_from_export(this);
+    }
     GLOGNOTIFY;
 }
 
@@ -610,6 +612,11 @@ Error SvcMgr::getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors &list, int ma
 
 const DLT* SvcMgr::getCurrentDLT() {
     return dltMgr_->getDLT();
+}
+
+DMTPtr SvcMgr::getCurrentDMT()
+{
+    return dmtMgr_->hasCommittedDMT() ? dmtMgr_->getDMT(DMT_COMMITTED) : nullptr;
 }
 
 bool SvcMgr::hasCommittedDMT() const {

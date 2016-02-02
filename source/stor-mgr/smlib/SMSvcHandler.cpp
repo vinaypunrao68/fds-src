@@ -368,7 +368,7 @@ SMSvcHandler::finishClientTokenResync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
 void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                               boost::shared_ptr<fpi::PrepareForShutdownMsg>& shutdownMsg)
 {
-    LOGDEBUG << "Received shutdown message... shutting down...";
+    LOGNOTIFY << "Received shutdown message... shutting down...";
     if (!objStorMgr->isShuttingDown()) {
         objStorMgr->objectStore->resetResync();
         objStorMgr->mod_disable_service();
