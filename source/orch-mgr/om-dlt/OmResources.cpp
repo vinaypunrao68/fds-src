@@ -1611,10 +1611,10 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         // At the end of error handling we will explicitly clear "next" version
         // and newDlt out as a part of clearSMAbortParams()
         bool unsetTarget = !(DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue());
-        dp->commitDlt( unsetTarget );
+        bool committed = dp->commitDlt( unsetTarget );
 
         LOGNOTIFY << "OM deployed DLT with "
-                  << deployed_sm_services.size() << " nodes";
+                  << deployed_sm_services.size() << " nodes, committedDlt? " << committed;
 
         // Same reasoning as above
         unsetTarget = !(DltDmtUtil::getInstance()->isDMAbortAfterRestartTrue());
