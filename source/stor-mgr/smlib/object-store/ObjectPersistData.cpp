@@ -180,23 +180,23 @@ ObjectPersistData::closeAndDeleteObjectDataFiles(const SmTokenSet& smTokensLost,
                              << " write file id: " << fileId;
                 }
 
-                // actually close and delete SM token file
-                closeTokenFile(diskId, tierNum, *cit, fileId, true);
-                LOGNOTIFY << "Closed and deleted token file for tier: " << tierNum
-                          << " sm token: " << *cit << " fileId: " << fileId;
-
                 bool tcInProg = false;
                 if (failedDisk) {
                     tcInProg = smDiskMap->superblock->compactionInProgressNoLock(diskId, *cit, tierNum);
                 } else {
                     tcInProg = smDiskMap->superblock->compactionInProgress(diskId, *cit, tierNum);
                 }
+                // actually close and delete SM token file
+                closeTokenFile(diskId, tierNum, *cit, fileId, true);
+                LOGNOTIFY << "Closed and deleted token file for tier: " << tierNum
+                          << " disk: " << diskId << " sm token: " << *cit << " fileId: " << fileId;
+
                 // also close and delete old file if compaction is in progress
                 if (tcInProg) {
                     fds_uint16_t oldFileId = getShadowFileId(fileId);
                     closeTokenFile(diskId, tierNum, *cit, oldFileId, true);
-                    LOGDEBUG << "Closed and deleted shadow token file for tier " << tierNum
-                             << " smTokId " << *cit << " fileId " << fileId;
+                    LOGNOTIFY << "Closed and deleted shadow token file for tier: " << tierNum
+                              << " disk: " << diskId << " sm token: " << *cit << " fileId: " << fileId;
                 }
             }
         }

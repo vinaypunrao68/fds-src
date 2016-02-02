@@ -82,6 +82,7 @@ void SvcProcess::init(int argc, char *argv[],
         /* Set up process related services such as logger, timer, etc. */
         FdsProcess::init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec);
     } else {
+        LOGDEBUG << "Initializing as module";
         initAsModule_(argc, argv, def_cfg_file, base_path, mod_vec);
     }
 

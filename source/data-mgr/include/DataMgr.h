@@ -107,9 +107,9 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     fds_bool_t amIPrimary(fds_volid_t volUuid);
 
     /**
-     * If this DM, given the volume, is within the Primary group.
+     * If this DM, given the volume, is within the volume group.
      */
-    fds_bool_t amIPrimaryGroup(fds_volid_t volUuid);
+    fds_bool_t amIinVolumeGroup(fds_volid_t volUuid);
 
 
     inline StatStreamAggregator::ptr statStreamAggregator() {

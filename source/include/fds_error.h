@@ -96,6 +96,7 @@ namespace fds {
     ADD(ERR_SYNC_INPROGRESS, = 76, "Sync is in progress"),\
     ADD(ERR_VOLMETA_NOT_FOUND, = 77, "Volume Metadata not found"),\
     ADD(ERR_SYNCPEER_UNAVAILABLE, = 78, "Sync peer is unavailable"),\
+    ADD(ERR_DM_NOT_IN_VG, = 78, "DM does not belong in existing Volume Group"),\
     \
     /* I/O error range */            \
     ADD(ERR_IO_DLT_MISMATCH,= 100," "), \
