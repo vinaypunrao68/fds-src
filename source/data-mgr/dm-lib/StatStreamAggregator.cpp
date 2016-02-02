@@ -841,7 +841,9 @@ void StatStreamTimerTask::runTimerTask() {
     }
 
     bool logLocal = reg_->method == std::string("log-local");
-    std::unordered_map<std::string, fds_volid_t> volumeIds;
+    // Needed because the new stats service identifies volume by ID. Populated toward the bottom
+    // of the loop.
+    std::unordered_map<std::string, fds_volid_t> volumeNameToVolumeId;
     for (auto volId : volumes) {
         //LOGTRACE << "Generating stream for volume <" << volId << ">.";
         std::vector<StatSlot> slots;
@@ -852,8 +854,6 @@ void StatStreamTimerTask::runTimerTask() {
             continue;
         }
         const std::string & volName = dataManager_.volumeName(volId);
-
-        volumeIds.emplace(volName, volId);
 
         /**
          * For non-logLocal registrations, we'll always stream the fine-grained stats because they
@@ -1091,6 +1091,10 @@ void StatStreamTimerTask::runTimerTask() {
             volDataPointsMap[timestamp].push_back(recentPerfWma);
         }
 
+        // Populate just before adding the volume to the list of stats, so we'll never try to look
+        // up a name that isn't present.
+        volumeNameToVolumeId.emplace(volName, volId);
+
         for (auto dp : volDataPointsMap) {
             fpi::volumeDataPoints volDataPoint;
             volDataPoint.volume_name = volName;
@@ -1136,7 +1140,7 @@ void StatStreamTimerTask::runTimerTask() {
                                        StatConstants::singleton()->FdsStatFGStreamPeriodFactorSec,
                                        TimeUnit::SECONDS,
                                        1,
-                                       volumeIds[dataPoint.volume_name].get(),
+                                       volumeNameToVolumeId[dataPoint.volume_name].get(),
                                        ContextType::VOLUME,
                                        AggregationType::UNKNOWN);
                 }
