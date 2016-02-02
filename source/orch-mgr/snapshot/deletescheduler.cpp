@@ -126,7 +126,7 @@ void DeleteScheduler::run() {
                              << task->volumeId;
                 }
 
-                if (nextTime > currentTime) {
+                if (nextTime != 0) {
                     task->runAtTime = nextTime;
                     LOGDEBUG << "rescheduling volume:" << task->volumeId
                              << " @ " << fds::util::getLocalTimeString(task->runAtTime);

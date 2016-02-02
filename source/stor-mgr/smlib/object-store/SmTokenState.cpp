@@ -94,9 +94,6 @@ TokenDescTable::getWriteFileId(DiskId diskId,
     fds_verify(smToken < SMTOKEN_COUNT);
     auto idx = getIdx(diskId, smToken, tier);
     if (idx >= MAX_HOST_DISKS) {
-        LOGERROR << "Invalid disk id: " << diskId
-                 << " sm token: "<< smToken
-                 << " tier: " << tier;
         return SM_INVALID_FILE_ID;
     } else {
         return stateTbl[row(tier)][smToken][idx].writeFileId;
@@ -140,9 +137,6 @@ TokenDescTable::isCompactionInProgress(DiskId diskId,
                                        diskio::DataTier tier) const {
     auto idx = getIdx(diskId, smToken, tier);
     if (idx >= MAX_HOST_DISKS) {
-        LOGERROR << "Invalid disk id: " << diskId
-                 << " sm token: "<< smToken
-                 << " tier: " << tier;
         return false;
     }
  

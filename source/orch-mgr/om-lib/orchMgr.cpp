@@ -147,7 +147,7 @@ void OrchMgr::proc_pre_startup()
 
 void OrchMgr::proc_pre_service()
 {
-    if ( enableTimeline ) 
+    if ( !test_mode && enableTimeline )
     {
         snapshotMgr->init();
     }
@@ -206,9 +206,9 @@ int OrchMgr::run()
         deleteScheduler.start();
         runConfigService(this);
     } else {
-        // not in test mode but need to spin
+        // just sleep for the duration of the test
         while (true) {
-            sleep(1000);
+            sleep(60);
         }
     }
     return 0;
@@ -602,7 +602,7 @@ bool OrchMgr::loadFromConfigDB() {
     OM_Module::om_singleton()->om_volplace_mod()->setConfigDB(getConfigDB());
 
     // load the snapshot policies
-    if (enableTimeline) {
+    if (!test_mode && enableTimeline) {
         snapshotMgr->loadFromConfigDB();
     }
 
