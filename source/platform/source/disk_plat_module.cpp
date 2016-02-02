@@ -150,10 +150,11 @@ void DiskPlatModule::dsk_discover_mount_pts()
 
         if (dsk == NULL)
         {
-            LOGNORMAL << "Can't find maching dev " << ent->mnt_fsname;
-        }else {
+            LOGNORMAL << "Can't find matching dev " << ent->mnt_fsname;
+        }
+        else
+        {
             dsk->dsk_set_mount_point(ent->mnt_dir);
-            dsk->dsk_get_parent()->dsk_set_mount_point(ent->mnt_dir);
         }
         LOGNORMAL << ent->mnt_fsname << " -> " << ent->mnt_dir;
     }
@@ -277,12 +278,18 @@ void DiskPlatModule::dsk_rescan()
         if (slice == NULL) {
             GLOGDEBUG << "slice is NULL";
             struct udev_device   *dev;
-            Resource::pointer     rs = dsk_devices->rs_alloc_new(ResourceUUID());
-
-            slice = PmDiskObj::dsk_cast_ptr(rs);
             dev   = udev_device_new_from_syspath(dsk_ctrl, path);
-            slice->dsk_update_device(dev, disk, blk_path, dev_path);
-            dsk_devices->dsk_discovery_add(slice, disk);
+            if (dev == NULL)
+            {
+                LOGWARN << "Can't get info about " << path << "; skipping";
+            }
+            else
+            {
+                Resource::pointer rs = dsk_devices->rs_alloc_new(ResourceUUID());
+                slice = PmDiskObj::dsk_cast_ptr(rs);
+                slice->dsk_update_device(dev, disk, blk_path, dev_path);
+                dsk_devices->dsk_discovery_add(slice, disk);
+            }
         }else {
             // slice->dsk_update_device(NULL, disk, blk_path, dev_path);
             dsk_devices->dsk_discovery_update(slice);
