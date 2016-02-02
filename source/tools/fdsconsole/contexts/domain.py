@@ -181,7 +181,7 @@ class DomainContext(Context):
             count = 0
             while condition:
                 retVal = self.restApi().activateLocalDomainServices(domain_name, sm, dm, am)
-                num_services = len(self.config.getServiceApi().getServiceIds("*"))
+                num_services = len(self.config.getServiceApi().getServiceList(True))
                 count += 1                
                 print '{} : expected services:{} and {} showed up'.format(count, total_expected_services, num_services)
                 condition = (count < 40) and (num_services < total_expected_services)
@@ -252,7 +252,7 @@ class DomainContext(Context):
         omClient = ServiceMap.client(1028)
         msg = omClient.getDMT(0)
         #print msg
-        dmt = dmtdlt.DMT()
+        dmt = dmtdlt.DMT(self.config)
         dmt.load(msg.dmt_data.dmt_data)
         dmt.dump()
 
@@ -263,7 +263,7 @@ class DomainContext(Context):
         omClient = ServiceMap.client(1028)
         msg = omClient.getDLT(0)
         #print msg
-        dlt = dmtdlt.DLT()
+        dlt = dmtdlt.DLT(self.config)
         dlt.load(msg.dlt_data.dlt_data)
         dlt.dump()
 

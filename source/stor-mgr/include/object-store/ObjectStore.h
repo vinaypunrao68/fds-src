@@ -52,7 +52,11 @@ class ObjectStore : public Module, public boost::noncopyable {
     /// Tiering engine
     TierEngine::unique_ptr tierEngine;
 
-    /// SM Checker
+    /// Capacity tracking for READ ONLY mode
+    // Map of diskID -> capacity to track capacity usage
+    std::unordered_map<fds_uint16_t, DiskUtils::AtomicCapacityPair> capacityMap;
+
+  /// SM Checker
     SMCheckControl::unique_ptr SMCheckCtrl;
 
     TokenLockFn tokenLockFn = { TokenLockFn() };
@@ -87,6 +91,15 @@ class ObjectStore : public Module, public boost::noncopyable {
 
       OBJECT_STORE_STATE_MAX
     };
+
+    /// Will the next PUT succeed?
+    fds_bool_t willPutSucceed(fds_uint16_t diskId, fds_uint64_t writeSize);
+
+    /// Trigger read only mode if the PUT will fail
+    fds_errno_t triggerReadOnlyIfPutWillfail(StorMgrVolume *vol,
+                                             const ObjectID &objId,
+                                             boost::shared_ptr<const std::string> objData,
+                                             diskio::DataTier &useTier);
 
     /// Current state of the object store
     std::atomic<ObjectStoreState> currentState;
@@ -172,6 +185,13 @@ class ObjectStore : public Module, public boost::noncopyable {
      * This method handles losing ownership of SM tokens
      */
     Error handleDltClose(const DLT* dlt);
+
+    /**
+     * Does SM want to resync tokens or not.
+     */
+    fds_bool_t doResync() const;
+    void setResync();
+    void resetResync();
 
     /**
      * Adds a new volume to the object store. Some physical

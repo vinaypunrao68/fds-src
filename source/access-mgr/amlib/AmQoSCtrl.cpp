@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2015 Formation Data Systems, Inc.
+ * Copyright 2013-2016 Formation Data Systems, Inc.
  */
 
 #include "AmQoSCtrl.h"
@@ -9,9 +9,9 @@
 
 namespace fds {
 
-AmQoSCtrl::AmQoSCtrl(AmDataProvider* prev, uint32_t max_thrds, CommonModuleProviderIf* provider, fds_log *log)
+AmQoSCtrl::AmQoSCtrl(AmDataProvider* prev, uint32_t max_thrds, fds_log *log)
     : FDS_QoSControl::FDS_QoSControl(max_thrds, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, log, "SH"),
-      AmDataProvider(prev, new AmTxManager(this, provider))
+      AmDataProvider(prev, new AmTxManager(this))
 {
     total_rate = 200000;
     htb_dispatcher = new QoSHTBDispatcher(this, qos_log, total_rate);
@@ -43,8 +43,19 @@ Error AmQoSCtrl::processIO(FDS_IOType *io) {
     auto amReq = static_cast<AmRequest*>(io);
     PerfTracer::tracePointEnd(amReq->qos_perf_ctx);
     LOGTRACE << "Scheduling request: 0x" << std::hex << amReq->io_req_id;
+    auto vol_id = io->io_vol_id;
     threadPool->schedule([this] (FDS_IOType* io) mutable -> void
                          { unknownTypeResume(static_cast<AmRequest*>(io)); }, io);
+    {
+        ReadGuard rg(queue_lock);
+        auto queue = getQueue(vol_id);
+        // If this queue was quiesced and empty, remove it
+        if (queue && (FDS_VOL_Q_SUSPENDED == queue->volQState)) {
+            htb_dispatcher->deregisterQueue(vol_id.get());
+            delete queue;
+        }
+    }
+
     return ERR_OK;
 }
 
@@ -61,21 +72,35 @@ void AmQoSCtrl::completeRequest(AmRequest* amReq, Error const error) {
         return AmDataProvider::unknownTypeCb(amReq, error);
     }
     auto remaining = htb_dispatcher->markIODone(amReq);
+    // If we were told to stop and have drained the queue, stop
+    {
+        ReadGuard rg(queue_lock);
+        if (stopping
+            && (0 == remaining)
+            && (0 == htb_dispatcher->num_pending_ios)) {
+            FDS_QoSControl::stop();
+            AmDataProvider::stop();
+        }
+    }
 
     switch (amReq->io_type) {
-    case fds::FDS_IO_WRITE:
     case fds::FDS_PUT_BLOB_ONCE:
     case fds::FDS_PUT_BLOB:
         StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
                                                  amReq->io_done_ts,
                                                  STAT_AM_PUT_OBJ,
                                                  amReq->io_total_time);
+        if (amReq->io_type == fds::FDS_PUT_BLOB_ONCE) {
+            StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                     amReq->io_done_ts,
+                                                     STAT_AM_PUT_BLOB_ONCE,
+                                                     amReq->io_total_time);
+        }
         break;
-    case fds::FDS_IO_READ:
     case fds::FDS_GET_BLOB:
         StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
                                                  amReq->io_done_ts,
-                                                 STAT_AM_GET_OBJ,
+                                                 STAT_AM_GET_BLOB,
                                                  amReq->io_total_time);
         break;
     case fds::FDS_STAT_BLOB:
@@ -90,6 +115,86 @@ void AmQoSCtrl::completeRequest(AmRequest* amReq, Error const error) {
                                                  STAT_AM_PUT_BMETA,
                                                  amReq->io_total_time);
         break;
+    case fds::FDS_ATTACH_VOL:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_ATTACH_VOL,
+                                                 amReq->io_total_time);
+        break;
+    case fds::FDS_DETACH_VOL:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_DETACH_VOL,
+                                                 amReq->io_total_time);
+        break;
+    case fds::FDS_STAT_VOLUME:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_VSTAT,
+                                                 amReq->io_total_time);
+        break;
+    case fds::FDS_SET_VOLUME_METADATA:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_PUT_VMETA,
+                                                 amReq->io_total_time);
+        break;
+    case fds::FDS_GET_VOLUME_METADATA:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_GET_VMETA,
+                                                 amReq->io_total_time);
+        break;
+    case fds::FDS_VOLUME_CONTENTS:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_GET_VCONTENTS,
+                                                 amReq->io_total_time);
+        break;
+    case fds::FDS_START_BLOB_TX:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_START_BLOB_TX,
+                                                 amReq->io_total_time);
+        break;
+    case fds::FDS_COMMIT_BLOB_TX:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_COMMIT_BLOB_TX,
+                                                 amReq->io_total_time);
+        /**
+         * Currently (01/14/2016) transactions are only used for FDS_PUT_BLOB.
+         */
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_PUT_BLOB,
+                                                 amReq->io_total_time);
+        break;
+    case fds::FDS_ABORT_BLOB_TX:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_ABORT_BLOB_TX,
+                                                 amReq->io_total_time);
+        /**
+         * Currently (01/14/2016) transactions are only used for FDS_PUT_BLOB.
+         */
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_PUT_BLOB,
+                                                 amReq->io_total_time);
+        break;
+    case fds::FDS_DELETE_BLOB:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_DELETE_BLOB,
+                                                 amReq->io_total_time);
+        break;
+    case fds::FDS_RENAME_BLOB:
+        StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
+                                                 amReq->io_done_ts,
+                                                 STAT_AM_RENAME_BLOB,
+                                                 amReq->io_total_time);
+        break;
     default:
         ;;
     };
@@ -97,7 +202,7 @@ void AmQoSCtrl::completeRequest(AmRequest* amReq, Error const error) {
     if (remaining > 0) {
         StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
                                                  amReq->io_done_ts,
-                                                 STAT_AM_QUEUE_FULL,
+                                                 STAT_AM_QUEUE_BACKLOG,
                                                  remaining);
     }
     StatsCollector::singleton()->recordEvent(amReq->io_vol_id,
@@ -110,12 +215,12 @@ void AmQoSCtrl::completeRequest(AmRequest* amReq, Error const error) {
 
 void AmQoSCtrl::start() {
     AmDataProvider::start();
-    dispatcherThread.reset(new std::thread(startSHDispatcher, this));
+    runScheduler();
 }
 
 bool
 AmQoSCtrl::done() {
-    if (htb_dispatcher->num_outstanding_ios != 0) {
+    if (!dispatcher->shuttingDown) {
        return false;
     }
     return AmDataProvider::done();
@@ -124,19 +229,26 @@ AmQoSCtrl::done() {
 void
 AmQoSCtrl::registerVolume(VolumeDesc const& volDesc) {
     // If we don't already have this volume, let's register it
-    auto queue = getQueue(volDesc.volUUID);
-    if (!queue && !volDesc.isSnapshot()) {
-        queue = new FDS_VolumeQueue(4096,
-                                    volDesc.iops_throttle,
-                                    volDesc.iops_assured,
-                                    volDesc.relativePrio);
-        htb_dispatcher->registerQueue(volDesc.volUUID.get(), queue);
-        queue->activate();
-    } else {
-        htb_dispatcher->modifyQueueQosParams(volDesc.volUUID.get(),
-                                             volDesc.iops_assured,
-                                             volDesc.iops_throttle,
-                                             volDesc.relativePrio);
+    {
+        WriteGuard wg(queue_lock);
+        if (stopping || volDesc.isSnapshot()) return;
+        auto queue = getQueue(volDesc.volUUID);
+        if (!queue) {
+            queue = new FDS_VolumeQueue(4096,
+                                        volDesc.iops_throttle,
+                                        volDesc.iops_assured,
+                                        volDesc.relativePrio);
+            if (ERR_OK != htb_dispatcher->registerQueue(volDesc.volUUID.get(), queue)) {
+                delete queue;
+                return;
+            }
+            queue->activate();
+        } else {
+            htb_dispatcher->modifyQueueQosParams(volDesc.volUUID.get(),
+                                                 volDesc.iops_assured,
+                                                 volDesc.iops_throttle,
+                                                 volDesc.relativePrio);
+        }
     }
     AmDataProvider::registerVolume(volDesc);
 }
@@ -154,28 +266,46 @@ AmQoSCtrl::modifyVolumePolicy(const VolumeDesc& vdesc) {
  */
 void
 AmQoSCtrl::removeVolume(VolumeDesc const& volDesc) {
-    htb_dispatcher->deregisterQueue(volDesc.volUUID.get());
-
+    {
+        WriteGuard wg(queue_lock);
+        auto queue = getQueue(volDesc.volUUID);
+        if (0 != queue->count()) {
+            queue->quiesceIOs();
+        } else {
+            htb_dispatcher->deregisterQueue(volDesc.volUUID.get());
+            delete queue;
+        }
+    }
     AmDataProvider::removeVolume(volDesc);
 }
 
 void AmQoSCtrl::enqueueRequest(AmRequest *amReq) {
-    static fpi::VolumeAccessMode const default_access_mode;
     PerfTracer::tracePointBegin(amReq->qos_perf_ctx);
 
     GLOGDEBUG << "Entering QoS request: 0x" << std::hex << amReq->io_req_id << std::dec;
-    auto err = htb_dispatcher->enqueueIO(amReq->io_vol_id.get(), amReq);
+    Error err {ERR_OK};
+    {
+        ReadGuard rg(queue_lock);
+        err = htb_dispatcher->enqueueIO(amReq->io_vol_id.get(), amReq);
+    }
     if (ERR_OK != err) {
         GLOGERROR << "Had an issue with queueing a request to volume: " << amReq->volume_name
                   << " error: " << err;
-        completeRequest(amReq, err);
+        PerfTracer::tracePointEnd(amReq->qos_perf_ctx);
+        AmDataProvider::unknownTypeCb(amReq, err);
     }
 }
 
 void
 AmQoSCtrl::stop() {
-    if (htb_dispatcher->num_outstanding_ios == 0) {
-        AmDataProvider::stop();
+    {
+        WriteGuard wg(queue_lock);
+        stopping = true;
+        htb_dispatcher->quiesceIOs();
+        if ((0 == htb_dispatcher->num_pending_ios) && (0 == htb_dispatcher->num_outstanding_ios)) {
+            FDS_QoSControl::stop();
+            AmDataProvider::stop();
+        }
     }
 }
 

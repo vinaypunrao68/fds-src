@@ -23,21 +23,22 @@
 #include <fdsp_utils.h>
 
 namespace fds {
-
 template<typename T>
 static T
-get_config(std::string const& option, T const& default_value)
+get_config(CommonModuleProviderIf *module, std::string const& option, T const& default_value)
 { 
-    return MODULEPROVIDER()->get_fds_config()->get<T>(option, default_value); 
+    return module->get_fds_config()->get<T>(option, default_value);
 }
 
 template <typename T, typename Cb>
-static std::unique_ptr<TrackerBase<NodeUuid>>
-create_tracker(Cb&& cb, std::string event, fds_uint32_t d_w = 0, fds_uint32_t d_t = 0) {
-    static std::string const svc_event_prefix("fds.om.svc_event_threshold.");
+std::unique_ptr<TrackerBase<NodeUuid>>
+OmSvcHandler::create_tracker(Cb&& cb, std::string event, fds_uint32_t d_w, fds_uint32_t d_t) {
+    std::string const svc_event_prefix("fds.om.svc_event_threshold.");
+    std::string windowString = svc_event_prefix + event + ".window";
+    std::string thresholdString = svc_event_prefix + event + ".threshold";
 
-    size_t window = get_config(svc_event_prefix + event + ".window", d_w);
-    size_t threshold = get_config(svc_event_prefix + event + ".threshold", d_t);
+    size_t window = get_config(MODULEPROVIDER(), svc_event_prefix + event + ".window", d_w);
+    size_t threshold = get_config(MODULEPROVIDER(), svc_event_prefix + event + ".threshold", d_t);
 
     LOGNORMAL << "Setting event " << event << " handling threshold to " << threshold;
 
@@ -110,20 +111,22 @@ void OmSvcHandler::init_svc_event_handlers() {
        Error               error;
     };
 
-    // Timeout handler (1 within 15 minutes will trigger)
-    event_tracker.register_event(ERR_SVC_REQUEST_TIMEOUT,
-                                 create_tracker<std::chrono::minutes>(cb{ERR_SVC_REQUEST_TIMEOUT},
-                                                                      "timeout", 15, 1));
+    if (!isInTestMode()) {
+        // Timeout handler (1 within 15 minutes will trigger)
+        event_tracker.register_event(ERR_SVC_REQUEST_TIMEOUT,
+                                     create_tracker<std::chrono::minutes>(cb{ERR_SVC_REQUEST_TIMEOUT},
+                                                                          "timeout", 15, 1));
 
-    // DiskWrite handler (1 within 24 hours will trigger)
-    event_tracker.register_event(ERR_DISK_WRITE_FAILED,
-                                 create_tracker<std::chrono::hours>(cb{ERR_DISK_WRITE_FAILED},
-                                                                    "disk.write_fail", 24, 1));
+        // DiskWrite handler (1 within 24 hours will trigger)
+        event_tracker.register_event(ERR_DISK_WRITE_FAILED,
+                                     create_tracker<std::chrono::hours>(cb{ERR_DISK_WRITE_FAILED},
+                                                                        "disk.write_fail", 24, 1));
 
-    // DiskRead handler (1 within 24 hours will trigger)
-    event_tracker.register_event(ERR_DISK_READ_FAILED,
-                                 create_tracker<std::chrono::hours>(cb{ERR_DISK_READ_FAILED},
-                                                                    "disk.read_fail", 24, 1));
+        // DiskRead handler (1 within 24 hours will trigger)
+        event_tracker.register_event(ERR_DISK_READ_FAILED,
+                                     create_tracker<std::chrono::hours>(cb{ERR_DISK_READ_FAILED},
+                                                                        "disk.read_fail", 24, 1));
+    }
 }
 
 // om_svc_state_chg
@@ -322,6 +325,9 @@ void OmSvcHandler::heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     if ( !gl_orch_mgr->omMonitor->isWellKnown(svcUuid) ) {
         updSvcState = true;
     }
+
+    configDB->setCapacityUsedNode( svcUuid.svc_uuid, msg->usedCapacityInBytes );
+
     gl_orch_mgr->omMonitor->updateKnownPMsMap(svcUuid, current, updSvcState);
 }
 
@@ -469,16 +475,17 @@ void OmSvcHandler::healthReportRunning( boost::shared_ptr<fpi::NotifyHealthRepor
 
        if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
        {
-           NodeUuid uuid( msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid );
            auto domain = OM_NodeDomainMod::om_local_domain();
 
            LOGNORMAL << "Will set service to state ( "
                      << msg->healthReport.serviceInfo.svc_status
                      << " ) : " << msg->healthReport.serviceInfo.name
-                     << ":0x" << std::hex << uuid.uuid_get_val() << std::dec;
+                     << ":0x" << std::hex << service_UUID.uuid_get_val() << std::dec;
 
-           domain->om_change_svc_state_and_bcast_svcmap( uuid, service_type, msg->healthReport.serviceInfo.svc_status );
-           domain->om_service_up( uuid, service_type );
+           auto svcInfoPtr = boost::make_shared<fpi::SvcInfo>(msg->healthReport.serviceInfo);
+           domain->om_change_svc_state_and_bcast_svcmap(svcInfoPtr, service_type, msg->healthReport.serviceInfo.svc_status);
+           NodeUuid nodeUuid(svcInfoPtr->svc_id.svc_uuid);
+           domain->om_service_up(nodeUuid, service_type);
        }
        break;
      default:
@@ -558,7 +565,9 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
         */
         if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
         {
-            if ( (msg->healthReport.serviceInfo.svc_status == fpi::SVC_STATUS_REMOVED) &&
+            NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
+
+            if ( (gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.uuid_get_val()) == fpi::SVC_STATUS_REMOVED) &&
                  ((svc_type == fpi::FDSP_STOR_MGR) || (svc_type == fpi::FDSP_DATA_MGR)) ) {
 
                 // It is important that SMs and DMs stay in removed state for correct
@@ -570,7 +579,6 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
             }
 
             auto domain = OM_NodeDomainMod::om_local_domain();
-            NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
             Error reportError(msg->healthReport.statusCode);
 
             LOGERROR << "Will set service to failed state: "
@@ -591,7 +599,8 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
             // don't mark this to inactive failed if it is already in stopped state
             if (gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.uuid_get_val()) != fpi::SVC_STATUS_INACTIVE_STOPPED)
             {
-                domain->om_change_svc_state_and_bcast_svcmap( uuid, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
+                auto svcPtr = boost::make_shared<fpi::SvcInfo>(msg->healthReport.serviceInfo);
+                domain->om_change_svc_state_and_bcast_svcmap( svcPtr, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
             } else {
                 LOGWARN << "Svc:" << std::hex << uuid.uuid_get_val() << std::dec
                         << "has been set to inactive from a previous stop request";
@@ -644,6 +653,44 @@ void OmSvcHandler::healthReportError(fpi::FDSP_MgrIdType &svc_type,
         }
     }
 
+    if ( msg->healthReport.serviceState == fpi::HEALTH_STATE_FLAPPING_DETECTED_EXIT )
+    {
+        auto domain = OM_NodeDomainMod::om_local_domain();
+        NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
+
+        FdsTimerTaskPtr task;
+
+        if (domain->isScheduled(task, uuid.uuid_get_val()))
+        {
+            LOGNOTIFY << "Canceling scheduled setupNewNode task for svc:"
+                      << std::hex << uuid.uuid_get_val() << std::dec;
+            MODULEPROVIDER()->getTimer()->cancel(task);
+        }
+
+        fpi::ServiceStatus status = gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.uuid_get_val());
+
+        // PM can send this error either when OM told it to start the service
+        // or if a service has restarted too many times (but the svc is registered already)
+        if ( status == fpi::SVC_STATUS_STARTED || status == fpi::SVC_STATUS_ACTIVE)
+        {
+            LOGNOTIFY << "Received Flapping error from PM for service:"
+                      << std::hex << uuid.uuid_get_val() << std::dec
+                      << " , setting to state INACTIVE_FAILED";
+            auto svcPtr = boost::make_shared<fpi::SvcInfo>(msg->healthReport.serviceInfo);
+            domain->om_change_svc_state_and_bcast_svcmap( svcPtr, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
+
+        } else if (status == fpi::SVC_STATUS_INACTIVE_FAILED) {
+            LOGNOTIFY << "Flapping service:"<< std::hex << uuid.uuid_get_val() << std::dec
+                      << " is already in INACTIVE_FAILED state";
+        } else {
+            LOGWARN << "Received Flapping error from PM for service:"
+                      << std::hex << uuid.uuid_get_val() << std::dec
+                      << " , ignoring since svc is not in started/active state, current state:" << status;
+        }
+
+        return;
+    }
+
     // if we are here, we don't handle the error and/or service yet
     LOGWARN << "Handling ERROR report for service " << msg->healthReport.serviceInfo.name
             << " state: " << msg->healthReport.serviceState
@@ -654,6 +701,8 @@ void
 OmSvcHandler::setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                         boost::shared_ptr<fpi::SetVolumeGroupCoordinatorMsg> &msg)
 {
+    /* xxx: This needs to be synchronized and be done volume managing statemachine */
+    Error e;
     fds_volid_t volId(msg->volumeId);
 	OM_Module *om = OM_Module::om_singleton();
 	OM_NodeDomainMod *dom_mod = om->om_nodedomain_mod();
@@ -661,14 +710,20 @@ OmSvcHandler::setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     VolumeContainer::pointer volumes = local->om_vol_mgr();
 
     auto volumePtr = volumes->get_volume(volId);
-    if (volumePtr == nullptr) {
+    if (volumePtr != nullptr) {
+        auto volDescPtr = volumePtr->vol_get_properties();
+        fpi::VolumeGroupCoordinatorInfo volCoordinatorInfo = msg->coordinator;
+        volDescPtr->setCoordinatorId(volCoordinatorInfo.id);
+        volDescPtr->setCoordinatorVersion(volCoordinatorInfo.version);
+        LOGNOTIFY << "Set volume coordinator for volid: " << volId
+            << " coordinator: " << volCoordinatorInfo.id.svc_uuid;
+    } else {
         LOGERROR << "Unable to find volume " << volId;
-        return;
+        e = ERR_VOL_NOT_FOUND;
     }
-    auto volDescPtr = volumePtr->vol_get_properties();
-    fpi::VolumeGroupCoordinatorInfo volCoordinatorInfo = msg->coordinator;
-    volDescPtr->setCoordinatorId(volCoordinatorInfo.id);
-    volDescPtr->setCoordinatorVersion(volCoordinatorInfo.version);
+
+    hdr->msg_code = e.GetErrno();
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
 }
 
 

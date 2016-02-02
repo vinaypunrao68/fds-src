@@ -180,6 +180,7 @@ class VolumeDesc : public HasState {
     inline bool isCoordinatorSet() const {
         return coordinator.id.svc_uuid != 0;
     }
+    void clearCoordinatorInfo();
 };
 
 /**
@@ -201,7 +202,7 @@ class FDS_Volume {
         else
             return false;
     }
-    ~FDS_Volume();
+    virtual ~FDS_Volume();
 };
 
 /**

@@ -150,37 +150,45 @@ float_t ObjectStore::getUsedCapacityAsPct() {
     // For disks
     for (auto diskId : diskMap->getDiskIds()) {
         // Get the (used, total) pair
-        DiskUtils::capacity_tuple capacity = diskMap->getDiskConsumedSize(diskId);
+        DiskUtils::CapacityPair capacity = diskMap->getDiskConsumedSize(diskId);
 
         // Check to make sure we've got good data from the stat call
-        if (capacity.first == 0 || capacity.second == 0) {
+        if (capacity.usedCapacity == 0 || capacity.totalCapacity == 0) {
             // If we don't just return 0
             LOGDEBUG << "Found disk used capacity of zero, possible error. DiskID = " << diskId
                         << ". Disk path = " << diskMap->getDiskPath(diskId) << ". If this is an SSD drive"
                         << " and you have not yet written data to the system, this message is OK.";
             break;
         }
-        float_t pct_used = ((capacity.first * 1.) / capacity.second) * 100;
+
+        // We're going to piggyback on this to refresh stats in our capacity map. We still want to do periodic checking
+        // at the SM level though to inform OM when we're reaching a disk full event.
+        capacityMap[diskId].usedCapacity = capacity.usedCapacity;
+
+        float_t pct_used = ((capacity.usedCapacity * 1.) / capacity.totalCapacity) * 100;
 
         // We want to log which disk is too full here
         if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
                 lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
             LOGERROR << "ERROR: Disk at path " << diskMap->getDiskPath(diskId)
-                     << " is consuming " << pct_used << "Space, which is more than the error threshold of "
-                     << DISK_CAPACITY_ERROR_THRESHOLD;
+                     << " is consuming " << pct_used << " space, which is more than the error threshold of "
+                     << DISK_CAPACITY_ERROR_THRESHOLD << "Consumed/Total (" << capacity.usedCapacity
+                     << "/" << capacity.totalCapacity << ")";
             lastCapacityMessageSentAt = DISK_CAPACITY_ERROR_THRESHOLD;
-        } else if (pct_used > DISK_CAPACITY_WARNING_THRESHOLD &&
-            lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
+        } else if (pct_used > DISK_CAPACITY_ALERT_THRESHOLD &&
+            lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
             LOGWARN << "WARNING: Disk at path " << diskMap->getDiskPath(diskId)
                     << " is consuming " << pct_used << " space, which is more than the warning threshold of "
-                    << DISK_CAPACITY_WARNING_THRESHOLD;
-            lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
-        } else if (pct_used > DISK_CAPACITY_ALERT_THRESHOLD &&
-                   lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
+                    << DISK_CAPACITY_ALERT_THRESHOLD << "Consumed/Total (" << capacity.usedCapacity
+                    << "/" << capacity.totalCapacity << ")";
+            lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
+        } else if (pct_used > DISK_CAPACITY_WARNING_THRESHOLD &&
+                   lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
             LOGNORMAL << "ALERT: Disk at path " << diskMap->getDiskPath(diskId)
                       << " is consuming " << pct_used << " space, which is more than the alert threshold of "
-                      << DISK_CAPACITY_ALERT_THRESHOLD;
-            lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
+                      << DISK_CAPACITY_WARNING_THRESHOLD << "Consumed/Total (" << capacity.usedCapacity
+                      << "/" << capacity.totalCapacity << ")";
+            lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
         } else {
             // If the used pct drops below alert levels reset so we resend the message when
             // we re-hit this condition
@@ -265,9 +273,9 @@ ObjectStore::initObjectStoreMediaErrorHandlers() {
  */
 Error
 ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& tier) {
-    LOGDEBUG << "Handling disk failure for disk=" << diskId << " tier=" << tier;
+    LOGNOTIFY << "Handling disk failure for disk=" << diskId << " tier=" << tier;
     if (diskMap->isDiskOffline(diskId)) {
-        LOGDEBUG << "Disk " << diskId << " failure is already handled";
+        LOGNORMAL << "Disk " << diskId << " failure is already handled";
         return ERR_OK;
     }
     diskMap->makeDiskOffline(diskId);
@@ -297,7 +305,7 @@ ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& ti
     }
     Error err = openStore(lostTokens);
     if (!err.ok()) {
-        LOGDEBUG << "Error opening metadata and data stores for redistributed tokens." << err;
+        LOGERROR << "Error opening metadata and data stores for redistributed tokens." << err;
     }
 
     if (requestResyncFn) {
@@ -412,6 +420,29 @@ ObjectStore::handleDltClose(const DLT* dlt) {
     }
 
     return err;
+}
+
+fds_bool_t
+ObjectStore::doResync() const {
+    if (diskMap) {
+        return diskMap->doResync();
+    } else {
+        return false;
+    }
+}
+
+void
+ObjectStore::setResync() {
+    if (diskMap) {
+        return diskMap->setResync();
+    }
+}
+
+void
+ObjectStore::resetResync() {
+    if (diskMap) {
+        return diskMap->resetResync();
+    }
 }
 
 Error
@@ -595,6 +626,8 @@ ObjectStore::putObject(fds_volid_t volId,
             useTier = diskio::diskTier;
         }
 
+        // TODO(brian): Talk to Mark about this one... if we can just prevent people from picking tiering choices
+        // that their system can't support we can remove this from the write path which will improve performance.
         // Adjust the tier depending on the system disk topology.
         if (diskMap->getTotalDisks(useTier) == 0) {
             // there is no requested tier, use existing tier
@@ -606,19 +639,13 @@ ObjectStore::putObject(fds_volid_t volId,
             }
         }
 
-        if (useTier == diskio::flashTier) {
-            fds_bool_t ssdSuccess = diskMap->ssdTrackCapacityAdd(objId,
-                    objData->size(), tierEngine->getFlashFullThreshold());
-
-            if (!ssdSuccess) {
-                LOGTRACE << "Exceeded SSD capacity, use disk tier";
-                useTier = diskio::diskTier;
-            }
-        }
-
-        if (diskMap->getTotalDisks(useTier) == 0) {
-            LOGCRITICAL << "No disk capacity";
-            return ERR_SM_NO_DISK;
+        /** TODO(brian): Clean up how we handle writing to different tiers
+         * - Use more robust tracking
+         * - Allow for separate tracking for hybrid volumes that may have migration policies
+         */
+        err = triggerReadOnlyIfPutWillfail(vol, objId, objData, useTier);
+        if (!err.ok()) {
+            return err;
         }
 
         // put object to datastore
@@ -627,11 +654,18 @@ ObjectStore::putObject(fds_volid_t volId,
         if (!err.ok()) {
             LOGERROR << "Failed to write " << objId << " to obj data store "
                      << err;
+
             if (useTier == diskio::flashTier) {
                 diskMap->ssdTrackCapacityDelete(objId, objData->size());
             }
             return err;
         }
+
+        // Get the disk ID so we can figure out the consumed space.
+        fds_uint16_t diskId = diskMap->getDiskId(objId, useTier);
+
+        // Now track capacity change
+        capacityMap[diskId].usedCapacity += objData->size();
 
         // Notify tier engine of recent IO
         tierEngine->notifyIO(objId, FDS_SM_PUT_OBJECT, *vol->voldesc, useTier);
@@ -654,7 +688,6 @@ ObjectStore::getObject(fds_volid_t volId,
                        diskio::DataTier& usedTier,
                        Error& err) {
     err = checkAvailability();
-
     if (!err.ok() && err != ERR_SM_READ_ONLY) {
         return nullptr;
     }
@@ -696,7 +729,7 @@ ObjectStore::getObject(fds_volid_t volId,
         fds_token_id smToken = diskMap->smTokenId(objId);
         diskio::DataTier metaTier = metaStore->getMetadataTier();
         DiskId diskId = diskMap->getDiskId(objId, metaTier);
-        std::string path = diskMap->getDiskPath(diskId);
+        std::string path = diskMap->getDiskPath(diskId) + "/.tempFlush";
 
         bool diskDown = DiskUtils::diskFileTest(path);
         if (diskDown) {
@@ -999,6 +1032,11 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
         return err;
     }
 
+    err = triggerReadOnlyIfPutWillfail(nullptr, objId, objData, toTier);
+    if (!err.ok()) {
+        return err;
+    }
+
     // write to object data store to toTier
     obj_phy_loc_t objPhyLoc;  // will be set by data store with new location
     err = dataStore->putObjectData(unknownVolId, objId, toTier, objData, objPhyLoc);
@@ -1157,6 +1195,11 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
                 // set flag in object metadata
                 updatedMeta->setObjCorrupted();
             }
+        }
+
+        err = triggerReadOnlyIfPutWillfail(nullptr, objId, objData, tier);
+        if (!err.ok()) {
+            return err;
         }
 
         // write to object data store (will automatically write to new file)
@@ -1377,10 +1420,6 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
                 // we didn't find ssd-only volume yet, so potential candidate
                 // but we may see ssd-only volumes, so continue search
                 selectVol = vol;
-            } else if (vol->voldesc->mediaPolicy == fpi::FDSP_MEDIA_POLICY_HYBRID_PREFCAP) {
-                if (selectVol->voldesc->mediaPolicy != fpi::FDSP_MEDIA_POLICY_HYBRID) {
-                    selectVol = vol;
-                }
             } else if (!selectVol) {
                 selectVol = vol;
             }
@@ -1397,7 +1436,7 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
             useTier = diskio::diskTier;
         }
 
-        // Adjust the tier depending on the system disk topolgy
+        // Adjust the tier depending on the system disk topology.
         if (diskMap->getTotalDisks(useTier) == 0) {
             // there is no requested tier, use existing tier
             LOGDEBUG << "There is no " << useTier << " tier, will use existing tier";
@@ -1408,18 +1447,9 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
             }
         }
 
-        if (useTier == diskio::flashTier) {
-            fds_bool_t ssdSuccess = diskMap->ssdTrackCapacityAdd(objId,
-                    objData->size(), tierEngine->getFlashFullThreshold());
-
-            if (!ssdSuccess) {
-                useTier = diskio::diskTier;
-            }
-        }
-
-        if (diskMap->getTotalDisks(useTier) == 0) {
-            LOGCRITICAL << "No disk capacity";
-            return ERR_SM_NO_DISK;
+        err = triggerReadOnlyIfPutWillfail(selectVol, objId, objData, useTier);
+        if (!err.ok()) {
+            return err;
         }
 
         // put object to datastore
@@ -1828,10 +1858,7 @@ ObjectStore::mod_init(SysParams const *const p) {
         LOGDEBUG << "First phase of object store init done";
 
         // If we're above the error threshold we need to go into read only mode instead.
-        if (getUsedCapacityAsPct() >= DISK_CAPACITY_ERROR_THRESHOLD) {
-            currentState = OBJECT_STORE_READ_ONLY;
-
-        } else if (err == ERR_SM_NOERR_PRISTINE_STATE) {
+        if (err == ERR_SM_NOERR_PRISTINE_STATE) {
             // If we hit this then the object store came up in pristine state and we're done initializing
             // set the ready state
             currentState = OBJECT_STORE_READY;
@@ -1840,6 +1867,14 @@ ObjectStore::mod_init(SysParams const *const p) {
     } else {
         LOGCRITICAL << "Object Store failed to initialize! " << err;
         currentState = OBJECT_STORE_UNAVAILABLE;
+    }
+
+    // Create the disk capacity map to track full disks.
+    DiskIdSet diskIds = diskMap->getDiskIds();
+    for (fds_uint16_t disk_id : diskIds) {
+        auto diskStats = diskMap->getDiskConsumedSize(disk_id);
+        capacityMap[disk_id].usedCapacity = diskStats.usedCapacity;
+        capacityMap[disk_id].totalCapacity = diskStats.totalCapacity;
     }
 
     return 0;
@@ -1859,5 +1894,70 @@ ObjectStore::mod_startup() {
 void
 ObjectStore::mod_shutdown() {
     Module::mod_shutdown();
+}
+fds_bool_t ObjectStore::willPutSucceed(fds_uint16_t diskId, fds_uint64_t writeSize) {
+    double_t newCap = (((capacityMap[diskId].usedCapacity + writeSize) /
+        (capacityMap[diskId].totalCapacity * 1.)) * 100);
+
+    fiu_do_on("sm.objetstore.diskfull", newCap = DISK_CAPACITY_ERROR_THRESHOLD + 1; );
+
+    LOGDEBUG << "Will put succeed? newCap: " << newCap;
+    return newCap < DISK_CAPACITY_ERROR_THRESHOLD;
+}
+
+fds_errno_t ObjectStore::triggerReadOnlyIfPutWillfail(StorMgrVolume *vol,
+                                                      const ObjectID &objId,
+                                                      boost::shared_ptr<const std::string> objData,
+                                                      diskio::DataTier &useTier) {
+
+    // Get the disk ID so we can figure out the consumed space.
+    fds_uint16_t diskId = diskMap->getDiskId(objId, useTier);
+
+    // If there was no volume information just assume HDD
+    // TODO(brian): Revisit this because it isn't necessarily a safe assumption
+    if (!vol) {
+        useTier = diskio::diskTier;
+    }
+
+    if (useTier == diskio::flashTier) {
+        fds_bool_t ssdSuccess = willPutSucceed(diskId, objData->size());
+
+        if (!ssdSuccess) {
+            if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_SSD) {
+                // If we can't write put the node in READ ONLY mode and return an error
+                setReadOnly();
+                LOGERROR << "IO bound for disk " << diskMap->getDiskPath(diskId)
+                            << " was rejected because the write would cause it to exceed the FULL threshold of "
+                            << DISK_CAPACITY_ERROR_THRESHOLD << ". Capacity: "
+                            << capacityMap[diskId].usedCapacity + objData->size()
+                            << " / " << capacityMap[diskId].totalCapacity;
+                return ERR_SM_READ_ONLY;
+            } else if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_HYBRID) {
+                // If we can't write, backoff to HDD since this is hybrid
+                LOGNOTIFY << "Write bound for SSD but SSD capacity exceeded. Using HDD instead.";
+                useTier = diskio::diskTier;
+            }
+        }
+    }
+
+    // Since we may have potentially changed the tier we need to update which diskId we're working with
+    diskId = diskMap->getDiskId(objId, useTier);
+
+    if (diskMap->getTotalDisks(useTier) == 0) {
+        LOGCRITICAL << "No disk capacity";
+        return ERR_SM_NO_DISK;
+    }
+
+    if (useTier == diskio::diskTier) {
+        if (!willPutSucceed(diskId, objData->size())) {
+            setReadOnly();
+            LOGERROR << "IO bound for disk " << diskMap->getDiskPath(diskId) << " was rejected because the write "
+                        << "would cause it to exceed the FULL threshold of " << DISK_CAPACITY_ERROR_THRESHOLD
+                        << ". Capacity: " << capacityMap[diskId].usedCapacity + objData->size()
+                        << " / " << capacityMap[diskId].totalCapacity;
+            return ERR_SM_READ_ONLY;
+        }
+    }
+    return ERR_OK;
 }
 }  // namespace fds

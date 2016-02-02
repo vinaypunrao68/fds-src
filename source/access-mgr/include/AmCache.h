@@ -16,7 +16,6 @@ namespace fds {
 struct AmTxDescriptor;
 struct GetBlobReq;
 struct GetObjectReq;
-struct CommonModuleProviderIf;
 
 /**
  * A client-side cache of blob metadata and data. The cache
@@ -34,7 +33,7 @@ class AmCache :
         object_cache_type;
 
   public:
-    AmCache(AmDataProvider* prev, CommonModuleProviderIf* modProvider);
+    explicit AmCache(AmDataProvider* prev);
     AmCache(AmCache const&) = delete;
     AmCache& operator=(AmCache const&) = delete;
     ~AmCache() override;
@@ -53,6 +52,7 @@ class AmCache :
     bool done() override;
     void registerVolume(const VolumeDesc& volDesc) override;
     void removeVolume(const VolumeDesc& volDesc) override;
+    void closeVolume(AmRequest *amReq) override;
     void statBlob(AmRequest * amReq) override;
     void getBlob(AmRequest * amReq) override;
 
@@ -64,10 +64,12 @@ class AmCache :
     void getBlobCb(AmRequest * amReq, Error const error) override;
     void getOffsetsCb(AmRequest * amReq, Error const error) override;
     void getObjectCb(AmRequest * amReq, Error const error) override;
-    void deleteBlobCb(AmRequest * amReq, Error const error) override;
+    void commitBlobTxCb(AmRequest * amReq, Error const error) override;
     void openVolumeCb(AmRequest * amReq, Error const error) override;
+    void putObjectCb(AmRequest * amReq, Error const error) override;
     void renameBlobCb(AmRequest * amReq, Error const error) override;
     void statBlobCb(AmRequest * amReq, Error const error) override;
+    void updateCatalogCb(AmRequest * amReq, Error const error) override;
     void volumeContentsCb(AmRequest * amReq, Error const error) override;
 
   private:

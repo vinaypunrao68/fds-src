@@ -37,6 +37,7 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
                    fds_bool_t snapshot,
                    fds_bool_t readOnly,
                    fds_bool_t clone,
+                   fds_bool_t archiveLogs,
                    fds_volid_t srcVolId = invalid_vol_id)
             : DmPersistVolCat(modProvider,
                               volId,
@@ -46,7 +47,7 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
                               clone,
                               fpi::FDSP_VOL_S3_TYPE,
                               srcVolId),
-        configHelper_(modProvider->get_conf_helper()), snapshotCount(0)
+        configHelper_(modProvider->get_conf_helper()), snapshotCount(0), archiveLogs_(archiveLogs)
     {
         const FdsRootDir* root = modProvider->proc_fdsroot();
         timelineDir_ = root->dir_timeline_dm() + getVolIdStr() + "/";
@@ -57,7 +58,8 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     virtual Error activate() override;
 
     virtual Error copyVolDir(const std::string & destName) override;
-
+    
+    Error archive(const std::string& destDir, const std::string& filename);
     // gets
     virtual Error getVolumeMetaDesc(VolumeMetaDesc & volDesc) override;
 
@@ -132,6 +134,17 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
         return catalog_.get();
     }
 
+    void setArchiveLogs(fds_bool_t fArchive) {
+        archiveLogs_ = fArchive;
+        if (catalog_.get()) {
+            catalog_.get()->archiveLogs() = archiveLogs_;
+        }
+    }
+
+    fds_bool_t getArchiveLogs() const {
+        return archiveLogs_;
+    }
+
     /**
     * @brief  Reads the version from file and returns it.  Making it file based 
     * because for now when we copy leveldb no additional work is required
@@ -139,6 +152,7 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     */
     int32_t getVersion() override;
     void setVersion(int32_t version) override;
+    int32_t updateVersion();
 
   private:
     std::string getVersionFile_();
@@ -154,6 +168,7 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     FdsConfigAccessor configHelper_;
 
     std::string timelineDir_;
+    fds_bool_t archiveLogs_;
 };
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVOLDB_H_

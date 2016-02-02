@@ -114,6 +114,7 @@ struct Handler: HasLogger {
     virtual void handleQueueItem(DmRequest *dmRequest);
     virtual void addToQueue(DmRequest *dmRequest);
     Error preEnqueueWriteOpHandling(const fds_volid_t &volId,
+                                    const int64_t &opId,
                                     const fpi::AsyncHdrPtr &hdr,
                                     const SHPTR<std::string> &payload);
 
@@ -355,6 +356,17 @@ struct ReloadVolumeHandler : Handler {
                         boost::shared_ptr<fpi::ReloadVolumeMsg>& message,
                         Error const& e, DmRequest* dmRequest);
 };
+
+struct LoadFromArchiveHandler : Handler {
+    explicit LoadFromArchiveHandler(DataMgr& dataManager);
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::LoadFromArchiveMsg>& message);
+    void handleQueueItem(DmRequest* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::LoadFromArchiveMsg>& message,
+                        Error const& e, DmRequest* dmRequest);
+};
+
 
 /**
  * DmMigration starting point handler from OM

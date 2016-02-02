@@ -7,7 +7,6 @@
 #include <map>
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
-#include <fds_timer.h>
 #include <orch-mgr/om-service.h>
 #include <orchMgr.h>
 #include <OmDeploy.h>
@@ -223,6 +222,24 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
             LOGDEBUG << "DST_DomainShutdown. Evt: " << e.logString();
         }
     };
+    struct DST_WaitShutPm : public msm::front::state<>
+    {
+        DST_WaitShutPm() : pm_acks_to_wait(0) {}
+
+        template <class Evt, class Fsm, class State>
+        void operator()(Evt const&, Fsm&, State&) {}
+
+        template <class Event, class FSM> void on_entry(Event const& e, FSM& f)
+        {
+            LOGDEBUG << "DST_WaitShutPm. Evt: " << e.logString();
+        }
+        template <class Event, class FSM> void on_exit(Event const& e, FSM& f)
+        {
+            LOGDEBUG << "DST_WaitShutPm. Evt: " << e.logString();
+        }
+
+        fds_uint32_t pm_acks_to_wait;
+    };
     struct DST_WaitShutAm : public msm::front::state<>
     {
         DST_WaitShutAm() : am_acks_to_wait(0) {}
@@ -343,6 +360,11 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         void operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+    struct DACT_ShutPm
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        void operator()(Evt const&, Fsm&, SrcST&, TgtST&);
+    };
     struct DACT_ShutDmSm
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
@@ -377,6 +399,11 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         template <class Evt, class Fsm, class SrcST, class TgtST>
         bool operator()(Evt const &, Fsm &, SrcST &, TgtST &);
     };
+    struct GRD_PmShut
+    {
+        template <class Evt, class Fsm, class SrcST, class TgtST>
+        bool operator()(Evt const&, Fsm&, SrcST&, TgtST&);
+    };
     struct GRD_DmSmShut
     {
         template <class Evt, class Fsm, class SrcST, class TgtST>
@@ -392,32 +419,33 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
      * Transition table for OM Node Domain
      */
     struct transition_table : mpl::vector<
-        // +-----------------+-------------+-------------+--------------+-------------+
-        // | Start           | Event       | Next        | Action       | Guard       |
-        // +-----------------+-------------+-------------+--------------+-------------+
-        msf::Row< DST_Start  , WaitNdsEvt  , DST_WaitNds , DACT_WaitNds , msf::none   >,
-        msf::Row< DST_Start  , NoPersistEvt, DST_Wait    , DACT_Wait    , msf::none   >,
-        // +-----------------+-------------+-------------+--------------+--------------+
-        msf::Row< DST_Wait   , TimeoutEvt  , DST_DomainUp, DACT_WaitDone, msf::none   >,
-        // +-----------------+-------------+-------------+--------------+--------------+
-        msf::Row< DST_WaitNds, RegNodeEvt  ,DST_WaitDltDmt, DACT_NodesUp , GRD_NdsUp   >,  // NOLINT
-        msf::Row< DST_WaitNds, TimeoutEvt  ,DST_WaitDltDmt, DACT_UpdDlt , GRD_EnoughNds>,  // NOLINT
-        // +-----------------+-------------+------------+---------------+--------------+
-        msf::Row<DST_WaitDltDmt, DltDmtUpEvt, DST_DomainUp, DACT_LoadVols, GRD_DltDmtUp>,
-        // +-----------------+-------------+------------+---------------+--------------+
-        msf::Row<DST_DomainUp, ShutdownEvt , DST_WaitShutAm, DACT_ShutAm, msf::none >,
-        msf::Row<DST_DomainUp, RegNodeEvt  ,DST_DomainUp,DACT_SendDltDmt,  msf::none   >,
-        // +-----------------+-------------+------------+---------------+--------------+
-        msf::Row<DST_WaitShutAm, ShutAckEvt, DST_WaitShutDmSm, DACT_ShutDmSm, GRD_AmShut >,
-        msf::Row<DST_WaitShutDmSm, ShutAckEvt, DST_WaitDeact, DACT_DeactSvc, GRD_DmSmShut >,
-        msf::Row<DST_WaitDeact, DeactAckEvt, DST_DomainShutdown, DACT_Shutdown, GRD_DeactSvc >,
-        // +-----------------+-------------+------------+---------------+--------------+
-        msf::Row<DST_DomainShutdown, WaitNdsEvt, DST_WaitActNds, DACT_WaitNds, msf::none>,
-        msf::Row<DST_DomainShutdown, NoPersistEvt, DST_Wait,   DACT_Wait,   msf::none>,
-        // +-----------------+-------------+------------+---------------+--------------+
-        msf::Row< DST_WaitActNds, RegNodeEvt, DST_DomainUp, DACT_SvcActive, GRD_NdsUp> ,  // NOLINT
-        msf::Row< DST_WaitActNds, TimeoutEvt, DST_DomainShutdown, msf::none, msf::none>   // NOLINT
-        // +-----------------+-------------+------------+---------------+--------------+
+        //      +--------------------+--------------+--------------------+-----------------+---------------+
+        //      | Start              | Event        | Next               | Action          | Guard         |
+        //      +--------------------+--------------+--------------------+-----------------+---------------+
+        msf::Row< DST_Start          , WaitNdsEvt   , DST_WaitNds        , DACT_WaitNds    , msf::none     >,
+        msf::Row< DST_Start          , NoPersistEvt , DST_Wait           , DACT_Wait       , msf::none     >,
+        //      +--------------------+--------------+--------------------+-----------------+---------------+
+        msf::Row< DST_Wait           , TimeoutEvt   , DST_DomainUp       , DACT_WaitDone   , msf::none     >,
+        //      +--------------------+--------------+--------------------+-----------------+---------------+
+        msf::Row< DST_WaitNds        , RegNodeEvt   , DST_WaitDltDmt     , DACT_NodesUp    , GRD_NdsUp     >,
+        msf::Row< DST_WaitNds        , TimeoutEvt   , DST_WaitDltDmt     , DACT_UpdDlt     , GRD_EnoughNds >,
+        //      +--------------------+--------------+--------------------+-----------------+---------------+
+        msf::Row< DST_WaitDltDmt     , DltDmtUpEvt  , DST_DomainUp       , DACT_LoadVols   , GRD_DltDmtUp  >,
+        //      +--------------------+--------------+--------------------+-----------------+---------------+
+        msf::Row< DST_DomainUp       , ShutdownEvt  , DST_WaitShutPm     , DACT_ShutPm     , msf::none     >,
+        msf::Row< DST_DomainUp       , RegNodeEvt   , DST_DomainUp       , DACT_SendDltDmt , msf::none     >,
+        //      +--------------------+--------------+--------------------+-----------------+---------------+
+        msf::Row< DST_WaitShutPm     , ShutAckEvt   , DST_WaitShutAm     , DACT_ShutAm     , GRD_PmShut    >,
+        msf::Row< DST_WaitShutAm     , ShutAckEvt   , DST_WaitShutDmSm   , DACT_ShutDmSm   , GRD_AmShut    >,
+        msf::Row< DST_WaitShutDmSm   , ShutAckEvt   , DST_WaitDeact      , DACT_DeactSvc   , GRD_DmSmShut  >,
+        msf::Row< DST_WaitDeact      , DeactAckEvt  , DST_DomainShutdown , DACT_Shutdown   , GRD_DeactSvc  >,
+        //      +--------------------+--------------+--------------------+-----------------+---------------+
+        msf::Row< DST_DomainShutdown , WaitNdsEvt   , DST_WaitActNds     , DACT_WaitNds    , msf::none     >,
+        msf::Row< DST_DomainShutdown , NoPersistEvt , DST_Wait           , DACT_Wait       , msf::none     >,
+        //      +--------------------+--------------+--------------------+-----------------+---------------+
+        msf::Row< DST_WaitActNds     , RegNodeEvt   , DST_DomainUp       , DACT_SvcActive  , GRD_NdsUp     >,
+        msf::Row< DST_WaitActNds     , TimeoutEvt   , DST_DomainShutdown , msf::none       , msf::none     >
+        //      +--------------------+--------------+--------------------+-----------------+---------------+
         >{};  // NOLINT
 
     template <class Event, class FSM> void no_transition(Event const &, FSM &, int);
@@ -957,6 +985,12 @@ NodeDomainFSM::DACT_ShutAm::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         OM_NodeContainer *dom_ctrl = domain->om_loc_domain_ctrl();
 
+        /**
+         * Volume coordinator currently lives as part of the AM.
+         * We'll clear the VC information from the OM as part of the AM shutdown.
+         */
+        dom_ctrl->clearVolumesCoordinatorInfo();
+
         // broadcast shutdown message to all AMs
         dst.am_acks_to_wait = dom_ctrl->om_bcast_shutdown_msg(fpi::FDSP_ACCESS_MGR);
         LOGDEBUG << "Will wait for acks from " << dst.am_acks_to_wait << " AMs";
@@ -967,6 +1001,29 @@ NodeDomainFSM::DACT_ShutAm::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                  << "processing FSM DACT_ShutAm :: " << e.what();
+    }
+}
+
+template <class Evt, class Fsm, class SrcST, class TgtST>
+void NodeDomainFSM::DACT_ShutPm::operator()(Evt const& evt, Fsm& fsm, SrcST& src, TgtST& dst)
+{
+    LOGNOTIFY << "Will send shutdown msg to all PMs";
+    try
+    {
+        auto domain = OM_NodeDomainMod::om_local_domain();
+        auto domainControl = domain->om_loc_domain_ctrl();
+
+        dst.pm_acks_to_wait = domainControl->om_bcast_shutdown_msg(fpi::FDSP_PLATFORM);
+        LOGDEBUG << "Will wait for acks from " << dst.pm_acks_to_wait << " PMs";
+        if (dst.pm_acks_to_wait == 0)
+        {
+            fsm.process_event(ShutAckEvt(fpi::FDSP_PLATFORM, ERR_OK));
+        }
+    }
+    catch (std::exception const& e)
+    {
+        LOGERROR << "Orch Manager encountered exception while processing FSM DACT_ShutPm :: "
+                 << e.what();
     }
 }
 
@@ -1018,6 +1075,40 @@ NodeDomainFSM::GRD_AmShut::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     }
         
     return b_ret;
+}
+
+template <class Evt, class Fsm, class SrcST, class TgtST>
+bool NodeDomainFSM::GRD_PmShut::operator()(Evt const& evt, Fsm& fsm, SrcST& src, TgtST& dst)
+{
+    if (evt.error == ERR_SVC_REQUEST_TIMEOUT || evt.error == ERR_SVC_REQUEST_INVOCATION)
+    {
+        LOGWARN << "Couldn't reach PM service for Prepare for Shutdown; should be ok if service is "
+                   "actually down. Treating as a success.";
+    }
+    else if (evt.error != ERR_OK)
+    {
+        LOGERROR << "PM returned error to Prepare for shutdown: "
+                 << evt.error << ". We continue with shutting down anyway";
+    }
+
+    if (evt.svc_type == fpi::FDSP_PLATFORM)
+    {
+        if (src.pm_acks_to_wait > 0)
+        {
+            --src.pm_acks_to_wait;
+        }
+        if (src.pm_acks_to_wait == 0)
+        {
+            return true;
+        }
+    }
+    else
+    {
+        LOGERROR << "Received ack from unexpected service type "
+                 << evt.svc_type << ", ignoring for now, but check why that happened";
+    }
+
+    return false;
 }
 
 /**
@@ -1243,7 +1334,9 @@ OM_NodeDomainMod::OM_NodeDomainMod(char const *const name)
         : Module(name),
           fsm_lock("OM_NodeDomainMod fsm lock"),
           configDB(nullptr),
-          domainDown(false)
+          domainDown(false),
+          volumeGroupDMTFired(false),
+          dbLock("ConfigDB access lock")
 {
     om_locDomain = new OM_NodeContainer();
     domain_fsm = new FSM_NodeDomain();
@@ -1266,6 +1359,8 @@ OM_NodeDomainMod::mod_init(SysParams const *const param)
     FdsConfigAccessor conf_helper(g_fdsprocess->get_conf_helper());
     om_test_mode = conf_helper.get<bool>("test_mode");
     om_locDomain->om_init_domain();
+    dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
+                             get<uint32_t>("fds.common.volume_group.dm_cluster_size", 1));
     return 0;
 }
 
@@ -1752,6 +1847,8 @@ OM_NodeDomainMod::om_load_volumes()
 
     std::vector<VolumeDesc> vecVolumes;
     std::vector<VolumeDesc>::const_iterator volumeIter;
+    VolumeContainer::pointer volContainer = om_locDomain->om_vol_mgr();
+
     configDB->getVolumes(vecVolumes, my_domainId);
     if (vecVolumes.empty()) {
         LOGDEBUG << "no volumes found for domain "
@@ -1773,11 +1870,15 @@ OM_NodeDomainMod::om_load_volumes()
             LOGERROR << "unable to add volume "
                      << "[" << volume.volUUID << ":" << volume.name << "]";
         }
+
+        if (volume.isStateMarkedForDeletion()) {
+            volContainer->addToDeleteVols(volume);
+        }
     }
 
     // load snapshots
     std::vector<fpi::Snapshot> vecSnapshots;
-    VolumeContainer::pointer volContainer = om_locDomain->om_vol_mgr();
+
     for (const auto& volumeDesc : vecVolumes) {
         vecSnapshots.clear();
         configDB->listSnapshots(vecSnapshots, volumeDesc.volUUID);
@@ -1922,9 +2023,13 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                              << std::hex 
                              << svcInfo->svc_id.svc_uuid.svc_uuid 
                              << std::dec
-                             << " ) is a new node.";
+                             << " ) is a new node, setting to discovered.";
                     
-                    svcInfo->svc_status = fpi::SVC_STATUS_ACTIVE;
+                    svcInfo->svc_status = fpi::SVC_STATUS_DISCOVERED;
+
+                    auto pmNodes = om_locDomain->om_pm_nodes();
+                    auto pmAgent = OM_PmAgent::agt_cast_ptr(pmNodes->agent_info(node_uuid));
+                    pmAgent->set_node_state(fpi::FDS_Node_Discovered);
                 }
                 auto curTime         = std::chrono::system_clock::now().time_since_epoch();
                 double timeInMinutes = std::chrono::duration<double,std::ratio<60>>(curTime).count();
@@ -2222,9 +2327,19 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
             LOGDEBUG << "OM Restart, Successful Registered ( spoof ) Service: "
                      << fds::logDetailedString( svc );
             svc.incarnationNo = util::getTimeStampSeconds();
-            svc.svc_status = fpi::SVC_STATUS_ACTIVE;
             spoofed.push_back( svc );
-            configDB->updateSvcMap( svc );
+
+            // If PM is in DISCOVERED state, it means it is either a new node or a previously removed
+            // node. In both cases, we want the state to stay discovered
+
+            if ( !( (svc.svc_type == fpi::FDSP_PLATFORM) &&
+                    (svc.svc_status == fpi::SVC_STATUS_DISCOVERED) ) )
+            {
+                svc.svc_status = fpi::SVC_STATUS_ACTIVE;
+
+                fds_mutex::scoped_lock l(dbLock);
+                configDB->updateSvcMap( svc );
+            }
         }
         else 
         {
@@ -2361,8 +2476,7 @@ bool OM_NodeDomainMod::isAnyNonePlatformSvcActive(
             // cleaning up the cluster map and causing a DLT/DMT propagation
             if ( svc.svc_status == fpi::SVC_STATUS_ACTIVE ||
                  svc.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED ||
-                 svc.svc_status == fpi::SVC_STATUS_STARTED ||
-                 isPlatformSvc( svc) )
+                 svc.svc_status == fpi::SVC_STATUS_STARTED )
             {
                 if ( isPlatformSvc( svc ) )
                 {
@@ -2379,6 +2493,16 @@ bool OM_NodeDomainMod::isAnyNonePlatformSvcActive(
                 else if ( isAccessMgrSvc( svc ) )
                 {
                     amSvcs->push_back( svc );                
+                }
+            }
+
+            if (isPlatformSvc(svc))
+            {
+                if (svc.svc_status == fpi::SVC_STATUS_ACTIVE ||
+                    svc.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED ||
+                    svc.svc_status == fpi::SVC_STATUS_DISCOVERED)
+                {
+                    pmSvcs->push_back(svc);
                 }
             }
         }
@@ -2691,6 +2815,50 @@ OM_NodeDomainMod::om_handle_restart( const NodeUuid& uuid,
     return error;
 }
 
+bool
+OM_NodeDomainMod::isScheduled(FdsTimerTaskPtr& task, int64_t id)
+{
+    std::lock_guard<std::mutex> mapLock(taskMapMutex);
+    auto iter = setupNewNodeTaskMap.find(id);
+
+    if (iter == setupNewNodeTaskMap.end())
+        return false;
+
+    task = iter->second;
+
+    return true;
+}
+
+void
+OM_NodeDomainMod::addToTaskMap(FdsTimerTaskPtr task, int64_t id)
+{
+    std::lock_guard<std::mutex> mapLock(taskMapMutex);
+
+    LOGDEBUG << "Adding scheduled setupNewNode task to task map for svc uuid:"
+             << std::hex << id << std::dec;
+
+    setupNewNodeTaskMap[id] = task;
+}
+
+void
+OM_NodeDomainMod::removeFromTaskMap(int64_t id)
+{
+    std::lock_guard<std::mutex> mapLock(taskMapMutex);
+
+    auto iter = setupNewNodeTaskMap.find(id);
+
+    if (iter == setupNewNodeTaskMap.end())
+    {
+        LOGWARN << "No scheduled setupNewNode found for svc uuid:" << std::hex << id << std::dec;
+        return;
+    }
+
+    LOGDEBUG << "Removing setupNewNode task from task map for svc uuid:"
+             << std::hex << id << std::dec;
+
+    setupNewNodeTaskMap.erase(iter);
+}
+
 // om_reg_node_info
 // ----------------
 //
@@ -2762,6 +2930,19 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
         /* schedule the task to be run on timer thread after 3 seconds */
         if ( timer->schedule( task, std::chrono::seconds( 3 ) ) )
         {
+            int64_t id = uuid.uuid_get_val();
+            FdsTimerTaskPtr schedTask;
+            if (!isScheduled(schedTask, id))
+            {
+                addToTaskMap(task, id);
+
+            } else {
+                LOGNOTIFY << " Canceling previously scheduled setupNewNode task found for same svc:"
+                          << std::hex << id << std::dec;
+
+                timer->cancel(schedTask);
+                addToTaskMap(task, id);
+            }
             LOGNORMAL << "Successfully scheduled 'setupNewNode' for uuid " 
                       << std::hex << uuid << std::dec;
         }
@@ -2780,6 +2961,8 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
                                     const FdspNodeRegPtr msg,
                                     NodeAgent::pointer   newNode,
                                     bool fPrevRegistered) {
+
+    removeFromTaskMap(uuid.uuid_get_val());
 
     int64_t pmUuid = uuid.uuid_get_val();
     pmUuid &= ~0xF; // clear out the last 4 bits
@@ -3065,7 +3248,7 @@ OM_NodeDomainMod::removeNodeComplete(NodeUuid uuid) {
     bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcuuid, svcInfo);
     if (ret) {
         LOGDEBUG << "Deleting from svcMap, uuid:" << std::hex << svcuuid.svc_uuid << std::dec;
-        fds_mutex dbLock;
+
         fds_mutex::scoped_lock l(dbLock);
 
         configDB->deleteSvcMap(svcInfo);
@@ -3119,6 +3302,13 @@ OM_NodeDomainMod::om_shutdown_domain()
     return err;
 }
 
+fds_bool_t
+OM_NodeDomainMod::checkDmtModVGMode() {
+    OM_Module *om = OM_Module::om_singleton();
+    OM_DMTMod *dmtMod = om->om_dmt_mod();
+    return (dmtMod->volumeGrpMode());
+}
+
 void
 OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     LOGNOTIFY << "Attempt to update DMT";
@@ -3126,7 +3316,6 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     OM_DMTMod *dmtMod = om->om_dmt_mod();
     // ClusterMap *cmMod =  om->om_clusmap_mod();
     // For volume grouping mode, we support only 1 version of DMT atm.
-    static bool volumeGroupDMTFired = false;
     uint32_t awaitingDMs = dmtMod->getWaitingDMs();
 
     if (dmPrevRegistered) {
@@ -3141,8 +3330,6 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
         // in case there are no volume acknowledge to wait
         dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
     } else {
-        auto dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
-                                        get<uint32_t>("fds.common.volume_group.dm_cluster_size", 1));
         if (!volumeGroupDMTFired && (awaitingDMs == dmClusterSize)) {
             LOGNOTIFY << "Volume Group Mode has reached quorum with " << dmClusterSize
                     << " DMs. Calculating DMT now.";
@@ -3182,15 +3369,14 @@ OM_NodeDomainMod::om_dlt_update_cluster() {
 }
 
 void
-OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap( const NodeUuid& svcUuid,
+OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap(boost::shared_ptr<fpi::SvcInfo> svcInfo,
                                                         fpi::FDSP_MgrIdType svcType,
-                                                        const fpi::ServiceStatus status )
+                                                        const fpi::ServiceStatus status)
 {
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-    fds_mutex dbLock;
     {
         fds_mutex::scoped_lock l(dbLock);
-        change_service_state( configDB, svcUuid.uuid_get_val(), status, true );
+        change_service_state( configDB, svcInfo, status, true );
     }
     om_locDomain->om_bcast_svcmap();
 }

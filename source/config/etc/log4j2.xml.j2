@@ -11,7 +11,7 @@
 %}
 {% block content %}
 <?xml version="1.0" encoding="UTF-8"?>
-<Configuration>
+<Configuration monitorInterval="30">
     <Properties>
         <!-- {{ ansible_managed }} -->
         <!-- must match environment variable name -->
@@ -64,6 +64,22 @@
         </Console>
     </Appenders>
 
+    <!-- Filters/Markers appear to be required at the configuration.  They can
+         possibly applied at the logger level to override the config setting.
+          https://issues.apache.org/jira/browse/LOG4J2-601
+    -->
+    <Filters>
+        <!-- HttpRequest Log Filters used in the com.formationds.web.toolkitRequestLog.
+            Note that when enabled these produce a lot of output extra log output and will
+            cause logs to rollover frequently.
+        -->
+        <MarkerFilter marker="REQUEST" onMatch="ACCEPT" onMismatch="NEUTRAL" />
+        <MarkerFilter marker="REQUEST_QUERY" onMatch="ACCEPT" onMismatch="NEUTRAL" />
+        <MarkerFilter marker="REQUEST_HEADERS" onMatch="DENY" onMismatch="NEUTRAL" />
+        <MarkerFilter marker="REQUEST_PAYLOAD" onMatch="ACCEPT" onMismatch="NEUTRAL" />
+        <MarkerFilter marker="REQUEST_PAYLOAD_INGEST_STATS" onMatch="DENY" onMismatch="NEUTRAL" />
+    </Filters>
+
     <Loggers>
         <Root level="WARN">
             <AppenderRef ref="fds-${sys:fds.service.name}"/>
@@ -71,7 +87,31 @@
         <Logger name="com.formationds" level="{{ java_log_severity }}" additivity="false">
             <AppenderRef ref="fds-${sys:fds.service.name}"/>
         </Logger>
+
+        <Logger name="com.formationds.om.repository.influxdb.InfluxDBConnection$LoggingInfluxDBReader" level="{{ java_log_severity }}" additivity="false">
+            <AppenderRef ref="fds-${sys:fds.service.name}"/>
+        </Logger>
+        <Logger name="com.formationds.om.repository.influxdb.InfluxDBConnection$LoggingInfluxDBWriter" level="{{ java_log_severity }}" additivity="false">
+            <AppenderRef ref="fds-${sys:fds.service.name}"/>
+        </Logger>
+
         <Logger name="com.formationds.platform" level="{{ java_log_severity }}" additivity="false">
+            <AppenderRef ref="fds-${sys:fds.service.name}"/>
+        </Logger>
+
+        <!-- The RequestLog logs detailed information about each request optionally including headers and
+             payload.  Enable by setting the level to TRACE and setting the markers onMatch for the fields
+             you want logged to ACCEPT.  Although every attempt is made to prevent logging sensitive information
+             there is a possibility that some information logged may be considered sensitive.  Be sure to
+             secure your logs.
+         -->
+        <Logger name="com.formationds.web.toolkit.RequestLog" level="{{ java_log_severity }}" additivity="false">
+            <AppenderRef ref="fds-${sys:fds.service.name}"/>
+        </Logger>
+
+        <!-- StatisticPublisher TRACE level will dump every statistic value received by the AM (XDI)
+          to the log file. -->
+        <Logger name="com.formationds.am.StatisticsPublisher" level="{{ java_log_severity }}" additivity="false">
             <AppenderRef ref="fds-${sys:fds.service.name}"/>
         </Logger>
     </Loggers>

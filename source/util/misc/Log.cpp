@@ -231,4 +231,8 @@ void fds_log::setSeverityFilter(const severity_level &level) {
     severityLevel= level;
 }
 
+void fds_log::rotate() {
+    sink->locked_backend()->rotate_file();
+}
+
 }  // namespace fds

@@ -11,7 +11,6 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.xdi.Xdi;
-
 import org.eclipse.jetty.server.Request;
 
 import java.util.Map;
@@ -30,8 +29,8 @@ public class CreateContainer implements RequestHandler {
         String accountName = requiredString(routeParameters, "account");
         String containerName = requiredString(routeParameters, "container");
 
-        long tenantId = xdi.getAuthorizer().tenantId(token);
-        xdi.createVolume(token, accountName, containerName, new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, tenantId, 0, MediaPolicy.HDD_ONLY));
+        VolumeSettings volumeSettings = new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, Long.MAX_VALUE, 0, MediaPolicy.HDD_ONLY);
+        xdi.createVolume(token, accountName, containerName, volumeSettings);
         return SwiftUtility.swiftResource(new TextResource(201, ""));
     }
 }

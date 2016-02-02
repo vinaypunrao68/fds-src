@@ -759,6 +759,11 @@ void FailoverSvcRequest::onResponseCb(FailoverSvcRequestRespCb cb)
     respCb_ = cb;
 }
 
+fpi::SvcUuid FailoverSvcRequest::getLastRespondedSvcUuid() const
+{
+    return epReqs_[curEpIdx_]->peerEpId_;
+}
+
 /**
 * @brief
 */
@@ -784,6 +789,7 @@ QuorumSvcRequest::QuorumSvcRequest(CommonModuleProviderIf *provider,
     successAckd_ = 0;
     errorAckd_ = 0;
     quorumCnt_ = peerEpIds.size();
+    waitForAllResponses_ = false;
 }
 
 /**
@@ -819,6 +825,12 @@ QuorumSvcRequest::~QuorumSvcRequest()
 void QuorumSvcRequest::setQuorumCnt(const uint32_t cnt)
 {
     quorumCnt_ = cnt;
+}
+
+
+void QuorumSvcRequest::setWaitForAllResponses(bool flag)
+{
+    waitForAllResponses_ = flag;
 }
 
 void QuorumSvcRequest::invoke() {
@@ -892,24 +904,37 @@ void QuorumSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
     if (bSuccess) {
         ++successAckd_;
     } else {
+        if (ERR_OK == response_) {
+            response_ = header->msg_code;
+        }
         ++errorAckd_;
     }
 
     /* Take action based on the ack counts */
     if (successAckd_ == quorumCnt_) {
-        complete(ERR_OK);
-        if (respCb_) {
+        if (respCb_ && !waitForAllResponses_) {
             SVCPERF(ts.rspHndlrTs = util::getTimeStampNanos());
             respCb_(this, ERR_OK, payload);
+            respCb_ = nullptr;
         }
         MODULEPROVIDER()->getSvcMgr()->getSvcRequestCntrs()->appsuccess.incr();
     } else if (errorAckd_ > (epReqs_.size() - quorumCnt_)) {
-        complete(ERR_SVC_REQUEST_FAILED);
-        if (respCb_) {
-            /* NOTE: We are using last failure code in this case */
-            respCb_(this, header->msg_code, payload);
+        if (respCb_ && !waitForAllResponses_) {
+            /* NOTE: We are using first non-ERR_OK code in this case */
+            respCb_(this, response_, payload);
+            respCb_ = nullptr;
         }
         MODULEPROVIDER()->getSvcMgr()->getSvcRequestCntrs()->apperrors.incr();
+    }
+
+    if (successAckd_+ errorAckd_ == epReqs_.size()) {
+        auto completionCode = (successAckd_ >= quorumCnt_) ? ERR_OK : response_;
+        if (waitForAllResponses_ && respCb_) {
+            respCb_(this, completionCode, payload);
+            respCb_ = nullptr;
+        }
+        /* Recevied all responses */
+        complete(completionCode);
     }
 }
 

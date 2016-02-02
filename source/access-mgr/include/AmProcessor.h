@@ -10,6 +10,10 @@
 
 #include "fds_volume.h"
 
+namespace FDS_ProtocolInterface {
+class AddToVolumeGroupRespCtrlMsg;
+}
+
 namespace fds {
 
 /**
@@ -19,6 +23,10 @@ struct AmProcessor_impl;
 struct AmRequest;
 struct AccessMgr;
 struct CommonModuleProviderIf;
+
+using AddToVolumeGroupCb =
+    std::function<void(const Error&,
+                       const boost::shared_ptr<FDS_ProtocolInterface::AddToVolumeGroupRespCtrlMsg>&)>;
 
 class AmProcessor : public std::enable_shared_from_this<AmProcessor>
 {
@@ -36,13 +44,11 @@ class AmProcessor : public std::enable_shared_from_this<AmProcessor>
     void start();
 
     /**
-     * Asynchronous shutdown initiation.
+     * Synchronous shutdown initiation.
      */
     void stop();
 
     void prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb);
-
-    void prepareForShutdownMsgRespCallCb();
 
     /**
      * Enqueue a connector request
@@ -57,6 +63,10 @@ class AmProcessor : public std::enable_shared_from_this<AmProcessor>
      * Update volume description
      */
     Error modifyVolumePolicy(const VolumeDesc& vdesc);
+
+    /* Volumegroup control message from volume replica */
+    void addToVolumeGroup(const FDS_ProtocolInterface::AddToVolumeGroupCtrlMsgPtr &addMsg,
+                          const AddToVolumeGroupCb &cb);
 
 
     /**

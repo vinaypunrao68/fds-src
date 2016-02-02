@@ -5,16 +5,18 @@
 package com.formationds.om.repository.influxdb;
 
 import com.formationds.commons.libconfig.ParsedConfig;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.commons.util.RetryHelper;
 import com.formationds.om.helper.SingletonConfiguration;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
+import org.influxdb.dto.ChunkedResponse;
 import org.influxdb.dto.Serie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -33,8 +35,6 @@ import java.util.concurrent.locks.ReentrantLock;
  * against the influxdb database.  The default configuration is to allow concurrent reads and writes, but we have
  * observed problems with InfluxDB handling concurrent operations so this is in place to workaround those issues.
  * <ul>
- * <li>If the serialize_all flag is set, then we use a shared lock in both the DBWriter and the DBReader preventing concurrent reads or writes.</li>
- * <li>if the serialize_reads flag is set, then we use a query lock in the DBReader to prevent concurrent reads</li>
  * <li>If the serialize_writes flag is set, then we use a write lock in the DBWriter to prevent concurrent writes.</li>
  * <li>Otherwise, we return a no-op implementation of a lock that does no locking at all</li>
  * </ul>
@@ -43,19 +43,9 @@ public class InfluxDBConnection {
     public static final Logger logger = LoggerFactory.getLogger( InfluxDBConnection.class );
 
     public static final String FDS_OM_INFLUXDB_ENABLE_BACKTRACE = "fds.om.influxdb.enable_query_backtrace";
-    public static final String FDS_OM_INFLUXDB_SERIALIZE_READS  = "fds.om.influxdb.serialize_reads";
     public static final String FDS_OM_INFLUXDB_SERIALIZE_WRITES = "fds.om.influxdb.serialize_writes";
-    public static final String FDS_OM_INFLUXDB_SERIALIZE_ALL    = "fds.om.influxdb.serialize_all";
 
-    private static final ParsedConfig PLAT_CFG = SingletonConfiguration.instance().getConfig().getPlatformConfig();
-
-    /**
-     * @return the value of the fds.om.influxdb.serialize_reads flag or false if it is not defined
-     */
-    private static boolean isSerializeReads()
-    {
-        return PLAT_CFG.defaultBoolean( FDS_OM_INFLUXDB_SERIALIZE_READS, false );
-    }
+    private static final ParsedConfig PLAT_CFG = SingletonConfiguration.getPlatformConfig();
 
     /**
      * @return the value of the fds.om.influxdb.serialize_writes flag or false if it is not defined
@@ -63,14 +53,6 @@ public class InfluxDBConnection {
     private static boolean isSerializeWrites()
     {
         return PLAT_CFG.defaultBoolean( FDS_OM_INFLUXDB_SERIALIZE_WRITES, false );
-    }
-
-    /**
-     * @return the value of the fds.om.influxdb.serialize_all flag or false if it is not defined
-     */
-    private static boolean isSerializeAll()
-    {
-        return PLAT_CFG.defaultBoolean( FDS_OM_INFLUXDB_SERIALIZE_ALL, false );
     }
 
     private final LoggingInfluxDBReader reader = new LoggingInfluxDBReader();
@@ -99,14 +81,13 @@ public class InfluxDBConnection {
     // @formatter:off
     // overrides toString to return the lock name and identity hash code only. used for trace logging only
     private class NamedLock extends ReentrantLock {
+        private static final long serialVersionUID = -1368502809071656626L;
         private final String name;
         public NamedLock(String n) { super(); this.name = n; }
         public String toString() { return name + "[" + System.identityHashCode( this ) + "]"; }
     }
     // @formatter:on
 
-    private final ReentrantLock sharedLock = new NamedLock( "SHARED" );
-    private final ReentrantLock queryLock  = new NamedLock( "QUERY" );
     private final ReentrantLock writeLock  = new NamedLock( "WRITE" );
 
     private final String url;
@@ -118,6 +99,8 @@ public class InfluxDBConnection {
     private final Optional<String> database;
 
     private CompletableFuture<InfluxDB> influxDB = null;
+
+    private final boolean chunkedResponseEnabled;
 
     /**
      *
@@ -142,11 +125,20 @@ public class InfluxDBConnection {
         this.database = ((database != null && !database.trim().isEmpty() ) ?
                          Optional.of( database ) :
                          Optional.empty() );
+
+        chunkedResponseEnabled = FdsFeatureToggles.INFLUX_CHUNKED_QUERY_RESPONSE.isActive();
     }
 
     public String getUrl() { return url; }
     public String getUser() { return user; }
     char[] getCredentials() { return Arrays.copyOf( credentials, credentials.length ); }
+
+    /**
+     * @return true if the chunked query response feature toggle is enabled
+     */
+    public boolean isChunkedResponseEnabled() {
+        return chunkedResponseEnabled;
+    }
 
     /**
      * close the influxdb connection.
@@ -279,34 +271,9 @@ public class InfluxDBConnection {
      *
      * @see InfluxDBConnection for a description of the locking strategy
      */
-    private Lock getQueryLock()
-    {
-        if ( isSerializeAll() )
-        {
-            return sharedLock;
-        }
-        else if ( isSerializeReads() )
-        {
-            return queryLock;
-        }
-        else
-        {
-            return noLock;
-        }
-    }
-
-    /**
-     * @return the lock to use for queries.
-     *
-     * @see InfluxDBConnection for a description of the locking strategy
-     */
     private Lock getWriteLock()
     {
-        if ( isSerializeAll() )
-        {
-            return sharedLock;
-        }
-        else if ( isSerializeWrites() )
+        if ( isSerializeWrites() )
         {
             return writeLock;
         }
@@ -413,49 +380,54 @@ public class InfluxDBConnection {
     {
         public final Logger queryLogger = LoggerFactory.getLogger( LoggingInfluxDBReader.class );
 
+        private static final String CHUNKED_MARKER = "CHUNKED";
+
         LoggingInfluxDBReader() { }
 
+        /**
+         * @param query
+         * @param preceision
+         *
+         * @return the list of results from the query.  An empty list is returned if there are no results.
+         */
         public List<Serie> query( String query, TimeUnit precision )
         {
+            String marker = "";
+            List<Serie> result = doExecQuery( query, precision, marker );
+            if (result == null) {
+                result = new ArrayList<>();
+            }
+            return result;
+        }
+
+        @SuppressWarnings("unchecked")
+        private <T> T doExecQuery( String query, TimeUnit precision, String marker ) {
             long start = System.currentTimeMillis();
-            long connTime = -1;
-            long queryTime = -1;
-            long lockTime = -1;
-            List<Serie> result = Collections.emptyList();
+            long connTime = 0;
+            long queryTime = 0;
+            T result = null;
             Throwable failed = null;
-            Lock lock = getQueryLock();
             try
             {
-                queryLogger.trace( "QUERY_BEGIN [{}]:[{}]: {}", lock, start, query );
+                queryLogger.trace( "QUERY_BEGIN {} [{}]: {}", marker, start, query );
 
                 if ( PLAT_CFG.defaultBoolean( FDS_OM_INFLUXDB_ENABLE_BACKTRACE, false ) )
                 {
-                    // hack to log the stack trace of each query
-                    StackTraceElement[] st = new Exception().getStackTrace();
-                    int maxDepth = 25;
-                    int d = 0;
-                    for ( StackTraceElement e : st )
-                    {
-                        queryLogger.trace( "QUERY_TRACE[" + d + "]: {}", e );
-                        if ( ++d > maxDepth || e.getClassName().startsWith( "org.eclipse.jetty" ) ) { break; }
-                    }
+                    logBacktrace();
                 }
 
                 InfluxDB conn = connect();
                 connTime = System.currentTimeMillis() - start;
 
-                lockTime = timedOp( lock::lock );
-                try
-                {
-                    result = conn.query( database.get(), query, precision );
+                if ( CHUNKED_MARKER.equals( marker ) ) {
+                    result = (T)conn.chunkedResponseQuery( database.get(), query, precision );
+                } else {
+                    result = (T)conn.query( database.get(), query, precision );
                 }
-                finally
-                {
-                    lock.unlock();
-                }
+
                 queryTime = System.currentTimeMillis() - start - connTime;
 
-                return result;
+                return (T)result;
             }
             catch ( Throwable e )
             {
@@ -464,26 +436,64 @@ public class InfluxDBConnection {
                 String msg = e.getMessage();
                 if ( msg != null && msg.startsWith( "Couldn't find series:" ) )
                 {
-                    // empty list
-                    return result;
+                    // TODO: not going to change it here right now because it impacts call paths, but
+                    // I think this should re-throw the exception and allow the callers to handle it.
+                    return (T)null;
                 }
                 else
                 {
                     failed = e;
                     queryLogger
-                            .trace( "QUERY_FAIL  [{}]: {} [ex={}; lock={} ms; conn={} ms; query={} ms]", start, query,
-                                    e.getMessage(), lockTime, connTime, queryTime );
+                            .trace( "QUERY_FAIL {} [{}]: {} [ex={}; conn={} ms; query={} ms]",
+                                    marker, start, query,
+                                    e.getMessage(), connTime, queryTime );
                     throw e;
                 }
             }
             finally
             {
-                queryLogger.trace( "QUERY_END   [{}]:[{}]: {} [result={}; lock={} ms; conn={} ms; query={} ms]", lock,
-                                   start, query, ( failed != null
+                queryLogger.trace( "QUERY_END {}  [{}]: {} [result={}; conn={} ms; query={} ms]",
+                                   marker, start, query, ( failed != null
                                                    ? "'" + failed.getMessage() + "'"
-                                                   : Integer.toString( result.size() ) ), lockTime, connTime,
+                                                   : (result instanceof List ?
+                                                         Integer.toString( ((List)result).size() ): 0 ) ),
+                                   connTime,
                                    queryTime );
             }
         }
+
+        @Override
+        public boolean suportsChunkedResponseQuery() {
+            return chunkedResponseEnabled;
+        }
+
+        /**
+         * @param query
+         * @param precision
+         *
+         * @return a Chunked (Streaming) response to the query.  Null if there is no result (For example, the series not found)
+         */
+        @Override
+        public ChunkedResponse chunkedReponseQuery( String query, TimeUnit precision ) {
+            if ( ! chunkedResponseEnabled ) {
+                throw new IllegalStateException("Chunked response queries disabled.");
+            }
+
+            return doExecQuery( query, precision, CHUNKED_MARKER );
+        }
+
+        private void logBacktrace() {
+            // hack to log the stack trace of each query
+            StackTraceElement[] st = new Exception().getStackTrace();
+            int maxDepth = 25;
+            int d = 0;
+            for ( StackTraceElement e : st )
+            {
+                queryLogger.trace( "QUERY_TRACE[" + d + "]: {}", e );
+                if ( ++d > maxDepth || e.getClassName().startsWith( "org.eclipse.jetty" ) ) { break; }
+            }
+        }
+
+
     }
 }

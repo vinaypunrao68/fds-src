@@ -19,8 +19,6 @@ import time
 import re
 from fabric.contrib.files import *
 from fabric.context_managers import cd
-from StringIO import StringIO
-from fabric.api import get
 from fdslib.TestUtils import disconnect_fabric
 from fdslib.TestUtils import connect_fabric
 
@@ -138,11 +136,15 @@ def are_dir_trees_equal(dir1, dir2, logDiff=False):
     return True
 
 
-def canonMatch(canon, fileToCheck):
+def canonMatch(canon, fileToCheck, adjustLines = False, moreVersions=False):
     """
     Test whether the fileToCheck file matches the canon file.
     This is a regular expression check where the canon file may
     contain regular expression patterns to aid in custom compares.
+
+    If adjustLines is set True, then the number of lines in
+    the canon determines the first number f line in the file we
+    check.
     """
     log = logging.getLogger('TestFDSSysVerify' + '.' + 'canonMatch')
 
@@ -166,19 +168,23 @@ def canonMatch(canon, fileToCheck):
     f.close()
 
     if len(canonLines) != len(linesToCheck):
-        log.error("Canon mis-match on line count: %s line count: %s. %s line count: %s." %
-                  (canon, len(canonLines), fileToCheck, len(fileToCheck)))
-        return False
+        if (adjustLines) and (len(canonLines) > len(linesToCheck)):
+            log.warn("Canon mis-match on line count: %s line count: %s. %s line count: %s." %
+                      (canon, len(canonLines), fileToCheck, len(fileToCheck)))
+            return False
 
     idx = 0
     for canonLine in canonLines:
         if re.match(canonLine.encode('string-escape'), linesToCheck[idx]) is None:
-            log.error("File %s, differs from canon file, %s, at line %d." %
-                      (fileToCheck, canon, idx + 1))
-            log.error("File line:")
-            log.error(linesToCheck[idx])
-            log.error("Canon line:")
-            log.error(canonLine)
+            if moreVersions:
+                log.info("No match.")
+            else:
+                log.warn("File %s, differs from canon file, %s, at line %d." %
+                          (fileToCheck, canon, idx + 1))
+                log.warn("File line:")
+                log.warn(linesToCheck[idx])
+                log.warn("Canon line:")
+                log.warn(canonLine)
             return False
         else:
             idx += 1
@@ -736,10 +742,10 @@ class TestRunScavenger(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# whether he specified file matches the specified canon file
+# whether the specified file matches the specified canon file
 # in a regular expression compare.
 class TestCanonMatch(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, canon=None, fileToCheck=None):
+    def __init__(self, parameters=None, canon=None, fileToCheck=None, adjustLines=False):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_CanonMatch,
@@ -747,6 +753,7 @@ class TestCanonMatch(TestCase.FDSTestCase):
 
         self.passedCanon = canon
         self.passedFileToCheck = fileToCheck
+        self.passedAdjustLines = adjustLines
 
     def test_CanonMatch(self):
         """
@@ -755,7 +762,7 @@ class TestCanonMatch(TestCase.FDSTestCase):
         the canon file and the file to be checked.
         """
 
-        # We must have all our parameters supplied.
+        # We must have our canon and fileToCheck parameters supplied.
         if (self.passedCanon is None) or \
                 (self.passedFileToCheck is None):
             self.log.error("Some parameters missing values.")
@@ -764,121 +771,55 @@ class TestCanonMatch(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
         canonDir = fdscfg.rt_env.get_fds_source() + "test/testsuites/canons/"
 
-        self.log.info("Comparing file %s to canon %s." %
-                      (self.passedFileToCheck, canonDir + self.passedCanon))
+        # If we don't see the canon file, it may be that there are multiple
+        # versions that we need to check. Different versions of a canon will
+        # all have the same file name except that they will have a final
+        # LLQ starting with "v" and followed by a number. For example:
+        # 3.stat_min_log.v1
+        # 3.stat_min_log.v2
+        # are two different versions of canon "3.stat_min_log".
+        #
+        # If we have different version, we'll check each in turn until we
+        # either find a match (success!) or find that none match (fail!).
+        if not os.path.isfile(canonDir + self.passedCanon):
+            canonFileDir, canonFilePrefix = os.path.split(canonDir + self.passedCanon)
+            listOfCanonDirFiles = os.listdir(canonFileDir)
 
-        if canonMatch(canonDir + self.passedCanon, self.passedFileToCheck):
-            return True
-        else:
-            self.log.error("Canon match failed.")
-            return False
+            found = False
+            listOfCanons = []
+            i = 0
+            for file in listOfCanonDirFiles:
+                if (re.search(canonFilePrefix + '[.]v[0-9]', file)):
+                    found = True
+                    i += 1
+                    listOfCanons.append(file)
 
+            if not found:
+                self.log.error("Canon file %s is not found." % (self.passedCanon))
+                return False
 
-# This class contains the attributes and methods to test
-# rebooting node (I.e. node shuts down and comes back up again)
-class TestNodeReboot(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None, service=None, logentry=None, om_node=None):
-        super(self.__class__, self).__init__(parameters,
-                                             self.__class__.__name__,
-                                             self.test_NodeReboot,
-                                             "Reboot a node")
+            self.log.info("{0} versions for canon {1}.".format(i, self.passedCanon))
 
-        self.passedNode = node
-        self.passedService = service
-        self.passedLogentry = logentry
-        self.passedOMnode = om_node
+            for file in listOfCanons:
+                i -= 1
 
-    def test_NodeReboot(self):
-        """
-        Test Case:
-        Attempt to reboot a given node.
-        """
-        service_list = self.passedService.split(',')
-        log_entry_list = self.passedLogentry.split(',')
-        node_ip = self.passedNode.nd_conf_dict['ip']
-        dict_log_count = {}
-        global pre_reboot_count
-        pre_reboot_count = {}
+                self.log.info("Comparing file %s to canon %s." %
+                              (self.passedFileToCheck, canonFileDir + os.path.sep + file))
 
-        for idx, log_entry in enumerate(log_entry_list):
-            # If service is OM then search OM logs on om node
-            node = self.passedOMnode if service_list[idx] == 'om' else self.passedNode
-            val = count_remote_logs(self, node, service_list[idx], log_entry)
-            dict_log_count[log_entry] = val
-        pre_reboot_count = dict_log_count
+                if canonMatch(canonFileDir + os.path.sep + file, self.passedFileToCheck, adjustLines=self.passedAdjustLines, moreVersions=(i > 0)):
+                    return True
 
-        self.log.info("%s is going down for reboot NOW!" % self.passedNode.nd_conf_dict['ip'])
-        assert connect_fabric(self, node_ip) is True
-        run('reboot')
-        disconnect_fabric()
-        # This assert will confirm that node is back up again after reboot
-        if not connect_fabric(self, node_ip):
             return False
         else:
-            return True
+            # Just check the one file.
+            self.log.info("Comparing file %s to canon %s." %
+                          (self.passedFileToCheck, canonDir + self.passedCanon))
 
-
-# This class contains the attributes and methods to verify if node is in good state for IO after reboot
-# by confirming passed log entry count has increased after reboot.
-
-class TestRebootVerify(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None, service=None, logentry=None, maxwait=None):
-        super(self.__class__, self).__init__(parameters,
-                                             self.__class__.__name__,
-                                             self.test_RebootVerify,
-                                             "Verify node state after reboot")
-
-        self.passedNode = node
-        self.passedService = service
-        self.passedLogentry = logentry
-        self.passedMaxwait = maxwait
-
-    def test_RebootVerify(self):
-        node_ip = self.passedNode.nd_conf_dict['ip']
-        assert connect_fabric(self, node_ip) is True
-        wait_for_log_time = self.passedMaxwait  # It's in minutes
-        post_reboot_log_entries = 0
-
-        # Given wait time is in minutes, if logs after reboot are not greater than logs before reboot then
-        # we sleep for 30 secs and check again, hence wait_for_log_time is multiplied by 2
-        for i in range(0, wait_for_log_time * 2):
-            post_reboot_log_entries = count_remote_logs(self, self.passedNode, self.passedService, self.passedLogentry)
-            if not (post_reboot_log_entries > pre_reboot_count[self.passedLogentry]):
-                # before rechecking logs wait for 30 sec
-                time.sleep(30)
-                continue
-            else:
-                self.log.info("Node reboot success: `%s` entry count before reboot: %d, "
-                              " after reboot: %d ."
-                              % (self.passedLogentry, pre_reboot_count[self.passedLogentry], post_reboot_log_entries))
-                disconnect_fabric()
+            if canonMatch(canonDir + self.passedCanon, self.passedFileToCheck, adjustLines=self.passedAdjustLines):
                 return True
-
-        if not (post_reboot_log_entries > pre_reboot_count[self.passedLogentry]):
-            self.log.error("Waited for %s minutes on node %s after reboot, still %s count didn't increase"
-                           % (wait_for_log_time, node_ip, self.passedLogentry))
-            return False
-
-
-def count_remote_logs(self, node, service, log_entry):
-    assert connect_fabric(self, node.nd_conf_dict['ip']) is True
-    with cd('/fds/var/logs'):
-        files = run('ls').split()
-    log_files = [item for item in files if item.startswith(service + '.log')]
-
-    log_counts = 0
-    io = StringIO()
-    for log_file in log_files:
-        get('/fds/var/logs/' + log_file, io)
-        content = io.getvalue()
-        search_lines = content.split('\n')
-        for line in search_lines:
-            if log_entry in line:
-                log_counts += 1
-                io.truncate(0)
-
-    disconnect_fabric()
-    return log_counts
+            else:
+                self.log.error("Canon match failed.")
+                return False
 
 
 if __name__ == '__main__':

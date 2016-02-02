@@ -168,10 +168,17 @@ std::string logString(const fpi::CtrlNotifyDMStartMigrationMsg & vol) {
     return oss.str();
 }
 
+std::string logString(const fpi::CtrlNotifyFinishMigrationMsg &msg)
+{
+    std::ostringstream oss;
+    oss << " CtrlNotifyFinishMigrationMsg volId:  "<< msg.volume_id;
+    return oss.str();
+}
+
 std::string logString(const fpi::CtrlNotifyInitialBlobFilterSetMsg &msg)
 {
 	std::ostringstream oss;
-	oss << " CtrlNotifyInitialBlobFilterSetMsg Vol Id: " << msg.volumeId;
+	oss << " CtrlNotifyInitialBlobFilterSetMsg Vol Id: " << msg.volume_id;
 	return oss.str();
 }
 
@@ -395,6 +402,13 @@ std::string logString(const fpi::DeleteBlobMsg& msg) {
     return oss.str();
 }
 
+std::string logString(const fpi::GetVolumeMetadataMsg& msg) {
+    std::ostringstream oss;
+    oss << " GetVolumeMetadataMsg "
+        << " volume_id: " << msg.volumeId;
+    return oss.str();
+}
+
 std::string quoteString(std::string const& text,
                         std::string const& delimiter,
                         std::string const& escape) {
@@ -427,6 +441,14 @@ DEFINE_OUTPUT_FUNCS(GenericCommandMsg) {
     out << "["
         << " command:" << msg.command
         << " args:" << msg.arg
+        << "]";
+    return out;
+}
+
+DEFINE_OUTPUT_FUNCS(LoadFromArchiveMsg) {
+    out << "["
+        << " file:" << msg.filename
+        << " vol:" << msg.volId
         << "]";
     return out;
 }

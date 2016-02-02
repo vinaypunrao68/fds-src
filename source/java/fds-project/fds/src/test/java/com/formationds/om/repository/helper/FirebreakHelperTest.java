@@ -8,9 +8,13 @@ import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
+import com.formationds.om.repository.MetricRepository;
+import com.formationds.om.repository.RepositoryTestHelper;
+import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.util.Configuration;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.AsyncAm;
+
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -24,6 +28,7 @@ import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -320,17 +325,24 @@ public class FirebreakHelperTest {
     static final ConfigurationApi mockedConfigApi = mock( ConfigurationApi.class );
     static final Configuration    mockedConfig    = mock( Configuration.class );
     static final AsyncAm mockedAMService = mock( AsyncAm.class );
+    static final MetricRepository mockedMetricRepo = mock( MetricRepository.class );
 
     @BeforeClass
     static public void setUpClass() throws Exception {
         SingletonConfigAPI.instance().api( mockedConfigApi );
         SingletonConfiguration.instance().setConfig( mockedConfig );
         SingletonAmAPI.instance().api( mockedAMService );
+        RepositoryTestHelper.setMockedMetricRepository( mockedMetricRepo );
+
         VolumeStatus vstat = new VolumeStatus();
         vstat.setCurrentUsageInBytes( 1024 );
         CompletableFuture<VolumeStatus> vstatCF = CompletableFuture.completedFuture(vstat);
         when( mockedAMService.volumeStatus( "", "u1-ov1" ) ).thenReturn( vstatCF );
         when( mockedAMService.volumeStatus( "", "u2-ov1" ) ).thenReturn( vstatCF );
+
+        when( mockedMetricRepo.getLatestVolumeStatus( "u1-ov1" ) ).thenReturn( Optional.of( vstat ) );
+        when( mockedMetricRepo.getLatestVolumeStatus( "u2-ov1" ) ).thenReturn( Optional.of( vstat ) );
+
     }
 
     @Before
@@ -347,14 +359,14 @@ public class FirebreakHelperTest {
     @Test
     @Ignore //not implemented
     public void testProcessFirebreak() throws Exception {
-        //TODO: Test goes here... 
+        //TODO: Test goes here...
     }
 
     /**
      * Method: findFirebreak(final List<VolumeDatapoint> datapoints)
      */
+    // Test relies on mocked MetricRepository set in SingletonRepositoryManager
     @Test
-    @Ignore("Test fails if InfluxDB is not running.  Works with JDO b/c ObjectDB is embedded.")
     public void testFindFirebreak() throws Exception {
         VolumeDatapoint[][] rawdata = getTestDataSet();
         List<VolumeDatapoint> all = new ArrayList<>();

@@ -12,8 +12,7 @@ namespace fds
 static auto const max_duration = std::chrono::seconds(3);
 
 BlockTask::BlockTask(uint64_t const hdl) :
-    handle(hdl),
-    cmd_expire_time(std::chrono::system_clock::now() + max_duration)
+    handle(hdl)
 {
     bufVec.reserve(objCount);
     offVec.reserve(objCount);
@@ -30,7 +29,7 @@ BlockTask::handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffe
     // Fill in any missing wholes with zero data, this is a special *block*
     // semantic for NULL objects.
     for (auto& buf: bufVec) {
-        if (!buf) {
+        if (!buf || 0 == buf->size()) {
             buf = empty_buffer;
             len += maxObjectSizeInBytes;
         }
@@ -74,8 +73,9 @@ BlockTask::handleRMWResponse(boost::shared_ptr<std::string> const& retBuf,
     uint32_t iOff = (seqId == 0) ? offset % maxObjectSizeInBytes : 0;
     auto& writeBytes = bufVec[seqId];
     boost::shared_ptr<std::string> fauxBytes;
-    if ((fpi::MISSING_RESOURCE == err) ||
-        0 == len || !retBuf) {
+    if ((fpi::MISSING_RESOURCE == err)
+        || (0 == retBuf->size())
+        || !retBuf) {
         // we tried to read unwritten block, so create
         // an empty block buffer to place the data
         fauxBytes = boost::make_shared<std::string>(maxObjectSizeInBytes, '\0');

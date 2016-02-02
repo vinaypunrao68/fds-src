@@ -464,6 +464,12 @@ struct FailoverSvcRequest : MultiEpSvcRequest {
 
     void onResponseCb(FailoverSvcRequestRespCb cb);
 
+    /**
+    * @brief  Returns uuid of last service that responsed.  Only use after responsed cb
+    * has been invoked
+    */
+    fpi::SvcUuid getLastRespondedSvcUuid() const;
+
  protected:
     virtual void invokeWork_() override;
 
@@ -510,6 +516,8 @@ struct QuorumSvcRequest : MultiEpSvcRequest {
 
     void setQuorumCnt(const uint32_t cnt);
 
+    void setWaitForAllResponses(bool flag);
+
     void onResponseCb(QuorumSvcRequestRespCb cb);
 
  protected:
@@ -518,6 +526,7 @@ struct QuorumSvcRequest : MultiEpSvcRequest {
     uint32_t successAckd_;
     uint32_t errorAckd_;
     uint32_t quorumCnt_;
+    bool waitForAllResponses_;
     QuorumSvcRequestRespCb respCb_;
 };
 typedef boost::shared_ptr<QuorumSvcRequest> QuorumSvcRequestPtr;

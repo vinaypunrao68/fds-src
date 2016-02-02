@@ -41,16 +41,17 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
     public XdiVfs(AsyncAm asyncAm, ExportResolver resolver, Counters counters, boolean deferMetadataWrites, int amRetryAttempts, Duration amRetryInterval) {
         IoOps ops = new RecoveryHandler(new AmOps(asyncAm, counters), amRetryAttempts, amRetryInterval);
         if (deferMetadataWrites) {
-            ops = new DeferredIoOps(ops, counters);
+            DeferredIoOps deferredOps = new DeferredIoOps(ops, counters);
+            ops = deferredOps;
+            // resolver.addVolumeDeleteEventHandler(v -> deferredOps.onVolumeDeletion(DOMAIN, v));
             ((DeferredIoOps) ops).start();
         }
-        TransactionalIo txs = new TransactionalIo(ops);
-        inodeMap = new InodeMap(txs, resolver);
-        allocator = new PersistentCounter(txs, FILE_ID_WELL, MIN_FILE_ID, false);
+        inodeMap = new InodeMap(ops, resolver);
+        allocator = new PersistentCounter(ops, DOMAIN, FILE_ID_WELL, MIN_FILE_ID, false);
         this.exportResolver = resolver;
-        inodeIndex = new SimpleInodeIndex(txs, resolver);
+        inodeIndex = new SimpleInodeIndex(ops, resolver);
         idMap = new SimpleIdMap();
-        chunker = new Chunker(txs);
+        chunker = new Chunker(ops);
         this.counters = counters;
     }
 
@@ -83,7 +84,7 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
 
         String volume = exportResolver.volumeName(parent.exportIndex());
         long fileId = allocator.increment(volume);
-        LOG.debug("Allocating fileID " + fileId);
+        LOG.debug("Allocating fileID [" + fileId + "] for file [" + name + "]");
         InodeMetadata metadata = new InodeMetadata(type, subject, mode, fileId)
                 .withLink(inodeMap.fileId(parent), name);
 
@@ -92,6 +93,7 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
         inodeMap.update(parent.exportIndex(), true, updatedParent);
         inodeIndex.index(parent.exportIndex(), true, metadata);
         inodeIndex.index(parent.exportIndex(), true, updatedParent);
+        LOG.debug("Created " + InodeMap.blobName(metadata.getFileId()));
         return createdInode;
     }
 
@@ -99,12 +101,22 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
     public FsStat getFsStat() throws IOException {
         long totalFiles = 0;
         long usedBytes = 0;
+        long totalCapacity = 0;
         Collection<String> volumes = exportResolver.exportNames();
         for (String volume : volumes) {
             usedBytes += inodeMap.usedBytes(volume);
             totalFiles += inodeMap.usedFiles(volume);
+            totalCapacity += exportResolver.maxVolumeCapacityInBytes(volume);
         }
-        return new FsStat(1024l * 1024l * 1024l * 1024l * 1024l, Long.MAX_VALUE, usedBytes, totalFiles);
+        return new FsStat(totalCapacity, Long.MAX_VALUE, usedBytes, totalFiles);
+    }
+
+    public FsStat getFsStat(int exportIndex) throws IOException {
+        String volumeName = exportResolver.volumeName(exportIndex);
+        long usedSpace = inodeMap.usedBytes(volumeName);
+        long usedFiles = inodeMap.usedFiles(volumeName);
+        long maxCapacityInBytes = exportResolver.maxVolumeCapacityInBytes(volumeName);
+        return new FsStat(maxCapacityInBytes, Long.MAX_VALUE, usedSpace, usedFiles);
     }
 
     @Override

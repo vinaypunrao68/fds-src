@@ -32,8 +32,8 @@ namespace fds
             DiskLabel *dsk_master_label_mtx();
             void dsk_read_label(PmDiskObj::pointer disk);
 
-            void dsk_reconcile_label(bool dsk_need_simulation);
-            void dsk_rec_label_map(PmDiskObj::pointer disk, int idx);
+            void dsk_reconcile_label(bool dsk_need_simulation, NodeUuid node_uuid, fds_uint16_t& largest_disk_index);
+            bool dsk_rec_label_map(PmDiskObj::pointer disk, int idx);
 
             // Clear the list of disk labels
             void clear();

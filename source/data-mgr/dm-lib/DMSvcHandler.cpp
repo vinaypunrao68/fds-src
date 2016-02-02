@@ -5,7 +5,7 @@
 #include <fdsp_utils.h>
 #include <DMSvcHandler.h>
 #include <StatStreamAggregator.h>
-#include "fdsp/sm_api_types.h"
+#include <fdsp/dm_api_types.h>
 
 namespace fds {
 DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManager)
@@ -34,8 +34,10 @@ DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManage
     REGISTER_FDSP_MSG_HANDLER(fpi::PrepareForShutdownMsg, shutdownDM);
 
     /* DM Debug messages */
-    REGISTER_FDSP_MSG_HANDLER(fpi::DbgQueryVolumeStateMsg, handleDbgQueryVolumeStateMsg);
     REGISTER_FDSP_MSG_HANDLER(fpi::DbgForceVolumeSyncMsg, handleDbgForceVolumeSyncMsg);
+
+    registerDmVolumeReqHandler<DmIoVolumegroupUpdate>();
+    registerDmVolumeReqHandler<DmIoFinishStaticMigration>();
 }
 
 // notifySvcChange
@@ -121,8 +123,16 @@ DMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                 err = dataManager_.deleteVolumeContents(vol_uuid);
                 err = dataManager_.process_rm_vol(vol_uuid, fCheck);
 
-                // remove volume from timelineDB
-                err = dataManager_.timelineMgr->removeVolume(vol_uuid);
+                // If timeline is disabled, then the remove volume check is
+                // simply going to return with err = FEATUER_DISABLED.
+                // When this err gets propagated back to the OM it causes volume
+                // delete not to clean up properly. So only removeVol against timelineMgr
+                // if the feature is enabled
+                if (dataManager_.features.isTimelineEnabled())
+                {
+                    // remove volume from timelineDB
+                    err = dataManager_.timelineMgr->removeVolume(vol_uuid);
+                }
             } else {
                 err = dataManager_.process_rm_vol(vol_uuid, fCheck);
             }
@@ -465,23 +475,6 @@ void DMSvcHandler::NotifyDMAbortMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
 }
 
 void
-DMSvcHandler::handleDbgQueryVolumeStateMsg(SHPTR<fpi::AsyncHdr>& hdr,
-                                           SHPTR<fpi::DbgQueryVolumeStateMsg> &queryMsg)
-{
-    auto volMeta = dataManager_.getVolumeMeta(fds_volid_t(queryMsg->volId));
-    if (volMeta == nullptr) {
-        LOGWARN << "Failed to debug query volume state.  volid: "
-            << queryMsg->volId << " not found";
-        hdr->msg_code = ERR_VOL_NOT_FOUND;
-        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
-        return;
-    }
-    fpi::DbgQueryVolumeStateRspMsg resp;
-    volMeta->populateState(resp.state);
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::DbgQueryVolumeStateRspMsg), resp);
-}
-
-void
 DMSvcHandler::handleDbgForceVolumeSyncMsg(SHPTR<fpi::AsyncHdr>& hdr,
                                            SHPTR<fpi::DbgForceVolumeSyncMsg> &queryMsg)
 {
@@ -502,6 +495,11 @@ DMSvcHandler::handleDbgForceVolumeSyncMsg(SHPTR<fpi::AsyncHdr>& hdr,
     auto func = volMeta->makeSynchronized([volMeta, cb]() {
         if (volMeta->getState() != fpi::Offline) {
             LOGWARN << "Force sync failed.  Volume is not offline." << volMeta->logString();
+            cb(ERR_INVALID);
+            return;
+        } else if (!volMeta->isCoordinatorSet()) {
+            LOGWARN << "Force sync failed.  Volume coordinator is not set."
+                << volMeta->logString();
             cb(ERR_INVALID);
             return;
         } else if (volMeta->isInitializerInProgress()) {

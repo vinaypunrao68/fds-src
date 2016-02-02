@@ -30,6 +30,7 @@ import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair;
 import com.formationds.om.repository.query.MetricQueryCriteria;
+import com.formationds.om.repository.query.QueryCriteria.QueryType;
 import com.formationds.protocol.IScsiTarget;
 import com.formationds.protocol.LogicalUnitNumber;
 import com.formationds.protocol.NfsOption;
@@ -92,7 +93,7 @@ public class ExternalModelConverter {
         Long extId = internalUser.getId();
         String extName = internalUser.getIdentifier();
         Long roleId = 1L;
-        
+
         logger.info( "Converting user ID: " + extId + " Name: " + extName );
 
         if ( internalUser.isIsFdsAdmin() ) {
@@ -291,12 +292,14 @@ public class ExternalModelConverter {
             volumeStatus = SingletonAmAPI.instance().api().volumeStatus("" /* TODO: Dummy domain name. */,
                                                                         internalVolume.getName()).get();
         } catch (Exception e) {
-            logger.error("Unknown Exception: " + e.getMessage());
+            logger.warn("Unknown Exception requesting volume status for " + internalVolume.getName() + ": " + e.getMessage());
             return new VolumeStatus(VolumeState.Unknown, Size.ZERO);
         }
 
         extUsage = Size.of(volumeStatus.getCurrentUsageInBytes(), SizeUnit.B);
-        logger.trace("Determined extUsage for " + internalVolume.getName() + " to be " + extUsage + ".");
+        if (logger.isTraceEnabled()) { 
+            logger.trace("Determined extUsage for " + internalVolume.getName() + " to be " + extUsage + ".");
+        }
 
         Instant[] instants = {Instant.EPOCH, Instant.EPOCH};
         extractTimestamps( fbResults, instants );
@@ -377,7 +380,7 @@ public class ExternalModelConverter {
                              snapshotName,
                              volumeId,
                              Duration.ofSeconds( retentionInSeconds ),
-                             Instant.ofEpochMilli( creation ) );
+                             Instant.ofEpochSecond( creation ) );
     }
 
     public static SnapshotPolicy convertToExternalSnapshotPolicy( com.formationds.apis.SnapshotPolicy internalPolicy ) {
@@ -572,8 +575,8 @@ public class ExternalModelConverter {
 
             if( nfsOptions != null )
             {
-                Size blockSize = Size.of( settings.getBlockDeviceSizeInBytes( ), SizeUnit.B );
-                Size maxObjectSize = Size.of( settings.getMaxObjectSizeInBytes( ), SizeUnit.B );
+                final Size maxObjectSize = Size.of( settings.getMaxObjectSizeInBytes( ), SizeUnit.B );
+                final Size capacity = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.B );
 
                 try
                 {
@@ -581,6 +584,7 @@ public class ExternalModelConverter {
                         .withOptions( convertToExternalNfsOptions( nfsOptions ) )
                         .withClient( convertToExternalNfsClients( nfsOptions ) )
                         .withMaxObjectSize( Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B ) )
+                        .withCapacity( capacity )
                         .build();
                 }
                 catch ( UnknownHostException e )
@@ -971,6 +975,11 @@ public class ExternalModelConverter {
 
             Size maxObjSize = nfsSettings.getMaxObjectSize();
 
+            internalSettings
+                .setBlockDeviceSizeInBytes( nfsSettings.getCapacity( )
+                                                         .getValue( SizeUnit.B )
+                                                         .longValue( ) );
+
             if ( maxObjSize != null &&
                  maxObjSize.getValue( SizeUnit.B ).longValue() >= Size.of( 4, SizeUnit.KB )
                                                                       .getValue( SizeUnit.B )
@@ -1049,7 +1058,13 @@ public class ExternalModelConverter {
 
         FDSP_VolumeDescType volumeType = new FDSP_VolumeDescType();
 
-        volumeType.setContCommitlogRetention( externalVolume.getDataProtectionPolicy().getCommitLogRetention()
+        /*
+         * FS-4354: allow continue commit log retention to be 0;
+         *
+         * but really we should allow it to be set to any valid value
+         */
+        volumeType.setContCommitlogRetention( externalVolume.getDataProtectionPolicy()
+                                                            .getCommitLogRetention()
                                                             .getSeconds() );
 
         if ( externalVolume.getCreated() != null ) {
@@ -1079,7 +1094,6 @@ public class ExternalModelConverter {
         volumeType.setRel_prio( externalVolume.getQosPolicy().getPriority() );
         volumeType.setVolUUID( externalVolume.getId() );
         volumeType.setVol_name( externalVolume.getName() );
-
         VolumeSettings settings = externalVolume.getSettings();
 
         if( settings instanceof VolumeSettingsISCSI )
@@ -1214,7 +1228,7 @@ public class ExternalModelConverter {
                           EnumMap<FirebreakType,
                                      VolumeDatapointPair>> getFirebreakEventsMetrics( List<Volume> volumes ) {
 
-        MetricQueryCriteria query = new MetricQueryCriteria();
+        MetricQueryCriteria query = new MetricQueryCriteria(QueryType.FIREBREAK_METRIC);
         DateRange range = DateRange.last24Hours();
 
         query.setSeriesType( new ArrayList<>( Metrics.FIREBREAK ) );

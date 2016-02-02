@@ -1410,6 +1410,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         desc.srcVolumeId = *volumeId;
         desc.timelineTime = *timelineTime;
         desc.createTime = util::getTimeStampSeconds();
+        desc.coordinator.id.svc_uuid = 0;
 
         if (parentVol->vol_get_properties()->lookupVolumeId == invalid_vol_id) {
             desc.lookupVolumeId = *volumeId;
@@ -2104,7 +2105,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         std::vector<fpi::SvcInfo> svcInfos;
         getAllNodeInfo(svcInfos);
         for (fpi::SvcInfo svcInfo : svcInfos) {
-            if ( svcInfo.svc_id.svc_uuid == *nodeUuid ) {
+            if ( svcInfo.svc_id.svc_uuid == *nodeUuid )
+            {
                 _return = svcInfo;
                 return;
             }

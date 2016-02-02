@@ -3,9 +3,12 @@ from svc_types.ttypes import *
 from common.ttypes import *
 from platformservice import *
 from restendpoint import *
-import md5
+import humanize
+import md5,sha
 import os
 import FdspUtils
+import binascii
+import dmtdlt
 
 class VolumeContext(Context):
     def __init__(self, *args):
@@ -22,10 +25,15 @@ class VolumeContext(Context):
         return self.config.getS3Api()
 
     def getVolumeId(self, volume):
-        if volume.isdigit():
-            return int(volume)
+        volume=str(volume)
         client = self.config.getPlatform();
+        if volume.isdigit():
+            volname = client.svcMap.omConfig().getVolumeName(int(volume))
+            if len(volname) > 0:
+                return int(volume)
         volId = client.svcMap.omConfig().getVolumeId(volume)
+        if int(volId) == 0:
+            raise Exception('invalid volume: {}'.format(volume))
         return int(volId)
 
     #--------------------------------------------------------------------------------------
@@ -119,34 +127,46 @@ class VolumeContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clicmd
-    @arg('vol-name', help='-volume name')
-    @arg('--minimum', help='-qos minimum guarantee', type=int)
-    @arg('--maximum', help='-qos maximum', type=int)
-    @arg('--priority', help='-qos priority', type=int)
-    def modify(self, vol_name, domain='abc', max_obj_size=2097152, tenant_id=1,
-               minimum=0, maximum=0, priority=10):
+    @arg('volume', help='-volume name/id')
+    @arg('--minimum', help='-qos minimum guarantee')
+    @arg('--maximum', help='-qos maximum')
+    @arg('--priority', help='-qos priority')
+    @arg('--commit_log_retention', help="journal log retention in seconds")
+    def modify(self, volume, minimum=None, maximum=None, priority=None, commit_log_retention=None):
         'modify an existing volume'
         try:
+            if minimum == None and maximum==None and priority==None and commit_log_retention==None:
+                print 'please specify one of [minimum, maximum, priority, commit_log_retention]'
+                return
             vols = self.restApi().listVolumes()
-            vol_id = None
-            mediaPolicy = None
-            commit_log_retention = None
+            volId = self.getVolumeId(volume)
+            volume = ServiceMap.omConfig().getVolumeName(int(volId))
+            thisVol = None
             for vol in vols:
-                if vol['name'] == vol_name:
-                    vol_id = vol['id']
-                    mediaPolicy = vol['mediaPolicy']
-                    commit_log_retention= vol['commit_log_retention']
-            assert not vol_id is None
-            assert not mediaPolicy is None
-            assert not commit_log_retention is None
-            res = self.restApi().setVolumeParams(vol_id, minimum, priority, maximum, mediaPolicy, commit_log_retention)
+                if vol['name'] == volume:
+                    thisVol=vol
+                    break
+
+            if thisVol:
+                if commit_log_retention != None:
+                    thisVol['dataProtectionPolicy']['commitLogRetention']['seconds'] = int(commit_log_retention)
+                if priority != None:
+                    thisVol['qosPolicy']['priority'] = int(priority)
+                if minimum != None:
+                    thisVol['qosPolicy']['iopsMin'] = int(minimum)
+                if maximum != None:
+                    thisVol['qosPolicy']['iopsMax'] = int(maximum)
+
+            res = self.restApi().modify(thisVol)
+            print thisVol
+            print res
             return
         except ApiException, e:
             log.exception(e)
         except Exception, e:
             log.exception(e)
 
-        return 'modify volume failed: {}'.format(vol_name)
+        print 'modify volume failed: {}'.format(volume)
 
 
     #--------------------------------------------------------------------------------------
@@ -251,38 +271,48 @@ class VolumeContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clicmd
-    @arg('cnt', help= "count of objs to get", type=long, default=100)
-    def bulkget(self, vol_name, cnt):
+    @arg('volume', help= "vol name/id")
+    @arg('count', help= "count of objs to put", type=long, default=10, nargs="?")
+    @arg('--seed', help= "seed the key name", default='1')
+    def bulkget(self, volume, count, seed='1'):
         '''
         Does bulk gets.
         TODO: Make it do random gets as well
         '''
-        b = self.s3Api().get_bucket(vol_name)
-        i = 0
-        while i < cnt:
-            for key in b.list():
-                print "Getting object#: {}".format(i)
-                print self.get(vol_name, key.name.encode('ascii','ignore'))
-                i = i + 1
-                if i >= cnt:
-                    break
-        return 'Done!'
+        for i in xrange(0, count):
+            k = "key_{}_{}".format(seed, i)
+            print self.get(volume, k)
 
     #--------------------------------------------------------------------------------------
     @clicmd
-    @arg('cnt', help= "count of objs to put", type=long, default=100)
-    @arg('seed', help= "count of objs to put", default='seed')
-    def bulkput(self, vol_name, cnt, seed):
+    @arg('volume', help= "vol name/id")
+    @arg('count', help= "count of objs to put", type=long, default=10, nargs="?")
+    @arg('--seed', help= "seed the key name", default='1')
+    def bulkput(self, volume, count, seed='1'):
         '''
         Does bulk put
-        TODO: Make it do random put as well
         '''
-        for i in xrange(0, cnt):
+        for i in xrange(0, count):
             k = "key_{}_{}".format(seed, i)
             v = "value_{}_{}".format(seed, i)
-            print "Putting object#: {}".format(i)
-            print self.put(vol_name, k, v)
-        return 'Done!'
+            print self.put(volume, k, v)
+
+    #--------------------------------------------------------------------------------------
+    @clicmd
+    @arg('volume', help= "vol name/id")
+    @arg('count', help= "count of objs to put", type=long, default=10, nargs="?")
+    @arg('--seed', help= "seed the key name", default='1')
+    def bulkdelete(self, volume, count, seed='1'):
+        'bulk delete from a volume'
+        try:
+            for i in xrange(0, count):
+                k = "key_{}_{}".format(seed, i)
+                print 'deleting : {}'.format(k)
+                self.deleteobject(volume, k)
+        except Exception, e:
+            log.exception(e)
+            return 'delete failed on volume: {}'.format(volume)
+
     #--------------------------------------------------------------------------------------
     @clidebugcmd
     def get(self, vol_name, key):
@@ -357,22 +387,109 @@ class VolumeContext(Context):
     def stats(self, volname):
         'display info about no. of objects/blobs'
         data = []
-        svc = self.config.getPlatform();
         volId = self.getVolumeId(volname)
         msg = FdspUtils.newSvcMsgByTypeId('StatVolumeMsg');
         msg.volume_id = volId
-
+        dlt = self.config.getServiceApi().getDLT()
+        errors = []
         for uuid in self.config.getServiceApi().getServiceIds('dm'):
             cb = WaitedCallback();
-            svc.sendAsyncSvcReq(uuid, msg, cb)
+            self.config.getPlatform().sendAsyncSvcReq(uuid, msg, cb, None, dlt.version)
 
-            if not cb.wait(30):
-                print 'async volume stats request failed : {}'.format(self.config.getServiceApi().getServiceName(uuid))
+            if not cb.wait(10):
+                errors.append('volume stats failed:{} error:{}'.format(self.config.getServiceApi().getServiceName(uuid), cb.header.msg_code if cb.header!= None else "--"))
             else:
                 #print cb.payload
-                data = []
-                data += [("numblobs",cb.payload.volumeStatus.blobCount)]
-                data += [("numobjects",cb.payload.volumeStatus.objectCount)]
-                data += [("size",cb.payload.volumeStatus.size)]
-                print ('\n{}\n stats for vol:{} @ {}\n{}'.format('-'*40, volId, self.config.getServiceApi().getServiceName(uuid), '-'*40))
+                data.append((self.config.getServiceApi().getServiceName(uuid),
+                             cb.payload.volumeStatus.blobCount,cb.payload.volumeStatus.objectCount,
+                             cb.payload.volumeStatus.size, humanize.naturalsize(cb.payload.volumeStatus.size)))
+        print ('\n{}\n stats for vol:{}\n{}'.format('-'*40, volId, '-'*40))
+        print tabulate(data, tablefmt=self.config.getTableFormat(), headers=['dm','blobs','objects','size','size.human'])
+
+        if len(errors) > 0:
+            helpers.printHeader('errors detected ...')
+            for e in errors:
+                print e
+        
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('volname', help='-volume name')
+    @arg('blobname', help='-blob name')
+    def blobinfo(self, volname, blobname):
+        'display objects/meta in a blob'
+        data = []
+        volId = self.getVolumeId(volname)
+        dlt = self.config.getServiceApi().getDLT()
+
+        volume = ServiceMap.omConfig().statVolume("", ServiceMap.omConfig().getVolumeName(volId))
+        if volume.policy.volumeType == 0 and -1 == blobname.find(':'):
+            blobname = 'user:{}'.format(blobname)
+        errors = []
+        for uuid in self.config.getServiceApi().getServiceIds('dm'):
+            msg = FdspUtils.newSvcMsgByTypeId('QueryCatalogMsg');
+            msg.volume_id = volId
+            msg.blob_name = blobname
+            cb = WaitedCallback();
+            self.config.getPlatform().sendAsyncSvcReq(uuid, msg, cb, None, dlt.version)
+
+            if not cb.wait(10):
+                if cb.header.msg_code == 6:
+                    errors.append('>>> blob [{}] not found @ {}'.format(blobname, self.config.getServiceApi().getServiceName(uuid)))
+                else:
+                    errors.append('>>> blobinfo request failed : {} : error={}'.format(self.config.getServiceApi().getServiceName(uuid), cb.header.msg_code  if cb.header!= None else "--"))
+            else:
+                data=[]
+                objects=[]
+                for meta in cb.payload.meta_list:
+                    data.append((meta.key, meta.value))
+                data.append(('size', cb.payload.byteCount))
+                data.append(('num.objects', len(cb.payload.obj_list)))
+                helpers.printHeader('info from {}'.format(self.config.getServiceApi().getServiceName(uuid)))
                 print tabulate(data, tablefmt=self.config.getTableFormat(), headers=['key','value'])
+                print
+                count = 0
+                for obj in cb.payload.obj_list:
+                    count += 1
+                    objects.append((count, binascii.b2a_hex(obj.data_obj_id.digest), obj.size, obj.offset))
+
+                print tabulate(objects, tablefmt=self.config.getTableFormat(), headers=['no','objid','size','offset'])
+        if len(errors) > 0:
+            helpers.printHeader('errors detected ...')
+            for e in errors:
+                print e
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('objid', help='-objectid')
+    def getobject(self, objid):
+        'get objects from sm'
+        data = []
+        dlt = self.config.getServiceApi().getDLT()
+        errors = []
+        for uuid in self.config.getServiceApi().getServiceIds('sm'):
+            msg = FdspUtils.newGetObjectMsg(1, binascii.a2b_hex(objid))
+            cb = WaitedCallback();
+            self.config.getPlatform().sendAsyncSvcReq(uuid, msg, cb, None, dlt.version)
+
+            if not cb.wait(10):
+                if cb.header.msg_code == 9:
+                    errors.append('obj [{}] not found @ {}'.format(objid, self.config.getServiceApi().getServiceName(uuid)))
+                else:
+                    errors.append('get object failed : {} : error={}'.format(self.config.getServiceApi().getServiceName(uuid), cb.header.msg_code  if cb.header!= None else "--"))
+                    print cb.header
+            else:
+                value = cb.payload.data_obj
+                data = []
+                data += [('objid' , objid)]
+                data += [('sha1' , sha.sha(value).hexdigest())]
+                data += [('md5sum' , md5.md5(value).hexdigest())]
+                data += [('length' , str(len(value)))]
+                data += [('begin' , str(value[:30]))]
+                data += [('end' , str(value[-30:]))]
+                helpers.printHeader('info from {}'.format(self.config.getServiceApi().getServiceName(uuid)))
+                print tabulate(data, tablefmt=self.config.getTableFormat())
+
+        if len(errors) > 0:
+            helpers.printHeader('errors detected ...')
+            for e in errors:
+                print e

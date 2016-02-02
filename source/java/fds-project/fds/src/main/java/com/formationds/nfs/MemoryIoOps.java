@@ -3,16 +3,14 @@ package com.formationds.nfs;
 import com.formationds.apis.ObjectOffset;
 import org.apache.log4j.Logger;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class MemoryIoOps implements IoOps {
     private static final Logger LOG = Logger.getLogger(MemoryIoOps.class);
-    private Map<ObjectKey, byte[]> objectCache;
-    private Map<MetaKey, Map<String, String>> metadataCache;
+    private Map<ObjectKey, FdsObject> objectCache;
+    private Map<MetaKey, FdsMetadata> metadataCache;
 
     public MemoryIoOps() {
         objectCache = new HashMap<>();
@@ -20,55 +18,42 @@ public class MemoryIoOps implements IoOps {
     }
 
     @Override
-    public Optional<Map<String, String>> readMetadata(String domain, String volumeName, String blobName) throws IOException {
-        Map<String, String> map = metadataCache.get(new MetaKey(domain, volumeName, blobName));
-        Optional<Map<String, String>> result = map == null ? Optional.empty() : Optional.of(map);
-        LOG.debug("MemoryIO.readMetadata, volume=" + volumeName + ", blobName=" + blobName + ", fieldCount=" + result.orElse(new HashMap<>()).size());
+    public Optional<FdsMetadata> readMetadata(String domain, String volumeName, String blobName) throws IOException {
+        FdsMetadata map = metadataCache.get(new MetaKey(domain, volumeName, blobName));
+        Optional<FdsMetadata> result = map == null ? Optional.empty() : Optional.of(map);
+        LOG.debug("MemoryIO.readMetadata, volume=" + volumeName + ", blobName=" + blobName + ", fieldCount=" + result.orElse(new FdsMetadata()).fieldCount());
         return result;
     }
 
     @Override
-    public void writeMetadata(String domain, String volumeName, String blobName, Map<String, String> metadata, boolean deferrable) throws IOException {
+    public void writeMetadata(String domain, String volumeName, String blobName, FdsMetadata metadata, boolean deferrable) throws IOException {
         metadataCache.put(new MetaKey(domain, volumeName, blobName), metadata);
-        LOG.debug("MemoryIO.writeMetadata, volume=" + volumeName + ", blobName=" + blobName + ", fieldCount=" + metadata.size());
+        LOG.debug("MemoryIO.writeMetadata, volume=" + volumeName + ", blobName=" + blobName + ", fieldCount=" + metadata.fieldCount());
     }
 
     @Override
-    public ByteBuffer readCompleteObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, int objectSize) throws IOException {
-        if (!metadataCache.containsKey(new MetaKey(domain, volumeName, blobName))) {
-            throw new FileNotFoundException();
-        }
+    public FdsObject readCompleteObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, int maxObjectSize) throws IOException {
         ObjectKey key = new ObjectKey(domain, volumeName, blobName, objectOffset);
 
-        if (!objectCache.containsKey(key)) {
-            throw new FileNotFoundException();
+        FdsObject o = objectCache.get(key);
+        if (o == null) {
+            o = FdsObject.allocate(0, maxObjectSize);
+            objectCache.put(key, o);
         }
-
-        byte[] bytes = objectCache.get(key);
-        if (bytes == null) {
-            bytes = new byte[objectSize];
-            objectCache.put(key, bytes);
-        }
-        LOG.debug("MemoryIO.readCompleteObject, volume=" + volumeName + ", blobName=" + blobName + ", objectOffset = " + objectOffset.getValue() + ", size=" + bytes.length);
-        return ByteBuffer.wrap(bytes);
+        LOG.debug("MemoryIO.readCompleteObject, volume=" + volumeName + ", blobName=" + blobName + ", objectOffset = " + objectOffset.getValue() + ", limit=" + o.limit() + ", capacity=" + o.maxObjectSize());
+        return o;
     }
 
     @Override
-    public void writeObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, ByteBuffer byteBuffer, int objectSize, boolean deferrable) throws IOException {
-        if (byteBuffer.remaining() != objectSize) {
-            throw new IOException("Attempting to write a buffer where size != objectSize");
-        }
-
-        byte[] bytes = new byte[objectSize];
-        byteBuffer.get(bytes);
-        objectCache.put(new ObjectKey(domain, volumeName, blobName, objectOffset), bytes);
-        LOG.debug("MemoryIO.writeObject, volume=" + volumeName + ", blobName=" + blobName + ", objectOffset = " + objectOffset.getValue() + ", size=" + bytes.length);
+    public void writeObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, FdsObject fdsObject, boolean deferrable) throws IOException {
+        objectCache.put(new ObjectKey(domain, volumeName, blobName, objectOffset), fdsObject);
+        LOG.debug("MemoryIO.writeObject, volume=" + volumeName + ", blobName=" + blobName + ", objectOffset = " + objectOffset.getValue() + ", size=" + fdsObject.limit());
     }
 
     @Override
     public void renameBlob(String domain, String volumeName, String oldName, String newName) throws IOException {
         MetaKey oldMetaKey = new MetaKey(domain, volumeName, oldName);
-        Map<String, String> map = metadataCache.get(oldMetaKey);
+        FdsMetadata map = metadataCache.get(oldMetaKey);
         if (map != null) {
             metadataCache.remove(oldMetaKey);
             metadataCache.put(new MetaKey(domain, volumeName, newName), map);
@@ -76,9 +61,9 @@ public class MemoryIoOps implements IoOps {
             HashSet<ObjectKey> objects = new HashSet<>(objectCache.keySet());
             for (ObjectKey oldObjectKey : objects) {
                 if (oldObjectKey.domain.equals(domain) && oldObjectKey.volume.equals(volumeName) && oldObjectKey.blobName.equals(oldName)) {
-                    byte[] bytes = objectCache.get(oldObjectKey);
+                    FdsObject fdsObject = objectCache.get(oldObjectKey);
                     objectCache.remove(oldObjectKey);
-                    objectCache.put(new ObjectKey(domain, volumeName, newName, new ObjectOffset(oldObjectKey.objectOffset)), bytes);
+                    objectCache.put(new ObjectKey(domain, volumeName, newName, new ObjectOffset(oldObjectKey.objectOffset)), fdsObject);
                 }
             }
             LOG.debug("MemoryIO.renameBlob, volume=" + volumeName + ", oldName=" + oldName + ", newName=" + newName);
@@ -99,6 +84,25 @@ public class MemoryIoOps implements IoOps {
     @Override
     public void flush() throws IOException {
 
+    }
+
+    @Override
+    public void onVolumeDeletion(String domain, String volumeName) throws IOException {
+        Iterator<MetaKey> metaKeys = metadataCache.keySet().iterator();
+        while (metaKeys.hasNext()) {
+            MetaKey next = metaKeys.next();
+            if (next.volume.equals(volumeName)) {
+                metadataCache.remove(next);
+            }
+        }
+
+        Iterator<ObjectKey> objectKeys = objectCache.keySet().iterator();
+        while (objectKeys.hasNext()) {
+            ObjectKey next = objectKeys.next();
+            if (next.volume.equals(volumeName)) {
+                objectCache.remove(next);
+            }
+        }
     }
 
     @Override

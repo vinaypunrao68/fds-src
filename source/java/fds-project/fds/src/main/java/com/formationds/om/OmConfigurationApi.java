@@ -19,6 +19,7 @@ import com.formationds.protocol.pm.NotifyAddServiceMsg;
 import com.formationds.protocol.pm.NotifyRemoveServiceMsg;
 import com.formationds.protocol.pm.NotifyStartServiceMsg;
 import com.formationds.protocol.pm.NotifyStopServiceMsg;
+import com.formationds.util.Configuration;
 import com.formationds.util.thrift.CachedConfiguration;
 import com.formationds.util.thrift.ThriftClientFactory;
 import com.google.common.collect.Lists;
@@ -46,9 +47,11 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     }
 
     void createStatStreamRegistrationHandler( final String urlHostname,
-                                              final int urlPortNo ) {
+                                              final int urlPortNo,
+                                              final Configuration platformDotConf ) {
         this.statStreamRegistrationHandler =
-            new StatStreamRegistrationHandler( this, urlHostname, urlPortNo );
+            new StatStreamRegistrationHandler( this, platformDotConf, urlHostname, urlPortNo );
+        this.statStreamRegistrationHandler.manageOmStreamRegistrations();
     }
 
     void startConfigurationUpdater( long intervalMS ) {
@@ -588,7 +591,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                         volumeSettings.getBlockDeviceSizeInBytes() :
                         volumeSettings.getMaxObjectSizeInBytes());
 
-        statStreamRegistrationHandler.notifyVolumeCreated( domainName, volumeName );
+        getCache().loadVolume( domainName, volumeName );
 
         // load the new volume into the cache
         getCache().loadVolume( domainName, volumeName );
@@ -600,12 +603,20 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public long getVolumeId( String volumeName ) throws TException {
-        return getConfig().getVolumeId( volumeName );
+        VolumeDescriptor vd = statVolume( "unused", volumeName );
+        if (vd != null) {
+            return vd.getVolId();
+        }
+        return 0;
     }
 
     @Override
     public String getVolumeName( long volumeId ) throws TException {
-        return getConfig().getVolumeName( volumeId );
+        VolumeDescriptor v = getCache().getVolume( volumeId );
+        if (v == null) {
+            v = refreshCacheMaybe().getVolume( volumeId );
+        }
+        return v.getName();
     }
 
     @Override
@@ -623,8 +634,6 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     public void deleteVolume( String domainName, String volumeName ) throws TException {
         getConfig().deleteVolume( domainName, volumeName );
         EventManager.notifyEvent( OmEvents.DELETE_VOLUME, domainName, volumeName );
-        statStreamRegistrationHandler.notifyVolumeDeleted( domainName, volumeName );
-
         getCache().removeVolume( domainName, volumeName );
     }
 
@@ -639,10 +648,12 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public List<VolumeDescriptor> listVolumes( String domainName ) throws TException {
-        // todo: may want to always do version check in refresh here.
-        List<VolumeDescriptor> v = getCache().getVolumes();
-        if ( v == null || v.isEmpty() ) {
-            v = refreshCacheMaybe().getVolumes();
+        // always check the config version and refresh if changed.
+        // the add/delete volume calls handle cache updates, but add/delete requests
+        // are not guaranteed to come through this instance.
+        List<VolumeDescriptor> v = refreshCacheMaybe().getVolumes();
+        if ( v == null ) {
+            v = new ArrayList<>();
         }
         return v;
     }

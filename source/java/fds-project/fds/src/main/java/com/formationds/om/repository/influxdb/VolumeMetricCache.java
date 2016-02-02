@@ -5,6 +5,7 @@
 package com.formationds.om.repository.influxdb;
 
 import com.formationds.commons.model.entity.IVolumeDatapoint;
+import com.formationds.commons.model.exception.UnsupportedMetricException;
 import com.formationds.commons.model.type.Metrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,7 +47,13 @@ public class VolumeMetricCache {
      */
     protected static EnumMap<Metrics, IVolumeDatapoint> toEnumMap(List<IVolumeDatapoint> vdps) {
         EnumMap<Metrics, IVolumeDatapoint> result = new EnumMap<>( Metrics.class );
-        vdps.forEach( ( vdp ) -> result.put( Metrics.lookup( vdp.getKey() ), vdp ) );
+        vdps.forEach( ( vdp ) -> {
+            try {
+                result.put( Metrics.lookup( vdp.getKey() ), vdp );
+            } catch (UnsupportedMetricException e) {
+                logger.debug( "Metric {} not found in Volume Metrics list.  Skipping.", vdp.getKey() );
+            }
+        } );
         return result;
     }
 
@@ -81,6 +88,11 @@ public class VolumeMetricCache {
      * @return true if the cache is empty
      */
     public boolean isEmpty() { return mostRecentVolumeDatapoints.isEmpty(); }
+
+    /**
+     * @return the current number of volumes loaded in the cache.
+     */
+    public int size() { return mostRecentVolumeDatapoints.size(); }
 
     /**
      * Load the specified volume ids into the cache.

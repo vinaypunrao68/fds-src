@@ -2,6 +2,7 @@ package com.formationds.nfs;
 
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeType;
+import com.formationds.util.ConsumerWithException;
 import com.formationds.xdi.XdiConfigurationApi;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
@@ -23,20 +24,38 @@ public class DynamicExports implements ExportResolver {
     private XdiConfigurationApi config;
     private volatile Map<String, Integer> exportsByName;
     private volatile Map<Integer, String> exportsById;
+    private final List<ConsumerWithException<String>> volumeDeleteEventHandlers;
     private final ExportFile exportFile;
 
 
     public DynamicExports(XdiConfigurationApi config) throws IOException {
+        volumeDeleteEventHandlers = new ArrayList<>();
         this.config = config;
         writeExportFile();
         exportFile = new ExportFile(new File(EXPORTS));
         refreshCaches();
     }
 
-    private void refreshOnce() throws IOException {
+    public void refreshOnce() throws IOException {
+        Map<Integer, String> deletedExports = new HashMap<>(exportsById);
         writeExportFile();
         exportFile.rescan();
         refreshCaches();
+        exportsById.keySet().forEach(k -> deletedExports.remove(k));
+        for (String deletedVolume : deletedExports.values()) {
+            invokeEventHandlers(deletedVolume);
+        }
+    }
+
+    private void invokeEventHandlers(String deletedVolume) throws IOException {
+        for (ConsumerWithException<String> eventHandler : volumeDeleteEventHandlers) {
+            try {
+                eventHandler.accept(deletedVolume);
+            } catch (Exception e) {
+                LOG.error("Error handling deletion of volume " + deletedVolume, e);
+                throw new IOException(e);
+            }
+        }
     }
 
     private void refreshCaches() {
@@ -68,14 +87,18 @@ public class DynamicExports implements ExportResolver {
         }
 
         ExportConfigurationBuilder configBuilder = new ExportConfigurationBuilder();
-        Path path = Paths.get(EXPORTS);
-        Files.deleteIfExists(path);
+        deleteExportFile();
         PrintStream pw = new PrintStream(new FileOutputStream(EXPORTS));
         for (VolumeDescriptor exportableVolume : exportableVolumes) {
             String configEntry = configBuilder.buildConfigurationEntry(exportableVolume);
             pw.println(configEntry);
         }
         pw.close();
+    }
+
+    public void deleteExportFile() throws IOException {
+        Path path = Paths.get(EXPORTS);
+        Files.deleteIfExists(path);
     }
 
     @Override
@@ -125,5 +148,19 @@ public class DynamicExports implements ExportResolver {
             LOG.error("config.statVolume(" + volume + ") failed", e);
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public long maxVolumeCapacityInBytes(String volume) throws IOException {
+        try {
+            return config.statVolume(XdiVfs.DOMAIN, volume).getPolicy().getBlockDeviceSizeInBytes();
+        } catch (TException e) {
+            throw new IOException(e);
+        }
+    }
+
+    @Override
+    public void addVolumeDeleteEventHandler(ConsumerWithException<String> consumer) {
+        volumeDeleteEventHandlers.add(consumer);
     }
 }

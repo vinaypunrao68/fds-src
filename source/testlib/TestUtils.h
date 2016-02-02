@@ -4,6 +4,10 @@
 #ifndef SOURCE_INCLUDE_TESTUTILS_H_
 #define SOURCE_INCLUDE_TESTUTILS_H_
 
+#include <fdsp/svc_types_types.h>
+#include <fds_error.h>
+#include <concurrency/taskstatus.h>
+
 /**
 * @brief Polls until predicate is true or timeoutMs expires
 *
@@ -22,10 +26,7 @@
     } \
 }
 
-/* Forward declarations */
-namespace FDS_ProtocolInterface {
-class SvcUuid;
-}
+namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
 /* Forward declarations */
@@ -34,15 +35,40 @@ class Platform;
 /**
 * @brief Utility functions for tests
 */
-struct TestUtils {
-    static FDS_ProtocolInterface::SvcUuid getAnyNonResidentSmSvcuuid(Platform* platform,
-                                                                     bool uuid_hack = false);
-    static FDS_ProtocolInterface::SvcUuid getAnyNonResidentDmSvcuuid(Platform* platform,
-                                                                     bool uuid_hack = false);
-    static bool enableFault(const fpi::SvcUuid &svcUuid, const std::string &faultId);
-    static bool disableFault(const fpi::SvcUuid &svcUuid, const std::string &faultId);
+namespace TestUtils {
+
+struct Waiter : concurrency::TaskStatus {
+    using concurrency::TaskStatus::TaskStatus;
+    void doneWith(const Error &e);
+    void reset(uint32_t numTasks);
+    Error awaitResult();
+    Error awaitResult(ulong timeout);
+
+    Error error;
 };
 
+/* Finds fds src path relative to current path.  False is return is not found */
+bool findFdsSrcPath(std::string &fdsSrcPath);
+
+/* DEPRECATED.  DON'T USE */
+inline fpi::SvcUuid getAnyNonResidentSmSvcuuid(Platform* platform,
+                                                          bool uuid_hack = false)
+{ return fpi::SvcUuid(); }
+
+/* DEPRECATED.  DON'T USE */
+inline FDS_ProtocolInterface::SvcUuid getAnyNonResidentDmSvcuuid(Platform* platform,
+                                                          bool uuid_hack = false)
+{ return fpi::SvcUuid(); }
+
+/* DEPRECATED.  DON'T USE */
+inline bool enableFault(const fpi::SvcUuid &svcUuid, const std::string &faultId)
+{ return false; }
+
+/* DEPRECATED.  DON'T USE */
+inline bool disableFault(const fpi::SvcUuid &svcUuid, const std::string &faultId)
+{ return false; }
+
+} // namespace TestUtils
 }  // namespace fds
 
 #endif  // SOURCE_INCLUDE_TESTUTILS_H_

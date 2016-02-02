@@ -5,6 +5,7 @@ package com.formationds.util;
 
 import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.nfs.XdiStaticConfiguration;
+import com.formationds.web.toolkit.HttpMethod;
 import com.sun.management.HotSpotDiagnosticMXBean;
 import com.sun.management.VMOption;
 import joptsimple.OptionParser;
@@ -40,6 +41,11 @@ public class Configuration {
     public static final String FDS_OM_IP_LIST = "fds.common.om_ip_list";
     public static final String FDS_OM_UUID = "fds.common.om_uuid";
     public static final String FDS_OM_NODE_UUID = "fds.pm.platform.uuid";
+
+    // Stats tunable
+    public static final String FDS_OM_STATS_FREQUENCY = "fds.om.stats.frequency";
+    public static final String FDS_OM_STATS_DURATION = "fds.om.stats.duration";
+    public static final String FDS_OM_STATS_METHOD = "fds.om.stats.method";
 
     private final String commandName;
     private final File   fdsRoot;
@@ -334,6 +340,22 @@ public class Configuration {
         final int omNodeUuid = platformConfig.defaultInt( FDS_OM_NODE_UUID, 1024 );
 
         return ( long ) omNodeUuid;
+    }
+
+    public long getOmStatsDuration()
+    {
+        return ( long ) getPlatformConfig().defaultInt( FDS_OM_STATS_DURATION, -1 );
+    }
+
+    public long getOmStatsFrequency()
+    {
+        return ( long ) getPlatformConfig().defaultInt( FDS_OM_STATS_FREQUENCY, 120 );
+    }
+
+    public String getOmStatsMethod()
+    {
+        return getPlatformConfig().defaultString( FDS_OM_STATS_METHOD, HttpMethod.POST.name() )
+                                  .toUpperCase();
     }
 
     public XdiStaticConfiguration getXdiStaticConfig( int pmPort ) {

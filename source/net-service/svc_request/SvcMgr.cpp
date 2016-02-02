@@ -294,8 +294,6 @@ void SvcMgr::stopServer()
 
 void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries)
 {
-    GLOGDEBUG << "Updating service map. Incoming entries size: " << entries.size();
-
     fds_scoped_lock lock(svcHandleMapLock_);
     for (auto &e : entries) {
         auto svcHandleItr = svcHandleMap_.find(e.svc_id.svc_uuid);
@@ -312,7 +310,6 @@ void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries)
             svcHandleItr->second->updateSvcHandle(e);
         }
     }
-    GLOGDEBUG << "After update. Service map size: " << svcHandleMap_.size();
 }
 
 void SvcMgr::getSvcMap(std::vector<fpi::SvcInfo> &entries)
@@ -634,6 +631,18 @@ Error SvcMgr::updateDmt(bool dmt_type, std::string& dmt_data, OmUpdateRespCbType
     Error err(ERR_OK);
     LOGNOTIFY << "Received new DMT version  " << dmt_type;
 
+    /* Check to ensure we only have one DMT when volumegrouping is enabled */
+    auto volgroupingEnabled = MODULEPROVIDER()->get_fds_config()->get<bool>(
+            "fds.feature_toggle.common.enable_volumegrouping", false);
+    if (volgroupingEnabled && dmtMgr_->hasCommittedDMT()) {
+        auto committed = dmtMgr_->getDMT(DMT_COMMITTED);
+        if (committed) {
+            auto serializer = serialize::getMemSerializer();
+            committed->write(serializer);
+            fds_verify(serializer->getBufferAsString() == dmt_data);
+        }
+    }
+
     err = dmtMgr_->addSerializedDMT(dmt_data, cb, DMT_COMMITTED);
     if (!err.ok()) {
         LOGERROR << "Failed to update DMT! check dmt_data was set";
@@ -790,32 +799,57 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
     return false;
 }
 
+bool
+SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr &current, const fpi::SvcInfoPtr &incoming)
+{
+    fds_bool_t ret(false);
+
+    if ( current->incarnationNo < incoming->incarnationNo ) {
+        ret = true;
+    } else if ( (current->incarnationNo == incoming->incarnationNo) &&
+                (current->svc_status != incoming->svc_status) &&
+                (current->svc_status != fpi::SVC_STATUS_INACTIVE_FAILED) ) {
+        /**
+         * Once a process is declared INACTIVE_FAILED, then nothing can revive it,
+         * until a new incarnation number has come.
+         *
+         * If a identical incarnation number that attempts to revive a service from
+         * an inactive to active, then it's considered an invalid operation.
+         * The only allowable use case is if a dead service were to restart, in which
+         * it would then come with a newer incarnation number.
+         *
+         * TODO(Neil): make this check more detailed and centralize the conditionals...
+         * Will happen in another PR.
+         */
+        ret = true;
+    } else if (incoming->incarnationNo == 0) {
+        /**
+         * TODO
+         * This is a workaround to handle when no incarnation number is given...
+         * we have to assume that this is newer than the old incarnation number in the
+         * configDB. Until all areas of PM and OM are sending incarnation number,
+         * this has to be here... and bugs may be coming in.
+         */
+        LOGWARN << "THIS NEEDS TO BE FIXED. Should be passing in with complete info.";
+        ret = true;
+    }
+
+    return (ret);
+}
+
 void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
 {
     fds_scoped_lock lock(lock_);
-    if ( svcInfo_.incarnationNo < newInfo.incarnationNo ) {
-        /* Update to new incaration information.  Invalidate the old rpc client */
+    auto currentPtr = boost::make_shared<fpi::SvcInfo>(svcInfo_);
+    auto newPtr = boost::make_shared<fpi::SvcInfo>(newInfo);
+    GLOGDEBUG << "Incoming update: " << fds::logString(*newPtr) << " vs current status: "
+            << fds::logString(*currentPtr);
+    if (shouldUpdateSvcHandle(currentPtr, newPtr)) {
         svcInfo_ = newInfo;
         svcClient_.reset();
-        GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
-            << " Operation: update to new incarnation. After update " << logString();
-    } else if (svcInfo_.incarnationNo == newInfo.incarnationNo &&
-               newInfo.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED) {
-        /* Mark current incaration inactivnewInfo.  Invalidate the rpc client */
-        svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE_FAILED;
-        svcClient_.reset();
-        GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
-            << " Operation: set current incarnation as down.  After update" << logString();
-    } else if ( (svcInfo_.incarnationNo == newInfo.incarnationNo) &&
-                (svcInfo_.svc_status != newInfo.svc_status) ) {
-        svcInfo_ = newInfo;
-        svcClient_.reset();
-        GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
-            << " Operation: update to current incarnation. After update " << logString();
-
+        GLOGDEBUG << "Operation Applied.";
     } else {
-        GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
-            << " Operation: not applied.  After update" << logString();
+        GLOGDEBUG << "Operation not Applied.";
     }
 }
 

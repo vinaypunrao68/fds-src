@@ -13,8 +13,10 @@ DeleteScheduler::DeleteScheduler(OrchMgr* om) {
 
 DeleteScheduler::~DeleteScheduler() {
     shutdown();
-    runner->join();
-    delete runner;
+    if (runner) {
+        runner->join();
+        delete runner;
+    }
 }
 
 void DeleteScheduler::start() {
@@ -27,7 +29,7 @@ bool DeleteScheduler::scheduleVolume(fds_volid_t volumeId) {
     atc::Synchronized s(monitor);
     // check if the volume is already here
     bool fModified = false;
-    const uint64_t TIMEDELAY = 30;  // 5*60;  // 5 mins
+    const uint64_t TIMEDELAY = 300;  // 5*60;  // 5 mins
     uint64_t deleteTime  = fds::util::getTimeStampSeconds() + TIMEDELAY;
     auto handleptr = handleMap.find(volumeId);
     if (handleptr != handleMap.end()) {

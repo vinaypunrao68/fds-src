@@ -50,6 +50,13 @@ struct VolumeCoordinatorTest : BaseTestFixture {
                                  FDSP_MSG_TYPEID(fpi::UpdateCatalogRspMsg),
                                  fpi::UpdateCatalogRspMsg());
             });
+        h->updateHandler(
+            FDSP_MSG_TYPEID(fpi::CommitBlobTxMsg),
+            [h](fpi::AsyncHdrPtr &hdr, StringPtr &payload) {
+                h->sendAsyncResp(*hdr,
+                                 FDSP_MSG_TYPEID(fpi::CommitBlobTxRspMsg),
+                                 fpi::CommitBlobTxRspMsg());
+            });
     }
     void setOmHandlers(const PlatNetSvcHandlerPtr &h) {
         h->updateHandler(
@@ -93,7 +100,7 @@ TEST_F(VolumeCoordinatorTest, basicio) {
 
     /* Open the group */
     v1.open(MAKE_SHARED<fpi::OpenVolumeMsg>(),
-            [&waiter](const Error &e) {
+            [&waiter](const Error &e, const fpi::OpenVolumeRspMsgPtr&) {
                 ASSERT_TRUE(e == ERR_OK);
                 waiter.done();
             });
@@ -104,6 +111,7 @@ TEST_F(VolumeCoordinatorTest, basicio) {
      */
     auto statMsg = MAKE_SHARED<fpi::StatVolumeMsg>();
     auto updateMsg = MAKE_SHARED<fpi::UpdateCatalogMsg>();
+    auto commitMsg = MAKE_SHARED<fpi::CommitBlobTxMsg>();
 
     /* Do a modify request */
     waiter.reset(1);
@@ -118,9 +126,9 @@ TEST_F(VolumeCoordinatorTest, basicio) {
 
     /* Do a write request */
     waiter.reset(1);
-    v1.sendCommitMsg<fpi::UpdateCatalogMsg>(
-        FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg),
-        updateMsg,
+    v1.sendCommitMsg<fpi::CommitBlobTxMsg>(
+        FDSP_MSG_TYPEID(fpi::CommitBlobTxMsg),
+        commitMsg,
         [&waiter](const Error &e, StringPtr) {
             ASSERT_TRUE(e == ERR_OK);
             waiter.done();
@@ -144,7 +152,7 @@ TEST_F(VolumeCoordinatorTest, basicio) {
 
     /* Modify should succeed */
     waiter.reset(1);
-    v1.sendCommitMsg<fpi::UpdateCatalogMsg>(
+    v1.sendModifyMsg<fpi::UpdateCatalogMsg>(
         FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg),
         updateMsg,
         [&waiter](const Error &e, StringPtr) {
@@ -175,7 +183,7 @@ TEST_F(VolumeCoordinatorTest, basicio) {
 
     /* Modify should fail */
     waiter.reset(1);
-    v1.sendCommitMsg<fpi::UpdateCatalogMsg>(
+    v1.sendModifyMsg<fpi::UpdateCatalogMsg>(
         FDSP_MSG_TYPEID(fpi::UpdateCatalogMsg),
         updateMsg,
         [&waiter](const Error &e, StringPtr) {

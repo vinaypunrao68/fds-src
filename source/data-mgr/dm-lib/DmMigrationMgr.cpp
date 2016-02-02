@@ -223,6 +223,16 @@ DmMigrationMgr::startMigrationExecutor(DmRequest* dmRequest)
         for (std::vector<fpi::FDSP_VolumeDescType>::iterator vdt = vmg->VolDescriptors.begin();
              vdt != vmg->VolDescriptors.end();
              ++vdt) {
+
+            if (vdt->fSnapshot) {
+                LOGNOTIFY << "IGNORING SNAPSHOT REQUEST migrationid: " << migrationId
+                          << "Pull Volume ID: " << vdt->volUUID
+                          << " Name: " << vdt->vol_name
+                          << " from SrcDmSvcUuid: " << vmg->source.svc_uuid;
+
+                continue;
+            }
+
             /**
              * If this is the last executor to be fired, anything from this point on should
              * have the autoIncrement flag set.
@@ -422,7 +432,7 @@ DmMigrationMgr::startMigrationClient(DmRequest* dmRequest)
     waitForMigrationBatchToFinish(MIGR_CLIENT);
 
     LOGNOTIFY << "migrationid: " << migReqMsg->DMT_version
-        <<" received msg for volume " << migReqMsg->volumeId;
+        <<" received msg for volume " << migReqMsg->volume_id;
 
     MigrationType localMigrationType(MIGR_DM_ADD_NODE);
 
@@ -442,13 +452,13 @@ DmMigrationMgr::createMigrationClient(NodeUuid& destDmUuid,
      * Make sure that this isn't an ongoing operation.
      * Otherwise, DM bug
      */
-    auto fds_volid = fds_volid_t(filterSet->volumeId);
+    auto fds_volid = fds_volid_t(filterSet->volume_id);
     auto search = clientMap.find(std::make_pair(destDmUuid, fds_volid));
     DmMigrationClient::shared_ptr client = nullptr;
     if (search != clientMap.end()) {
         LOGERROR << "migrationid: " << filterSet->DMT_version
             << " Client received request for destination node: " << destDmUuid
-            << " volume " << filterSet->volumeId << " but it already exists";
+            << " volume " << filterSet->volume_id << " but it already exists";
         err = ERR_DUPLICATE;
         abortMigration();
     } else {

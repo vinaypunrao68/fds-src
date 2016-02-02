@@ -2,6 +2,7 @@ package com.formationds.nfs;
 
 import org.apache.log4j.Logger;
 import org.dcache.nfs.status.NoEntException;
+import org.dcache.nfs.status.NoSpcException;
 import org.dcache.nfs.vfs.FileHandle;
 import org.dcache.nfs.vfs.Inode;
 import org.dcache.nfs.vfs.Stat;
@@ -14,8 +15,7 @@ import java.util.Optional;
 
 public class InodeMap {
     private static final Logger LOG = Logger.getLogger(InodeMap.class);
-
-    private final TransactionalIo io;
+    private final IoOps io;
     private PersistentCounter usedBytes;
     private PersistentCounter usedFiles;
     private final ExportResolver exportResolver;
@@ -32,11 +32,11 @@ public class InodeMap {
 
     private final Chunker chunker;
 
-    public InodeMap(TransactionalIo io, ExportResolver exportResolver) {
+    public InodeMap(IoOps io, ExportResolver exportResolver) {
         this.exportResolver = exportResolver;
         this.io = io;
-        this.usedBytes = new PersistentCounter(io, "usedBytes", 0, true);
-        this.usedFiles = new PersistentCounter(io, "usedFiles", 0, true);
+        this.usedBytes = new PersistentCounter(io, XdiVfs.DOMAIN, "usedBytes", 0, true);
+        this.usedFiles = new PersistentCounter(io, XdiVfs.DOMAIN, "usedFiles", 0, true);
         chunker = new Chunker(io);
     }
 
@@ -48,12 +48,19 @@ public class InodeMap {
         String blobName = blobName(inode);
         String volumeName = volumeName(inode);
 
-        Optional<Map<String, String>> currentValue = io.mapMetadata(XdiVfs.DOMAIN, volumeName, blobName, (name, x) -> x);
-        if (currentValue.isPresent() && currentValue.get().size() == 0) {
-            LOG.error("Metadata for inode-" + InodeMetadata.fileId(inode) + " is empty!");
-            throw new NoEntException();
+        Optional<FdsMetadata> opt = io.readMetadata(XdiVfs.DOMAIN, volumeName, blobName);
+        if (opt.isPresent()) {
+            InodeMetadata inodeMetadata = opt.get().lock(m -> {
+                if (m.mutableMap().size() == 0) {
+                    LOG.error("Metadata for inode-" + InodeMetadata.fileId(inode) + " is empty!");
+                    throw new NoEntException();
+                }
+                return new InodeMetadata(m.mutableMap());
+            });
+            return Optional.of(inodeMetadata);
+        } else {
+            return Optional.empty();
         }
-        return currentValue.map(m -> new InodeMetadata(m));
     }
 
     public static String blobName(Inode inode) {
@@ -97,6 +104,7 @@ public class InodeMap {
                 long oldByteCount = inodeMetadata.getSize();
                 int length = Math.min(data.length, count);
                 long newByteCount = Math.max(oldByteCount, offset + length);
+                enforceVolumeLimit(volumeName, newByteCount - oldByteCount);
                 last[0] = inodeMetadata
                         .withUpdatedAtime()
                         .withUpdatedMtime()
@@ -108,9 +116,17 @@ public class InodeMap {
                 return null;
             });
             return last[0];
-        } catch (Exception e) {
+        } catch (IOException e) {
             String message = "Error writing " + volumeName + "." + blobName;
-            throw new IOException(message, e);
+            LOG.error(message, e);
+            throw e;
+        }
+    }
+
+    private void enforceVolumeLimit(String volumeName, long increment) throws IOException {
+        long currentlyUsedBytes = usedBytes(volumeName);
+        if (currentlyUsedBytes + increment > exportResolver.maxVolumeCapacityInBytes(volumeName)) {
+            throw new NoSpcException();
         }
     }
 
@@ -124,12 +140,12 @@ public class InodeMap {
     private Inode doUpdate(InodeMetadata metadata, long exportId, boolean deferrable) throws IOException {
         String volume = exportResolver.volumeName((int) exportId);
         String blobName = blobName(metadata.asInode(exportId));
-        io.mutateMetadata(XdiVfs.DOMAIN, volume, blobName, deferrable, (x) -> {
-            x.clear();
-            x.putAll(metadata.asMap());
-            return null;
+        return io.readMetadata(XdiVfs.DOMAIN, volume, blobName).orElse(new FdsMetadata()).lock(m -> {
+            Map<String, String> mutableMap = m.mutableMap();
+            mutableMap.putAll(metadata.asMap());
+            io.writeMetadata(XdiVfs.DOMAIN, volume, blobName, m.fdsMetadata(), deferrable);
+            return metadata.asInode(exportId);
         });
-        return metadata.asInode(exportId);
     }
 
     public int volumeId(Inode inode) {

@@ -22,7 +22,7 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
             $scope._acls = false;
             $scope._root_squash = false;
             $scope._async = true;
-            $scope._clients = '';
+            $scope._clients = '*';
 
             var findUnit = function(){
 
@@ -113,6 +113,15 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
             };
             
             $scope.$on( 'fds::refresh', $scope.refreshSelection );
+            
+            $scope.$watch( 'volumeType.clients', function( newVal ){
+                
+                if ( angular.isDefined( newVal ) && newVal.trim().length === 0 ){
+                    return;
+                }
+                
+                $scope._clients = newVal;
+            });
             
             $scope.$watch( 'volumeType', function( newVal ){
             

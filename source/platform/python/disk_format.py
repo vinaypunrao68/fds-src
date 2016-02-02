@@ -91,6 +91,19 @@ class extendedFstab (fstab.Fstab):
                 self.lines = lines_to_keep
                 self.altered = True
 
+    def mount_point_exists(self, uuid):
+        if len (uuid) > 0:
+            for line in self.lines:
+                if uuid in line.get_raw():
+                    return True
+        return ""
+
+    def add_mount_point_by_uuid(self, uuid, line):
+        exists = self.mount_point_exists(uuid)
+        if not exists:
+            self.add_mount_point(line)
+            return True
+        return ""
 
     def add_mount_point (self, line):
         self.lines.append (fstab.Line (line + '\n'))
@@ -715,21 +728,27 @@ class DiskManager (Base):
         ''' Partition and format each disk that needs formatting'''
 
         for disk in self.disk_list:
-            if disk.formatted == True :
+            if disk.formatted == True:
                 self.dbg_print("Skipping formatted disk %s" % disk.path)
                 continue
-            print("Partitioning and formatting  disk %s" % disk.path)
             if disk.get_os_usage():
                 disk.verifySystemDiskPartitionSize()
+                if not self.options.reset:
+                    continue
+                print("Formatting FDS superblock partition on %s" % disk.path)
+            else:
+                print("Partitioning and formatting  disk %s" % disk.path)
 #            disk.partition (self.dm_index_MB, self.sm_index_MB / len (self.sm_index_partition_list))
             disk.partition (self.dm_index_MB, 0)
             disk.format()
 
 
     def add_mount_point (self, uuid, mount_point):
-        self.dbg_print ("add mount point %s" % (mount_point))
-
-        self.fstab.add_mount_point ('UUID=' + uuid + WHITE_SPACE + mount_point + WHITE_SPACE + PARTITION_TYPE + WHITE_SPACE + MOUNT_OPTIONS + WHITE_SPACE + '0 2')
+        added = self.fstab.add_mount_point_by_uuid (uuid, 'UUID=' + uuid + WHITE_SPACE + mount_point + WHITE_SPACE + PARTITION_TYPE + WHITE_SPACE + MOUNT_OPTIONS + WHITE_SPACE + '0 2')
+        if added:
+            self.dbg_print("added mount point %s" % (mount_point))
+        else:
+            self.dbg_print("mount point for %s & already exists" % (mount_point)) 
 
 
 #    def add_sm_mount_point (self):
@@ -795,7 +814,8 @@ class DiskManager (Base):
 #         if not self.raid_manager.cleanup_raid_if_in_use (self.sm_index_partition_list, self.fstab, self.disk_utils):
 #             self.umount_list += self.sm_index_partition_list
 
-        self.disk_utils.cleanup_mounted_file_systems (self.fstab, self.umount_list)
+        if self.options.reset:
+            self.disk_utils.cleanup_mounted_file_systems (self.fstab, self.umount_list)
 
         self.partition_and_format_disks()
 #        self.add_sm_mount_point()

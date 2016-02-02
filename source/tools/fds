@@ -36,14 +36,14 @@ BINDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/bin"
 TESTDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/tests"
 KODIR="${SOURCEDIR}/fds_client/blk_dev"
 RABBITDIR="/opt/fds-stats-deps/embedded/bin"
-STATSDIR="/opt/fds-stats/embedded"
+STATSDIR="/opt/fds/formation_one/packages/fds-stats-service-1.0.0"
 
 #######################################################################
 
 REDIS_ARG=
 
 # Variables
-applist="pm om dm sm am xdi stats rabbitmq"
+applist="pm om dm sm am xdi stats rabbitmq influxdb"
 declare -A proc
 proc["am"]="bare_am"
 proc["xdi"]="java"
@@ -63,10 +63,13 @@ apps["redis"]="redis-server"
 apps["influxdb"]="influxd"
 
 declare -A TESTS
-TESTS["restart-full"]="FullRestartMultiNodeTest.ini"
-TESTS["restart-simple"]="SimpleRestartMultiNodeTest.ini"
-TESTS["restart"]="SimpleRestartTest.ini"
-TESTS["smoke"]="BuildSmokeTest_onpr.ini"
+TESTS["restart-full"]="FullRestartMultiNodeTest"
+TESTS["restart-simple"]="SimpleRestartMultiNodeTest"
+TESTS["restart"]="SimpleRestartTest"
+TESTS["restart-activeio"]="ActiveIORestartTest/ActiveIORestartTest"
+TESTS["smoke"]="BuildSmokeTest_onpr"
+TESTS["4node"]="FourNodeStart"
+TESTS["2node"]="TwoNodeStart"
 TESTS["unit"]="unit tests"
 
 function usage() {
@@ -74,6 +77,7 @@ function usage() {
     log " cmd : "
     log "   - $(yellow start)     : start the app "
     log "   - $(yellow stop)      : stop  the app "
+    log "   - $(yellow start[2/4]): start 2/4 node cluster "
     log "   - $(yellow restart)   : stop & start  the app "
     log "   - $(yellow status)    : print status of the apps"
     log "   - $(yellow clogs)     : remove the logs"
@@ -221,7 +225,7 @@ function startApp() {
             loginfo "Starting RabbitMQ server..."
             PATH=$PATH:${RABBITDIR} rabbitmq-server start &
             loginfo "Starting stats service..."
-            ${STATSDIR}/scripts/fds-stats-service &
+            ${STATSDIR}/bin/fds-stats-service &
             ;;
     esac
 
@@ -442,6 +446,8 @@ function getAppPid() {
         pid="$(pgrep -f com.formationds.am.Main)"
     elif [[  ${name} == "stats"  ]]; then
         pid="$(pgrep -f com.formationds.stats.service.Main)"
+    elif [[  ${name} == "rabbitmq"  ]]; then
+        pid="$(pgrep -f rabbitmq)"
     else
         pid="$(pgrep -f \(valgrind\)?.\*${apps[$name]})"
     fi
@@ -726,20 +732,52 @@ function runTest() {
 
     if [[ -n $testname ]] && [[ ${TESTS[$testname]+1} ]]; then
         stopApp all
-        (cd ${TESTSUITEDIR}; ./ScenarioDriverSuite.py -q ${TESTS[$testname]})
+        runScenario ${TESTS[$testname]}
+        #(cd ${TESTSUITEDIR}; ./ScenarioDriverSuite.py -q ${TESTS[$testname]})
     else
         logerror "no matching tests for [$testname]"
         logwarn  "should be one of : "
         echo -e "${!TESTS[@]}" | tr " " "\n" | sort | sed -e "s/^/    - /g"
-
     fi
 }
 
+function runScenario() {
+    local SCENENAME="$1"
+    local SCENEDIR=${SOURCEDIR}/test/cfg
+    local SCENENAME="${SCENENAME%%.cfg}.cfg"
+    if [[ ! -f ${SCENEDIR}/${SCENENAME} ]]; then
+        logerror "unable to locate scenario : ${SCENENAME}"
+        exit 0
+    fi
+
+    local TEMPINIFILE=/tmp/${SCENENAME//\//_}.${UID}.ini
+
+    echo "
+[harness]
+# Parameters for Jenkins build on commit testing
+test_source_dir: ${SOURCEDIR}/test/testcases
+log_dir: ${SOURCEDIR}/cit
+log_level: 20
+stop_on_fail: True
+run_as_root: False
+threads: 1
+iterations: 1
+fds_config_file: ${SCENEDIR}/${SCENENAME}
+fds_source_dir: ${SOURCEDIR}
+" > ${TEMPINIFILE}
+
+(cd ${SOURCEDIR}/test/testsuites; ./ScenarioDriverSuite.py --reusecluster -q ${TEMPINIFILE})
+
+}
+
 function cleanlogs() {
-    (
-        rm -f $(find /${FDSROOT}/var/ -type f | grep -v redis)
-        rm -f $(find /${FDSROOT}/logs -type f | grep -v redis)
-    ) 2>/dev/null
+    for node in ${FDSROOT} ${FDSROOT}/node{1..4} ; do
+        loginfo "cleaning logs in : ${node}"
+        (
+            rm -f $(find ${node}/var/ -type f | grep -v redis)
+            rm -f $(find ${node}/logs -type f | grep -v redis)
+        ) 2>/dev/null
+    done
 }
 
 ########################################################################
@@ -821,7 +859,7 @@ do
             exit 0
             ;;
         # detect commands
-        kill|start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*|top)
+        kill|start*|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*|top)
             CMD=$opt
             ;;
         test)
@@ -830,7 +868,7 @@ do
             APP="${args[$n]}"
             ;;
         # detect app
-        om|am|dm|sm|pm|all|redis)
+        om|am|dm|sm|pm|all|redis|stat*|rabbit*|influx*)
             APP=$opt
             ;;
         *)
@@ -879,6 +917,12 @@ case "${CMD}" in
     start) startApp $APP
         [[ $APP == "all" ]] && waitForAll
         statusApp $APP
+        ;;
+    start4)
+        runTest 4node
+        ;;
+    start2)
+        runTest 2node
         ;;
     kill) stopApp  $APP;;
     stop) stopApp  $APP;;

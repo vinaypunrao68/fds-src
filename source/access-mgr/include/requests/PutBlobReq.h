@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 Formation Data Systems, Inc.
+ * Copyright 2013-2016 Formation Data Systems, Inc.
  */
 
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_REQUESTS_PUTBLOBREQ_H_
@@ -25,12 +25,6 @@ struct PutBlobReq
     /// Used for putBlobOnce scenarios.
     boost::shared_ptr< std::map<std::string, std::string> > metadata;
     fds_int32_t blob_mode;
-
-    /* Final metadata view after catalog update */
-    fpi::FDSP_MetaDataList final_meta_data;
-
-    /* Final blob size after catalog update */
-    fds_uint64_t final_blob_size;
 
     /// Constructor used on regular putBlob requests.
     inline PutBlobReq(fds_volid_t _volid,
@@ -72,8 +66,6 @@ PutBlobReq::PutBlobReq(fds_volid_t _volid,
                        CallbackPtr _cb)
     : AmMultiReq(FDS_PUT_BLOB, _volid, _volName, _blob_name, _cb, _blob_offset, _data_len),
     AmTxReq(_txDesc),
-    final_meta_data(),
-    final_blob_size(0ULL),
     dataPtr(_data)
 {
     qos_perf_ctx.type = PerfEventType::AM_PUT_QOS;
@@ -98,8 +90,6 @@ PutBlobReq::PutBlobReq(fds_volid_t          _volid,
     : AmMultiReq(FDS_PUT_BLOB_ONCE, _volid, _volName, _blob_name, _cb, _blob_offset, _data_len),
     blob_mode(_blobMode),
     metadata(_metadata),
-    final_meta_data(),
-    final_blob_size(0ULL),
     dataPtr(_data)
 {
     qos_perf_ctx.type = PerfEventType::AM_PUT_QOS;

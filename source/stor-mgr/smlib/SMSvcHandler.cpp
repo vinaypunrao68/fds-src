@@ -280,7 +280,10 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 {
     Error err(ERR_OK);
     bool fault_enabled = false;
-    LOGDEBUG << "Initiate Object Sync";
+    LOGDEBUG << "Initiate Object Sync for " << std::hex
+             << asyncHdr->msg_src_uuid.svc_uuid
+             << " executor id: " << filterObjSet->executorID
+             << " token: " << std::dec << filterObjSet->tokenId;
 
     // first disable GC and Tier Migration. If this SM is also a destination and
     // we already disabled GC and Tier Migration, disabling them again is a noop
@@ -381,6 +384,7 @@ void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 {
     LOGDEBUG << "Received shutdown message... shutting down...";
     if (!objStorMgr->isShuttingDown()) {
+        objStorMgr->objectStore->resetResync();
         objStorMgr->mod_disable_service();
         objStorMgr->mod_shutdown();
     }
@@ -1263,11 +1267,13 @@ void SMSvcHandler::objectStoreCtrl(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 
     // We just received a message from another SM that it had to enter read only mode, or that it is no longer
     // in read only mode. We need to just blindly follow right now. Down the road we should add more robust handling.
+    /** NOTE: This is commented out for safety at the current time.
     if (msg->state == OBJECTSTORE_READ_ONLY) {
         objStorMgr->objectStore->setReadOnly();
     } else if (msg->state == OBJECTSTORE_NORMAL) {
         objStorMgr->objectStore->setAvailable();
     }
+     **/
 }
 
 void
@@ -1325,12 +1331,15 @@ void SMSvcHandler::genericCommand(ASYNC_HANDLER_PARAMS(GenericCommandMsg)) {
             SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_START, SM_CMD_INITIATOR_NOT_SET);
             Error err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
         }
+    } else if (msg->command == "force.expunge") {
+        LOGCRITICAL << "force expunge command received";
+        objStorMgr->objectStore->setObjectDelCnt(1);
     } else {
         LOGCRITICAL << "unexpected command received : " << msg;
     }
 }
 
-    void SMSvcHandler::diskMapChange(ASYNC_HANDLER_PARAMS(NotifyDiskMapChange)) {
-        LOGDEBUG << "Received a disk-map change notification";
-    }
+void SMSvcHandler::diskMapChange(ASYNC_HANDLER_PARAMS(NotifyDiskMapChange)) {
+    LOGDEBUG << "Received a disk-map change notification";
+}
 }  // namespace fds

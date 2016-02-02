@@ -18,9 +18,9 @@ public class SimpleInodeIndexTest {
 
     @Test
     public void testIndex() throws Exception {
-        ExportResolver exportResolver = new StubExportResolver(VOLUME, OBJECT_SIZE);
-        TransactionalIo transactions = new TransactionalIo(new MemoryIoOps());
-        SimpleInodeIndex index = new SimpleInodeIndex(transactions, exportResolver);
+        ExportResolver exportResolver = new StubExportResolver(VOLUME, OBJECT_SIZE, Long.MAX_VALUE);
+        IoOps io = new MemoryIoOps();
+        SimpleInodeIndex index = new SimpleInodeIndex(io, exportResolver);
         int exportId = exportResolver.exportId(VOLUME);
         int parentId = 3;
         int sueId = 4;

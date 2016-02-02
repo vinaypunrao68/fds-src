@@ -15,6 +15,7 @@
 #include <fds_assert.h>
 
 #include <functional>
+#include <lib/StatsCollector.h>
 
 namespace fds {
 namespace dm {
@@ -37,7 +38,8 @@ void CommitBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncH
     HANDLE_U_TURN();
 
     fds_volid_t volId(message->volume_id);
-    auto err = preEnqueueWriteOpHandling(volId, asyncHdr, PlatNetSvcHandler::threadLocalPayloadBuf);
+    auto err = preEnqueueWriteOpHandling(volId, message->opId,
+                                         asyncHdr, PlatNetSvcHandler::threadLocalPayloadBuf);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
@@ -138,6 +140,19 @@ void CommitBlobTxHandler::volumeCatalogCb(Error const& e, blob_version_t blob_ve
     // from another DM, which is not really consuming local
     // DM resources
     helper.markIoDone();
+
+    /**
+     * Sampling Volume stats at this point helps ensure that when stats are reported,
+     * they are the latest. Otherwise, they would only be sampled according to the
+     * sampling schedule and may be a minute or 2 behind current time.
+     *
+     * If this is considered too intrusive an operation on performance at this point,
+     * it may be disabeled without any further consequence than numbers presented to the
+     * customer that may be difficult to explain.
+     */
+    if (dataManager.features.isRealTimeStatSamplingEnabled()) {
+        dataManager.sampleDMStatsForVol(commitBlobReq->volId);
+    }
 
     /**
      * There are 2 cases here:

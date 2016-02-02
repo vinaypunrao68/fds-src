@@ -23,6 +23,7 @@
 #include <kvstore/configdb.h>
 #include <concurrency/RwLock.h>
 #include <DltDmtUtil.h>
+#include <fds_timer.h>
 
 namespace FDS_ProtocolInterface {
     struct CtrlNotifyDMAbortMigration;
@@ -646,6 +647,9 @@ class OM_NodeContainer : public DomainContainer
     virtual fds_uint32_t om_bcast_shutdown_msg(fpi::FDSP_MgrIdType svc_type);
     virtual fds_uint32_t om_bcast_dm_migration_abort(fds_uint64_t cur_dmt_version);
 
+    // Clears all volumes' coordinator info from every volume descriptor
+    void clearVolumesCoordinatorInfo();
+
     /**
      * Sends scavenger command (e.g. enable, disable, start, stop) to SMs
      */
@@ -979,10 +983,13 @@ class OM_NodeDomainMod : public Module
     */
     virtual Error om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo);
 
+    /**
+     * Changes the state of a service and broadcasts its service map
+     */
     virtual void
-    om_change_svc_state_and_bcast_svcmap( const NodeUuid& svcUuid,
-                                          fpi::FDSP_MgrIdType svcType,
-                                          const fpi::ServiceStatus status );
+    om_change_svc_state_and_bcast_svcmap(boost::shared_ptr<fpi::SvcInfo> svcInfo,
+                                         fpi::FDSP_MgrIdType svcType,
+                                         const fpi::ServiceStatus status);
     
     /**
      * Notification that service is down to DLT and DMT state machines
@@ -1121,6 +1128,20 @@ class OM_NodeDomainMod : public Module
     bool isNodeShuttingDown(int64_t uuid);
 
     void removeNodeComplete(NodeUuid uuid);
+
+    inline fds_bool_t dmClusterPresent() {
+        return volumeGroupDMTFired;
+    }
+
+    // used for unit test
+    inline void setDmClusterSize(uint32_t size) {
+        dmClusterSize = size;
+    }
+    fds_bool_t checkDmtModVGMode();
+    bool isScheduled(FdsTimerTaskPtr&, int64_t id);
+    void addToTaskMap(FdsTimerTaskPtr task, int64_t id);
+    void removeFromTaskMap(int64_t id);
+
   protected:
     bool isPlatformSvc(fpi::SvcInfo svcInfo);
     bool isAccessMgrSvc( fpi::SvcInfo svcInfo );
@@ -1158,7 +1179,12 @@ class OM_NodeDomainMod : public Module
 
     bool                          domainDown;
     std::vector<int64_t>          shuttingDownNodes;
+    uint32_t                      dmClusterSize;
 
+    bool volumeGroupDMTFired;
+    std::mutex                    taskMapMutex;
+    std::unordered_map<int64_t, FdsTimerTaskPtr> setupNewNodeTaskMap;
+    fds_mutex                     dbLock;
 };
 
 extern OM_NodeDomainMod      gl_OMNodeDomainMod;

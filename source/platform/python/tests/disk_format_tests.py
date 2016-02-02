@@ -642,7 +642,7 @@ class testDiskManager (unittest.TestCase):
 
         self.manager.global_debug_on = True
         self.manager.partition_and_format_disks()
-        assert 5 == mock_format.call_count
+        assert 3 == mock_format.call_count # 6 - 2(os) -1(formatted)
 
     def testDiskManagerCalcCapacities (self):
         self.manager.disk_config_file = 'test_data/disk_config'
@@ -901,11 +901,13 @@ class testDiskManager (unittest.TestCase):
     #@mock.patch ('disk_format.fstab')
     @mock.patch ('disk_format.subprocess.Popen')
     @mock.patch ('disk_format.os')
-    @mock.patch ('disk_format.DiskManager.partition_and_format_disks')
+    @mock.patch ('disk_format.Disk.verifySystemDiskPartitionSize')
+    @mock.patch ('disk_format.Disk.format')
+    @mock.patch ('disk_format.Disk.partition')
     @mock.patch ('disk_format.DiskUtils.get_uuid')
 #    @mock.patch ('disk_format.RaidDevice.get_uuid')
 #    def testDiskManagerProcessFormatReset (self, mock_uuid, mock_uuid_diskutils, mock_part_and_format, mock_os, mock_popen):
-    def testDiskManagerProcessFormatReset (self, mock_uuid_diskutils, mock_part_and_format, mock_os, mock_popen):
+    def testDiskManagerProcessFormatReset (self, mock_uuid_diskutils, mock_verifySystemDiskPartitionSize, mock_format, mock_partition, mock_os, mock_popen):
 #        uuid_mock = mock.Mock (return_value = 'cazzoomar')
 #        mock_uuid.return_value = uuid_mock.return_value
         self.uuid_mock = mock.Mock (return_value = 'cazzoomar')

@@ -159,11 +159,15 @@ void ObjectStorMgr::handleResyncDoneOrPending(fds_bool_t startResync, fds_bool_t
     }
 
     if (startResync && g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
-        objStorMgr->migrationMgr->startResync(curDlt,
-                                              getUuid(),
-                                              curDlt->getNumBitsForToken(),
-                                              std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
-                                                        std::placeholders::_1, std::placeholders::_2));
+        if (objectStore->doResync()) {
+            objStorMgr->migrationMgr->startResync(curDlt,
+                                                  getUuid(),
+                                                  curDlt->getNumBitsForToken(),
+                                                  std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
+                                                            std::placeholders::_1, std::placeholders::_2));
+        } else {
+            objectStore->setResync();
+        }
     }
 }
 
@@ -455,16 +459,23 @@ Error ObjectStorMgr::handleDltUpdate() {
     const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
     Error err = objStorMgr->objectStore->handleNewDlt(curDlt);
     if (err == ERR_SM_NOERR_NEED_RESYNC) {
-        LOGNOTIFY << "SM " << std::hex << getUuid() << " going to do"
-                  << " token diff resync";
+        migrationMgr->makeTokensAvailable(curDlt,
+                                          curDlt->getNumBitsForToken(),
+                                          getUuid());
 
         // Start the resync process
         if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync", true)) {
-            err = objStorMgr->migrationMgr->startResync(curDlt,
-                                                        getUuid(),
-                                                        curDlt->getNumBitsForToken(),
-                                                        std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
-                                                                  std::placeholders::_1, std::placeholders::_2));
+            if (objectStore->doResync()) {
+                LOGNOTIFY << "SM " << std::hex << getUuid() << " going to do"
+                          << " token diff resync";
+                err = objStorMgr->migrationMgr->startResync(curDlt,
+                                                            getUuid(),
+                                                            curDlt->getNumBitsForToken(),
+                                                            std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
+                                                                      std::placeholders::_1, std::placeholders::_2));
+            } else {
+                objectStore->setResync();
+            }
         } else {
             // not doing resync, making all DLT tokens ready
             migrationMgr->makeTokensAvailable(curDlt,
@@ -537,17 +548,22 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
         if (volTbl->isSnapshot(*vit)) {
             continue;
         }
-        fds_uint64_t dedup_bytes = volTbl->getDedupBytes(*vit);
+        std::pair<double, double> dedup_bytes = volTbl->getDedupBytes(*vit);
         LOGDEBUG << "Volume " << std::hex << *vit << std::dec
-                 << " deduped bytes " << dedup_bytes;
+                 << " deduped bytes " << dedup_bytes.first
+                 << " domain deduped bytes fraction " << dedup_bytes.second;
         StatsCollector::singleton()->recordEvent(*vit,
                                                  timestamp,
                                                  STAT_SM_CUR_DEDUP_BYTES,
-                                                 dedup_bytes);
+                                                 dedup_bytes.first);
+        StatsCollector::singleton()->recordEvent(*vit,
+                                                 timestamp,
+                                                 STAT_SM_CUR_DOMAIN_DEDUP_BYTES_FRAC,
+                                                 dedup_bytes.second);
     }
 
     // Piggyback on the timer that runs this to check disk capacity
-    if (sampleCounter % 5 == 0) {
+    if (sampleCounter % 3 == 0) {
         LOGDEBUG << "Checking disk utilization!";
         checkDiskCapacities();
         sampleCounter = 0;
@@ -559,16 +575,13 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
  * Checks available disk capacities and takes appropriate action based on thresholds.
  */
 void ObjectStorMgr::checkDiskCapacities() {
+
     float_t pct_used = objectStore->getUsedCapacityAsPct();
 
     if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
         lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
         LOGERROR << "ERROR: SM is utilizing " << pct_used << "% of available storage space!";
-
-        objectStore->setReadOnly();
         sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SERVICE_CAPACITY_FULL, "SM capacity is FULL! ");
-        // Send the read only mode command to the other SMs
-        sendReadOnlyModeCmd();
         lastCapacityMessageSentAt = pct_used;
 
     } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
@@ -593,17 +606,25 @@ void ObjectStorMgr::checkDiskCapacities() {
         // If the used pct drops below alert levels reset so we resend the message when
         // we re-hit this condition
         if (pct_used < DISK_CAPACITY_WARNING_THRESHOLD) {
+            if (objectStore->isReadOnly()) {
+                objectStore->setAvailable();
+            }
             if (lastCapacityMessageSentAt > DISK_CAPACITY_ALERT_THRESHOLD) {
                 sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
                                        "SM utilization no longer at dangerous levels.");
             }
             lastCapacityMessageSentAt = 0;
         } else if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
+            if (objectStore->isReadOnly()) {
+                objectStore->setAvailable();
+            }
             lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
             sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
                                    "SM utilization no longer at dangerous levels.");
         } else if (pct_used < DISK_CAPACITY_ERROR_THRESHOLD) {
-            sendReadWriteModeCmd();
+            if (objectStore->isReadOnly()) {
+                objectStore->setAvailable();
+            }
             lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
             sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SERVICE_CAPACITY_DANGEROUS,
                                    "SM is reaching dangerous capacity levels!");

@@ -20,15 +20,13 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTTARGET_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_SCST_SCSTTARGET_H_
 
-#include <array>
 #include <condition_variable>
 #include <deque>
 #include <memory>
 #include <mutex>
-#include <set>
 #include <string>
-#include <unordered_map>
 
+#include "connector/scst/ScstAdmin.h"
 #include "connector/scst/ScstCommon.h"
 #include "concurrency/LeaderFollower.h"
 #include "fds_volume.h"
@@ -36,6 +34,7 @@
 namespace fds {
 
 struct AmProcessor;
+struct ScstConnector;
 struct ScstDevice;
 
 /**
@@ -44,7 +43,10 @@ struct ScstDevice;
 struct ScstTarget
     : public LeaderFollower
 {
-    ScstTarget(std::string const& name,
+    enum State { STOPPED, RUNNING, REMOVED };
+
+    ScstTarget(ScstConnector* parent_connector,
+               std::string const& name,
                size_t const followers,
                std::weak_ptr<AmProcessor> processor);
     ScstTarget(ScstTarget const& rhs) = delete;
@@ -54,14 +56,15 @@ struct ScstTarget
 
     void disable() { toggle_state(false); }
     void enable() { toggle_state(true); }
-
-    std::string targetName() const { return target_name; }
+    bool enabled() const
+    { std::lock_guard<std::mutex> lg(deviceLock); return State::RUNNING == state; }
 
     void addDevice(VolumeDesc const& vol_desc);
     void deviceDone(std::string const& volume_name);
     void removeDevice(std::string const& volume_name);
-    void setCHAPCreds(std::unordered_map<std::string, std::string>& credentials);
-    void setInitiatorMasking(std::set<std::string> const& ini_members);
+    void setCHAPCreds(ScstAdmin::credential_map& credentials);
+    void setInitiatorMasking(ScstAdmin::initiator_set const& ini_members);
+    void shutdown();
 
  protected:
     void lead() override;
@@ -69,24 +72,19 @@ struct ScstTarget
  private:
     template<typename T>
     using unique = std::unique_ptr<T>;
-    using device_ptr = unique<ScstDevice>;
 
-    using lun_table_type = std::array<device_ptr, 255>;
-
-    template<typename T>
-    using map_type = std::unordered_map<std::string, T>;
-    using device_map_type = map_type<lun_table_type::iterator>;
+    ScstConnector* connector;
 
     /// Max LUNs is 255 per target
-    device_map_type device_map;
-    lun_table_type lun_table;
+    ScstAdmin::device_map_type device_map;
+    ScstAdmin::lun_table_type lun_table;
 
     std::condition_variable deviceStartCv;
-    std::mutex deviceLock;
+    mutable std::mutex deviceLock;
     std::deque<int32_t> devicesToStart;
 
     /// Initiator masking
-    std::set<std::string> ini_members;
+    ScstAdmin::initiator_set ini_members;
 
     // Async event to add/remove/modify luns
     unique<ev::async> asyncWatcher;
@@ -99,14 +97,14 @@ struct ScstTarget
     std::string const target_name;
 
     bool luns_mapped {false};
+    State state {RUNNING};
 
     void clearMasking();
 
-    void mapDevices();
-
     void startNewDevices();
 
-    void toggle_state(bool const enable);
+    void toggle_state(bool const enable)
+    { ScstAdmin::toggleState(target_name, enable); }
 
     void wakeupCb(ev::async &watcher, int revents);
 };

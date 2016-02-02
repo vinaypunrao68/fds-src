@@ -5,16 +5,13 @@ import org.dcache.nfs.vfs.DirectoryEntry;
 import org.dcache.nfs.vfs.Inode;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 public class SimpleInodeIndex implements InodeIndex {
-    private TransactionalIo io;
+    private IoOps io;
     private ExportResolver exportResolver;
 
-    public SimpleInodeIndex(TransactionalIo io, ExportResolver exportResolver) {
+    public SimpleInodeIndex(IoOps io, ExportResolver exportResolver) {
         this.io = io;
         this.exportResolver = exportResolver;
     }
@@ -23,20 +20,26 @@ public class SimpleInodeIndex implements InodeIndex {
     public Optional<InodeMetadata> lookup(Inode parent, String name) throws IOException {
         String volumeName = exportResolver.volumeName(parent.exportIndex());
         String blobName = blobName(InodeMetadata.fileId(parent), name);
-        return io.mapMetadata(XdiVfs.DOMAIN, volumeName, blobName,
-                (x, metadata) -> metadata.map(m -> new InodeMetadata(m)));
+        Optional<FdsMetadata> fdsMetadata = io.readMetadata(XdiVfs.DOMAIN, volumeName, blobName);
+        if (!fdsMetadata.isPresent()) {
+            return Optional.empty();
+        } else {
+            return Optional.of(fdsMetadata.get().lock(m -> new InodeMetadata(m.mutableMap())));
+        }
     }
 
     @Override
     public List<DirectoryEntry> list(InodeMetadata directory, long exportId) throws IOException {
         String volumeName = exportResolver.volumeName((int) exportId);
         String blobNamePrefix = "index-" + directory.getFileId() + "/";
-        return io.scan(
-                XdiVfs.DOMAIN,
-                volumeName,
-                blobNamePrefix,
-                (blobName, md) -> new InodeMetadata(md.get())
-                        .asDirectoryEntry(blobName.replace(blobNamePrefix, ""), exportId));
+        Collection<BlobMetadata> scanResult = io.scan(XdiVfs.DOMAIN, volumeName, blobNamePrefix);
+        List<DirectoryEntry> result = new ArrayList<>(scanResult.size());
+        for (BlobMetadata blobMetadata : scanResult) {
+            InodeMetadata im = blobMetadata.getMetadata().lock(m -> new InodeMetadata(m.mutableMap()));
+            String blobName = blobMetadata.getBlobName().replace(blobNamePrefix, "");
+            result.add(im.asDirectoryEntry(blobName, exportId));
+        }
+        return result;
     }
 
     @Override
@@ -47,7 +50,7 @@ public class SimpleInodeIndex implements InodeIndex {
             Collection<String> names = links.get(parentId);
             for (String name : names) {
                 String blobName = blobName(parentId, name);
-                io.mutateMetadata(XdiVfs.DOMAIN, volumeName, blobName, entry.asMap(), deferrable);
+                io.writeMetadata(XdiVfs.DOMAIN, volumeName, blobName, new FdsMetadata(entry.asMap()), deferrable);
             }
         }
     }

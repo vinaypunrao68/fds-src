@@ -5,6 +5,7 @@
 #include <string>
 #include <queue>
 #include <fds_typedefs.h>
+#include <net/volumegroup_extensions.h>
 
 namespace fds {
 
@@ -35,6 +36,8 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& volinfo,
 
     iscsiSettings = volinfo.iscsi;
     nfsSettings = volinfo.nfs;
+    
+    coordinator = volinfo.coordinator;
 }
 
 VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
@@ -91,6 +94,8 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
 
     iscsiSettings = voldesc.iscsi;
     nfsSettings = voldesc.nfs;
+
+    coordinator = voldesc.coordinator;
 }
 
 /*
@@ -219,6 +224,7 @@ void VolumeDesc::toFdspDesc(FDS_ProtocolInterface::FDSP_VolumeDescType& voldesc)
     voldesc.state = state;
     voldesc.iscsi = iscsiSettings;
     voldesc.nfs = nfsSettings;
+    voldesc.coordinator = coordinator;
 }
 
 bool VolumeDesc::operator==(const VolumeDesc &rhs) const {
@@ -273,6 +279,11 @@ bool VolumeDesc::isSystemVolume() const {
     return 0 == name.compare(0,7,"SYSTEM_",0,7);
 }
 
+void VolumeDesc::clearCoordinatorInfo() {
+    coordinator.id.svc_uuid = 0;
+    coordinator.version = fds::VolumeGroupConstants::VERSION_INVALID;
+}
+
 std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
     os << "["
        << " uuid:" << vol.volUUID
@@ -290,11 +301,10 @@ std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
        << " rel.prio:" << vol.relativePrio
        << " isSnapshot:" << vol.fSnapshot
        << " srcVolumeId:" << vol.srcVolumeId
-       << " state:" << vol.getState()
-       << " qosQueueId:" << vol.contCommitlogRetention
+       << " state:" << vol.getState() << " ( " << fpi::_ResourceState_VALUES_TO_NAMES.find(vol.getState())->second << " )"
+       << " contCommitlogRetention:" << vol.contCommitlogRetention
        << " timelineTime:" << vol.timelineTime
-       << " createTime:" << vol.createTime
-       << " statename:" << fpi::_ResourceState_VALUES_TO_NAMES.find(vol.getState())->second;
+       << " createTime:" << vol.createTime;
 
     if (fpi::FDSP_VOL_ISCSI_TYPE == vol.volType) {
         os << " luns: { ";

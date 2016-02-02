@@ -47,6 +47,7 @@ public class IngestVolumeStats
     this.config = config;
   }
 
+  @SuppressWarnings( "Duplicates" )
   @Override
   public Resource handle(Request request, Map<String, String> routeParameters)
       throws Exception {

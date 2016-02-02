@@ -16,20 +16,19 @@ namespace fds {
 
 class DmMigrationDest : public DmMigrationExecutor {
 public:
+    typedef std::shared_ptr<DmMigrationDest> shared_ptr;
+    typedef std::unique_ptr<DmMigrationDest> unique_ptr;
+
     DmMigrationDest(int64_t _migrId,
                     DataMgr &_dm,
                     NodeUuid &_srcDmUuid,
                     fpi::FDSP_VolumeDescType& _volDesc,
                     uint32_t _timeout,
-                    DmMigrationExecutorDoneCb cleanUp) :
-        DmMigrationExecutor(_dm,
-                            _srcDmUuid,
-                            _volDesc,
-                            _migrId,
-                            false,
-                            cleanUp,
-                            _timeout) {}
+                    DmMigrationExecutorDoneCb cleanUp);
     ~DmMigrationDest() {}
+    void abortMigration() override;
+    /* Called once static migration is complete */
+    void testStaticMigrationComplete() override;
 
     /**
      * Wraps around processInitialBlobFilterSet, now done in a volume
@@ -37,10 +36,14 @@ public:
      */
     Error start();
 
-    typedef std::shared_ptr<DmMigrationDest> shared_ptr;
-    typedef std::unique_ptr<DmMigrationDest> unique_ptr;
-
     void routeAbortMigration() override;
+
+    /**
+     * Used in the volmeta context, for destination
+     * If the version is set, checks the argument and see if
+     * this is the same version as the one undergoing migration.
+     */
+    Error checkVolmetaVersion(const int32_t version);
 private:
 };
 

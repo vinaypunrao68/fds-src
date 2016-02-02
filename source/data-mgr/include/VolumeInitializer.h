@@ -66,6 +66,7 @@ struct ReplicaInitializer : HasModuleProvider,
     void abort();
     Error tryAndBufferIo(const BufferReplay::Op &op);
     inline Progress getProgress() const { return progress_; }
+    bool syncPreemptionChecks(const fpi::AddToVolumeGroupRespCtrlMsgPtr &responseMsg);
 
 #if 0
     template <class F>
@@ -82,13 +83,14 @@ struct ReplicaInitializer : HasModuleProvider,
      * If cb is null response cb isn't set i.e fire/forget message to the coordinator
      */
     void notifyCoordinator_(const EPSvcRequestRespCb &cb = nullptr);
-    void copyActiveStateFromPeer_(const EPSvcRequestRespCb &cb); 
+    void copyActiveStateFromPeer_(const std::vector<fpi::SvcUuid> &syncPeers,
+                                  const EPSvcRequestRespCb &cb); 
     void startBuffering_();
     void doQucikSyncWithPeer_(const StatusCb &cb);
     void doStaticMigrationWithPeer_(const StatusCb &cb);
     void startReplay_();
     void setProgress_(Progress progress);
-    bool isSynchronized_();
+    bool isSynchronized_() const;
     void complete_(const Error &e, const std::string &context);
 
     Progress                                progress_;
@@ -138,9 +140,19 @@ void ReplicaInitializer<T>::run()
             complete_(e, "Coordinator rejected at loading state");
             return;
         }
-        syncPeer_ = responseMsg->group.functionalReplicas.front();
 
-        copyActiveStateFromPeer_(replica_->makeSynchronized([this](EPSvcRequest*,
+        /* Based on the first response from coordinator sync can be preempted */
+        if (syncPreemptionChecks(responseMsg)) {
+            return;
+        }
+
+        /* Try and copy active state from peers in a failover manner.  The first successful
+         * responder is the peer we will do quick sync/static migration with.
+         * NOTE: In case we fail while doing quick sync/static migration we try the
+         * initilization sequence from the beginning
+         */
+        copyActiveStateFromPeer_(responseMsg->group.functionalReplicas,
+                                 replica_->makeSynchronized([this](EPSvcRequest*,
                                                         const Error &e_,
                                                         StringPtr payload) {
            ABORT_CHECK();
@@ -195,6 +207,44 @@ void ReplicaInitializer<T>::run()
 }
 
 template <class T>
+bool ReplicaInitializer<T>::
+syncPreemptionChecks(const fpi::AddToVolumeGroupRespCtrlMsgPtr &responseMsg)
+{
+    /* Short-circuit migration if no writes have happened since last write */
+    if (responseMsg->group.lastCommitId == replica_->getSequenceId() && 
+        responseMsg->group.lastOpId == VolumeGroupConstants::OPSTARTID) {
+        /* No writes have happened since we last open (it's possible we missed open
+         * due to race and initialization).  We can become functional.
+         */
+        replica_->setState(fpi::ResourceState::Syncing,
+                           "- No writes since last open. About to become functional");
+        notifyCoordinator_();
+        complete_(ERR_OK, "- No writes since last open. Become functional");
+        return true;
+    }
+
+    if (responseMsg->group.functionalReplicas.size() == 0) {
+        /* When the functional group size is zero, if the latest sequence id matches
+         * with what coordinator has we can become functional
+         */
+        if (responseMsg->group.lastCommitId == replica_->getSequenceId()) {
+            fds_assert(responseMsg->group.lastOpId == VolumeGroupConstants::OPSTARTID);
+            /* To become functional, the sequence is go into syncing and become functional */
+            replica_->setState(fpi::ResourceState::Syncing,
+                               "- no sync peers.  This volume is first functional replica");
+            /* This will notify coordinator we are in sync state */
+            notifyCoordinator_();
+            /* Complet with OK will notify coordinator we are funcational */
+            complete_(ERR_OK, "- no sync peers.  This volume is first functional replica");
+        } else {
+            complete_(ERR_SYNCPEER_UNAVAILABLE, " - no sync peer is available");
+        }
+        return true;
+    }
+    return false;
+}
+
+template <class T>
 Error ReplicaInitializer<T>::tryAndBufferIo(const BufferReplay::Op &op)
 {
     fds_assert(replica_->getState() == fpi::Syncing);
@@ -206,7 +256,14 @@ template <class T>
 void ReplicaInitializer<T>::startBuffering_()
 {
     setProgress_(ENABLE_BUFFERING);
-    bufferReplay_.reset(new BufferReplay(replica_->getBufferfilePath(),
+    auto bufferfilePrefix = replica_->getBufferfilePrefix();
+    auto bufferfilePath = util::strformat("%s%d", bufferfilePrefix.c_str(),
+                                          replica_->getVersion());
+    /* Remove any existing buffer files */
+    auto cmdRet = std::system(util::strformat("rm %s* >/dev/null 2>&1",
+                                              bufferfilePrefix.c_str()).c_str());
+    /* Create buffer replay instance */
+    bufferReplay_.reset(new BufferReplay(bufferfilePath,
                                          512,  /* Replay batch size */
                                          MODULEPROVIDER()->proc_thrpool()));
     auto err = bufferReplay_->init();
@@ -239,14 +296,31 @@ void ReplicaInitializer<T>::startBuffering_()
         auto selfUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
         for (const auto &op : ops) {
             auto req = requestMgr->newEPSvcRequest(selfUuid);
-            req->setPayloadBuf(static_cast<fpi::FDSPMsgTypeId>(op.first), op.second);
+            req->setPayloadBuf(static_cast<fpi::FDSPMsgTypeId>(op.type), op.payload);
             req->onResponseCb([this](EPSvcRequest*,
                                      const Error &e,
                                      StringPtr) {
                 if (e != ERR_OK) {
-                    /* calling abort mutiple times should be ok */
-                    bufferReplay_->abort();
+                    if (e == ERR_INVALID_ARG ||
+                        e == ERR_DM_OP_NOT_ALLOWED ||
+                        e == ERR_VOLUME_ACCESS_DENIED ||
+                        e == ERR_HASH_COLLISION ||
+                        e == ERR_BLOB_SEQUENCE_ID_REGRESSION ||
+                        e == ERR_CAT_ENTRY_NOT_FOUND ||
+                        e == ERR_BLOB_NOT_FOUND ||
+                        e == ERR_BLOB_OFFSET_INVALID) {
+                        LOGWARN << replica_->logString() << bufferReplay_->logString()
+                            << " buffer replay encountered "
+                            << e << " - ignoring the error";
+                    } else {
+                        LOGWARN << replica_->logString() << bufferReplay_->logString()
+                            << " buffer replay encountered "
+                            << e << " - aborting buffer replay";
+                        /* calling abort mutiple times should be ok */
+                        bufferReplay_->abort();
+                    }
                 }
+                /* Op accounting.  NOTE: Op accounting needs to be done even after abort */
                 bufferReplay_->notifyOpsReplayed();
             });
             /* invokeDirect() because we want to ensure IO is enqueued to qos on this thread */
@@ -276,17 +350,24 @@ void ReplicaInitializer<T>::notifyCoordinator_(const EPSvcRequestRespCb &cb)
 }
 
 template <class T>
-void ReplicaInitializer<T>::copyActiveStateFromPeer_(const EPSvcRequestRespCb &cb)
+void ReplicaInitializer<T>::copyActiveStateFromPeer_(const std::vector<fpi::SvcUuid> &syncPeers,
+                                                     const EPSvcRequestRespCb &cb)
 {
     fds_assert(isSynchronized_());
     setProgress_(COPY_ACTIVE_STATE);
 
     auto msg = fpi::CtrlNotifyRequestTxStateMsgPtr(new fpi::CtrlNotifyRequestTxStateMsg);
     msg->volume_id = replica_->getId();
+    msg->version = replica_->getVersion();
     auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
-    auto req = requestMgr->newEPSvcRequest(syncPeer_);
+    auto req = requestMgr->newFailoverSvcRequest(syncPeers);
     req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyRequestTxStateMsg), msg);
-    req->onResponseCb(cb);
+    req->onResponseCb([this, cb](FailoverSvcRequest* req,
+                                 const Error &e,
+                                 StringPtr payload) {
+        syncPeer_ = req->getLastRespondedSvcUuid();
+        cb(nullptr, e, payload);
+    });
     req->invoke();
 }
 
@@ -304,12 +385,10 @@ template <class T>
 void ReplicaInitializer<T>::doStaticMigrationWithPeer_(const StatusCb &cb)
 {
     fds_assert(isSynchronized_());
-    // TODO(Neil/James): Please fill this
     setProgress_(STATIC_MIGRATION);
 
-    STUBSTATEMENT(MODULEPROVIDER()->getTimer()->scheduleFunction(\
-                                    std::chrono::seconds(5), \
-                                    [cb]() { cb(ERR_OK); }));
+    // Helps trace: startMigration should call volumeMeta's startMigration
+    replica_->startMigration(syncPeer_, replica_->getId(), cb);
 }
 
 template <class T>
@@ -358,10 +437,9 @@ void ReplicaInitializer<T>::setProgress_(Progress progress)
 }
 
 template <class T>
-bool ReplicaInitializer<T>::isSynchronized_()
+bool ReplicaInitializer<T>::isSynchronized_() const
 {
-    // TODO(Rao): Implement
-    return true;
+    return replica_->isSynchronized();
 }
 
 template <class T>
@@ -375,9 +453,7 @@ void ReplicaInitializer<T>::complete_(const Error &e, const std::string &context
     fds_assert(progress_ != COMPLETE);
     // TODO(Rao): Assert static migration, buffer replay aren't in progress
 
-    if (completionError_ != ERR_OK) {
-        completionError_ = e;
-    }
+    completionError_ = e;
     setProgress_(COMPLETE);
 
     if (completionError_ == ERR_OK) {
@@ -386,10 +462,11 @@ void ReplicaInitializer<T>::complete_(const Error &e, const std::string &context
         replica_->setState(fpi::ResourceState::Offline, context);
     }
     notifyCoordinator_();
+
     /* This must be the last thing we do on ReplicaInitializer object.  After this call, 
      * ReplicaInitializer will be deleted
      */
-    replica_->cleanupInitializer();
+    replica_->notifyInitializerComplete(completionError_);
 }
 
 }  // namespace fds

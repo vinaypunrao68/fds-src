@@ -281,13 +281,13 @@ namespace fds
     // disk_reconcile_label
     // --------------
     //
-    void PmDiskInventory::disk_reconcile_label(DiskLabelMgr *mgr)
+    void PmDiskInventory::disk_reconcile_label(DiskLabelMgr *mgr, NodeUuid node_uuid, fds_uint16_t& largest_disk_index)
     {
         DiskLabelOp    op(DISK_LABEL_READ, mgr);
 
         dsk_foreach(&op);
 
-        mgr->dsk_reconcile_label(dsk_need_simulation());
+        mgr->dsk_reconcile_label(dsk_need_simulation(), node_uuid, largest_disk_index);
     }
 
     void PmDiskInventory::clear_inventory()
