@@ -1675,7 +1675,7 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
     // VG persist check
     if (OM_Module::om_singleton()->om_dmt_mod()->volumeGrpMode() &&
             vp->hasCommittedDMT()) {
-        LOGDEBUG << "Volume Grouping mode is active after OM restart";
+        LOGNOTIFY << "Volume Grouping mode is active after OM restart";
         dmClusterPresent_ = true;
     }
     return err;

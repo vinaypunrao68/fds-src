@@ -26,7 +26,9 @@ VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
             fwd_state(VFORWARD_STATE_NONE),
             dmVolQueue(0),
             dataManager(_dm),
-            cbToVGMgr(NULL)
+            cbToVGMgr(NULL),
+            initializerTriesCnt(0),
+            maxInitializerTriesCnt(10)
 {
     const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
 
@@ -50,8 +52,6 @@ VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
     version = VolumeGroupConstants::VERSION_INVALID;
 
     threadId = dataManager->getQosCtrl()->threadPool->getThreadId(_uuid.get());
-
-    initializerTriesCnt = 0;
 }
 
 VolumeMeta::~VolumeMeta()
@@ -270,7 +270,8 @@ void VolumeMeta::startInitializer()
     fds_assert(!isInitializerInProgress());
 
     /* Coordinator is set. We can go through sync protocol */
-    initializerTriesCnt++;
+    ++initializerTriesCnt;
+
     setState(fpi::Loading,
              util::strformat(" - startInitializer.  Try #: %d", initializerTriesCnt));
     initializer = MAKE_SHARED<VolumeInitializer>(MODULEPROVIDER(), this);
@@ -301,6 +302,11 @@ void VolumeMeta::scheduleInitializer(bool fNow)
 
     if (fNow) {
         func();
+    } else if (initializerTriesCnt < maxInitializerTriesCnt) {
+        setState(fpi::Offline,
+                util::strformat(" - scheduleInitializer.  Failed too many times #: %d",
+                        initializerTriesCnt));
+        LOGERROR << "Volume initialization failed too many times. Making the volume offline.";
     } else {
         auto nextScheduleTime =  std::min(1 << initializerTriesCnt, 60);
         LOGNORMAL << "Scheduling volume initializer retry in: " << nextScheduleTime

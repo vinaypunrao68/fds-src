@@ -222,6 +222,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     /* For runinng the sync protocol */
     VolumeInitializerPtr                    initializer;
     uint32_t                                initializerTriesCnt;
+    uint32_t                                maxInitializerTriesCnt;
 
  private:
     /*
