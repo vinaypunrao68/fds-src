@@ -19,10 +19,9 @@ BlockTask::BlockTask(uint64_t const hdl) :
 }
 
 void
-BlockTask::handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffers, uint32_t len) {
-    static boost::shared_ptr<std::string> const empty_buffer =
-        boost::make_shared<std::string>(maxObjectSizeInBytes, '\0');
-
+BlockTask::handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffers,
+                              boost::shared_ptr<std::string>& empty_buffer,
+                              uint32_t len) {
     // acquire the buffers
     bufVec.swap(buffers);
 
