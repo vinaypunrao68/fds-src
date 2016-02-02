@@ -141,6 +141,10 @@ void ReplicaInitializer<T>::run()
             return;
         }
 
+        auto &syncPeers = responseMsg->group.functionalReplicas;
+        auto selfUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
+        fds_assert(std::find(syncPeers.begin(), syncPeers.end(), selfUuid) == syncPeers.end());
+
         /* Based on the first response from coordinator sync can be preempted */
         if (syncPreemptionChecks(responseMsg)) {
             return;
@@ -151,7 +155,7 @@ void ReplicaInitializer<T>::run()
          * NOTE: In case we fail while doing quick sync/static migration we try the
          * initilization sequence from the beginning
          */
-        copyActiveStateFromPeer_(responseMsg->group.functionalReplicas,
+        copyActiveStateFromPeer_(syncPeers,
                                  replica_->makeSynchronized([this](EPSvcRequest*,
                                                         const Error &e_,
                                                         StringPtr payload) {
@@ -210,37 +214,21 @@ template <class T>
 bool ReplicaInitializer<T>::
 syncPreemptionChecks(const fpi::AddToVolumeGroupRespCtrlMsgPtr &responseMsg)
 {
-    /* Short-circuit migration if no writes have happened since last write */
     if (responseMsg->group.lastCommitId == replica_->getSequenceId() && 
         responseMsg->group.lastOpId == VolumeGroupConstants::OPSTARTID) {
-        /* No writes have happened since we last open (it's possible we missed open
-         * due to race and initialization).  We can become functional.
+        /* Short-circuit migration if we match state with coordinator and
+         * no writes have happened on the coordinator
          */
         replica_->setState(fpi::ResourceState::Syncing,
-                           "- No writes since last open. About to become functional");
+                           "- Sync prevented. No writes since last open. About to become functional");
         notifyCoordinator_();
-        complete_(ERR_OK, "- No writes since last open. Become functional");
+        complete_(ERR_OK, "- Sync prevente. dNo writes since last open. Become functional");
+        return true;
+    } else if (responseMsg->group.functionalReplicas.size() == 0) {
+        complete_(ERR_SYNCPEER_UNAVAILABLE, " - no sync peer is available");
         return true;
     }
 
-    if (responseMsg->group.functionalReplicas.size() == 0) {
-        /* When the functional group size is zero, if the latest sequence id matches
-         * with what coordinator has we can become functional
-         */
-        if (responseMsg->group.lastCommitId == replica_->getSequenceId()) {
-            fds_assert(responseMsg->group.lastOpId == VolumeGroupConstants::OPSTARTID);
-            /* To become functional, the sequence is go into syncing and become functional */
-            replica_->setState(fpi::ResourceState::Syncing,
-                               "- no sync peers.  This volume is first functional replica");
-            /* This will notify coordinator we are in sync state */
-            notifyCoordinator_();
-            /* Complet with OK will notify coordinator we are funcational */
-            complete_(ERR_OK, "- no sync peers.  This volume is first functional replica");
-        } else {
-            complete_(ERR_SYNCPEER_UNAVAILABLE, " - no sync peer is available");
-        }
-        return true;
-    }
     return false;
 }
 
@@ -301,20 +289,13 @@ void ReplicaInitializer<T>::startBuffering_()
                                      const Error &e,
                                      StringPtr) {
                 if (e != ERR_OK) {
-                    if (e == ERR_INVALID_ARG ||
-                        e == ERR_DM_OP_NOT_ALLOWED ||
-                        e == ERR_VOLUME_ACCESS_DENIED ||
-                        e == ERR_HASH_COLLISION ||
-                        e == ERR_BLOB_SEQUENCE_ID_REGRESSION ||
-                        e == ERR_CAT_ENTRY_NOT_FOUND ||
-                        e == ERR_BLOB_NOT_FOUND ||
-                        e == ERR_BLOB_OFFSET_INVALID) {
-                        LOGWARN << replica_->logString() << bufferReplay_->logString()
+                    if (!isVolumeGroupError(e)) {
+                        LOGNORMAL << replica_->logString() << bufferReplay_->logString()
                             << " buffer replay encountered "
                             << e << " - ignoring the error";
                     } else {
                         LOGWARN << replica_->logString() << bufferReplay_->logString()
-                            << " buffer replay encountered "
+                            << " buffer replay encountered volume group error: "
                             << e << " - aborting buffer replay";
                         /* calling abort mutiple times should be ok */
                         bufferReplay_->abort();

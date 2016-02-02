@@ -22,6 +22,8 @@
 #include <omutils.h>
 #include <fdsp_utils.h>
 
+DECL_EXTERN_OUTPUT_FUNCS(GenericCommandMsg);
+
 namespace fds {
 template<typename T>
 static T
@@ -63,6 +65,7 @@ OmSvcHandler::OmSvcHandler(CommonModuleProviderIf *provider)
     REGISTER_FDSP_MSG_HANDLER(fpi::HeartbeatMessage, heartbeatCheck);
     REGISTER_FDSP_MSG_HANDLER(fpi::SvcStateChangeResp, svcStateChangeResp);
     REGISTER_FDSP_MSG_HANDLER(fpi::SetVolumeGroupCoordinatorMsg, setVolumeGroupCoordinator);
+    REGISTER_FDSP_MSG_HANDLER(fpi::GenericCommandMsg, genericCommand);
 }
 
 int OmSvcHandler::mod_init(SysParams const *const param)
@@ -726,5 +729,18 @@ OmSvcHandler::setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
 }
 
+void OmSvcHandler::genericCommand(ASYNC_HANDLER_PARAMS(GenericCommandMsg)) {
+    if (msg->command == "timeline.queue.ping") {
+        auto om = gl_orch_mgr;
+        if (om->snapshotMgr != NULL) {
+            om->snapshotMgr->snapScheduler->ping();
+            om->snapshotMgr->deleteScheduler->ping();
+        } else {
+            LOGWARN << "snapshot mgr is NULL";
+        }
+    } else {
+        LOGCRITICAL << "unexpected command received : " << msg;
+    }
+}
 
 }  //  namespace fds

@@ -210,8 +210,6 @@ class ClusterMap : public Module {
     virtual void mod_startup();
     virtual void mod_shutdown();
 };
-
-extern ClusterMap gl_OMClusMapMod;
 }  // namespace fds
 
 #endif  // SOURCE_ORCH_MGR_INCLUDE_OMCLUSTERMAP_H_

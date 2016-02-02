@@ -29,7 +29,7 @@ fds: {
             volume_open_support = {{ ft_common_enable_volume_open_support }}
 
     	    /* Volume grouping allows IO to volumes to driven by a coordinator at AM */
-    	    enable_volumegrouping = false
+    	    enable_volumegrouping = {{ ft_enable_volumegrouping }}
 
     	    /* applies to OM and XDI web toolkit */
             enable_web_logging_request_wrapper = {{ ft_enable_web_logging_request_wrapper }}
@@ -53,6 +53,7 @@ fds: {
             nbd_connector = {{ ft_am_nbd_enabled }}
             serialization = "{{ am_req_serialization }}"
             all_atomic_ops = {{ am_all_atomic_ops }}
+            cache_missing_cat_entries = {{ am_cache_missing_cat }}
         }
         om: {
            allow_service_reregistration = {{ ft_allow_service_reregistration }}

@@ -116,6 +116,9 @@ class ObjectStore : public Module, public boost::noncopyable {
     /// to make given sm tokens offline.
     TokenOfflineFnObj changeTokensStateFn;
 
+    /// tokens that require cleanup of their meta dbs and token files.
+    SmTokenSet movedTokens;
+
     /// config params
     fds_bool_t conf_verify_data;
 
@@ -134,6 +137,9 @@ class ObjectStore : public Module, public boost::noncopyable {
     ObjectStoreMediaTracker objStoreFlashMediaTracker;
 
     void initObjectStoreMediaErrorHandlers();
+
+    // cleanup old meta dbs and token files for tokens moved to a new disk/node.
+    void movedTokensFileCleanup();
 
     /// returns ERR_OK if Object Store is available for IO
     Error checkAvailability() const;
@@ -185,6 +191,8 @@ class ObjectStore : public Module, public boost::noncopyable {
      * This method handles losing ownership of SM tokens
      */
     Error handleDltClose(const DLT* dlt);
+
+    SmTokenSet getSmTokens();
 
     /**
      * Does SM want to resync tokens or not.
@@ -321,9 +329,12 @@ class ObjectStore : public Module, public boost::noncopyable {
     /**
      * Handle disk change.
      */
-    void handleDiskChanges(const DiskId& dId,
+    void handleDiskChanges(const bool &added,
+                           const DiskId& dId,
                            const diskio::DataTier& diskType,
                            const TokenDiskIdPairSet& tokenDiskPairs);
+
+    void handleNewDiskMap();
 
     /**
      * Handle detection of online disk failure.

@@ -74,7 +74,9 @@ diskio::FilePersisDataIO::disk_do_write(DiskRequest *req)
     blk = DataIO::disk_io_round_up_blk(buf->getSize());
 
     fi_mutex.lock();
-    fds_verify(fi_fd >= 0);
+    if (fi_fd < 0) {
+        return fds::ERR_FILE_DOES_NOT_EXIST;
+    }
     off_blk    = fi_cur_off;
     fi_cur_off = fi_cur_off + blk;
     fi_mutex.unlock();

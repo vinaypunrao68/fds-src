@@ -220,8 +220,8 @@ ObjectStore::initObjectStoreMediaErrorHandlers() {
         OnlineDiskFailureFnObj fnObj;
         void operator()(fds_uint16_t diskId,
                         size_t events) const {
-            LOGERROR << "Disk " << diskId << " on tier " << tier
-                     << " saw too many errors; declaring disk failed";
+            LOGWARN  << "Disk " << diskId << " on tier " << tier
+                     << " saw too many IO errors; will check for disk state";
             /**
              * This callback will be called when the timer expires and
              * the number of events fed is greater than a given threshhold.
@@ -278,6 +278,11 @@ ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& ti
         LOGNORMAL << "Disk " << diskId << " failure is already handled";
         return ERR_OK;
     }
+
+    if (diskMap->isDiskAlive(diskId)) {
+        LOGDEBUG << "Disk with diskId = " << diskId << " accessible. Ignoring IO failure event.";
+        return ERR_OK;
+    }
     diskMap->makeDiskOffline(diskId);
 
     SmScavengerCmd *diskDisableCmd = new SmScavengerCmd(SmScavengerCmd::SCAV_DISABLE_DISK,
@@ -290,14 +295,18 @@ ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& ti
     }
     if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.useSsdForMeta")) {
         if (diskMap->getTotalDisks(tier) > 1) {
+            diskMap->eraseLostDiskReferences(diskId, tier);
             diskMap->removeDiskAndRecompute(diskId, tier);
+            movedTokensFileCleanup();
         } else {
             LOGCRITICAL << "Disk Failure. Node is out of disks!";
             return ERR_SM_NO_DISK;
         }
     } else {
         if (diskMap->getTotalDisks() > 1) {
+            diskMap->eraseLostDiskReferences(diskId, tier);
             diskMap->removeDiskAndRecompute(diskId, tier);
+            movedTokensFileCleanup();
         } else {
             LOGCRITICAL << "Disk Failure. Node is out of disks!";
             return ERR_SM_NO_DISK;
@@ -334,6 +343,11 @@ ObjectStore::openStore(const SmTokenSet& smTokens) {
         LOGERROR << "Failed to open Data Store " << err;
     }
     return err;
+}
+
+SmTokenSet
+ObjectStore::getSmTokens() {
+    return diskMap->getSmTokens();
 }
 
 Error
@@ -434,6 +448,7 @@ ObjectStore::doResync() const {
 void
 ObjectStore::setResync() {
     if (diskMap) {
+        LOGNOTIFY << "Persist that resync is required";
         return diskMap->setResync();
     }
 }
@@ -441,6 +456,7 @@ ObjectStore::setResync() {
 void
 ObjectStore::resetResync() {
     if (diskMap) {
+        LOGNOTIFY << "Persist that no resync is required";
         return diskMap->resetResync();
     }
 }
@@ -588,7 +604,10 @@ ObjectStore::putObject(fds_volid_t volId,
             return err;
         }
     }
-    fds_verify(err.ok() || (err == ERR_DUPLICATE));
+    if (!(err.ok() || (err == ERR_DUPLICATE))) {
+        LOGERROR << "Put failed for " << objId.ToHex().c_str() << "with error: " << err;
+        return err;
+    }
 
     // If the TokenMigration reconcile is still required, then treat the object as not valid.
     if (!updatedMeta->isObjReconcileRequired()) {
@@ -762,18 +781,6 @@ ObjectStore::getObject(fds_volid_t volId,
         err = ERR_NOT_FOUND;
         return nullptr;
     }
-
-    /*
-     * TODO(umesh): uncomment this when reference counting is used.
-     *
-    // If this Volume never put this object, then it should not access the object
-    if (!objMeta->isVolumeAssociated(volId)) {
-        err = ERR_NOT_FOUND;
-        LOGWARN << "Volume " << std::hex << volId << std::dec << " aunauth access "
-                << " to object " << objId << " returning " << err;
-        return nullptr;
-    }
-    */
 
     // get object data
     boost::shared_ptr<const std::string> objData
@@ -1603,6 +1610,35 @@ ObjectStore::updateMediaTrackers(fds_token_id smTokId,
     }
 }
 
+
+void
+ObjectStore::handleNewDiskMap() {
+    auto err = diskMap->handleNewDiskMap();
+    auto resyncRequired = (movedTokens.size() > 0);
+    movedTokensFileCleanup();
+
+    if (err.ok()) {
+        // open metadata store for tokens owned by this SM
+        Error openErr = metaStore->openMetadataStore(diskMap);
+        if (!openErr.ok()) {
+            LOGERROR << "Failed to open Metadata Store " << openErr;
+            return;
+        } else {
+            // open data store for tokens owned by this SM
+            openErr = dataStore->openDataStore(diskMap,
+                                               (err == ERR_SM_NOERR_PRISTINE_STATE));
+        }
+    } else {
+        LOGCRITICAL << "Failure during processing of new disk map. Error: " << err;
+    }
+
+    // Only do resync if a disk was removed and token data was lost due to that.
+    if (requestResyncFn && resyncRequired) {
+        requestResyncFn(true, false);
+    }
+}
+
+
 /**
  * Handle disk removal from the system.
  * For Hybrid Storage System(2SSD - 10HDD default config):
@@ -1620,32 +1656,60 @@ ObjectStore::updateMediaTrackers(fds_token_id smTokId,
  *                    done.
  */
 void
-ObjectStore::handleDiskChanges(const DiskId& removedDiskId,
+ObjectStore::handleDiskChanges(const bool &added,
+                               const DiskId& diskId,
                                const diskio::DataTier& tierType,
                                const TokenDiskIdPairSet& tokenDiskPairs) {
-    SmTokenSet lostTokens;
-    LOGNOTIFY << "Tokens to be redistributed";
+    LOGNOTIFY << "Handle disk changes for disk: " << diskId;
 
-    diskMap->makeDiskOffline(removedDiskId);
+    if (added) {
+        // Add new capacity tracking
+        auto newCap = diskMap->getDiskConsumedSize(diskId);
+        capacityMap[diskId].usedCapacity = newCap.usedCapacity;
+        capacityMap[diskId].totalCapacity = newCap.totalCapacity;
+        LOGNOTIFY << "Adding disk capacity tracking for " << diskId << " with capacity info "
+                    << capacityMap[diskId].usedCapacity << "/" << capacityMap[diskId].totalCapacity;
 
-    for (auto& tokenPair: tokenDiskPairs) {
-        LOGNOTIFY << tokenPair.first;
-        lostTokens.insert(tokenPair.first);
+        auto cmdType = SmScavengerCmd::SCAV_ENABLE_DISK;
+        auto initiator = SmCommandInitiator::SM_CMD_INITIATOR_DISK_CHANGE;
+
+        SmScavengerCmd *scavCmd = new SmScavengerCmd(cmdType, initiator, diskId);
+        scavengerControlCmd(scavCmd);
+    } else {
+        diskMap->makeDiskOffline(diskId);
+
+        // Remove disk from capacity tracking
+        capacityMap.erase(diskId);
+        LOGNOTIFY << "Removing disk capacity tracking for " << diskId;
+
+        for (auto& tokenPair: tokenDiskPairs) {
+            LOGNOTIFY << tokenPair.first;
+            movedTokens.insert(tokenPair.first);
+        }
+
+        auto cmdType = SmScavengerCmd::SCAV_DISABLE_DISK;
+        auto initiator = SmCommandInitiator::SM_CMD_INITIATOR_DISK_CHANGE;
+
+        SmScavengerCmd *scavCmd = new SmScavengerCmd(cmdType, initiator, diskId);
+        scavengerControlCmd(scavCmd);
     }
-
+}
+void
+ObjectStore::movedTokensFileCleanup() {
     if (metaStore->isUp()) {
         /**
          * Delete in-memory and persisted levelDB files(if exists)
          * for given SM Tokens.
          */
         LOGNOTIFY << "Close and delete metadata DBs for smTokens ";
-        metaStore->closeAndDeleteMetadataDbs(lostTokens);
+        metaStore->closeAndDeleteMetadataDbs(movedTokens);
     }
 
     if (dataStore->isUp()) {
         LOGNOTIFY << "Close and delete token files for smTokens ";
-        dataStore->closeAndDeleteSmTokensStore(lostTokens, true);
+        dataStore->closeAndDeleteSmTokensStore(movedTokens, true);
     }
+    movedTokens.clear();
 }
 
 /**
@@ -1752,16 +1816,19 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
         ObjSetIter iter = objectSets.begin();
         for (iter; iter != objectSets.end(); ++iter) {
             if (iter->lookup(oid)) {
-                LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid << " found in object set(s) ";
+                LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid
+                         << " found in object set(s) ";
                 break;
             }
         }
         if (iter == objectSets.end()) {
             if (this->tokenLockFn) {
-                LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid << " not found in object set(s) ";
+                LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid
+                         << " not found in object set(s) ";
                 auto tokenLock = this->tokenLockFn(oid, true);
                 Error err(ERR_OK);
-                ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(invalid_vol_id, oid, err);
+                ObjMetaData::const_ptr objMeta =
+                        metaStore->getObjectMetadata(invalid_vol_id, oid, err);
                 /**
                  * Check if the object got updated recently(via a PUT).
                  * If so, then these object sets will have stale information
@@ -1776,7 +1843,8 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                     updatedMeta->updateTimestamp();
                     LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid
                              << " current timestamp " << updatedMeta->getTimeStamp()
-                             << " current delCount " << std::dec << (fds_uint16_t)updatedMeta->getDeleteCount();
+                             << " current delCount " << std::dec
+                             << (fds_uint16_t)updatedMeta->getDeleteCount();
                     /**
                      * If the delete count for this object has reached the threshold
                      * then let the Scavenger know about it.
@@ -1788,7 +1856,8 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                 } else if (objDelCnt >= fds::objDelCountThresh && objTS > ts) {
                     LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid
                              << " current timestamp " << objTS
-                             << " current delCount " << std::dec << (fds_uint16_t)objDelCnt;
+                             << " current delCount " << std::dec
+                             << (fds_uint16_t)objDelCnt;
                     ++tokStats.tkn_reclaim_size;
                 }
             }
@@ -1843,6 +1912,10 @@ ObjectStore::mod_init(SysParams const *const p) {
 
     // do initial validation of SM persistent state
     Error err = diskMap->loadPersistentState();
+
+    // Delete old token files/meta dbs for any tokens that has moved to new location.
+    movedTokensFileCleanup();
+
     fiu_do_on("sm.objectstore.faults.init.firstphase", err = ERR_SM_SUPERBLOCK_NO_RECONCILE; );
     if (err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE)) {
         // open metadata store for tokens owned by this SM
@@ -1896,6 +1969,15 @@ ObjectStore::mod_shutdown() {
     Module::mod_shutdown();
 }
 fds_bool_t ObjectStore::willPutSucceed(fds_uint16_t diskId, fds_uint64_t writeSize) {
+
+    if (capacityMap[diskId].totalCapacity == 0) {
+        // If we hit this we may not yet know about the disk. If this is the case we should stat it.
+        // Add new capacity tracking
+        auto newCap = diskMap->getDiskConsumedSize(diskId);
+        capacityMap[diskId].usedCapacity = newCap.usedCapacity;
+        capacityMap[diskId].totalCapacity = newCap.totalCapacity;
+    }
+
     double_t newCap = (((capacityMap[diskId].usedCapacity + writeSize) /
         (capacityMap[diskId].totalCapacity * 1.)) * 100);
 

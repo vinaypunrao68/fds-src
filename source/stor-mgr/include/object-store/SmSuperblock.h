@@ -18,12 +18,11 @@
 
 namespace fds {
 
-typedef std::unordered_map<fds_uint16_t, std::string> DiskLocMap;
 typedef std::unordered_map<fds_uint16_t, bool> DiskHealthMap;
-
 typedef uint32_t fds_checksum32_t;
 
-typedef std::function<void (const DiskId& removedDiskId,
+typedef std::function<void (const bool &added,
+                            const DiskId& diskId,
                             const diskio::DataTier&,
                             const std::set<std::pair<fds_token_id, fds_uint16_t>>&
                             )> DiskChangeFnObj;
@@ -287,13 +286,18 @@ class SmSuperblockMgr {
                          DiskIdSet& ssdIds,
                          const DiskLocMap & latestDiskMap,
                          const DiskLocMap & latestDiskDevMap = DiskLocMap());
+    void removeDisksFromSuperblock(DiskIdSet &removedHDDs,
+                                   DiskIdSet &removedSSDs);
     Error syncSuperblock();
     Error syncSuperblock(const std::set<uint16_t>& badSuperblock);
+
+    Error redistributeTokens(DiskIdSet &hddIds, DiskIdSet &ssdIds,
+                             const DiskLocMap &latestDiskMap,
+                             const DiskLocMap &latestDiskDevMap);
 
     void recomputeTokensForLostDisk(const DiskId& diskId,
                                     DiskIdSet& hddIds,
                                     DiskIdSet& ssdIds);
-
     /**
      * Reconcile superblocks, if there is inconsistency.
      */
@@ -328,19 +332,25 @@ class SmSuperblockMgr {
     fds_uint16_t getDiskId(fds_token_id smTokId,
                            diskio::DataTier tier);
 
+    DiskIdSet getDiskIds(fds_token_id smTokId,
+                         diskio::DataTier tier);
     /**
      * Returns a set of SM tokens that this SM currently owns
      * Will revisit this method when we have more SM token states
      */
     SmTokenSet getSmOwnedTokens();
     SmTokenSet getSmOwnedTokens(fds_uint16_t diskId);
-    fds_uint16_t getWriteFileId(fds_token_id smToken,
+    fds_uint16_t getWriteFileId(DiskId diskId,
+                                fds_token_id smToken,
                                 diskio::DataTier tier);
-    fds_bool_t compactionInProgress(fds_token_id smToken,
+    fds_bool_t compactionInProgress(DiskId diskId,
+                                    fds_token_id smToken,
                                     diskio::DataTier tier);
-    fds_bool_t compactionInProgressNoLock(fds_token_id smToken,
+    fds_bool_t compactionInProgressNoLock(DiskId diskId,
+                                          fds_token_id smToken,
                                           diskio::DataTier tier);
-    Error changeCompactionState(fds_token_id smToken,
+    Error changeCompactionState(DiskId diskId,
+                                fds_token_id smToken,
                                 diskio::DataTier tier,
                                 fds_bool_t inProg,
                                 fds_uint16_t newFileId);
@@ -353,6 +363,8 @@ class SmSuperblockMgr {
      */
     fds_uint64_t getDLTVersion();
 
+    // check for disk state.
+    bool isDiskAlive(DiskId& diskId);
     fds_bool_t doResync();
     void setResync();
     void resetResync();
@@ -367,10 +379,14 @@ class SmSuperblockMgr {
     std::string
     getSuperblockPath(const std::string& dir_path);
 
+    void initMaps(const DiskLocMap& latestDiskMap,
+                  const DiskLocMap& latestDiskDevMap);
+
     bool
     checkPristineState(DiskIdSet& newHDDs, DiskIdSet& newSSDs);
 
-    Error changeTokenCompactionState(fds_token_id smToken,
+    Error changeTokenCompactionState(DiskId diskId,
+                                     fds_token_id smToken,
                                      diskio::DataTier tier,
                                      fds_bool_t inProg,
                                      fds_uint16_t newFileId);
@@ -378,7 +394,7 @@ class SmSuperblockMgr {
     size_t
     countUniqChecksum(const std::multimap<fds_checksum32_t, uint16_t>& checksumMap);
 
-    void
+    Error 
     checkDiskTopology(DiskIdSet& newHDDs, DiskIdSet& newSSDs);
 
     void

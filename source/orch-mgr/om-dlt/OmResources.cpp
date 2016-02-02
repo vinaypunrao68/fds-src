@@ -30,8 +30,6 @@
 
 namespace fds {
 
-OM_NodeDomainMod             gl_OMNodeDomainMod("OM-Node");
-
 //---------------------------------------------------------
 // Node Domain state machine
 //--------------------------------------------------------
@@ -1335,8 +1333,8 @@ OM_NodeDomainMod::OM_NodeDomainMod(char const *const name)
           fsm_lock("OM_NodeDomainMod fsm lock"),
           configDB(nullptr),
           domainDown(false),
-          volumeGroupDMTFired(false),
-          dbLock("ConfigDB access lock")
+          dbLock("ConfigDB access lock"),
+          dmClusterPresent_(false)
 {
     om_locDomain = new OM_NodeContainer();
     domain_fsm = new FSM_NodeDomain();
@@ -1381,7 +1379,7 @@ OM_NodeDomainMod::mod_shutdown()
 OM_NodeDomainMod *
 OM_NodeDomainMod::om_local_domain()
 {
-    return &gl_OMNodeDomainMod;
+    return (OM_Module::om_singleton()->om_nodedomain_mod());
 }
 
 // om_local_domain_up
@@ -1575,11 +1573,10 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         }
         fds_verify((sm_services.size() == 0 && dm_services.size() == 0) ||
                    (sm_services.size() > 0 && dm_services.size() > 0));
+
     }
 
-    if ( ( sm_services.size() > 0 ) ||
-         ( dm_services.size() > 0 ) )
-    {
+    if (( sm_services.size() > 0) || (dm_services.size() > 0)) {
         std::vector<fpi::SvcInfo> pmSvcs;
         std::vector<fpi::SvcInfo> amSvcs;
         std::vector<fpi::SvcInfo> smSvcs;
@@ -1669,14 +1666,18 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
             local_domain_event( WaitNdsEvt( deployed_sm_services,
                                             deployed_dm_services ) );
         }
-    } 
-    else
-    {
+    } else {
         LOGNOTIFY << "We didn't persist any SMs or DMs or we couldn't load "
                   << "persistent state, so OM will come up in a moment.";
         local_domain_event( NoPersistEvt( ) );
     }
 
+    // VG persist check
+    if (OM_Module::om_singleton()->om_dmt_mod()->volumeGrpMode() &&
+            vp->hasCommittedDMT()) {
+        LOGDEBUG << "Volume Grouping mode is active after OM restart";
+        dmClusterPresent_ = true;
+    }
     return err;
 }
 
@@ -1966,11 +1967,26 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                 gl_orch_mgr->removeFromSentQ(item);
             }
         }
+
         /* Convert new registration request to existing registration request */
         fpi::FDSP_RegisterNodeTypePtr reg_node_req;
         reg_node_req.reset( new FdspNodeReg() );
 
         fromSvcInfoToFDSP_RegisterNodeTypePtr( svcInfo, reg_node_req );
+
+        /**
+         * Before registering, check if volume group is active,
+         * and if so, do not let non-DM cluster DM register a new DM
+         * Once we support multiple volume groups, this may need to go away
+         */
+        auto vgMode = OM_Module::om_singleton()->om_dmt_mod()->volumeGrpMode();
+        if (vgMode && dmClusterPresent()  && isDataMgrSvc(*svcInfo) &&
+                !isKnownService( *svcInfo )) {
+            LOGERROR << "Volume group is active and we're trying to add a DM "
+                    << "that did is not a part of the volume group. This is not allowed.";
+            err = ERR_DM_NOT_IN_VG;
+            return err;
+        }
 
         /* Do the registration */
         NodeUuid node_uuid(static_cast<uint64_t>(reg_node_req->service_uuid.uuid));
@@ -2911,6 +2927,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
     /**
      * Note this is a temporary hack to return the node registration call 
      * immediately and wait for 3 seconds before broadcast...
+     * In test mode, the unit test has to manually call setupNewNode()
      */
     
     if (err.ok() && (msg->node_type != fpi::FDSP_PLATFORM)) {
@@ -3010,7 +3027,7 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
      *  For PM configDB updates are done along with svcLayer updates in om_register_svc
      *  Update the configDB svcMap now for other services
     */
-    if (msg->node_type != fpi::FDSP_PLATFORM) {
+    if ((msg->node_type != fpi::FDSP_PLATFORM) && !isInTestMode()) {
 
         SvcInfoPtr infoPtr;
         Error err = getRegisteringSvc(infoPtr, uuid.uuid_get_val());
@@ -3033,45 +3050,47 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
         }
     }
 
-    // ANNA -- I don't want to mess with platform service state, so
-    // calling this method for SM and DM only. The register service method
-    // set correct discovered/active state for these services based on
-    // whether this is known service or restarting service. We are
-    // going to set node state based on service state in svc map
-    if (msg->node_type == fpi::FDSP_STOR_MGR) {
-        OM_SmAgent::pointer smAgent = om_sm_agent(newNode->get_uuid());
-        smAgent->set_state_from_svcmap();
-    } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
-        OM_DmAgent::pointer dmAgent = om_dm_agent(newNode->get_uuid());
-        dmAgent->set_state_from_svcmap();
-    }
-
-
-    // since we already checked above that we could add service, verify error ok
-    // Vy: we could get duplicate if the agent already registered by platform lib.
-    // fds_verify(err.ok());
-
-        if ( fpi::FDSP_CONSOLE == msg->node_type || 
-             fpi::FDSP_TEST_APP == msg->node_type ) {
-            return;
+    if (!isInTestMode()) {
+        // ANNA -- I don't want to mess with platform service state, so
+        // calling this method for SM and DM only. The register service method
+        // set correct discovered/active state for these services based on
+        // whether this is known service or restarting service. We are
+        // going to set node state based on service state in svc map
+        if (msg->node_type == fpi::FDSP_STOR_MGR) {
+            OM_SmAgent::pointer smAgent = om_sm_agent(newNode->get_uuid());
+            smAgent->set_state_from_svcmap();
+        } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
+            OM_DmAgent::pointer dmAgent = om_dm_agent(newNode->get_uuid());
+            dmAgent->set_state_from_svcmap();
         }
 
-    // Let this new node know about existing node list.
-    // TODO(Andrew): this should change into dissemination of the cur cluster map.
-    //
-    if (msg->node_type == fpi::FDSP_STOR_MGR) {
-        // Activate and account node capacity only when SM registers with OM.
+
+        // since we already checked above that we could add service, verify error ok
+        // Vy: we could get duplicate if the agent already registered by platform lib.
+        // fds_verify(err.ok());
+
+            if ( fpi::FDSP_CONSOLE == msg->node_type ||
+                 fpi::FDSP_TEST_APP == msg->node_type ) {
+                return;
+            }
+
+        // Let this new node know about existing node list.
+        // TODO(Andrew): this should change into dissemination of the cur cluster map.
         //
-        auto pm = OM_PmAgent::agt_cast_ptr(pmNodes->\
-                                           agent_info(NodeUuid(msg->node_uuid.uuid)));
-        if (pm != NULL) {
-            om_locDomain->om_update_capacity(pm, true);
-        } else {
-            LOGERROR << "Cannot find platform agent for node UUID ( "
-                     << std::hex << msg->node_uuid.uuid << std::dec << " )";
+        if (msg->node_type == fpi::FDSP_STOR_MGR) {
+            // Activate and account node capacity only when SM registers with OM.
+            //
+            auto pm = OM_PmAgent::agt_cast_ptr(pmNodes->\
+                                               agent_info(NodeUuid(msg->node_uuid.uuid)));
+            if (pm != NULL) {
+                om_locDomain->om_update_capacity(pm, true);
+            } else {
+                LOGERROR << "Cannot find platform agent for node UUID ( "
+                         << std::hex << msg->node_uuid.uuid << std::dec << " )";
+            }
+        } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
+            om_locDomain->om_bcast_stream_reg_list(newNode);
         }
-    } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
-        om_locDomain->om_bcast_stream_reg_list(newNode);
     }
 
     // AM & SM services query for a DMT on startup, and DM node will get DMT
@@ -3309,6 +3328,11 @@ OM_NodeDomainMod::checkDmtModVGMode() {
     return (dmtMod->volumeGrpMode());
 }
 
+fds_bool_t
+OM_NodeDomainMod::dmClusterPresent() {
+    return dmClusterPresent_;
+}
+
 void
 OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     LOGNOTIFY << "Attempt to update DMT";
@@ -3330,16 +3354,20 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
         // in case there are no volume acknowledge to wait
         dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
     } else {
-        if (!volumeGroupDMTFired && (awaitingDMs == dmClusterSize)) {
+        auto dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
+                                        get<uint32_t>("fds.common.volume_group.dm_cluster_size", 1));
+        if ((!dmClusterPresent()) && (awaitingDMs == dmClusterSize)) {
             LOGNOTIFY << "Volume Group Mode has reached quorum with " << dmClusterSize
                     << " DMs. Calculating DMT now.";
             dmtMod->dmt_deploy_event(DmtDeployEvt(dmPrevRegistered));
             // in case there are no volume acknowledge to wait
             dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
-            volumeGroupDMTFired = true;
+            dmClusterPresent_ = true;
+            LOGDEBUG << "Volumegroup fired ? " << dmClusterPresent()
+                    << " size: " << awaitingDMs << "/" << dmClusterSize;
             dmtMod->clearWaitingDMs();
         } else {
-            LOGDEBUG << "Volumegroup fired ? " << volumeGroupDMTFired
+            LOGDEBUG << "Volumegroup fired ? " << dmClusterPresent()
                     << " size: " << awaitingDMs << "/" << dmClusterSize;
         }
     }

@@ -18,7 +18,6 @@ import time
 import logging
 import shlex
 import random
-import shutil
 import re
 import os
 import fdslib.platformservice as plat_svc
@@ -3429,23 +3428,6 @@ class TestServiceInjectFault(TestCase.FDSTestCase):
             return True
 
         return False
-
-class TestStorMgrDeleteDisk(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None, disk=None):
-        super(self.__class__, self).__init__(parameters,
-                                             self.__class__.__name__,
-                                             self.test_DeleteDisk,
-                                             "Test to remove disk from fds mounted directory")
-        self.node = node
-        self.disk = disk
-    def test_DeleteDisk(self):
-        fdscfg = self.parameters["fdscfg"]
-        self.node = findNodeFromInv(fdscfg.rt_obj.cfg_nodes, self.node)
-        fds_dir = self.node.nd_conf_dict['fds_root']
-        diskPath = os.path.join(fds_dir, 'dev', self.disk)
-        self.log.info("Going to delete mount point {} for disk {}".format(diskPath, self.disk))
-        shutil.rmtree(diskPath)
-        return True
 
 
 if __name__ == '__main__':
