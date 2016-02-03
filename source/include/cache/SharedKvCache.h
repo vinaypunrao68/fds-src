@@ -69,16 +69,16 @@ class SharedKvCache : public Module, boost::noncopyable {
      /**
       * Constructs the cache object but does not init
       * @param[in] modName     Name of this module
-      * @param[in] _max_entries Maximum number of cache entries
+      * @param[in] _max_size   "Size" of the cache (term is implied by size_calc)
       *
       * @return none
       */
-     SharedKvCache(const std::string& module_name, size_type const _max_entries) :
+     SharedKvCache(const std::string& module_name, size_type const _max_size) :
          Module(module_name.c_str()),
          cache_map(),
          eviction_list(),
          current_size(0),
-         max_entries(_max_entries),
+         max_size(_max_size),
          cache_lock() { }
 
      ~SharedKvCache() {}
@@ -90,26 +90,26 @@ class SharedKvCache : public Module, boost::noncopyable {
       * whoever passes it in. The cache will become responsible for that.
       * If the key already exists, it will be overwritten.
       * If the cache is full, the evicted entry will be returned.
-      * Entries that are evicted are returned as unique_ptr so the
-      * caller can use it before it gets freed.
+      * Entries that are evicted are released.
       *
       * @param[in] key   Key to use for indexing
       * @param[in] value Associated value
       *
-      * @return A shared_ptr<T> to any evicted entry
+      * @return true if entry was evicted
       */
-     value_type add(const key_type& key, const value_type value, const dirty_type dirty = false) {
+     bool add(const key_type& key, const value_type value, const dirty_type dirty = false) {
+         bool was_evicted { false };
          SCOPEDWRITE(cache_lock);
 
          if (StrongAssociation::value) {
              // Touch any exiting entry from cache, if returns
              // non-NULL then we already have this value, return
              if (touch(key) != eviction_list.end())
-                 return value_type(nullptr);
+                 return was_evicted;
          } else {
              // Remove old value before adding current
              if (!remove_(key, dirty)) {
-                 return value_type(nullptr);
+                 return was_evicted;
              }
          }
 
@@ -119,22 +119,20 @@ class SharedKvCache : public Module, boost::noncopyable {
 
          // Check if anything needs to be evicted
          current_size += calc_size(value);
-         value_type entryToEvict(nullptr);
 
-         while (current_size > max_entries) {
+         while (current_size > max_size) {
              entry_type evicted = eviction_list.back();
              eviction_list.pop_back();
 
-             entryToEvict = std::get<1>(evicted);
+             auto entryToEvict = std::get<1>(evicted);
 
              // Remove the cache iterator entry from the map
              cache_map.erase(std::get<0>(evicted));
 
              current_size -= calc_size(entryToEvict);
+             was_evicted = true;
          }
-
-         // Return a NULL pointer if nothing was evicted
-         return entryToEvict;
+         return was_evicted;
      }
 
      /**
@@ -144,9 +142,9 @@ class SharedKvCache : public Module, boost::noncopyable {
       * @param[in] key   Key to use for indexing
       * @param[in] value Associated value
       *
-      * @return A shared_ptr<T> to any evicted entry
+      * @return true if entry was evicted
       */
-     value_type add(const key_type &key, mapped_type const& value, bool const write_update = false) {
+     bool add(const key_type &key, mapped_type const& value, bool const write_update = false) {
          return add(key, boost::make_shared<mapped_type>(value), write_update);
      }
 
@@ -252,11 +250,11 @@ class SharedKvCache : public Module, boost::noncopyable {
      }
 
      /**
-      * Returns the current number of entries in the cache
+      * Returns the current number size the cache
       *
-      * @return number of entries
+      * @return cache size
       */
-     size_type getNumEntries() const {
+     size_type getSize() const {
          SCOPEDREAD(cache_lock);
          return current_size;
      }
@@ -273,8 +271,8 @@ class SharedKvCache : public Module, boost::noncopyable {
      }
 
     private:
-     // Maximum number of entries in the cache
-     size_type max_entries;
+     // Maximum size of the cache
+     size_type max_size;
 
      // Functor for calculating the size of a value type
      size_calc<value_type> calc_size;
