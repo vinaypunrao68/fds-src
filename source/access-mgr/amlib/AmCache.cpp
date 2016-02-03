@@ -55,11 +55,9 @@ AmCache::done() {
 void
 AmCache::registerVolume(const VolumeDesc& volDesc) {
     auto const& vol_uuid = volDesc.volUUID;
-    auto num_objs = (0 < volDesc.maxObjSizeInBytes) ?
-        (max_volume_data / volDesc.maxObjSizeInBytes) : 0;
     descriptor_cache.addVolume(vol_uuid, max_metadata_entries);
     offset_cache.addVolume(vol_uuid, max_metadata_entries);
-    object_cache.addVolume(vol_uuid, num_objs);
+    object_cache.addVolume(vol_uuid, max_volume_data);
     LOGDEBUG << "Created caches for volume: " << volDesc.name;
     AmDataProvider::registerVolume(volDesc);
 }

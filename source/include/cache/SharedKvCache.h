@@ -30,6 +30,13 @@ namespace fds {
 //
 //   Right now all SharedKvCache's are LRU eviction
 
+// Standard entry of size 1
+template<typename ValueType>
+struct size_calc {
+    size_t operator()(ValueType const& v) const
+    { return 1; }
+};
+
 /**
  * An abstract interface for a generic key-value cache. The cache
  * takes a basic size, either in number of element, and caches elements
@@ -111,21 +118,23 @@ class SharedKvCache : public Module, boost::noncopyable {
          cache_map[key] = eviction_list.begin();
 
          // Check if anything needs to be evicted
-         if (++current_size > max_entries) {
+         current_size += calc_size(value);
+         value_type entryToEvict(nullptr);
+
+         while (current_size > max_entries) {
              entry_type evicted = eviction_list.back();
              eviction_list.pop_back();
 
-             value_type entryToEvict = std::get<1>(evicted);
+             entryToEvict = std::get<1>(evicted);
 
              // Remove the cache iterator entry from the map
              cache_map.erase(std::get<0>(evicted));
 
-             fds_verify(--current_size == max_entries);
-             return entryToEvict;
+             current_size -= calc_size(entryToEvict);
          }
 
          // Return a NULL pointer if nothing was evicted
-         return value_type(nullptr);
+         return entryToEvict;
      }
 
      /**
@@ -219,11 +228,11 @@ class SharedKvCache : public Module, boost::noncopyable {
          for (auto cur = cache_map.begin(); cache_map.end() != cur; ) {
              if (pred(cur->first)) {
                  auto cacheEntry = cur->second;
+                 current_size -= calc_size(std::get<1>(*cacheEntry));
                  // Remove from the cache_map
                  cur = cache_map.erase(cur);
                  // Remove from the eviction_list
                  eviction_list.erase(cacheEntry);
-                 --current_size;
              } else {
                  ++cur;
              }
@@ -267,6 +276,9 @@ class SharedKvCache : public Module, boost::noncopyable {
      // Maximum number of entries in the cache
      size_type max_entries;
 
+     // Functor for calculating the size of a value type
+     size_calc<value_type> calc_size;
+
      // Cache line itself
      cache_type eviction_list;
      size_t current_size;
@@ -296,12 +308,12 @@ class SharedKvCache : public Module, boost::noncopyable {
                  LOGDEBUG << "Skipping cache of dirty entry.";
                  return false;
              }
+             current_size -= calc_size(std::get<1>(*cacheEntry));
 
              // Remove from the cache_map
              cache_map.erase(mapIt);
              // Remove from the eviction_list
              eviction_list.erase(cacheEntry);
-             --current_size;
          }
          return true;
      }
