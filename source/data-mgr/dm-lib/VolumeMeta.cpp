@@ -272,7 +272,8 @@ void VolumeMeta::startInitializer()
     /* Coordinator is set. We can go through sync protocol */
     initializerTriesCnt++;
     setState(fpi::Loading,
-             util::strformat(" - startInitializer.  Try #: %d", initializerTriesCnt));
+             util::strformat(" - startInitializer with coordinator: %ld.  Try #: %d",
+                             getCoordinatorId().svc_uuid, initializerTriesCnt));
     initializer = MAKE_SHARED<VolumeInitializer>(MODULEPROVIDER(), this);
     initializer->run();
 }

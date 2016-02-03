@@ -89,7 +89,7 @@ struct ReplicaInitializer : HasModuleProvider,
     void doQucikSyncWithPeer_(const StatusCb &cb);
     void doStaticMigrationWithPeer_(const StatusCb &cb);
     void startReplay_();
-    void setProgress_(Progress progress);
+    void setProgress_(Progress progress, const std::string& logCtx="");
     bool isSynchronized_() const;
     void complete_(const Error &e, const std::string &context);
 
@@ -376,7 +376,7 @@ template <class T>
 void ReplicaInitializer<T>::startReplay_()
 {
     fds_assert(isSynchronized_());
-    setProgress_(REPLAY_ACTIVEIO);
+    setProgress_(REPLAY_ACTIVEIO, bufferReplay_->logString());
     bufferReplay_->startReplay();
 }
 
@@ -411,10 +411,10 @@ std::string ReplicaInitializer<T>::logString() const
 
 
 template <class T>
-void ReplicaInitializer<T>::setProgress_(Progress progress)
+void ReplicaInitializer<T>::setProgress_(Progress progress, const std::string &logCtx)
 {
     progress_ = progress;
-    LOGNORMAL << logString() << replica_->logString();
+    LOGNORMAL << logString() << replica_->logString() << logCtx;
 }
 
 template <class T>
