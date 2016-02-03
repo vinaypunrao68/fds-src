@@ -30,6 +30,11 @@ inline fds_volid_t getVolumeId(fpi::VolumeGroupInfoUpdateCtrlMsg &msg)
     return fds_volid_t(msg.group.groupId);
 }
 
+enum VolumeCopyCtrlType {
+  ARCHIVE,
+  OVERWRITE,
+};
+
 class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
  public:
     explicit DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManager);
@@ -160,7 +165,10 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
     void handleDbgForceVolumeSyncMsg(SHPTR<fpi::AsyncHdr>& hdr,
                                      SHPTR<fpi::DbgForceVolumeSyncMsg> &queryMsg);
 
-    void handleDbgForceArchiveMsg(SHPTR<fpi::AsyncHdr>& hdr,SHPTR<fpi::DbgForceVolArchiveMsg>& archiveMsg);
+    void handleCopyVolume(SHPTR<fpi::AsyncHdr>& hdr,SHPTR<fpi::CopyVolumeMsg>& archiveMsg);
+    void handleArchive(SHPTR<fpi::AsyncHdr>& hdr,SHPTR<fpi::ArchiveMsg>& archiveMsg);
+    void handleArchiveResp(SHPTR<fpi::AsyncHdr>& hdr,SHPTR<fpi::ArchiveRespMsg>& archiveMsg);
+
 
     template <class DmVolumeReqT>
     void registerDmVolumeReqHandler()
