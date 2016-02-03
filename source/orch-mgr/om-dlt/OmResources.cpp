@@ -2450,7 +2450,7 @@ void OM_NodeDomainMod::handlePendingSvcRemoval(std::vector<fpi::SvcInfo> removed
 
         fpi::ServiceStatus serviceStatus = gl_orch_mgr->getConfigDB()->getStateSvcMap(pmId);
         // If the PM is in stopped/discovered state, it is safe to assume that
-        // this was a remove node that was interrupted (from check in ::;;isAnyNonePlatformSvcActive)
+        // this was a remove node that was interrupted (from check in ::isAnyNonePlatformSvcActive)
         // Could be that the PM response came back, and PM is set to discovered.
         if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED ||
             serviceStatus == fpi::SVC_STATUS_STOPPED ||
@@ -2475,7 +2475,7 @@ void OM_NodeDomainMod::handlePendingSvcRemoval(std::vector<fpi::SvcInfo> removed
             }
         }
 
-        LOGDEBUG << "Re-sending remove service for PM:"
+        LOGNOTIFY << "Re-sending remove service for PM:"
                  << std::hex << pmId << std::dec
                  << " removeSM:" << removeSM
                  << " removeDM:" << removeDM
