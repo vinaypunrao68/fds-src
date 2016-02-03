@@ -117,7 +117,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     inline bool isActive() const { return vol_desc->state == fpi::Active; }
     inline bool isSyncing() const { return vol_desc->state == fpi::Syncing; }
 
-    void startInitializer();
+    void startInitializer(bool force = false);
     void notifyInitializerComplete(const Error &completionError);
     void scheduleInitializer(bool fNow);
     inline bool isInitializerInProgress() const {
@@ -222,6 +222,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     /* For runinng the sync protocol */
     VolumeInitializerPtr                    initializer;
     uint32_t                                initializerTriesCnt;
+    uint32_t                                maxInitializerTriesCnt;
 
  private:
     /*
