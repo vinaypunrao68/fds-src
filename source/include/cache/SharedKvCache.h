@@ -45,10 +45,11 @@ class SharedKvCache : public Module, boost::noncopyable {
      typedef _Hash hash_type;
      typedef std::size_t size_type;
      typedef boost::shared_ptr<mapped_type> value_type;
+     typedef bool dirty_type;
 
     // Eviction list
     private:
-     typedef std::pair<key_type, value_type> entry_type;
+     typedef std::tuple<key_type, value_type, dirty_type> entry_type;
      typedef std::list<entry_type> cache_type;
 
      typedef typename cache_type::iterator iterator;
@@ -90,7 +91,7 @@ class SharedKvCache : public Module, boost::noncopyable {
       *
       * @return A shared_ptr<T> to any evicted entry
       */
-     value_type add(const key_type& key, const value_type value) {
+     value_type add(const key_type& key, const value_type value, const dirty_type dirty = false) {
          SCOPEDWRITE(cache_lock);
 
          if (StrongAssociation::value) {
@@ -100,11 +101,13 @@ class SharedKvCache : public Module, boost::noncopyable {
                  return value_type(nullptr);
          } else {
              // Remove old value before adding current
-             remove_(key);
+             if (!remove_(key, dirty)) {
+                 return value_type(nullptr);
+             }
          }
 
          // Add the entry to the front of the eviction list and into the map.
-         eviction_list.emplace_front(key, value);
+         eviction_list.emplace_front(key, value, dirty);
          cache_map[key] = eviction_list.begin();
 
          // Check if anything needs to be evicted
@@ -112,10 +115,10 @@ class SharedKvCache : public Module, boost::noncopyable {
              entry_type evicted = eviction_list.back();
              eviction_list.pop_back();
 
-             value_type entryToEvict = evicted.second;
+             value_type entryToEvict = std::get<1>(evicted);
 
              // Remove the cache iterator entry from the map
-             cache_map.erase(evicted.first);
+             cache_map.erase(std::get<0>(evicted));
 
              fds_verify(--current_size == max_entries);
              return entryToEvict;
@@ -134,8 +137,8 @@ class SharedKvCache : public Module, boost::noncopyable {
       *
       * @return A shared_ptr<T> to any evicted entry
       */
-     value_type add(const key_type &key, mapped_type const& value) {
-         return add(key, boost::make_shared<mapped_type>(value));
+     value_type add(const key_type &key, mapped_type const& value, bool const write_update = false) {
+         return add(key, boost::make_shared<mapped_type>(value), write_update);
      }
 
      /**
@@ -181,11 +184,12 @@ class SharedKvCache : public Module, boost::noncopyable {
                  elemIt = mapIt->second;
          }
 
-         if (elemIt == eviction_list.end())
+         if (elemIt == eviction_list.end()) {
              return ERR_NOT_FOUND;
+         }
 
          // Set the return value
-         value_out = elemIt->second;
+         value_out = std::get<1>(*elemIt);
          return ERR_OK;
      }
 
@@ -198,7 +202,7 @@ class SharedKvCache : public Module, boost::noncopyable {
       */
      void remove(const key_type &key) {
          SCOPEDWRITE(cache_lock);
-         remove_(key);
+         remove_(key, false);
      }
 
      /**
@@ -281,17 +285,25 @@ class SharedKvCache : public Module, boost::noncopyable {
       *
       * @return none
       */
-     void remove_(const key_type &key) {
+     bool remove_(const key_type &key, dirty_type const dirty) {
          // Locate the key in the map
          auto mapIt = cache_map.find(key);
          if (mapIt != cache_map.end()) {
              iterator cacheEntry = mapIt->second;
+
+             // Only remove if the new element is not dirty or the existing is
+             if (dirty && !std::get<2>(*cacheEntry)) {
+                 LOGDEBUG << "Skipping cache of dirty entry.";
+                 return false;
+             }
+
              // Remove from the cache_map
              cache_map.erase(mapIt);
              // Remove from the eviction_list
              eviction_list.erase(cacheEntry);
              --current_size;
          }
+         return true;
      }
 
      /**

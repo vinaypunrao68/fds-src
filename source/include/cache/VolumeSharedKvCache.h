@@ -94,7 +94,7 @@ struct VolumeSharedCacheManager
     /**
      * Adds a key-value pair to a volume's cache.
      */
-    std::pair<bool, value_type> add(fds_volid_t const volId, const key_type &key, const value_type value) {
+    std::pair<bool, value_type> add(fds_volid_t const volId, const key_type &key, const value_type value, const bool dirty = false) {
         static const std::pair<bool, value_type> nil {false, nullptr};
 
         SCOPEDREAD(cacheMapRwlock);
@@ -105,7 +105,11 @@ struct VolumeSharedCacheManager
             return nil;
         }
 
-        return std::make_pair(true, mapIt->second->add(key, value));
+        return std::make_pair(true, mapIt->second->add(key, value, dirty));
+    }
+
+    std::pair<bool, value_type> add_dirty(fds_volid_t const volId, const key_type &key, const value_type value) {
+        return add(volId, key, value, true);
     }
 
     Error clear(fds_volid_t const volId) {
