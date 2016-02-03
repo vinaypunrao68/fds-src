@@ -949,6 +949,7 @@ OM_PmAgent::handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
     NodeServices services;
 
+    LOGDEBUG << "Handling unregister for svc type:" << svc_type;
     // Here we are reading the node info from DB, modifying a service info
     // within the node info, and storing it. Have to do it under the lock
     // since multiple threads can be modifying same node info (e.g. removing
@@ -1814,6 +1815,17 @@ OM_PmAgent::send_stop_service
          }
      }
 
+     if (shutdownNode) {
+     // Node is being shutdown, change the state of platform
+     // to STOPPED, node state will get set to down in the response handle
+
+     LOGDEBUG << "Changing PM state to STOPPED";
+     fds::change_service_state( configDB,
+                                get_uuid().uuid_get_val(),
+                                fpi::SVC_STATUS_STOPPED );
+     }
+
+
     fpi::NotifyStopServiceMsgPtr stopServiceMsg =
                              boost::make_shared<fpi::NotifyStopServiceMsg>();
     std::vector<fpi::SvcInfo>& svcInfoVector = stopServiceMsg->services;
@@ -1866,34 +1878,36 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
         
         LOGDEBUG << "PM response is good, setting svcs to inactive";
          // Set SM service state to inactive
-        if ( stop_sm && configDB->isPresentInSvcMap( smSvcId.svc_uuid ) ) {
-
+        if ( stop_sm && configDB->isPresentInSvcMap( smSvcId.svc_uuid ) )
+        {
             if (configDB->getStateSvcMap(smSvcId.svc_uuid) != fpi::SVC_STATUS_REMOVED)
             {
                 change_service_state( configDB,
                                        smSvcId.svc_uuid,
                                        fpi::SVC_STATUS_INACTIVE_STOPPED );
-                activeSmAgent = nullptr;
             } else {
                 LOGDEBUG << "SM svc:" << smSvcId.svc_uuid << " already progressed to removed state"
                          << ", will not set to inactive_stopped";
                 isSMRemoved = true;
             }
+
+            activeSmAgent = nullptr;
          }
 
          // Set DM service state to inactive
-         if ( stop_dm && configDB->isPresentInSvcMap( dmSvcId.svc_uuid ) ) {
+         if ( stop_dm && configDB->isPresentInSvcMap( dmSvcId.svc_uuid ) )
+         {
              if (configDB->getStateSvcMap(dmSvcId.svc_uuid) != fpi::SVC_STATUS_REMOVED)
              {
                  change_service_state( configDB,
                                        dmSvcId.svc_uuid,
                                        fpi::SVC_STATUS_INACTIVE_STOPPED );
-                 activeDmAgent = nullptr;
              } else {
                  LOGDEBUG << "DM svc:" << dmSvcId.svc_uuid << " already progressed to removed state"
                           << ", will not set to inactive_stopped";
                  isDMRemoved = true;
              }
+             activeDmAgent = nullptr;
          }
 
          // Set AM service state to inactive
@@ -1906,7 +1920,6 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
                      change_service_state( configDB,
                                            amSvcId.svc_uuid,
                                            fpi::SVC_STATUS_INACTIVE_STOPPED );
-                     activeAmAgent = nullptr;
                  } else {
                      LOGDEBUG << "AM svc:" << amSvcId.svc_uuid << " already progressed to removed state"
                               << ", will not set to inactive_stopped";
@@ -1918,6 +1931,7 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
                  // already executed
                  isAMRemoved = true;
              }
+             activeAmAgent = nullptr;
          }
     } else {
         LOGERROR << "Failed to stop services on node " << get_node_name()
@@ -1967,28 +1981,6 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     domain->local_domain_event(DeactAckEvt(error));
 }
-
-#define POPULATE_AND_REMOVE_SERVICE_STATE(serviceTypeId) \
-    bool found = false; \
-    fpi::SvcInfoPtr svcPtr; \
-    for (std::vector<fpi::SvcInfo>::const_iterator iter = svcInfos.begin(); \
-            iter != svcInfos.end(); ++iter) { \
-        if (iter->svc_id.svc_uuid.svc_uuid == serviceTypeId.svc_uuid) { \
-            svcPtr = boost::make_shared<fpi::SvcInfo>(*iter); \
-            found = true; \
-            break; \
-        } \
-    } \
-    if (!found) { \
-        LOGDEBUG << "Unable to find service in list. Making a fake svcPtr. Fix this?"; \
-        svcPtr = boost::make_shared<fpi::SvcInfo>(); \
-        svcPtr->svc_id.svc_uuid.svc_uuid = serviceTypeId.svc_uuid; \
-    } \
-    DltDmtUtil::getInstance()->addToRemoveList(smId.svc_uuid); \
-    change_service_state( configDB, \
-                          svcPtr, \
-                          fpi::SVC_STATUS_REMOVED, \
-                          true );
 
 /**
  * Name: send_remove_service
@@ -2055,13 +2047,13 @@ OM_PmAgent::send_remove_service
     {
         fds_mutex::scoped_lock l(dbNodeInfoLock);
         if (remove_sm) {
-            POPULATE_AND_REMOVE_SERVICE_STATE(smId);
+            fds::populateAndRemoveSvc(smId, fpi::FDSP_STOR_MGR, svcInfos, configDB);
         }
         if (remove_dm) {
-            POPULATE_AND_REMOVE_SERVICE_STATE(dmId);
+            fds::populateAndRemoveSvc(dmId, fpi::FDSP_DATA_MGR, svcInfos, configDB);
         }
         if (remove_am) {
-            POPULATE_AND_REMOVE_SERVICE_STATE(amId);
+            fds::populateAndRemoveSvc(amId, fpi::FDSP_ACCESS_MGR, svcInfos, configDB);
         }
     }
 
@@ -2124,8 +2116,8 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
                                      const Error& error,
                                      boost::shared_ptr<std::string> payload) {
 
-    LOGNORMAL << "ACK for remove services for node" << get_node_name()
-              << " UUID " << std::hex << nodeUuid.uuid_get_val() << std::dec;
+    LOGNORMAL << "ACK for remove services for node UUID:"
+              << std::hex << nodeUuid.uuid_get_val() << std::dec;
 
     kvstore::ConfigDB *configDB = gl_orch_mgr->getConfigDB();
     NodeServices services;
@@ -2155,7 +2147,7 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
                     LOGERROR << "Could not find node in the configuration DB!";
                 }
             } else {
-                LOGDEBUG <<"Removed service from node"
+                LOGDEBUG <<"Removed service from node: "
                          << std::hex << nodeUuid.uuid_get_val()
                          << std::dec << " successfully";
                 LOGDEBUG <<"Changing PM state to STANDBY";
@@ -2165,7 +2157,7 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
                                            fpi::SVC_STATUS_STANDBY);
             }
         } else {
-            LOGDEBUG <<"Removed service from node"
+            LOGDEBUG <<"Removed service from node: "
                      << std::hex << nodeUuid.uuid_get_val()
                      << std::dec << " successfully";
         }
@@ -2570,13 +2562,19 @@ OM_PmContainer::handle_unregister_service(const NodeUuid& node_uuid,
     TRACEFUNC;
     NodeUuid svc_uuid;
     NodeAgent::pointer agent;
-    if (node_uuid.uuid_get_val() == 0) {
+    LOGDEBUG << "Handle unregister service for svc in Node:" << std::hex << node_uuid.uuid_get_val() << std::dec;
+
+    if (node_uuid.uuid_get_val() == 0)
+    {
         NodeUuid nd_uuid;
-        for (fds_uint32_t i = 0; i < rs_available_elm(); ++i) {
+        for (fds_uint32_t i = 0; i < rs_available_elm(); ++i)
+        {
             agent = agent_info(i);
-            if (node_name.compare(agent->get_node_name()) == 0) {
+            if (node_name.compare(agent->get_node_name()) == 0)
+            {
                 // we found node agent!
-                if (nd_uuid.uuid_get_val() != 0) {
+                if (nd_uuid.uuid_get_val() != 0)
+                {
                     LOGWARN << "Found more than one node with the same name "
                             << " -- ambiguous, will not unregister service";
                     return svc_uuid;
@@ -2585,18 +2583,23 @@ OM_PmContainer::handle_unregister_service(const NodeUuid& node_uuid,
                 nd_uuid = agent->get_uuid();
             }
         }
-        if (nd_uuid.uuid_get_val() == 0) {
+
+        if (nd_uuid.uuid_get_val() == 0)
+        {
             LOGWARN << "Could not find platform agent for node " << node_name;
             return svc_uuid;
         }
+
         agent = agent_info(nd_uuid);
-        svc_uuid = OM_PmAgent::agt_cast_ptr(
-            agent)->handle_unregister_service(svc_type);
+        svc_uuid = OM_PmAgent::agt_cast_ptr(agent)->handle_unregister_service(svc_type);
+
     } else {
         agent = agent_info(node_uuid);
-        if (agent) {
-            svc_uuid = OM_PmAgent::agt_cast_ptr(
-                agent)->handle_unregister_service(svc_type);
+
+        if (agent)
+        {
+            svc_uuid = OM_PmAgent::agt_cast_ptr(agent)->handle_unregister_service(svc_type);
+
         } else {
             LOGWARN << "Could not find platform agent for node uuid "
                     << std::hex << node_uuid.uuid_get_val() << std::dec;
