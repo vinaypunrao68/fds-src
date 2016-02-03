@@ -316,12 +316,8 @@ function system_test_scenario_wrapper
 
     capture_process_list SysTest.${scenario}
 
-    # Fix for fs-3698
-    if [[ "${scenario}"  != 'ActiveIORestartTest' ]]
-    then
-        check_xunit_errors ${scenario}
-        check_xunit_failures ${scenario}
-    fi
+    check_xunit_errors ${scenario}
+    check_xunit_failures ${scenario}
 
     check_for_cores
 }
