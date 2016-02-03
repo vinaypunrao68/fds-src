@@ -110,6 +110,7 @@ class BlockOperations
     // api we've built
     std::unique_ptr<req_api_type> amAsyncDataApi;
     boost::shared_ptr<std::string> volumeName;
+    boost::shared_ptr<std::string> empty_buffer;
     uint32_t maxObjectSizeInBytes;
 
     // interface to respond to block passed down in constructor
