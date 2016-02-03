@@ -193,7 +193,9 @@ Error DmVolumeCatalog::reloadCatalog(const VolumeDesc & voldesc) {
         return rc;
     }
     rc = activateCatalog(voldesc.volUUID);
+
     if (rc.ok()) {
+        /*
         synchronized(lockVolSummaryMap_) {
             DmVolumeSummaryMap_t::const_iterator iter = volSummaryMap_.find(voldesc.volUUID);
             if (volSummaryMap_.end() != iter) {
@@ -201,11 +203,12 @@ Error DmVolumeCatalog::reloadCatalog(const VolumeDesc & voldesc) {
             }
         }
         fds_uint64_t volSize=0, blobCount=0, objCount=0;
-        statVolumeLogical(voldesc.volUUID, &volSize, &blobCount, &objCount);
+        // statVolumeLogical(voldesc.volUUID, &volSize, &blobCount, &objCount);
         LOGNORMAL << "reloaded vol:" << voldesc.volUUID << "["
                   << " size:" << volSize
                   << " blobs:" << blobCount
                   << " objects:" << objCount << "]";
+        */
     } else {
         LOGWARN << "unable to activate vol:" << voldesc.volUUID
                 << "error:" << rc;
