@@ -602,6 +602,84 @@ TEST_F(DmGroupFixture, VolumeCopyTest) {
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
+TEST_F(DmGroupFixture, VolumeCopyTest) {
+    g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
+    /* Create two dms */
+    create(2);
+
+    Waiter waiter(0);
+    fds_volid_t v1Id(10);
+    std::string blobName1 = "blob1";
+    std::string blobName2 = "blob2";
+
+    VolumeGroupHandle v1(amHandle.proc, v1Id, 1);
+    amHandle.proc->setVolumeHandle(&v1);
+
+    /* Add DMT to AM with the DM group */
+    std::string dmtData;
+    auto dmt = DMT::newDMT({
+                               dmGroup[0]->proc->getSvcMgr()->getSelfSvcUuid(),
+                               dmGroup[1]->proc->getSvcMgr()->getSelfSvcUuid(),
+                           });
+    dmt->getSerialized(dmtData);
+    Error e = amHandle.proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
+                                                                            nullptr,
+                                                                            DMT_COMMITTED);
+    ASSERT_TRUE(e == ERR_OK);
+
+    /* Add volume to DM group */
+    auto v1Desc = generateVolume(v1Id);
+    for (uint32_t i = 0; i < dmGroup.size(); i++) {
+        e = dmGroup[i]->proc->getDataMgr()->addVolume("test1", v1Id, v1Desc.get());
+        ASSERT_TRUE(e == ERR_OK);
+        ASSERT_TRUE(dmGroup[i]->proc->getDataMgr()->\
+                    getVolumeMeta(v1Id)->getState() == fpi::Offline);
+    }
+
+    /* Add DMT to DMs so that the DataMgr can appropriately use it when checking data */
+    e = dmGroup[0]->proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData, nullptr, DMT_COMMITTED);
+    ASSERT_TRUE(e.ok());
+    e = dmGroup[1]->proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData, nullptr, DMT_COMMITTED);
+    ASSERT_TRUE(e.ok());
+
+
+    /* open should succeed */
+    openVolume(v1, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+
+    /* Copy volume with archive destination dm volume policy enabled */
+    auto msg = MAKE_SHARED<fpi::CopyVolumeMsg>();
+    msg->volId = 10;
+    msg->destDmUuid = dmGroup[1]->proc->getSvcMgr()->getSelfSvcUuid().svc_uuid;
+    msg->archivePolicy = true;
+    auto reqMgr = omHandle.proc->getSvcMgr()->getSvcRequestMgr();
+    auto req = reqMgr->newEPSvcRequest(dmGroup[0]->proc->getSvcMgr()->getSelfSvcUuid());
+    req->onResponseCb([&waiter](EPSvcRequest* ee, const Error &e, StringPtr) {waiter.doneWith(e);});
+    req->setPayload(fpi::CopyVolumeMsgTypeId,msg);
+    req->setTimeoutMs(1000 * 10);
+    waiter.reset(1);
+    req->invoke();
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+
+    /* Copy volume without archiving destination dm's volume */
+    msg->volId = 10;
+    msg->destDmUuid = dmGroup[1]->proc->getSvcMgr()->getSelfSvcUuid().svc_uuid;
+    msg->archivePolicy = false;
+    reqMgr = omHandle.proc->getSvcMgr()->getSvcRequestMgr();
+    req = reqMgr->newEPSvcRequest(dmGroup[0]->proc->getSvcMgr()->getSelfSvcUuid());
+    req->onResponseCb([&waiter](EPSvcRequest* ee, const Error &e, StringPtr) {waiter.doneWith(e);});
+    req->setPayload(fpi::CopyVolumeMsgTypeId,msg);
+    req->setTimeoutMs(1000 * 10);
+    waiter.reset(1);
+    req->invoke();
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+
+    /* Close volumegroup handle */
+    waiter.reset(1);
+    v1.close([&waiter]() { waiter.doneWith(ERR_OK); });
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+}
+
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     g_fdslog = new fds_log("volumegtest");
