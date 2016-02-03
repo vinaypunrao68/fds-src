@@ -88,7 +88,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
     }
 
     public InfluxEventRepository( String url, String adminUser, char[] adminCredentials ) {
-        super( url, adminUser, adminCredentials );
+        super( url, adminUser, adminCredentials, DEFAULT_EVENT_DB );
     }
 
     /**
@@ -142,7 +142,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
     @Override
 	public List<? extends Event> query(QueryCriteria queryCriteria) {
         // get the query string
-        String queryString = formulateQueryString( queryCriteria, FBEVENT_VOL_ID_COLUMN_NAME, null );
+        String queryString = formulateQueryString( queryCriteria );
 
         List<? extends Event> events = executeEventQuery( queryString );
 
@@ -161,12 +161,21 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
 
 	}
 
+	// TODO: we know based on experience with metrics that InfluxDB does not scale
+	// well to handling where clauses for anything other than time (it performs a range
+	// scan).  It prefers metadata to be encoded in the series name.  That means
+	// our event schema almost certainly needs to be broken up into different series based
+	// on event types.
+
+
 	@Override
 	public List<UserActivityEvent> queryTenantUsers(QueryCriteria queryCriteria,
 			List<Long> tenantUsers) {
 
         QueryCriteria criteria = new QueryCriteria( QueryType.USER_ACTIVITY_EVENT );
-        String queryBase = formulateQueryString( criteria, FBEVENT_VOL_ID_COLUMN_NAME, null );
+
+        String queryBase = formulateQueryString( criteria );
+
         StringBuilder queryString = new StringBuilder( queryBase );
 
         if ( ! queryBase.contains( WHERE )) {
@@ -213,8 +222,7 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
         criteria.addContext( new com.formationds.client.v08.model.Volume( Long.valueOf( v.getId() ),
                                                                           v.getName() ) );
 
-        String queryBase = formulateQueryString( criteria,
-                                                 FBEVENT_VOL_ID_COLUMN_NAME, null );
+        String queryBase = formulateQueryString( criteria );
 
         StringBuilder queryString = new StringBuilder( queryBase )
                                         .append( " " )
@@ -270,6 +278,15 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
         return results.getOrDefault( type, null );
     }
 
+
+    /* (non-Javadoc)
+     * @see com.formationds.om.repository.influxdb.InfluxRepository#getContextIdColumnName()
+     */
+    @Override
+    public Optional<String> getContextIdColumnName() {
+        return Optional.of( FBEVENT_VOL_ID_COLUMN_NAME );
+    }
+
     /**
      * @return the latest active firebreaks in the last 24 hours across all volumes
      */
@@ -278,7 +295,9 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
 
         // create base query (select * from EVENT_SERIES_NAME where
         QueryCriteria criteria = new QueryCriteria( QueryType.FIREBREAK_EVENT, DateRange.last24Hours() );
-        String queryBase = formulateQueryString( criteria, FBEVENT_VOL_ID_COLUMN_NAME, null );
+
+        String queryBase = formulateQueryString( criteria );
+
         String queryString = new StringBuilder( queryBase )
                                  .append( " " )
                                  .append( AND )

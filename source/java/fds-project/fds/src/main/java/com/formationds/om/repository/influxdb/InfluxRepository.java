@@ -9,12 +9,16 @@ import com.formationds.commons.model.DateRange;
 import com.formationds.om.repository.query.QueryCriteria;
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.Database;
+import org.influxdb.dto.Serie;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -56,17 +60,48 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
     private Properties         dbConnectionProperties;
     private InfluxDBConnection dbConnection;
 
+    private final InfluxDatabase metricDatabase;
+
+    private final List<String> queryMetadataColumns;
+
     /**
      * @param url the url
      * @param adminUser the admin user
      * @param adminCredentials the credentials
      */
-    protected InfluxRepository( String url, String adminUser, char[] adminCredentials ) {
-        this.adminConnection =new InfluxDBConnection( url, adminUser, adminCredentials );
+    protected InfluxRepository( String url, String adminUser, char[] adminCredentials, InfluxDatabase database ) {
+        this( url, adminUser, adminCredentials, database, Collections.emptyList() );
     }
 
-    abstract public String getInfluxDatabaseName();
+    protected InfluxRepository( String url,
+                                String adminUser,
+                                char[] adminCredentials,
+                                InfluxDatabase database,
+                                List<String> queryMetadataColumns) {
+        this.adminConnection = new InfluxDBConnection( url, adminUser, adminCredentials );
+        this.metricDatabase = database;
+        this.queryMetadataColumns = queryMetadataColumns;
+    }
 
+    /**
+     * @return the influx database
+     */
+    public InfluxDatabase getDatabase() {
+        return metricDatabase;
+    }
+
+    /**
+     *
+     * @return the influxdb database name
+     */
+    public String getInfluxDatabaseName() {
+        return getDatabase().getName();
+    }
+
+
+    /**
+     * @return the default connection properties
+     */
     private Properties getDefaultConnectionProperties() {
         Properties props = new Properties();
         props.setProperty( InfluxRepository.CP_USER, adminConnection.getUser() );
@@ -74,14 +109,27 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
         return props;
     }
 
-
+    /**
+     * @return the context filter threshold
+     */
     public int getVolumeContextFilterThreshold() {
 		return volumeContextFilterThreshold;
 	}
 
+    /**
+     * @param volumeContextFilterThreshold
+     */
 	public void setVolumeContextFilterThreshold(int volumeContextFilterThreshold) {
 		this.volumeContextFilterThreshold = volumeContextFilterThreshold;
 	}
+
+    /**
+     *
+     * @return the optional context id column name for filtering by context
+     */
+    public Optional<String> getContextIdColumnName() {
+        return Optional.empty();
+    }
 
 	/**
      * Open the influx database
@@ -151,50 +199,23 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
     }
 
     /**
-     * Method to create a string from the query object that matches influx format
+     * Method to create a string from the query object that matches influx format.
+     *
+     * This base implementation includes any contexts to filter in the where clause, unless
+     * the context filter threshold is reached in which case post-processing is done to
+     * filter the results.
      *
      * @param queryCriteria the query criteria
-     * @param volIdColumnName the name for the volume id column, required if the series has a volume id
-     * @param volNameColumnName the name of the volumne name column, requred if the series has volume name column
      *
      * @return a query string for influx event series based on the criteria
      */
-    protected String formulateQueryString( QueryCriteria queryCriteria, String volIdColumnName, String volNameColumnName ) {
+    protected String formulateQueryString( QueryCriteria queryCriteria ) {
 
         StringBuilder sb = new StringBuilder();
 
-        // * if no columns, otherwise comma-separated list of column names
-        // this used to be (well, still is) done in getColumnString().  However,
-        // we need to add metadata columns for the volume id and name to make sure
-        // we have those in our volume results.  
-        // This is also used in InfluxEventRepository, where the name is not 
-        // necessarily relevant, so it may be null.
-        StringBuilder projection = new StringBuilder();
-        List<String> cols = queryCriteria.getColumns();
-        if ( cols == null || cols.isEmpty() ) {
-            projection.append("*");
-        } else {
-            // first add required metadata columns.
-            if (volIdColumnName != null && !volIdColumnName.isEmpty()) {
-                projection.append( volIdColumnName );
-                if (volNameColumnName != null && !volNameColumnName.isEmpty())
-                    projection.append( ", " );
-            }
-            if (volNameColumnName != null && !volNameColumnName.isEmpty()) {
-                projection.append(volNameColumnName);
-            }
-
-            Iterator<String> iter = cols.iterator();
-
-            if (projection.length() > 0 && iter.hasNext()) {
-                projection.append(", " );
-            }
-            while ( iter.hasNext() ) {
-                projection.append( iter.next() );
-                if ( iter.hasNext() )
-                    projection.append( ", " );
-            }
-        }
+        // build the projection string based on query criteria and
+        // any query metadata columns
+        String projection = buildColumnProjection( queryCriteria );
 
         String prefix = SELECT + projection + FROM + getEntityName();
         sb.append( prefix );
@@ -234,8 +255,9 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
             }
         }
 
+        Optional<String> volIdColumnName = getContextIdColumnName();
         List<Volume> volumeContexts = queryCriteria.getContexts();
-        if ( volumeContexts != null && volumeContexts.size() > 0 ) {
+        if ( volumeContexts != null && volumeContexts.size() > 0 && volIdColumnName.isPresent() ) {
 
         	// if number of context filter predicates exceeds the threshold
         	// just select all and filter the results.
@@ -253,7 +275,7 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
 
 	                Volume volume = contextIt.next();
 
-	                sb.append( volIdColumnName ).append( " = " ).append( volume.getId() );
+	                sb.append( volIdColumnName.get() ).append( " = " ).append( volume.getId() );
 
 	                if ( contextIt.hasNext() ) {
 	                    sb.append( OR );
@@ -277,6 +299,61 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
         }
 
         return sb.toString();
+    }
+
+    /**
+     *
+     * @return the list of required metadata columns to include in every query that does not select "*"
+     */
+    protected List<String> getQueryMetadataColumns() {
+        return queryMetadataColumns;
+    }
+
+    /**
+     * @param queryCriteria
+     * @return the query project string, either * or a comma-separated list of column names.
+     */
+    protected String buildColumnProjection( QueryCriteria queryCriteria ) {
+
+        // * if no columns, otherwise comma-separated list of column names
+        // this used to be (well, still is) done in getColumnString().  However,
+        // we need to add metadata columns for the volume id and name to make sure
+        // we have those in our volume results.
+        // This is also used in InfluxEventRepository, where the name is not
+        // necessarily relevant, so it may be null.
+
+        // TODO: in InfluxMetricRepository we must add volume_id and volume_name
+        // columns to a non "*" query.  In the series-per-volume implementation that
+        // information is encoded in the series name... The series-per-volume overrides this
+        // implementation, but think it makes sense to have the required metadata columns passed
+        // in constructor...
+        StringBuilder projection = new StringBuilder();
+        List<String> cols = queryCriteria.getColumns();
+        if ( cols == null || cols.isEmpty() ) {
+            projection.append("*");
+        } else {
+
+            Iterator<String> metadataColumns = getQueryMetadataColumns().iterator();
+            Iterator<String> metricColumns = cols.iterator();
+            // first add required metadata columns.
+            while (metadataColumns.hasNext()) {
+                String c = metadataColumns.next();
+                projection.append( c );
+                if (metadataColumns.hasNext())
+                    projection.append( ", " );
+                else {
+                    if (metricColumns.hasNext())
+                        projection.append( ", " );
+                }
+            }
+
+            while ( metricColumns.hasNext() ) {
+                projection.append( metricColumns.next() );
+                if ( metricColumns.hasNext() )
+                    projection.append( ", " );
+            }
+        }
+        return projection.toString();
     }
 
     @Override
@@ -373,6 +450,18 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
         // database does not already exist so create it
         admin.createDatabase( database.getDatabaseConfiguration() );
         return true;
+    }
+
+    /**
+     *
+     * @return the list of series currently defined in the database.
+     */
+    public List<String> listSeries()
+    {
+        List<Serie> series = getConnection().getDBReader().query( "list series", TimeUnit.SECONDS );
+        List<String> snames = new ArrayList<>();
+        series.stream().forEach( (s) -> snames.add( s.getName() ) );
+        return snames;
     }
 
     /**
