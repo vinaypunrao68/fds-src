@@ -40,6 +40,20 @@ Error RequestManager::sendLoadFromArchiveRequest(const NodeUuid & nodeId, const 
     return waiter.error;
 }
 
+Error RequestManager::sendArchiveVolumeRequest(const NodeUuid &nodeId, const fds_volid_t &volid) {
+    auto asyncReq = gSvcRequestPool->newEPSvcRequest(nodeId.toSvcUuid());
+    boost::shared_ptr<fpi::ArchiveMsg> msg = boost::make_shared<fpi::ArchiveMsg>();
+    msg->volId = volid.get();
+    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::ArchiveMsg), msg);
+
+    SvcRequestCbTask<EPSvcRequest, fpi::ArchiveRespMsg> waiter;
+    asyncReq->onResponseCb(waiter.cb);
+
+    asyncReq->invoke();
+    waiter.await();
+    return waiter.error;
+}
+
 void RequestManager::sendEventMessageToOM(fpi::EventType eventType,
                                           fpi::EventCategory eventCategory,
                                           fpi::EventSeverity eventSeverity,

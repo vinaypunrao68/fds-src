@@ -348,6 +348,11 @@ set(SOURCE_FILES
 ./include/net/fdssocket.h
 ./include/net/net-service.h
 ./include/net/net_utils.h
+./include/net/SvcMgr.h
+./include/net/SvcProcess.h
+./include/net/filetransferservice.h
+./include/net/volumegroup_extensions.h
+
 ./include/odb.h
 ./include/orch-mgr/om-service.h
 ./include/persistent-layer/dm_io.h

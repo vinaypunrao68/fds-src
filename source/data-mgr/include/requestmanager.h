@@ -13,6 +13,7 @@ struct RequestManager {
     explicit RequestManager(DataMgr* dataMgr);
     Error sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId);
     Error sendLoadFromArchiveRequest(const NodeUuid & nodeId, const fds_volid_t & volId, const std::string& fileName);
+    Error sendArchiveVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volid);
     /**
      * Send event message to OM
      */

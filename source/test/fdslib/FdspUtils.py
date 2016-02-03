@@ -21,6 +21,8 @@ from dm_api.ttypes import *
 from dm_api.constants import *
 import sm_api as smapi
 import sm_types as smtypes
+import dm_api as dmapi
+import dm_types as dmtypes
 from sm_api.ttypes import *
 from sm_api.constants import *
 
@@ -313,5 +315,15 @@ def newDmchkMsg(volId, source, remedy):
     msg.migrations.VolDescriptors.volUUID = volId
     msg.migrations.source = source
     msg.dryRun = remedy
+
+    return msg
+
+def newCopyVolumeMsg(volId, dest, archive):
+    msg = CopyVolumeMsg()
+    print type(volId)
+    msg.volId = volId
+    print type(dest)
+    msg.destDmUuid = dest
+    msg.archivePolicy = archive
 
     return msg
