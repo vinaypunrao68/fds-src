@@ -13,7 +13,7 @@ namespace fds
     class DiskMntPtIter : public DiskObjIter
     {
         private:
-        PmDiskObj::pointer prev = NULL;
+            PmDiskObj::pointer prev = NULL;
 
         public:
             bool dsk_iter_fn(DiskObject::pointer disk);

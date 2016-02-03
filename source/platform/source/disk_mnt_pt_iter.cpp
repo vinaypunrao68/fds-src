@@ -36,10 +36,10 @@ namespace fds
             {
                 LOGDEBUG << "Setting data mount point " << mnt_pt.c_str() << " for " << disk->dsk_get_parent()->rs_get_name();
                 disk->dsk_get_parent()->dsk_set_mount_point(mnt_pt.c_str());
+                prev = disk;
             }
         }
 
-        prev = disk;
         return true;
     }
 }  // namespace fds
