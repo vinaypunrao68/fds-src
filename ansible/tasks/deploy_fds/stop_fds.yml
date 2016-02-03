@@ -67,7 +67,9 @@
         delay=1
         timeout=180
         state=absent
-    when: fds_installed|success
+    when: fds_installed|success and
+      (clean_fds is not defined or clean_fds == "no")
+    any_errors_fatal: true
     with_items:
         - 7001
         - 7002
@@ -88,7 +90,10 @@
         delay=1
         timeout=180
         state=absent
-    when: fds_om_host is defined and fds_om_host == inventory_hostname
+    any_errors_fatal: true
+    when: fds_om_host is defined and
+      fds_om_host == inventory_hostname and
+      (clean_fds is not defined or clean_fds == "no")
     tags:
         - shutdown
 
@@ -100,28 +105,32 @@
         - shutdown
 
 -   name: wait for PM to be down on all nodes
+    when: (clean_fds is not defined or clean_fds == "no")
     wait_for: host={{inventory_hostname}}
         port=7000
         delay=1
         timeout=180
         state=absent
+    any_errors_fatal: true
     tags:
         - shutdown
 
-#-   name: Kill any lingering processes
-#    shell: pkill -9 -f {{item}} || true
-#    ignore_errors: True
-#    when: fds_installed|success
-#    with_items:
-#        - com.formationds.am.Main
-#        - bare_am
-#        - com.formationds.om.Main
-#        - DataMgr
-#        - StorMgr
-#        - platformd
-#        - fdscli
-#    tags:
-#        - shutdown
+-   name: Kill any lingering processes when doing a clean install
+    shell: pkill -9 -f {{item}} || true
+    ignore_errors: True
+    when: fds_installed|success and
+      (clean_fds is defined and clean_fds == "yes") and
+      (force is defined and force == "yes")
+    with_items:
+        - com.formationds.am.Main
+        - bare_am
+        - com.formationds.om.Main
+        - DataMgr
+        - StorMgr
+        - platformd
+        - fdscli
+    tags:
+        - shutdown
 
 -   name: stop influxdb sysv
     service: name=influxdb state=stopped
