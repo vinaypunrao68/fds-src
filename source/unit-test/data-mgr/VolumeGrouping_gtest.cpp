@@ -491,7 +491,6 @@ TEST_F(DmGroupFixture, domain_reboot) {
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
-<<<<<<< HEAD
 TEST_F(DmGroupFixture, allDownFollowedBySequentialUp) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
 
