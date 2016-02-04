@@ -23,6 +23,8 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
             $scope._root_squash = false;
             $scope._async = true;
             $scope._clients = '*';
+            $scope.chapRequired = false;
+            $scope.ipFilterRequired = true;
 
             var findUnit = function(){
 

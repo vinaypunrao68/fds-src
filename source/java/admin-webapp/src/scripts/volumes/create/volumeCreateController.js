@@ -5,6 +5,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     $scope.volumeName = '';
     $scope.mediaPolicy = 1;
     $scope.enableDc = false;
+    $scope.volumeNameRequired = true;
     
     $scope.timelinePolicies = {};
 
@@ -100,6 +101,20 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
             
             var $event = {
                 text: 'Volume names must not contain spaces.',
+                type: 'ERROR'
+            };
+            
+            $rootScope.$emit( 'fds::alert', $event );
+            return;
+        }
+        
+        // make sure for iSCSI the password has correct length
+        if ( volume.settings.type == 'ISCSI' &&  volume.settings.target.incomingUsers[0].password.length > 0 && 
+            ( volume.settings.target.incomingUsers[0].password.length >= 12 &&
+              volume.settings.target.incomingUsers[0].password.length <= 16 ) ){
+            
+            var $event = {
+                text: 'iSCSI password must be between 12 and 16 characters.',
                 type: 'ERROR'
             };
             

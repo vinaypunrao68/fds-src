@@ -1,33 +1,34 @@
 <div class="name-type">
-
-    <div class="flex">
-        <fui-dropdown class="data-connector-dropdown" selected="volumeType" items="types" skinny="true" background="none" border="#CCCCCC" color="black" name-property="type" enabled="enable"></fui-dropdown>
-    </div>
-
-    <div class="volume-gray-container block-settings" ng-show="volumeType.capacity">
-        <div style="color: black;" translate>volumes.l_virtual_capacity</div>
+    <form name="dataConnectorForm">
         <div class="flex">
-            <spinner class="data-connector-size-spinner skinny" value="_selectedSize" min="1" max="999999999" step="1" class="skinny" style="margin-right: 4px;" show-buttons="false" enable="enable"></spinner>
-            <fui-dropdown skinny="true" background-color="white" border="#CCCCCC" color="black" items="sizes" selected="_selectedUnit" enabled="enable"></fui-dropdown>
+            <fui-dropdown class="data-connector-dropdown" selected="volumeType" items="types" skinny="true" background="none" border="#CCCCCC" color="black" name-property="type" enabled="enable"></fui-dropdown>
         </div>
-    </div>
-    
-    <div class="volume-gray-container iscsi-settings" ng-show="volumeType.type === 'ISCSI'">
-        <div style="color: black;" translate>volumes.iscsi.l_incoming_users</div>
-        <fui-input type="text" class="user-name-input skinny" size="32" placeholder="{{ 'common.username' | translate }}" ng-model="_username"></fui-input>
-        <fui-input style="margin-bottom: 0px;" type="password" class="user-name-input skinny" size="32" placeholder="{{ 'common.password' | translate }}" ng-minlength="12" ng-model="_password"></fui-input>
-    </div>
-    
-    <div class="volume-gray-container nfs-settings" ng-show="volumeType.type === 'NFS'">
-        <div style="color: black;" translate>volumes.nfs.l_options</div>
-        <div class="flex">
-            <fds-checkbox ng-model="_acls" label="{{ 'volumes.nfs.l_acls' | translate }}"></fds-checkbox>
-            <fds-checkbox ng-model="_async" label="{{ 'volumes.nfs.l_async' | translate }}"></fds-checkbox>
-            <fds-checkbox ng-model="_root_squash" label="{{ 'volumes.nfs.l_root_squash' | translate }}"></fds-checkbox>
+
+        <div class="volume-gray-container block-settings" ng-show="volumeType.capacity">
+            <div style="color: black;" translate>volumes.l_virtual_capacity</div>
+            <div class="flex">
+                <spinner class="data-connector-size-spinner skinny" value="_selectedSize" min="1" max="999999999" step="1" class="skinny" style="margin-right: 4px;" show-buttons="false" enable="enable"></spinner>
+                <fui-dropdown skinny="true" background-color="white" border="#CCCCCC" color="black" items="sizes" selected="_selectedUnit" enabled="enable"></fui-dropdown>
+            </div>
         </div>
-        <div style="color: black;" translate>volumes.nfs.l_ip_filters</div>
-        <div class="fds-clients-text">
-            <fui-input style="display: inline-block" ng-model="_clients" type="text" placeholder="{{ 'volumes.nfs.l_ip_filter' | translate }}"></fui-input>
+
+        <div class="volume-gray-container iscsi-settings" ng-show="volumeType.type === 'ISCSI'">
+            <div style="color: black;" translate>volumes.iscsi.l_incoming_users</div>
+            <fui-input type="text" class="user-name-input skinny" size="32" placeholder="{{ 'common.username' | translate }}" ng-model="_username"></fui-input>
+            <fui-input name="chap_password" style="margin-bottom: 0px;" type="password" class="user-name-input skinny" size="32" placeholder="{{ 'common.password' | translate }}" ng-minlength="12" min="12" ng-model="_password" regexp="^.{12,16}$" error-text="{{ 'volumes.iscsi.err_chap_error' | translate }}" required="chapRequired"></fui-input>
         </div>
-    </div>
+
+        <div class="volume-gray-container nfs-settings" ng-show="volumeType.type === 'NFS'">
+            <div style="color: black;" translate>volumes.nfs.l_options</div>
+            <div class="flex">
+                <fds-checkbox ng-model="_acls" label="{{ 'volumes.nfs.l_acls' | translate }}"></fds-checkbox>
+                <fds-checkbox ng-model="_async" label="{{ 'volumes.nfs.l_async' | translate }}"></fds-checkbox>
+                <fds-checkbox ng-model="_root_squash" label="{{ 'volumes.nfs.l_root_squash' | translate }}"></fds-checkbox>
+            </div>
+            <div style="color: black;" translate>volumes.nfs.l_ip_filters</div>
+            <div class="fds-clients-text">
+                <fui-input name="ipFilter" style="display: inline-block" ng-model="_clients" type="text" placeholder="{{ 'volumes.nfs.l_ip_filter' | translate }}" regexp="^[^\s]+$" required="ipFilterRequired" error-text="{{ 'volumes.nfs.err_ip_filter' | translate }}"></fui-input>
+            </div>
+        </div>
+    </form>
 </div>
