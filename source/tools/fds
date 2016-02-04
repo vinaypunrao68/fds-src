@@ -73,25 +73,28 @@ TESTS["2node"]="TwoNodeStart"
 TESTS["unit"]="unit tests"
 
 function usage() {
-    log "$(yellow usage: $(basename $0) [cmd] [app/testname] [options])"
+    log "$(yellow usage: $(basename $0) [cmd] [app/testname/clustername/buildname] [options])"
     log " cmd : "
-    log "   - $(yellow start)     : start the app "
-    log "   - $(yellow stop)      : stop  the app "
-    log "   - $(yellow start[2/4]): start 2/4 node cluster "
-    log "   - $(yellow restart)   : stop & start  the app "
-    log "   - $(yellow status)    : print status of the apps"
-    log "   - $(yellow clogs)     : remove the logs"
+    log "   - $(yellow build)     : build fds-platform/ fds-deps(specify param deps)"
+    log "   - $(yellow clean)     : remove the data"
     log "   - $(yellow clean)     : remove the data"
     log "   - $(yellow cleanstart): stop+clean+start all"
-    log "   - $(yellow test)      : run specific tests"
-    log "   - $(yellow tail)      : tail the application log file"
-    log "   - $(yellow top)       : top command for fds apps"
+    log "   - $(yellow clogs)     : remove the logs"
+    log "   - $(yellow debug)     : switch to $(red debug) build"
+    log "   - $(blue   deploy)    : deploy local build to a cluster"
     log "   - $(yellow error)     : show errors/warn/critical from application log"
     log "   - $(red    gdb)       : gdb attach app"
-    log "   - $(yellow nomemchk)  : run services $(green normally)"
     log "   - $(yellow memchk)    : run services under $(red valgrind)"
+    log "   - $(yellow nomemchk)  : run services $(green normally)"
     log "   - $(yellow release)   : switch to $(green release) build"
-    log "   - $(yellow debug)     : switch to $(red debug) build"
+    log "   - $(yellow restart)   : stop & start  the app "
+    log "   - $(yellow start)     : start the app "
+    log "   - $(yellow start[2/4]): start 2/4 node cluster "
+    log "   - $(yellow status)    : print status of the apps"
+    log "   - $(yellow stop)      : stop  the app "
+    log "   - $(yellow tail)      : tail the application log file"
+    log "   - $(yellow test)      : run specific tests"
+    log "   - $(yellow top)       : top command for fds apps"
     log " options :"
     log "   : $(yellow --fds-root/-f) rootdir"
     log "   : $(yellow --om-debug-port) java debugger port #"
@@ -99,37 +102,47 @@ function usage() {
     log " app : om/pm/sm/am/dm/all"
     log " $(yellow testname): name of a test"
     echo -e "${!TESTS[@]}" | tr " " "\n" | sort | sed -e "s/^/    - /g"
-    printBuildMode
-    printRunMode
+    printMode build run
     exit 0
 }
 
-function printRunMode() {
-    case "${RUNMODE}" in
-        nomemchk)
-            loginfo "$(blue current run mode) : $(green ${RUNMODE})"
-            ;;
-        memchk)
-            logwarn "$(blue current run mode) : $(red ${RUNMODE})"
-            ;;
-        *)
-            logerror "unknown run mode : ${RUNMODE}"
-            ;;
-    esac
-}
+function printMode() {
 
-function printBuildMode() {
-    case "${BUILDMODE}" in
-        release)
-            loginfo "$(blue current build mode) : $(green ${BUILDMODE})"
-            ;;
-        debug)
-            loginfo "$(blue current build mode) : $(red ${BUILDMODE})"
-            ;;
-        *)
-            logerror "unknown build mode : ${BUILDMODE}"
-            ;;
-    esac
+    local params="${@}"
+    local output
+    if [[ -z $params ]]; then params="build run" ; fi
+
+    if (echo $params | grep -qE "\brun\b"); then
+        output="$output run:"
+        case "${RUNMODE}" in
+            nomemchk)
+                output="${output}$(green ${RUNMODE})"
+                ;;
+            memchk)
+                output="${output}$(red ${RUNMODE})"
+                ;;
+            *)
+                output="${output}$(red err-${RUNMODE})"
+                ;;
+        esac
+    fi
+
+    if (echo $params | grep -qE "\bbuild\b"); then
+        output="$output build:"
+        case "${BUILDMODE}" in
+            release)
+                output="${output}$(green ${BUILDMODE})"
+                ;;
+            debug)
+                output="${output}$(red ${BUILDMODE})"
+                ;;
+            *)
+                output="${output}$(red err-${BUILDMODE})"
+                ;;
+        esac
+    fi
+
+    loginfo "$output"
 }
 
 function setRunMode() {
@@ -144,7 +157,7 @@ function setRunMode() {
         return 1
     fi
     RUNMODE=$mode
-    printRunMode
+    printMode run
     return 0
 }
 
@@ -160,7 +173,7 @@ function setBuildMode() {
         return 1
     fi
     BUILDMODE=$mode
-    printBuildMode
+    printMode build
     return 0
 }
 
@@ -770,6 +783,29 @@ fds_source_dir: ${SOURCEDIR}
 
 }
 
+function deploy() {
+    local cluster="$1"
+    shift
+    local ansibledir="${SOURCEDIR}/../ansible"
+    if [[ ! -f  ${ansibledir}/inventory/${cluster} ]]; then
+        logwarn "deploy: cluster file [$cluster] missing from inventory dir"
+        return
+    fi
+    loginfo "deploying local build to  : $cluster "
+    (cd ${ansibledir}/scripts; ./deploy_fds.sh ${cluster} local)
+}
+
+function build() {
+    local params="$1"
+    if [[ -z $params ]]; then
+        (cd ${SOURCEDIR}/..; make package fds-platform BUILD_TYPE=${BUILDMODE})
+    elif [[ $params =~ dep* ]]; then
+        (cd ${SOURCEDIR}/..; make package fds-deps)
+    else
+        logerror "i dont know how to build : [$params]"
+    fi
+}
+
 function cleanlogs() {
     for node in ${FDSROOT} ${FDSROOT}/node{1..4} ; do
         loginfo "cleaning logs in : ${node}"
@@ -846,8 +882,7 @@ do
             exit 0
             ;;
         mode)
-            printBuildMode
-            printRunMode
+            printMode build run
             exit 0
             ;;
         bindir)
@@ -862,10 +897,11 @@ do
         kill|start*|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*|top)
             CMD=$opt
             ;;
-        test)
+        test|deploy|build)
             CMD=$opt
             (( n++ ))
-            APP="${args[$n]}"
+            NEXTARG="${args[@]:$n}"
+            (( n = $# ))
             ;;
         # detect app
         om|am|dm|sm|pm|all|redis|stat*|rabbit*|influx*)
@@ -888,16 +924,10 @@ FDSTEST_ROOT=/fds-test
 
 VALGRIND_OPTIONS="--show-reachable=no --show-possibly-lost=no --tool=memcheck --leak-check=yes --num-callers=30 --gen-suppressions=all --xml=yes --xml-file=${FDSROOT}/memcheck/"
 
-if [[ $CMD == "test" ]]; then
-    TEST=$APP
-    APP="all"
-fi
-
 # check the values
 CMD=${CMD:="status"}
 APP=${APP:="all"}
 FDSROOT=${FDSROOT:=/fds}
-TESTNAME=""
 FDSLOGROOT=${FDSROOT}/var/logs
 
 #echo CMD:               ${CMD}
@@ -910,8 +940,7 @@ FDSLOGROOT=${FDSROOT}/var/logs
 #echo args:                ${args[@]}
 #exit 0
 
-printBuildMode
-printRunMode
+printMode
 
 case "${CMD}" in
     start) startApp $APP
@@ -945,23 +974,21 @@ case "${CMD}" in
         waitForAll
         statusApp "all"
         ;;
-    gdb)
-        attachgdb $APP
+    gdb) attachgdb $APP
         ;;
-    tail)
-        taillog $APP
+    tail) taillog $APP
         ;;
-    err*)
-        showerrors $APP
+    err*) showerrors $APP
         ;;
-    test)
-        runTest $TEST
+    test) runTest "$NEXTARG"
         ;;
-    port*)
-        showports $APP
+    port*) showports $APP
         ;;
-    top)
-        showtop $APP
+    top) showtop $APP
+        ;;
+    deploy) deploy "$NEXTARG"
+        ;;
+    build) build "$NEXTARG"
         ;;
     *) usage ;;
 esac
