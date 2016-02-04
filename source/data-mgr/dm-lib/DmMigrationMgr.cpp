@@ -42,7 +42,6 @@ DmMigrationMgr::DmMigrationMgr(DataMgr &_dataMgr)
                           get<int32_t>("fds.dm.testing.test_delay_start"));
 
     /* 3 hours for idle timeout */
-    idleTimeoutSecs = 3*3600;
     auto timer = modProvider->getTimer();
     auto task = [this] () {
         /* Immediately post to threadpool so we don't hold up timer thread */
@@ -51,7 +50,7 @@ DmMigrationMgr::DmMigrationMgr(DataMgr &_dataMgr)
 
     };
     auto idleTimeouTask = SHPTR<FdsTimerTask>(new FdsTimerFunctionTask(task));
-    timer->scheduleRepeated(idleTimeouTask, std::chrono::seconds(idleTimeoutSecs));
+    timer->scheduleRepeated(idleTimeouTask, std::chrono::seconds(getidleTimeoutSecs()));
 }
 
 

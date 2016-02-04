@@ -122,6 +122,7 @@ ReplicaInitializer<T>::~ReplicaInitializer()
 {
 }
 
+// 02/03/16 Neil - currently only used in: VolumeMeta::startInitializer()
 template <class T>
 void ReplicaInitializer<T>::run()
 {
