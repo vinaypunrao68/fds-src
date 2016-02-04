@@ -7,6 +7,7 @@
 #include <vector>
 #include <unordered_map>
 #include <fds_module.h>
+#include <fds_counters.h>
 // TODO(Rao): Do forward decl here
 #include <concurrency/SynchronizedTaskExecutor.hpp>
 #include <net/PlatNetSvcHandler.h>
@@ -82,6 +83,7 @@ using StringPtr = boost::shared_ptr<std::string>;
 class PlatNetSvcHandler;
 struct DLT;
 struct DLTManager;
+struct DMT;
 struct DMTManager;
 using DLTManagerPtr = boost::shared_ptr<DLTManager>;
 using DMTManagerPtr = boost::shared_ptr<DMTManager>;
@@ -125,7 +127,7 @@ using SvcHandleMap = std::unordered_map<fpi::SvcUuid, SvcHandlePtr, SvcUuidHash>
 /**
 * @brief Overall manager class for service layer
 */
-struct SvcMgr : HasModuleProvider, Module {
+struct SvcMgr : HasModuleProvider, Module, StateProvider {
     SvcMgr(CommonModuleProviderIf *moduleProvider,
            PlatNetSvcHandlerPtr handler,
            fpi::PlatNetSvcProcessorPtr processor,
@@ -333,6 +335,11 @@ struct SvcMgr : HasModuleProvider, Module {
     const DLT* getCurrentDLT();
 
     /**
+    * @brief Return current dlt
+    */
+    SHPTR<DMT> getCurrentDMT();
+
+    /**
     * @brief Returns dlt manager
     */
     DLTManagerPtr getDltManager() { return dltMgr_; }
@@ -528,6 +535,10 @@ struct SvcMgr : HasModuleProvider, Module {
     */
     static const int32_t MAX_CONN_RETRIES;
 
+    /* Debug query api to get state as kv pairs */
+    std::string getStateProviderId() override;
+    std::string getStateInfo() override;
+
  protected:
     /**
     * @brief For getting service handle.
@@ -569,6 +580,7 @@ struct SvcMgr : HasModuleProvider, Module {
     /* Dmt manager */
     DMTManagerPtr dmtMgr_;
 
+    std::string stateProviderId;
 
 };
 

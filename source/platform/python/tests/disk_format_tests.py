@@ -6,6 +6,7 @@ import unittest
 import mock
 import disk_format
 import copy
+import subprocess
 
 
 ''' extendedFstab class unit tests -- these could use improvements '''
@@ -548,6 +549,28 @@ class testDiskUtils (unittest.TestCase):
 
         assert test_mount_point == mount_points[0]
 
+    def testIsMounted (self):
+        dev = self.du.is_mounted("/")
+        assert dev # the root partition must be mounted
+        dev = self.du.is_mounted("blah")
+        assert not dev # bad mount point
+
+    def my_find_fs (self, param):
+        if param == 'UUID=cazzoomar':
+            return '/dev/sda'
+        return None
+
+    def testFindDeviceByUUIDStr (self):
+        dev = self.du.find_device_by_uuid_str("blah")
+        assert not dev
+        call_list = ['blkid', '-o', 'device']
+        output = subprocess.Popen (call_list, stdout=subprocess.PIPE).stdout
+        for line in output:
+            dev = line.strip ('\r\n')
+            uuid = self.du.get_uuid(dev)
+            if uuid:   
+                retdev = self.du.find_device_by_uuid_str("UUID="+uuid)
+                assert retdev == dev 
 
     @mock.patch ('disk_format.DiskUtils.call_subproc')
     def testCleanUpMounted (self, mock_subproc):
@@ -643,6 +666,16 @@ class testDiskManager (unittest.TestCase):
         self.manager.global_debug_on = True
         self.manager.partition_and_format_disks()
         assert 3 == mock_format.call_count # 6 - 2(os) -1(formatted)
+
+    def testDiskManagerBuildPartitionListsWExisting (self):
+        self.manager.disk_config_file = 'test_data/disk_config'
+        self.manager.load_disk_config_file()
+
+        self.manager.disk_list[5].marker = disk_format.DISK_MARKER
+        self.manager.find_formatted_disks()
+        self.manager.build_partition_lists()
+        num_parts = len(self.manager.umount_list)
+        assert 4 == num_parts # 4 = 3(SM) + 1(DM)
 
     def testDiskManagerCalcCapacities (self):
         self.manager.disk_config_file = 'test_data/disk_config'
@@ -927,3 +960,30 @@ class testDiskManager (unittest.TestCase):
 
         self.manager.process()
 
+    def testDiskManagerCleanupFstab(self):
+        fstab_file = 'test_data/ExtendedFstabTest.unit'
+        self.manager.fstab.read (fstab_file)
+        mount_point='/fds/sys-repo'
+        uuid='fakeuuid'
+        uuid_strs = self.manager.fstab.get_devices_by_mount_point(mount_point)
+        assert len(uuid_strs) > 0
+        self.manager.cleanup_fstab(uuid, mount_point)
+        uuid_strs = self.manager.fstab.get_devices_by_mount_point(mount_point)
+        assert len(uuid_strs) == 0
+
+    def my_is_mounted(self, param):
+        if param == 'hdd-1':
+            return '/dev/sda'
+        return None
+
+    @mock.patch ('disk_format.DiskUtils.is_mounted')
+    def testGenerateMountPointIndex(self, mock_is_mounted):
+        mock_is_mounted.side_effect = self.my_is_mounted
+        fstab_file = 'test_data/ExtendedFstabTest.unit'
+        self.manager.fstab.read (fstab_file)
+
+        index = 1
+        uuid = '1'
+        base_name="hdd-"
+        index = self.manager.generate_mount_point_index(base_name, index, uuid)
+        assert index == 2  

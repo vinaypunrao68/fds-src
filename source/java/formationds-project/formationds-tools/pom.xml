@@ -5,7 +5,7 @@
     <parent>
         <artifactId>formationds</artifactId>
         <groupId>com.formationds</groupId>
-        <version>2016.01.29-SNAPSHOT</version>
+        <version>2016.02.12-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 

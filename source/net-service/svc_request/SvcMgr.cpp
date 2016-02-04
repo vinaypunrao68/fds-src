@@ -24,6 +24,7 @@
 #include <fds_dmt.h>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
+#include <json/json.h>
 
 namespace fds {
 
@@ -155,6 +156,7 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
 
     dltMgr_.reset(new DLTManager());
     dmtMgr_.reset(new DMTManager());
+
 }
 
 fpi::FDSP_MgrIdType SvcMgr::mapToSvcType(const std::string &svcName)
@@ -252,6 +254,11 @@ int SvcMgr::mod_init(SysParams const *const p)
 
 void SvcMgr::mod_startup()
 {
+    if (MODULEPROVIDER()->get_cntrs_mgr() != nullptr) {
+        stateProviderId = "svcmgr";
+        MODULEPROVIDER()->get_cntrs_mgr()->add_for_export(this);
+    }
+    
     GLOGNOTIFY;
 }
 
@@ -262,6 +269,9 @@ void SvcMgr::mod_enable_service()
 
 void SvcMgr::mod_shutdown()
 {
+    if (MODULEPROVIDER()->get_cntrs_mgr() != nullptr) {
+        MODULEPROVIDER()->get_cntrs_mgr()->remove_from_export(this);
+    }
     GLOGNOTIFY;
 }
 
@@ -604,6 +614,11 @@ const DLT* SvcMgr::getCurrentDLT() {
     return dltMgr_->getDLT();
 }
 
+DMTPtr SvcMgr::getCurrentDMT()
+{
+    return dmtMgr_->hasCommittedDMT() ? dmtMgr_->getDMT(DMT_COMMITTED) : nullptr;
+}
+
 bool SvcMgr::hasCommittedDMT() const {
     return dmtMgr_->hasCommittedDMT();
 }
@@ -698,6 +713,20 @@ void SvcMgr::setUnreachableInjection(float frequency) {
     // for a bit before eventually hitting it.
     fiu_enable_random("svc.fault.unreachable", 1, NULL, 0, frequency);
     LOGNOTIFY << "Enabling unreachable fault injections at a probability of " << frequency;
+}
+
+std::string SvcMgr::getStateProviderId() {
+    return stateProviderId;
+}
+
+std::string SvcMgr::getStateInfo() {
+
+    Json::Value state;
+    state["outstandingRequestsCount"] = static_cast<Json::Value::UInt64>(svcRequestMgr_->getOutstandingRequestsCount());
+
+    std::stringstream ss;
+    ss << state;
+    return ss.str();
 }
 
 SvcHandle::SvcHandle(CommonModuleProviderIf *moduleProvider,
@@ -884,6 +913,5 @@ void SvcHandle::markSvcDown_()
         svcMgr->notifyOMSvcIsDown(svcInfo_);
     }
 }
-
 
 }  // namespace fds

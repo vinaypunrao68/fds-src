@@ -3125,5 +3125,6 @@ ConfigDB::ReturnType ConfigDB::getSubscription(const std::string& name, const st
     }
     return ReturnType::CONFIGDB_EXCEPTION;
 }
+
 }  // namespace kvstore
 }  // namespace fds

@@ -20,6 +20,7 @@ import org.joda.time.Duration;
 import org.junit.*;
 
 import javax.security.auth.Subject;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -148,6 +149,11 @@ public class AsyncAmTest extends BaseAmTest {
         @Override
         public int objectSize(String volume) {
             return OBJECT_SIZE;
+        }
+
+        @Override
+        public long maxVolumeCapacityInBytes(String volume) throws IOException {
+            return 0;
         }
 
         @Override

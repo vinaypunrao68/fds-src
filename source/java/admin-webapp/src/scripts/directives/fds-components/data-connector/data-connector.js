@@ -5,8 +5,8 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
         replace: true,
         transclude: false,
         templateUrl: 'scripts/directives/fds-components/data-connector/data-connector.html',
-        scope: { volumeType: '=ngModel', editable: '@', enable: '=?'},
-        controller: function( $scope, $data_connector_api ){
+        scope: { volumeType: '=ngModel', editable: '@', enableType: '=?', enableSize: '=?'},
+        controller: function( $scope, $data_connector_api, $byte_converter ){
             
             var SYNC = 'sync';
             var ASYNC = 'async';
@@ -24,14 +24,19 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
             $scope._async = true;
             $scope._clients = '*';
 
-            var findUnit = function(){
+            var findUnit = function( unit ){
 
+                // if no unit is provided just use the one in the capacity object
+                if ( !angular.isDefined( unit ) ){
+                    unit = $scope.volumeType.capacity.unit;
+                }
+                
                 if ( !angular.isDefined( $scope.volumeType.capacity ) ){
                     return;
                 }
                 
                 for ( var i = 0; i < $scope.sizes.length; i++ ){
-                    if ( $scope.sizes[i].name == $scope.volumeType.capacity.unit ){
+                    if ( $scope.sizes[i].name == unit ){
                         $scope._selectedUnit = $scope.sizes[i];
                     }
                 }
@@ -116,7 +121,7 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
             
             $scope.$watch( 'volumeType.clients', function( newVal ){
                 
-                if ( angular.isDefined( newVal ) && newVal.trim().length === 0 ){
+                if ( !angular.isDefined( newVal ) || newVal.trim().length === 0 ){
                     return;
                 }
                 
@@ -134,8 +139,17 @@ angular.module( 'volumes' ).directive( 'connectorPanel', function(){
                 $scope.$emit( 'change' );
                 
                 if ( angular.isDefined( $scope.volumeType.capacity ) ){
-                    $scope._selectedSize = $scope.volumeType.capacity.value;
-                    findUnit();
+                    
+                    var b_str = $byte_converter.convertFromUnitsToString( $scope.volumeType.capacity.value, $scope.volumeType.capacity.units );
+                    var sizeParts = b_str.split( ' ' );
+                    var b_num = parseInt( sizeParts[0] );
+                    
+                    $scope._selectedSize = b_num;
+                    
+                    // before we find the unit we need to make sure we use the units
+                    // given by the conversion.  As is, the findUnit command will use the one
+                    // in the capacity field.
+                    findUnit( sizeParts[1] );
                 }
                 
                 // this means its iscsi

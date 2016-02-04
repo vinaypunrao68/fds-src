@@ -22,6 +22,8 @@
 #include <omutils.h>
 #include <fdsp_utils.h>
 
+DECL_EXTERN_OUTPUT_FUNCS(GenericCommandMsg);
+
 namespace fds {
 template<typename T>
 static T
@@ -63,6 +65,7 @@ OmSvcHandler::OmSvcHandler(CommonModuleProviderIf *provider)
     REGISTER_FDSP_MSG_HANDLER(fpi::HeartbeatMessage, heartbeatCheck);
     REGISTER_FDSP_MSG_HANDLER(fpi::SvcStateChangeResp, svcStateChangeResp);
     REGISTER_FDSP_MSG_HANDLER(fpi::SetVolumeGroupCoordinatorMsg, setVolumeGroupCoordinator);
+    REGISTER_FDSP_MSG_HANDLER(fpi::GenericCommandMsg, genericCommand);
 }
 
 int OmSvcHandler::mod_init(SysParams const *const param)
@@ -567,14 +570,15 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
         {
             NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
 
-            if ( (gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.uuid_get_val()) == fpi::SVC_STATUS_REMOVED) &&
-                 ((svc_type == fpi::FDSP_STOR_MGR) || (svc_type == fpi::FDSP_DATA_MGR)) ) {
+            fpi::ServiceStatus status = gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.uuid_get_val());
+            if ( (status == fpi::SVC_STATUS_REMOVED) ||
+                 (status == fpi::SVC_STATUS_INACTIVE_STOPPED) ) {
 
                 // It is important that SMs and DMs stay in removed state for correct
                 // handling if interruptions occur before commit of the DLT or DMT.
                 // If the svc is in REMOVED state, it has been stopped and is already INACTIVE
                 LOGDEBUG << "Service:" << std::hex << msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid
-                         << std::dec << " in REMOVED state, will not change state to INACTIVE";
+                         << std::dec << " in REMOVED or INACTIVE_STOPPED state, will not change state to failed";
                 return;
             }
 
@@ -596,15 +600,8 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
             /*
              * change the state and update service map; then broadcast updated service map
              */
-            // don't mark this to inactive failed if it is already in stopped state
-            if (gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.uuid_get_val()) != fpi::SVC_STATUS_INACTIVE_STOPPED)
-            {
-                auto svcPtr = boost::make_shared<fpi::SvcInfo>(msg->healthReport.serviceInfo);
-                domain->om_change_svc_state_and_bcast_svcmap( svcPtr, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
-            } else {
-                LOGWARN << "Svc:" << std::hex << uuid.uuid_get_val() << std::dec
-                        << "has been set to inactive from a previous stop request";
-            }
+            auto svcInfo = boost::make_shared<fpi::SvcInfo>(msg->healthReport.serviceInfo);
+            domain->om_change_svc_state_and_bcast_svcmap( svcInfo, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
             domain->om_service_down( reportError, uuid, svc_type );
         }
 
@@ -726,5 +723,18 @@ OmSvcHandler::setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
 }
 
+void OmSvcHandler::genericCommand(ASYNC_HANDLER_PARAMS(GenericCommandMsg)) {
+    if (msg->command == "timeline.queue.ping") {
+        auto om = gl_orch_mgr;
+        if (om->snapshotMgr != NULL) {
+            om->snapshotMgr->snapScheduler->ping();
+            om->snapshotMgr->deleteScheduler->ping();
+        } else {
+            LOGWARN << "snapshot mgr is NULL";
+        }
+    } else {
+        LOGCRITICAL << "unexpected command received : " << msg;
+    }
+}
 
 }  //  namespace fds

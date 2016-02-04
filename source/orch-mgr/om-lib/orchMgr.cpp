@@ -66,6 +66,8 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule, bool initAsModule,
         svcStartThread->detach();
         svcStartRetryThread.reset(new std::thread(&OrchMgr::svcStartRetryMonitor, this));
         svcStartRetryThread->detach();
+    } else {
+        enableTimeline = false;
     }
     /*
      * Testing code for loading test info from disk.
@@ -145,7 +147,7 @@ void OrchMgr::proc_pre_startup()
 
 void OrchMgr::proc_pre_service()
 {
-    if ( enableTimeline ) 
+    if ( !test_mode && enableTimeline )
     {
         snapshotMgr->init();
     }
@@ -203,6 +205,11 @@ int OrchMgr::run()
     if (!test_mode) {
         deleteScheduler.start();
         runConfigService(this);
+    } else {
+        // just sleep for the duration of the test
+        while (true) {
+            sleep(60);
+        }
     }
     return 0;
 }
@@ -595,7 +602,7 @@ bool OrchMgr::loadFromConfigDB() {
     OM_Module::om_singleton()->om_volplace_mod()->setConfigDB(getConfigDB());
 
     // load the snapshot policies
-    if (enableTimeline) {
+    if (!test_mode && enableTimeline) {
         snapshotMgr->loadFromConfigDB();
     }
 

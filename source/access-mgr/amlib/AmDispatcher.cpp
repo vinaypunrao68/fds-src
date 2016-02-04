@@ -1175,30 +1175,26 @@ AmDispatcher::_getQueryCatalogCb(GetBlobReq* amReq, const Error& error, shared_s
 {
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
 
-    Error err = error;
-    if (err != ERR_OK && err != ERR_BLOB_OFFSET_INVALID) {
-        // TODO(Andrew): We should consider logging this error at a
-        // higher level when the volume is not block
-        LOGDEBUG << "blob name: " << amReq->getBlobName() << " offset: "
-                 << amReq->blob_offset << " Error: " << error;
-        err = (err == ERR_CAT_ENTRY_NOT_FOUND ? ERR_BLOB_NOT_FOUND : err);
+    Error err { ERR_OK };
+    switch (error.GetErrno()) {
+    case ERR_CAT_ENTRY_NOT_FOUND:
+        err = ERR_BLOB_NOT_FOUND;
+        break;;
+    case ERR_BLOB_OFFSET_INVALID:
+        // This is fine, return OK
+        break;;
+    default:
+        err = error;
     }
 
     auto qryCatRsp = deserializeFdspMsg<fpi::QueryCatalogMsg>(err, payload);
-
-    if (err.ok()) {
-        // Copy the metadata into the callback, if needed
-        if (true == amReq->get_metadata) {
-            auto cb = std::dynamic_pointer_cast<GetObjectWithMetadataCallback>(amReq->cb);
-            // Fill in the data here
-            cb->blobDesc = boost::make_shared<BlobDescriptor>();
-            cb->blobDesc->setBlobName(amReq->getBlobName());
-            cb->blobDesc->setBlobSize(qryCatRsp->byteCount);
-            for (const auto& meta : qryCatRsp->meta_list) {
-                cb->blobDesc->addKvMeta(meta.key,  meta.value);
-            }
+    if (ERR_OK == err) {
+        amReq->blobDesc = boost::make_shared<BlobDescriptor>();
+        amReq->blobDesc->setBlobName(amReq->getBlobName());
+        amReq->blobDesc->setBlobSize(qryCatRsp->byteCount);
+        for (const auto& meta : qryCatRsp->meta_list) {
+            amReq->blobDesc->addKvMeta(meta.key,  meta.value);
         }
-
 
         for (fpi::FDSP_BlobObjectList::const_iterator it = qryCatRsp->obj_list.cbegin();
              it != qryCatRsp->obj_list.cend();

@@ -9,8 +9,6 @@
 
 namespace fds {
 
-ClusterMap gl_OMClusMapMod;
-
 ClusterMap::ClusterMap()
         : Module("OM Cluster Map"),
           version(0),
@@ -225,11 +223,21 @@ ClusterMap::addPendingRmService(fpi::FDSP_MgrIdType svc_type,
     switch (svc_type) {
         case fpi::FDSP_STOR_MGR:
             fds_verify(curSmMap.count(rm_uuid) == 0);
-            removedSMs.insert(rm_uuid);
+            if (removedSMs.count(rm_uuid) == 0) {
+                removedSMs.insert(rm_uuid);
+            } else {
+                LOGNOTIFY << "Uuid:" << std::hex << rm_uuid.uuid_get_val() << std::hex
+                          << " is already in removedSMs list";
+            }
             break;
         case fpi::FDSP_DATA_MGR:
             fds_verify(curDmMap.count(rm_uuid) == 0);
-            removedDMs.insert(rm_uuid);
+            if (removedDMs.count(rm_uuid) == 0) {
+                removedDMs.insert(rm_uuid);
+            } else {
+                LOGNOTIFY << "Uuid:" << std::hex << rm_uuid.uuid_get_val() << std::hex
+                          << " is already in removedDMs list";
+            }
             break;
         default:
             fds_panic("Unknown MgrIdType %u", svc_type);

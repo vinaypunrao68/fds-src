@@ -179,7 +179,7 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
     }
 
     // TODO: limit this and make it configurable
-    LOGNORMAL << "Number of executors: " << migrExecutors.size();
+    LOGNORMAL << "Number of executors(sm tokens) going to do data migration: " << migrExecutors.size();
 
     fds_verify(smTokenInProgress.size() == 0);
     // (Matteo) migrExecutorLock and smTokenInProgressMutex
@@ -646,11 +646,17 @@ MigrationMgr::startSecondObjectRebalance(fpi::CtrlGetSecondRebalanceDeltaSetPtr&
         LOGWARN << "Migration was already aborted, not going to handle second object rebalance msg";
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
-    fds_verify(atomic_load(&migrState) == MIGR_IN_PROGRESS);
-
+    if (!(atomic_load(&migrState) == MIGR_IN_PROGRESS)) {
+        LOGWARN << "Unexpected migration state. Aborting migration.";
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
     SCOPEDREAD(clientLock);
     // we must have migration client if we are in progress state
-    fds_verify(migrClients.count(msg->executorID) != 0);
+    if (migrClients.count(msg->executorID) == 0) {
+        LOGERROR << "Lost migration client for executor: " << msg->executorID
+                 << " destination SM: " << executorSmUuid.svc_uuid;
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
     // TODO(Sean):  Need to reset the double sequence for executor on the destion SM
     //              before starting the second phase.
     migrClients[msg->executorID]->migClientStartRebalanceSecondPhase(msg);
@@ -938,7 +944,7 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
         } else {
             // done with second round -- all done
             if (omStartMigrCb) {
-                LOGNOTIFY << "SM data migration completed. Notifying OM";
+                LOGNOTIFY << "OM triggered token migration completed. Notifying OM";
                 omStartMigrCb(ERR_OK);
                 omStartMigrCb = NULL;  // we replied, so reset
             }
@@ -973,6 +979,8 @@ MigrationMgr::reportMigrationCompleted(fds_bool_t resyncOnRestart) {
     resyncPending = std::atomic_exchange(&isResyncPending, resyncPending);
     if (resyncPending || resyncOnRestart) {
         cachedResyncDoneOrPendingCb(resyncPending, resyncOnRestart);
+    } else {
+        LOGNOTIFY << "No pending resync";
     }
 }
 
@@ -1233,6 +1241,7 @@ MigrationMgr::makeTokensAvailable(const DLT *dlt,
         // Initialize DLT tokens that this SM owns to ready
         resetDltTokensStates(bitsPerDltToken);
         const TokenList& tokens = dlt->getTokens(mySvcUuid);
+        LOGNOTIFY << "Total tokens owned: " << tokens.size();
         changeDltTokensAvailability(tokens, true);
     }
 }
@@ -1255,7 +1264,7 @@ MigrationMgr::isDltTokenReady(const ObjectID& objId) {
         fds_token_id dltTokId = DLT::getToken(objId, numBitsPerDltToken);
         return dltTokenStates[dltTokId];
     }
-    return false;
+    return true;
 }
 
 fds_bool_t
@@ -1394,7 +1403,11 @@ MigrationMgr::abortMigrationForSMToken(fds_token_id &smToken, const Error &err)
          cit != migrExecutors[smToken].cend(); ++cit) {
         bool isFirstRound = !(cit->second->migrationRound() == 2);
         cit->second->abortMigration(err);
-        changeDltTokensAvailability(cit->second->getTokens(), false);
+        /**
+         * Even if data migration did not complete for this token.
+         * Make the token available. IOs should never stop.
+         */
+        changeDltTokensAvailability(cit->second->getTokens(), true);
         startNextSMTokenMigration(smToken, isFirstRound);
     }
     return err;
@@ -1685,7 +1698,7 @@ MigrationMgr::abortMigrationCb(fds_uint64_t& executorId,
          cit != migrExecutors[smToken].cend(); ++cit) {
         if (cit->second->getId() == executorId) {
             cit->second->abortMigration(ERR_SM_TOK_MIGRATION_ABORTED);
-            changeDltTokensAvailability(cit->second->getTokens(), false);
+            changeDltTokensAvailability(cit->second->getTokens(), true);
         }
     }
 

@@ -57,6 +57,11 @@ task buildDeb(type: Deb) {
 		include 'fds_upstart_defaults*', 'fds-om.conf.j2'
 		fileMode 755
 	}
+
+	from( '../../config/etc/ssl' ) {
+		into 'etc/ssl'
+		fileMode 755
+	}
  
 	from( 'etc' ){
 		into 'etc'

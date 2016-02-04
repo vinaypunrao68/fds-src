@@ -29,7 +29,7 @@ fds: {
             volume_open_support = {{ ft_common_enable_volume_open_support }}
 
     	    /* Volume grouping allows IO to volumes to driven by a coordinator at AM */
-    	    enable_volumegrouping = false
+    	    enable_volumegrouping = {{ ft_enable_volumegrouping }}
 
     	    /* applies to OM and XDI web toolkit */
             enable_web_logging_request_wrapper = {{ ft_enable_web_logging_request_wrapper }}
@@ -53,6 +53,7 @@ fds: {
             nbd_connector = {{ ft_am_nbd_enabled }}
             serialization = "{{ am_req_serialization }}"
             all_atomic_ops = {{ am_all_atomic_ops }}
+            cache_missing_cat_entries = {{ am_cache_missing_cat }}
         }
         om: {
            allow_service_reregistration = {{ ft_allow_service_reregistration }}
@@ -61,8 +62,21 @@ fds: {
            fs_2660_metric_firebreak_event_query = {{ ft_fs_2660_metric_firebreak_event_query }}
            enable_influxdb_write_batch = {{ ft_enable_influxdb_write_batch }}
            enable_influxdb_chunked_query_response = {{ ft_enable_influxdb_chunked_query_response }}
+
+           /* If both are enabled, then metrics are written to both and queries depend on
+              the enable_influxdb_query_series_per_volume flag */
+
+           /* default original implementation using a single series containing all volume metrics */
+           enable_influxdb_one_series = {{ ft_enable_influxdb_one_series }}
+
+           /* new implementation that uses a series per volume */
+           enable_influxdb_series_per_volume = {{ ft_enable_influxdb_series_per_volume }}
+
+           /** if enabled, query from new series per volume implementation */
+           enable_influxdb_query_series_per_volume = {{ ft_enable_influxdb_query_series_per_volume }}
+
            ignore_failed_svcs = {{ ft_ignore_failed_svcs }}
-	}
+        }
     }
 
     /* Use this section for settings that are shared (or needed) by most or all processes */

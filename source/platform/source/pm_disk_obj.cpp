@@ -15,6 +15,7 @@ extern "C" {
 #include "disk_plat_module.h"
 #include "platform_disk_obj.h"               // TODO(donavan) the .h file is named wrong
 #include "disk_print_iter.h"
+#include "disk_mnt_pt_iter.h"
 #include "disk_constants.h"
 
 namespace fds
@@ -81,6 +82,15 @@ namespace fds
             {
                 // In simulation, the mount point is the same as the device.
                 dsk_mount_pt.assign(rs_name);
+            }
+            else
+            {
+                if (this->dsk_parent == this)
+                {   // iterate through the slices and set the mount point to the mount point of the last slice
+                    LOGDEBUG << "getting mount point for " << this->rs_get_name();
+                    DiskMntPtIter    iter;
+                    dsk_dev_foreach(&iter);
+                }
             }
         }
         return dsk_mount_pt;

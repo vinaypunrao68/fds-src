@@ -20,14 +20,29 @@ using ::testing::Return;
 namespace fds {
 
 static std::string logname = "smtoken_state";
+const DiskId DEFAULT_HDD_ID = 1;
+const DiskId DEFAULT_SSD_ID = 10;
+//const fds_uint16_t DEFAULT_DISKIDX = 0;
+
+std::set<SmTokenLoc> tokToLoc(SmTokenSet tokens) {
+    std::set<SmTokenLoc> tokenLocations;
+    for (auto smToken : tokens) {
+        SmTokenLoc tokenLoc;
+        tokenLoc.id = smToken;
+        tokenLoc.hdd = DEFAULT_HDD_ID;
+        tokenLoc.ssd = DEFAULT_SSD_ID;
+        tokenLocations.insert(tokenLoc);
+    }
+    return tokenLocations;
+}
 
 TEST(SmTokenState, initialize) {
     TokenDescTable tbl;
     GLOGNORMAL << "Newly allocated table must be invalid";
     for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; ++tok) {
-        fds_uint16_t fileId = tbl.getWriteFileId(tok, diskio::diskTier);
+        fds_uint16_t fileId = tbl.getWriteFileId(DEFAULT_HDD_ID, tok, diskio::diskTier);
         EXPECT_EQ(fileId, SM_INVALID_FILE_ID);
-        fileId = tbl.getWriteFileId(tok, diskio::flashTier);
+        fileId = tbl.getWriteFileId(DEFAULT_SSD_ID, tok, diskio::flashTier);
         EXPECT_EQ(fileId, SM_INVALID_FILE_ID);
     }
     // there must be no valid tokens
@@ -45,7 +60,7 @@ TEST(SmTokenState, initialize) {
 
         // initialize table
         TokenDescTable tokTbl;
-        fds_bool_t initAtLeastOneToken = tokTbl.initializeSmTokens(toks);
+        fds_bool_t initAtLeastOneToken = tokTbl.initializeSmTokens(tokToLoc(toks));
         if (toks.size() > 0) {
             EXPECT_TRUE(initAtLeastOneToken);
         }
@@ -53,9 +68,9 @@ TEST(SmTokenState, initialize) {
         for (SmTokenSet::const_iterator cit = toks.cbegin();
              cit != toks.cend();
              ++cit) {
-            fds_uint16_t fileId = tokTbl.getWriteFileId(*cit, diskio::diskTier);
+            fds_uint16_t fileId = tokTbl.getWriteFileId(DEFAULT_HDD_ID, *cit, diskio::diskTier);
             EXPECT_EQ(fileId, SM_INIT_FILE_ID);
-            fileId = tokTbl.getWriteFileId(*cit, diskio::flashTier);
+            fileId = tokTbl.getWriteFileId(DEFAULT_SSD_ID, *cit, diskio::flashTier);
             EXPECT_EQ(fileId, SM_INIT_FILE_ID);
         }
         SmTokenSet retTokSet = tbl.getSmTokens();
@@ -69,19 +84,19 @@ TEST(SmTokenState, update) {
         tokSet.insert(tok);
     }
     TokenDescTable tokTbl;
-    fds_bool_t initAtLeastOneToken = tokTbl.initializeSmTokens(tokSet);
+    fds_bool_t initAtLeastOneToken = tokTbl.initializeSmTokens(tokToLoc(tokSet));
     EXPECT_TRUE(initAtLeastOneToken);
 
     for (SmTokenSet::const_iterator cit = tokSet.cbegin();
          cit != tokSet.cend();
          ++cit) {
         fds_uint16_t fileId = 0x0012;
-        tokTbl.setWriteFileId(*cit, diskio::diskTier, fileId);
-        tokTbl.setCompactionState(*cit, diskio::diskTier, true);
+        tokTbl.setWriteFileId(DEFAULT_HDD_ID,  *cit, diskio::diskTier, fileId);
+        tokTbl.setCompactionState(DEFAULT_HDD_ID, *cit, diskio::diskTier, true);
 
-        fds_uint16_t fid = tokTbl.getWriteFileId(*cit, diskio::diskTier);
+        fds_uint16_t fid = tokTbl.getWriteFileId(DEFAULT_HDD_ID, *cit, diskio::diskTier);
         EXPECT_EQ(fileId, fid);
-        EXPECT_TRUE(tokTbl.isCompactionInProgress(*cit, diskio::diskTier));
+        EXPECT_TRUE(tokTbl.isCompactionInProgress(DEFAULT_HDD_ID,*cit, diskio::diskTier));
     }
     GLOGNORMAL << "Every other token has 0x0012 fileId and compaction flag -- "
                << tokTbl;
@@ -94,12 +109,12 @@ TEST(SmTokenState, comparison) {
         tokSet.insert(tok);
     }
     TokenDescTable tokTbl;
-    fds_bool_t initAtLeastOneToken = tokTbl.initializeSmTokens(tokSet);
+    fds_bool_t initAtLeastOneToken = tokTbl.initializeSmTokens(tokToLoc(tokSet));
     EXPECT_TRUE(initAtLeastOneToken);
     GLOGNORMAL << "Initial computation - " << tokTbl;
 
     TokenDescTable tokTbl2;
-    initAtLeastOneToken = tokTbl2.initializeSmTokens(tokSet);
+    initAtLeastOneToken = tokTbl2.initializeSmTokens(tokToLoc(tokSet));
     EXPECT_TRUE(initAtLeastOneToken);
     GLOGNORMAL << "Initial computation 2 - " << tokTbl;
     EXPECT_TRUE(tokTbl == tokTbl2);
@@ -107,11 +122,11 @@ TEST(SmTokenState, comparison) {
     // change first token
     SmTokenSet::const_iterator cit = tokSet.cbegin();
     EXPECT_TRUE(cit != tokSet.cend());
-    tokTbl2.setCompactionState(*cit, diskio::diskTier, true);
+    tokTbl2.setCompactionState(DEFAULT_HDD_ID, *cit, diskio::diskTier, true);
     EXPECT_FALSE(tokTbl == tokTbl2);
 
     // change it back
-    tokTbl2.setCompactionState(*cit, diskio::diskTier, false);
+    tokTbl2.setCompactionState(DEFAULT_HDD_ID, *cit, diskio::diskTier, false);
     EXPECT_TRUE(tokTbl == tokTbl2);
 }
 
@@ -124,22 +139,22 @@ TEST(SmTokenState, invalidate) {
         tokSet.insert(tok);
     }
     TokenDescTable tokTbl;
-    fds_bool_t initAtLeastOneToken = tokTbl.initializeSmTokens(tokSet);
+    fds_bool_t initAtLeastOneToken = tokTbl.initializeSmTokens(tokToLoc(tokSet));
     EXPECT_TRUE(initAtLeastOneToken);
 
     // if we call initialize second time, should not make any difference
-    initAtLeastOneToken = tokTbl.initializeSmTokens(tokSet);
+    initAtLeastOneToken = tokTbl.initializeSmTokens(tokToLoc(tokSet));
     EXPECT_FALSE(initAtLeastOneToken);
 
     for (SmTokenSet::const_iterator cit = tokSet.cbegin();
          cit != tokSet.cend();
          ++cit) {
-        tokTbl.setWriteFileId(*cit, diskio::flashTier, flashFileId);
-        tokTbl.setWriteFileId(*cit, diskio::diskTier, diskFileId);
+        tokTbl.setWriteFileId(DEFAULT_SSD_ID, *cit, diskio::flashTier, flashFileId);
+        tokTbl.setWriteFileId(DEFAULT_HDD_ID, *cit, diskio::diskTier, diskFileId);
 
-        fds_uint16_t fid = tokTbl.getWriteFileId(*cit, diskio::flashTier);
+        fds_uint16_t fid = tokTbl.getWriteFileId(DEFAULT_SSD_ID, *cit, diskio::flashTier);
         EXPECT_EQ(flashFileId, fid);
-        fid = tokTbl.getWriteFileId(*cit, diskio::diskTier);
+        fid = tokTbl.getWriteFileId(DEFAULT_HDD_ID, *cit, diskio::diskTier);
         EXPECT_EQ(diskFileId, fid);
     }
     GLOGNORMAL << "Every 3rd token on flash has 0x0042 fileId and on-hdd 0x0052 file id -- "
@@ -162,9 +177,9 @@ TEST(SmTokenState, invalidate) {
     for (SmTokenSet::const_iterator cit = tokSet.cbegin();
          cit != tokSet.cend();
          ++cit) {
-        fds_uint16_t fid = tokTbl.getWriteFileId(*cit, diskio::flashTier);
+        fds_uint16_t fid = tokTbl.getWriteFileId(DEFAULT_SSD_ID, *cit, diskio::flashTier);
         EXPECT_EQ(fid, SM_INVALID_FILE_ID);
-        fid = tokTbl.getWriteFileId(*cit, diskio::diskTier);
+        fid = tokTbl.getWriteFileId(DEFAULT_HDD_ID, *cit, diskio::diskTier);
         EXPECT_EQ(fid, SM_INVALID_FILE_ID);
     }
 }
@@ -175,7 +190,7 @@ TEST(SmTokenState, check_state) {
         tokSet.insert(tok);
     }
     TokenDescTable tokTbl;
-    fds_bool_t initAtLeastOneToken = tokTbl.initializeSmTokens(tokSet);
+    fds_bool_t initAtLeastOneToken = tokTbl.initializeSmTokens(tokToLoc(tokSet));
     EXPECT_TRUE(initAtLeastOneToken);
 
     // if we compare to tokSet again, state should match exactly

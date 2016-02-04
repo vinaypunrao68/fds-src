@@ -88,6 +88,7 @@
 {% set am_testing_toggleDisableStreamingStats = fds_am_testing_toggleDisableStreamingStats if fds_am_testing_toggleDisableStreamingStats is defined else 'false' %}
 {% set am_req_serialization = fds_am_req_serialization if fds_am_req_serialization is defined else 'volume' %}
 {% set am_all_atomic_ops = fds_am_all_atomic_ops if fds_am_all_atomic_ops is defined else 'false' %}
+{% set am_cache_missing_cat = fds_am_cache_missing_cat if fds_am_cache_missing_cat is defined else 'false' %}
 {% set am_nbd_server_threads = fds_am_nbd_server_threads if fds_am_nbd_server_threads is defined else '1' %}
 {% set am_scst_target_prefix = fds_am_scst_target_prefix if fds_am_scst_target_prefix is defined else 'iqn.2012-05.com.formationds:' %}
 {% set am_scst_target_threads = fds_am_scst_target_threads if fds_am_scst_target_threads is defined else '1' %}
@@ -135,6 +136,7 @@
 {% set ft_common_enable_multi_om_support          = fds_ft_common_enable_multi_om_support          if fds_ft_common_enable_multi_om_support          is defined else 'false' %}
 {% set ft_common_enable_subscriptions             = fds_ft_common_enable_subscriptions             if fds_ft_common_enable_subscriptions             is defined else 'false' %}
 {% set ft_common_enable_volume_open_support       = fds_ft_common_enable_volume_open_support       if fds_ft_common_enable_volume_open_support       is defined else 'true'  %}
+{% set ft_enable_volumegrouping                         = fds_ft_enable_volumegrouping                         if fds_ft_enable_volumegrouping                         is defined else 'false'  %}
 {% set ft_common_enable_valgrind      		      = fds_ft_common_enable_valgrind                  if fds_ft_common_enable_valgrind                  is defined else 'false' %}
 {% set ft_enable_timeline                         = fds_ft_enable_timeline                         if fds_ft_enable_timeline                         is defined else 'true'  %}
 {% set ft_periodic_expunge                        = fds_ft_periodic_expunge                        if fds_ft_periodic_expunge                        is defined else 'true'  %}
@@ -153,6 +155,9 @@
 {% set ft_enable_web_logging_request_wrapper      = fds_ft_enable_web_logging_request_wrapper      if fds_ft_enable_web_logging_request_wrapper      is defined else 'false' %}
 {% set ft_enable_influxdb_write_batch             = fds_ft_enable_influxdb_write_batch             if fds_ft_enable_influxdb_write_batch             is defined else 'false' %}
 {% set ft_enable_influxdb_chunked_query_response  = fds_ft_enable_influxdb_chunked_query_response  if fds_ft_enable_influxdb_chunked_query_response  is defined else 'false' %}
+{% set ft_enable_influxdb_one_series              = fds_ft_enable_influxdb_series_per_volume       if fds_ft_enable_influxdb_series_per_volume       is defined else 'true'  %}
+{% set ft_enable_influxdb_series_per_volume       = fds_ft_enable_influxdb_series_per_volume       if fds_ft_enable_influxdb_series_per_volume       is defined else 'false' %}
+{% set ft_enable_influxdb_query_series_per_volume = fds_ft_enable_influxdb_query_series_per_volume if fds_ft_enable_influxdb_query_series_per_volume is defined else 'false' %}
 {% set ft_ignore_failed_svcs                      = fds_ft_ignore_failed_svcs                      if fds_ft_ignore_failed_svcs                      is defined else 'true'  %}
 {#
     Java Options -- not stored in platform.conf, but rather in formation_env and ultimately in environment variables

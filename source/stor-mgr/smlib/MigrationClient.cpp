@@ -256,7 +256,10 @@ void
 MigrationClient::migClientReadObjDeltaSetCb(const Error& error,
                                             SmIoReadObjDeltaSetReq *req)
 {
-    fds_verify(NULL != req);
+    if (!req) {
+        LOGWARN << "Invalid request; error: " << error;
+        return;
+    }
     LOGMIGRATE << "MigClientState=" << getMigClientState()
                << ": Complete ReadObjectDelta: "
                << " seqNum=" << req->seqNum
@@ -291,7 +294,11 @@ MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr,
                                                                executorID,
                                                                getSeqNumDeltaSet(),
                                                                lastSet);
-    fds_verify(NULL != readDeltaSetReq);
+    if (!readDeltaSetReq) {
+        err = ERR_OUT_OF_MEMORY;
+        LOGERROR << "Memory allocation failed for readDeltaSet request with " << err;
+        return;
+    }
 
     readDeltaSetReq->io_type = FDS_SM_READ_DELTA_SET;
     readDeltaSetReq->smioReadObjDeltaSetReqCb = std::bind(

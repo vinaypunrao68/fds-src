@@ -27,6 +27,8 @@ class Scheduler : public HasLogger {
     bool removePolicy(uint64_t policyId);
     void dump();
     void shutdown();
+    // signal a change
+    void ping();
 
   protected:
     typedef boost::heap::fibonacci_heap<Task*> PriorityQueue;
@@ -53,8 +55,6 @@ class Scheduler : public HasLogger {
     void run();
 
   private:
-    // signal a change
-    void ping();
 };
 }  // namespace snapshot
 }  // namespace fds
