@@ -94,21 +94,18 @@ struct VolumeSharedCacheManager
     /**
      * Adds a key-value pair to a volume's cache.
      */
-    std::pair<bool, value_type> add(fds_volid_t const volId, const key_type &key, const value_type value, const bool dirty = false) {
-        static const std::pair<bool, value_type> nil {false, nullptr};
-
+    bool add(fds_volid_t const volId, const key_type &key, const value_type value, const bool dirty = false) {
         SCOPEDREAD(cacheMapRwlock);
         auto mapIt = vol_cache_map.find(volId);
-        if (vol_cache_map.end() == mapIt) {
-            LOGDEBUG << "Failed to find volume: " << volId
-                     << " to insert element [" << key << "]";
-            return nil;
+        if (vol_cache_map.end() != mapIt) {
+            return mapIt->second->add(key, value, dirty);
         }
-
-        return std::make_pair(true, mapIt->second->add(key, value, dirty));
+        LOGDEBUG << "Failed to find volume: " << volId
+            << " to insert element [" << key << "]";
+        return false;
     }
 
-    std::pair<bool, value_type> add_dirty(fds_volid_t const volId, const key_type &key, const value_type value) {
+    bool add_dirty(fds_volid_t const volId, const key_type &key, const value_type value) {
         return add(volId, key, value, true);
     }
 

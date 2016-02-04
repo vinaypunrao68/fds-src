@@ -17,6 +17,13 @@ struct AmTxDescriptor;
 struct GetBlobReq;
 struct GetObjectReq;
 
+// We'll count the data cache in bytes, not objects
+template<>
+struct size_calc<AmAsyncDataApi::shared_string_type> {
+    size_t operator()(AmAsyncDataApi::shared_string_type const& data)
+    { return (data ? data->size() : 0); }
+};
+
 /**
  * A client-side cache of blob metadata and data. The cache
  * multiplexes different volumes and allows for different
