@@ -111,17 +111,20 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         }
         
         // make sure for iSCSI the password has correct length
-        if ( volume.settings.type == 'ISCSI' &&  volume.settings.target.incomingUsers[0].password.length > 0 && 
-            ( volume.settings.target.incomingUsers[0].password.length >= 12 &&
-              volume.settings.target.incomingUsers[0].password.length <= 16 ) ){
+        if ( volume.settings.type == 'ISCSI' && volume.settings.target.incomingUsers.length > 0 ){
             
-            var $event = {
-                text: 'iSCSI password must be between 12 and 16 characters.',
-                type: 'ERROR'
-            };
+            if ( volume.settings.target.incomingUsers[0].password.length > 0 &&
+                (volume.settings.target.incomingUsers[0].password.length < 12 ||
+                 volume.settings.target.incomingUsers[0].password.length > 16 ) ){
             
-            $rootScope.$emit( 'fds::alert', $event );
-            return;
+                var $event = {
+                    text: 'iSCSI password must be between 12 and 16 characters.',
+                    type: 'ERROR'
+                };
+
+                $rootScope.$emit( 'fds::alert', $event );
+                return;
+            }
         }
         
         // make sure if it's NFS that an IP filter is set.

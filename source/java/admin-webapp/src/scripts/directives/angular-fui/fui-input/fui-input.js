@@ -35,7 +35,17 @@ angular.module( 'angular-fui' ).directive( 'fuiInput', function(){
             
             $scope.validate = function( $event ){
                 
+                // bail right away if there are no validation requirements
+                if ( $scope.required === false &&
+                    !angular.isDefined( $scope.regexp ) ){
+                    return;
+                }
+                
                 var valid = true;
+                
+                if ( !angular.isDefined( $scope.aliasedModel ) ){
+                    $scope.aliasedModel = '';
+                }
                  
                 if ( $scope.required === true ){
 
