@@ -33,6 +33,8 @@ fds: {
 
     	    /* applies to OM and XDI web toolkit */
             enable_web_logging_request_wrapper = {{ ft_enable_web_logging_request_wrapper }}
+
+            send_to_new_stats_service = {{ ft_send_to_new_stats_service }}
         }
         pm: {
 
@@ -95,6 +97,8 @@ fds: {
         om_ip_list = "{{ om_ip }}"
         om_port = 7004
         om_uuid = 1028
+
+        stats_port = 11011
 
        {# TODO: FDSCONFIG Make it so that services search for configs in common
            as well as in their own config block. A uniform order of precedence
