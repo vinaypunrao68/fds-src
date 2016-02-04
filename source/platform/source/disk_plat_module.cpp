@@ -80,7 +80,8 @@ void DiskPlatModule::mod_startup()
     pollfds[FD_INOTIFY_IDX].fd = fd;
     pollfds[FD_INOTIFY_IDX].events = POLLIN;
     pollfds[FD_INOTIFY_IDX].revents = 0;
-    int wd = inotify_add_watch( fd, "/fds/etc", IN_CREATE | IN_OPEN);
+    const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
+    int wd = inotify_add_watch( fd, dir->dir_fds_etc().c_str(), IN_CREATE | IN_OPEN);
     if (wd < 0)
     {
         LOGWARN << "Error adding a watch for inotify " << errno;
