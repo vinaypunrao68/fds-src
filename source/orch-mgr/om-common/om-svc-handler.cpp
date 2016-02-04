@@ -316,7 +316,7 @@ void OmSvcHandler::heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     auto curTimePoint = std::chrono::system_clock::now();
     std::time_t time  = std::chrono::system_clock::to_time_t(curTimePoint);
 
-    LOGDEBUG << "Received heartbeat from PM:"
+    LOGNORMAL << "Received heartbeat from PM:"
              << std::hex << svcUuid.svc_uuid <<std::dec;
 
     // Get the time since epoch and convert it to minutes

@@ -1522,7 +1522,7 @@ OM_PmAgent::send_start_service
 
                     // Only if this is already in the map do we change state. Otherwise
                     // it can lead to some weird behavior
-                    LOGDEBUG << "Starting svc:" << std::hex << svcuuid.svc_uuid << std::dec;
+                    LOGNORMAL << "Starting svc:" << std::hex << svcuuid.svc_uuid << std::dec;
                     // TODO: hack to get a svcInfo together. Should be svcinfo from the start
                     // existingItem should already have the right incarnation number and UUID
                     auto svcPtr = boost::make_shared<fpi::SvcInfo>(existingItem);
@@ -2176,8 +2176,8 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
 Error
 OM_PmAgent::send_heartbeat_check(fpi::SvcUuid svcuuid)
 {
-    LOGDEBUG << "Sending heartbeat check msg to PM: "
-             << std::hex << svcuuid.svc_uuid << std::dec;
+    LOGNORMAL << "Sending heartbeat check to Active PM: "
+              << std::hex << svcuuid.svc_uuid << std::dec;
 
     fpi::HeartbeatMessagePtr heartbeatMsg =
                              boost::make_shared<fpi::HeartbeatMessage>();
