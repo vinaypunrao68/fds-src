@@ -302,13 +302,14 @@ def disk_type_with_stor_cli (stor_client):
     dbg_print ("return_list=" + ', '.join(return_list))
     return return_list
 
-def find_index_devices() :
-    output = subprocess.Popen(["df", "/fds/sys-repo"], stdout=subprocess.PIPE).stdout
+def find_index_devices(index_mount_point) :
+    devnull = open(os.devnull, 'wb')
+    output = subprocess.Popen(["df", index_mount_point], stdout=subprocess.PIPE, stderr=devnull).stdout
     index_devs = []
     dev = ""
     for line in output:
         items = line.strip ('\r\n').split()
-        if "/fds/sys-repo" == items[5]:
+        if index_mount_point == items[5]:
             dev = items[0]
             dbg_print("Found an existing index device in df output: %s" % dev)
             break
@@ -343,7 +344,11 @@ if __name__ == "__main__":
             print ( "Error:  Can not access '" + options.stor_cli + "', please use or verify the -s command line option.  Can not continue.")
             sys.exit(1)
 
-    destination_dir = options.fds_root + "/dev"
+    fds_root = options.fds_root
+    if not fds_root.endswith ('/'):
+        fds_root += '/'
+    destination_dir = fds_root + "dev"
+    index_mount_point = fds_root + "sys-repo"
 
     # verify destination directory exists
     if write_disk_config:
@@ -432,10 +437,11 @@ if __name__ == "__main__":
     index_device_list = []
 
     # keep existing index disk(s)
-    index_device_list = find_index_devices()
+    index_device_list = find_index_devices(index_mount_point)
     if len(index_device_list) < 1:
-        subprocess.call(['mount', '/fds/sys-repo'], stdout = None, stderr = None)
-        index_device_list = find_index_devices()
+        devnull = open(os.devnull, 'wb')
+        subprocess.call(['mount', index_mount_point], stdout = None, stderr = devnull)
+        index_device_list = find_index_devices(index_mount_point)
 
     # copy one SSD into the index device list
     while len (index_device_list) < 1 and len (ssd_device_list) > 0:

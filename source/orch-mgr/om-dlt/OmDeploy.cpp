@@ -490,9 +490,8 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
 DltDplyFSM::GRD_DltCompute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-
     fds_bool_t stop = fsm.lock.test_and_set();
-    LOGDEBUG << "GRD_DltCompute: proceed check if DLT needs update? " << !stop;
+    LOGNORMAL << "GRD_DltCompute: proceed check if DLT needs update? " << !stop;
     if (stop) {
         // since we don't want to lose this event, retry later just in case
         LOGDEBUG << "GRD_DltCompute: DLT re-compute already in progress, "
@@ -571,7 +570,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DltDplyFSM::DACT_Rebalance::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "FSM DACT_Rebalance";
+    LOGNORMAL << "FSM DACT_Rebalance";
     OM_Module *om = OM_Module::om_singleton();
     DataPlacement *dp = om->om_dataplace_mod();
     ClusterMap* cm = om->om_clusmap_mod();
@@ -599,7 +598,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "FSM DACT_Commit";
+    LOGNORMAL << "FSM DACT_Commit";
     OM_Module *om = OM_Module::om_singleton();
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     OM_NodeContainer* dom_ctrl = domain->om_loc_domain_ctrl();
@@ -614,16 +613,23 @@ DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
     // and close, we will redo the migration
 
     // commit as an 'official' version in the data placement engine
-    dp->commitDlt( evt.isRestart() );
+    bool committed = dp->commitDlt( evt.isRestart() );
 
-    // Send new DLT to each node in the cluster map
-    // the new DLT now is committed DLT
-    fds_uint32_t count = dom_ctrl->om_bcast_dlt(dp->getCommitedDlt());
-    if (count < 1) {
-        dst.acks_to_wait = 1;
-        fsm.process_event(DltCommitOkEvt(dp->getCommitedDltVersion(), NodeUuid()));
+    if (committed)
+    {
+        // Send new DLT to each node in the cluster map
+        // the new DLT now is committed DLT
+        fds_uint32_t count = dom_ctrl->om_bcast_dlt(dp->getCommitedDlt());
+        if (count < 1) {
+            dst.acks_to_wait = 1;
+            fsm.process_event(DltCommitOkEvt(dp->getCommitedDltVersion(), NodeUuid()));
+        } else {
+            dst.acks_to_wait = count;
+        }
     } else {
-        dst.acks_to_wait = count;
+        LOGNOTIFY << "No target DLT, so nothing to commit/broadcast, moving to next state";
+        dst.acks_to_wait = 1; // 1 because GRD_DltCommit is wired to assert if this is zero. It's all logical.
+        fsm.process_event(DltCommitOkEvt(dp->getCommitedDltVersion(), NodeUuid()));
     }
 }
 
@@ -636,7 +642,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "FSM DACT_Close";
+    LOGNORMAL << "FSM DACT_Close";
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     OM_NodeContainer* dom_ctrl = domain->om_loc_domain_ctrl();
     OM_Module *om = OM_Module::om_singleton();
@@ -707,8 +713,8 @@ DltDplyFSM::GRD_DltClose::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     src.acks_to_wait--;
 
     bool bret = (src.acks_to_wait == 0);
-    LOGDEBUG << "FGR_DltClose: acks to wait " << src.acks_to_wait
-             << " returning " << bret;
+    LOGNORMAL << "FGR_DltClose: acks to wait " << src.acks_to_wait
+              << " returning " << bret;
 
     return bret;
 }
@@ -734,7 +740,7 @@ DltDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
 
     // in case we are in domain bring up state, notify domain that current
     // DLT is up (we got quorum number of acks for DLT commit)
-    LOGDEBUG << "Sending dlt up event";
+    LOGNORMAL << "Scheduled re-compute of DLT, will rase DltDmtUpEvt";
     domain->local_domain_event(DltDmtUpEvt(fpi::FDSP_STOR_MGR));
 }
 
@@ -759,7 +765,7 @@ DltDplyFSM::GRD_DltRebal::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     }
     fds_bool_t all_up = (src.sm_ack_wait.size() == 0);
 
-    LOGMIGRATE << "FSM GRD_DltRebal: is waiting for rebalance ok from "
+    LOGNORMAL << "FSM GRD_DltRebal: is waiting for rebalance ok from "
                << src.sm_ack_wait.size() << " node(s), result " << all_up;
 
     return all_up;
@@ -790,8 +796,8 @@ DltDplyFSM::GRD_DltCommit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     src.acks_to_wait--;
     fds_bool_t b_ret = (src.acks_to_wait == 0);
 
-    LOGDEBUG << "GRD_DltCommit: waiting for " << src.acks_to_wait
-             << " acks, result: " << b_ret;
+    LOGNORMAL << "GRD_DltCommit: waiting for " << src.acks_to_wait
+              << " acks, result: " << b_ret;
 
     return b_ret;
 }
@@ -805,8 +811,8 @@ void
 DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     dst.errFound = evt.error;
-    LOGDEBUG << "FSM DACT_Error " << dst.errFound
-             << " from service " << std::hex << evt.svcUuid.uuid_get_val() << std::dec;
+    LOGNORMAL << "FSM DACT_Error " << dst.errFound
+              << " from service " << std::hex << evt.svcUuid.uuid_get_val() << std::dec;
 
     // if we did not even have target DLT computed, nothing to recover,
     // go back all ok / IDLE state
@@ -888,7 +894,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "FSM DACT_EndError " << src.errFound;
+    LOGNORMAL << "FSM DACT_EndError " << src.errFound;
 
     OM_Module *om     = OM_Module::om_singleton();
     DataPlacement *dp = om->om_dataplace_mod();
@@ -964,8 +970,8 @@ DltDplyFSM::DACT_ChkEndErr::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 {
     DltRecoverAckEvt recoverAckEvt = (DltRecoverAckEvt)evt;
     FdspNodeType node_type = recoverAckEvt.svcUuid.uuid_get_type();
-    LOGDEBUG << "FSM DACT_ChkEndErr ack for abort migration? " << recoverAckEvt.ackForAbort
-             << " node type " << node_type << " " << recoverAckEvt.ackError;
+    LOGNORMAL << "FSM DACT_ChkEndErr ack for abort migration? " << recoverAckEvt.ackForAbort
+              << " node type " << node_type << " " << recoverAckEvt.ackError;
 
     if (recoverAckEvt.ackForAbort) {
         fds_verify(src.abortMigrAcksToWait > 0);
@@ -1012,7 +1018,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DltDplyFSM::DACT_RecoverDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
-    LOGDEBUG << "FSM DACT_RecoverDone ";
+    LOGNORMAL << "FSM DACT_RecoverDone ";
 }
 
 

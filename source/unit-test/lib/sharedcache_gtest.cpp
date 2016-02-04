@@ -29,11 +29,11 @@ TEST(SharedKvCache, add_get)
     fds_uint32_t k2 = 2;
     fds_uint32_t k3 = 3;
     fds_uint32_t k4 = 4;
-    boost::shared_ptr<fds_uint32_t> evictEntry1 = cacheManager.add(k1, k1);
+    cacheManager.add(k1, k1);
 
     cacheManager.add(k2, k2);
     cacheManager.add(k3, k3);
-    boost::shared_ptr<fds_uint32_t> evictEntry4 = cacheManager.add(k4, k4);
+    cacheManager.add(k4, k4);
 
     // Test get works
     decltype(cacheManager)::value_type getV2;
@@ -57,11 +57,11 @@ TEST(SharedKvCache, add_get_strong)
     fds_uint32_t k2 = 2;
     fds_uint32_t k3 = 3;
     fds_uint32_t k4 = 4;
-    boost::shared_ptr<fds_uint32_t> evictEntry1 = cacheManager.add(k1, k1);
+    cacheManager.add(k1, k1);
 
     cacheManager.add(k2, k2);
     cacheManager.add(k3, k3);
-    boost::shared_ptr<fds_uint32_t> evictEntry4 = cacheManager.add(k4, k4);
+    cacheManager.add(k4, k4);
 
     // Test get works
     decltype(cacheManager)::value_type getV2;
@@ -86,13 +86,13 @@ TEST(SharedKvCache, eviction)
     uint32_t i;
     for (i = 0; i < cacheSz; i++) {
         auto evicted = cacheManager.add(i, i);
-        EXPECT_TRUE(evicted == nullptr);
+        EXPECT_FALSE(evicted);
     }
     // We've reached size limit.  We should have an eviction
     auto evicted = cacheManager.add(i, i);
-    EXPECT_TRUE(evicted != nullptr);
+    EXPECT_TRUE(evicted);
     // Cache size should be at the limit now
-    EXPECT_TRUE(cacheManager.getNumEntries() == cacheSz);
+    EXPECT_TRUE(cacheManager.getSize() == cacheSz);
 }
 
 int main(int argc, char** argv) {

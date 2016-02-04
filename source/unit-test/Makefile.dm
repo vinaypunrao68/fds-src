@@ -22,7 +22,9 @@ user_fds_ar_libs  +=  \
 
 user_non_fds_libs +=  \
     boost_timer \
-    crypt crypto \
+    crypt \
+    crypto \
+    statsclient \
     z \
     ssl \
     gmock \

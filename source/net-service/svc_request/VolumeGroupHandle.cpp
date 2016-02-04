@@ -139,7 +139,7 @@ bool VolumeGroupHandle::replayFromWriteOpsBuffer_(const VolumeReplicaHandle &han
          * the replica to be functional yet.  Also, on the DM side incase opid doens't match
          * DM will reject messages
          */
-        req->invoke();
+        req->invokeDirect();
     }
     return true;
 }
