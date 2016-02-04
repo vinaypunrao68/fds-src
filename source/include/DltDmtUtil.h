@@ -6,6 +6,7 @@
 #define SOURCE_INCLUDE_DLTDMTUTIL_H_
 
 #include <vector>
+#include <utility>
 
 #include <fds_typedefs.h>
 
@@ -23,10 +24,10 @@ namespace fds
         ~DltDmtUtil() { };
 
         /* Functions to keep track of removed nodes */
-        void    addToRemoveList(int64_t uuid);
+        void    addToRemoveList(int64_t uuid, fpi::FDSP_MgrIdType svc_type);
         bool    isMarkedForRemoval(int64_t uuid);
-        void    clearFromRemoveList(fds_int64_t nodeUuid);
-        bool    isAnyRemovalPending(fds_int64_t& nodeUuid);
+        void    clearFromRemoveList(int64_t uuid);
+        int     getPendingNodeRemoves(fpi::FDSP_MgrIdType svc_type);
 
         /* Functions to hold info related to migration aborts on OM restart
          * for both DM and SM */
@@ -53,7 +54,7 @@ namespace fds
         static DltDmtUtil*   m_instance;
 
         /* Member to track removedNodes */
-        std::vector<int64_t> removedNodes;
+        std::vector<std::pair<int64_t, fpi::FDSP_MgrIdType>> removedNodes;
 
         /* Keep track of migration interruptions */
         bool                 sendSMMigAbortAfterRestart;
