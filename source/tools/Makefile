@@ -14,6 +14,7 @@ user_fds_so_libs  :=
 user_fds_ar_libs  := \
     fds-lib \
     fds-dm-lib \
+    fds-util \
     fds-fdsp
 
 user_non_fds_libs := \
