@@ -116,7 +116,6 @@ void PlatNetSvcHandler::asyncReqt(const FDS_ProtocolInterface::AsyncHdr& header,
 void PlatNetSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                                      boost::shared_ptr<std::string>& payload)
 {
-    SVCPERF(header->rqRcvdTs = util::getTimeStampNanos());
     fiu_do_on("svc.uturn.asyncreqt", header->msg_code = ERR_INVALID;
               sendAsyncResp(*header, fpi::EmptyMsgTypeId, fpi::EmptyMsg()); return; );
 
@@ -175,7 +174,6 @@ void PlatNetSvcHandler::asyncResp(const FDS_ProtocolInterface::AsyncHdr& header,
 void PlatNetSvcHandler::asyncResp(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                                     boost::shared_ptr<std::string>& payload)
 {
-    SVCPERF(header->rspRcvdTs = util::getTimeStampNanos());
     fiu_do_on("svc.disable.schedule", asyncRespHandler(\
     MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker(), header, payload); return; );
     // fiu_do_on("svc.use.lftp", asyncResp2(header, payload); return; );
@@ -224,12 +222,6 @@ void PlatNetSvcHandler::asyncRespHandler(SvcRequestTracker* reqTracker,
          GLOGTRACE << logString(*header) << " Request doesn't exist (timed out/fire and forget)?";
          return;
      }
-
-     SVCPERF(asyncReq->ts.rqRcvdTs = header->rqRcvdTs);
-     SVCPERF(asyncReq->ts.rqHndlrTs = header->rqHndlrTs);
-     SVCPERF(asyncReq->ts.rspSerStartTs = header->rspSerStartTs);
-     SVCPERF(asyncReq->ts.rspSendStartTs = header->rspSendStartTs);
-     SVCPERF(asyncReq->ts.rspRcvdTs = header->rspRcvdTs);
 
      asyncReq->handleResponse(header, payload);
 }
