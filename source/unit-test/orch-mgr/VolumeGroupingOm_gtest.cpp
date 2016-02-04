@@ -87,11 +87,12 @@ struct DmGroupFixture : BaseTestFixture {
 
     void TearDown()
     {
-        fds_verify(testOmModule && testOm);
-        testOm->shutdown_modules();
-        delete testOmModule;
-        testOm = nullptr;
-        // delete testOm;
+        if (testOm != nullptr) {
+        //     delete testOm;
+        }
+        if (testOmModule != nullptr) {
+        //     delete testOmModule;
+        }
     }
 
     void setDmClusterSize(int size) {

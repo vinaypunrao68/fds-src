@@ -243,8 +243,8 @@ class DmMigrationMgr {
     }
 
     inline uint32_t getidleTimeoutSecs() {
-        // 3 hours for idletimeout
-        return 3*3600;
+        // 15 minutes
+        return 60*15;
     }
 
     /**

@@ -42,7 +42,6 @@ DmMigrationDest::start()
     // true - volumeGroupMode
     processInitialBlobFilterSet();
 
-    /* 3 hours for idle timeout */
     auto timer = MODULEPROVIDER()->getTimer();
     auto task = [this] () {
         /* Immediately post to threadpool so we don't hold up timer thread */
