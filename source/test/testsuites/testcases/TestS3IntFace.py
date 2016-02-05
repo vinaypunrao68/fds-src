@@ -752,8 +752,9 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
 # You must have successfully created an S3 connection
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
+# If retry is True then don't log anerror message
 class TestS3LoadVerifiableObject(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, bucket=None, seedValue="a", blobKey="s3VerifiableObject", logInfo=True):
+    def __init__(self, parameters=None, bucket=None, seedValue="a", blobKey="s3VerifiableObject", logInfo=True, retry= False):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_S3LoadVerifiableObject,
@@ -763,6 +764,7 @@ class TestS3LoadVerifiableObject(TestCase.FDSTestCase):
         self.passedSeedValue = seedValue
         self.passBlobKey = blobKey
         self.passedLogInfo = logInfo
+        self.passedRetry = retry
 
     def test_S3LoadVerifiableObject(self):
         """
@@ -784,8 +786,11 @@ class TestS3LoadVerifiableObject(TestCase.FDSTestCase):
             verifiable_object = bucket.new_key('{0}_{1}'.format(self.passBlobKey, self.passedSeedValue))
             verifiable_object.set_contents_from_string(verifiable_file_contents)
         except Exception as e:
-            self.log.warning("Failed to create S3 blob with key {0}_{1}".format(self.passBlobKey, self.passedSeedValue))
-            self.log.warning(e.message)
+            if self.passedRetry is False:
+                self.log.error("Failed to create S3 blob with key {0}_{1}".format(self.passBlobKey, self.passedSeedValue))
+                self.log.error(e.message)
+            else:
+                self.log.info("Retry S3LoadVerifiableObject")
             return False
         else:
             # Capture the hash for verification
@@ -801,8 +806,9 @@ class TestS3LoadVerifiableObject(TestCase.FDSTestCase):
 # You must have successfully created an S3 connection
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
+# If retry is True then dont log an error message
 class TestS3CheckVerifiableObject(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, bucket=None, seedValue="a", blobKey="s3VerifiableObject", logInfo=True):
+    def __init__(self, parameters=None, bucket=None, seedValue="a", blobKey="s3VerifiableObject", logInfo=True, retry=False):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_S3CheckVerifiableObject,
@@ -812,7 +818,7 @@ class TestS3CheckVerifiableObject(TestCase.FDSTestCase):
         self.passedSeedValue = seedValue
         self.passedBlobKey = blobKey
         self.passedLogInfo = logInfo
-
+        self.passedRetry = retry
     def test_S3CheckVerifiableObject(self):
         """
         Test Case:
@@ -844,8 +850,11 @@ class TestS3CheckVerifiableObject(TestCase.FDSTestCase):
             else:
                 self.log.info("Hash of object read with key <{0}_{1}>: {2}".
                               format(self.passedBlobKey, self.passedSeedValue, verify_hash))
-                self.log.info("Hash of object stored from LoadVerifiableObject: %s" % stored_verify_hash)
-                self.log.error("S3 Verifiable Object hash did not match")
+                self.log.info("Hash of object stored from LoadVerifiableObject: %s " % stored_verify_hash)
+                if self.passedRetry is False:
+                    self.log.error("S3 Verifiable Object hash did not match")
+                else:
+                    self.log.info("Retry S3CheckVerifiableObject")
 
         return test_passed
 
@@ -856,8 +865,9 @@ class TestS3CheckVerifiableObject(TestCase.FDSTestCase):
 # You must have successfully created an S3 connection
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
+# If retry is True then dont log an error message.
 class TestS3DeleteVerifiableObject(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, bucket=None, seedValue="a", verify=True, logInfo=True):
+    def __init__(self, parameters=None, bucket=None, seedValue="a", verify=True, logInfo=True, retry=False):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_S3DeleteVerifiableObject,
@@ -867,6 +877,7 @@ class TestS3DeleteVerifiableObject(TestCase.FDSTestCase):
         self.passedSeedValue=seedValue
         self.passedVerify = verify
         self.passedLogInfo = logInfo
+        self.passedRetry = retry
 
     def test_S3DeleteVerifiableObject(self):
         """
@@ -886,14 +897,17 @@ class TestS3DeleteVerifiableObject(TestCase.FDSTestCase):
         try:
             deleted_object_key = bucket.delete_key('s3VerifiableObject_{0}'.format(self.passedSeedValue))
         except Exception as e:
-            self.log.error("Could not delete object with key <s3VerifiableObject_{0}>".
+            if self.passedRetry is False:
+                self.log.error("Could not delete object with key <s3VerifiableObject_{0}>".
                            format(self.passedSeedValue))
-            self.log.error(e.message)
+                self.log.error(e.message)
+            else:
+                self.log.info("Retry S3DeleteVerifiableObject")
         else:
             if self.passedVerify:
                 # Verify the delete.
                 checkObject = TestS3CheckVerifiableObject(self.parameters, bucket=self.passedBucket,
-                                                          seedValue=self.passedSeedValue)
+                                                          seedValue=self.passedSeedValue, retry=self.passedRetry)
                 if not checkObject.test_S3CheckVerifiableObject():
                     if self.passedLogInfo:
                         self.log.info("Verified delete of object with key <s3VerifiableObject_{0}>".
@@ -966,7 +980,7 @@ class TestS3VerifiableObjectLoop(TestCase.FDSTestCase):
 
             if (self.loopControl != "stop") and (test_passed):
                 objectCreate = TestS3LoadVerifiableObject(parameters=self.parameters, bucket=self.passedBucket,
-                                                          seedValue=seedChr, logInfo=(seedOrd % 100 == 0))
+                                                          seedValue=seedChr, logInfo=(seedOrd % 100 == 0), retry=self.passedRetry)
                 retryCnt = self.passedRetryMax
                 while (retryCnt > 0):
                     test_passed = objectCreate.test_S3LoadVerifiableObject()
@@ -980,7 +994,7 @@ class TestS3VerifiableObjectLoop(TestCase.FDSTestCase):
 
             if (self.loopControl != "stop") and (test_passed):
                 objectRead = TestS3CheckVerifiableObject(parameters=self.parameters, bucket=self.passedBucket,
-                                                         seedValue=seedChr, logInfo=(seedOrd % 100 == 0))
+                                                         seedValue=seedChr, logInfo=(seedOrd % 100 == 0), retry=self.passedRetry)
                 retryCnt = self.passedRetryMax
                 while (retryCnt > 0):
                     test_passed = objectRead.test_S3CheckVerifiableObject()
@@ -995,7 +1009,7 @@ class TestS3VerifiableObjectLoop(TestCase.FDSTestCase):
             if (self.loopControl != "stop") and (test_passed):
                 objectDelete = TestS3DeleteVerifiableObject(parameters=self.parameters, bucket=self.passedBucket,
                                                             seedValue=seedChr, verify=self.passedVerifyDelete,
-                                                            logInfo=(seedOrd % 100 == 0))
+                                                            logInfo=(seedOrd % 100 == 0), retry=self.passedRetry)
                 retryCnt = self.passedRetryMax
                 while (retryCnt > 0):
                     test_passed = objectDelete.test_S3DeleteVerifiableObject()
@@ -1130,7 +1144,7 @@ class TestS3VerifiableBlobRead(TestCase.FDSTestCase):
             if (self.loopControl != "stop") and (test_passed):
                 objectRead = TestS3CheckVerifiableObject(parameters=self.parameters, bucket=self.passedBucket,
                                                          blobKey="blob{}".format(blobID), seedValue=seedChr,
-                                                         logInfo=(loopCnt % 100 == 0))
+                                                         logInfo=(loopCnt % 100 == 0), retry=self.passedRetry)
                 # Capture the hash of the blob we expect for verification
                 verifiable_file_contents = seedChr * 1024
                 stored_hash = hashlib.sha1(verifiable_file_contents).hexdigest()

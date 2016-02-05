@@ -702,7 +702,7 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
 
     } else if (VolumeReplicaHandle::isFunctional(targetState)){
         if (replicaVersion != volumeHandle->version) {
-            fds_assert(!"Invalid version");
+            fds_assert(!"Invalid version: expecting %d got %d");
             return ERR_INVALID_VOLUME_VERSION;
         }
         /* When transition to functional we must transition from sync state and latest opids

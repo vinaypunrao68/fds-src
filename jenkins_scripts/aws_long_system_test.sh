@@ -18,6 +18,7 @@ then
     run_coroner 1
 fi
 
+AWS_LST_TEST_SCENARIO_LIST = ${1}
 error_trap_enabled
 
 startup
@@ -34,6 +35,6 @@ cache_report
 configure_console_access      # Must be complted after the build
 run_python_unit_tests
 run_cpp_unit_tests
-run_aws_test_scenarios
+run_aws_test_scenarios AWS_LST_TEST_SCENARIO_LIST
 
 run_node_cleanup 0            # Completed successfully, cleanup and exit with a 0

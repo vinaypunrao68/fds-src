@@ -2530,10 +2530,10 @@ bool ConfigDB::changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr,
 
                 updateSvcMap( *dbSvcInfoPtr );
 
-                LOGDEBUG << "ConfigDB updated service status:"
-                         << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid << std::dec
-                         << " from status: " << old_svc_status
-                         << " to status: " << svc_status;
+                LOGNOTIFY << "ConfigDB updated service status:"
+                           << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid << std::dec
+                           << " from status: " << old_svc_status
+                           << " to status: " << svc_status;
 
                 /* Convert new registration request to existing registration request */
                 kvstore::NodeInfoType nodeInfo;

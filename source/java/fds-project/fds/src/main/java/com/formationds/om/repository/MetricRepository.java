@@ -29,24 +29,6 @@ public interface MetricRepository extends CRUDRepository<IVolumeDatapoint, Long>
     default public String getTimestampColumnName() { return "timestamp"; }
 
     /**
-     *
-     * @return the volume name column name
-     */
-    default public Optional<String> getVolumeNameColumnName() { return Optional.of( "volumeName" ); }
-
-    /**
-    *
-    * @return the volume name column name
-    */
-   default public Optional<String> getVolumeDomainColumnName() { return Optional.of( "volumeDomain" ); }
-    
-    /**
-     *
-     * @return the volume id column name
-     */
-    default public Optional<String> getVolumeIdColumnName() { return Optional.of( "volumeId" ); }
-
-    /**
      * Listener implementing prePersist to ensure that the volume id is set on each datapoint before
      * saving it.  When processing multiple datapoints, also aligns the timestamp to the first datapoint.
      */

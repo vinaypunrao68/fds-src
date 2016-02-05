@@ -324,6 +324,7 @@ void ReplicaInitializer<T>::notifyCoordinator_(const EPSvcRequestRespCb &cb)
     auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
     auto req = requestMgr->newEPSvcRequest(replica_->getCoordinatorId());
     req->setPayload(FDSP_MSG_TYPEID(fpi::AddToVolumeGroupCtrlMsg), msg);
+    req->setTaskExecutorId(replica_->getId());
     if (cb) {
         req->onResponseCb(cb);
     }

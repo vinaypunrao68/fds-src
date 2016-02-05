@@ -1004,6 +1004,10 @@ int DataMgr::mod_init(SysParams const *const param)
     fds_verify(primary_check > 0);
     setNumOfPrimary((unsigned)primary_check);
 
+    // FEATURE TOGGLE: Report stats to the new stats service.
+    features.setSendToNewStatsServiceEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
+            "fds.feature_toggle.common.send_to_new_stats_service", false));
+
     /**
      * Instantiate migration manager.
      */

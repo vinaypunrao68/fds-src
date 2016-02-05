@@ -4,7 +4,8 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     $scope.dataSettings = {};
     $scope.volumeName = '';
     $scope.mediaPolicy = 1;
-    $scope.enableDc = false;
+    $scope.enableType = false;
+    $scope.enableSize = false;
     
     $scope.timelinePolicies = {};
 
@@ -138,7 +139,8 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     
     var syncWithClone = function( volume ){
         
-        $scope.enableDc = false;
+        $scope.enableType = false;
+        $scope.enableSize = true;
         
         $scope.newQos = {
             iopsMin: volume.qosPolicy.iopsMin,
@@ -158,12 +160,14 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     $scope.$watch( 'volumeVars.cloneFromVolume', function( newVal, oldVal ){
         
         if ( !angular.isDefined( $scope.volumeVars.toClone) || $scope.volumeVars.toClone.value === 'new' ){
-            $scope.enableDc = true;
+            $scope.enableType = true;
+            $scope.enableSize = true;
             return;
         }
         
         if ( !angular.isDefined( newVal ) ){
-            $scope.enableDc = true;
+            $scope.enableType = true;
+            $scope.enableSize = true;
             return;
         }
     
@@ -173,12 +177,14 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     $scope.$watch( 'volumeVars.toClone', function( newVal ){
         
         if ( !angular.isDefined( newVal ) || newVal.value === 'new' ){
-            $scope.enableDc = true;
+            $scope.enableType = true;
+            $scope.enableSize = true;
             return;
         }
         
         if ( !angular.isDefined( $scope.volumeVars.cloneFromVolume ) ){
-            $scope.enableDc = true;
+            $scope.enableType = true;
+            $scope.enableSize = true;
             return;
         }
         
