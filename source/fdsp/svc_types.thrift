@@ -347,7 +347,7 @@ enum  FDSPMsgTypeId {
   AddObjectRefRspMsgTypeId                  = 10007;
   PrepareForShutdownMsgTypeId               = 10008;
   ActiveObjectsMsgTypeId                    = 10009;
-  ActiveObjectsRspMsgTypeId                 = 10009;
+  ActiveObjectsRspMsgTypeId                 = 10010;
 
   /** DM Type Ids */
   QueryCatalogMsgTypeId                     = 20000;
