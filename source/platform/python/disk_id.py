@@ -26,7 +26,7 @@ class Disk:
     DISK_BUS_SAS = 'SAS'
     DISK_BUS_NA = 'NA'
 
-    p_dev = re.compile('sd[a-z]$')
+    p_dev = re.compile('sd[a-z]{1,2}$')
 
     # We are using 1000*1000
     # device size with M = 1024*1024:     1907729 MBytes
@@ -328,7 +328,7 @@ if __name__ == "__main__":
     parser.add_option('-s', '--stor', dest = 'stor_cli', help = 'Full path and file name of the StorCli binary')
     parser.add_option('-v', '--virtual', dest = 'virtual', action = 'store_true', help = 'Running in a virtualized environment, treats all detected drives as HDDs')
     parser.add_option('-w', '--write', dest = 'write_disk', action = 'store_true', help = 'Writes the disk configuration information file.')
-    parser.add_option('-m', '--map', dest = 'disk_config_dest', help = 'The destination disk config directory.')
+    parser.add_option('-m', '--map', dest = 'disk_config_dest', help = 'The destination disk config file.')
 
     (options, args)   = parser.parse_args()
     debug_on          = options.debug
