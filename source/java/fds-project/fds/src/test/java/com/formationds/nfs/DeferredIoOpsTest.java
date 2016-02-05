@@ -22,8 +22,40 @@ public class DeferredIoOpsTest {
     public static final String VOLUME = "volume";
     public static final String BLOB = "blob/";
     public static final int OBJECT_SIZE = 42;
+    public static final int MAX_OBJECT_SIZE = 1024;
     private MemoryIoOps backend;
     private IoOps deferredIo;
+
+    @Test
+    public void testBlobDeletesAreDeferred() throws Exception {
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("hello", "world");
+        FdsObject fdsObject = new FdsObject(ByteBuffer.allocate(1024), 1024);
+
+        deferredIo.writeMetadata(DOMAIN, VOLUME, BLOB, new FdsMetadata(metadata), false);
+        deferredIo.writeObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), fdsObject, true);
+        assertTrue(backend.readMetadata(DOMAIN, VOLUME, BLOB).isPresent());
+        assertTrue(backend.readCompleteObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), MAX_OBJECT_SIZE) != null);
+
+        deferredIo.deleteBlob(DOMAIN, VOLUME, BLOB);
+        assertTrue(backend.readMetadata(DOMAIN, VOLUME, BLOB).isPresent());
+        assertTrue(backend.readCompleteObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), MAX_OBJECT_SIZE) != null);
+        assertFalse(deferredIo.readMetadata(DOMAIN, VOLUME, BLOB).isPresent());
+
+        deferredIo.flush();
+        assertFalse(backend.readMetadata(DOMAIN, VOLUME, BLOB).isPresent());
+        assertFalse(deferredIo.readMetadata(DOMAIN, VOLUME, BLOB).isPresent());
+    }
+
+    @Test
+    public void testDeletedBlobsDontShowUpInScanResults() throws Exception {
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("hello", "world");
+        deferredIo.writeMetadata(DOMAIN, VOLUME, "foo/bar", new FdsMetadata(metadata), false);
+        assertEquals(1, deferredIo.scan(DOMAIN, VOLUME, "foo/").size());
+        deferredIo.deleteBlob(DOMAIN, VOLUME, "foo/bar");
+        assertEquals(0, deferredIo.scan(DOMAIN, VOLUME, "foo/").size());
+    }
 
     @Test
     public void testVolumeDelete() throws Exception {

@@ -93,10 +93,7 @@ public class AmOps implements IoOps {
 
         return handleExceptions(
                 new ErrorCode[]{ErrorCode.MISSING_RESOURCE},
-                ec -> {
-//                    throw new FileNotFoundException("Error reading object #" + objectOffset.getValue() + " for blob " + blobName);
-                    return new FdsObject(ByteBuffer.wrap(new byte[0]), maxObjectSize);
-                },
+                ec -> new FdsObject(ByteBuffer.wrap(new byte[0]), maxObjectSize),
                 unit);
     }
 

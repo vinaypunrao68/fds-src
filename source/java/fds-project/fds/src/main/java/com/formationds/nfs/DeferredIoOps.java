@@ -22,14 +22,20 @@ public class DeferredIoOps implements IoOps {
         this.io = io;
         this.counters = counters;
         metadataCache = new EvictingCache<>(
-                (key, value) -> io.writeMetadata(key.domain, key.volume, key.blobName, value, false),
+                (key, cacheEntry) -> {
+                    if (cacheEntry.isDirty && cacheEntry.isDeleted) {
+                        io.deleteBlob(key.domain, key.volume, key.blobName);
+                    } else {
+                        io.writeMetadata(key.domain, key.volume, key.blobName, cacheEntry.value, false);
+                    }
+                },
                 "Metadata cache",
                 100000,
                 1,
                 TimeUnit.MINUTES);
 
         objectCache = new EvictingCache<>(
-                (key, value) -> io.writeObject(key.domain, key.volume, key.blobName, new ObjectOffset(key.objectOffset), value, false),
+                (key, cacheEntry) -> io.writeObject(key.domain, key.volume, key.blobName, new ObjectOffset(key.objectOffset), cacheEntry.value, false),
                 "Object cache",
                 500,
                 1,
@@ -53,14 +59,19 @@ public class DeferredIoOps implements IoOps {
                 counters.increment(Counters.Key.metadataCacheMiss);
                 if (om.isPresent()) {
                     FdsMetadata metadata = om.get();
-                    c.put(key, new CacheEntry<>(metadata, false));
+                    c.put(key, new CacheEntry<>(metadata, false, false));
                     return Optional.of(metadata);
                 } else {
+                    c.put(key, new CacheEntry<>(new FdsMetadata(), false, true));
                     return Optional.empty();
                 }
             } else {
                 counters.increment(Counters.Key.metadataCacheHit);
-                return Optional.of(ce.value);
+                if (ce.isDeleted) {
+                    return Optional.empty();
+                } else {
+                    return Optional.of(ce.value);
+                }
             }
         });
     }
@@ -70,11 +81,11 @@ public class DeferredIoOps implements IoOps {
         MetaKey key = new MetaKey(domain, volumeName, blobName);
         metadataCache.lock(key, c -> {
             if (deferrable) {
-                c.put(key, new CacheEntry<>(metadata, true));
+                c.put(key, new CacheEntry<>(metadata, true, false));
                 counters.increment(Counters.Key.deferredMetadataMutation);
             } else {
                 io.writeMetadata(domain, volumeName, blobName, metadata, false);
-                c.put(key, new CacheEntry<>(metadata, false));
+                c.put(key, new CacheEntry<>(metadata, false, false));
             }
             return null;
         });
@@ -88,7 +99,7 @@ public class DeferredIoOps implements IoOps {
             if (ce == null) {
                 counters.increment(Counters.Key.objectCacheMiss);
                 FdsObject o = io.readCompleteObject(domain, volumeName, blobName, objectOffset, maxObjectSize);
-                ce = new CacheEntry<>(o, false);
+                ce = new CacheEntry<>(o, false, false);
                 c.put(objectKey, ce);
             } else {
                 counters.increment(Counters.Key.objectCacheHit);
@@ -104,10 +115,10 @@ public class DeferredIoOps implements IoOps {
         objectCache.lock(objectKey, c -> {
             counters.increment(Counters.Key.deferredObjectMutation);
             if (deferrable) {
-                c.put(objectKey, new CacheEntry<>(fdsObject, true));
+                c.put(objectKey, new CacheEntry<>(fdsObject, true, false));
             } else {
                 io.writeObject(domain, volumeName, blobName, objectOffset, fdsObject, false);
-                c.put(objectKey, new CacheEntry<>(fdsObject, false));
+                c.put(objectKey, new CacheEntry<>(fdsObject, false, false));
             }
             return null;
         });
@@ -119,15 +130,13 @@ public class DeferredIoOps implements IoOps {
                 .stream()
                 .collect(Collectors.toMap(bm -> new MetaKey(domain, volume, bm.getBlobName()), bm -> bm));
 
-        MetaKey prefix = new MetaKey(domain, volume, blobNamePrefix);
-        Map<MetaKey, BlobMetadata> fromCache = metadataCache.lock(prefix, c -> scanCache(domain, volume, blobNamePrefix));
-        fromAm.putAll(fromCache);
-        return fromAm.values();
+        Map<MetaKey, BlobMetadata> results = mergeWithCacheEntries(domain, volume, blobNamePrefix, fromAm);
+        return results.values();
     }
 
-    private Map<MetaKey, BlobMetadata> scanCache(String domain, String volume, String blobNamePrefix) throws IOException {
+    private Map<MetaKey, BlobMetadata> mergeWithCacheEntries(String domain, String volume, String blobNamePrefix, Map<MetaKey, BlobMetadata> entries) throws IOException {
         MetaKey prefix = new MetaKey(domain, volume, blobNamePrefix);
-        Map<MetaKey, BlobMetadata> results = new HashMap<>();
+        Map<MetaKey, BlobMetadata> results = new HashMap<>(entries);
 
         return metadataCache.lock(prefix, c -> {
             SortedMap<MetaKey, CacheEntry<FdsMetadata>> tailmap = c.tailMap(prefix);
@@ -138,7 +147,11 @@ public class DeferredIoOps implements IoOps {
                     MetaKey key = next.getKey();
                     CacheEntry<FdsMetadata> cacheEntry = next.getValue();
                     if (key.beginsWith(prefix)) {
-                        results.put(key, new BlobMetadata(key.blobName, cacheEntry.value));
+                        if (cacheEntry.isDeleted) {
+                            results.remove(key);
+                        } else {
+                            results.put(key, new BlobMetadata(key.blobName, cacheEntry.value));
+                        }
                     } else {
                         break;
                     }
@@ -181,13 +194,20 @@ public class DeferredIoOps implements IoOps {
     public void deleteBlob(String domain, String volume, String blobName) throws IOException {
         MetaKey metaKey = new MetaKey(domain, volume, blobName);
         metadataCache.lock(metaKey, mc -> {
-                    io.deleteBlob(domain, volume, blobName);
-                    mc.remove(metaKey);
-                    objectCache.lock(new ObjectKey("", "", "", new ObjectOffset(0)), c -> {
-                        HashSet<ObjectKey> keys = new HashSet<>(c.keySet());
-                        for (ObjectKey key : keys) {
-                            if (key.domain.equals(domain) && key.volume.equals(volume) && key.blobName.equals(blobName)) {
-                                c.remove(key);
+                    CacheEntry<FdsMetadata> cacheEntry = mc.getOrDefault(metaKey, new CacheEntry<>(new FdsMetadata(), true, true));
+                    cacheEntry.isDeleted = true;
+                    cacheEntry.isDirty = true;
+                    mc.put(metaKey, cacheEntry);
+
+                    ObjectKey prefix = new ObjectKey(domain, volume, blobName);
+                    objectCache.lock(prefix, c -> {
+                        Iterator<ObjectKey> iterator = c.tailMap(new ObjectKey(domain, volume, blobName)).keySet().iterator();
+                        while (iterator.hasNext()) {
+                            ObjectKey next = iterator.next();
+                            if (next.beginsWith(prefix)) {
+                                c.remove(next);
+                            } else {
+                                break;
                             }
                         }
                         return null;
@@ -207,8 +227,8 @@ public class DeferredIoOps implements IoOps {
     @Override
     public void onVolumeDeletion(String domain, String volumeName) throws IOException {
         LOG.debug("Received volume delete event for [" + volumeName + "], flushing caches");
-        metadataCache.flush(new MetaKey(domain, volumeName));
-        objectCache.flush(new ObjectKey(domain, volumeName));
+        metadataCache.dropKeysWithPrefix(new MetaKey(domain, volumeName));
+        objectCache.dropKeysWithPrefix(new ObjectKey(domain, volumeName));
     }
 
 }
