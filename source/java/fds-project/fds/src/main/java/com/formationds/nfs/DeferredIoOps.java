@@ -3,10 +3,12 @@ package com.formationds.nfs;
 import com.formationds.apis.ObjectOffset;
 import com.formationds.nfs.deferred.CacheEntry;
 import com.formationds.nfs.deferred.EvictingCache;
+import com.formationds.util.IoConsumer;
 import org.apache.log4j.Logger;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -17,29 +19,29 @@ public class DeferredIoOps implements IoOps {
     private Counters counters;
     private final EvictingCache<MetaKey, FdsMetadata> metadataCache;
     private final EvictingCache<ObjectKey, FdsObject> objectCache;
+    private final List<IoConsumer<MetaKey>> metadataCommitListeners;
 
     public DeferredIoOps(IoOps io, Counters counters) {
         this.io = io;
         this.counters = counters;
         metadataCache = new EvictingCache<>(
-                (key, cacheEntry) -> {
-                    if (cacheEntry.isDirty && cacheEntry.isDeleted) {
-                        io.deleteBlob(key.domain, key.volume, key.blobName);
-                    } else {
-                        io.writeMetadata(key.domain, key.volume, key.blobName, cacheEntry.value, false);
-                    }
-                },
+                (key, cacheEntry) -> doCommitMetadata(key, cacheEntry),
                 "Metadata cache",
                 100000,
                 1,
                 TimeUnit.MINUTES);
 
         objectCache = new EvictingCache<>(
-                (key, cacheEntry) -> io.writeObject(key.domain, key.volume, key.blobName, new ObjectOffset(key.objectOffset), cacheEntry.value, false),
+                (key, cacheEntry) -> doCommitObject(key, cacheEntry),
                 "Object cache",
                 500,
                 1,
                 TimeUnit.MINUTES);
+        metadataCommitListeners = new CopyOnWriteArrayList<>();
+    }
+
+    public void addCommitListener(IoConsumer<MetaKey> listener) {
+        metadataCommitListeners.add(listener);
     }
 
     public IoOps start() {
@@ -77,15 +79,22 @@ public class DeferredIoOps implements IoOps {
     }
 
     @Override
-    public void writeMetadata(String domain, String volumeName, String blobName, FdsMetadata metadata, boolean deferrable) throws IOException {
+    public void writeMetadata(String domain, String volumeName, String blobName, FdsMetadata metadata) throws IOException {
         MetaKey key = new MetaKey(domain, volumeName, blobName);
         metadataCache.lock(key, c -> {
-            if (deferrable) {
-                c.put(key, new CacheEntry<>(metadata, true, false));
-                counters.increment(Counters.Key.deferredMetadataMutation);
-            } else {
-                io.writeMetadata(domain, volumeName, blobName, metadata, false);
-                c.put(key, new CacheEntry<>(metadata, false, false));
+            c.put(key, new CacheEntry<>(metadata, true, false));
+            counters.increment(Counters.Key.deferredMetadataMutation);
+            return null;
+        });
+    }
+
+    @Override
+    public void commitMetadata(String domain, String volumeName, String blobName) throws IOException {
+        MetaKey key = new MetaKey(domain, volumeName, blobName);
+        metadataCache.lock(key, c -> {
+            CacheEntry<FdsMetadata> cacheEntry = c.get(key);
+            if (cacheEntry != null) {
+                doCommitMetadata(key, cacheEntry);
             }
             return null;
         });
@@ -110,15 +119,22 @@ public class DeferredIoOps implements IoOps {
     }
 
     @Override
-    public void writeObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, FdsObject fdsObject, boolean deferrable) throws IOException {
+    public void writeObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, FdsObject fdsObject) throws IOException {
         ObjectKey objectKey = new ObjectKey(domain, volumeName, blobName, objectOffset);
         objectCache.lock(objectKey, c -> {
             counters.increment(Counters.Key.deferredObjectMutation);
-            if (deferrable) {
-                c.put(objectKey, new CacheEntry<>(fdsObject, true, false));
-            } else {
-                io.writeObject(domain, volumeName, blobName, objectOffset, fdsObject, false);
-                c.put(objectKey, new CacheEntry<>(fdsObject, false, false));
+            c.put(objectKey, new CacheEntry<>(fdsObject, true, false));
+            return null;
+        });
+    }
+
+    @Override
+    public void commitObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset) throws IOException {
+        ObjectKey objectKey = new ObjectKey(domain, volumeName, blobName, objectOffset);
+        objectCache.lock(objectKey, oc -> {
+            CacheEntry<FdsObject> cacheEntry = oc.get(objectKey);
+            if (cacheEntry != null) {
+                doCommitObject(objectKey, cacheEntry);
             }
             return null;
         });
@@ -167,7 +183,8 @@ public class DeferredIoOps implements IoOps {
         metadataCache.lock(oldMetaKey, mc -> {
                     CacheEntry<FdsMetadata> mce = mc.get(oldMetaKey);
                     if (mce != null && mce.isDirty) {
-                        io.writeMetadata(domain, volumeName, oldName, mce.value, false);
+                        io.writeMetadata(domain, volumeName, oldName, mce.value);
+                        io.commitMetadata(domain, volumeName, oldName);
                     }
                     mc.remove(oldMetaKey);
                     objectCache.lock(new ObjectKey("", "", "", new ObjectOffset(0)), c -> {
@@ -176,8 +193,9 @@ public class DeferredIoOps implements IoOps {
                             if (objectKey.domain.equals(domain) && objectKey.volume.equals(volumeName) && objectKey.blobName.equals(oldName)) {
                                 CacheEntry<FdsObject> oce = c.get(objectKey);
                                 if (oce.isDirty) {
-                                    io.writeObject(domain, volumeName, oldName, new ObjectOffset(objectKey.objectOffset),
-                                            oce.value, false);
+                                    ObjectOffset objectOffset = new ObjectOffset(objectKey.objectOffset);
+                                    io.writeObject(domain, volumeName, oldName, objectOffset, oce.value);
+                                    io.commitObject(domain, volumeName, oldName, objectOffset);
                                 }
                                 c.remove(objectKey);
                             }
@@ -219,7 +237,7 @@ public class DeferredIoOps implements IoOps {
 
 
     @Override
-    public void flush() throws IOException {
+    public void commitAll() throws IOException {
         metadataCache.flush();
         objectCache.flush();
     }
@@ -231,4 +249,31 @@ public class DeferredIoOps implements IoOps {
         objectCache.dropKeysWithPrefix(new ObjectKey(domain, volumeName));
     }
 
+
+    private void doCommitObject(ObjectKey key, CacheEntry<FdsObject> cacheEntry) throws IOException {
+        objectCache.lock(key, oc -> {
+            if (cacheEntry.isDirty) {
+                io.writeObject(key.domain, key.volume, key.blobName, new ObjectOffset(key.objectOffset), cacheEntry.value);
+            }
+
+            cacheEntry.isDirty = false;
+            return null;
+        });
+    }
+
+    private void doCommitMetadata(MetaKey key, CacheEntry<FdsMetadata> cacheEntry) throws IOException {
+        metadataCache.lock(key, mc -> {
+            for (IoConsumer<MetaKey> listener : metadataCommitListeners) {
+                listener.accept(key);
+            }
+            if (cacheEntry.isDirty && cacheEntry.isDeleted) {
+                io.deleteBlob(key.domain, key.volume, key.blobName);
+            } else {
+                io.writeMetadata(key.domain, key.volume, key.blobName, cacheEntry.value);
+                io.commitMetadata(key.domain, key.volume, key.blobName);
+            }
+            cacheEntry.isDirty = false;
+            return null;
+        });
+    }
 }

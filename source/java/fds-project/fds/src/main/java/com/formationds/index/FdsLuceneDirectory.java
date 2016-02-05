@@ -103,7 +103,7 @@ public class FdsLuceneDirectory extends Directory {
 
     @Override
     public void sync(Collection<String> collection) throws IOException {
-        io.flush();
+        io.commitAll();
     }
 
     @Override
@@ -118,7 +118,8 @@ public class FdsLuceneDirectory extends Directory {
 
         ofm.get().lock(m -> {
             m.mutableMap().put(LUCENE_RESOURCE_NAME, to);
-            io.writeMetadata(domain, volume, blobName, m.fdsMetadata(), false);
+            io.writeMetadata(domain, volume, blobName, m.fdsMetadata());
+            io.commitMetadata(domain, volume, blobName);
             io.renameBlob(domain, volume, blobName(from), blobName(to));
             return null;
         });
@@ -142,7 +143,7 @@ public class FdsLuceneDirectory extends Directory {
 
     @Override
     public void close() throws IOException {
-        io.flush();
+        io.commitAll();
     }
 
 }
