@@ -160,7 +160,7 @@ AmDispatcher::registerVolume(VolumeDesc const& volDesc) {
             return;
         }
         auto quorum = std::max(MODULEPROVIDER()->getSvcMgr()->getCurrentDMT()->getDepth() - 1,
-                               1);
+                               static_cast<uint32_t>(1));
         volumegroup_map[vol_id].reset(new VolumeGroupHandle(MODULEPROVIDER(),
                                                             vol_id,
                                                             quorum));
