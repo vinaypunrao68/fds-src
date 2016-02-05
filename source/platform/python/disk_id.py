@@ -328,6 +328,7 @@ if __name__ == "__main__":
     parser.add_option('-s', '--stor', dest = 'stor_cli', help = 'Full path and file name of the StorCli binary')
     parser.add_option('-v', '--virtual', dest = 'virtual', action = 'store_true', help = 'Running in a virtualized environment, treats all detected drives as HDDs')
     parser.add_option('-w', '--write', dest = 'write_disk', action = 'store_true', help = 'Writes the disk configuration information file.')
+    parser.add_option('-m', '--map', dest = 'disk_config_dest', help = 'The destination disk config file.')
 
     (options, args)   = parser.parse_args()
     debug_on          = options.debug
@@ -347,7 +348,10 @@ if __name__ == "__main__":
     fds_root = options.fds_root
     if not fds_root.endswith ('/'):
         fds_root += '/'
-    destination_dir = fds_root + "dev"
+    if not options.disk_config_dest:
+        destination_dir = fds_root + "dev"
+    else:
+        destination_dir = options.disk_config_dest
     index_mount_point = fds_root + "sys-repo"
 
     # verify destination directory exists
@@ -355,7 +359,11 @@ if __name__ == "__main__":
         if not os.path.isdir (destination_dir):
             print ( "Error:  Directory '" + destination_dir + "', does not exist.  Can not continue.")
             sys.exit(1)
-
+    elif options.disk_config_dest:
+        print ( "Error: must specify -m(--map) option together with the -w (--write) option.")
+        sys.exit(1)
+    
+    
     os_device_list = discover_os_devices()
 
     sys.stdout.write ('Scanning hardware:  Phase 1:  ')
