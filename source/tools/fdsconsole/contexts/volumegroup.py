@@ -21,14 +21,29 @@ class VolumeGroupContext(Context):
             print('-->From service {}: '.format(self.config.getServiceApi().getServiceName(uuid)))
             try:
                 svcType = self.config.getServiceApi().getServiceType(uuid)
+                state=dict()
                 if svcType == 'am':
                     stateStr = ServiceMap.client(uuid).getStateInfo('volumegrouphandle.{}'.format(volid))
+                    # humanize returned json
+                    temp = json.loads(stateStr)
+                    for key in temp.keys():
+                        if key.isdigit():
+                            dmSvcName = self.config.getServiceApi().getServiceName(long(key))
+                            state[dmSvcName] = temp[key] 
+                        else:
+                            state[key] = temp[key]
                 elif svcType == 'dm':
                     stateStr = ServiceMap.client(uuid).getStateInfo('volume.{}'.format(volid))
+                    # humanize returned json
+                    temp = json.loads(stateStr)
+                    for key in temp.keys():
+                        if key == "coordinator":
+                            state[key] = self.config.getServiceApi().getServiceName(long(temp[key]))
+                        else:
+                            state[key] = temp[key]
                 else:
                     print "Unknow service of type: " + svc_type
                     return
-                state = json.loads(stateStr)
                 print (json.dumps(state, indent=2, sort_keys=True))
             except Exception, e:
                 print "Failed to fetch state.  Either service is down or argument is incorrect"
