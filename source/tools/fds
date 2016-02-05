@@ -75,7 +75,6 @@ TESTS["unit"]="unit tests"
 function usage() {
     log "$(yellow usage: $(basename $0) [cmd] [app/testname/clustername/buildname] [options])"
     log " cmd : "
-    log "   - $(yellow build)     : build fds-platform/ fds-deps(specify param deps)"
     log "   - $(yellow clean)     : remove the data"
     log "   - $(yellow clean)     : remove the data"
     log "   - $(yellow cleanstart): stop+clean+start all"
@@ -86,6 +85,7 @@ function usage() {
     log "   - $(red    gdb)       : gdb attach app"
     log "   - $(yellow memchk)    : run services under $(red valgrind)"
     log "   - $(yellow nomemchk)  : run services $(green normally)"
+    log "   - $(yellow package)   : package fds-platform/ fds-deps(specify param deps)"
     log "   - $(yellow release)   : switch to $(green release) build"
     log "   - $(yellow restart)   : stop & start  the app "
     log "   - $(yellow start)     : start the app "
@@ -795,7 +795,7 @@ function deploy() {
     (cd ${ansibledir}/scripts; ./deploy_fds.sh ${cluster} local)
 }
 
-function build() {
+function package() {
     local params="$1"
     if [[ -z $params ]]; then
         (cd ${SOURCEDIR}/..; make package fds-platform BUILD_TYPE=${BUILDMODE})
@@ -897,7 +897,7 @@ do
         kill|start*|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*|top)
             CMD=$opt
             ;;
-        test|deploy|build)
+        test|deploy|package)
             CMD=$opt
             (( n++ ))
             NEXTARG="${args[@]:$n}"
@@ -988,7 +988,7 @@ case "${CMD}" in
         ;;
     deploy) deploy "$NEXTARG"
         ;;
-    build) build "$NEXTARG"
+    package) package "$NEXTARG"
         ;;
     *) usage ;;
 esac
