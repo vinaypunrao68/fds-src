@@ -714,6 +714,10 @@ OmSvcHandler::setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         volDescPtr->setCoordinatorVersion(volCoordinatorInfo.version);
         LOGNOTIFY << "Set volume coordinator for volid: " << volId
             << " coordinator: " << volCoordinatorInfo.id.svc_uuid;
+        // Persist the new desc w/ coordinator info in configDB and broadcast it
+        auto boostPtr = boost::make_shared<VolumeDesc>(*volDescPtr);
+        volumePtr->vol_modify(boostPtr);
+        e = ERR_OK;
     } else {
         LOGERROR << "Unable to find volume " << volId;
         e = ERR_VOL_NOT_FOUND;
