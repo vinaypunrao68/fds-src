@@ -328,7 +328,7 @@ if __name__ == "__main__":
     parser.add_option('-s', '--stor', dest = 'stor_cli', help = 'Full path and file name of the StorCli binary')
     parser.add_option('-v', '--virtual', dest = 'virtual', action = 'store_true', help = 'Running in a virtualized environment, treats all detected drives as HDDs')
     parser.add_option('-w', '--write', dest = 'write_disk', action = 'store_true', help = 'Writes the disk configuration information file.')
-    parser.add_option('-m', '--map', dest = 'disk_config_dest', help = 'The destination disk config file.')
+    parser.add_option('-m', '--map', dest = 'disk_config_dest', help = 'The destination disk config directory.')
 
     (options, args)   = parser.parse_args()
     debug_on          = options.debug
