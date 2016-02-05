@@ -38,6 +38,7 @@ DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManage
 
     registerDmVolumeReqHandler<DmIoVolumegroupUpdate>();
     registerDmVolumeReqHandler<DmIoFinishStaticMigration>();
+
 }
 
 // notifySvcChange
