@@ -3285,8 +3285,12 @@ om_send_vol_info(NodeAgent::pointer me, fds_uint32_t *cnt, VolumeInfo::pointer v
 static void
 om_clear_vol_coordinator(VolumeInfo::pointer vol)
 {
-    LOGDEBUG << "Clearing volume coordinator info for vol: " << vol->vol_get_name();
-    vol->vol_get_properties()->clearCoordinatorInfo();
+    LOGDEBUG << "Clearing volume coordinator info for vol: " << vol->vol_get_name()
+            << " and persisting it in configDB";
+    auto volDesc = vol->vol_get_properties();
+    auto volDescPtr = boost::make_shared<VolumeDesc>(*volDesc);
+    volDesc->clearCoordinatorInfo();
+    vol->vol_modify(volDescPtr);
 }
 
 // om_bcast_vol_list
