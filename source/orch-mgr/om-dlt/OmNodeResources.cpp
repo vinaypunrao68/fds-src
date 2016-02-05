@@ -1330,6 +1330,24 @@ OM_PmAgent::send_add_service
             break;
     }
 
+    // Update PM state in svc layer as well
+    fpi::SvcUuid pmSvcUuid;
+    fpi::SvcInfo pmSvcInfo;
+    pmSvcUuid.svc_uuid = get_uuid().uuid_get_val();
+
+    bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(pmSvcUuid, pmSvcInfo);
+
+    if (ret)
+    {
+        pmSvcInfo.svc_status = fpi::SVC_STATUS_ACTIVE;
+
+        MODULEPROVIDER()->getSvcMgr()->updateSvcMap({pmSvcInfo});
+        OM_NodeDomainMod::om_local_domain()->om_loc_domain_ctrl()->om_bcast_svcmap();
+    } else {
+        LOGWARN << "Unable to update PM:" << std::hex << pmSvcUuid.svc_uuid << std::dec
+                << " state to active in svc layer svcMap";
+    }
+
     // The svcInfos list usually also contains the OM and the PM
     // so ensure we update svc states only for sm,dm,am
     for (auto item: svcInfos) {
