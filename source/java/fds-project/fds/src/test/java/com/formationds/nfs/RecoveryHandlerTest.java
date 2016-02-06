@@ -39,7 +39,8 @@ public class RecoveryHandlerTest {
         IoOps withTimeoutHandling = new RecoveryHandler(ops, 4, Duration.millis(10));
         HashMap<String, String> map = new HashMap<>();
         map.put("hello", "world");
-        withTimeoutHandling.writeMetadata(DOMAIN, VOLUME, BLOB, new FdsMetadata(map), false);
+        withTimeoutHandling.writeMetadata(DOMAIN, VOLUME, BLOB, new FdsMetadata(map));
+        withTimeoutHandling.commitMetadata(DOMAIN, VOLUME, BLOB);
         Map<String, String> result = withTimeoutHandling.readMetadata(DOMAIN, VOLUME, BLOB).get().lock(m -> m.mutableMap());
         assertEquals(3, exceptionCount.get());
         assertEquals("world", result.get("hello"));

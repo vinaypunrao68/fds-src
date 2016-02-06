@@ -23,7 +23,6 @@
         PlatNetSvcHandler::threadLocalPayloadBuf = payloadBuf; \
         boost::shared_ptr<FDSPMsgT> payload; \
         fds::deserializeFdspMsg(payloadBuf, payload); \
-        SVCPERF(header->rqHndlrTs = util::getTimeStampNanos()); \
         func(header, payload); \
         PlatNetSvcHandler::threadLocalPayloadBuf = nullptr; \
     }

@@ -1,21 +1,21 @@
 package com.formationds.nfs;
 
+import com.formationds.util.IoConsumer;
+
 import java.io.IOException;
 import java.util.function.Function;
 
-public class PersistentCounter {
+public class PersistentCounter implements IoConsumer<MetaKey> {
     private IoOps io;
     private String domain;
     private final String counterName;
     private final long startValue;
-    private boolean deferrable;
 
-    public PersistentCounter(IoOps io, String domain, String counterName, long startValue, boolean deferrable) {
+    public PersistentCounter(IoOps io, String domain, String counterName, long startValue) {
         this.io = io;
         this.domain = domain;
         this.counterName = counterName;
         this.startValue = startValue;
-        this.deferrable = deferrable;
     }
 
     public long increment(String volume, long step) throws IOException {
@@ -44,8 +44,17 @@ public class PersistentCounter {
             long currentValue = Long.parseLong(m.mutableMap().getOrDefault(counterName, Long.toString(startValue)));
             long mutated = mutator.apply(currentValue);
             m.mutableMap().put(counterName, Long.toString(mutated));
-            io.writeMetadata(domain, volume, counterName, m.fdsMetadata(), deferrable);
+            io.writeMetadata(domain, volume, counterName, m.fdsMetadata());
             return mutated;
         });
+    }
+
+    @Override
+    public void accept(MetaKey tee) throws IOException {
+        if (tee.domain.equals(domain) && tee.blobName.equals(counterName)) {
+            // That's us - Do nothing
+        } else {
+            io.commitMetadata(domain, tee.volume, counterName);
+        }
     }
 }

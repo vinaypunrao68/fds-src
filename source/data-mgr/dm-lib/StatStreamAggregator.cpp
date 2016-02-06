@@ -284,6 +284,11 @@ StatStreamAggregator::StatStreamAggregator(CommonModuleProviderIf *modProvider,
                 get<int>("fds.dm.testing.long_slots", hist_config.longstat_slots_);
     }
 
+    // Optimally, we'd get this from the same place as the config service. However, we'll be
+    // getting all service info from Consul eventually, so it's not worth tying to the stats
+    // service's config file.
+    new_stats_service_port_ = fds_config->get<int>("fds.common.stats_port", 11011);
+
     /**
      * Make sure our fine-grained stats are not collected less frequently than
      * our coarse grained stats.
@@ -1139,6 +1144,14 @@ void StatStreamTimerTask::runTimerTask() {
 
             if (volumeNameToVolumeId)
             {
+                // The stats service runs on the same host as OM for now. Later, we'll get the
+                // service location from Consul.
+                std::string newStatsServiceIp;
+                {
+                    fds_uint32_t dummy;
+                    MODULEPROVIDER()->getSvcMgr()->getOmIPPort(newStatsServiceIp, dummy);
+                }
+
                 std::list<StatDataPoint> stats;
                 for (auto const& dataPoint : dataPoints)
                 {
@@ -1157,8 +1170,9 @@ void StatStreamTimerTask::runTimerTask() {
                     }
                 }
 
-                auto conn = StatsConnFactory::newConnection("localhost",
-                                                            11011,
+                // UN & PW is not yet configurable.
+                auto conn = StatsConnFactory::newConnection(newStatsServiceIp,
+                                                            statStreamAggr_.new_stats_service_port_,
                                                             "stats-service",
                                                             "$t@t$");
                 if (conn)
@@ -1167,7 +1181,8 @@ void StatStreamTimerTask::runTimerTask() {
                 }
                 else
                 {
-                    GLOGERROR << "Unable to connect to stats service on localhost port 11011.";
+                    GLOGERROR << "Unable to connect to stats service on " << newStatsServiceIp
+                              << " port " << statStreamAggr_.new_stats_service_port_ << ".";
                 }
             }
         }

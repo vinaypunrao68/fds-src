@@ -45,9 +45,12 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
             ops = deferredOps;
             resolver.addVolumeDeleteEventHandler(v -> deferredOps.onVolumeDeletion(DOMAIN, v));
             ((DeferredIoOps) ops).start();
+            allocator = new PersistentCounter(ops, DOMAIN, FILE_ID_WELL, MIN_FILE_ID);
+            deferredOps.addCommitListener(key -> allocator.accept(key));
+        } else {
+            allocator = new PersistentCounter(ops, DOMAIN, FILE_ID_WELL, MIN_FILE_ID);
         }
         inodeMap = new InodeMap(ops, resolver);
-        allocator = new PersistentCounter(ops, DOMAIN, FILE_ID_WELL, MIN_FILE_ID, false);
         this.exportResolver = resolver;
         inodeIndex = new SimpleInodeIndex(ops, resolver);
         idMap = new SimpleIdMap();
@@ -89,8 +92,8 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
                 .withLink(inodeMap.fileId(parent), name);
 
         InodeMetadata updatedParent = parentMetadata.get().withUpdatedTimestamps();
-        Inode createdInode = inodeMap.create(metadata, parent.exportIndex(), true);
-        inodeMap.update(parent.exportIndex(), true, updatedParent);
+        Inode createdInode = inodeMap.create(metadata, parent.exportIndex());
+        inodeMap.update(parent.exportIndex(), updatedParent);
         inodeIndex.index(parent.exportIndex(), true, metadata);
         inodeIndex.index(parent.exportIndex(), true, updatedParent);
         LOG.debug("Created " + InodeMap.blobName(metadata.getFileId()));
@@ -152,7 +155,7 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
             Optional<InodeMetadata> statResult = inodeMap.stat(inodeMetadata.asInode(exportId));
             if (!statResult.isPresent()) {
                 LOG.debug("Creating export root for volume " + path);
-                Inode inode = inodeMap.create(inodeMetadata, exportId, false);
+                Inode inode = inodeMap.create(inodeMetadata, exportId);
                 inodeIndex.index(exportId, false, inodeMetadata);
                 return inode;
             } else {
@@ -186,7 +189,7 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
 
         InodeMetadata updatedParentMetadata = parentMetadata.get().withUpdatedTimestamps();
         InodeMetadata updatedLinkMetadata = linkMetadata.get().withLink(inodeMap.fileId(parent), path);
-        inodeMap.update(parent.exportIndex(), true, updatedParentMetadata, updatedLinkMetadata);
+        inodeMap.update(parent.exportIndex(), updatedParentMetadata, updatedLinkMetadata);
         inodeIndex.index(parent.exportIndex(), true, updatedParentMetadata);
         inodeIndex.index(parent.exportIndex(), true, updatedLinkMetadata);
         return link;
@@ -247,7 +250,7 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
 
         InodeMetadata updatedDestination = destinationMetadata.get().withUpdatedTimestamps();
 
-        inodeMap.update(source.exportIndex(), true, updatedSource, updatedLink, updatedDestination);
+        inodeMap.update(source.exportIndex(), updatedSource, updatedLink, updatedDestination);
         inodeIndex.unlink(source.exportIndex(), InodeMetadata.fileId(source), oldName);
         inodeIndex.index(source.exportIndex(), true, updatedSource);
         inodeIndex.index(source.exportIndex(), true, updatedLink);
@@ -317,11 +320,11 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
             inodeMap.remove(updatedLink.asInode(parentInode.exportIndex()));
             inodeIndex.remove(parentInode.exportIndex(), updatedLink);
         } else {
-            inodeMap.update(parentInode.exportIndex(), true, updatedLink);
+            inodeMap.update(parentInode.exportIndex(), updatedLink);
             inodeIndex.index(parentInode.exportIndex(), true, updatedLink);
         }
 
-        inodeMap.update(parentInode.exportIndex(), true, updatedParent);
+        inodeMap.update(parentInode.exportIndex(), updatedParent);
         inodeIndex.index(parentInode.exportIndex(), true, updatedParent);
     }
 
@@ -389,7 +392,7 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
         }
 
         InodeMetadata updated = metadata.get().update(stat);
-        inodeMap.update(inode.exportIndex(), true, updated);
+        inodeMap.update(inode.exportIndex(), updated);
         inodeIndex.index(inode.exportIndex(), true, updated);
         LOG.debug("SETATTR " + exportResolver.volumeName(inode.exportIndex()) + "." + Joiner.on(",").join(updated.getLinks().values()) + ", mode=" + Integer.toOctalString(updated.getMode()));
     }
@@ -416,7 +419,7 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
 
         InodeMetadata updated = metadata.get().withNfsAces(acl);
 
-        inodeMap.update(inode.exportIndex(), true, updated);
+        inodeMap.update(inode.exportIndex(), updated);
         inodeIndex.index(inode.exportIndex(), true, updated);
     }
 

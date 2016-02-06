@@ -869,7 +869,9 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               " fsnapshot %d"
                               " parentvolumeid %ld"
                               " state %d"
-                              " create.time %ld",
+                              " create.time %ld"
+                              " vg.coordinatorinfo.svcuuid %ld"
+                              " vg.coordinatorinfo.version %d",
                               volId, volId,
                               vol.name.c_str( ),
                               vol.tennantId,
@@ -896,7 +898,9 @@ bool ConfigDB::addVolume(const VolumeDesc& vol) {
                               vol.fSnapshot,
                               vol.srcVolumeId.get( ),
                               vol.getState( ),
-                              vol.createTime );
+                              vol.createTime,
+                              vol.coordinator.id.svc_uuid,
+                              vol.coordinator.version);
         if ( reply.isOk( ) )
         {
             if( vol.volType == fpi::FDSP_VOL_NFS_TYPE ||
@@ -1109,6 +1113,8 @@ bool ConfigDB::getVolume(fds_volid_t volumeId, VolumeDesc& vol) {
             else if (key == "state") {vol.setState((fpi::ResourceState) atoi(value.c_str()));}
             else if (key == "parentvolumeid") {vol.srcVolumeId = strtoull(value.c_str(), NULL, 10);} //NOLINT
             else if (key == "create.time") {vol.createTime = strtoull(value.c_str(), NULL, 10);} //NOLINT
+            else if (key == "vg.coordinatorinfo.svcuuid") {vol.coordinator.id.svc_uuid = strtoull(value.c_str(), NULL, 10);}
+            else if (key == "vg.coordinatorinfo.version") {vol.coordinator.version = atoi(value.c_str());}
             else
             { //NOLINT
                 LOGWARN << "unknown key for volume [ " << volumeId << " ] - [ " << key << " ]";
