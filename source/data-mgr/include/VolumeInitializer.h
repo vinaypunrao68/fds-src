@@ -283,6 +283,20 @@ void ReplicaInitializer<T>::startBuffering_()
         auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
         auto selfUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
         for (const auto &op : ops) {
+            if (op.opId <= replica_->getOpId()) {
+                /**
+                 * Static migration will transfer the activeTx's to pair with whatever
+                 * blobs and blobs desc that has already been committed in the levelDB
+                 * Static migration will apply those activeTx's, and volumeMeta will
+                 * have its opId updated to whatever snapshot that the source had at the time.
+                 * The on disk buffer started buffering before the static migration source
+                 * snapshot and continued throughout the migration. We need to skip
+                 * entries that are migrated from the source and applied as part of migration
+                 * so we don't duplicate replay and cause error.
+                 */
+                bufferReplay_->notifyOpsReplayed();
+                continue;
+            }
             auto req = requestMgr->newEPSvcRequest(selfUuid);
             req->setPayloadBuf(static_cast<fpi::FDSPMsgTypeId>(op.type), op.payload);
             req->onResponseCb([this](EPSvcRequest*,
