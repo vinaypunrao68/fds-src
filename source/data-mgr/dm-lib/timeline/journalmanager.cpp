@@ -176,20 +176,9 @@ void JournalManager::monitorLogs() {
             processedEvent = false;
             std::vector<std::string> volDirs;
             util::getSubDirectories(dmDir, volDirs);
+            LOGDEBUG << "monitoring : " << dmDir;
 
             for (const auto & d : volDirs) {
-                // check the commit log retention for this volume
-                fds_volid_t volid(std::atoll(d.c_str()));
-                const VolumeDesc *volumeDesc = dm->getVolumeDesc(volid);
-                if (!volumeDesc) {
-                    LOGWARN << "unable to get voldesc for vol:" << volid;
-                    continue;
-                }
-                if (volumeDesc->contCommitlogRetention == 0) {
-                    LOGDEBUG << "skipping journal log archive as retention is OFF for vol:" << volid;
-                    continue;
-                }
-
                 std::string volPath = dmDir + d + "/";
                 std::vector<std::string> catFiles;
                 util::getFiles(volPath, catFiles);
@@ -201,19 +190,20 @@ void JournalManager::monitorLogs() {
                         FdsRootDir::fds_mkdir(volTLPath.c_str());
 
                         std::string srcFile = volPath + f;
-                        std::string cpCmd = "cp -f " + srcFile + " " + volTLPath;
-                        LOGDEBUG << "Running command: '" << cpCmd << "'";
-                        fds_int32_t rc = std::system(cpCmd.c_str());
+                        std::string destFile = volTLPath + f + ".gz";
+                        TimeStamp startTime = 0;
+                        getJournalStartTime(srcFile, startTime);
+                        std::string zipCmd = "gzip  --stdout " + srcFile + " > " + destFile;
+                        LOGDEBUG << "running command: [" << zipCmd << "]";
+                        auto rc = std::system(zipCmd.c_str());
+
                         if (!rc) {
                             fds_verify(0 == unlink(srcFile.c_str()));
                             processedEvent = true;
                             fds_volid_t volId (std::atoll(d.c_str()));
-                            TimeStamp startTime = 0;
-                            getJournalStartTime(volTLPath + f, startTime);
-                            dm->timelineMgr->getDB()->addJournalFile(volId, startTime, volTLPath + f);
+                            dm->timelineMgr->getDB()->addJournalFile(volId, startTime, destFile);
                         } else {
-                            LOGWARN << "Failed to run command '" << cpCmd << "', error: '"
-                                    << rc << "'";
+                            LOGWARN << "command failed [" << zipCmd << "], error:" << rc << ":" << strerror(rc);
                         }
                     }
                 }
