@@ -31,7 +31,8 @@ public class ChunkerTest {
         byte[] bytes = randomBytes(length);
         String arbitraryValue = UUID.randomUUID().toString();
         String blobName = "blobName";
-        io.writeMetadata(DOMAIN, VOLUME, blobName, new FdsMetadata(new HashMap<>()), false);
+        io.writeMetadata(DOMAIN, VOLUME, blobName, new FdsMetadata(new HashMap<>()));
+        io.commitMetadata(DOMAIN, VOLUME, blobName);
         chunker.write(DOMAIN, VOLUME, blobName, OBJECT_SIZE, bytes, 0, length, meta -> meta.put("key", arbitraryValue));
         Optional<FdsMetadata> ofm = io.readMetadata(DOMAIN, VOLUME, blobName);
         assertTrue(ofm.isPresent());

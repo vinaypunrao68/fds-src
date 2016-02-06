@@ -17,28 +17,28 @@ public class EvictingCacheTest {
         );
 
         SimpleKey key = new SimpleKey("foo");
-        cache.lock(key, c -> c.put(key, new CacheEntry<>("foo", true)));
+        cache.lock(key, c -> c.put(key, new CacheEntry<>("foo", true, false)));
         assertTrue(cache.lock(key, c -> c.get(key).isDirty));
         cache.flush();
         assertFalse(cache.lock(key, c -> c.get(key).isDirty));
     }
 
     @Test
-    public void testFlushWithPrefix() throws Exception {
+    public void testDropKeysWithPrefix() throws Exception {
         EvictingCache<SimpleKey, String> cache = new EvictingCache<>((o, ce) -> {
         }, "foo", 1000, 1, TimeUnit.HOURS);
 
         SimpleKey someKey = new SimpleKey("");
         cache.lock(someKey, c -> {
-            c.put(new SimpleKey("aaa"), new CacheEntry<>("aaa", true));
-            c.put(new SimpleKey("aab"), new CacheEntry<>("aab", true));
-            c.put(new SimpleKey("abb"), new CacheEntry<>("abb", true));
+            c.put(new SimpleKey("aaa"), new CacheEntry<>("aaa", true, false));
+            c.put(new SimpleKey("aab"), new CacheEntry<>("aab", true, false));
+            c.put(new SimpleKey("abb"), new CacheEntry<>("abb", true, false));
             return null;
         });
 
         assertTrue(cache.lock(someKey, c -> c.get(new SimpleKey("aaa")) != null));
         assertTrue(cache.lock(someKey, c -> c.get(new SimpleKey("aab")) != null));
-        cache.flush(new SimpleKey("aa"));
+        cache.dropKeysWithPrefix(new SimpleKey("aa"));
         assertTrue(cache.lock(someKey, c -> c.get(new SimpleKey("aaa")) == null));
         assertTrue(cache.lock(someKey, c -> c.get(new SimpleKey("aab")) == null));
         assertTrue(cache.lock(someKey, c -> c.get(new SimpleKey("abb")) != null));
