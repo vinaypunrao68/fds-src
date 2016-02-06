@@ -316,7 +316,7 @@ void OmSvcHandler::heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     auto curTimePoint = std::chrono::system_clock::now();
     std::time_t time  = std::chrono::system_clock::to_time_t(curTimePoint);
 
-    LOGDEBUG << "Received heartbeat from PM:"
+    LOGNORMAL << "Received heartbeat from PM:"
              << std::hex << svcUuid.svc_uuid <<std::dec;
 
     // Get the time since epoch and convert it to minutes
@@ -714,6 +714,10 @@ OmSvcHandler::setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         volDescPtr->setCoordinatorVersion(volCoordinatorInfo.version);
         LOGNOTIFY << "Set volume coordinator for volid: " << volId
             << " coordinator: " << volCoordinatorInfo.id.svc_uuid;
+        // Persist the new desc w/ coordinator info in configDB and broadcast it
+        auto boostPtr = boost::make_shared<VolumeDesc>(*volDescPtr);
+        volumePtr->vol_modify(boostPtr);
+        e = ERR_OK;
     } else {
         LOGERROR << "Unable to find volume " << volId;
         e = ERR_VOL_NOT_FOUND;

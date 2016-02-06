@@ -1330,6 +1330,24 @@ OM_PmAgent::send_add_service
             break;
     }
 
+    // Update PM state in svc layer as well
+    fpi::SvcUuid pmSvcUuid;
+    fpi::SvcInfo pmSvcInfo;
+    pmSvcUuid.svc_uuid = get_uuid().uuid_get_val();
+
+    bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(pmSvcUuid, pmSvcInfo);
+
+    if (ret)
+    {
+        pmSvcInfo.svc_status = fpi::SVC_STATUS_ACTIVE;
+
+        MODULEPROVIDER()->getSvcMgr()->updateSvcMap({pmSvcInfo});
+        OM_NodeDomainMod::om_local_domain()->om_loc_domain_ctrl()->om_bcast_svcmap();
+    } else {
+        LOGWARN << "Unable to update PM:" << std::hex << pmSvcUuid.svc_uuid << std::dec
+                << " state to active in svc layer svcMap";
+    }
+
     // The svcInfos list usually also contains the OM and the PM
     // so ensure we update svc states only for sm,dm,am
     for (auto item: svcInfos) {
@@ -1522,7 +1540,7 @@ OM_PmAgent::send_start_service
 
                     // Only if this is already in the map do we change state. Otherwise
                     // it can lead to some weird behavior
-                    LOGDEBUG << "Starting svc:" << std::hex << svcuuid.svc_uuid << std::dec;
+                    LOGNORMAL << "Starting svc:" << std::hex << svcuuid.svc_uuid << std::dec;
                     // TODO: hack to get a svcInfo together. Should be svcinfo from the start
                     // existingItem should already have the right incarnation number and UUID
                     auto svcPtr = boost::make_shared<fpi::SvcInfo>(existingItem);
@@ -2176,8 +2194,8 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
 Error
 OM_PmAgent::send_heartbeat_check(fpi::SvcUuid svcuuid)
 {
-    LOGDEBUG << "Sending heartbeat check msg to PM: "
-             << std::hex << svcuuid.svc_uuid << std::dec;
+    LOGNORMAL << "Sending heartbeat check to Active PM: "
+              << std::hex << svcuuid.svc_uuid << std::dec;
 
     fpi::HeartbeatMessagePtr heartbeatMsg =
                              boost::make_shared<fpi::HeartbeatMessage>();
@@ -3285,8 +3303,12 @@ om_send_vol_info(NodeAgent::pointer me, fds_uint32_t *cnt, VolumeInfo::pointer v
 static void
 om_clear_vol_coordinator(VolumeInfo::pointer vol)
 {
-    LOGDEBUG << "Clearing volume coordinator info for vol: " << vol->vol_get_name();
-    vol->vol_get_properties()->clearCoordinatorInfo();
+    LOGDEBUG << "Clearing volume coordinator info for vol: " << vol->vol_get_name()
+            << " and persisting it in configDB";
+    auto volDesc = vol->vol_get_properties();
+    auto volDescPtr = boost::make_shared<VolumeDesc>(*volDesc);
+    volDesc->clearCoordinatorInfo();
+    vol->vol_modify(volDescPtr);
 }
 
 // om_bcast_vol_list
