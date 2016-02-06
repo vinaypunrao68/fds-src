@@ -84,6 +84,7 @@ function usage() {
     log "   - $(yellow error)     : show errors/warn/critical from application log"
     log "   - $(red    gdb)       : gdb attach app"
     log "   - $(yellow memchk)    : run services under $(red valgrind)"
+    log "   - $(yellow nfs)       : <volname> set up an nfs mount under /mnt/volname"
     log "   - $(yellow nomemchk)  : run services $(green normally)"
     log "   - $(yellow package)   : package fds-platform/ fds-deps(specify param deps)"
     log "   - $(yellow release)   : switch to $(green release) build"
@@ -806,6 +807,20 @@ function package() {
     fi
 }
 
+function nfs() {
+    local volname=$1
+    local amip=$2
+
+    if [[ -z $volname ]]; then logerror "volume name needs to be specified. usage: nfs <volname> [amip:localhost]"; return ; fi
+    if [[ -z $amip ]]; then amip="localhost"; fi
+
+    loginfo "making dir : /mnt/$volname"
+    mkdir /mnt/$volname 2>/dev/null
+
+    loginfo "mounting volume : /mnt/$volname"
+    mount -o _netdev,bg,defaults,nfsvers=3,bg,wsize=1048576,rsize=1048576 $amip:/$volname /mnt/$volname
+}
+
 function cleanlogs() {
     for node in ${FDSROOT} ${FDSROOT}/node{1..4} ; do
         loginfo "cleaning logs in : ${node}"
@@ -897,7 +912,7 @@ do
         kill|start*|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*|top)
             CMD=$opt
             ;;
-        test|deploy|package)
+        test|deploy|package|nfs)
             CMD=$opt
             (( n++ ))
             NEXTARG="${args[@]:$n}"
@@ -989,6 +1004,8 @@ case "${CMD}" in
     deploy) deploy "$NEXTARG"
         ;;
     package) package "$NEXTARG"
+        ;;
+    nfs) nfs "$NEXTARG"
         ;;
     *) usage ;;
 esac
