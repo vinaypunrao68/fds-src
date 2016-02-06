@@ -156,6 +156,10 @@ void DiskPlatModule::dsk_discover_mount_pts()
         else
         {
             dsk->dsk_set_mount_point(ent->mnt_dir);
+            if (is_data_mount_point(ent->mnt_dir))
+            {
+                dsk->dsk_get_parent()->dsk_set_mount_point(ent->mnt_dir);
+            }
         }
         LOGNORMAL << ent->mnt_fsname << " -> " << ent->mnt_dir;
     }
@@ -372,6 +376,19 @@ void DiskPlatModule::set_largest_disk_index(fds_uint16_t disk_index)
 fds_uint16_t DiskPlatModule::get_largest_disk_index()
 {
     return largest_disk_index;
+}
+
+bool DiskPlatModule::is_data_mount_point(const char *mount_point)
+{
+    const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
+    const std::string fdsdev = dir->dir_dev();
+    size_t len1 = strlen(fdsdev.c_str());
+    size_t len2 = strlen(mount_point);
+    if (len2 <= len1)
+    {
+        return false;
+    }
+    return (strncmp(fdsdev.c_str(), mount_point, len1) == 0);
 }
 
 // dsk_commit_label
