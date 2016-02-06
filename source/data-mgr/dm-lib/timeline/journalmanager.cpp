@@ -133,6 +133,7 @@ Error JournalManager::getJournalStartTime(const std::string &logfile,
  * The timeline directory will hold all journal files for all volumes.
  */
 void JournalManager::monitorLogs() {
+    LOGNORMAL << "journal log monitoring started";
     const FdsRootDir *root = dm->getModuleProvider()->proc_fdsroot();
     const std::string dmDir = root->dir_sys_repo_dm();
     FdsRootDir::fds_mkdir(dmDir.c_str());
@@ -286,19 +287,22 @@ void JournalManager::removeExpiredJournals() {
             continue;
         }
         retention = volumeDesc->contCommitlogRetention * 1000 * 1000;
-        // TODO(prem) : remove this soon
-        bool fRemoveOldLogs = false;
-        if (retention > 0 && fRemoveOldLogs) {
+        if (retention > 0) {
             dm->timelineMgr->getDB()->removeOldJournalFiles(volid,
                                                             now - retention,
                                                             vecJournalFiles);
-            LOGDEBUG << "[" << vecJournalFiles.size() << "] files will be removed";
+            if (!vecJournalFiles.empty()) {
+                LOGNORMAL << "[" << vecJournalFiles.size() << "] files will be removed for vol:" << volid;
+            } else {
+                LOGDEBUG << "No journals to be removed for vol:" << volid;
+            }
+
             for (const auto& journal : vecJournalFiles) {
                 rc = unlink(journal.journalFile.c_str());
                 if (rc) {
                     LOGERROR << "unable to remove old archive : " << journal.journalFile;
                 } else {
-                    LOGDEBUG << "journal file removed successfully : " << journal.journalFile;
+                    LOGNORMAL << "journal file removed successfully : " << journal.journalFile;
                 }
             }
         }
