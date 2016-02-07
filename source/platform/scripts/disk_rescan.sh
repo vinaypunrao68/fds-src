@@ -66,16 +66,18 @@ else
 fi
 
 if [[ $quiet -eq 0 ]]; then
-    /fds/bin/disk_id.py $arg
+    /fds/bin/disk_id.py $args -w -m /dev/shm  
     if [ $? -ne 0 ]; then
         exit $?
     fi 
+    cat /dev/shm/disk-config.conf
     read -n 1 -p "The output above will be written into /fds/dev/disk-format.conf. Press any key to continue. or ^C to exit." 
-fi
-
-/fds/bin/disk_id.py -w $args
-if [ $? -ne 0 ]; then
-    exit $?
+    cp /dev/shm/disk-config.conf ${fds_dev}/disk-config.conf
+else
+    /fds/bin/disk_id.py -w $args
+    if [ $? -ne 0 ]; then
+        exit $?
+    fi
 fi
 
 /fds/bin/disk_format.py --format $args
