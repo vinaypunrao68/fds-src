@@ -1582,6 +1582,8 @@ namespace fds
             std::thread startUsedCapacityThread (&PlatformManager::usedDiskCapacityMonitor, this);
             startUsedCapacityThread.detach();
 
+            notifyDiskMapChange();
+
             DiskPlatModule* dpm = DiskPlatModule::dsk_plat_singleton();
             while (1)
             {
