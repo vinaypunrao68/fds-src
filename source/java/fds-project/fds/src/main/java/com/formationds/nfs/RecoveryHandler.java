@@ -28,9 +28,17 @@ public class RecoveryHandler implements IoOps {
     }
 
     @Override
-    public void writeMetadata(String domain, String volumeName, String blobName, FdsMetadata metadata, boolean deferrable) throws IOException {
+    public void writeMetadata(String domain, String volumeName, String blobName, FdsMetadata metadata) throws IOException {
         attempt(() -> {
-            ops.writeMetadata(domain, volumeName, blobName, metadata, deferrable);
+            ops.writeMetadata(domain, volumeName, blobName, metadata);
+            return null;
+        });
+    }
+
+    @Override
+    public void commitMetadata(String domain, String volumeName, String blobName) throws IOException {
+        attempt(() -> {
+            ops.commitMetadata(domain, volumeName, blobName);
             return null;
         });
     }
@@ -41,9 +49,17 @@ public class RecoveryHandler implements IoOps {
     }
 
     @Override
-    public void writeObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, FdsObject fdsObject, boolean deferrable) throws IOException {
+    public void writeObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, FdsObject fdsObject) throws IOException {
         attempt(() -> {
-            ops.writeObject(domain, volumeName, blobName, objectOffset, fdsObject, deferrable);
+            ops.writeObject(domain, volumeName, blobName, objectOffset, fdsObject);
+            return null;
+        });
+    }
+
+    @Override
+    public void commitObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset) throws IOException {
+        attempt(() -> {
+            ops.commitObject(domain, volumeName, blobName, objectOffset);
             return null;
         });
     }
@@ -70,9 +86,9 @@ public class RecoveryHandler implements IoOps {
     }
 
     @Override
-    public void flush() throws IOException {
+    public void commitAll() throws IOException {
         attempt(() -> {
-            ops.flush();
+            ops.commitAll();
             return null;
         });
     }

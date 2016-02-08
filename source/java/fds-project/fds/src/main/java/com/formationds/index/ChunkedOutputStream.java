@@ -33,7 +33,8 @@ public class ChunkedOutputStream extends OutputStream {
                 metadata.put(FdsLuceneDirectory.SIZE, Long.toString(0l));
             }
 
-            io.writeMetadata(domain, volume, blobName, m.fdsMetadata(), false);
+            io.writeMetadata(domain, volume, blobName, m.fdsMetadata());
+            io.commitMetadata(domain, volume, blobName);
             return 0l;
         });
     }
@@ -64,7 +65,8 @@ public class ChunkedOutputStream extends OutputStream {
         }
         opt.get().lock(m -> {
             m.mutableMap().put(FdsLuceneDirectory.SIZE, Long.toString(position));
-            io.writeMetadata(domain, volume, blobName, m.fdsMetadata(), false);
+            io.writeMetadata(domain, volume, blobName, m.fdsMetadata());
+            io.commitMetadata(domain, volume, blobName);
             return null;
         });
     }

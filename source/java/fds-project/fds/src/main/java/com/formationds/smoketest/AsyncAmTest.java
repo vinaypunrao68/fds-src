@@ -54,7 +54,8 @@ public class AsyncAmTest extends BaseAmTest {
     @Test
     public void testDmSupportsSmallObjects() throws Exception {
         AmOps amOps = new AmOps(asyncAm, counters);
-        amOps.writeObject(domainName, volumeName, blobName, new ObjectOffset(0), FdsObject.allocate(10, OBJECT_SIZE), false);
+        amOps.writeObject(domainName, volumeName, blobName, new ObjectOffset(0), FdsObject.allocate(10, OBJECT_SIZE));
+        amOps.commitObject(domainName, volumeName, blobName, new ObjectOffset(0));
         FdsObject fdsObject = amOps.readCompleteObject(domainName, volumeName, blobName, new ObjectOffset(0), OBJECT_SIZE);
         fdsObject.lock(o -> {
             assertEquals(10, o.limit());

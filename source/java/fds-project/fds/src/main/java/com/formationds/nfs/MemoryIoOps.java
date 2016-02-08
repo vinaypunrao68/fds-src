@@ -26,9 +26,14 @@ public class MemoryIoOps implements IoOps {
     }
 
     @Override
-    public void writeMetadata(String domain, String volumeName, String blobName, FdsMetadata metadata, boolean deferrable) throws IOException {
+    public void writeMetadata(String domain, String volumeName, String blobName, FdsMetadata metadata) throws IOException {
         metadataCache.put(new MetaKey(domain, volumeName, blobName), metadata);
         LOG.debug("MemoryIO.writeMetadata, volume=" + volumeName + ", blobName=" + blobName + ", fieldCount=" + metadata.fieldCount());
+    }
+
+    @Override
+    public void commitMetadata(String domain, String volumeName, String blobName) throws IOException {
+
     }
 
     @Override
@@ -45,9 +50,14 @@ public class MemoryIoOps implements IoOps {
     }
 
     @Override
-    public void writeObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, FdsObject fdsObject, boolean deferrable) throws IOException {
+    public void writeObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, FdsObject fdsObject) throws IOException {
         objectCache.put(new ObjectKey(domain, volumeName, blobName, objectOffset), fdsObject);
         LOG.debug("MemoryIO.writeObject, volume=" + volumeName + ", blobName=" + blobName + ", objectOffset = " + objectOffset.getValue() + ", size=" + fdsObject.limit());
+    }
+
+    @Override
+    public void commitObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset) throws IOException {
+
     }
 
     @Override
@@ -82,7 +92,7 @@ public class MemoryIoOps implements IoOps {
     }
 
     @Override
-    public void flush() throws IOException {
+    public void commitAll() throws IOException {
 
     }
 

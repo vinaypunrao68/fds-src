@@ -13,7 +13,6 @@ PYTHON_UNITTEST_DISCOVERY_DIRECTORIES="source/tools"
 # The list of system test scenarios, do not include the .ini"
 SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest RestartDataPersistence ActiveIORndKillTest MultiAMVolOpsTest RestartClusterKillServices StaticMigration BuildSmokeTest_onpr QosTest ActiveMigration DmMigrationFailover VolumeGroupMode"
 # Jenkins job runs tests on AWS nodes
-AWS_TEST_SCENARIO_LIST="RebootNodeTest"
 function performance_report
 {
     unit=${1}
@@ -316,11 +315,6 @@ function system_test_scenario_wrapper
 
     capture_process_list SysTest.${scenario}
 
-    # Fix for fs-3698
-    if [[ "${scenario}" == 'ActiveIORestart' ]]
-    then
-          rm -rf ../../cit/*.xml
-    fi
     check_xunit_errors ${scenario}
     check_xunit_failures ${scenario}
 
@@ -422,8 +416,9 @@ function run_coroner
 function run_aws_test_scenarios
 {
     start_time=$(date +%s)
+    AWS_LST_TEST_SCENARIO_LIST = ${1}
 
-    for scenario in ${AWS_TEST_SCENARIO_LIST}
+    for scenario in ${AWS_LST_TEST_SCENARIO_LIST}
     do
         aws_test_scenario_wrapper ${scenario}
     done

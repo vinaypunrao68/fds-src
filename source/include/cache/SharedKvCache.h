@@ -30,6 +30,13 @@ namespace fds {
 //
 //   Right now all SharedKvCache's are LRU eviction
 
+// Standard entry of size 1
+template<typename ValueType>
+struct size_calc {
+    size_t operator()(ValueType const& v) const
+    { return 1; }
+};
+
 /**
  * An abstract interface for a generic key-value cache. The cache
  * takes a basic size, either in number of element, and caches elements
@@ -45,10 +52,11 @@ class SharedKvCache : public Module, boost::noncopyable {
      typedef _Hash hash_type;
      typedef std::size_t size_type;
      typedef boost::shared_ptr<mapped_type> value_type;
+     typedef bool dirty_type;
 
     // Eviction list
     private:
-     typedef std::pair<key_type, value_type> entry_type;
+     typedef std::tuple<key_type, value_type, dirty_type> entry_type;
      typedef std::list<entry_type> cache_type;
 
      typedef typename cache_type::iterator iterator;
@@ -61,16 +69,16 @@ class SharedKvCache : public Module, boost::noncopyable {
      /**
       * Constructs the cache object but does not init
       * @param[in] modName     Name of this module
-      * @param[in] _max_entries Maximum number of cache entries
+      * @param[in] _max_size   "Size" of the cache (term is implied by size_calc)
       *
       * @return none
       */
-     SharedKvCache(const std::string& module_name, size_type const _max_entries) :
+     SharedKvCache(const std::string& module_name, size_type const _max_size) :
          Module(module_name.c_str()),
          cache_map(),
          eviction_list(),
          current_size(0),
-         max_entries(_max_entries),
+         max_size(_max_size),
          cache_lock() { }
 
      ~SharedKvCache() {}
@@ -82,47 +90,49 @@ class SharedKvCache : public Module, boost::noncopyable {
       * whoever passes it in. The cache will become responsible for that.
       * If the key already exists, it will be overwritten.
       * If the cache is full, the evicted entry will be returned.
-      * Entries that are evicted are returned as unique_ptr so the
-      * caller can use it before it gets freed.
+      * Entries that are evicted are released.
       *
       * @param[in] key   Key to use for indexing
       * @param[in] value Associated value
       *
-      * @return A shared_ptr<T> to any evicted entry
+      * @return true if entry was evicted
       */
-     value_type add(const key_type& key, const value_type value) {
+     bool add(const key_type& key, const value_type value, const dirty_type dirty = false) {
+         bool was_evicted { false };
          SCOPEDWRITE(cache_lock);
 
          if (StrongAssociation::value) {
              // Touch any exiting entry from cache, if returns
              // non-NULL then we already have this value, return
              if (touch(key) != eviction_list.end())
-                 return value_type(nullptr);
+                 return was_evicted;
          } else {
              // Remove old value before adding current
-             remove_(key);
+             if (!remove_(key, dirty)) {
+                 return was_evicted;
+             }
          }
 
          // Add the entry to the front of the eviction list and into the map.
-         eviction_list.emplace_front(key, value);
+         eviction_list.emplace_front(key, value, dirty);
          cache_map[key] = eviction_list.begin();
 
          // Check if anything needs to be evicted
-         if (++current_size > max_entries) {
+         current_size += calc_size(value);
+
+         while (current_size > max_size) {
              entry_type evicted = eviction_list.back();
              eviction_list.pop_back();
 
-             value_type entryToEvict = evicted.second;
+             auto entryToEvict = std::get<1>(evicted);
 
              // Remove the cache iterator entry from the map
-             cache_map.erase(evicted.first);
+             cache_map.erase(std::get<0>(evicted));
 
-             fds_verify(--current_size == max_entries);
-             return entryToEvict;
+             current_size -= calc_size(entryToEvict);
+             was_evicted = true;
          }
-
-         // Return a NULL pointer if nothing was evicted
-         return value_type(nullptr);
+         return was_evicted;
      }
 
      /**
@@ -132,10 +142,10 @@ class SharedKvCache : public Module, boost::noncopyable {
       * @param[in] key   Key to use for indexing
       * @param[in] value Associated value
       *
-      * @return A shared_ptr<T> to any evicted entry
+      * @return true if entry was evicted
       */
-     value_type add(const key_type &key, mapped_type const& value) {
-         return add(key, boost::make_shared<mapped_type>(value));
+     bool add(const key_type &key, mapped_type const& value, bool const write_update = false) {
+         return add(key, boost::make_shared<mapped_type>(value), write_update);
      }
 
      /**
@@ -181,11 +191,12 @@ class SharedKvCache : public Module, boost::noncopyable {
                  elemIt = mapIt->second;
          }
 
-         if (elemIt == eviction_list.end())
+         if (elemIt == eviction_list.end()) {
              return ERR_NOT_FOUND;
+         }
 
          // Set the return value
-         value_out = elemIt->second;
+         value_out = std::get<1>(*elemIt);
          return ERR_OK;
      }
 
@@ -198,7 +209,7 @@ class SharedKvCache : public Module, boost::noncopyable {
       */
      void remove(const key_type &key) {
          SCOPEDWRITE(cache_lock);
-         remove_(key);
+         remove_(key, false);
      }
 
      /**
@@ -215,11 +226,11 @@ class SharedKvCache : public Module, boost::noncopyable {
          for (auto cur = cache_map.begin(); cache_map.end() != cur; ) {
              if (pred(cur->first)) {
                  auto cacheEntry = cur->second;
+                 current_size -= calc_size(std::get<1>(*cacheEntry));
                  // Remove from the cache_map
                  cur = cache_map.erase(cur);
                  // Remove from the eviction_list
                  eviction_list.erase(cacheEntry);
-                 --current_size;
              } else {
                  ++cur;
              }
@@ -239,11 +250,11 @@ class SharedKvCache : public Module, boost::noncopyable {
      }
 
      /**
-      * Returns the current number of entries in the cache
+      * Returns the current number size the cache
       *
-      * @return number of entries
+      * @return cache size
       */
-     size_type getNumEntries() const {
+     size_type getSize() const {
          SCOPEDREAD(cache_lock);
          return current_size;
      }
@@ -260,8 +271,11 @@ class SharedKvCache : public Module, boost::noncopyable {
      }
 
     private:
-     // Maximum number of entries in the cache
-     size_type max_entries;
+     // Maximum size of the cache
+     size_type max_size;
+
+     // Functor for calculating the size of a value type
+     size_calc<value_type> calc_size;
 
      // Cache line itself
      cache_type eviction_list;
@@ -281,17 +295,25 @@ class SharedKvCache : public Module, boost::noncopyable {
       *
       * @return none
       */
-     void remove_(const key_type &key) {
+     bool remove_(const key_type &key, dirty_type const dirty) {
          // Locate the key in the map
          auto mapIt = cache_map.find(key);
          if (mapIt != cache_map.end()) {
              iterator cacheEntry = mapIt->second;
+
+             // Only remove if the new element is not dirty or the existing is
+             if (dirty && !std::get<2>(*cacheEntry)) {
+                 LOGDEBUG << "Skipping cache of dirty entry.";
+                 return false;
+             }
+             current_size -= calc_size(std::get<1>(*cacheEntry));
+
              // Remove from the cache_map
              cache_map.erase(mapIt);
              // Remove from the eviction_list
              eviction_list.erase(cacheEntry);
-             --current_size;
          }
+         return true;
      }
 
      /**

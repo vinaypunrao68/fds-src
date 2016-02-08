@@ -237,9 +237,9 @@ enum  FDSPMsgTypeId {
 
   /** File Transfer **/
   FileTransferMsgTypeId                     = 900;
-  FileTransferRespMsgTypeId;
-  FileTransferVerifyMsgTypeId;
-  FileTransferVerifyRespMsgTypeId;
+  FileTransferRespMsgTypeId                 = 901;
+  FileTransferVerifyMsgTypeId               = 902;
+  FileTransferVerifyRespMsgTypeId           = 903;
 
   /** Node/service event messages. */
   NodeSvcInfoTypeId                         = 1000;
@@ -313,8 +313,8 @@ enum  FDSPMsgTypeId {
   CtrlGetSecondRebalanceDeltaSetRspTypeId   = 2067;
   CtrlFinishClientTokenResyncMsgTypeId      = 2068;
   CtrlFinishClientTokenResyncRspMsgTypeId   = 2069;
-  ObjectStoreCtrlMsgTypeId;
-  RequestObjectStoreStateMsgTypeId;
+  ObjectStoreCtrlMsgTypeId                  = 2070;
+  RequestObjectStoreStateMsgTypeId          = 2071;
 
   /** DM messages. */
   CtrlNotifyDMTCloseTypeId                  = 2081;
@@ -346,107 +346,95 @@ enum  FDSPMsgTypeId {
   AddObjectRefMsgTypeId                     = 10006;
   AddObjectRefRspMsgTypeId                  = 10007;
   PrepareForShutdownMsgTypeId               = 10008;
-  ActiveObjectsMsgTypeId;
-  ActiveObjectsRspMsgTypeId;
+  ActiveObjectsMsgTypeId                    = 10009;
+  ActiveObjectsRspMsgTypeId                 = 10010;
 
   /** DM Type Ids */
   QueryCatalogMsgTypeId                     = 20000;
-  QueryCatalogRspMsgTypeId;
-  StartBlobTxMsgTypeId;
-  StartBlobTxRspMsgTypeId;
-  UpdateCatalogMsgTypeId;
-  UpdateCatalogRspMsgTypeId;
-  UpdateCatalogOnceMsgTypeId;
-  UpdateCatalogOnceRspMsgTypeId;
-  SetBlobMetaDataMsgTypeId;
-  SetBlobMetaDataRspMsgTypeId;
-  GetBlobMetaDataMsgTypeId;
-  GetBlobMetaDataRspMsgTypeId;
-  StatVolumeMsgTypeId;
-  StatVolumeRspMsgTypeId;
-  SetVolumeMetadataMsgTypeId;
-  SetVolumeMetadataRspMsgTypeId;
-  GetVolumeMetadataMsgTypeId;
-  GetVolumeMetadataRspMsgTypeId;
-  CommitBlobTxMsgTypeId;
-  CommitBlobTxRspMsgTypeId;
-  AbortBlobTxMsgTypeId;
-  AbortBlobTxRspMsgTypeId;
-  GetBucketMsgTypeId;
-  GetBucketRspMsgTypeId;
-  DeleteBlobMsgTypeId;
-  DeleteBlobRspMsgTypeId;
-  ForwardCatalogMsgTypeId;
-  ForwardCatalogRspMsgTypeId;
-  VolSyncStateMsgTypeId;
-  VolSyncStateRspMsgTypeId;
-  StatStreamRegistrationMsgTypeId;
-  StatStreamRegistrationRspMsgTypeId;
-  StatStreamDeregistrationMsgTypeId;
-  StatStreamDeregistrationRspMsgTypeId;
-  CreateSnapshotMsgTypeId;
-  CreateSnapshotRespMsgTypeId;
-  DeleteSnapshotMsgTypeId;
-  DeleteSnapshotRespMsgTypeId;
-  CreateVolumeCloneMsgTypeId;
-  CreateVolumeCloneRespMsgTypeId;
-  GetDmStatsMsgTypeId;
-  GetDmStatsMsgRespTypeId;
-  ListBlobsByPatternMsgTypeId;
-  ListBlobsByPatternRspMsgTypeId;
-  OpenVolumeMsgTypeId;
-  OpenVolumeRspMsgTypeId;
-  CloseVolumeMsgTypeId;
-  CloseVolumeRspMsgTypeId;
-  ReloadVolumeMsgTypeId;
-  ReloadVolumeRspMsgTypeId;
-  CtrlNotifyDMStartMigrationMsgTypeId;
-  CtrlNotifyDMStartMigrationRspMsgTypeId;
-  CtrlNotifyInitialBlobFilterSetMsgTypeId;
-  CtrlNotifyInitialBlobFilterSetRspMsgTypeId;
-  CtrlNotifyDeltaBlobDescMsgTypeId;
-  CtrlNotifyDeltaBlobDescRspMsgTypeId;
-  CtrlNotifyDeltaBlobsMsgTypeId;
-  CtrlNotifyDeltaBlobsRspMsgTypeId;
-  RenameBlobMsgTypeId;
-  RenameBlobRespMsgTypeId;
-  CtrlNotifyTxStateMsgTypeId;
-  CtrlNotifyTxStateRspMsgTypeId;
-  StartRefScanMsgTypeId;
-  CtrlNotifyRequestTxStateMsgTypeId;
-  CtrlNotifyRequestTxStateRspMsgTypeId;
-  LoadFromArchiveMsgTypeId;
-  CtrlNotifyFinishMigrationMsgTypeId;
+  QueryCatalogRspMsgTypeId		    = 20001;
+  StartBlobTxMsgTypeId			    = 20002;
+  StartBlobTxRspMsgTypeId		    = 20003;
+  UpdateCatalogMsgTypeId		    = 20004;
+  UpdateCatalogRspMsgTypeId		    = 20005;
+  UpdateCatalogOnceMsgTypeId		    = 20006;
+  UpdateCatalogOnceRspMsgTypeId		    = 20007;
+  SetBlobMetaDataMsgTypeId		    = 20008;
+  SetBlobMetaDataRspMsgTypeId		    = 20009;
+  GetBlobMetaDataMsgTypeId		    = 20010;
+  GetBlobMetaDataRspMsgTypeId		    = 20011;
+  StatVolumeMsgTypeId			    = 20012;
+  StatVolumeRspMsgTypeId		    = 20013;
+  SetVolumeMetadataMsgTypeId		    = 20014;
+  SetVolumeMetadataRspMsgTypeId		    = 20015;
+  GetVolumeMetadataMsgTypeId		    = 20016;
+  GetVolumeMetadataRspMsgTypeId		    = 20017;
+  CommitBlobTxMsgTypeId			    = 20018;
+  CommitBlobTxRspMsgTypeId		    = 20019;
+  AbortBlobTxMsgTypeId			    = 20020;
+  AbortBlobTxRspMsgTypeId		    = 20021;
+  GetBucketMsgTypeId			    = 20022;
+  GetBucketRspMsgTypeId			    = 20023;
+  DeleteBlobMsgTypeId			    = 20024;
+  DeleteBlobRspMsgTypeId		    = 20025;
+  ForwardCatalogMsgTypeId		    = 20026;
+  ForwardCatalogRspMsgTypeId		    = 20027;
+  VolSyncStateMsgTypeId			    = 20028;
+  VolSyncStateRspMsgTypeId		    = 20029;
+  StatStreamRegistrationMsgTypeId	    = 20030;
+  StatStreamRegistrationRspMsgTypeId	    = 20031;
+  StatStreamDeregistrationMsgTypeId	    = 20032;
+  StatStreamDeregistrationRspMsgTypeId	    = 20033;
+  CreateSnapshotMsgTypeId		    = 20034;
+  CreateSnapshotRespMsgTypeId		    = 20035;
+  DeleteSnapshotMsgTypeId		    = 20036;
+  DeleteSnapshotRespMsgTypeId		    = 20037;
+  CreateVolumeCloneMsgTypeId		    = 20038;
+  CreateVolumeCloneRespMsgTypeId	    = 20039;
+  GetDmStatsMsgTypeId			    = 20040;
+  GetDmStatsMsgRespTypeId		    = 20041;
+  ListBlobsByPatternMsgTypeId		    = 20042;
+  ListBlobsByPatternRspMsgTypeId	    = 20043;
+  OpenVolumeMsgTypeId			    = 20044;
+  OpenVolumeRspMsgTypeId		    = 20045;
+  CloseVolumeMsgTypeId			    = 20046;
+  CloseVolumeRspMsgTypeId		    = 20047;
+  ReloadVolumeMsgTypeId			    = 20048;
+  ReloadVolumeRspMsgTypeId		    = 20049;
+  CtrlNotifyDMStartMigrationMsgTypeId	    = 20050;
+  CtrlNotifyDMStartMigrationRspMsgTypeId	= 20051;
+  CtrlNotifyInitialBlobFilterSetMsgTypeId	= 20052;
+  CtrlNotifyInitialBlobFilterSetRspMsgTypeId	= 20053;
+  CtrlNotifyDeltaBlobDescMsgTypeId		= 20054;
+  CtrlNotifyDeltaBlobDescRspMsgTypeId		= 20055;
+  CtrlNotifyDeltaBlobsMsgTypeId		    = 20056;
+  CtrlNotifyDeltaBlobsRspMsgTypeId	    = 20057;
+  RenameBlobMsgTypeId			    = 20058;
+  RenameBlobRespMsgTypeId		    = 20059;
+  CtrlNotifyTxStateMsgTypeId		    = 20060;
+  CtrlNotifyTxStateRspMsgTypeId		    = 20061;
+  StartRefScanMsgTypeId			    = 20062;
+  CtrlNotifyRequestTxStateMsgTypeId	    = 20063;
+  CtrlNotifyRequestTxStateRspMsgTypeId	    = 20064;
+  LoadFromArchiveMsgTypeId		    = 20065;
+  CtrlNotifyFinishMigrationMsgTypeId	    = 20066;
 
   /* DM Debug Messages */
-  DbgForceVolumeSyncMsgTypeId; 
+  DbgForceVolumeSyncMsgTypeId               = 21000; 
 
   /* VolumeGroup messages */
-  VolumeGroupInfoUpdateCtrlMsgTypeId = 30000;
-  SetVolumeGroupCoordinatorMsgTypeId;
-  AddToVolumeGroupCtrlMsgTypeId;
-  AddToVolumeGroupRespCtrlMsgTypeId;
-  VolumeStateUpdateInfoCtrlMsgTypeId;
-  GetVolumeStateCtrlMsgTypeId;
-  /* BEGIN Volumegroup test messages.  Will be removed */
-  CreateVolumeMsgTypeId;
-  StartTxMsgTypeId;
-  UpdateTxMsgTypeId;
-  CommitTxMsgTypeId;
-  PullActiveTxsMsgTypeId;
-  PullActiveTxsRespMsgTypeId;
-  PullCommitLogEntriesMsgTypeId;
-  PullCommitLogEntriesRespMsgTypeId;
-  QosFunctionTypeId;
-  /* END Volumegroup test messages.  Will be removed */
+  VolumeGroupInfoUpdateCtrlMsgTypeId        = 30000;
+  SetVolumeGroupCoordinatorMsgTypeId        = 30002;
+  AddToVolumeGroupCtrlMsgTypeId             = 30003;
+  AddToVolumeGroupRespCtrlMsgTypeId         = 30004;
+  VolumeStateUpdateInfoCtrlMsgTypeId        = 30005;
 
   /** Health Status */
   NotifyHealthReportTypeId                  = 100000;
   HeartbeatMessageTypeId                    = 100001;
-  EventMessageTypeId;
+  EventMessageTypeId                        = 100002;
 
   /** disk-map change (sent by PM to SM and DM) */
-  NotifyDiskMapChangeTypeId;
+  NotifyDiskMapChangeTypeId                 = 100003;
 }
 
 /**
@@ -511,20 +499,6 @@ struct AsyncHdr {
   9: optional i32               replicaVersion = 0;
   /* Header specific for payload */
   10: optional binary           payloadHdr;
-  /**  */
-  11: i64                       rqSendStartTs;
-  /**  */
-  12: i64                       rqSendEndTs;
-  /**  */
-  13:i64                        rqRcvdTs;
-  /**  */
-  14:i64                        rqHndlrTs;
-  /**  */
-  15:i64                        rspSerStartTs;
-  /**  */
-  16:i64                        rspSendStartTs;
-  /**  */
-  17:i64                        rspRcvdTs;
 }
 
 
