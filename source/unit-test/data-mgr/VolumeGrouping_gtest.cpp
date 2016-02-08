@@ -523,10 +523,10 @@ TEST_F(DmGroupFixture, allDownFollowedBySequentialUp) {
     doVolumeStateCheck(2, v1Id, fpi::Active, 1000, 10000);
 }
 
-TEST_F(DmGroupFixture, VolumeCopyTest) {
+TEST_F(DmGroupFixture, VolumeTargetCopy) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
     /* Create two dms */
-    create(2);
+    createCluster(2);
 
     Waiter waiter(0);
     fds_volid_t v1Id(10);
