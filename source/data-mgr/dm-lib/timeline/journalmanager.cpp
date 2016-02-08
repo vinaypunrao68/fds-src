@@ -133,6 +133,7 @@ Error JournalManager::getJournalStartTime(const std::string &logfile,
  * The timeline directory will hold all journal files for all volumes.
  */
 void JournalManager::monitorLogs() {
+    LOGNORMAL << "journal log monitoring started";
     const FdsRootDir *root = dm->getModuleProvider()->proc_fdsroot();
     const std::string dmDir = root->dir_sys_repo_dm();
     FdsRootDir::fds_mkdir(dmDir.c_str());
@@ -176,20 +177,9 @@ void JournalManager::monitorLogs() {
             processedEvent = false;
             std::vector<std::string> volDirs;
             util::getSubDirectories(dmDir, volDirs);
+            LOGDEBUG << "monitoring : " << dmDir;
 
             for (const auto & d : volDirs) {
-                // check the commit log retention for this volume
-                fds_volid_t volid(std::atoll(d.c_str()));
-                const VolumeDesc *volumeDesc = dm->getVolumeDesc(volid);
-                if (!volumeDesc) {
-                    LOGWARN << "unable to get voldesc for vol:" << volid;
-                    continue;
-                }
-                if (volumeDesc->contCommitlogRetention == 0) {
-                    LOGDEBUG << "skipping journal log archive as retention is OFF for vol:" << volid;
-                    continue;
-                }
-
                 std::string volPath = dmDir + d + "/";
                 std::vector<std::string> catFiles;
                 util::getFiles(volPath, catFiles);
@@ -201,19 +191,20 @@ void JournalManager::monitorLogs() {
                         FdsRootDir::fds_mkdir(volTLPath.c_str());
 
                         std::string srcFile = volPath + f;
-                        std::string cpCmd = "cp -f " + srcFile + " " + volTLPath;
-                        LOGDEBUG << "Running command: '" << cpCmd << "'";
-                        fds_int32_t rc = std::system(cpCmd.c_str());
+                        std::string destFile = volTLPath + f + ".gz";
+                        TimeStamp startTime = 0;
+                        getJournalStartTime(srcFile, startTime);
+                        std::string zipCmd = "gzip  --stdout " + srcFile + " > " + destFile;
+                        LOGDEBUG << "running command: [" << zipCmd << "]";
+                        auto rc = std::system(zipCmd.c_str());
+
                         if (!rc) {
                             fds_verify(0 == unlink(srcFile.c_str()));
                             processedEvent = true;
                             fds_volid_t volId (std::atoll(d.c_str()));
-                            TimeStamp startTime = 0;
-                            getJournalStartTime(volTLPath + f, startTime);
-                            dm->timelineMgr->getDB()->addJournalFile(volId, startTime, volTLPath + f);
+                            dm->timelineMgr->getDB()->addJournalFile(volId, startTime, destFile);
                         } else {
-                            LOGWARN << "Failed to run command '" << cpCmd << "', error: '"
-                                    << rc << "'";
+                            LOGWARN << "command failed [" << zipCmd << "], error:" << rc << ":" << strerror(rc);
                         }
                     }
                 }
@@ -296,19 +287,22 @@ void JournalManager::removeExpiredJournals() {
             continue;
         }
         retention = volumeDesc->contCommitlogRetention * 1000 * 1000;
-        // TODO(prem) : remove this soon
-        bool fRemoveOldLogs = false;
-        if (retention > 0 && fRemoveOldLogs) {
+        if (retention > 0) {
             dm->timelineMgr->getDB()->removeOldJournalFiles(volid,
                                                             now - retention,
                                                             vecJournalFiles);
-            LOGDEBUG << "[" << vecJournalFiles.size() << "] files will be removed";
+            if (!vecJournalFiles.empty()) {
+                LOGNORMAL << "[" << vecJournalFiles.size() << "] files will be removed for vol:" << volid;
+            } else {
+                LOGDEBUG << "No journals to be removed for vol:" << volid;
+            }
+
             for (const auto& journal : vecJournalFiles) {
                 rc = unlink(journal.journalFile.c_str());
                 if (rc) {
                     LOGERROR << "unable to remove old archive : " << journal.journalFile;
                 } else {
-                    LOGDEBUG << "journal file removed successfully : " << journal.journalFile;
+                    LOGNORMAL << "journal file removed successfully : " << journal.journalFile;
                 }
             }
         }
