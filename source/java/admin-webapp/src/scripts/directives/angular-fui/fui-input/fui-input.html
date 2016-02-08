@@ -1,4 +1,9 @@
-<div class="fui-input form-group" ng-disabled="disabled === true" ng-style="{ 'border-width' : (noBorder === 'true') ? '0px' : '1px' }">
-    <input ng-model="aliasedModel" type="{{type}}" placeholder="{{placeholder}}" autofocus autocomplete="off" autocapitalize="off" ng-disabled="disabled === true">
-    <label class="{{iconClass}} input-icon"></label>
+<div class="fui-input form-group">
+    <div class="input-field" ng-disabled="disabled === true" ng-class="{ 'not-valid-field': show_red }" ng-style="{ 'border-width' : (noBorder === 'true') ? '0px' : '1px' }" ng-form="{{name}}">
+        <input ng-model="aliasedModel" name="{{name}}" type="{{type}}" placeholder="{{placeholder}}" autofocus autocomplete="off" autocapitalize="off" ng-disabled="disabled === true" ng-keyup="validate( $event )">
+        <label class="{{iconClass}} input-icon"></label>
+    </div>
+    <mouse-over visible="show_red" top="top" left="left" fill-color="errorColor" below="below" left-side="leftSide">
+        <div class="input-error-text">{{ errorText }}</div>
+    </mouse-over>
 </div>
