@@ -463,6 +463,7 @@ DmMigrationClient::processBlobFilterSet()
 		{
 			auto auto_lock = commitLog->getCommitLock(true);
 			err = dataMgr.timeVolCat_->queryIface()->getVolumeSnapshot(volId, snap_);
+			commitLog->snapshotOutstandingTx(transactions);
 			turnOnForwarding();
 		}
 		if (ERR_OK != err) {
@@ -472,10 +473,46 @@ DmMigrationClient::processBlobFilterSet()
 		} else {
 		    fds_assert(snap_ != nullptr);
 			snapshotTaken = true;
+			err = sendActiveTx();
+			if (!err.ok()) {
+			    LOGWARN << logString() << "Failed to send active transactions for volume=" << volId;
+			}
 		}
     }
 
     return err;
+}
+
+Error
+DmMigrationClient::sendActiveTx()
+{
+    Error err(ERR_OK);
+    if (!snapshotTaken) {
+        err = ERR_UNAVAILABLE;
+        return err;
+    }
+
+    // Overload the resp msg and send it as a one way msg
+    fpi::CtrlNotifyTxStateMsgPtr activeTxs(new fpi::CtrlNotifyTxStateMsg());
+    activeTxs->volume_id = volId.get();
+    activeTxs->migration_id = migrationId;
+    activeTxs->version = dmtVersion;
+    activeTxs->highest_op_id = dataMgr.getVolumeMeta(volId)->getOpId();
+    // no lowest op id?
+    activeTxs->transactions = transactions; // should be small
+
+    auto activeTxMsg = requestMgr->newEPSvcRequest(destDmUuid.toSvcUuid());
+    activeTxMsg->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());
+    activeTxMsg->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifyTxStateMsg), activeTxs);
+    // A hack because g++ doesn't like a bind within a macro that does bind
+    std::function<void()> abortBind = std::bind(&DmMigrationClient::asyncMsgFailed, this);
+    std::function<void()> passBind = std::bind(&DmMigrationClient::asyncMsgPassed, this);
+    activeTxMsg->onResponseCb(RESPONSE_MSG_HANDLER(DmMigrationBase::dmMigrationCheckResp, abortBind, passBind));
+	activeTxMsg->setTaskExecutorId(volId.v);
+	asyncMsgIssued();
+    activeTxMsg->invoke();
+
+    return (err);
 }
 
 Error
