@@ -1358,7 +1358,7 @@ OM_NodeDomainMod::mod_init(SysParams const *const param)
     om_test_mode = conf_helper.get<bool>("test_mode");
     om_locDomain->om_init_domain();
     dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
-                             get<uint32_t>("fds.common.volume_group.dm_cluster_size", 1));
+                             get<uint32_t>("fds.feature_toggle.common.volumegrouping_dm_cluster_size", 1));
     return 0;
 }
 
@@ -3452,7 +3452,7 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
         dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
     } else {
         auto dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
-                                        get<uint32_t>("fds.common.volume_group.dm_cluster_size", 1));
+                                        get<uint32_t>("fds.feature_toggle.common.volumegrouping_dm_cluster_size", 1));
         if ((!dmClusterPresent()) && (awaitingDMs == dmClusterSize)) {
             LOGNOTIFY << "Volume Group Mode has reached quorum with " << dmClusterSize
                     << " DMs. Calculating DMT now.";
