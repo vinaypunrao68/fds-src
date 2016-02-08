@@ -6,6 +6,9 @@ then
     exit 1;
 fi
 
+# override the version with nightly if given.
+nightly="${2}"
+
 #first make it so the path we're in is fds-src/omnibus/installer
 
 location="${PWD##*/}"
@@ -65,6 +68,11 @@ then
     echo "Uploading the platform and fds-deps packages to artifactory"
     ./deploy_artifacts.sh
     cd ../omnibus/installer
+fi
+
+if [[ ${#nightly} -gt 0 ]]
+then
+    echo "${nightly}" > ../VERSION
 fi
 
 echo "Building the offline installer."
