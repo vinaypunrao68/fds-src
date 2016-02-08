@@ -648,10 +648,9 @@ def connect_fabric(self,node_ip):
     self : obj
     node_ip : str
     """
-    #TODO: pooja finish fs-4280 to read use/pwd form inventory
     # 'env' is a global dictionary-like object driving many of Fabric's settings.
-    env.user = 'root'
-    env.password = 'passwd'
+    env.user = get_inventory_value(self.parameters['inventory_file'],'fds_ssh_user', self.log)
+    env.password = get_inventory_value(self.parameters['inventory_file'],'fds_ssh_password', self.log)
     # 'host_string' defines the current user/host/port which Fabric will connect
     # to when executing run, put, and so forth.
     env.host_string = node_ip

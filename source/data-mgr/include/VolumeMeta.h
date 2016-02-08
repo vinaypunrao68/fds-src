@@ -312,6 +312,8 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     StatusCb cbToVGMgr;
 };
 
+using VolumeMetaPtr = SHPTR<VolumeMeta>;
+
 }  // namespace fds
 
 #endif  // SOURCE_DATA_MGR_INCLUDE_VOLUMEMETA_H_

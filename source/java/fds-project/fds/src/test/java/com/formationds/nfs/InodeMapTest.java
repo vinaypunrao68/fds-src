@@ -17,7 +17,7 @@ public class InodeMapTest {
         long maxVolumeCapacityInBytes = 100;
         StubExportResolver exportResolver = new StubExportResolver(VOLUME, 1024, maxVolumeCapacityInBytes);
         InodeMap inodeMap = new InodeMap(new MemoryIoOps(), exportResolver);
-        Inode inode = inodeMap.create(new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0644, 257), exportResolver.exportId(VOLUME), true);
+        Inode inode = inodeMap.create(new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0644, 257), exportResolver.exportId(VOLUME));
         inodeMap.write(inode, new byte[100], 0, 100);
 
         try {
