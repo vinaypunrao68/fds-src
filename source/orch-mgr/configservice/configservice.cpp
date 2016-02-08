@@ -219,6 +219,11 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         return id;
     }
 
+    bool isLocalDomainUp() {
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        return domain->om_local_domain_up();
+    }
+
     /**
     * List the currently defined Local Domains.
     *

@@ -156,7 +156,7 @@
 {% set ft_enable_web_logging_request_wrapper      = fds_ft_enable_web_logging_request_wrapper      if fds_ft_enable_web_logging_request_wrapper      is defined else 'false' %}
 {% set ft_enable_influxdb_write_batch             = fds_ft_enable_influxdb_write_batch             if fds_ft_enable_influxdb_write_batch             is defined else 'false' %}
 {% set ft_enable_influxdb_chunked_query_response  = fds_ft_enable_influxdb_chunked_query_response  if fds_ft_enable_influxdb_chunked_query_response  is defined else 'false' %}
-{% set ft_enable_influxdb_one_series              = fds_ft_enable_influxdb_series_per_volume       if fds_ft_enable_influxdb_series_per_volume       is defined else 'true'  %}
+{% set ft_enable_influxdb_one_series              = fds_ft_enable_influxdb_one_series              if fds_ft_enable_influxdb_one_series              is defined else 'true'  %}
 {% set ft_enable_influxdb_series_per_volume       = fds_ft_enable_influxdb_series_per_volume       if fds_ft_enable_influxdb_series_per_volume       is defined else 'false' %}
 {% set ft_enable_influxdb_query_series_per_volume = fds_ft_enable_influxdb_query_series_per_volume if fds_ft_enable_influxdb_query_series_per_volume is defined else 'false' %}
 {% set ft_ignore_failed_svcs                      = fds_ft_ignore_failed_svcs                      if fds_ft_ignore_failed_svcs                      is defined else 'true'  %}
