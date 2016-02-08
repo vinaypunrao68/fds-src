@@ -5,7 +5,6 @@ import com.formationds.util.IoFunction;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalCause;
-import org.apache.log4j.Logger;
 
 import java.io.IOException;
 import java.util.*;
@@ -13,15 +12,15 @@ import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class EvictingCache<TKey extends SortableKey<TKey>, TValue> {
     private final static int LOCK_STRIPES = 1024 * 32;
-    private static final Logger LOG = Logger.getLogger(EvictingCache.class);
 
     private final Cache<TKey, CacheEntry<TValue>> cache;
     private TraversableView traversableView;
     private Evictor<TKey, TValue> evictor;
-    private final Object[] locks;
+    private final ReentrantLock[] locks;
     private String name;
     private final BlockingDeque<Exception> exceptions;
 
@@ -37,12 +36,11 @@ public class EvictingCache<TKey extends SortableKey<TKey>, TValue> {
                 .removalListener(notification -> {
                     RemovalCause cause = notification.getCause();
                     TKey key = (TKey) notification.getKey();
-                    LOG.debug("EvictingCache removalListener, cause=" + cause + ", key=" + key.toString());
                     if (!(cause.equals(RemovalCause.EXPLICIT) || cause.equals(RemovalCause.REPLACED))) {
                         CacheEntry<TValue> entry = (CacheEntry<TValue>) notification.getValue();
                         if (entry.isDirty) {
                             try {
-                                evictor.flush(key, entry.value);
+                                evictor.flush(key, entry);
                                 entry.isDirty = false;
                             } catch (Exception e) {
                                 exceptions.add(e);
@@ -55,9 +53,9 @@ public class EvictingCache<TKey extends SortableKey<TKey>, TValue> {
                     }
                 }).build();
 
-        locks = new Object[LOCK_STRIPES];
+        locks = new ReentrantLock[LOCK_STRIPES];
         for (int i = 0; i < locks.length; i++) {
-            locks[i] = new Object();
+            locks[i] = new ReentrantLock();
         }
     }
 
@@ -79,8 +77,11 @@ public class EvictingCache<TKey extends SortableKey<TKey>, TValue> {
     public <T> T lock(TKey key, IoFunction<SortedMap<TKey, CacheEntry<TValue>>, T> f) throws IOException {
         bubbleExceptions();
         int stripe = Math.abs(key.hashCode() % LOCK_STRIPES);
-        synchronized (locks[stripe]) {
+        locks[stripe].lock();
+        try {
             return f.apply(this.traversableView);
+        } finally {
+            locks[stripe].unlock();
         }
     }
 
@@ -103,7 +104,7 @@ public class EvictingCache<TKey extends SortableKey<TKey>, TValue> {
             lock(key, c -> {
                 CacheEntry<TValue> entry = c.get(key);
                 if (entry.isDirty) {
-                    evictor.flush(key, entry.value);
+                    evictor.flush(key, entry);
                     entry.isDirty = false;
                 }
                 return null;
@@ -111,7 +112,7 @@ public class EvictingCache<TKey extends SortableKey<TKey>, TValue> {
         }
     }
 
-    public void flush(TKey prefix) {
+    public void dropKeysWithPrefix(TKey prefix) {
         Iterator<TKey> iterator = traversableView.tailMap(prefix).keySet().iterator();
         while (iterator.hasNext()) {
             TKey next = iterator.next();
@@ -154,14 +155,12 @@ public class EvictingCache<TKey extends SortableKey<TKey>, TValue> {
 
         @Override
         public CacheEntry<TValue> put(TKey key, CacheEntry<TValue> value) {
-            LOG.debug("EvictingCache PUT " + key.toString());
             cache.put(key, value);
             return inner.put(key, value);
         }
 
         @Override
         public CacheEntry<TValue> remove(Object key) {
-            LOG.debug("EvictingCache REMOVE " + key.toString());
             cache.asMap().remove(key);
             return inner.remove(key);
         }

@@ -274,7 +274,8 @@ void VolumeMeta::startInitializer(bool force)
     initializerTriesCnt = force ? 1 : initializerTriesCnt + 1;
 
     setState(fpi::Loading,
-             util::strformat(" - startInitializer.  Try #: %d", initializerTriesCnt));
+             util::strformat(" - startInitializer with coordinator: %ld.  Try #: %d",
+                             getCoordinatorId().svc_uuid, initializerTriesCnt));
     initializer = MAKE_SHARED<VolumeInitializer>(MODULEPROVIDER(), this);
     initializer->run();
 }

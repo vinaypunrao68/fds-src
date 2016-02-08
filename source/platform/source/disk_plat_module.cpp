@@ -80,7 +80,8 @@ void DiskPlatModule::mod_startup()
     pollfds[FD_INOTIFY_IDX].fd = fd;
     pollfds[FD_INOTIFY_IDX].events = POLLIN;
     pollfds[FD_INOTIFY_IDX].revents = 0;
-    int wd = inotify_add_watch( fd, "/fds/etc", IN_CREATE | IN_OPEN);
+    const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
+    int wd = inotify_add_watch( fd, dir->dir_fds_etc().c_str(), IN_CREATE | IN_OPEN);
     if (wd < 0)
     {
         LOGWARN << "Error adding a watch for inotify " << errno;
@@ -150,10 +151,15 @@ void DiskPlatModule::dsk_discover_mount_pts()
 
         if (dsk == NULL)
         {
-            LOGNORMAL << "Can't find maching dev " << ent->mnt_fsname;
-        }else {
+            LOGNORMAL << "Can't find matching dev " << ent->mnt_fsname;
+        }
+        else
+        {
             dsk->dsk_set_mount_point(ent->mnt_dir);
-            dsk->dsk_get_parent()->dsk_set_mount_point(ent->mnt_dir);
+            if (is_data_mount_point(ent->mnt_dir))
+            {
+                dsk->dsk_get_parent()->dsk_set_mount_point(ent->mnt_dir);
+            }
         }
         LOGNORMAL << ent->mnt_fsname << " -> " << ent->mnt_dir;
     }
@@ -277,12 +283,18 @@ void DiskPlatModule::dsk_rescan()
         if (slice == NULL) {
             GLOGDEBUG << "slice is NULL";
             struct udev_device   *dev;
-            Resource::pointer     rs = dsk_devices->rs_alloc_new(ResourceUUID());
-
-            slice = PmDiskObj::dsk_cast_ptr(rs);
             dev   = udev_device_new_from_syspath(dsk_ctrl, path);
-            slice->dsk_update_device(dev, disk, blk_path, dev_path);
-            dsk_devices->dsk_discovery_add(slice, disk);
+            if (dev == NULL)
+            {
+                LOGWARN << "Can't get info about " << path << "; skipping";
+            }
+            else
+            {
+                Resource::pointer rs = dsk_devices->rs_alloc_new(ResourceUUID());
+                slice = PmDiskObj::dsk_cast_ptr(rs);
+                slice->dsk_update_device(dev, disk, blk_path, dev_path);
+                dsk_devices->dsk_discovery_add(slice, disk);
+            }
         }else {
             // slice->dsk_update_device(NULL, disk, blk_path, dev_path);
             dsk_devices->dsk_discovery_update(slice);
@@ -364,6 +376,19 @@ void DiskPlatModule::set_largest_disk_index(fds_uint16_t disk_index)
 fds_uint16_t DiskPlatModule::get_largest_disk_index()
 {
     return largest_disk_index;
+}
+
+bool DiskPlatModule::is_data_mount_point(const char *mount_point)
+{
+    const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
+    const std::string fdsdev = dir->dir_dev();
+    size_t len1 = strlen(fdsdev.c_str());
+    size_t len2 = strlen(mount_point);
+    if (len2 <= len1)
+    {
+        return false;
+    }
+    return (strncmp(fdsdev.c_str(), mount_point, len1) == 0);
 }
 
 // dsk_commit_label

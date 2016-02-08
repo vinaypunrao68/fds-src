@@ -38,11 +38,11 @@ public class Chunker {
                     bb.put(bytes, actualLength - remaining[0], toBeWritten);
                     startOffset[0] = 0;
                     remaining[0] -= toBeWritten;
-                    io.writeObject(domain, volume, blobName, objectOffset, o.fdsObject(), true);
+                    io.writeObject(domain, volume, blobName, objectOffset, o.fdsObject());
                     return null;
                 });
 
-                io.writeMetadata(domain, volume, blobName, m.fdsMetadata(), true);
+                io.writeMetadata(domain, volume, blobName, m.fdsMetadata());
                 return null;
             });
         }

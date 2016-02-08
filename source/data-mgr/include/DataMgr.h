@@ -79,18 +79,14 @@ class DmMigrationMgr;
 struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     static void InitMsgHdr(const fpi::FDSP_MsgHdrTypePtr& msg_hdr);
 
-    /*
-     * TODO: Move to STD shared or unique pointers. That's
-     * safer.
-     */
-    std::unordered_map<fds_volid_t, VolumeMeta*> vol_meta_map;
+    std::unordered_map<fds_volid_t, VolumeMetaPtr> vol_meta_map;
     /**
      * Catalog sync manager
      */
     CatalogSyncMgrPtr catSyncMgr;  // sending vol meta
     CatSyncReceiverPtr catSyncRecv;  // receiving vol meta
     void initHandlers();
-    VolumeMeta* getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked = false);
+    VolumeMetaPtr getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked = false);
     /**
     * Callback for DMT close
     */
@@ -197,6 +193,7 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
         DEF_FEATURE(Expunge      , true);
         DEF_FEATURE(Volumegrouping, false);
         DEF_FEATURE(RealTimeStatSampling, false);
+        DEF_FEATURE(SendToNewStatsService, false);
     } features;
 
     dm::Counters* counters;

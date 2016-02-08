@@ -50,7 +50,10 @@ public class SimpleInodeIndex implements InodeIndex {
             Collection<String> names = links.get(parentId);
             for (String name : names) {
                 String blobName = blobName(parentId, name);
-                io.writeMetadata(XdiVfs.DOMAIN, volumeName, blobName, new FdsMetadata(entry.asMap()), deferrable);
+                io.writeMetadata(XdiVfs.DOMAIN, volumeName, blobName, new FdsMetadata(entry.asMap()));
+                if (!deferrable) {
+                    io.commitMetadata(XdiVfs.DOMAIN, volumeName, blobName);
+                }
             }
         }
     }

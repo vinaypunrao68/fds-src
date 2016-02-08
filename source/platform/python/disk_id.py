@@ -26,7 +26,7 @@ class Disk:
     DISK_BUS_SAS = 'SAS'
     DISK_BUS_NA = 'NA'
 
-    p_dev = re.compile('sd[a-z]$')
+    p_dev = re.compile('sd[a-z]{1,2}$')
 
     # We are using 1000*1000
     # device size with M = 1024*1024:     1907729 MBytes
@@ -302,13 +302,14 @@ def disk_type_with_stor_cli (stor_client):
     dbg_print ("return_list=" + ', '.join(return_list))
     return return_list
 
-def find_index_devices() :
-    output = subprocess.Popen(["df", "/fds/sys-repo"], stdout=subprocess.PIPE).stdout
+def find_index_devices(index_mount_point) :
+    devnull = open(os.devnull, 'wb')
+    output = subprocess.Popen(["df", index_mount_point], stdout=subprocess.PIPE, stderr=devnull).stdout
     index_devs = []
     dev = ""
     for line in output:
         items = line.strip ('\r\n').split()
-        if "/fds/sys-repo" == items[5]:
+        if index_mount_point == items[5]:
             dev = items[0]
             dbg_print("Found an existing index device in df output: %s" % dev)
             break
@@ -327,6 +328,7 @@ if __name__ == "__main__":
     parser.add_option('-s', '--stor', dest = 'stor_cli', help = 'Full path and file name of the StorCli binary')
     parser.add_option('-v', '--virtual', dest = 'virtual', action = 'store_true', help = 'Running in a virtualized environment, treats all detected drives as HDDs')
     parser.add_option('-w', '--write', dest = 'write_disk', action = 'store_true', help = 'Writes the disk configuration information file.')
+    parser.add_option('-m', '--map', dest = 'disk_config_dest', help = 'The destination disk config file.')
 
     (options, args)   = parser.parse_args()
     debug_on          = options.debug
@@ -343,14 +345,25 @@ if __name__ == "__main__":
             print ( "Error:  Can not access '" + options.stor_cli + "', please use or verify the -s command line option.  Can not continue.")
             sys.exit(1)
 
-    destination_dir = options.fds_root + "/dev"
+    fds_root = options.fds_root
+    if not fds_root.endswith ('/'):
+        fds_root += '/'
+    if not options.disk_config_dest:
+        destination_dir = fds_root + "dev"
+    else:
+        destination_dir = options.disk_config_dest
+    index_mount_point = fds_root + "sys-repo"
 
     # verify destination directory exists
     if write_disk_config:
         if not os.path.isdir (destination_dir):
             print ( "Error:  Directory '" + destination_dir + "', does not exist.  Can not continue.")
             sys.exit(1)
-
+    elif options.disk_config_dest:
+        print ( "Error: must specify -m(--map) option together with the -w (--write) option.")
+        sys.exit(1)
+    
+    
     os_device_list = discover_os_devices()
 
     sys.stdout.write ('Scanning hardware:  Phase 1:  ')
@@ -432,10 +445,11 @@ if __name__ == "__main__":
     index_device_list = []
 
     # keep existing index disk(s)
-    index_device_list = find_index_devices()
+    index_device_list = find_index_devices(index_mount_point)
     if len(index_device_list) < 1:
-        subprocess.call(['mount', '/fds/sys-repo'], stdout = None, stderr = None)
-        index_device_list = find_index_devices()
+        devnull = open(os.devnull, 'wb')
+        subprocess.call(['mount', index_mount_point], stdout = None, stderr = devnull)
+        index_device_list = find_index_devices(index_mount_point)
 
     # copy one SSD into the index device list
     while len (index_device_list) < 1 and len (ssd_device_list) > 0:

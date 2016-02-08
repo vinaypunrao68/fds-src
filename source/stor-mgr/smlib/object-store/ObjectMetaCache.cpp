@@ -53,8 +53,7 @@ ObjectMetaCache::putObjectMetadata(fds_volid_t volId,
                                    const ObjectID &objId,
                                    ObjMetaData::const_ptr objMeta) {
     if (maxEntries > 0) {
-        ObjMetaData::const_ptr evictedMeta
-                = metaCache->add(objId, objMeta);
+        metaCache->add(objId, objMeta);
     }
 }
 
