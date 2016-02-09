@@ -960,6 +960,9 @@ int DataMgr::mod_init(SysParams const *const param)
     features.setTimelineEnabled(CONFIG_BOOL("fds.feature_toggle.common.enable_timeline", true));
     timelineMgr.reset(new timeline::TimelineManager(this));
 
+    dmFullnessThreshold = MODULEPROVIDER()->get_fds_config()->\
+            get<fds_uint32_t>("fds.dm.disk_fullness_threshold", 75);
+
     /**
      * FEATURE TOGGLE: Volume Open Support
      * Thu 02 Apr 2015 12:39:27 PM PDT
