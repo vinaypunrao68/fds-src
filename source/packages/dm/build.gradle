@@ -83,4 +83,16 @@ task deployDeb( dependsOn: 'buildDeb' ) << {
 		throw new GradleException( 'Artifact upload failed.' )
 	}
 
+  def deploy_artifactory_local = 'curl -v -X PUT http://' + username + ':' + password + '@bld-artifactory:8081/artifactory/formation-apt/pool/nightly/' + fullName + ';deb.distribution=platform;deb.component=nightly;deb.architecture=amd64 -T ' + projectDir.getName() + '/build/distributions/' + fullName
+
+	println deploy_artifactory_local
+
+	def proc_local = deploy_artifactory_local.execute()
+
+	proc_local.text.eachLine { line -> println line }
+
+	if ( proc_local.exitValue() ) {
+		println 'Artifact upload to local artifactory failed.'
+	}
+
 }
