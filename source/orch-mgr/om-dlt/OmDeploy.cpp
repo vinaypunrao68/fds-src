@@ -38,6 +38,11 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         virtual void runTimerTask() override;
     };
 
+    /*
+     * Timer task to raise the DltDmtUpEvt that will transition
+     * the domain state machine to up. This task allows for a delayed
+     * raising of this event
+     */
     class DomainEventTimerTask: public FdsTimerTask {
     public:
         explicit DomainEventTimerTask(FdsTimer &timer) : FdsTimerTask(timer) {}
@@ -116,18 +121,18 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         }
 
         fds_uint32_t acks_to_wait;
-        bool committed;  // not going to be used but required to appease the state machine
+        bool         committed;  // not going to be used but required to appease the state machine
     };
     struct DST_RestartCommit : public msm::front::state<>
     {
         typedef mpl::vector<DltComputeEvt> deferred_events;
 
         DST_RestartCommit() : acks_to_wait(0),
-                      committed(false),
-                      tryAgainTimer(new FdsTimer()),
-                      tryAgainTimerTask(new RetryTimerTask(*tryAgainTimer)),
-                      domainEvtTimer(new FdsTimer()),
-                      domainEvtTimerTask(new DomainEventTimerTask(*domainEvtTimer)){}
+                              committed(false),
+                              tryAgainTimer(new FdsTimer()),
+                              tryAgainTimerTask(new RetryTimerTask(*tryAgainTimer)),
+                              domainEvtTimer(new FdsTimer()),
+                              domainEvtTimerTask(new DomainEventTimerTask(*domainEvtTimer)){}
 
         ~DST_RestartCommit() {
             tryAgainTimer->destroy();
@@ -192,7 +197,7 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         // Not going to be used but required to appease the state machine
         FdsTimerPtr     domainEvtTimer;
         FdsTimerTaskPtr domainEvtTimerTask;
-		bool            committed;
+        bool            committed;
     };
 
     struct DltAllOk: public msm::front::state<>
@@ -499,9 +504,9 @@ void DltDplyFSM::RetryTimerTask::runTimerTask()
 
 void DltDplyFSM::DomainEventTimerTask::runTimerTask()
 {
-    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
-
     LOGNOTIFY << "Raising DltDmtUpEvt from type SM now";
+
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     domain->local_domain_event(DltDmtUpEvt(fpi::FDSP_STOR_MGR));
 }
 
