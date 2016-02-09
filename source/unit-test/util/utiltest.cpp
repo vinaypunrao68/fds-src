@@ -66,6 +66,44 @@ TEST_F(UtilTest, size) {
     EXPECT_EQ(4L*GB, util::getBytesFromHumanSize("4G"));
 }
 
+TEST_F(UtilTest, path) {
+    std::vector<std::string> paths;
+    util::getPATH(paths);
+    for (const auto& item : paths) {
+        std::cout << item << std::endl;
+    }
+    std::string testpath="/fds/bin_test";
+    util::addPATH(testpath);
+    paths.clear();
+    util::getPATH(paths);
+    bool fExists = false;
+    for (const auto& item : paths) {
+        if (item == testpath) {
+            fExists = true;
+            break;
+        }
+    }
+
+    EXPECT_EQ(true, fExists);
+    util::removePATH(testpath);
+    paths.clear();
+    util::getPATH(paths);
+    fExists = false;
+    for (const auto& item : paths) {
+        if (item == testpath) {
+            fExists = true;
+            break;
+        }
+    }
+    EXPECT_EQ(0, fExists);
+}
+
+TEST_F(UtilTest, which) {
+    std::string binary = util::which("gzip");
+    EXPECT_EQ("/bin/gzip", binary);
+    binary = util::which("gzip___test");
+    EXPECT_EQ("", binary);
+}
 
 TEST_F(UtilTest, checksum) {
     // std::cout << "chksum of /tmp/Log.cpp : " << util::getFileChecksum("/tmp/Log.cpp");
