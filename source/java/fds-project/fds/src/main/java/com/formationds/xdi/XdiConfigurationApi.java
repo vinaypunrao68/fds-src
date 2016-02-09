@@ -420,6 +420,11 @@ public class XdiConfigurationApi implements ConfigurationApi {
     }
 
     @Override
+    public boolean isLocalDomainUp() throws TException {
+        return config.isLocalDomainUp();
+    }
+
+    @Override
     public List<LocalDomainDescriptor> listLocalDomains(int ignore)
             throws ApiException, TException {
         return config.listLocalDomains(0);
@@ -437,21 +442,21 @@ public class XdiConfigurationApi implements ConfigurationApi {
         config.updateLocalDomainName(oldDomainName, newDomainName);
         return;
     }
-    
+
     @Override
     public void updateLocalDomainSite(String domainName, String newSiteName)
         throws ApiException, TException {
         config.updateLocalDomainSite(domainName, newSiteName);
         return;
     }
-    
+
     @Override
     public void setThrottle(String domainName, double throttleLevel)
         throws ApiException, TException {
         config.setThrottle(domainName, throttleLevel);
         return;
     }
-    
+
     @Override
     public void setScavenger(String domainName, String scavengerAction)
         throws ApiException, TException {
@@ -470,7 +475,7 @@ public class XdiConfigurationApi implements ConfigurationApi {
             throws TException {
         return config.shutdownLocalDomain(domainName);
     }
-    
+
     @Override
     public void deleteLocalDomain(String domainName)
         throws ApiException, TException {
@@ -490,25 +495,25 @@ public class XdiConfigurationApi implements ConfigurationApi {
             throws TException {
         return config.ActivateNode(act_serv_req);
     }
-    
+
     @Override
     public int AddService(com.formationds.protocol.pm.NotifyAddServiceMsg add_svc_req)
             throws TException {
         return config.AddService(add_svc_req);
     }
-    
+
     @Override
     public int StartService(com.formationds.protocol.pm.NotifyStartServiceMsg start_svc_req)
             throws TException {
         return config.StartService(start_svc_req);
     }
-    
+
     @Override
     public int StopService(com.formationds.protocol.pm.NotifyStopServiceMsg stop_svc_req)
             throws TException {
         return config.StopService(stop_svc_req);
     }
-   
+
     @Override
     public int RemoveService(com.formationds.protocol.pm.NotifyRemoveServiceMsg rm_svc_req)
             throws TException {
@@ -820,7 +825,7 @@ public class XdiConfigurationApi implements ConfigurationApi {
 	public long getDiskCapacityTotal() throws ApiException, TException {
 		return config.getDiskCapacityTotal();
 	}
-    
+
     public CachedConfiguration getCache() {
         return fillCacheMaybe();
     }

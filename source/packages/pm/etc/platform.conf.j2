@@ -8,6 +8,7 @@
 ### !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ###
 ### !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ###
 ################################################################################
+# Ansible managed: /root/fds-src/source/config/etc/platform.conf.j2 modified on 2016-02-08 08:51:46 by root on nate-dev
 fds: {
     /* Network interface that all fds nodes should have */
     nic_if="lo"
@@ -29,16 +30,26 @@ fds: {
     /* Feature toggles, use "common:" for features that propogate across components */
     feature_toggle: {
         common: {
-            periodic_expunge = false
+            enable_timeline = true
+            periodic_expunge = true
             enable_multi_om_support = true
+            enable_subscriptions = false
             all_ssd = false
             volume_open_support = true
+
+    	    /* Volume grouping allows IO to volumes to driven by a coordinator at AM */
+    	    enable_volumegrouping = false
+
+    	    /* applies to OM and XDI web toolkit */
+            enable_web_logging_request_wrapper = false
+
+            send_to_new_stats_service = true
         }
         pm: {
 
             use_disk_hints = false
             control_disk_simulation_mode = false
-            use_new_superblock = false
+            use_new_superblock = true
             restart_failed_children_processes = true
             enable_disk_activation = false
         }
@@ -52,22 +63,41 @@ fds: {
             scst_connector = false
             nbd_connector = true
             serialization = "volume"
-            safe_atomic_write = true
+            all_atomic_ops = false
+            cache_missing_cat_entries = false
         }
         om: {
            allow_service_reregistration = true
            enable_java_om_svc_proxy = false
            rest_07_feature = true
            fs_2660_metric_firebreak_event_query = false
+           enable_influxdb_write_batch = false
+           enable_influxdb_chunked_query_response = false
+
+           /* If both are enabled, then metrics are written to both and queries depend on
+              the enable_influxdb_query_series_per_volume flag */
+
+           /* default original implementation using a single series containing all volume metrics */
+           enable_influxdb_one_series = true
+
+           /* new implementation that uses a series per volume */
+           enable_influxdb_series_per_volume = false
+
+           /** if enabled, query from new series per volume implementation */
+           enable_influxdb_query_series_per_volume = false
+
+           ignore_failed_svcs = true
         }
     }
 
     /* Use this section for settings that are shared (or needed) by most or all processes */
     common: {
 
-        om_ip_list = "{{ om_ip }}"
+        om_ip_list = {{ om_ip }}
         om_port = 7004
         om_uuid = 1028
+
+        stats_port = 11011
 
        
        
@@ -91,6 +121,12 @@ fds: {
                 results_suffix = ".%p.memcheck"
 	   }
         }
+
+        /* volume grouping options */
+        volume_group: {
+            /* If volume grouping mode is on, calculate 1 DMT version once # of DMs have matched */
+            dm_cluster_size = 4
+        }
     }
 
     pm: {
@@ -109,33 +145,22 @@ fds: {
         /* Platform port.  This is the node base port.  All services running on this node derive their port based on this port */
         platform_port = 7000
 
-        redis_host = "{{ om_ip }}"
+        redis_host = {{ om_ip }}
         redis_port = 6379
 
-        /* Don't spawn any service daemon */
-        auto_start_services = true
-
-        /* Disk types, hints file.  Relative to fds-root */
-        disk_hints_path_file = "dev/disk-hints.conf"
+        service_management: {
+            /* If a service restarts flap_count times in flap_timeout seconds, PM will stop restarting the service and notify the OM */
+            flap_count   = 5
+            flap_timeout = 300  /* in seconds */
+        }
 
         /* Force disk simulation_mode (enable Feature Toggle first) */
         /* true=simuation mode, false=auto detection */
         force_disk_simulation = false
 
-        /* Graphite is enabled or not */
-        enable_graphite = false
-
         disk_sim: {
-            ssd_count = 4
-            hdd_count = 4
-        }
-
-        graphite: {
-            /* Graphite server ip */
-            ip = "127.0.0.1"
-            /* Graphite server port */
-            port = 2003
-            period = 5
+            ssd_count = 2
+            hdd_count = 10
         }
 
         capabilities: {
@@ -149,15 +174,18 @@ fds: {
                     iops_max = 1000
                 }
                 /* GC..etc disk reservation */
-                reserved_space = 0.20
+                # reserved_space = 0.20
+                reserved_space = 0.00
             }
         }
+
         threadpool: {
             num_threads = 10
 
             /* Use lock free threadpool  */
             use_lftp = true
         }
+
         /* Internal testing related info */
         testing: {
             standalone = false
@@ -166,6 +194,7 @@ fds: {
             node_iops_max  = 100000
             node_iops_min  = 60000
         }
+
         /* Service layer stanza */
         svc: {
             lftp: {
@@ -178,6 +207,17 @@ fds: {
             timeout: {
                 thrift_message = 5000
             }
+        }
+
+        /* Graphite is enabled or not */
+        enable_graphite = false
+
+        graphite: {
+            /* Graphite server ip */
+            ip = "127.0.0.1"
+            /* Graphite server port */
+            port = 2003
+            period = 5
         }
     }
 
@@ -207,7 +247,7 @@ fds: {
         catalog_log_max_files = 5
         number_of_primary = 2
         req_serialization = true
-        realtime_stats_sampling = true
+        realtime_stats_sampling = false
 
         /* process id */
         id      = "dm"
@@ -273,8 +313,6 @@ fds: {
             use_lftp = true
         }
 
-        /* Timeline feature toggle */
-        enable_timeline = false
         upload_to_cloud = false
 
         /* Internal testing related info */
@@ -431,7 +469,7 @@ fds: {
             migration_timeout = 300000
 
             /* number of parallel sm migrations at a time */
-            parallel_migration = 8
+            parallel_migration = 2
         }
         tiering: {
             hybrid: {
@@ -474,6 +512,7 @@ fds: {
             }
             timeout: {
                 io_message = 25000
+                open_message = 2500
                 thrift_message = 5000
             }
         }
@@ -658,6 +697,18 @@ fds: {
         influxdb: {
             url="http://127.0.0.1:8086"
             enable_query_backtrace = false
+            serialize_writes=false
+            write_batch_size = 1024
+        }
+
+        task_scheduler_pool: {
+            min = 10
+        }
+
+        stats: {
+            frequency=120
+            duration=60
+            method="POST"
         }
 
         test_mode=false
@@ -667,8 +718,6 @@ fds: {
             /* Use lock free threadpool  */
             use_lftp = true
         }
-
-        enable_snapshot_schedule = true
 
         snmp: {
             targetip = "localhost"

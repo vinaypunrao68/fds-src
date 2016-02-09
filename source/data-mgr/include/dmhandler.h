@@ -60,7 +60,7 @@ do { \
     } \
     auto volMeta = dataManager.getVolumeMeta(io->getVolId()); \
     if (io->opId != volMeta->getOpId()+1) { \
-        LOGWARN << "OpId mismatch.  Current opId: " \
+        LOGWARN << "volid: " << io->getVolId() << ". OpId mismatch.  Current opId: " \
             << volMeta->getOpId() << " incoming opId: " << io->opId; \
         fds_assert(!"opid mismatch"); \
         helper.err = ERR_IO_OPID_MISMATCH; \

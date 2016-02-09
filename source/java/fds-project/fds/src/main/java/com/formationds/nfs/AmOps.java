@@ -57,7 +57,7 @@ public class AmOps implements IoOps {
     }
 
     @Override
-    public void writeMetadata(String domain, String volume, String blobName, FdsMetadata metadata, boolean deferrable) throws IOException {
+    public void writeMetadata(String domain, String volume, String blobName, FdsMetadata metadata) throws IOException {
         metadata.lock(m -> {
             String operationName = "AM.writeMetadata";
             String description = "volume=" + volume + ", blobName=" + blobName + ", fieldCount=" + m.mutableMap().size();
@@ -78,6 +78,11 @@ public class AmOps implements IoOps {
     }
 
     @Override
+    public void commitMetadata(String domain, String volumeName, String blobName) throws IOException {
+
+    }
+
+    @Override
     public FdsObject readCompleteObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, int maxObjectSize) throws IOException {
         String operation = "AM.readObject";
         String description = "volume=" + volumeName + ", blobName=" + blobName + ", objectOffset=" + objectOffset.getValue();
@@ -93,15 +98,12 @@ public class AmOps implements IoOps {
 
         return handleExceptions(
                 new ErrorCode[]{ErrorCode.MISSING_RESOURCE},
-                ec -> {
-//                    throw new FileNotFoundException("Error reading object #" + objectOffset.getValue() + " for blob " + blobName);
-                    return new FdsObject(ByteBuffer.wrap(new byte[0]), maxObjectSize);
-                },
+                ec -> new FdsObject(ByteBuffer.wrap(new byte[0]), maxObjectSize),
                 unit);
     }
 
     @Override
-    public void writeObject(String domain, String volume, String blobName, ObjectOffset objectOffset, FdsObject fdsObject, boolean deferrable) throws IOException {
+    public void writeObject(String domain, String volume, String blobName, ObjectOffset objectOffset, FdsObject fdsObject) throws IOException {
         fdsObject.lock(o -> {
             int length = o.limit();
             String description = "AM.writeObject";
@@ -121,6 +123,11 @@ public class AmOps implements IoOps {
             handleExceptions(new ErrorCode[0], c -> null, unit);
             return null;
         });
+    }
+
+    @Override
+    public void commitObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset) throws IOException {
+
     }
 
     @Override
@@ -145,7 +152,7 @@ public class AmOps implements IoOps {
     }
 
     @Override
-    public void flush() throws IOException {
+    public void commitAll() throws IOException {
 
     }
 

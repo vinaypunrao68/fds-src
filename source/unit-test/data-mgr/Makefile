@@ -1,5 +1,5 @@
 test_topdir       := ..
-user_build_dir    := svc-test
+user_build_dir    :=
 user_incl_dir     :=
 
 user_hh           := $(wildcard *.h)

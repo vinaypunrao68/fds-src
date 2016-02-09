@@ -1,17 +1,24 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#include <string>
 #include <limits>
+#include <string>
+#include <unordered_map>
 #include <vector>
-#include <fdsp/fds_stream_types.h>
-#include <fds_process.h>
-#include <net/SvcMgr.h>
-#include <util/math-util.h>
-#include <DataMgr.h>
-#include <StatStreamAggregator.h>
-#include <fdsp/Streaming.h>
+
 #include <time.h>
+
+#include <StatsConnFactory.h>
+
+#include "fdsp/fds_stream_types.h"
+#include "fdsp/Streaming.h"
+#include "net/SvcMgr.h"
+#include "util/math-util.h"
+#include "DataMgr.h"
+#include "fds_config.hpp"
+#include "fds_process.h"
+
+#include "StatStreamAggregator.h"
 
 namespace fds {
 
@@ -276,6 +283,11 @@ StatStreamAggregator::StatStreamAggregator(CommonModuleProviderIf *modProvider,
         hist_config.longstat_slots_ = fds_config->\
                 get<int>("fds.dm.testing.long_slots", hist_config.longstat_slots_);
     }
+
+    // Optimally, we'd get this from the same place as the config service. However, we'll be
+    // getting all service info from Consul eventually, so it's not worth tying to the stats
+    // service's config file.
+    new_stats_service_port_ = fds_config->get<int>("fds.common.stats_port", 11011);
 
     /**
      * Make sure our fine-grained stats are not collected less frequently than
@@ -835,6 +847,13 @@ void StatStreamTimerTask::runTimerTask() {
     }
 
     bool logLocal = reg_->method == std::string("log-local");
+    // Needed because the new stats service identifies volume by ID. Populated toward the bottom
+    // of the loop.
+    std::unique_ptr<std::unordered_map<std::string, fds_volid_t>> volumeNameToVolumeId;
+    if (dataManager_.features.isSendToNewStatsServiceEnabled())
+    {
+        volumeNameToVolumeId.reset(new std::unordered_map<std::string, fds_volid_t>);
+    }
     for (auto volId : volumes) {
         //LOGTRACE << "Generating stream for volume <" << volId << ">.";
         std::vector<StatSlot> slots;
@@ -1082,6 +1101,13 @@ void StatStreamTimerTask::runTimerTask() {
             volDataPointsMap[timestamp].push_back(recentPerfWma);
         }
 
+        // Populate just before adding the volume to the list of stats, so we'll never try to look
+        // up a name that isn't present.
+        if (volumeNameToVolumeId)
+        {
+            volumeNameToVolumeId->emplace(volName, volId);
+        }
+
         for (auto dp : volDataPointsMap) {
             fpi::volumeDataPoints volDataPoint;
             volDataPoint.volume_name = volName;
@@ -1115,6 +1141,50 @@ void StatStreamTimerTask::runTimerTask() {
             // XXX: hard-coded to bind to java endpoint in AM
             EpInvokeRpc(fpi::StreamingClient, publishMetaStream, info.ip, 8911,
                     reg_->id, dataPoints);
+
+            if (volumeNameToVolumeId)
+            {
+                // The stats service runs on the same host as OM for now. Later, we'll get the
+                // service location from Consul.
+                std::string newStatsServiceIp;
+                {
+                    fds_uint32_t dummy;
+                    MODULEPROVIDER()->getSvcMgr()->getOmIPPort(newStatsServiceIp, dummy);
+                }
+
+                std::list<StatDataPoint> stats;
+                for (auto const& dataPoint : dataPoints)
+                {
+                    for (auto const& metric : dataPoint.meta_list)
+                    {
+                        stats.emplace_back(dataPoint.timestamp,
+                                           metric.key,
+                                           metric.value,
+                                           StatConstants::singleton()
+                                                        ->FdsStatFGStreamPeriodFactorSec,
+                                           TimeUnit::SECONDS,
+                                           1,
+                                           (*volumeNameToVolumeId)[dataPoint.volume_name].get(),
+                                           ContextType::VOLUME,
+                                           AggregationType::UNKNOWN);
+                    }
+                }
+
+                // UN & PW is not yet configurable.
+                auto conn = StatsConnFactory::newConnection(newStatsServiceIp,
+                                                            statStreamAggr_.new_stats_service_port_,
+                                                            "stats-service",
+                                                            "$t@t$");
+                if (conn)
+                {
+                    conn->publishStatistics(stats);
+                }
+                else
+                {
+                    GLOGERROR << "Unable to connect to stats service on " << newStatsServiceIp
+                              << " port " << statStreamAggr_.new_stats_service_port_ << ".";
+                }
+            }
         }
     }
 }

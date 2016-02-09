@@ -95,6 +95,7 @@ BlockOperations::attachVolumeResp(const fpi::ErrorCode& error,
             resp->setError(fpi::BAD_REQUEST);
         } else {
             maxObjectSizeInBytes = volDesc->maxObjSizeInBytes;
+            empty_buffer = boost::make_shared<std::string>(maxObjectSizeInBytes, '\0');
 
             // Reference count this association
             std::unique_lock<std::mutex> lk(assoc_map_lock);
@@ -292,7 +293,7 @@ BlockOperations::getBlobResp(const fpi::ErrorCode &error,
     if (fpi::OK == error || fpi::MISSING_RESOURCE == error) {
         // Adjust the buffers in our vector so they align and are of the
         // correct length according to the original request
-        resp->handleReadResponse(*bufs, length);
+        resp->handleReadResponse(*bufs, empty_buffer, length);
     } else {
         resp->setError(error);
     }

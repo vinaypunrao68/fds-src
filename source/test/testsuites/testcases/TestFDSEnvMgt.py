@@ -15,8 +15,8 @@ import tempfile
 import TestFDSSysMgt
 from fdslib.TestUtils import findNodeFromInv
 import subprocess
-from TestUtils import core_hunter_aws
-from TestUtils import get_inventory_value
+from fdslib.TestUtils import core_hunter_aws
+from fdslib.TestUtils import get_inventory_value
 
 KEY_ENABLE_SCST='fds_ft_am_scst_enabled'
 

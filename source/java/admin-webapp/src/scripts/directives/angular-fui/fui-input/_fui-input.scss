@@ -1,16 +1,18 @@
 .fui-input{
 
-    position: relative;
-    border-radius: 6px;
-    background-color: white;
-    padding: 7px;
-    padding-right: 8px;
-    padding-left: 8px;
-    color: black;
-    font-family: "Lato";
-    border: 1px solid #CCCCCC;
+    .input-field {
+        position: relative;
+        border-radius: 6px;
+        background-color: white;
+        padding: 7px;
+        padding-right: 8px;
+        padding-left: 8px;
+        color: black;
+        font-family: "Lato";
+        border: 1px solid #CCCCCC;
+    }
     
-    &.skinny {
+    .skinny {
         height: 32px;
         padding-top: 2px;
         
@@ -20,7 +22,7 @@
         }
     }
     
-    &.no-border {
+    .no-border {
         border: 0px;   
     }
 
@@ -43,8 +45,20 @@
         position: absolute;
         top:4px;
         right: 15px;
-        color: #CCCCCC;
-        
-        
+        color: #CCCCCC; 
+    }
+    
+    .not-valid-field {
+        border-color: red;
+    }
+    
+    .input-error-text {
+        color: white;
+        font-weight: bold;
+        margin-top: 4px;
+        margin-left: 0px;
+        margin-bottom: 4px;
+        display: table-cell;
+        font-size: 14px;
     }
 }

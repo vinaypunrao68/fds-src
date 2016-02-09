@@ -104,12 +104,12 @@ Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
         desc->setState(fpi::Active);
         desc->name = util::strformat("snaphot_%ld_%ld",
                                      volid.get(), snapId.get());
-        VolumeMeta *meta = new(std::nothrow) VolumeMeta(dm->getModuleProvider(),
-                                                        desc->name,
-                                                        snapId,
-                                                        GetLog(),
-                                                        desc,
-                                                        dm);
+        auto meta = MAKE_SHARED<VolumeMeta>(dm->getModuleProvider(),
+                                            desc->name,
+                                            snapId,
+                                            GetLog(),
+                                            desc,
+                                            dm);
         {
             FDSGUARD(dm->vol_map_mtx);
             if (dm->vol_meta_map.find(snapId) != dm->vol_meta_map.end()) {
@@ -164,7 +164,7 @@ Error TimelineManager::createClone(VolumeDesc *vdesc) {
     TIMELINE_FEATURE_CHECK();
     Error err;
 
-    VolumeMeta * volmeta = dm->getVolumeMeta(vdesc->srcVolumeId);
+    auto volmeta = dm->getVolumeMeta(vdesc->srcVolumeId);
     if (!volmeta) {
         LOGERROR << "vol:" << vdesc->srcVolumeId
                  << " not found";
