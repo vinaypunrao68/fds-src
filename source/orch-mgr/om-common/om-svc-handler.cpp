@@ -164,6 +164,9 @@ OmSvcHandler::getVolumeDescriptor(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     if (ERR_OK == err) {
         desc.toFdspDesc(resp.vol_desc);
     }
+
+    LOGNOTIFY << "volume [ " << msg->volume_name << " ] error [ " << err << " ] " << desc.ToString();
+
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::GetVolumeDescriptorResp), resp);
 }
