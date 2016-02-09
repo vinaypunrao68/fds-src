@@ -770,6 +770,7 @@ class TestISCSIDetachVolume(ISCSIFixture):
 
         status = True
         path = '/mnt/{0}'.format(self.volume_name)
+        self.log.info('Unmounting {0}...'.format(path))
         if initiator_ip:
             # Fabric run a shell command on a remote host
             result = run('umount -f -v {0}'.format(path))
