@@ -51,7 +51,8 @@ DM_INDEX_MOUNT_POINT = "sys-repo"
 BASE_SSD_MOUNT_POINT = "dev/ssd-"
 BASE_HDD_MOUNT_POINT = "dev/hdd-"
 
-MOUNT_OPTIONS = "noauto"           # mount defaults still apply
+MOUNT_OPTIONS = "noauto,noatime,nodiratime"       # mount defaults still apply
+MOUNT_OPTIONS_SSD = "discard"
 WHITE_SPACE = "   "                # used to pad fstab lines
 
 # Some General Constants
@@ -775,9 +776,18 @@ class DiskManager (Base):
                 if not device:
                     print "Found an entry for %s in fstab corresponding to a non-existent device, deleting" % mount_point
                     self.fstab.remove_mount_point_by_uuid (uuid_str)
- 
+   
+    def is_ssd_mount_point (self, mount_point):
+        if BASE_SSD_MOUNT_POINT in mount_point:
+            return True
+        return False
+  
     def add_mount_point (self, uuid, mount_point):
-        self.fstab.add_mount_point_by_uuid (uuid, 'UUID=' + uuid + WHITE_SPACE + mount_point + WHITE_SPACE + PARTITION_TYPE + WHITE_SPACE + MOUNT_OPTIONS + WHITE_SPACE + '0 2')
+        mount_options = MOUNT_OPTIONS
+        if self.is_ssd_mount_point (mount_point):
+            mount_options = MOUNT_OPTIONS + "," + MOUNT_OPTIONS_SSD
+
+        self.fstab.add_mount_point_by_uuid (uuid, 'UUID=' + uuid + WHITE_SPACE + mount_point + WHITE_SPACE + PARTITION_TYPE + WHITE_SPACE + mount_options + WHITE_SPACE + '0 2')
 
 #    def add_sm_mount_point (self):
 #        ''' Create a raid array (if multiple sm_index_paritions are defined).  Add the new sm index mount point '''
