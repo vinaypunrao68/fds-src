@@ -27,7 +27,7 @@ task buildDeb(type: Deb) {
 
 	def baseDir = main_dir_build
 
-	into '/opt/fds/formation_one/packages/om-' + version + '-' + release
+	into '/opt/fds/formation_one/packages/' + packagePrefix + '-' + version + '-' + release
 
 	from(baseDir + '/bin/orchMgr') {
 		into 'bin'
