@@ -407,9 +407,10 @@ fds_bool_t DataPlacement::hasCommitedNotPersistedTarget() const {
  */
 void
 DataPlacement::commitDlt() {
-    commitDlt( false );
+    bool committed = commitDlt( false );
+    LOGNOTIFY << "Committed DLT ? " << committed;
 }
-void
+bool
 DataPlacement::commitDlt( const bool unsetTarget ) {
 
     fds_mutex::scoped_lock l(placementMutex);
@@ -417,7 +418,7 @@ DataPlacement::commitDlt( const bool unsetTarget ) {
     if ( newDlt == NULL )
     {
         LOGWARN << "Target/New DLT value is NULL, nothing to commit, return";
-        return;
+        return false;
     }
 
     fds_uint64_t oldVersion = -1;
@@ -439,6 +440,8 @@ DataPlacement::commitDlt( const bool unsetTarget ) {
         }
         newDlt = NULL;
     }
+
+    return true;
 }
 
 ///  only reverts if we did not persist it..

@@ -5,6 +5,7 @@
 
 import unittest
 import TestCase
+from fdslib.TestUtils import get_node_service
 
 class ISCSIFixture(TestCase.FDSTestCase):
     """Maps FDS volume names to iSCSI target names
@@ -180,4 +181,61 @@ class ISCSIFixture(TestCase.FDSTestCase):
         if not isinstance(volume_name, str):
             self.log.error("Invalid argument")
             raise Exception
+
+
+    def getAMEndpoint(self, om_node):
+        """
+        Returns
+        -------
+        str
+            IP Address for an AM node
+        """
+        if not om_node:
+            self.log.error("OM node required")
+            raise Exception
+
+        # Uses CLI to identify an AM node. The AM node can present iSCSI targets.
+        node_service = get_node_service(self,om_node.nd_conf_dict['ip'])
+        nodes = node_service.list_nodes()
+        am_node = None
+        for n in nodes:
+            am_state = n.services['AM'][0].status.state
+            if am_state == 'RUNNING':
+                am_node = n
+                break;
+        if not am_node:
+            self.log.error('AM service not found')
+            raise Exception
+
+        return am_node.address.ipv4address
+
+
+    def getInitiatorEndpoint(self, initiator_name, fdscfg):
+        """
+        Parameters
+        ----------
+        initiator_name : str
+        fdscfg : FdsConfigRun
+
+        Returns
+        -------
+        str
+            IP Address for the named initiator
+        """
+        if not initiator_name:
+            self.log.error("Initiator name required")
+            raise Exception
+
+        initiator_ip = None
+        initiators = fdscfg.rt_obj.cfg_initiators
+        for i in initiators:
+            if i.nd_conf_dict['node-name'] == initiator_name:
+                initiator_ip = i.nd_conf_dict['ip']
+                break;
+
+        if not initiator_ip:
+            self.log.error('Initiator {0} not found in FdsConfigFile.'.format(initiator_name))
+            raise Exception
+
+        return initiator_ip
 

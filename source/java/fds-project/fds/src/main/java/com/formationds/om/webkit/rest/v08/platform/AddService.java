@@ -65,7 +65,7 @@ public class AddService implements RequestHandler {
         SvcInfo svcInfo = PlatformModelConverter.convertServiceToSvcInfoType
                 (node.getAddress().getHostAddress(), service);
         svcInfList.add(svcInfo);
-
+        
         Service pmSvc = (new GetService()).getService(nodeId, nodeId);
         SvcInfo pmSvcInfo = PlatformModelConverter.convertServiceToSvcInfoType
                 (node.getAddress().getHostAddress(), pmSvc);
@@ -79,13 +79,18 @@ public class AddService implements RequestHandler {
         {
             status= HttpServletResponse.SC_BAD_REQUEST;
             EventManager.notifyEvent( OmEvents.ADD_SERVICE_ERROR, 0 );
+            
+            String errorStr = "Error adding service to node: " + nodeId + ", verify that:\n" +
+            		"1. Domain is up\n" +
+            		"2. Node is up\n" +
+            		"3. Service does not already exist";
+            
+            if ( service.getType() == ServiceType.DM )
+            {
+            	errorStr += "\n4. If Volume Grouping mode is on, DM additions are prohibited once a DM cluster is formed. ";
+            }
 
-            throw new ApiException( "Error adding service to node: "
-                    + nodeId + ", verify that:\n" +
-                    "1. Domain is up\n" +
-                    "2. Node is up\n" +
-                    "3. Service does not already exist",
-                    ErrorCode.BAD_REQUEST );
+            throw new ApiException( errorStr, ErrorCode.BAD_REQUEST );
         }
         else
         {

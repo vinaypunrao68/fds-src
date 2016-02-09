@@ -339,6 +339,8 @@ class StatStreamAggregator : public HasModuleProvider, Module {
     std::unordered_map<fds_uint32_t, FdsTimerTaskPtr> statStreamTaskMap_;
     fds_rwlock lockStatStreamRegsMap;
 
+    int new_stats_service_port_;
+
     friend StatStreamTimerTask;
 };
 }  // namespace fds

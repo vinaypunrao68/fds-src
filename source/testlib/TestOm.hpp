@@ -33,6 +33,7 @@ struct TestOm : SvcProcess {
     void addVolume(const fds_volid_t &volId,
                    const SHPTR<VolumeDesc>& volume,
                    bool broadcast = false);
+    void addDmt(const DMTPtr &dmt);
 
     /* Messages invoked by handler */
     void registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo);
@@ -84,7 +85,19 @@ struct TestOmHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler {
     void getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& _return, boost::shared_ptr<int64_t>& nullarg) {
     }
 
-    void getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& _return, boost::shared_ptr<int64_t>& nullarg) {
+    void getDMT(fpi::CtrlNotifyDMTUpdate& dmt, boost::shared_ptr<int64_t>& nullarg) {
+        std::string data_buffer;
+    	DMTPtr dp = om_->getSvcMgr()->getCurrentDMT();
+        if (!dp) {
+            LOGWARN << "No dmt available";
+            return;
+        }
+    	(*dp).getSerialized(data_buffer);
+
+    	fpi::FDSP_DMT_Data_Type fdt;
+    	fdt.__set_dmt_data(data_buffer);
+    	dmt.__set_dmt_data(fdt);
+    	dmt.__set_dmt_version(dp->getVersion());
     }
 
     void getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return,
@@ -207,6 +220,16 @@ void TestOm::addVolume(const fds_volid_t &volId,
     volumeTbl[volId] = volume;
 
     fds_assert(!broadcast); // broadcast not supported
+}
+
+void TestOm::addDmt(const DMTPtr &dmt)
+{
+    std::string dmtData;
+    dmt->getSerialized(dmtData);
+    Error e = getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
+                                                             nullptr,
+                                                             DMT_COMMITTED);
+    fds_verify(e == ERR_OK);
 }
 
 void TestOm::getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return,

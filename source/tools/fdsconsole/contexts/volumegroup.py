@@ -13,32 +13,37 @@ class VolumeGroupContext(Context):
     #--------------------------------------------------------------------------------------
     @clidebugcmd
     @arg('volid', help= "volume id", type=str)
-    @arg('amuuid', help= "am uuid", type=str)
-    def handlestate(self, volid, amuuid):
-        'gets the volume group handle state from AM'
+    @arg('svcid', help= "service id or name", type=str)
+    def state(self, volid, svcid):
+        'Gets the volume group related state from service.  At the moment am or dm are valid'
         volid = self.config.getVolumeApi().getVolumeId(volid)
-        for uuid in self.config.getServiceApi().getServiceIds(amuuid):
-            print('-->From service {}: '.format(uuid))
+        for uuid in self.config.getServiceApi().getServiceIds(svcid):
+            print('-->From service {}: '.format(self.config.getServiceApi().getServiceName(uuid)))
             try:
-                stateStr = ServiceMap.client(uuid).getStateInfo('volumegrouphandle.{}'.format(volid))
-                state = json.loads(stateStr)
-                print (json.dumps(state, indent=2, sort_keys=True))
-            except Exception, e:
-                print "Failed to fetch state.  Either service is down or argument is incorrect"
-        return
-
-    #--------------------------------------------------------------------------------------
-    @clidebugcmd
-    @arg('volid', help= "volume id", type=str)
-    @arg('dmuuid', help= "dm uuid", type=str)
-    def replicastate(self, volid, dmuuid):
-        'gets the volume replica state from DM'
-        volid = self.config.getVolumeApi().getVolumeId(volid)
-        for uuid in self.config.getServiceApi().getServiceIds(dmuuid):
-            print('-->From service {}: '.format(uuid))
-            try:
-                stateStr = ServiceMap.client(uuid).getStateInfo('volume.{}'.format(volid))
-                state = json.loads(stateStr)
+                svcType = self.config.getServiceApi().getServiceType(uuid)
+                state=dict()
+                if svcType == 'am':
+                    stateStr = ServiceMap.client(uuid).getStateInfo('volumegrouphandle.{}'.format(volid))
+                    # humanize returned json
+                    temp = json.loads(stateStr)
+                    for key in temp.keys():
+                        if key.isdigit():
+                            dmSvcName = self.config.getServiceApi().getServiceName(long(key))
+                            state[dmSvcName] = temp[key] 
+                        else:
+                            state[key] = temp[key]
+                elif svcType == 'dm':
+                    stateStr = ServiceMap.client(uuid).getStateInfo('volume.{}'.format(volid))
+                    # humanize returned json
+                    temp = json.loads(stateStr)
+                    for key in temp.keys():
+                        if key == "coordinator":
+                            state[key] = self.config.getServiceApi().getServiceName(long(temp[key]))
+                        else:
+                            state[key] = temp[key]
+                else:
+                    print "Unknow service of type: " + svc_type
+                    return
                 print (json.dumps(state, indent=2, sort_keys=True))
             except Exception, e:
                 print "Failed to fetch state.  Either service is down or argument is incorrect"

@@ -164,6 +164,9 @@ OmSvcHandler::getVolumeDescriptor(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     if (ERR_OK == err) {
         desc.toFdspDesc(resp.vol_desc);
     }
+
+    LOGNOTIFY << "volume [ " << msg->volume_name << " ] error [ " << err << " ] " << desc.ToString();
+
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::GetVolumeDescriptorResp), resp);
 }
@@ -316,7 +319,7 @@ void OmSvcHandler::heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     auto curTimePoint = std::chrono::system_clock::now();
     std::time_t time  = std::chrono::system_clock::to_time_t(curTimePoint);
 
-    LOGDEBUG << "Received heartbeat from PM:"
+    LOGNORMAL << "Received heartbeat from PM:"
              << std::hex << svcUuid.svc_uuid <<std::dec;
 
     // Get the time since epoch and convert it to minutes
@@ -570,14 +573,15 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
         {
             NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
 
-            if ( (gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.uuid_get_val()) == fpi::SVC_STATUS_REMOVED) &&
-                 ((svc_type == fpi::FDSP_STOR_MGR) || (svc_type == fpi::FDSP_DATA_MGR)) ) {
+            fpi::ServiceStatus status = gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.uuid_get_val());
+            if ( (status == fpi::SVC_STATUS_REMOVED) ||
+                 (status == fpi::SVC_STATUS_INACTIVE_STOPPED) ) {
 
                 // It is important that SMs and DMs stay in removed state for correct
                 // handling if interruptions occur before commit of the DLT or DMT.
                 // If the svc is in REMOVED state, it has been stopped and is already INACTIVE
                 LOGDEBUG << "Service:" << std::hex << msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid
-                         << std::dec << " in REMOVED state, will not change state to INACTIVE";
+                         << std::dec << " in REMOVED or INACTIVE_STOPPED state, will not change state to failed";
                 return;
             }
 
@@ -599,15 +603,8 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
             /*
              * change the state and update service map; then broadcast updated service map
              */
-            // don't mark this to inactive failed if it is already in stopped state
-            if (gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.uuid_get_val()) != fpi::SVC_STATUS_INACTIVE_STOPPED)
-            {
-                auto svcPtr = boost::make_shared<fpi::SvcInfo>(msg->healthReport.serviceInfo);
-                domain->om_change_svc_state_and_bcast_svcmap( svcPtr, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
-            } else {
-                LOGWARN << "Svc:" << std::hex << uuid.uuid_get_val() << std::dec
-                        << "has been set to inactive from a previous stop request";
-            }
+            auto svcInfo = boost::make_shared<fpi::SvcInfo>(msg->healthReport.serviceInfo);
+            domain->om_change_svc_state_and_bcast_svcmap( svcInfo, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
             domain->om_service_down( reportError, uuid, svc_type );
         }
 
@@ -720,6 +717,10 @@ OmSvcHandler::setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         volDescPtr->setCoordinatorVersion(volCoordinatorInfo.version);
         LOGNOTIFY << "Set volume coordinator for volid: " << volId
             << " coordinator: " << volCoordinatorInfo.id.svc_uuid;
+        // Persist the new desc w/ coordinator info in configDB and broadcast it
+        auto boostPtr = boost::make_shared<VolumeDesc>(*volDescPtr);
+        volumePtr->vol_modify(boostPtr);
+        e = ERR_OK;
     } else {
         LOGERROR << "Unable to find volume " << volId;
         e = ERR_VOL_NOT_FOUND;

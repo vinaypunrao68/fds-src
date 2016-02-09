@@ -604,9 +604,11 @@ struct CtrlNotifyFinishMigrationMsg {
  */
 struct CtrlNotifyTxStateMsg {
   1: i64                     volume_id;
-  2: i64                     DMT_version;
+  2: i64                     migration_id;
   3: i64                     version;
-  4: list<string>            transactions;
+  4: i64                     lowest_op_id;
+  5: i64                     highest_op_id;
+  6: list<string>            transactions;
 }
 
 struct CtrlNotifyTxStateRspMsg {

@@ -116,7 +116,6 @@ void PlatNetSvcHandler::asyncReqt(const FDS_ProtocolInterface::AsyncHdr& header,
 void PlatNetSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                                      boost::shared_ptr<std::string>& payload)
 {
-    SVCPERF(header->rqRcvdTs = util::getTimeStampNanos());
     fiu_do_on("svc.uturn.asyncreqt", header->msg_code = ERR_INVALID;
               sendAsyncResp(*header, fpi::EmptyMsgTypeId, fpi::EmptyMsg()); return; );
 
@@ -175,7 +174,6 @@ void PlatNetSvcHandler::asyncResp(const FDS_ProtocolInterface::AsyncHdr& header,
 void PlatNetSvcHandler::asyncResp(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                                     boost::shared_ptr<std::string>& payload)
 {
-    SVCPERF(header->rspRcvdTs = util::getTimeStampNanos());
     fiu_do_on("svc.disable.schedule", asyncRespHandler(\
     MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker(), header, payload); return; );
     // fiu_do_on("svc.use.lftp", asyncResp2(header, payload); return; );
@@ -225,12 +223,6 @@ void PlatNetSvcHandler::asyncRespHandler(SvcRequestTracker* reqTracker,
          return;
      }
 
-     SVCPERF(asyncReq->ts.rqRcvdTs = header->rqRcvdTs);
-     SVCPERF(asyncReq->ts.rqHndlrTs = header->rqHndlrTs);
-     SVCPERF(asyncReq->ts.rspSerStartTs = header->rspSerStartTs);
-     SVCPERF(asyncReq->ts.rspSendStartTs = header->rspSendStartTs);
-     SVCPERF(asyncReq->ts.rspRcvdTs = header->rspRcvdTs);
-
      asyncReq->handleResponse(header, payload);
 }
 
@@ -274,6 +266,41 @@ void PlatNetSvcHandler::getSvcMap(std::vector<fpi::SvcInfo> & _return,
 {
     LOGDEBUG << "Service map request";
     MODULEPROVIDER()->getSvcMgr()->getSvcMap(_return);
+}
+
+void PlatNetSvcHandler::getDLT(fpi::CtrlNotifyDLTUpdate& dlt, SHPTR<int64_t>& nullarg)
+{
+    auto dtp = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
+    if (!dtp) {
+		LOGDEBUG << "Not sending DLT, because no " << " committed DLT yet";
+        dlt.__set_dlt_version(DLT_VER_INVALID);
+
+	} else {
+        std::string data_buffer;
+        fpi::FDSP_DLT_Data_Type dlt_val;
+
+		dtp->getSerialized(data_buffer);
+		dlt.__set_dlt_version(dtp->getVersion());
+		dlt_val.__set_dlt_data(data_buffer);
+		dlt.__set_dlt_data(dlt_val);
+	}
+}
+
+void PlatNetSvcHandler::getDMT(fpi::CtrlNotifyDMTUpdate& dmt, SHPTR<int64_t>& nullarg)
+{
+    DMTPtr dp = MODULEPROVIDER()->getSvcMgr()->getCurrentDMT();
+    if (!dp) {
+        LOGDEBUG << "Not sending DMT, because no committed DMT yet";
+        dmt.__set_dmt_version(DMT_VER_INVALID);
+    } else {
+    	fpi::FDSP_DMT_Data_Type fdt;
+        std::string data_buffer;
+
+    	dp->getSerialized(data_buffer);
+    	fdt.__set_dmt_data(data_buffer);
+    	dmt.__set_dmt_version(dp->getVersion());
+    	dmt.__set_dmt_data(fdt);
+    }
 }
 
 void PlatNetSvcHandler::allUuidBinding(const fpi::UuidBindMsg& mine)

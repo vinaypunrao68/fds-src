@@ -139,7 +139,7 @@ bool VolumeGroupHandle::replayFromWriteOpsBuffer_(const VolumeReplicaHandle &han
          * the replica to be functional yet.  Also, on the DM side incase opid doens't match
          * DM will reject messages
          */
-        req->invoke();
+        req->invokeDirect();
     }
     return true;
 }
@@ -702,7 +702,7 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
 
     } else if (VolumeReplicaHandle::isFunctional(targetState)){
         if (replicaVersion != volumeHandle->version) {
-            fds_assert(!"Invalid version");
+            fds_assert(!"Invalid version: expecting %d got %d");
             return ERR_INVALID_VOLUME_VERSION;
         }
         /* When transition to functional we must transition from sync state and latest opids

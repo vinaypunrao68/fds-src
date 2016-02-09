@@ -94,6 +94,14 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         return id;
     }
 
+    /* (non-Javadoc)
+     * @see com.formationds.apis.ConfigurationService.Iface#isLocalDomainUp()
+     */
+    @Override
+    public boolean isLocalDomainUp() throws TException {
+        return getConfig().isLocalDomainUp();
+    }
+
     /**
      * List all currently defined Local Domains (within the context of the understood Global Domain).
      *

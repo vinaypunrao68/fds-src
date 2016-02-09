@@ -122,7 +122,7 @@ void DataMgr::handleForwardComplete(DmRequest *io) {
     vol_map_mtx->lock();
     auto volIt = vol_meta_map.find(io->volId);
     fds_verify(vol_meta_map.end() != volIt);
-    VolumeMeta *vol_meta = volIt->second;
+    auto vol_meta = volIt->second;
     vol_meta->dmVolQueue->activate();
     vol_map_mtx->unlock();
 
@@ -312,7 +312,7 @@ DataMgr::finishCloseDMT() {
          ++iter) {
         if (!iter->second) continue;
         fds_volid_t volid (iter->first);
-        VolumeMeta *vol_meta = iter->second;
+        auto vol_meta = iter->second;
         if (vol_meta->isForwarding()) {
             vol_meta->setForwardFinish();
             done_vols.insert(volid);
@@ -371,7 +371,7 @@ const VolumeDesc* DataMgr::getVolumeDesc(fds_volid_t volId) const {
     FDSGUARD(vol_map_mtx);
     auto iter = vol_meta_map.find(volId);
     return (vol_meta_map.end() != iter && iter->second ?
-            iter->second->vol_desc : 0);
+            iter->second->vol_desc : nullptr);
 }
 
 void DataMgr::getActiveVolumes(std::vector<fds_volid_t>& vecVolIds) {
@@ -439,7 +439,7 @@ void DataMgr::finishForwarding(fds_volid_t volid) {
     vol_map_mtx->lock();
     auto volIt = vol_meta_map.find(volid);
     fds_assert(vol_meta_map.end() != volIt);
-    VolumeMeta *vol_meta = volIt->second;
+    auto vol_meta = volIt->second;
     // Skip this verify because it's actually set later?
     // TODO(Andrew): If the above comment is correct, we
     // remove most of what this function actually do
@@ -484,7 +484,7 @@ Error DataMgr::enqueueMsg(fds_volid_t volId,
     return err;
 }
 
-VolumeMeta*  DataMgr::getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked) {
+VolumeMetaPtr  DataMgr::getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked) {
     if (!fMapAlreadyLocked) {
         FDSGUARD(*vol_map_mtx);
         auto iter = vol_meta_map.find(volId);
@@ -497,7 +497,7 @@ VolumeMeta*  DataMgr::getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked) {
             return iter->second;
         }
     }
-    return NULL;
+    return nullptr;
 }
 
 /*
@@ -518,7 +518,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
         }
         // add a dummy vol meta [FS-3207]
         // This will make sure no other Volume with same id is being created at the same time
-        vol_meta_map[vol_uuid] = NULL;
+        vol_meta_map[vol_uuid] = nullptr;
     }
 
     // this will remove
@@ -537,7 +537,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
         fPrimary = amIPrimary(vdesc->srcVolumeId);
     } else if (vdesc->isSnapshot()) {
         // snapshot happens on all nodes
-        fPrimary = amIPrimaryGroup(vdesc->srcVolumeId);
+        fPrimary = amIinVolumeGroup(vdesc->srcVolumeId);
     } else {
         fPrimary = amIPrimary(vdesc->volUUID);
     }
@@ -559,7 +559,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
 
     // do this processing only in the case..
     if (vdesc->isSnapshot() || (vdesc->isClone() && fPrimary && !fOldVolume)) {
-        VolumeMeta * volmeta = getVolumeMeta(vdesc->srcVolumeId);
+        auto volmeta = getVolumeMeta(vdesc->srcVolumeId);
         if (!volmeta) {
             GLOGWARN << "Volume [" << vdesc->srcVolumeId << "] not found!";
             return ERR_NOT_FOUND;
@@ -607,24 +607,12 @@ Error DataMgr::addVolume(const std::string& vol_name,
         }
     }
 
-    if (!vdesc->isSnapshot()) {
-        fds_uint64_t total_bytes = 0, total_blobs = 0, total_objects = 0;
-        err = timeVolCat_->queryIface()->statVolumeLogical(vdesc->volUUID,
-                                                           &total_bytes,
-                                                           &total_blobs,
-                                                           &total_objects);
-        LOGNORMAL << "vol:" << vdesc->volUUID << " name:" << vdesc->name
-                  << " loaded with [blobs:" << total_blobs
-                  << " objects:" << total_objects
-                  << " size:" << total_bytes << "]";
-    }
-
-    VolumeMeta *volmeta = new VolumeMeta(MODULEPROVIDER(),
-                                         vol_name,
-                                         vol_uuid,
-                                         GetLog(),
-                                         vdesc,
-                                         this);
+    auto volmeta = MAKE_SHARED<VolumeMeta>(MODULEPROVIDER(),
+                                           vol_name,
+                                           vol_uuid,
+                                           GetLog(),
+                                           vdesc,
+                                           this);
 
     if (vdesc->isSnapshot()) {
         volmeta->dmVolQueue.reset(qosCtrl->getQueue(vdesc->qosQueueId));
@@ -651,7 +639,6 @@ Error DataMgr::addVolume(const std::string& vol_name,
     }
 
     if (!err.ok()) {
-        delete volmeta;
         vol_map_mtx->unlock();
         return err;
     }
@@ -692,7 +679,6 @@ Error DataMgr::addVolume(const std::string& vol_name,
                  << " volid 0x" << std::hex << vol_uuid << std::dec;
         qosCtrl->deregisterVolume(vdesc->isSnapshot() ? vdesc->qosQueueId : vol_uuid);
         volmeta->dmVolQueue.reset();
-        delete volmeta;
         return  err;
     }
 
@@ -754,7 +740,7 @@ Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
 
     vol_map_mtx->lock();
     /* make sure volume exists */
-    if (volExistsLocked(vol_uuid) == false || NULL == getVolumeMeta(vol_uuid, true)) {
+    if (volExistsLocked(vol_uuid) == false || nullptr == getVolumeMeta(vol_uuid, true)) {
         LOGERROR << "Received modify policy request for "
                  << "non-existant volume [" << vol_uuid
                  << ", " << voldesc.name << "]";
@@ -762,7 +748,7 @@ Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
         vol_map_mtx->unlock();
         return err;
     }
-    VolumeMeta *vm = vol_meta_map[vol_uuid];
+    auto vm = vol_meta_map[vol_uuid];
     // FIXME: Why are we doubling assured?
     vm->vol_desc->modifyPolicyInfo(2 * voldesc.iops_assured,
                                    voldesc.iops_throttle,
@@ -823,7 +809,7 @@ Error DataMgr::process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
 }
 
 void DataMgr::detachVolume(fds_volid_t vol_uuid) {
-    VolumeMeta* vol_meta = NULL;
+    VolumeMetaPtr vol_meta;
     qosCtrl->deregisterVolume(vol_uuid);
     vol_map_mtx->lock();
     if (vol_meta_map.count(vol_uuid) > 0) {
@@ -833,7 +819,6 @@ void DataMgr::detachVolume(fds_volid_t vol_uuid) {
     vol_map_mtx->unlock();
     if (vol_meta) {
         vol_meta->dmVolQueue.reset();
-        delete vol_meta;
     }
     statStreamAggr_->detachVolume(vol_uuid);
     LOGNORMAL << "Detached vol meta for vol uuid "
@@ -916,7 +901,7 @@ Error DataMgr::getVolObjSize(fds_volid_t volId,
      * Get a local reference to the vol meta.
      */
     vol_map_mtx->lock();
-    VolumeMeta *vol_meta = vol_meta_map[volId];
+    auto vol_meta = vol_meta_map[volId];
     vol_map_mtx->unlock();
 
     fds_verify(vol_meta != NULL);
@@ -1016,6 +1001,10 @@ int DataMgr::mod_init(SysParams const *const param)
     fds_verify(primary_check > 0);
     setNumOfPrimary((unsigned)primary_check);
 
+    // FEATURE TOGGLE: Report stats to the new stats service.
+    features.setSendToNewStatsServiceEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
+            "fds.feature_toggle.common.send_to_new_stats_service", false));
+
     /**
      * Instantiate migration manager.
      */
@@ -1065,11 +1054,6 @@ DataMgr::~DataMgr()
     LOGDEBUG << "Received shutdown message DM ... shutdown modules..";
     mod_shutdown();
 
-    for (auto it = vol_meta_map.begin();
-         it != vol_meta_map.end();
-         it++) {
-        delete it->second;
-    }
     vol_meta_map.clear();
     delete requestMgr;
     delete sysTaskQueue;
@@ -1357,7 +1341,7 @@ DataMgr::amIPrimary(fds_volid_t volUuid) {
 }
 
 fds_bool_t
-DataMgr::amIPrimaryGroup(fds_volid_t volUuid) {
+DataMgr::amIinVolumeGroup(fds_volid_t volUuid) {
     if (features.isVolumegroupingEnabled()) {
         if (MODULEPROVIDER()->getSvcMgr()->hasCommittedDMT()) {
             const DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->\
@@ -1399,7 +1383,7 @@ DataMgr::snapVolCat(DmRequest *io) {
         // which will also happen with other forwarded updates).
         vol_map_mtx->lock();
         fds_verify(vol_meta_map.count(snapReq->volId) > 0);
-        VolumeMeta *vol_meta = vol_meta_map[snapReq->volId];
+        auto vol_meta = vol_meta_map[snapReq->volId];
         // TODO(Andrew): We're setting the forwarding state separately from
         // taking the snapshot, which means that we'll start forwarding
         // data that will also be in the delta snapshot that we rsync, which
@@ -1517,6 +1501,9 @@ DataMgr::getAllVolumeDescriptors()
         GLOGNOTIFY << "Pulled create for vol "
                    << "[" << vol_uuid << ", "
                    << desc.getName() << "]";
+        if (features.isVolumegroupingEnabled() && !amIinVolumeGroup(vol_uuid)) {
+            continue;
+        }
         err = addVolume(getPrefix() + std::to_string(vol_uuid.get()),
                         vol_uuid,
                         &desc);

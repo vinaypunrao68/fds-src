@@ -28,10 +28,10 @@ public class Calculation {
     * false} is returned.
     */
    public static boolean isFirebreak( final Double shortTerm,
-                                      final Double longTerm ) {
+                                      final Double longTerm )
+   {
        double r = shortTerm / longTerm;
-       if (Double.isInfinite(r) || Double.isNaN(r)) return false;
-       return ( r > THRESHOLD );
+       return !( Double.isInfinite( r ) || Double.isNaN( r ) ) && ( r > THRESHOLD );
    }
 
    /**

@@ -680,6 +680,16 @@ class testDiskManager (unittest.TestCase):
         self.manager.partition_and_format_disks()
         assert 3 == mock_format.call_count # 6 - 2(os) -1(formatted)
 
+    def testDiskManagerBuildPartitionListsWExisting (self):
+        self.manager.disk_config_file = 'test_data/disk_config'
+        self.manager.load_disk_config_file()
+
+        self.manager.disk_list[5].marker = disk_format.DISK_MARKER
+        self.manager.find_formatted_disks()
+        self.manager.build_partition_lists()
+        num_parts = len(self.manager.umount_list)
+        assert 4 == num_parts # 4 = 3(SM) + 1(DM)
+
     def testDiskManagerCalcCapacities (self):
         self.manager.disk_config_file = 'test_data/disk_config'
         self.manager.load_disk_config_file()

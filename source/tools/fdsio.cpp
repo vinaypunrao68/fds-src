@@ -9,7 +9,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
-
+#include <util/path.h>
 #include "boost/program_options.hpp"
 
 namespace po = boost::program_options;
@@ -49,7 +49,7 @@ void do_read(int fd, uint64_t & num) {
                 read(fd, buffer, objsize);
         if (b < 0) {
             std::cerr << "failed to read from file, error='" << errno
-                    << "', num='" << num << "'" << std::endl;
+                      << "', num='" << num << "'" << std::endl;
             return;
         }
 
@@ -75,7 +75,7 @@ void do_write(int fd, uint64_t & num) {
                 write(fd, buffer, objsize);
         if (b < 0) {
             std::cerr << "failed to write to file, error: '" << errno
-                    << "', num='" << tnum << "'" << std::endl;
+                      << "', num='" << tnum << "'" << std::endl;
             return;
         }
     }
@@ -97,18 +97,18 @@ void validateArgs(const po::variables_map & vmap) {
         usage();
     } else if (!filesize || filesize % objsize) {
         std::cerr << "invalid filesize! filesize cannot be 0 and should be multiples of objsize."
-                << std::endl;
+                  << std::endl;
         usage();
     } else if (!count) {
         std::cerr << "invalid count! count cannot be 0." << std::endl;
         usage();
     } else if (jobs < MIN_JOBS || jobs > MAX_JOBS) {
         std::cerr << "invalid number of jobs! allowed values for the jobs are " << MIN_JOBS
-                << " to " << MAX_JOBS << std::endl;
+                  << " to " << MAX_JOBS << std::endl;
         usage();
     } else if (!objsize || objsize % sizeof(uint64_t)) {
         std::cerr << "invalid objsize! objsize should be multiple of "
-                << sizeof(uint64_t) << std::endl;
+                  << sizeof(uint64_t) << std::endl;
         usage();
     } else if (path.empty()) {
         std::cerr << "invalid path! can not be empty" << std::endl;
@@ -122,20 +122,24 @@ int main(int argc, char * argv[]) {
     /*
      * Define and parse the program options
      */
+    std::string strFileSize="1G";
+    std::string strCount = "1";
+    std::string strObjSize = "128K";
+    bool fVerify = false;
     visible.add_options()
-        ("help", "print help messages")
-        ("path", po::value<std::string>(&path)->default_value(path), "directory or device path")
-        ("mode", po::value<std::string>(&mode)->default_value(mode), "'read' or 'write' mode")
-        ("filesize", po::value<uint64_t>(&filesize)->default_value(filesize),
-         "file size in bytes")
-        ("count", po::value<uint64_t>(&count)->default_value(count), "file count")
-        ("jobs", po::value<uint32_t>(&jobs)->default_value(jobs), "# of concurrent jobs")
-        ("objsize", po::value<uint32_t>(&objsize)->default_value(objsize), "object size")
-        ("sync", "synchronous I/O");
+            ("help", "print help messages")
+            ("path", po::value<std::string>(&path)->default_value(path), "directory or device path")
+            ("verify,v", po::bool_switch(&fVerify), "verify previously created files")
+            ("size,s", po::value<std::string>(&strFileSize)->default_value(strFileSize),
+             "file size .eg : 1024, 1K, 2M, 3G")
+            ("count", po::value<std::string>(&strCount)->default_value(strCount), "file count")
+            ("jobs", po::value<uint32_t>(&jobs)->default_value(jobs), "# of concurrent jobs")
+            ("objsize", po::value<std::string>(&strObjSize)->default_value(strObjSize), "object size - 1024,1K, 2M")
+            ("sync", "synchronous I/O");
 
     hidden.add_options()
-        ("startnum", po::value<uint64_t>(&startnum)->default_value(startnum),
-         "startnum with number");
+            ("startnum", po::value<uint64_t>(&startnum)->default_value(startnum),
+             "startnum with number");
 
     desc.add(visible).add(hidden);
 
@@ -147,7 +151,12 @@ int main(int argc, char * argv[]) {
         std::cerr << e.what() << std::endl;
         usage();
     }
+    if (fVerify) mode="read";
     po::notify(vmap);
+
+    filesize = fds::util::getBytesFromHumanSize(strFileSize);
+    count = fds::util::getBytesFromHumanSize(strCount);
+    objsize = fds::util::getBytesFromHumanSize(strObjSize);
 
     // Validate command line options
     validateArgs(vmap);
@@ -168,7 +177,7 @@ int main(int argc, char * argv[]) {
     } else {  // error
         if (readOp) {
             std::cerr << path << ": not found! error='" << errno
-                    << "'" << std::endl;
+                      << "'" << std::endl;
             usage();
         }
     }
@@ -184,7 +193,7 @@ int main(int argc, char * argv[]) {
         fd = open(path.c_str(), flags, S_IRWXU | S_IRGRP);
         if (fd < 0) {
             std::cerr << path << ": unable to open file for I/O! error='"
-                    << errno << "'" << std::endl;
+                      << errno << "'" << std::endl;
             return rc;
         }
     }
@@ -221,7 +230,7 @@ int main(int argc, char * argv[]) {
             while (tjobs) {
                 if (wait(&rc) < 0) {
                     std::cerr << "error in child process! error='" << errno
-                            << "'" << std::endl;
+                              << "'" << std::endl;
                     break;
                 }
                 tjobs--;
@@ -239,7 +248,7 @@ int main(int argc, char * argv[]) {
             fd = open(filename.str().c_str(), flags, S_IRWXU | S_IRGRP);
             if (fd < 0) {
                 std::cerr << filename << ": unable to open a file for I/O! error='"
-                        << errno << "'" << std::endl;
+                          << errno << "'" << std::endl;
                 return rc;
             }
         }

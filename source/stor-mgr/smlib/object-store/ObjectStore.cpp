@@ -1653,6 +1653,13 @@ ObjectStore::handleDiskChanges(const bool &added,
     LOGNOTIFY << "Handle disk changes for disk: " << diskId;
 
     if (added) {
+        // Add new capacity tracking
+        auto newCap = diskMap->getDiskConsumedSize(diskId);
+        capacityMap[diskId].usedCapacity = newCap.usedCapacity;
+        capacityMap[diskId].totalCapacity = newCap.totalCapacity;
+        LOGNOTIFY << "Adding disk capacity tracking for " << diskId << " with capacity info "
+                    << capacityMap[diskId].usedCapacity << "/" << capacityMap[diskId].totalCapacity;
+
         auto cmdType = SmScavengerCmd::SCAV_ENABLE_DISK;
         auto initiator = SmCommandInitiator::SM_CMD_INITIATOR_DISK_CHANGE;
 
@@ -1660,6 +1667,10 @@ ObjectStore::handleDiskChanges(const bool &added,
         scavengerControlCmd(scavCmd);
     } else {
         diskMap->makeDiskOffline(diskId);
+
+        // Remove disk from capacity tracking
+        capacityMap.erase(diskId);
+        LOGNOTIFY << "Removing disk capacity tracking for " << diskId;
 
         for (auto& tokenPair: tokenDiskPairs) {
             LOGNOTIFY << tokenPair.first;
@@ -1948,6 +1959,15 @@ ObjectStore::mod_shutdown() {
     Module::mod_shutdown();
 }
 fds_bool_t ObjectStore::willPutSucceed(fds_uint16_t diskId, fds_uint64_t writeSize) {
+
+    if (capacityMap[diskId].totalCapacity == 0) {
+        // If we hit this we may not yet know about the disk. If this is the case we should stat it.
+        // Add new capacity tracking
+        auto newCap = diskMap->getDiskConsumedSize(diskId);
+        capacityMap[diskId].usedCapacity = newCap.usedCapacity;
+        capacityMap[diskId].totalCapacity = newCap.totalCapacity;
+    }
+
     double_t newCap = (((capacityMap[diskId].usedCapacity + writeSize) /
         (capacityMap[diskId].totalCapacity * 1.)) * 100);
 
