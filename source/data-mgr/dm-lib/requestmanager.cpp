@@ -10,7 +10,7 @@ RequestManager::RequestManager(DataMgr* dataMgr): dataMgr(dataMgr) {
 }
 
 Error RequestManager::sendReloadVolumeRequest(const NodeUuid & nodeId, const fds_volid_t & volId) {
-    auto asyncReq = gSvcRequestPool->newEPSvcRequest(nodeId.toSvcUuid());
+    auto asyncReq = dataMgr->getModuleProvider()->getSvcMgr()->getSvcRequestMgr()->newEPSvcRequest(nodeId.toSvcUuid());
 
     boost::shared_ptr<fpi::ReloadVolumeMsg> msg = boost::make_shared<fpi::ReloadVolumeMsg>();
     msg->volume_id = volId.get();
@@ -25,7 +25,7 @@ Error RequestManager::sendReloadVolumeRequest(const NodeUuid & nodeId, const fds
 }
 
 Error RequestManager::sendLoadFromArchiveRequest(const NodeUuid & nodeId, const fds_volid_t & volId, const std::string& fileName) {
-    auto asyncReq = gSvcRequestPool->newEPSvcRequest(nodeId.toSvcUuid());
+    auto asyncReq = dataMgr->getModuleProvider()->getSvcMgr()->getSvcRequestMgr()->newEPSvcRequest(nodeId.toSvcUuid());
 
     SHPTR<fpi::LoadFromArchiveMsg> msg(new fpi::LoadFromArchiveMsg());
     msg->volId = volId.get();
@@ -41,7 +41,7 @@ Error RequestManager::sendLoadFromArchiveRequest(const NodeUuid & nodeId, const 
 }
 
 Error RequestManager::sendArchiveVolumeRequest(const NodeUuid &nodeId, const fds_volid_t &volid) {
-    auto asyncReq = gSvcRequestPool->newEPSvcRequest(nodeId.toSvcUuid());
+    auto asyncReq = dataMgr->getModuleProvider()->getSvcMgr()->getSvcRequestMgr()->newEPSvcRequest(nodeId.toSvcUuid());
     boost::shared_ptr<fpi::ArchiveMsg> msg = boost::make_shared<fpi::ArchiveMsg>();
     msg->volId = volid.get();
     asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::ArchiveMsg), msg);
