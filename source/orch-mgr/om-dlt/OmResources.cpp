@@ -586,6 +586,7 @@ NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
         // to cluster map (but make them not pending in cluster map
         // because they are already in DLT), so that we will not try to update DLT
         // with those nodes again
+        LOGDEBUG << "NodeDomainFSM DACT_NodesUp: updating SM nodes in cluster map";
         OM_SmContainer::pointer smNodes = local->om_sm_nodes();
         NodeList addNodes, rmNodes;
         smNodes->om_splice_nodes_pend(&addNodes, &rmNodes, src.sm_up);
@@ -602,6 +603,7 @@ NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
         // to cluster map (but make them not pending in cluster map
         // because they are already in DMT), so that we will not try to update DMT
         // with those nodes again
+        LOGDEBUG << "NodeDomainFSM DACT_NodesUp: updating DM nodes in cluster map";
         OM_DmContainer::pointer dmNodes = local->om_dm_nodes();
         addNodes.clear();
         rmNodes.clear();
@@ -938,6 +940,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
 NodeDomainFSM::GRD_DltDmtUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    LOGNOTIFY << "NodeDomainFSM::GRD_DltDmtUp";
     fds_bool_t b_ret = false;
     
     try {

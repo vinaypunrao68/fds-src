@@ -38,6 +38,14 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         virtual void runTimerTask() override;
     };
 
+    class DomainEventTimerTask: public FdsTimerTask {
+    public:
+        explicit DomainEventTimerTask(FdsTimer &timer) : FdsTimerTask(timer) {}
+        ~DomainEventTimerTask() {}
+
+        virtual void runTimerTask() override;
+    };
+
     // Lock to prevent dlt compute while already computing
     std::atomic_flag lock = ATOMIC_FLAG_INIT;
 
@@ -95,7 +103,7 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
          */
         typedef mpl::vector<DltCloseOkEvt> deferred_events;
 
-        DST_Commit() : acks_to_wait(0) {}
+        DST_Commit() : acks_to_wait(0), committed(false) {}
 
         template <class Evt, class Fsm, class State>
         void operator()(Evt const &, Fsm &, State &) {}
@@ -108,14 +116,18 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         }
 
         fds_uint32_t acks_to_wait;
+        bool committed;  // not going to be used but required to appease the state machine
     };
     struct DST_RestartCommit : public msm::front::state<>
     {
         typedef mpl::vector<DltComputeEvt> deferred_events;
 
         DST_RestartCommit() : acks_to_wait(0),
+                      committed(false),
                       tryAgainTimer(new FdsTimer()),
-                      tryAgainTimerTask(new RetryTimerTask(*tryAgainTimer)) {}
+                      tryAgainTimerTask(new RetryTimerTask(*tryAgainTimer)),
+                      domainEvtTimer(new FdsTimer()),
+                      domainEvtTimerTask(new DomainEventTimerTask(*domainEvtTimer)){}
 
         ~DST_RestartCommit() {
             tryAgainTimer->destroy();
@@ -132,13 +144,16 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
         }
 
         fds_uint32_t acks_to_wait;
+        bool         committed;
 
         /**
          * timer to try to compute DLT (in case new SMs joined while we were
          * deploying the current DLT)
          */
-        FdsTimerPtr tryAgainTimer;
+        FdsTimerPtr     tryAgainTimer;
         FdsTimerTaskPtr tryAgainTimerTask;
+        FdsTimerPtr     domainEvtTimer;
+        FdsTimerTaskPtr domainEvtTimerTask;
     };
     struct DST_Close : public msm::front::state<>
     {
@@ -146,7 +161,10 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
 
         DST_Close() : acks_to_wait(0),
                       tryAgainTimer(new FdsTimer()),
-                      tryAgainTimerTask(new RetryTimerTask(*tryAgainTimer)) {}
+                      tryAgainTimerTask(new RetryTimerTask(*tryAgainTimer)),
+                      domainEvtTimer(new FdsTimer()),
+                      domainEvtTimerTask(new DomainEventTimerTask(*domainEvtTimer)),
+                      committed(false){}
 
         ~DST_Close() {
             tryAgainTimer->destroy();
@@ -170,6 +188,11 @@ struct DltDplyFSM : public msm::front::state_machine_def<DltDplyFSM>
          */
         FdsTimerPtr tryAgainTimer;
         FdsTimerTaskPtr tryAgainTimerTask;
+
+        // Not going to be used but required to appease the state machine
+        FdsTimerPtr     domainEvtTimer;
+        FdsTimerTaskPtr domainEvtTimerTask;
+		bool            committed;
     };
 
     struct DltAllOk: public msm::front::state<>
@@ -474,6 +497,14 @@ void DltDplyFSM::RetryTimerTask::runTimerTask()
     }
 }
 
+void DltDplyFSM::DomainEventTimerTask::runTimerTask()
+{
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+
+    LOGNOTIFY << "Raising DltDmtUpEvt from type SM now";
+    domain->local_domain_event(DltDmtUpEvt(fpi::FDSP_STOR_MGR));
+}
+
 // GRD_DltCompute
 // -------------
 // Prevents more than one DltComputeEvt resulting in dlt computation,
@@ -614,9 +645,13 @@ DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
 
     // commit as an 'official' version in the data placement engine
     bool committed = dp->commitDlt( evt.isRestart() );
+    bool isDBEvt = (evt.logString() == "DltLoadedDbEvt") ? true : false;
 
     if (committed)
     {
+        if (isDBEvt) {
+            dst.committed = true;
+        }
         // Send new DLT to each node in the cluster map
         // the new DLT now is committed DLT
         fds_uint32_t count = dom_ctrl->om_bcast_dlt(dp->getCommitedDlt());
@@ -628,6 +663,10 @@ DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
         }
     } else {
         LOGNOTIFY << "No target DLT, so nothing to commit/broadcast, moving to next state";
+
+        if (isDBEvt) {
+            dst.committed = false;
+        }
         dst.acks_to_wait = 1; // 1 because GRD_DltCommit is wired to assert if this is zero. It's all logical.
         fsm.process_event(DltCommitOkEvt(dp->getCommitedDltVersion(), NodeUuid()));
     }
@@ -733,15 +772,41 @@ DltDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
 
     if (!src.tryAgainTimer->schedule(src.tryAgainTimerTask,
-                                     std::chrono::seconds(1))) {
+                                     std::chrono::seconds(5))) {
         LOGWARN << "DACT_UpdDone: failed to start try againtimer!!!"
                 << " SM additions/deletions may be pending for long time!";
     }
 
     // in case we are in domain bring up state, notify domain that current
     // DLT is up (we got quorum number of acks for DLT commit)
-    LOGNORMAL << "Scheduled re-compute of DLT, will rase DltDmtUpEvt";
-    domain->local_domain_event(DltDmtUpEvt(fpi::FDSP_STOR_MGR));
+    LOGNORMAL << "Scheduled re-compute of DLT, will raise DltDmtUpEvt";
+
+    bool srcIsRestartCommit = (evt.logString() == "DltCommitOkEvt") ? true : false;
+
+    if (srcIsRestartCommit)
+    {
+        // We only care about this special processing in the case of a domain
+        // startup after OM restart and we are coming through the DST_RestartCommit path.
+        if (src.committed)
+        {
+            domain->local_domain_event(DltDmtUpEvt(fpi::FDSP_STOR_MGR));
+
+        } else {
+           // There was nothing to commit, so nothing was broadcasted.
+            // Allow the domain state machine to arrive at DST_WaitDltDmt
+            // so that the event raised through this timer task will set the
+            // domain to up
+
+            LOGNORMAL << "Delaying evt DltDmtUp by 3 sec, allow domain state machine to move to expected state";
+            if (!src.domainEvtTimer->schedule(src.domainEvtTimerTask,
+                    std::chrono::seconds(3))) {
+            LOGWARN << "DACT_UpdDone: failed to start domain evt timer!"
+                    << " domain may fail to come up!";
+            }
+        }
+    } else {
+        domain->local_domain_event(DltDmtUpEvt(fpi::FDSP_STOR_MGR));
+    }
 }
 
 // GRD_DltRebal
