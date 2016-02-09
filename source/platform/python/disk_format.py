@@ -13,6 +13,7 @@ import re
 import fstab        # Installed via pypi or omnibus
 
 import os
+import stat
 import optparse
 import subprocess
 import math
@@ -110,7 +111,7 @@ class extendedFstab (fstab.Fstab):
         devices = []
         for line in self.lines:
             if line.has_filesystem() and line.directory == mount_point:
-                devices.append(line.device) 
+                devices.append(line.device)
         return devices
 
     def backup_if_altered (self, fstab_file):
@@ -163,7 +164,7 @@ class BaseDisk (object):
     GET_UUID_COMMAND = ['blkid', '-s', 'UUID', '-o', 'value']
 
     def get_uuid (self, device):
-       
+
         call_list = copy.deepcopy (self.GET_UUID_COMMAND)
         call_list.append (device)
         output = subprocess.Popen (call_list, stdout=subprocess.PIPE).stdout
@@ -293,6 +294,16 @@ class Disk (Base):
 
         if self.os_disk:
             return False
+
+        # Remove non device links found in /dev/ for each partiiton we may create on this device
+        for part in ['1', '2', '3']:
+            device_path = self.path + part
+            try:
+                entry_mode_stat = os.stat (device_path).st_mode
+                if not stat.S_ISBLK(entry_mode_stat):
+                    os.unlink (device_path)
+            except OSError:
+                pass
 
         self.dbg_print ("Ready to partition %s as a Formation device." % (self.path))
 
@@ -686,8 +697,7 @@ class DiskManager (Base):
             if disk.check_for_fds():
                 disk.set_formatted()
             else:
-                self.dbg_print ("Found unformatted disk:  %s" % (disk.path)) 
-                
+                self.dbg_print ("Found unformatted disk:  %s" % (disk.path))
 
     def calculate_capacities (self):
         ''' calculate the system capacity and index sizing '''
@@ -775,9 +785,9 @@ class DiskManager (Base):
                 if not device:
                     print "Found an entry for %s in fstab corresponding to a non-existent device, deleting" % mount_point
                     self.fstab.remove_mount_point_by_uuid (uuid_str)
- 
+
     def add_mount_point (self, uuid, mount_point):
-        self.fstab.add_mount_point_by_uuid (uuid, 'UUID=' + uuid + WHITE_SPACE + mount_point + WHITE_SPACE + PARTITION_TYPE + WHITE_SPACE + MOUNT_OPTIONS + WHITE_SPACE + '0 2')
+        added = self.fstab.add_mount_point_by_uuid (uuid, 'UUID=' + uuid + WHITE_SPACE + mount_point + WHITE_SPACE + PARTITION_TYPE + WHITE_SPACE + MOUNT_OPTIONS + WHITE_SPACE + '0 2')
 
 #    def add_sm_mount_point (self):
 #        ''' Create a raid array (if multiple sm_index_paritions are defined).  Add the new sm index mount point '''
@@ -803,7 +813,7 @@ class DiskManager (Base):
     def generate_mount_point_index(self, base_name, count, uuid):
        ''' Find the first unused hdd/ssd index '''
        index = count
-       while True: 
+       while True:
            cur_name = base_name + str (index)
            self.cleanup_fstab(uuid, cur_name)
            devs = self.fstab.get_devices_by_mount_point(cur_name)
@@ -813,10 +823,10 @@ class DiskManager (Base):
            mount_dev = self.disk_utils.is_mounted(cur_name)
            if mount_dev:
                print "%s is already mounted on %s " % (cur_name, mount_dev)
-               index += 1 
+               index += 1
                continue
            return index
-        
+
     def add_data_mount_points (self):
         ''' Add mount points for each data storage partition '''
         hdd_count = 1
