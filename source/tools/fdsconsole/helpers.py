@@ -7,6 +7,7 @@ KEY_USER = 'username'
 KEY_PASS = 'password'
 KEY_GRIDOUTPUT = 'gridoutput'
 KEY_FDSROOT = 'fdsroot'
+KEY_REDISPORT = 'redis.port'
 PROTECTED_KEYS = [KEY_SYSTEM, KEY_ACCESSLEVEL]
 
 from fdslib import restendpoint
@@ -114,6 +115,7 @@ class ConfigData:
             KEY_USER : 'admin',
             KEY_PASS : 'admin',
             KEY_FDSROOT : '/fds',
+            KEY_REDISPORT : 6379,
             KEY_GRIDOUTPUT : False
         }
 
