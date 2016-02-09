@@ -788,10 +788,6 @@ class DiskManager (Base):
 
     def add_mount_point (self, uuid, mount_point):
         added = self.fstab.add_mount_point_by_uuid (uuid, 'UUID=' + uuid + WHITE_SPACE + mount_point + WHITE_SPACE + PARTITION_TYPE + WHITE_SPACE + MOUNT_OPTIONS + WHITE_SPACE + '0 2')
-        if added:
-            self.dbg_print("added mount point %s" % (mount_point))
-        else:
-            self.dbg_print("mount point for %s & already exists" % (mount_point))
 
 #    def add_sm_mount_point (self):
 #        ''' Create a raid array (if multiple sm_index_paritions are defined).  Add the new sm index mount point '''
