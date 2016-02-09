@@ -61,7 +61,7 @@ public class SingletonRepositoryManager {
             String url = getInfluxDBUrl();
 
             // TODO: credentials need to be externalized to a secure store.
-            logger.info( String.format( "InfluxDB url is %s", url ) );
+            logger.info( String.format( "InfluxDB Metric DB url is %s", url ) );
             MetricRepository influxRepository =
                     MetricRepositoryProxyIH.newMetricRepositoryProxy( url, "root", "root" );
 
@@ -101,7 +101,7 @@ public class SingletonRepositoryManager {
             String url = getInfluxDBUrl();
 
             // TODO: credentials need to be externalized to a secure store.
-            logger.info( String.format( "InfluxDB url is %s", url ) );
+            logger.info( String.format( "InfluxDB Event DB url is %s", url ) );
             InfluxEventRepository influxRepository = new InfluxEventRepository( url,
                                                                                 "root",
                                                                                 "root".toCharArray() );
@@ -131,10 +131,12 @@ public class SingletonRepositoryManager {
             boolean querySPV = FdsFeatureToggles.INFLUX_QUERY_SERIES_PER_VOLUME.isActive();
 
             if ( !(influx1SEnabled || influxSPVEnabled) ) {
-                throw new IllegalStateException( "At least one of the metric database implementations must be enabled." );
+                logger.warn( "Expecting at least one metric database implementation is enabled.  " +
+                        "Defaulting to use the 'influxdb_one_series' implementation.  " );
+                influx1SEnabled = true;
+                influxSPVEnabled = false;
+                querySPV = false;
             }
-
-            logger.info( String.format( "InfluxDB url is %s", url ) );
 
             InfluxMetricRepository influxRepository1S = null;
             InfluxMetricRepository influxRepositorySPV = null;

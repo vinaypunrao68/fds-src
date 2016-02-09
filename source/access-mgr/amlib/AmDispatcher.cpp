@@ -159,7 +159,11 @@ AmDispatcher::registerVolume(VolumeDesc const& volDesc) {
         if (volumegroup_map.end() != it) {
             return;
         }
-        volumegroup_map[vol_id].reset(new VolumeGroupHandle(MODULEPROVIDER(), vol_id, numPrimaries));
+        auto quorum = std::max(MODULEPROVIDER()->getSvcMgr()->getCurrentDMT()->getDepth() - 1,
+                               static_cast<uint32_t>(1));
+        volumegroup_map[vol_id].reset(new VolumeGroupHandle(MODULEPROVIDER(),
+                                                            vol_id,
+                                                            quorum));
         volumegroup_map[vol_id]->setListener(volumegroup_handler.get());
     }
 }

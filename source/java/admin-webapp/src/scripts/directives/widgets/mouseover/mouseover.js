@@ -5,15 +5,25 @@ angular.module( 'display-widgets' ).directive( 'mouseOver', function(){
         transclude: true,
         replace: true,
         templateUrl: 'scripts/directives/widgets/mouseover/mouseover.html',
-        scope: { event: '=' },
+        scope: { event: '=', visible: '=?', top: '=?', left: '=?', fillColor: '=?', below: '=?', leftSide: '=?' },
         controller: function( $scope, $element, $timeout, $document ){
     
             $scope.show = false;
             $scope.target = {};
-            $scope.top = '0px';
-            $scope.left = '0px';
             $scope.ignore = false;
             $scope.mousePosition = { x: 0, y: 0 };
+            
+            if ( !angular.isDefined( $scope.fillColor ) ){
+                $scope.fillColor = 'rgba( 255, 255, 255, 0.9 )';
+            }
+            
+            if ( !angular.isDefined( $scope.top ) ){
+                $scope.top = '0px';
+            }
+            
+            if ( !angular.isDefined( $scope.left ) ){
+                $scope.left = '0px';
+            }
             
             $scope.overTooltip = function( $event ){
                 
@@ -100,7 +110,9 @@ angular.module( 'display-widgets' ).directive( 'mouseOver', function(){
                     return;
                 }
                 
-                if ( $scope.ignore === true ){
+                // if visible is defined that means the parent controller is going to 
+                // control the visibility of this tooltip
+                if ( $scope.ignore === true || angular.isDefined( $scope.visible ) ){
                     return;
                 }
 
@@ -121,6 +133,10 @@ angular.module( 'display-widgets' ).directive( 'mouseOver', function(){
                     $scope.showTooltip( $.extend( {}, $scope.target ) );
                 }
                 
+            });
+            
+            $scope.$watch( 'visible', function( newVal ){
+                $scope.show = newVal;
             });
         }
     };

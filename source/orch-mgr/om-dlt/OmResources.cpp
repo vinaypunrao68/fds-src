@@ -1358,7 +1358,7 @@ OM_NodeDomainMod::mod_init(SysParams const *const param)
     om_test_mode = conf_helper.get<bool>("test_mode");
     om_locDomain->om_init_domain();
     dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
-                             get<uint32_t>("fds.common.volume_group.dm_cluster_size", 1));
+                             get<uint32_t>("fds.feature_toggle.common.volumegrouping_dm_cluster_size", 1));
     return 0;
 }
 
@@ -1388,7 +1388,19 @@ OM_NodeDomainMod::om_local_domain()
 fds_bool_t
 OM_NodeDomainMod::om_local_domain_up()
 {
-    fds_mutex::scoped_lock l(om_local_domain()->fsm_lock);
+    // NOTE: removed fsm_lock here.  In certain cases we were seeing
+    // a deadlock when a OmDeploy.dlt_deploy_event was occurring simultaneously with
+    // local domain event handling.  If an om_local_domain_up call comes in at the
+    // same time, then we see a deadlock:
+    // #8  fds::OM_DLTMod::dlt_deploy_event (this=0x7f2738010870, evt=...) at OmDeploy.cpp:387
+    // and
+    // #8  fds::OM_NodeDomainMod::local_domain_event (this=this@entry=0x7f2738001e10, evt=...) at OmResources.cpp:1430
+    // and then this (now removed) lock here
+    // #8  fds::OM_NodeDomainMod::om_local_domain_up () at OmResources.cpp:1391
+    //
+    // After analyzing calls to this method, I do not believe that acquiring the
+    // fsm_lock is of any value.  In all cases, the state may change immediately
+    // after this call before the supposedly guarded logic is called.
     return om_local_domain()->domain_fsm->is_flag_active<LocalDomainUp>();
 }
 
@@ -1403,7 +1415,7 @@ OM_NodeDomainMod::om_local_domain_up()
 fds_bool_t
 OM_NodeDomainMod::om_local_domain_down()
 {
-    fds_mutex::scoped_lock l(om_local_domain()->fsm_lock);
+    // See note in om_local_domain_up()
     return om_local_domain()->domain_fsm->is_flag_active<LocalDomainDown>();
 }
 
@@ -3440,7 +3452,7 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
         dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
     } else {
         auto dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
-                                        get<uint32_t>("fds.common.volume_group.dm_cluster_size", 1));
+                                        get<uint32_t>("fds.feature_toggle.common.volumegrouping_dm_cluster_size", 1));
         if ((!dmClusterPresent()) && (awaitingDMs == dmClusterSize)) {
             LOGNOTIFY << "Volume Group Mode has reached quorum with " << dmClusterSize
                     << " DMs. Calculating DMT now.";

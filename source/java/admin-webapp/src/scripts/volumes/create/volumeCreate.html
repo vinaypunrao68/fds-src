@@ -22,7 +22,7 @@
             
             <div class="volume-settings-panel">
                 <div class="volume-option">
-                    <fui-input type="text" class="volume-name-input skinny" size="32" placeholder="Enter Volume Name" ng-model="volumeName"></fui-input>
+                    <fui-input type="text" name="volume-name" regexp="^[^\s]+$" class="volume-name-input skinny" size="32" placeholder="Enter Volume Name" ng-model="volumeName" error-text="{{ 'volumes.err_name' | translate }}" required="volumeNameRequired"></fui-input>
                 </div>
             </div>
         </section>

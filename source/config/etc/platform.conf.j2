@@ -30,6 +30,8 @@ fds: {
 
     	    /* Volume grouping allows IO to volumes to driven by a coordinator at AM */
     	    enable_volumegrouping = {{ ft_enable_volumegrouping }}
+            /* If volume grouping mode is on, calculate 1 DMT version once # of DMs have matched */
+	    volumegrouping_dm_cluster_size = {{ ft_dm_cluster_size }}
 
     	    /* applies to OM and XDI web toolkit */
             enable_web_logging_request_wrapper = {{ ft_enable_web_logging_request_wrapper }}
@@ -131,12 +133,6 @@ fds: {
                 results_option = "--xml-file="
                 results_suffix = ".%p.memcheck"
 	   }
-        }
-
-        /* volume grouping options */
-        volume_group: {
-            /* If volume grouping mode is on, calculate 1 DMT version once # of DMs have matched */
-            dm_cluster_size = 4
         }
     }
 
