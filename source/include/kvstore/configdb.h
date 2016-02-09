@@ -131,6 +131,7 @@ struct ConfigDB : KVStore {
     bool changeStateSvcMap( fpi::SvcInfoPtr svcInfo,
                             const fpi::ServiceStatus svc_status );
     bool isPresentInSvcMap(const int64_t svc_uuid);
+    bool getSvcInfo(const fds_uint64_t svc_uuid, fpi::SvcInfo& svcInfo)
     /**
      * If service not found in configDB, returns SVC_STATUS_INVALID
      */

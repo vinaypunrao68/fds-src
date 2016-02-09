@@ -2501,55 +2501,81 @@ bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo) {
     return bRetCode;
 }
 
-bool ConfigDB::changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr,
-                                  const fpi::ServiceStatus svc_status )
+
+bool ConfigDB::getSvcInfo(const fds_uint64_t svc_uuid, fpi::SvcInfo& svcInfo)
+{
+    bool result = false;
+    try
+    {
+        std::stringstream uuid;
+        uuid << svc_uuid;
+
+        LOGDEBUG << "ConfigDB retrieving svcInfo for"
+                 << " uuid: " << std::hex << svc_uuid << std::dec;
+
+        Reply reply = kv_store.hget( "svcmap", uuid.str().c_str() ); //NOLINT
+
+        /*
+         * the reply.isValid() always == true, because its not NULL
+         */
+        if ( !reply.isNil() )
+        {
+            std::string value = reply.getString();
+            fds::deserializeFdspMsg( value, svcInfo );
+
+            if ( svcInfo != NULL )
+                result = true;
+            else
+                result = false;
+
+        } else {
+            LOGDEBUG << "Retrieved a nil value from configDB for uuid"
+                     << std::hex << svc_uuid << std::dec;
+        }
+    }
+    catch( const RedisException& e )
+    {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+
+    return result;
+}
+
+/*
+ * WARNING : Do NOT, on any account call this function directly.
+ * If a change to a svc state in configDB must be made, go through
+ * the change_service_state function in omutils.cpp
+ * That function ensures state is changed consistently across configDB
+ * and svcLayer
+ */
+bool ConfigDB::changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr)
 {
     bool bRetCode = false;
     
     try
     {
-        std::stringstream uuid;
-        uuid << svcInfoPtr->svc_id.svc_uuid.svc_uuid;
-        
-         LOGDEBUG << "ConfigDB attempt to change service status:"
-                  << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid << std::dec
-                  << " to status: " << svc_status;
-        
-        Reply reply = kv_store.hget( "svcmap", uuid.str().c_str() ); //NOLINT
-        if ( reply.isValid() ) 
+		fpi::SvcInfo dbInfo;
+        bool ret = getSvcInfo(svcInfoPtr->svc_id.svc_uuid.svc_uuid, dbInfo);
+
+        bRetCode = updateSvcMap( *svcInfoPtr );
+    
+        if (ret)
         {
-            bRetCode = true;
-            std::string value = reply.getString();
-            fpi::SvcInfo dbSvcInfo;
-            fds::deserializeFdspMsg( value, dbSvcInfo );
-            auto dbSvcInfoPtr = boost::make_shared<fpi::SvcInfo>(dbSvcInfo);
-
-            /**
-             * We should use the same intelligence as updateSvcMap to check if we should
-             * update the configDB to ensure consistency between the service map and db
-             */
-            if (fds::SvcHandle::shouldUpdateSvcHandle(dbSvcInfoPtr, svcInfoPtr)) {
-
-                fpi::ServiceStatus old_svc_status = dbSvcInfo.svc_status;
-                dbSvcInfoPtr->svc_status = svc_status;
-                // svcInfo.svc_status = svc_status;
-
-                updateSvcMap( *dbSvcInfoPtr );
-
-                LOGNOTIFY << "ConfigDB updated service status:"
-                           << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid << std::dec
-                           << " from status: " << old_svc_status
-                           << " to status: " << svc_status;
-
-                /* Convert new registration request to existing registration request */
-                kvstore::NodeInfoType nodeInfo;
-                fromTo( *dbSvcInfoPtr, nodeInfo );
-                updateNode( nodeInfo );
-            } else {
-                LOGDEBUG << "ConfigDB updates not applied. DB: " << logString(*dbSvcInfoPtr)
-                        << " vs: " << logString(*svcInfoPtr);
-            }
+            LOGNOTIFY << "ConfigDB updated service status:"
+                       << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid << std::dec
+                       << " from status: " << printSvcStatus(dbInfo.svc_status)
+                       << " to status: " << printSvcStatus(svcInfoPtr->svc_status);
+        } else {
+            LOGNOTIFY << "ConfigDB updated map with new record:"
+                       << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid << std::dec
+                       << "  status: " << printSvcStatus(svcInfoPtr->svc_status);
         }
+
+        /* Convert new registration request to existing registration request */
+        kvstore::NodeInfoType nodeInfo;
+        fromTo( *svcInfoPtr, nodeInfo );
+        updateNode( nodeInfo );
+
     }
     catch( const RedisException& e ) 
     {

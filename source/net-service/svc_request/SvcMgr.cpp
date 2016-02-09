@@ -863,11 +863,10 @@ SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr &current, const fpi::SvcI
          * configDB. Until all areas of PM and OM are sending incarnation number,
          * this has to be here... and bugs may be coming in.
          */
-        LOGWARN << "Allowing update with zero incarnatioNo!";
-        LOGDEBUG << "THIS NEEDS TO BE FIXED. Should be passing in with complete info.";
+        LOGWARN << "Allowing update with zero incarnatioNo! Should never come to this";
         ret = true;
     } else {
-        LOGWARN << "Criteria not met, will not allow update of svcMap";
+        LOGWARN << "Criteria not met, will not allow update of svcMap for now";
     }
 
     return (ret);

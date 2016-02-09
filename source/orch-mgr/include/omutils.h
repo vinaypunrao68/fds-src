@@ -40,18 +40,10 @@ namespace fds
 
     void change_service_state( kvstore::ConfigDB* configDB,
                                const fds_uint64_t svc_uuid, 
-                               const fpi::ServiceStatus svc_status );
+                               const fpi::ServiceStatus svc_status);
 
-    /**
-     * Changes the service state of a specific service.
-     * If the incarnation number is given as part of svcInfo, it will update
-     * and check to see if the specified operation has completed successfully.
-     * If it has completed, then will it persist the changes into configDB.
-     */
-    void change_service_state( kvstore::ConfigDB* configDB,
-                               const fpi::SvcInfoPtr svcInfo,
-                               const fpi::ServiceStatus svc_status,
-                               const bool updateSvcMap );
+    bool dbRecordNeedsUpdate(fpi::SvcInfoPtr svcLayerInfoPtr, fpi::SvcInfoPtr dbInfoPtr);
+
     bool isSameSvcInfoInstance( fpi::SvcInfo svcInfo );
     fpi::FDSP_Node_Info_Type fromSvcInfo( const fpi::SvcInfo& svcinfo );
     fpi::FDSP_NodeState fromServiceStatus(fpi::ServiceStatus svcStatus);
@@ -73,6 +65,8 @@ namespace fds
                               fpi::FDSP_MgrIdType type,
                               std::vector<fpi::SvcInfo> svcInfos,
                               kvstore::ConfigDB* configDB);
+
+    std::string printSvcStatus(fpi::ServiceStatus status);
 
 }  // namespace fds
 
