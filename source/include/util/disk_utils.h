@@ -6,6 +6,7 @@
 #define SOURCE_INCLUDE_UTIL_DISK_UTILS_H_
 
 #include "fds_types.h"
+#include <stor-mgr/include/SmTypes.h>
 
 namespace fds {
 
@@ -47,6 +48,8 @@ class DiskUtils {
   static fds_bool_t isDiskUnreachable(const std::string& diskPath,
                                       const std::string& diskDev,
                                       const std::string& mountPnt);
+  static DiskIdSet diffDiskSet(const DiskIdSet& diskSet1,
+                               const DiskIdSet& diskSet2);
 };
 
 }  // namespace fds
