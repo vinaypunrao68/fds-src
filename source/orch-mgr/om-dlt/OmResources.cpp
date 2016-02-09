@@ -1590,9 +1590,8 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                      << "persistent state and restart cluster again";
             return err;
         }
-        fds_verify((sm_services.size() == 0 && dm_services.size() == 0) ||
-                   (sm_services.size() > 0 && dm_services.size() > 0));
 
+        fds_verify( ( sm_services.size() == 0 ) && ( dm_services.size() == 0 ) );
     }
 
     if (( sm_services.size() > 0) || (dm_services.size() > 0)) {
