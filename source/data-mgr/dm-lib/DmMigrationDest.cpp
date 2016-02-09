@@ -42,7 +42,7 @@ DmMigrationDest::start()
     // true - volumeGroupMode
     processInitialBlobFilterSet();
 
-    auto timer = MODULEPROVIDER()->getTimer();
+    auto timer = dataMgr.getModuleProvider()->getTimer();
     auto task = [this] () {
         /* Immediately post to threadpool so we don't hold up timer thread */
         MODULEPROVIDER()->proc_thrpool()->schedule(
@@ -129,7 +129,7 @@ DmMigrationDest::migrationIdleTimeoutCheck()
 void
 DmMigrationDest::cancelIdleTimer() {
     if (idleTimeoutTaskPtr != nullptr) {
-        MODULEPROVIDER()->getTimer()->cancel(idleTimeoutTaskPtr);
+        dataMgr.getModuleProvider()->getTimer()->cancel(idleTimeoutTaskPtr);
         idleTimeoutTaskPtr.reset();
     }
 }
