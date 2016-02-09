@@ -136,7 +136,6 @@ class Disk:
             else:
                 self.dsk_cap = 0
                 print 'WARNING: lshw units size not implemented for:  ', node_logicalname.text, ', ignoring. '
-                assert False
 
         if self.dsk_cap < 0:
             print 'WARNING: Size not detected for " ', node_logicalname.text, '", will ignore this device'
