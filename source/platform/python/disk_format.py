@@ -307,8 +307,6 @@ class Disk (Base):
                     os.unlink (device_path)
             except OSError:
                 pass
-            except:
-                raise
 
         self.dbg_print ("Ready to partition %s as a Formation device." % (self.path))
 
