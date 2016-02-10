@@ -1038,6 +1038,7 @@ int DataMgr::mod_init(SysParams const *const param)
 
     fileTransfer.reset(new net::FileTransferService(MODULEPROVIDER()->proc_fdsroot()->dir_filetransfer(), MODULEPROVIDER()->getSvcMgr()));
     refCountMgr.reset(new refcount::RefCountManager(this));
+    requestHandler.reset(new dm::Handler(*this));
     return 0;
 }
 
@@ -1556,6 +1557,14 @@ DmPersistVolDB::ptr DataMgr::getPersistDB(fds_volid_t volId) {
 
     DmPersistVolDB::ptr voldDBPtr = boost::dynamic_pointer_cast <DmPersistVolDB>(persistVolDirPtr);
     return voldDBPtr;
+}
+
+void DataMgr::addToQueue(DmRequest* req) {
+    requestHandler->addToQueue(req);
+}
+
+void DataMgr::addToQueue(std::function<void()>&& func, fds_volid_t volId) {
+    requestHandler->addToQueue(new DmFunctor(volId, func));
 }
 
 Error DataMgr::copyVolumeToOtherDMs(fds_volid_t volId) {
