@@ -128,6 +128,10 @@ namespace fds
                 }
                 fsMountOptions.append(option);
             }
+            else
+            {
+                LOGWARN << "Unknown mount option " << option << ", ignoring";
+            }
         }
         return flags;
     }
