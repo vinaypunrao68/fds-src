@@ -359,23 +359,38 @@ SmSuperblockMgr::loadSuperblock(DiskIdSet& hddIds,
          * 2) disk(s) were removed.
          * 3) 1 and 2.
          */
+        checkDisksAlive(hddIds, ssdIds);
         checkDiskTopology(hddIds, ssdIds);
     }
 
     return err;
 }
 
-//TODO(Gurpreet): Merge redistributeTokens and recomputeTokensForLostDisk
-// to one method.
+/**
+ * Redistribute tokens according to the new disk map received.
+ * Before recomputing token placement, make sure the disk(s)
+ * in the disk map are all live and accessible.
+ */
 Error
 SmSuperblockMgr::redistributeTokens(DiskIdSet &hddIds, DiskIdSet &ssdIds,
                                     const DiskLocMap &latestDiskMap,
                                     const DiskLocMap &latestDiskDevMap) {
     SCOPEDWRITE(sbLock);
     initMaps(latestDiskMap, latestDiskDevMap);
+    checkDisksAlive(hddIds, ssdIds);
     return checkDiskTopology(hddIds, ssdIds);
 }
 
+/**
+ * Redistribute tokens for the lost disk. If this method is getting
+ * called that means, a disk check for this disk has already been
+ * done and this disk is declared failed. No need to do disk checks
+ * again, since each online disk failure will be handled separately.
+ * Each online disk failure requires cleanup of existing token files
+ * that were residing on the disk, before redistributing tokens to the
+ * remaining disk. So it is important to handle each online disk
+ * failure separately.
+ */
 void
 SmSuperblockMgr::recomputeTokensForLostDisk(const DiskId& failedDiskId,
                                             DiskIdSet& hddIds,
@@ -527,23 +542,6 @@ SmSuperblockMgr::handleRemovedSmTokens(SmTokenSet& smTokensNotOwned,
     return lostSmTokens;
 }
 
-/*
- * A function that returns the difference between the diskSet 1 and diskSet 2.
- * The difference is defined as element(s) in diskSet1, but not in diskSet2.
- */
-DiskIdSet
-SmSuperblockMgr::diffDiskSet(const DiskIdSet& diskSet1,
-                             const DiskIdSet& diskSet2)
-{
-    DiskIdSet deltaDiskSet;
-
-    std::set_difference(diskSet1.begin(), diskSet1.end(),
-                        diskSet2.begin(), diskSet2.end(),
-                        std::inserter(deltaDiskSet, deltaDiskSet.begin()));
-
-    return deltaDiskSet;
-}
-
 /**
  * This method tries to check if the disks passed
  * are accessible or not.
@@ -613,7 +611,7 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
 }
 
 bool
-SmSuperblockMgr::isDiskAlive(DiskId& diskId) {
+SmSuperblockMgr::isDiskAlive(const DiskId& diskId) {
     std::string tempMountDir = MODULEPROVIDER()->proc_fdsroot()->\
                                dir_fds_etc() + "testDevMount";
     FdsRootDir::fds_mkdir(tempMountDir.c_str());
@@ -648,9 +646,7 @@ SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
     DiskIdSet addedSSDs, removedSSDs;
     bool recomputed = false;
     bool diskAdded = true;
-    LOGDEBUG << "Checking disk topology";
-
-    checkDisksAlive(newHDDs, newSSDs);
+    LOGNOTIFY << "Checking disk topology";
 
     /* Get the list of unique disk IDs from the OLT table.  This is
      * used to compare with the new set of HDDs and SSDs to determine
@@ -661,16 +657,21 @@ SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
 
     /* Determine if any HDD was added or removed.
      */
-    removedHDDs = diffDiskSet(persistentHDDs, newHDDs);
-    addedHDDs = diffDiskSet(newHDDs, persistentHDDs);
+    removedHDDs = DiskUtils::diffDiskSet(persistentHDDs, newHDDs);
+    addedHDDs = DiskUtils::diffDiskSet(newHDDs, persistentHDDs);
 
     /* Determine if any HDD was added or removed.
      */
-    removedSSDs = diffDiskSet(persistentSSDs, newSSDs);
-    addedSSDs = diffDiskSet(newSSDs, persistentSSDs);
+    removedSSDs = DiskUtils::diffDiskSet(persistentSSDs, newSSDs);
+    addedSSDs = DiskUtils::diffDiskSet(newSSDs, persistentSSDs);
 
     typedef std::set<std::pair<fds_token_id, fds_uint16_t>> TokDiskSet;
-    /* Check if the disk topology has changed.
+
+    if ((removedHDDs.size() > 0) || (removedSSDs.size() > 0)) {
+        superblockMaster.setResync();
+    }
+    /**
+     * Check if the disk topology has changed.
      */
     if ((removedHDDs.size() > 0) ||
         (addedHDDs.size() > 0)) {
@@ -1318,8 +1319,6 @@ std::ostream& operator<< (std::ostream &out,
                           const SmSuperblockMgr& sbMgr) {
     out << "Current DLT Version=" << sbMgr.superblockMaster.DLTVersion << "\n";
     out << "Current disk map:\n" << sbMgr.diskMap;
-    out << sbMgr.superblockMaster.olt;
-    out << sbMgr.superblockMaster.tokTbl;
     return out;
 }
 

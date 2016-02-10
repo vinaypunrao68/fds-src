@@ -160,8 +160,7 @@ void ObjectStorMgr::handleResyncDoneOrPending(fds_bool_t startResync, fds_bool_t
 
     if (resyncDone) {
         if (objStorMgr->migrationMgr->primaryTokensReady(curDlt, getUuid())) {
-            LOGNOTIFY << "Resync on restart completed SUCCESSFULLY! All DLT tokens for which "
-                      << " this SM is primary synced successfully";
+            LOGNOTIFY << "Resync completed SUCCESSFULLY!";
         } else {
             LOGWARN << "At least one DLT token for which this SM is primary did not sync "
                     << " successfully; Since we don't have fine-grained handling of this in OM,"

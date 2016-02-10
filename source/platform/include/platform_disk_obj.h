@@ -62,6 +62,13 @@ namespace fds
                 return dsk_cap_gb;
             }
 
+            inline bool dsk_is_fds_disk()
+            {
+                return dsk_is_fds;
+            }
+
+            void dsk_set_fds_disk(bool use_new_superblock);
+
             /**
              * Setup the mount point where the device is mounted as the result of the discovery.
              */
@@ -128,6 +135,10 @@ namespace fds
 
         private:
             void dsk_fixup_family_links(PmDiskObj::pointer ref);
+
+            bool dsk_read_fds_mark();
+
+            bool dsk_is_fds = false;
     };
 }  // namespace fds
 
