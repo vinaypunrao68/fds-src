@@ -592,14 +592,6 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
             << msg->healthReport.serviceInfo.name
             << ":0x" << std::hex << uuid.uuid_get_val() << std::dec;
 
-            OM_NodeAgent::pointer agent = domain->om_all_agent(uuid);
-            if (agent) {
-                /*
-                 *  required so that DMT/DLT will see it as a failed service
-                 */
-                agent->set_node_state( fpi::FDS_Node_Down );
-            }
-
             /*
              * change the state and update service map; then broadcast updated service map
              */
@@ -641,7 +633,8 @@ void OmSvcHandler::healthReportError(fpi::FDSP_MgrIdType &svc_type,
                 LOGDEBUG << "Will set service to failed state: "
                          << msg->healthReport.serviceInfo.name
                          << ":0x" << std::hex << uuid.uuid_get_val() << std::dec;
-                agent->set_node_state(fpi::FDS_Node_Down);
+                domain->om_change_svc_state_and_bcast_svcmap( boost::make_shared<fpi::SvcInfo>(msg->healthReport.serviceInfo),
+                                                              svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
                 domain->om_service_down(reportError, uuid, agent->node_get_svc_type());
             } else {
                 LOGDEBUG << "Got error health report from service "
