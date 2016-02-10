@@ -322,6 +322,9 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     fds_bool_t testUturnStartTx;
     fds_bool_t testUturnSetMeta;
 
+    // DM user-repo disk fullness threshold to stop creating snapshots
+    fds_uint32_t dmFullnessThreshold = 75;
+
     /* Overrides from Module */
     virtual int  mod_init(SysParams const *const param) override;
     virtual void mod_startup() override;
