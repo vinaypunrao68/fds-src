@@ -93,7 +93,7 @@ fds: {
     /* Use this section for settings that are shared (or needed) by most or all processes */
     common: {
 
-        om_ip_list = {{ om_ip }}
+        om_ip_list = "{{ om_ip }}"
         om_port = 7004
         om_uuid = 1028
 
@@ -145,7 +145,7 @@ fds: {
         /* Platform port.  This is the node base port.  All services running on this node derive their port based on this port */
         platform_port = 7000
 
-        redis_host = {{ om_ip }}
+        redis_host = "{{ om_ip }}"
         redis_port = 6379
 
         service_management: {
