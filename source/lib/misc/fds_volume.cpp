@@ -129,6 +129,7 @@ VolumeDesc::VolumeDesc(const std::string& _name, fds_volid_t _uuid)
 
     iscsiSettings = {};
     nfsSettings = {};
+    coordinator = {};
 }
 
 VolumeDesc::VolumeDesc(const std::string& _name,
@@ -160,6 +161,7 @@ VolumeDesc::VolumeDesc(const std::string& _name,
     createTime = 0;
     iscsiSettings = {};
     nfsSettings = {};
+    coordinator = {};
 }
 
 VolumeDesc::~VolumeDesc() {
@@ -257,6 +259,7 @@ VolumeDesc& VolumeDesc::operator=(const VolumeDesc& volinfo) {
         this->state = volinfo.state;
         this->iscsiSettings = volinfo.iscsiSettings;
         this->nfsSettings = volinfo.nfsSettings;
+        this->coordinator = volinfo.coordinator;
     }
     return *this;
 }
@@ -304,7 +307,8 @@ std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
        << " state:" << vol.getState() << " ( " << fpi::_ResourceState_VALUES_TO_NAMES.find(vol.getState())->second << " )"
        << " contCommitlogRetention:" << vol.contCommitlogRetention
        << " timelineTime:" << vol.timelineTime
-       << " createTime:" << vol.createTime;
+       << " createTime:" << vol.createTime
+       << " coordinator:" << vol.coordinator;
 
     if (fpi::FDSP_VOL_ISCSI_TYPE == vol.volType) {
         os << " luns: { ";
@@ -321,6 +325,7 @@ std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
 
         os << " outgoing users: { ";
         for (auto const& ouser : vol.iscsiSettings.outgoingUsers) {
+            // don't output password!
             os << ouser.name << ":******* ";
         }
         os << "}";
