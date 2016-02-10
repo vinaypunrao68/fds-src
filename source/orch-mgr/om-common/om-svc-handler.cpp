@@ -156,7 +156,7 @@ void
 OmSvcHandler::getVolumeDescriptor(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                  boost::shared_ptr<fpi::GetVolumeDescriptor> &msg)
 {
-    LOGNORMAL << " receive getVolumeDescriptor msg";
+    LOGNORMAL << " receive getVolumeDescriptor msg for volume [ " << msg->volume_name << " ]";
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     auto resp = fpi::GetVolumeDescriptorResp();
     VolumeDesc desc(msg->volume_name, invalid_vol_id);
@@ -165,7 +165,7 @@ OmSvcHandler::getVolumeDescriptor(boost::shared_ptr<fpi::AsyncHdr> &hdr,
         desc.toFdspDesc(resp.vol_desc);
     }
 
-    LOGNOTIFY << "volume [ " << msg->volume_name << " ] error [ " << err << " ] " << desc.ToString();
+    LOGNOTIFY << "volume [ " << msg->volume_name << " ] errno [ " << err.GetErrno() << " ] " << desc.ToString();
 
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::GetVolumeDescriptorResp), resp);
