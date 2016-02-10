@@ -1,9 +1,9 @@
 ---
 -   name: install fds-stats-service deb from remote
-    apt: name=fds-stats-service-1.0.0 force=yes state=latest update_cache=yes
+    apt: name=fds-stats-service-2.0.0 force=yes state=latest update_cache=yes
     when: (skip_stats is not defined or skip_stats == "no") and (fds_deploy_local_deps is not defined or fds_deploy_local_deps != "yes")
 
--   name: install fds-stats-service-1.0.0 deb from local
+-   name: install fds-stats-service-2.0.0 deb from local
     when: (skip_stats is not defined or skip_stats == "no") and (fds_deploy_local_deps is defined and fds_deploy_local_deps == "yes")
     copy: src={{ item }}
        dest="/root/fds-stats-service.deb"
@@ -56,11 +56,11 @@
     tags:
       - install-local
 
--   name: install the fds-stats-client-c-1.0.0 from remote
+-   name: install the fds-stats-client-c-2.0.0 from remote
     when: (skip_stats is not defined or skip_stats == "no") and (fds_deploy_local_deps is not defined or fds_deploy_local_deps != "yes")
-    apt: name=fds-stats-client-c-1.0.0 force=yes state=latest update_cache=yes
+    apt: name=fds-stats-client-c-2.0.0 force=yes state=latest update_cache=yes
 
--   name: copy the fds-stats-client-c-1.0.0 into the offline install
+-   name: copy the fds-stats-client-c-2.0.0 into the offline install
     when: (skip_stats is not defined or skip_stats == "no") and (fds_deploy_local_deps is defined and fds_deploy_local_deps == "yes")
     copy: src={{ item }}
       dest="/root/fds-stats-client-c.deb"
@@ -69,7 +69,7 @@
     tags:
       - install-local
 
--   name: install the fds-stats-client-c-1.0.0 package from local deps
+-   name: install the fds-stats-client-c-2.0.0 package from local deps
     when: (skip_stats is not defined or skip_stats == "no") and (fds_deploy_local_deps is defined and fds_deploy_local_deps == "yes")
     apt: deb="/root/fds-stats-client-c.deb"
     tags:
