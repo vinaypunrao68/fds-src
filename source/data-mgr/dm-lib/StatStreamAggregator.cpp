@@ -824,6 +824,9 @@ void VolStatsTimerTask::runTimerTask() {
  * By default, this runs according to FdsStatPushAndAggregatePeriodSec.
  */
 void StatStreamTimerTask::runTimerTask() {
+
+    using fds::StatDataPoint;
+
     LOGTRACE << "Streaming stats for registration '" << reg_->id << "'";
 
     std::vector<fpi::volumeDataPoints> dataPoints;
@@ -900,16 +903,21 @@ void StatStreamTimerTask::runTimerTask() {
 
         vol_last_rel_sec_[volId] = hist->toSlotList(slots, last_rel_sec, last_secs_to_ignore);
 
-        for (auto slot : slots) {
-            //LOGTRACE << "Processing slot:\n" << slot;
-            fds_uint64_t timestamp = hist->getTimestamp((slot).getRelSeconds());
-
-            timestamp /= NANOS_IN_SECOND;
+        std::list<StatDataPoint> newStatsServiceMetrics;
+        for (auto slot : slots)
+        {
+            auto const timestamp = hist->getTimestamp((slot).getRelSeconds()) / NANOS_IN_SECOND;
+            auto const slotDuration = slot.slotLengthSec();
 
             fpi::DataPointPair putsDP;
             putsDP.key = "Puts";
             putsDP.value = StatHelper::getCountObjPuts(slot);
             volDataPointsMap[timestamp].push_back(putsDP);
+            newStatsServiceMetrics.emplace_back(newStatDataPoint(timestamp,
+                                                                 "PUTS",
+                                                                 putsDP.value,
+                                                                 slotDuration,
+                                                                 volId.get()));
 
             fpi::DataPointPair moputsDP;
             moputsDP.key = "Explicit Tx Blob Puts";
@@ -925,6 +933,11 @@ void StatStreamTimerTask::runTimerTask() {
             getsDP.key = "Gets";
             getsDP.value = StatHelper::getCountObjGets(slot);
             volDataPointsMap[timestamp].push_back(getsDP);
+            newStatsServiceMetrics.emplace_back(newStatDataPoint(timestamp,
+                                                                 "GETS",
+                                                                 getsDP.value,
+                                                                 slotDuration,
+                                                                 volId.get()));
 
             fpi::DataPointPair cgetsDP;
             cgetsDP.key = "Cached Obj Gets";
@@ -945,6 +958,11 @@ void StatStreamTimerTask::runTimerTask() {
             qfullDP.key = "Queue Full";
             qfullDP.value = StatHelper::getQueueFull(slot);
             volDataPointsMap[timestamp].push_back(qfullDP);
+            newStatsServiceMetrics.emplace_back(newStatDataPoint(timestamp,
+                                                                 "QFULL",
+                                                                 qfullDP.value,
+                                                                 slotDuration,
+                                                                 volId.get()));
 
             fpi::DataPointPair qbacklogDP;
             qbacklogDP.key = "Queue Backlog";
@@ -960,21 +978,41 @@ void StatStreamTimerTask::runTimerTask() {
             ssdGetsDP.key = "SSD Gets";
             ssdGetsDP.value = StatHelper::getTotalSsdGets(slot);
             volDataPointsMap[timestamp].push_back(ssdGetsDP);
+            newStatsServiceMetrics.emplace_back(newStatDataPoint(timestamp,
+                                                                 "SSD_GETS",
+                                                                 ssdGetsDP.value,
+                                                                 slotDuration,
+                                                                 volId.get()));
 
             fpi::DataPointPair hddGetsDP;
             hddGetsDP.key = "HDD Gets";
             hddGetsDP.value = getsDP.value - ssdGetsDP.value;
             volDataPointsMap[timestamp].push_back(hddGetsDP);
+            newStatsServiceMetrics.emplace_back(newStatDataPoint(timestamp,
+                                                                 "HDD_GETS",
+                                                                 hddGetsDP.value,
+                                                                 slotDuration,
+                                                                 volId.get()));
 
             fpi::DataPointPair logicalBytesDP;
             logicalBytesDP.key = "Logical Bytes";
             logicalBytesDP.value = StatHelper::getTotalLogicalBytes(slot);
             volDataPointsMap[timestamp].push_back(logicalBytesDP);
+            newStatsServiceMetrics.emplace_back(newStatDataPoint(timestamp,
+                                                                 "LBYTES",
+                                                                 logicalBytesDP.value,
+                                                                 slotDuration,
+                                                                 volId.get()));
 
             fpi::DataPointPair physicalBytesDP;
             physicalBytesDP.key = "Physical Bytes";
             physicalBytesDP.value = StatHelper::getTotalPhysicalBytes(slot);
             volDataPointsMap[timestamp].push_back(physicalBytesDP);
+            newStatsServiceMetrics.emplace_back(newStatDataPoint(timestamp,
+                                                                 "PBYTES",
+                                                                 physicalBytesDP.value,
+                                                                 slotDuration,
+                                                                 volId.get()));
 
             fpi::DataPointPair domaindedupBytesDP;
             domaindedupBytesDP.key = "Domain Dedup Bytes Fraction";
@@ -990,16 +1028,31 @@ void StatStreamTimerTask::runTimerTask() {
             mdBytesDP.key = "Metadata Bytes";
             mdBytesDP.value = StatHelper::getTotalMetadataBytes(slot);
             volDataPointsMap[timestamp].push_back(mdBytesDP);
+            newStatsServiceMetrics.emplace_back(newStatDataPoint(timestamp,
+                                                                 "MBYTES",
+                                                                 mdBytesDP.value,
+                                                                 slotDuration,
+                                                                 volId.get()));
 
             fpi::DataPointPair blobsDP;
             blobsDP.key = "Blobs";
             blobsDP.value = StatHelper::getTotalBlobs(slot);
             volDataPointsMap[timestamp].push_back(blobsDP);
+            newStatsServiceMetrics.emplace_back(newStatDataPoint(timestamp,
+                                                                 "BLOBS",
+                                                                 blobsDP.value,
+                                                                 slotDuration,
+                                                                 volId.get()));
 
             fpi::DataPointPair logicalObjectsDP;
             logicalObjectsDP.key = "Objects";
             logicalObjectsDP.value = StatHelper::getTotalLogicalObjects(slot);
             volDataPointsMap[timestamp].push_back(logicalObjectsDP);
+            newStatsServiceMetrics.emplace_back(newStatDataPoint(timestamp,
+                                                                 "OBJECTS",
+                                                                 logicalObjectsDP.value,
+                                                                 slotDuration,
+                                                                 volId.get()));
 
             fpi::DataPointPair physicalObjectsDP;
             physicalObjectsDP.key = "Physical Objects";
@@ -1010,11 +1063,21 @@ void StatStreamTimerTask::runTimerTask() {
             aveBlobSizeDP.key = "Ave Blob Size";
             aveBlobSizeDP.value = StatHelper::getAverageBytesInBlob(slot);
             volDataPointsMap[timestamp].push_back(aveBlobSizeDP);
+            newStatsServiceMetrics.emplace_back(newStatDataPoint(timestamp,
+                                                                 "ABS",
+                                                                 aveBlobSizeDP.value,
+                                                                 slotDuration,
+                                                                 volId.get()));
 
             fpi::DataPointPair aveObjectsDP;
             aveObjectsDP.key = "Ave Objects per Blob";
             aveObjectsDP.value = StatHelper::getAverageObjectsInBlob(slot);
             volDataPointsMap[timestamp].push_back(aveObjectsDP);
+            newStatsServiceMetrics.emplace_back(newStatDataPoint(timestamp,
+                                                                 "AOPB",
+                                                                 aveObjectsDP.value,
+                                                                 slotDuration,
+                                                                 volId.get()));
 
             fpi::DataPointPair avDP;
             avDP.key = "Attach Vol";
@@ -1099,6 +1162,46 @@ void StatStreamTimerTask::runTimerTask() {
             volDataPointsMap[timestamp].push_back(recentPerfStdevDP);
             volDataPointsMap[timestamp].push_back(longPerfStdevDP);
             volDataPointsMap[timestamp].push_back(recentPerfWma);
+
+            newStatsServiceMetrics.emplace_back(newStatDataPoint(timestamp,
+                                                                 "STC_SIGMA",
+                                                                 recentCapStdevDP.value,
+                                                                 slotDuration,
+                                                                 volId.get()));
+
+            newStatsServiceMetrics.emplace_back(newStatDataPoint(timestamp,
+                                                                 "LTC_SIGMA",
+                                                                 longCapStdevDP.value,
+                                                                 slotDuration,
+                                                                 volId.get()));
+
+            newStatsServiceMetrics.emplace_back(newStatDataPoint(timestamp,
+                                                                 "STP_SIGMA",
+                                                                 recentPerfStdevDP.value,
+                                                                 slotDuration,
+                                                                 volId.get()));
+
+            newStatsServiceMetrics.emplace_back(newStatDataPoint(timestamp,
+                                                                 "LTP_SIGMA",
+                                                                 longPerfStdevDP.value,
+                                                                 slotDuration,
+                                                                 volId.get()));
+
+            newStatsServiceMetrics.emplace_back(newStatDataPoint(timestamp,
+                                                                 "STC_WMA",
+                                                                 recentCapWmaDP.value,
+                                                                 slotDuration,
+                                                                 volId.get()));
+
+            // LTC_WMA doesn't exist.
+
+            newStatsServiceMetrics.emplace_back(newStatDataPoint(timestamp,
+                                                                 "STP_WMA",
+                                                                 recentPerfWma.value,
+                                                                 slotDuration,
+                                                                 volId.get()));
+
+            // LTP_WMA doesn't exist.
         }
 
         // Populate just before adding the volume to the list of stats, so we'll never try to look
@@ -1203,6 +1306,23 @@ void StatStreamCancelTimerTask::runTimerTask() {
     LOGTRACE << "Streaming stats registration with id <" << reg_id << "> has expired.";
 
     streamTimer.cancel(statStreamTask);
+}
+
+StatDataPoint StatStreamTimerTask::newStatDataPoint (int64_t timestamp,
+                                                     std::string const& name,
+                                                     double value,
+                                                     int64_t slotSeconds,
+                                                     int64_t volumeId)
+{
+    return { timestamp,
+             name,
+             value,
+             slotSeconds,
+             TimeUnit::SECONDS,
+             1,
+             volumeId,
+             ContextType::VOLUME,
+             AggregationType::SUM };
 }
 
 }  // namespace fds
