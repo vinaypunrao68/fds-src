@@ -484,6 +484,83 @@ class TestS3LoadFBLOB(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
+# that the largish BLOB is in tact.
+#
+# You must have successfully created an S3 connection
+# and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
+# and created a bucket and stored it in self.parameters["s3"].bucket1.
+#
+# You must also have successfully executed test case TestS3LoadFBLOB,
+class TestS3VerifyFBLOB(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, bucket=None, key=None, comparefile=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3VerifyFBLOB,
+                                             "Verify the 'largish' (<= 2MiB) BLOB")
+        self.passedBucket = bucket
+        self.passedKey = key
+        self.passedCompareFile = comparefile
+
+    def test_S3VerifyFBLOB(self):
+        """
+        Test Case:
+        Attempt to verify the 'largish' BLOB (<= 2MiB).
+        """
+
+        # Get the FdsConfigRun object for this test.
+        bin_dir = '../../Build/linux-x86_64.debug/bin'
+
+        # Make sure we're good to go with S3 and our bucket.
+        if not Helper.checkS3Info(self, self.passedBucket):
+            return False
+
+        self.log.info("Verify the 'largish' BLOB (<= 2Mib).")
+
+        s3 = self.parameters["s3"]
+
+        # Get file to be checked.
+        compare_path = ""
+        if self.passedCompareFile is None:
+            compare_path = bin_dir + "/disk_type.py"  # Our default will not cross object boundaries.
+        else:
+            # If our HLQ is "RESOURCES", then we'll pull the file from the SysTest framework's resources repository.
+            if os.path.dirname(self.passedCompareFile) == "RESOURCES":
+                compare_path = get_resource(self, os.path.basename(self.passedCompareFile))
+            else:
+                compare_path = self.passedCompareFile
+
+        compare_size = os.stat(compare_path).st_size
+
+        # Get a Key/Value object for the bucket.
+        k = Key(s3.bucket1)
+
+        # Set the key.
+        lkey = "largish"
+        if self.passedKey is not None:
+            lkey = self.passedKey
+
+        s3.keys.append(lkey)
+        k.key = lkey
+
+        self.log.info("Comparing %s of size %d bytes with key %s with "
+                      "Boto's Key.get_contents_to_filename() interface." %
+                      (compare_path, compare_size, lkey))
+
+        # Read it back to a file and then compare.
+        dest_path = bin_dir + "/TestS3VerifyFBLOB-loadedfile.dump"
+
+        k.get_contents_to_filename(dest_path)
+
+        test_passed = filecmp.cmp(compare_path, dest_path, shallow=False)
+        if not test_passed:
+            self.log.error("File mis-match")
+
+        os.remove(dest_path)
+
+        return test_passed
+
+
+# This class contains the attributes and methods to test
 # the FDS S3 interface to upload a "largish" BLOB in one piece with meta-data.
 #
 # You must have successfully created an S3 connection
@@ -741,6 +818,87 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
                 self.log.error("File mis-match. [" + md5sum + "]")
 
             os.remove(dest_path)
+
+        return test_passed
+
+
+# This class contains the attributes and methods to test
+# the FDS S3 interface to verify a large BLOB.
+#
+# You must have successfully created an S3 connection
+# and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
+# and created a bucket and stored it in self.parameters["s3"].bucket1.
+#
+# @param bucket If provided, overrides whatever is stored in self.parameters["s3"].bucket1
+# @param verify If "true" verifies the blob loaded against the file from which it was loaded.
+# @param inputfile If provided, overrides the default input file. If the input file is actually
+#                  located in the SysTest resources directory, you may indicate that by using the
+#                  value "RESOURCES/<inputfile.name>".
+# @param key If provided this will be the object key of the loaded Blob. Otherwise a default is used.
+class TestS3VerifyLBLOB(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, bucket=None, key=None, comparefile=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3VerifyLBLOB,
+                                             "Verify a 'large' (> 2MiB) BLOB in an S3 bucket")
+
+        self.passedBucket = bucket
+        self.passedKey = key
+        self.passedCompareFile = comparefile
+
+    def test_S3VerifyLBLOB(self):
+        """
+        Test Case:
+        Attempt to verify a file in an S3 Bucket loaded by parts. By default we would like this file to
+        be large enough to cross data object boundaries.
+        """
+
+        # TODO: Need to *not* hard-code this.
+        bin_dir = '../../Build/linux-x86_64.debug/bin'
+
+        # Make sure we're good to go with S3 and our bucket.
+        if not Helper.checkS3Info(self, self.passedBucket):
+            return False
+
+        s3 = self.parameters["s3"]
+
+        # Get file to be compared.
+        compare_path = ""
+        if self.passedCompareFile is None:
+            compare_path = bin_dir + "/StorMgr"  # We want our default to be big enough to cross object boundaries.
+        else:
+            # If our HLQ is "RESOURCES", then we'll pull the file from the SysTest framework's resources repository.
+            if os.path.dirname(self.passedCompareFile) == "RESOURCES":
+                compare_path = get_resource(self, os.path.basename(self.passedCompareFile))
+            else:
+                compare_path = self.passedCompareFile
+
+        compare_size = os.stat(compare_path).st_size
+
+        lkey = "large"
+        if self.passedKey is not None:
+            lkey = self.passedKey
+
+        s3.keys.append(lkey)
+
+        # Read it to a file and then compare.
+        dest_path = bin_dir + "/TestS3VerifyLBLOB-loadedfile.dump"
+
+        k = Key(s3.bucket1)
+        k.key = lkey
+
+        self.log.info("Comparing %s of size %d bytes with key %s with "
+                      "Boto's Key.get_contents_to_filename() interface." %
+                      (compare_path, compare_size, lkey))
+
+        k.get_contents_to_filename(filename=dest_path)
+
+        test_passed = filecmp.cmp(compare_path, dest_path, shallow=False)
+        if not test_passed:
+            md5sum = str(hashlib.md5(open(compare_path, 'rb').read()).hexdigest())
+            self.log.error("File mis-match. [" + md5sum + "]")
+
+        os.remove(dest_path)
 
         return test_passed
 

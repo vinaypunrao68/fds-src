@@ -91,7 +91,9 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     * Callback for DMT close
     */
     DmtCloseCb sendDmtCloseCb;
-
+    SHPTR<dm::Handler> requestHandler;
+    void addToQueue(DmRequest*);
+    void addToQueue(std::function<void()>&& func, fds_volid_t volId = FdsDmSysTaskId);
     /**
      * DmIoReqHandler method implementation
      */
@@ -319,6 +321,9 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     fds_bool_t testUturnUpdateCat;
     fds_bool_t testUturnStartTx;
     fds_bool_t testUturnSetMeta;
+
+    // DM user-repo disk fullness threshold to stop creating snapshots
+    fds_uint32_t dmFullnessThreshold = 75;
 
     /* Overrides from Module */
     virtual int  mod_init(SysParams const *const param) override;
