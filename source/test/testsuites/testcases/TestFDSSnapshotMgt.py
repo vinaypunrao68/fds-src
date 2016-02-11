@@ -66,7 +66,7 @@ class TestCreateSnapshot(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# create snapshot
+# list snapshots of a passed volume
 class TestListSnapshot(TestCase.FDSTestCase):
     def __init__(self, parameters=None, volume=None):
         """
@@ -95,30 +95,26 @@ class TestListSnapshot(TestCase.FDSTestCase):
         volume_list = vol_service.list_volumes()
 
         for volume in volumes:
-            # If we were passed a node, use it and get out. Otherwise,
-            # we boot all DMs we have.
+            # If we were passed a node, use it and get out.
             if self.passedVolume is not None:
                 volume = self.passedVolume
 
             if 'id' not in volume.nd_conf_dict:
                 raise Exception('Volume section %s must have "id" keyword.' % volume.nd_conf_dict['vol-name'])
 
-            self.log.info("Creating snapshot for volume {} on OM node {}".format(volume.nd_conf_dict['vol-name'],
-                                                                                 om_node.nd_conf_dict['ip']))
+        for each_volume in volume_list:
+            if volume.nd_conf_dict['vol-name'] == each_volume.name:
 
-        for eachvolume in volume_list:
-            if volume.nd_conf_dict['vol-name'] == eachvolume.name:
-
-                snapshot_list = vol_service.list_snapshots(eachvolume.id)
+                snapshot_list = vol_service.list_snapshots(each_volume.id)
 
                 for snapshot in snapshot_list:
-                    if snapshot.volume_id == eachvolume.id:
-                        self.log.info("Snapshot found a match for volume={}: {}".format(volume.nd_conf_dict['vol-name'],
+                    if snapshot.volume_id == each_volume.id:
+                        self.log.info("Snapshot found for volume={}: {}".format(volume.nd_conf_dict['vol-name'],
                                                                                         snapshot.name))
 
                 if isinstance(snapshot_list, FdsError):
-                    self.log.error("FAILED:  Failing to create volume snapshot for volume {}" % (
-                        volume.nd_conf_dict['vol-name'], snapshot_list))
+                    self.log.error("FAILED: To list snapshots for volume %s" % (
+                        volume.nd_conf_dict['vol-name']))
                     return False
                 elif self.passedVolume is not None:
                     # Passed a specific node so get out.
