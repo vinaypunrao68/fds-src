@@ -53,14 +53,13 @@ namespace fds
                         fpi::SvcInfo             registeringSvcInfo // new, empty object by default
                         )
         {
-            fpi::SvcUuid uuid;
-            fpi::SvcInfo svcLayerInfo;
-            fpi::SvcInfo dbInfo;
+            fpi::SvcUuid    uuid;
+            fpi::SvcInfo    svcLayerInfo;
+            fpi::SvcInfo    dbInfo;
             fpi::SvcInfoPtr svcLayerInfoPtr;
             fpi::SvcInfoPtr dbInfoPtr;
 
             fpi::ServiceStatus initialSvcLayerSvcStatus = fpi::SVC_STATUS_INVALID;
-            fpi::ServiceStatus initialDBSvcStatus;
 
             uuid.svc_uuid = svc_uuid;
 
@@ -173,9 +172,11 @@ namespace fds
 
             /*
              * ======================================================
-             *  Determine whether a change has taken place for this
+             *  Determine whether:
+             *  (1) a change has taken place for this
              *  svc in svc layer while we were doing above checks.
              *  Initiate new update if that is the case
+             *  (2) whether svcLayer svcMap requires an update at all
              * ======================================================
              * */
 
@@ -195,7 +196,7 @@ namespace fds
                               << " . Initiating new update";
 
                     // Something has already changed in the svc layer, so the current update of
-                    // status we are proceeding with is already outdated
+                    // status we are proceeding with is already out-dated
                     // Call a new update of configDB, and return from the current cycle
                     // No locks being acquired on function entry, so we should be OK with
                     // this recursive call.
@@ -203,7 +204,15 @@ namespace fds
                     updateSvcMaps(configDB, uuid.svc_uuid, svcLayerNewerInfo.svc_status);
 
                     return;
-                } else if ( svcLayerNewerInfo.svc_status == svc_status ) {
+                }
+
+                // If svcLayer already had the latest status, and nothing has changed, and
+                // the incarnation number is the same as the DB, we can afford not to do an update and
+                // re-broadcast
+                if ( (initialSvcLayerSvcStatus == svc_status) &&
+                     (initialSvcLayerSvcStatus == svcLayerNewerInfo.svc_status) &&
+                     (svcLayerNewerInfo.incarnationNo == dbInfoPtr->incarnationNo) )
+                {
                     LOGNOTIFY << "SvcLayer already has the latest state for service:"
                               << std::hex << uuid.svc_uuid << std::dec
                               << " , no need to update&broadcast. Current status:"
