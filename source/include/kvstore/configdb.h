@@ -17,6 +17,8 @@
 #include <exception>
 #include <fds_subscription.h>
 #include <fds_ldomain.h>
+#include <concurrency/Mutex.h>
+
 namespace fds {
 struct node_data;
 
@@ -128,10 +130,9 @@ struct ConfigDB : KVStore {
     bool deleteSvcMap(const fpi::SvcInfo& svcinfo);
     bool getSvcMap(std::vector<fpi::SvcInfo>& svcMap);
     bool updateSvcMap(const fpi::SvcInfo& svcinfo);
-    bool changeStateSvcMap( fpi::SvcInfoPtr svcInfo,
-                            const fpi::ServiceStatus svc_status );
+    bool changeStateSvcMap( fpi::SvcInfoPtr svcInfo );
     bool isPresentInSvcMap(const int64_t svc_uuid);
-    bool getSvcInfo(const fds_uint64_t svc_uuid, fpi::SvcInfo& svcInfo)
+    bool getSvcInfo(const fds_uint64_t svc_uuid, fpi::SvcInfo& svcInfo);
     /**
      * If service not found in configDB, returns SVC_STATUS_INVALID
      */
@@ -219,6 +220,13 @@ struct ConfigDB : KVStore {
 
   private:
     void setConfigVersion(const std::string& newVersion);
+
+    /*
+     * ToDo @meena Will have to create such locks for every
+     * class of items in the db : domains, nodes, users etc
+     */
+    fds_rwlock svcMapLock; // Protect access to svcMap
+    fds_rwlock nodeLock;   // Protect access to node related info
 };
 
 #define TRACKMOD(...) ModificationTracker modtracker(this)

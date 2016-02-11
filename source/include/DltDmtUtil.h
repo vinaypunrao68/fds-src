@@ -44,6 +44,9 @@ namespace fds
         void         clearDMAbortParams();
         fds_uint64_t getDMTargetVersionForAbort();
 
+        // General utility function
+        std::string printSvcStatus(fpi::ServiceStatus svcStatus);
+
     private:
 
         DltDmtUtil();

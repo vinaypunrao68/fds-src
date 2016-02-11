@@ -97,13 +97,11 @@ OM_NodeAgent::handle_service_deployed()
     }
     set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
 
-    fds_mutex dbLock;
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
 
-    fds_mutex::scoped_lock l(dbLock);
-    change_service_state( configDB,
-                          rs_get_uuid().uuid_get_val(),
-                          fpi::SVC_STATUS_ACTIVE );
+    updateSvcMaps( configDB,
+                   rs_get_uuid().uuid_get_val(),
+                   fpi::SVC_STATUS_ACTIVE );
 }
 
 // ----------------
@@ -817,7 +815,7 @@ OM_NodeAgent::init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const
 // ---------------------------------------------------------------------------------
 OM_PmAgent::~OM_PmAgent() {}
 OM_PmAgent::OM_PmAgent(const NodeUuid &uuid)
-        : OM_NodeAgent(uuid, fpi::FDSP_PLATFORM), dbNodeInfoLock("Config DB Node Info lock") {}
+        : OM_NodeAgent(uuid, fpi::FDSP_PLATFORM){}
 
 void
 OM_PmAgent::init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const
@@ -900,11 +898,6 @@ OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_ty
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
     NodeServices services;
 
-    // Here we are reading the node info from DB, modifying a service info
-    // within the node info, and storing it. Have to do it under the lock
-    // since multiple threads can be modifying same node info (e.g. adding
-    // different services to it).
-    fds_mutex::scoped_lock l(dbNodeInfoLock);
     if (configDB && !configDB->getNodeServices(get_uuid(), services)) {
         // just in case reset services to 0
         services.reset();
@@ -950,11 +943,7 @@ OM_PmAgent::handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_
     NodeServices services;
 
     LOGDEBUG << "Handling unregister for svc type:" << svc_type;
-    // Here we are reading the node info from DB, modifying a service info
-    // within the node info, and storing it. Have to do it under the lock
-    // since multiple threads can be modifying same node info (e.g. removing
-    // different services to it).
-    fds_mutex::scoped_lock l(dbNodeInfoLock);
+
     fds_bool_t found_services = configDB ?
             configDB->getNodeServices(get_uuid(), services) : false;
 
@@ -1015,11 +1004,6 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
     // we are just deactivating the service during this run, so no
     // need to update configDB
 
-    // Here we are reading the node info from DB, modifying a service info
-    // within the node info, and storing it. Have to do it under the lock
-    // since multiple threads can be modifying same node info (e.g. removing
-    // different services to it).
-    fds_mutex::scoped_lock l(dbNodeInfoLock);
     switch (svc_type) {
         case FDS_ProtocolInterface::FDSP_STOR_MGR:
             if ( activeSmAgent )
@@ -1032,9 +1016,9 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
                 // This path gets called from an unexpected exit message from the PM
                 // In this case, we want to allow for the service to be restarted
                 // in case of a PM re-registration
-                change_service_state( configDB,
-                                      ( activeSmAgent->get_uuid() ).uuid_get_val(),
-                                      fpi::SVC_STATUS_INACTIVE_FAILED );
+                updateSvcMaps( configDB,
+                               ( activeSmAgent->get_uuid() ).uuid_get_val(),
+                               fpi::SVC_STATUS_INACTIVE_FAILED );
 
                 activeSmAgent = nullptr;
             }
@@ -1052,9 +1036,9 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
                          << ( activeDmAgent->get_uuid() ).uuid_get_val()
                          << std::dec;
 
-                change_service_state( configDB,
-                                      ( activeDmAgent->get_uuid() ).uuid_get_val(),
-                                      fpi::SVC_STATUS_INACTIVE_FAILED );
+                updateSvcMaps( configDB,
+                               ( activeDmAgent->get_uuid() ).uuid_get_val(),
+                               fpi::SVC_STATUS_INACTIVE_FAILED );
 
                 activeDmAgent = nullptr;
             }
@@ -1072,9 +1056,9 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
                          << ( activeAmAgent->get_uuid() ).uuid_get_val()
                          << std::dec;
 
-                change_service_state( configDB,
-                                      ( activeAmAgent->get_uuid() ).uuid_get_val(),
-                                      fpi::SVC_STATUS_INACTIVE_FAILED );
+                updateSvcMaps( configDB,
+                               ( activeAmAgent->get_uuid() ).uuid_get_val(),
+                               fpi::SVC_STATUS_INACTIVE_FAILED );
 
                 activeAmAgent = nullptr;
             }
@@ -1150,7 +1134,7 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
         // but for now assume always success and set active state here
         set_node_state(FDS_ProtocolInterface::FDS_Node_Up);
         kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-        fds_mutex::scoped_lock l(dbNodeInfoLock);
+
         if (!configDB->nodeExists(get_uuid())) {
             // for now store only if the node was not known to DB
             configDB->addNode(*getNodeInfo());
@@ -1158,25 +1142,25 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
             {
                 case fpi::FDS_Node_Discovered:
                 case fpi::FDS_Node_Up:
-                    fds::change_service_state( configDB,
-                                               get_uuid().uuid_get_val(),
-                                               fpi::SVC_STATUS_ACTIVE );
+                    updateSvcMaps( configDB,
+                                   get_uuid().uuid_get_val(),
+                                   fpi::SVC_STATUS_ACTIVE );
                     break;
                 case fpi::FDS_Start_Migration:
-                    fds::change_service_state( configDB,
-                                               get_uuid().uuid_get_val(),
-                                               fpi::SVC_STATUS_INVALID );
+                    updateSvcMaps( configDB,
+                                   get_uuid().uuid_get_val(),
+                                   fpi::SVC_STATUS_INVALID );
                     break;
                 case fpi::FDS_Node_Down:
                 case fpi::FDS_Node_Rmvd:
-                    fds::change_service_state( configDB,
-                                               get_uuid().uuid_get_val(),
-                                               fpi::SVC_STATUS_INACTIVE_STOPPED );
+                    updateSvcMaps( configDB,
+                                   get_uuid().uuid_get_val(),
+                                   fpi::SVC_STATUS_INACTIVE_STOPPED );
                     break;
                 case fpi::FDS_Node_Standby:
-                    fds::change_service_state( configDB,
-                                               get_uuid().uuid_get_val(),
-                                               fpi::SVC_STATUS_STANDBY );
+                    updateSvcMaps( configDB,
+                                   get_uuid().uuid_get_val(),
+                                   fpi::SVC_STATUS_STANDBY );
                     break;
             }
 
@@ -1268,7 +1252,6 @@ OM_PmAgent::send_add_service
         add_am = true;
 
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-    fds_mutex::scoped_lock l(dbNodeInfoLock);
 
     if (configDB->getNodeServices(node_uuid, services)) {
         if (add_am && services.am.uuid_get_val() != 0) {
@@ -1308,44 +1291,26 @@ OM_PmAgent::send_add_service
     {
         case fpi::FDS_Node_Discovered:
         case fpi::FDS_Node_Up:
-            fds::change_service_state( configDB,
-                                       get_uuid().uuid_get_val(),
-                                       fpi::SVC_STATUS_ACTIVE );
+            updateSvcMaps( configDB,
+                           get_uuid().uuid_get_val(),
+                           fpi::SVC_STATUS_ACTIVE );
             break;
         case fpi::FDS_Start_Migration:
-            fds::change_service_state( configDB,
-                                       get_uuid().uuid_get_val(),
-                                       fpi::SVC_STATUS_INVALID );
+            updateSvcMaps( configDB,
+                           get_uuid().uuid_get_val(),
+                           fpi::SVC_STATUS_INVALID );
             break;
         case fpi::FDS_Node_Down:
         case fpi::FDS_Node_Rmvd:
-            fds::change_service_state( configDB,
-                                       get_uuid().uuid_get_val(),
-                                       fpi::SVC_STATUS_INACTIVE_STOPPED );
+            updateSvcMaps( configDB,
+                           get_uuid().uuid_get_val(),
+                           fpi::SVC_STATUS_INACTIVE_STOPPED );
             break;
         case fpi::FDS_Node_Standby:
-            fds::change_service_state( configDB,
-                                       get_uuid().uuid_get_val(),
-                                       fpi::SVC_STATUS_STANDBY );
+            updateSvcMaps( configDB,
+                           get_uuid().uuid_get_val(),
+                           fpi::SVC_STATUS_STANDBY );
             break;
-    }
-
-    // Update PM state in svc layer as well
-    fpi::SvcUuid pmSvcUuid;
-    fpi::SvcInfo pmSvcInfo;
-    pmSvcUuid.svc_uuid = get_uuid().uuid_get_val();
-
-    bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(pmSvcUuid, pmSvcInfo);
-
-    if (ret)
-    {
-        pmSvcInfo.svc_status = fpi::SVC_STATUS_ACTIVE;
-
-        MODULEPROVIDER()->getSvcMgr()->updateSvcMap({pmSvcInfo});
-        OM_NodeDomainMod::om_local_domain()->om_loc_domain_ctrl()->om_bcast_svcmap();
-    } else {
-        LOGWARN << "Unable to update PM:" << std::hex << pmSvcUuid.svc_uuid << std::dec
-                << " state to active in svc layer svcMap";
     }
 
     // The svcInfos list usually also contains the OM and the PM
@@ -1369,6 +1334,8 @@ OM_PmAgent::send_add_service
                 svcId->svc_name = "sm";
                 svcId->svc_uuid = svcuuid;
                 item.__set_svc_id(*svcId);
+                item.__set_svc_status(fpi::SVC_STATUS_ADDED);
+                updateSvcMaps(configDB, svcId->svc_uuid.svc_uuid, fpi::SVC_STATUS_ADDED);
                 break;
             case fpi::FDSP_DATA_MGR:
                 fds::retrieveSvcId(svc_uuid.svc_uuid, svcuuid, fpi::FDSP_DATA_MGR);
@@ -1376,6 +1343,8 @@ OM_PmAgent::send_add_service
                 svcId->svc_name = "dm";
                 svcId->svc_uuid = svcuuid;
                 item.__set_svc_id(*svcId);
+                item.__set_svc_status(fpi::SVC_STATUS_ADDED);
+                updateSvcMaps(configDB, svcId->svc_uuid.svc_uuid, fpi::SVC_STATUS_ADDED);
                 break;
             case fpi::FDSP_ACCESS_MGR:
                 fds::retrieveSvcId(svc_uuid.svc_uuid, svcuuid, fpi::FDSP_ACCESS_MGR);
@@ -1383,14 +1352,13 @@ OM_PmAgent::send_add_service
                 svcId->svc_name = "am";
                 svcId->svc_uuid = svcuuid;
                 item.__set_svc_id(*svcId);
+                item.__set_svc_status(fpi::SVC_STATUS_ADDED);
+                updateSvcMaps(configDB, svcId->svc_uuid.svc_uuid, fpi::SVC_STATUS_ADDED);
                 break;
             default:
                 LOGDEBUG << "Bad service type entered";
                 break;
-
             }
-            item.__set_svc_status(fpi::SVC_STATUS_ADDED);
-            configDB->updateSvcMap(item);
         }
 
     }
@@ -1443,31 +1411,34 @@ OM_PmAgent::send_start_service
         return ERR_INVALID_ARG;
     }
 
-    fds_mutex::scoped_lock l(dbNodeInfoLock);
-
     // Check to see state of PM
-    fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(
-                                                            get_uuid().uuid_get_val() );
+    fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(get_uuid().uuid_get_val() );
 
-    if ( serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED ) {
+    if ( serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED )
+    {
         // If the state is inactive, this can only mean that a previously
         // shutdown node is now being started. If valid services exist,
         //change PM state and node state to RUNNING/ACTIVE otherwise
         // transition to STANDBY/STANDBY
         NodeServices services;
-        if (configDB->getNodeServices(get_uuid(), services)) {
+        if (configDB->getNodeServices(get_uuid(), services))
+        {
             if ((services.sm.uuid_get_val() == 0) &&
                 (services.dm.uuid_get_val() == 0) &&
-                (services.am.uuid_get_val() == 0)) {
-                fds::change_service_state( configDB,
-                                           get_uuid().uuid_get_val(),
-                                           fpi::SVC_STATUS_STANDBY );
+                (services.am.uuid_get_val() == 0))
+            {
+                updateSvcMaps( configDB,
+                                get_uuid().uuid_get_val(),
+                                fpi::SVC_STATUS_STANDBY );
+
                 set_node_state(fpi::FDS_Node_Standby);
+
                 LOGERROR << "No services found on node to start, node:"
                          << std::hex
                          << svc_uuid.svc_uuid
                          << std::dec
                          << " will transition to STANDBY";
+
                 return Error(ERR_OK);
             } else if (!startNode) {
                     LOGERROR<<"Cannot start service when node is down";
@@ -1479,9 +1450,10 @@ OM_PmAgent::send_start_service
         }
     }
 
-    fds::change_service_state( configDB,
-                               get_uuid().uuid_get_val(),
-                               fpi::SVC_STATUS_ACTIVE );
+    updateSvcMaps( configDB,
+                   get_uuid().uuid_get_val(),
+                   fpi::SVC_STATUS_ACTIVE );
+
     set_node_state(fpi::FDS_Node_Up);
 
     if ( node_state() == FDS_ProtocolInterface::FDS_Node_Discovered ) {
@@ -1541,11 +1513,8 @@ OM_PmAgent::send_start_service
                     // Only if this is already in the map do we change state. Otherwise
                     // it can lead to some weird behavior
                     LOGNORMAL << "Starting svc:" << std::hex << svcuuid.svc_uuid << std::dec;
-                    // TODO: hack to get a svcInfo together. Should be svcinfo from the start
-                    // existingItem should already have the right incarnation number and UUID
-                    auto svcPtr = boost::make_shared<fpi::SvcInfo>(existingItem);
-                    // svcPtr->svc_id.svc_uuid.svc_uuid = svcuuid.svc_uuid;
-                    configDB->changeStateSvcMap(svcPtr, fpi::SVC_STATUS_STARTED);
+
+                    updateSvcMaps(configDB, svcuuid.svc_uuid, fpi::SVC_STATUS_STARTED);
                     break;
                 }
             }
@@ -1609,12 +1578,11 @@ void OM_PmAgent::send_start_service_resp
                          << std::dec << " state to ACTIVE";
 
                 kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-                fds_mutex::scoped_lock l(dbNodeInfoLock);
 
                 // Update the service state to active
-                change_service_state( configDB,
-                                      svcUuid.svc_uuid,
-                                      fpi::SVC_STATUS_ACTIVE );
+                updateSvcMaps( configDB,
+                               svcUuid.svc_uuid,
+                               fpi::SVC_STATUS_ACTIVE );
             } else {
                 LOGDEBUG <<"PM started new processes, service registrations to follow";
             }
@@ -1658,9 +1626,10 @@ OM_PmAgent::send_stop_service
     // Corner case: shutting down a node with no associated services
     if (node_state() == FDS_ProtocolInterface::FDS_Node_Standby) {
         LOGDEBUG << "No services present to stop, setting node to down";
-        fds::change_service_state( configDB,
-                                   get_uuid().uuid_get_val(),
-                                   fpi::SVC_STATUS_INACTIVE_STOPPED );
+        updateSvcMaps( configDB,
+                       get_uuid().uuid_get_val(),
+                       fpi::SVC_STATUS_INACTIVE_STOPPED );
+
         set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
         return Error(ERR_OK);
     }
@@ -1694,8 +1663,6 @@ OM_PmAgent::send_stop_service
         domain->addToShutdownList(get_uuid().uuid_get_val());
     }
 
-    fds_mutex::scoped_lock l(dbNodeInfoLock);
-
     fpi::SvcUuid smSvcId, dmSvcId, amSvcId;
     fpi::SvcUuid pmSvcUuid;
     pmSvcUuid.svc_uuid = get_uuid().uuid_get_val();
@@ -1726,9 +1693,9 @@ OM_PmAgent::send_stop_service
                      << smSvcId.svc_uuid
                      << std::dec;
 
-            change_service_state( configDB,
-                                  smSvcId.svc_uuid,
-                                  fpi::SVC_STATUS_STOPPED );
+            updateSvcMaps( configDB,
+                           smSvcId.svc_uuid,
+                           fpi::SVC_STATUS_STOPPED );
         } else {
             if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
             {
@@ -1774,9 +1741,9 @@ OM_PmAgent::send_stop_service
                       << dmSvcId.svc_uuid
                       << std::dec;
 
-             change_service_state( configDB,
-                     dmSvcId.svc_uuid,
-                                   fpi::SVC_STATUS_STOPPED );
+             updateSvcMaps( configDB,
+                            dmSvcId.svc_uuid,
+                            fpi::SVC_STATUS_STOPPED );
          } else {
 
              if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
@@ -1811,9 +1778,9 @@ OM_PmAgent::send_stop_service
                       << amSvcId.svc_uuid
                       << std::dec;
 
-             change_service_state( configDB,
-                                   amSvcId.svc_uuid,
-                                   fpi::SVC_STATUS_STOPPED );
+             updateSvcMaps( configDB,
+                            amSvcId.svc_uuid,
+                            fpi::SVC_STATUS_STOPPED );
          } else {
              if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
              {
@@ -1838,9 +1805,9 @@ OM_PmAgent::send_stop_service
      // to STOPPED, node state will get set to down in the response handle
 
      LOGDEBUG << "Changing PM state to STOPPED";
-     fds::change_service_state( configDB,
-                                get_uuid().uuid_get_val(),
-                                fpi::SVC_STATUS_STOPPED );
+     updateSvcMaps( configDB,
+                    get_uuid().uuid_get_val(),
+                    fpi::SVC_STATUS_STOPPED );
      }
 
 
@@ -1883,7 +1850,6 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
               << " " << error;
 
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-    fds_mutex::scoped_lock l(dbNodeInfoLock);
 
     bool isSMRemoved = false;
     bool isDMRemoved = false;
@@ -1900,9 +1866,9 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
         {
             if (configDB->getStateSvcMap(smSvcId.svc_uuid) != fpi::SVC_STATUS_REMOVED)
             {
-                change_service_state( configDB,
-                                       smSvcId.svc_uuid,
-                                       fpi::SVC_STATUS_INACTIVE_STOPPED );
+                updateSvcMaps( configDB,
+                               smSvcId.svc_uuid,
+                               fpi::SVC_STATUS_INACTIVE_STOPPED );
             } else {
                 LOGDEBUG << "SM svc:" << smSvcId.svc_uuid << " already progressed to removed state"
                          << ", will not set to inactive_stopped";
@@ -1917,9 +1883,9 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
          {
              if (configDB->getStateSvcMap(dmSvcId.svc_uuid) != fpi::SVC_STATUS_REMOVED)
              {
-                 change_service_state( configDB,
-                                       dmSvcId.svc_uuid,
-                                       fpi::SVC_STATUS_INACTIVE_STOPPED );
+                 updateSvcMaps( configDB,
+                                dmSvcId.svc_uuid,
+                                fpi::SVC_STATUS_INACTIVE_STOPPED );
              } else {
                  LOGDEBUG << "DM svc:" << dmSvcId.svc_uuid << " already progressed to removed state"
                           << ", will not set to inactive_stopped";
@@ -1935,9 +1901,9 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
              {
                  if (configDB->getStateSvcMap(amSvcId.svc_uuid) != fpi::SVC_STATUS_REMOVED)
                  {
-                     change_service_state( configDB,
-                                           amSvcId.svc_uuid,
-                                           fpi::SVC_STATUS_INACTIVE_STOPPED );
+                     updateSvcMaps( configDB,
+                                    amSvcId.svc_uuid,
+                                    fpi::SVC_STATUS_INACTIVE_STOPPED );
                  } else {
                      LOGDEBUG << "AM svc:" << amSvcId.svc_uuid << " already progressed to removed state"
                               << ", will not set to inactive_stopped";
@@ -1982,9 +1948,10 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
                // Node is being shutdown, change the state of platform
                // to inactive, node state to down
                LOGDEBUG << "Changing PM state to INACTIVE";
-               fds::change_service_state( configDB,
-                                          get_uuid().uuid_get_val(),
-                                          fpi::SVC_STATUS_INACTIVE_STOPPED );
+               updateSvcMaps( configDB,
+                              get_uuid().uuid_get_val(),
+                              fpi::SVC_STATUS_INACTIVE_STOPPED );
+
                // Also explicitly set the state to down
                set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
            } else {
@@ -2063,7 +2030,6 @@ OM_PmAgent::send_remove_service
     fds::retrieveSvcId(node_uuid.uuid_get_val(), amId, fpi::FDSP_ACCESS_MGR);
 
     {
-        fds_mutex::scoped_lock l(dbNodeInfoLock);
         if (remove_sm) {
             fds::populateAndRemoveSvc(smId, fpi::FDSP_STOR_MGR, svcInfos, configDB);
         }
@@ -2158,9 +2124,9 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
 
                     set_node_state(FDS_ProtocolInterface::FDS_Node_Discovered);
 
-                    fds::change_service_state( configDB,
-                                               get_uuid().uuid_get_val(),
-                                               fpi::SVC_STATUS_DISCOVERED );
+                    updateSvcMaps( configDB,
+                                   get_uuid().uuid_get_val(),
+                                   fpi::SVC_STATUS_DISCOVERED );
                 } else {
                     LOGERROR << "Could not find node in the configuration DB!";
                 }
@@ -2170,9 +2136,9 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
                          << std::dec << " successfully";
                 LOGDEBUG <<"Changing PM state to STANDBY";
                 set_node_state(FDS_ProtocolInterface::FDS_Node_Standby);
-                fds::change_service_state( configDB,
-                                           get_uuid().uuid_get_val(),
-                                           fpi::SVC_STATUS_STANDBY);
+                updateSvcMaps( configDB,
+                               get_uuid().uuid_get_val(),
+                               fpi::SVC_STATUS_STANDBY);
             }
         } else {
             LOGDEBUG <<"Removed service from node: "

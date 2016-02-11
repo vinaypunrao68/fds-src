@@ -25,6 +25,7 @@
 #include <fiu-control.h>
 #include <util/fiu_util.h>
 #include <json/json.h>
+#include <DltDmtUtil.h>
 
 namespace fds {
 
@@ -43,7 +44,8 @@ std::string logString(const FDS_ProtocolInterface::SvcInfo &info)
     ss << "Svc handle svc_uuid: "
         << SvcMgr::mapToSvcUuidAndName(info.svc_id.svc_uuid)
         << " ip: " << info.ip << " port: " << info.svc_port
-        << " incarnation: " << info.incarnationNo << " status: " << info.svc_status;
+        << " incarnation: " << info.incarnationNo << " status: "
+        << DltDmtUtil::getInstance()->printSvcStatus(info.svc_status);
     return ss.str();
 }
 

@@ -1336,7 +1336,6 @@ OM_NodeDomainMod::OM_NodeDomainMod(char const *const name)
           fsm_lock("OM_NodeDomainMod fsm lock"),
           configDB(nullptr),
           domainDown(false),
-          dbLock("ConfigDB access lock"),
           dmClusterPresent_(false)
 {
     om_locDomain = new OM_NodeContainer();
@@ -1532,8 +1531,8 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                  * does not already exists or if the incarnation is newer then
                  * then the existing service.
                  */
-                
-                MODULEPROVIDER()->getSvcMgr()->updateSvcMap(svcinfos);
+				// do we need a broadcast here? Can we afford to eliminate this call?
+                MODULEPROVIDER()->getSvcMgr()->updateSvcMap(svcinfos);              
             } else {
                 LOGNORMAL << "No persisted Service Map found.";
             }
@@ -2112,12 +2111,13 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
          * Update the service layer service map up front so that any subsequent
          * communication with that service will work.
          */
+        // Can we afford to remove this call? This map will get updated and
+        // broadcasted when svcmaps get updated at the end of setupnewnode
         MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
         om_locDomain->om_bcast_svcmap();
 
         if (svcInfo->svc_type == fpi::FDSP_PLATFORM) {
-            configDB->updateSvcMap(*svcInfo);
-
+            updateSvcMaps(configDB, svcInfo->svc_id.svc_uuid.svc_uuid, svcInfo->svc_status, true, *svcInfo);
         }
     }
     catch(const Exception& e)
@@ -2368,8 +2368,7 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
             {
                 svc.svc_status = fpi::SVC_STATUS_ACTIVE;
 
-                fds_mutex::scoped_lock l(dbLock);
-                configDB->updateSvcMap( svc );
+                updateSvcMaps(configDB, svc.svc_id.svc_uuid.svc_uuid, fpi::SVC_STATUS_ACTIVE);
             }
 
             spoofed.push_back( svc );
@@ -2379,13 +2378,6 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
             LOGWARN << "OM Restart, Failed to Register ( spoof ) Service: "
                     << fds::logDetailedString( svc );
         }
-    }
-    
-    if ( spoofed.size() > 0  )
-    {    
-        LOGDEBUG << "OM Restart, updating and broadcasting service map ( spoof )";
-        MODULEPROVIDER()->getSvcMgr()->updateSvcMap( spoofed );
-        om_locDomain->om_bcast_svcmap();
     }
 }
     
@@ -3101,7 +3093,7 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
                       << infoPtr->svc_id.svc_uuid.svc_uuid
                       << std::dec;
 
-            configDB->updateSvcMap(*infoPtr);
+            updateSvcMaps(configDB, infoPtr->svc_id.svc_uuid.svc_uuid, infoPtr->svc_status, true, *infoPtr);
 
             // Now erase the svc from the the local tracking vector
             removeRegisteredSvc(infoPtr->svc_id.svc_uuid.svc_uuid);
@@ -3368,9 +3360,8 @@ OM_NodeDomainMod::removeNodeComplete(NodeUuid uuid) {
     if (ret) {
         LOGDEBUG << "Deleting from svcMap, uuid:" << std::hex << svcuuid.svc_uuid << std::dec;
 
-        fds_mutex::scoped_lock l(dbLock);
-
         configDB->deleteSvcMap(svcInfo);
+
         DltDmtUtil::getInstance()->clearFromRemoveList(uuid.uuid_get_val());
     }
 }
@@ -3502,10 +3493,8 @@ OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap(boost::shared_ptr<fpi::Sv
                                                         const fpi::ServiceStatus status)
 {
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-    {
-        fds_mutex::scoped_lock l(dbLock);
-        change_service_state( configDB, svcInfo, status, true );
-    }
+    updateSvcMaps( configDB, svcInfo->svc_id.svc_uuid.svc_uuid, status);
+
     om_locDomain->om_bcast_svcmap();
 }
 

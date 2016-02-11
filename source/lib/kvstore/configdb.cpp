@@ -15,6 +15,7 @@
 #include <net/net_utils.h>
 #include <ratio>
 #include <net/SvcMgr.h>
+#include <DltDmtUtil.h>
 
 #include "platform/platform_shm_typedefs.h"
 #include "platform/node_data.h"
@@ -115,29 +116,6 @@ std::string ConfigDB::getConfigVersion() {
     }
 
     return "";
-}
-
-bool ConfigDB::setCapacityUsedNode( const int64_t svcUuid, const unsigned long usedCapacityInBytes )
-{
-    bool bRetCode = false;
-
-    std::stringstream uuid;
-    uuid << svcUuid;
-    std::stringstream used;
-    used << usedCapacityInBytes;
-
-    try
-    {
-        LOGDEBUG << "Setting used capacity for uuid [ " << std::hex << svcUuid << std::dec << " ]";
-        bRetCode = kv_store.hset( "used.capacity", uuid.str( ).c_str( ), used.str( ) );
-    }
-    catch(const RedisException& e)
-    {
-        LOGERROR << "Failed to persist node capacity for node [ "
-                 << std::hex << svcUuid << std::dec << " ], error: " << e.what();
-    };
-
-    return bRetCode;
 }
 
 /**
@@ -249,6 +227,9 @@ void ConfigDB::setModified() {
         LOGERROR << e.what();
     }
 }
+/******************************************************************************
+ *                      Domains Section
+ *****************************************************************************/
 
 // Global Domain
 std::string ConfigDB::getGlobalDomain() {
@@ -817,7 +798,9 @@ bool ConfigDB::listLocalDomainsTalc(std::vector<fds::apis::LocalDomainDescriptor
 }
 
 
-// volumes
+/******************************************************************************
+ *                      Volume Section
+ *****************************************************************************/
 fds_volid_t ConfigDB::getNewVolumeId() {
     try {
         fds_volid_t volId;
@@ -1181,362 +1164,10 @@ boost::shared_ptr<std::string> ConfigDB::getVolumeSettings( long unsigned int vo
     return nullptr;
 }
 
-// dlt
 
-fds_uint64_t ConfigDB::getDltVersionForType(const std::string type, int localDomain) {
-    try {
-        Reply reply = kv_store.sendCommand("get %d:dlt:%s", localDomain, type.c_str());
-        if (!reply.isNil()) {
-            return reply.getLong();
-        } else {
-            LOGNORMAL << "no dlt set for type:" << type;
-        }
-    } catch(const RedisException& e) {
-        LOGCRITICAL << "error with redis " << e.what();
-    }
-    return 0;
-}
-
-bool ConfigDB::setDltType(fds_uint64_t version, const std::string type, int localDomain) {
-    try {
-        Reply reply = kv_store.sendCommand("set %d:dlt:%s %ld", localDomain, type.c_str(), version);
-        return reply.isOk();
-    } catch(const RedisException& e) {
-        LOGCRITICAL << "error with redis " << e.what();
-    }
-    return false;
-}
-
-bool ConfigDB::storeDlt(const DLT& dlt, const std::string type, int localDomain) {
-    try {
-        // fds_uint64_t version = dlt.getVersion();
-        Reply reply = kv_store.sendCommand("sadd %d:dlts %ld", localDomain, dlt.getVersion());
-        if (!reply.wasModified()) {
-            LOGWARN << "dlt [" << dlt.getVersion()
-                    << "] is already in for domain [" << localDomain << "]";
-        }
-
-        std::string serializedData, hexCoded;
-        const_cast<DLT&>(dlt).getSerialized(serializedData);
-        kv_store.encodeHex(serializedData, hexCoded);
-
-        reply = kv_store.sendCommand("set %d:dlt:%ld %s", localDomain, dlt.getVersion(), hexCoded.c_str());
-        bool fSuccess = reply.isOk();
-
-        if (fSuccess && !type.empty()) {
-            reply = kv_store.sendCommand("set %d:dlt:%s %ld", localDomain, type.c_str(), dlt.getVersion());
-            if (!reply.isOk()) {
-                LOGWARN << "error setting type " << dlt.getVersion() << ":" << type;
-            }
-        }
-        return fSuccess;
-    } catch(const RedisException& e) {
-        LOGCRITICAL << "error with redis " << e.what();
-    }
-    return false;
-}
-
-bool ConfigDB::getDlt(DLT& dlt, fds_uint64_t version, int localDomain) {
-    try {
-        Reply reply = kv_store.sendCommand("get %d:dlt:%ld", localDomain, version);
-        std::string serializedData, hexCoded(reply.getString());
-        if (hexCoded.length() < 10) {
-            LOGERROR << "very less data for dlt : ["
-                     << version << "] : size = " << hexCoded.length();
-            return false;
-        }
-        LOGDEBUG << "dlt : [" << version << "] : size = " << hexCoded.length();
-        kv_store.decodeHex(hexCoded, serializedData);
-        dlt.loadSerialized(serializedData);
-        return true;
-    } catch(const RedisException& e) {
-        LOGCRITICAL << "error with redis " << e.what();
-    }
-    return false;
-}
-
-bool ConfigDB::loadDlts(DLTManager& dltMgr, int localDomain) {
-    try {
-        Reply reply = kv_store.sendCommand("smembers %d:dlts", localDomain);
-        std::vector<long long> dltVersions; //NOLINT
-        reply.toVector(dltVersions);
-
-        if (dltVersions.empty()) return false;
-
-        for (uint i = 0; i < dltVersions.size(); i++) {
-            DLT dlt(16, 4, 0, false);  // dummy init
-            getDlt(dlt, dltVersions[i], localDomain);
-            dltMgr.add(dlt);
-        }
-        return true;
-    } catch(RedisException& e) {
-        LOGERROR << e.what();
-    }
-    return false;
-}
-
-bool ConfigDB::storeDlts(DLTManager& dltMgr, int localDomain) {
-    try {
-        std::vector<fds_uint64_t> vecVersions;
-        vecVersions = dltMgr.getDltVersions();
-
-        for (uint i = 0; i < vecVersions.size(); i++) {
-            const DLT* dlt = dltMgr.getDLT(vecVersions.size());
-            if (!storeDlt(*dlt, "",  localDomain)) {
-                LOGERROR << "unable to store dlt : ["
-                         << dlt->getVersion() << "] for domain ["<< localDomain <<"]";
-            }
-        }
-        return true;
-    } catch(RedisException& e) {
-        LOGERROR << e.what();
-    }
-    return false;
-}
-
-// dmt
-fds_uint64_t ConfigDB::getDmtVersionForType(const std::string type, int localDomain) {
-    try {
-        Reply reply = kv_store.sendCommand("get %d:dmt:%s", localDomain, type.c_str());
-        if (!reply.isNil()) {
-            return reply.getLong();
-        } else {
-            LOGNORMAL << "no dmt set for type:" << type;
-        }
-    } catch(const RedisException& e) {
-        LOGCRITICAL << "error with redis " << e.what();
-    }
-    return 0;
-}
-
-bool ConfigDB::setDmtType(fds_uint64_t version, const std::string type, int localDomain) {
-    try {
-        Reply reply = kv_store.sendCommand("set %d:dmt:%s %ld", localDomain, type.c_str(), version);
-        return reply.isOk();
-    } catch(const RedisException& e) {
-        LOGCRITICAL << "error with redis " << e.what();
-    }
-    return false;
-}
-
-bool ConfigDB::storeDmt(const DMT& dmt, const std::string type, int localDomain) {
-    try {
-        // fds_uint64_t version = dmt.getVersion();
-        Reply reply = kv_store.sendCommand("sadd %d:dmts %ld", localDomain, dmt.getVersion());
-        if (!reply.wasModified()) {
-            LOGWARN << "dmt [" << dmt.getVersion()
-                    << "] is already in for domain ["
-                    << localDomain << "]";
-        }
-
-        std::string serializedData, hexCoded;
-        const_cast<DMT&>(dmt).getSerialized(serializedData);
-        kv_store.encodeHex(serializedData, hexCoded);
-
-        reply = kv_store.sendCommand("set %d:dmt:%ld %s", localDomain, dmt.getVersion(), hexCoded.c_str());
-        bool fSuccess = reply.isOk();
-
-        if (fSuccess && !type.empty()) {
-            reply = kv_store.sendCommand("set %d:dmt:%s %ld", localDomain, type.c_str(), dmt.getVersion());
-            if (!reply.isOk()) {
-                LOGWARN << "error setting type " << dmt.getVersion() << ":" << type;
-            }
-        }
-        return fSuccess;
-    } catch(const RedisException& e) {
-        LOGCRITICAL << "error with redis " << e.what();
-    }
-    return false;
-}
-
-bool ConfigDB::getDmt(DMT& dmt, fds_uint64_t version, int localDomain) {
-    try {
-        Reply reply = kv_store.sendCommand("get %d:dmt:%ld", localDomain, version);
-        std::string serializedData, hexCoded(reply.getString());
-        if (hexCoded.length() < 10) {
-            LOGERROR << "very less data for dmt : ["
-                     << version << "] : size = " << hexCoded.length();
-            return false;
-        }
-        LOGDEBUG << "dmt : [" << version << "] : size = " << hexCoded.length();
-        kv_store.decodeHex(hexCoded, serializedData);
-        dmt.loadSerialized(serializedData);
-        return true;
-    } catch(const RedisException& e) {
-        LOGCRITICAL << "error with redis " << e.what();
-    }
-    return false;
-}
-
-// nodes
-bool ConfigDB::addNode(const NodeInfoType& node) {
-    TRACKMOD();
-    // add the volume to the volume list for the domain
-    int domainId = 0;  // TODO(prem)
-    try {
-        bool ret;
-
-        FDSP_SERIALIZE(node, serialized);
-        ret = kv_store.sadd(format("%d:cluster:nodes", domainId), node.node_uuid.uuid);
-        ret = kv_store.set(format("node:%ld", node.node_uuid.uuid), *serialized);
-
-        return ret;
-    } catch(const RedisException& e) {
-        LOGCRITICAL << "error with redis " << e.what();
-        NOMOD();
-    }
-    return false;
-}
-
-bool ConfigDB::updateNode(const NodeInfoType& node) {
-    try {
-        return addNode(node);
-    } catch(const RedisException& e) {
-        LOGERROR << e.what();
-    }
-    return false;
-}
-
-bool ConfigDB::removeNode(const NodeUuid& uuid) {
-    TRACKMOD();
-    try {
-        int domainId = 0;  // TODO(prem)
-        Reply reply = kv_store.sendCommand("srem %d:cluster:nodes %ld", domainId, uuid);
-
-        if (!reply.wasModified()) {
-            LOGWARN << "node [" << uuid << "] does not exist for domain [" << domainId << "]";
-        }
-
-        // Now remove the node data
-        reply = kv_store.sendCommand("del node:%ld", uuid);
-        return reply.isOk();
-    } catch(RedisException& e) {
-        LOGERROR << e.what();
-        NOMOD();
-    }
-    return false;
-}
-
-bool ConfigDB::getNode(const NodeUuid& uuid, NodeInfoType& node) {
-    try {
-        Reply reply = kv_store.get(format("node:%ld", uuid.uuid_get_val()));
-        if (reply.isOk()) {
-            fds::deserializeFdspMsg(reply.getString(), node);
-            return true;
-        }
-    } catch(const RedisException& e) {
-        LOGCRITICAL << "error with redis " << e.what();
-    }
-    return false;
-}
-
-bool ConfigDB::nodeExists(const NodeUuid& uuid) {
-    try {
-        Reply reply = kv_store.sendCommand("exists node:%ld", uuid);
-        return reply.isOk();
-    } catch(RedisException& e) {
-        LOGERROR << e.what();
-    }
-    return false;
-}
-
-bool ConfigDB::getNodeIds(std::unordered_set<NodeUuid, UuidHash>& nodes, int localDomain) {
-    std::vector<long long> nodeIds; //NOLINT
-
-    try {
-        Reply reply = kv_store.sendCommand("smembers %d:cluster:nodes", localDomain);
-        reply.toVector(nodeIds);
-
-        if (nodeIds.empty()) {
-            LOGWARN << "no nodes found for domain [" << localDomain << "]";
-            return false;
-        }
-
-        for (uint i = 0; i < nodeIds.size(); i++) {
-            LOGDEBUG << "ConfigDB::getNodeIds node "
-                     << std::hex << nodeIds[i] << std::dec;
-            nodes.insert(NodeUuid(nodeIds[i]));
-        }
-
-        return true;
-    } catch(RedisException& e) {
-        LOGERROR << e.what();
-    }
-    return false;
-}
-
-bool ConfigDB::getAllNodes(std::vector<NodeInfoType>& nodes, int localDomain) {
-    std::vector<long long> nodeIds; //NOLINT
-
-    try {
-        Reply reply = kv_store.sendCommand("smembers %d:cluster:nodes", localDomain);
-        reply.toVector(nodeIds);
-
-        if (nodeIds.empty()) {
-            LOGWARN << "no nodes found for domain [" << localDomain << "]";
-            return false;
-        }
-        
-        NodeInfoType node;
-        for (uint i = 0; i < nodeIds.size(); i++) {
-            getNode(nodeIds[i], node);
-            nodes.push_back(node);
-        }
-        return true;
-    } catch(RedisException& e) {
-        LOGERROR << e.what();
-    }
-    return false;
-}
-
-std::string ConfigDB::getNodeName(const NodeUuid& uuid) {
-    try {
-        NodeInfoType node;
-        if (getNode(uuid, node)) {
-            return node.node_name;
-        }
-    } catch(const RedisException& e) {
-        LOGCRITICAL << "error with redis " << e.what();
-    }
-    return "";
-}
-
-bool ConfigDB::getNodeServices(const NodeUuid& uuid, NodeServices& services) {
-    try{
-        Reply reply = kv_store.sendCommand("get %ld:services", uuid);
-        if (reply.isNil()) return false;
-        services.loadSerialized(reply.getString());
-        return true;
-    } catch(const RedisException& e) {
-        LOGCRITICAL << "error with redis " << e.what();
-    }
-    return false;
-}
-
-bool ConfigDB::setNodeServices(const NodeUuid& uuid, const NodeServices& services) {
-    try{
-        std::string serialized;
-        services.getSerialized(serialized);
-        Reply reply = kv_store.sendCommand("set %ld:services %b",
-                                    uuid, serialized.data(), serialized.length());
-        return reply.isOk();
-    } catch(const RedisException& e) {
-        LOGCRITICAL << "error with redis " << e.what();
-    }
-    return false;
-}
-
-uint ConfigDB::getNodeNameCounter() {
-    try{
-        Reply reply = kv_store.sendCommand("incr node:name.counter");
-        return reply.getLong();
-    } catch(const RedisException& e) {
-        LOGCRITICAL << "error with redis " << e.what();
-    }
-    return 0;
-}
-
-// Volume QoS policy
+/******************************************************************************
+ *                      Volume QoS Policy Section
+ *****************************************************************************/
 
 /**
  * Create a new Local Domain provided it does not already exist. (Local Domain names
@@ -1735,6 +1366,9 @@ fds_uint32_t ConfigDB::getIdOfQoSPolicy(const std::string& identifier) {
     return id;
 }
 
+/******************************************************************************
+ *                      VolumePolicy Section
+ *****************************************************************************/
 
 bool ConfigDB::getPolicy(fds_uint32_t volPolicyId, FDS_VolumePolicy& policy, int localDomain) { //NOLINT
     try{
@@ -1814,6 +1448,427 @@ bool ConfigDB::getPolicies(std::vector<FDS_VolumePolicy>& policies, int localDom
     }
     return false;
 }
+
+/******************************************************************************
+ *                      DLT Section
+ *****************************************************************************/
+
+fds_uint64_t ConfigDB::getDltVersionForType(const std::string type, int localDomain) {
+    try {
+        Reply reply = kv_store.sendCommand("get %d:dlt:%s", localDomain, type.c_str());
+        if (!reply.isNil()) {
+            return reply.getLong();
+        } else {
+            LOGNORMAL << "no dlt set for type:" << type;
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return 0;
+}
+
+bool ConfigDB::setDltType(fds_uint64_t version, const std::string type, int localDomain) {
+    try {
+        Reply reply = kv_store.sendCommand("set %d:dlt:%s %ld", localDomain, type.c_str(), version);
+        return reply.isOk();
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::storeDlt(const DLT& dlt, const std::string type, int localDomain) {
+    try {
+        // fds_uint64_t version = dlt.getVersion();
+        Reply reply = kv_store.sendCommand("sadd %d:dlts %ld", localDomain, dlt.getVersion());
+        if (!reply.wasModified()) {
+            LOGWARN << "dlt [" << dlt.getVersion()
+                    << "] is already in for domain [" << localDomain << "]";
+        }
+
+        std::string serializedData, hexCoded;
+        const_cast<DLT&>(dlt).getSerialized(serializedData);
+        kv_store.encodeHex(serializedData, hexCoded);
+
+        reply = kv_store.sendCommand("set %d:dlt:%ld %s", localDomain, dlt.getVersion(), hexCoded.c_str());
+        bool fSuccess = reply.isOk();
+
+        if (fSuccess && !type.empty()) {
+            reply = kv_store.sendCommand("set %d:dlt:%s %ld", localDomain, type.c_str(), dlt.getVersion());
+            if (!reply.isOk()) {
+                LOGWARN << "error setting type " << dlt.getVersion() << ":" << type;
+            }
+        }
+        return fSuccess;
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::getDlt(DLT& dlt, fds_uint64_t version, int localDomain) {
+    try {
+        Reply reply = kv_store.sendCommand("get %d:dlt:%ld", localDomain, version);
+        std::string serializedData, hexCoded(reply.getString());
+        if (hexCoded.length() < 10) {
+            LOGERROR << "very less data for dlt : ["
+                     << version << "] : size = " << hexCoded.length();
+            return false;
+        }
+        LOGDEBUG << "dlt : [" << version << "] : size = " << hexCoded.length();
+        kv_store.decodeHex(hexCoded, serializedData);
+        dlt.loadSerialized(serializedData);
+        return true;
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::loadDlts(DLTManager& dltMgr, int localDomain) {
+    try {
+        Reply reply = kv_store.sendCommand("smembers %d:dlts", localDomain);
+        std::vector<long long> dltVersions; //NOLINT
+        reply.toVector(dltVersions);
+
+        if (dltVersions.empty()) return false;
+
+        for (uint i = 0; i < dltVersions.size(); i++) {
+            DLT dlt(16, 4, 0, false);  // dummy init
+            getDlt(dlt, dltVersions[i], localDomain);
+            dltMgr.add(dlt);
+        }
+        return true;
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::storeDlts(DLTManager& dltMgr, int localDomain) {
+    try {
+        std::vector<fds_uint64_t> vecVersions;
+        vecVersions = dltMgr.getDltVersions();
+
+        for (uint i = 0; i < vecVersions.size(); i++) {
+            const DLT* dlt = dltMgr.getDLT(vecVersions.size());
+            if (!storeDlt(*dlt, "",  localDomain)) {
+                LOGERROR << "unable to store dlt : ["
+                         << dlt->getVersion() << "] for domain ["<< localDomain <<"]";
+            }
+        }
+        return true;
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
+}
+
+/******************************************************************************
+ *                      DMT Section
+ *****************************************************************************/
+
+fds_uint64_t ConfigDB::getDmtVersionForType(const std::string type, int localDomain) {
+    try {
+        Reply reply = kv_store.sendCommand("get %d:dmt:%s", localDomain, type.c_str());
+        if (!reply.isNil()) {
+            return reply.getLong();
+        } else {
+            LOGNORMAL << "no dmt set for type:" << type;
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return 0;
+}
+
+bool ConfigDB::setDmtType(fds_uint64_t version, const std::string type, int localDomain) {
+    try {
+        Reply reply = kv_store.sendCommand("set %d:dmt:%s %ld", localDomain, type.c_str(), version);
+        return reply.isOk();
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::storeDmt(const DMT& dmt, const std::string type, int localDomain) {
+    try {
+        // fds_uint64_t version = dmt.getVersion();
+        Reply reply = kv_store.sendCommand("sadd %d:dmts %ld", localDomain, dmt.getVersion());
+        if (!reply.wasModified()) {
+            LOGWARN << "dmt [" << dmt.getVersion()
+                    << "] is already in for domain ["
+                    << localDomain << "]";
+        }
+
+        std::string serializedData, hexCoded;
+        const_cast<DMT&>(dmt).getSerialized(serializedData);
+        kv_store.encodeHex(serializedData, hexCoded);
+
+        reply = kv_store.sendCommand("set %d:dmt:%ld %s", localDomain, dmt.getVersion(), hexCoded.c_str());
+        bool fSuccess = reply.isOk();
+
+        if (fSuccess && !type.empty()) {
+            reply = kv_store.sendCommand("set %d:dmt:%s %ld", localDomain, type.c_str(), dmt.getVersion());
+            if (!reply.isOk()) {
+                LOGWARN << "error setting type " << dmt.getVersion() << ":" << type;
+            }
+        }
+        return fSuccess;
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::getDmt(DMT& dmt, fds_uint64_t version, int localDomain) {
+    try {
+        Reply reply = kv_store.sendCommand("get %d:dmt:%ld", localDomain, version);
+        std::string serializedData, hexCoded(reply.getString());
+        if (hexCoded.length() < 10) {
+            LOGERROR << "very less data for dmt : ["
+                     << version << "] : size = " << hexCoded.length();
+            return false;
+        }
+        LOGDEBUG << "dmt : [" << version << "] : size = " << hexCoded.length();
+        kv_store.decodeHex(hexCoded, serializedData);
+        dmt.loadSerialized(serializedData);
+        return true;
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
+}
+
+/******************************************************************************
+ *                      Node Section
+ *****************************************************************************/
+
+bool ConfigDB::addNode(const NodeInfoType& node)
+{
+    SCOPEDWRITE(nodeLock);
+
+    TRACKMOD();
+    // add the volume to the volume list for the domain
+    int domainId = 0;  // TODO(prem)
+    try {
+        bool ret;
+
+        FDSP_SERIALIZE(node, serialized);
+        ret = kv_store.sadd(format("%d:cluster:nodes", domainId), node.node_uuid.uuid);
+        ret = kv_store.set(format("node:%ld", node.node_uuid.uuid), *serialized);
+
+        return ret;
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
+    }
+    return false;
+}
+
+bool ConfigDB::updateNode(const NodeInfoType& node)
+{
+    SCOPEDWRITE(nodeLock);
+
+    try {
+        return addNode(node);
+    } catch(const RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::removeNode(const NodeUuid& uuid)
+{
+    SCOPEDWRITE(nodeLock);
+
+    TRACKMOD();
+    try {
+        int domainId = 0;  // TODO(prem)
+        Reply reply = kv_store.sendCommand("srem %d:cluster:nodes %ld", domainId, uuid);
+
+        if (!reply.wasModified()) {
+            LOGWARN << "node [" << uuid << "] does not exist for domain [" << domainId << "]";
+        }
+
+        // Now remove the node data
+        reply = kv_store.sendCommand("del node:%ld", uuid);
+        return reply.isOk();
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+        NOMOD();
+    }
+    return false;
+}
+
+bool ConfigDB::getNode(const NodeUuid& uuid, NodeInfoType& node)
+{
+    SCOPEDREAD(nodeLock);
+    try {
+        Reply reply = kv_store.get(format("node:%ld", uuid.uuid_get_val()));
+        if (reply.isOk()) {
+            fds::deserializeFdspMsg(reply.getString(), node);
+            return true;
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::nodeExists(const NodeUuid& uuid)
+{
+    SCOPEDREAD(nodeLock);
+    try {
+        Reply reply = kv_store.sendCommand("exists node:%ld", uuid);
+        return reply.isOk();
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::getNodeIds(std::unordered_set<NodeUuid, UuidHash>& nodes, int localDomain)
+{
+    SCOPEDREAD(nodeLock);
+
+    std::vector<long long> nodeIds; //NOLINT
+
+    try {
+        Reply reply = kv_store.sendCommand("smembers %d:cluster:nodes", localDomain);
+        reply.toVector(nodeIds);
+
+        if (nodeIds.empty()) {
+            LOGWARN << "no nodes found for domain [" << localDomain << "]";
+            return false;
+        }
+
+        for (uint i = 0; i < nodeIds.size(); i++) {
+            LOGDEBUG << "ConfigDB::getNodeIds node "
+                     << std::hex << nodeIds[i] << std::dec;
+            nodes.insert(NodeUuid(nodeIds[i]));
+        }
+
+        return true;
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::getAllNodes(std::vector<NodeInfoType>& nodes, int localDomain)
+{
+    SCOPEDREAD(nodeLock);
+
+    std::vector<long long> nodeIds; //NOLINT
+
+    try {
+        Reply reply = kv_store.sendCommand("smembers %d:cluster:nodes", localDomain);
+        reply.toVector(nodeIds);
+
+        if (nodeIds.empty()) {
+            LOGWARN << "no nodes found for domain [" << localDomain << "]";
+            return false;
+        }
+        
+        NodeInfoType node;
+        for (uint i = 0; i < nodeIds.size(); i++) {
+            getNode(nodeIds[i], node);
+            nodes.push_back(node);
+        }
+        return true;
+    } catch(RedisException& e) {
+        LOGERROR << e.what();
+    }
+    return false;
+}
+
+std::string ConfigDB::getNodeName(const NodeUuid& uuid)
+{
+    SCOPEDREAD(nodeLock);
+
+    try {
+        NodeInfoType node;
+        if (getNode(uuid, node)) {
+            return node.node_name;
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return "";
+}
+
+bool ConfigDB::getNodeServices(const NodeUuid& uuid, NodeServices& services)
+{
+    SCOPEDREAD(nodeLock);
+    try{
+        Reply reply = kv_store.sendCommand("get %ld:services", uuid);
+        if (reply.isNil()) return false;
+        services.loadSerialized(reply.getString());
+        return true;
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
+}
+
+bool ConfigDB::setNodeServices(const NodeUuid& uuid, const NodeServices& services)
+{
+    SCOPEDWRITE(nodeLock);
+    try{
+        std::string serialized;
+        services.getSerialized(serialized);
+        Reply reply = kv_store.sendCommand("set %ld:services %b",
+                                    uuid, serialized.data(), serialized.length());
+        return reply.isOk();
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return false;
+}
+
+uint ConfigDB::getNodeNameCounter()
+{
+    SCOPEDREAD(nodeLock);
+
+    try{
+        Reply reply = kv_store.sendCommand("incr node:name.counter");
+        return reply.getLong();
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+    return 0;
+}
+
+bool ConfigDB::setCapacityUsedNode( const int64_t svcUuid, const unsigned long usedCapacityInBytes )
+{
+    SCOPEDWRITE(nodeLock);
+
+    bool bRetCode = false;
+
+    std::stringstream uuid;
+    uuid << svcUuid;
+    std::stringstream used;
+    used << usedCapacityInBytes;
+
+    try
+    {
+        LOGDEBUG << "Setting used capacity for uuid [ " << std::hex << svcUuid << std::dec << " ]";
+        bRetCode = kv_store.hset( "used.capacity", uuid.str( ).c_str( ), used.str( ) );
+    }
+    catch(const RedisException& e)
+    {
+        LOGERROR << "Failed to persist node capacity for node [ "
+                 << std::hex << svcUuid << std::dec << " ], error: " << e.what();
+    };
+
+    return bRetCode;
+}
+
+/******************************************************************************
+ *                      StatStream Section
+ *****************************************************************************/
 
 // stat streaming registrations
 int32_t ConfigDB::getNewStreamRegistrationId() {
@@ -1908,70 +1963,11 @@ bool ConfigDB::getStreamRegistrations(std::vector<apis::StreamingRegistrationMsg
     return false;
 }
 
-int64_t ConfigDB::createTenant(const std::string& identifier) {
-    TRACKMOD();
-    try {
-        // check if the tenant already exists
-        std::string idLower = lower(identifier);
 
-        Reply reply = kv_store.sendCommand("sismember tenant:list %b", idLower.data(), idLower.length());
-        if (reply.getLong() == 1) {
-            // the tenant already exists
-            std::vector<fds::apis::Tenant> tenants;
-            listTenants(tenants);
-            for (const auto& tenant : tenants) {
-                if (tenant.identifier == identifier) {
-                    LOGWARN << "trying to add existing tenant : " << tenant.id;
-                    NOMOD();
-                    return tenant.id;
-                }
-            }
-            LOGWARN << "tenant info missing : " << identifier;
-            NOMOD();
-            return 0;
-        }
 
-        // get new id
-        reply = kv_store.sendCommand("incr tenant:nextid");
-
-        fds::apis::Tenant tenant;
-        tenant.id = reply.getLong();
-        tenant.identifier = identifier;
-
-        kv_store.sendCommand("sadd tenant:list %b", idLower.data(), idLower.length());
-
-        // serialize
-        boost::shared_ptr<std::string> serialized;
-        fds::serializeFdspMsg(tenant, serialized);
-
-        kv_store.sendCommand("hset tenants %ld %b", tenant.id, serialized->data(), serialized->length()); //NOLINT
-        return tenant.id;
-    } catch(const RedisException& e) {
-        LOGCRITICAL << "error with redis " << e.what();
-        NOMOD();
-    }
-
-    return 0;
-}
-
-bool ConfigDB::listTenants(std::vector<fds::apis::Tenant>& tenants) {
-    fds::apis::Tenant tenant;
-
-    try {
-        Reply reply = kv_store.sendCommand("hvals tenants");
-        StringList strings;
-        reply.toVector(strings);
-
-        for (const auto& value : strings) {
-            fds::deserializeFdspMsg(value, tenant);
-            tenants.push_back(tenant);
-        }
-    } catch(const RedisException& e) {
-        LOGCRITICAL << "error with redis " << e.what();
-        return false;
-    }
-    return true;
-}
+/******************************************************************************
+ *                      User Section
+ *****************************************************************************/
 
 int64_t ConfigDB::createUser(const std::string& identifier, const std::string& passwordHash, const std::string& secret, bool isAdmin) { //NOLINT
     TRACKMOD();
@@ -2056,6 +2052,120 @@ bool ConfigDB::getUser(int64_t userId, fds::apis::User& user) {
     return true;
 }
 
+bool ConfigDB::updateUser(int64_t  userId, const std::string& identifier, const std::string& passwordHash, const std::string& secret, bool isFdsAdmin) { //NOLINT
+    TRACKMOD();
+    try {
+        fds::apis::User user;
+        if (!getUser(userId, user)) {
+            LOGWARN << "user does not exist, userid: " << userId;
+            NOMOD();
+            throw ConfigException("user id is invalid");
+        }
+
+        std::string idLower = lower(identifier);
+
+        // check if the identifier is changing ..
+        if (0 != strcasecmp(identifier.c_str(), user.identifier.c_str())) {
+            if (kv_store.sismember("user:list", idLower)) {
+                LOGWARN << "another user exists with identifier: " << identifier;
+                NOMOD();
+                throw ConfigException("another user exists with identifier");
+            }
+        }
+
+        // now set the new user info
+        user.identifier = identifier;
+        user.passwordHash = passwordHash;
+        user.secret = secret;
+        user.isFdsAdmin = isFdsAdmin;
+
+        kv_store.sadd("user:list", idLower);
+
+        // serialize
+        boost::shared_ptr<std::string> serialized;
+        fds::serializeFdspMsg(user, serialized);
+
+        kv_store.hset("users", user.id, *serialized);
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
+        return false;
+    }
+    return true;
+}
+
+/******************************************************************************
+ *                      Tenant Section
+ *****************************************************************************/
+
+int64_t ConfigDB::createTenant(const std::string& identifier) {
+    TRACKMOD();
+    try {
+        // check if the tenant already exists
+        std::string idLower = lower(identifier);
+
+        Reply reply = kv_store.sendCommand("sismember tenant:list %b", idLower.data(), idLower.length());
+        if (reply.getLong() == 1) {
+            // the tenant already exists
+            std::vector<fds::apis::Tenant> tenants;
+            listTenants(tenants);
+            for (const auto& tenant : tenants) {
+                if (tenant.identifier == identifier) {
+                    LOGWARN << "trying to add existing tenant : " << tenant.id;
+                    NOMOD();
+                    return tenant.id;
+                }
+            }
+            LOGWARN << "tenant info missing : " << identifier;
+            NOMOD();
+            return 0;
+        }
+
+        // get new id
+        reply = kv_store.sendCommand("incr tenant:nextid");
+
+        fds::apis::Tenant tenant;
+        tenant.id = reply.getLong();
+        tenant.identifier = identifier;
+
+        kv_store.sendCommand("sadd tenant:list %b", idLower.data(), idLower.length());
+
+        // serialize
+        boost::shared_ptr<std::string> serialized;
+        fds::serializeFdspMsg(tenant, serialized);
+
+        kv_store.sendCommand("hset tenants %ld %b", tenant.id, serialized->data(), serialized->length()); //NOLINT
+        return tenant.id;
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        NOMOD();
+    }
+
+    return 0;
+}
+
+bool ConfigDB::listTenants(std::vector<fds::apis::Tenant>& tenants) {
+    fds::apis::Tenant tenant;
+
+    try {
+        Reply reply = kv_store.sendCommand("hvals tenants");
+        StringList strings;
+        reply.toVector(strings);
+
+        for (const auto& value : strings) {
+            fds::deserializeFdspMsg(value, tenant);
+            tenants.push_back(tenant);
+        }
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+        return false;
+    }
+    return true;
+}
+
+/******************************************************************************
+ *                     Users & Tenants Section
+ *****************************************************************************/
 bool ConfigDB::assignUserToTenant(int64_t userId, int64_t tenantId) {
     TRACKMOD();
     try {
@@ -2123,47 +2233,9 @@ bool ConfigDB::listUsersForTenant(std::vector<fds::apis::User>& users, int64_t t
     return true;
 }
 
-bool ConfigDB::updateUser(int64_t  userId, const std::string& identifier, const std::string& passwordHash, const std::string& secret, bool isFdsAdmin) { //NOLINT
-    TRACKMOD();
-    try {
-        fds::apis::User user;
-        if (!getUser(userId, user)) {
-            LOGWARN << "user does not exist, userid: " << userId;
-            NOMOD();
-            throw ConfigException("user id is invalid");
-        }
-
-        std::string idLower = lower(identifier);
-
-        // check if the identifier is changing ..
-        if (0 != strcasecmp(identifier.c_str(), user.identifier.c_str())) {
-            if (kv_store.sismember("user:list", idLower)) {
-                LOGWARN << "another user exists with identifier: " << identifier;
-                NOMOD();
-                throw ConfigException("another user exists with identifier");
-            }
-        }
-
-        // now set the new user info
-        user.identifier = identifier;
-        user.passwordHash = passwordHash;
-        user.secret = secret;
-        user.isFdsAdmin = isFdsAdmin;
-
-        kv_store.sadd("user:list", idLower);
-
-        // serialize
-        boost::shared_ptr<std::string> serialized;
-        fds::serializeFdspMsg(user, serialized);
-
-        kv_store.hset("users", user.id, *serialized);
-    } catch(const RedisException& e) {
-        LOGCRITICAL << "error with redis " << e.what();
-        NOMOD();
-        return false;
-    }
-    return true;
-}
+/******************************************************************************
+ *                      SnapshotPolicy Section
+ *****************************************************************************/
 
 bool ConfigDB::createSnapshotPolicy(fds::apis::SnapshotPolicy& policy) {
     TRACKMOD();
@@ -2333,6 +2405,10 @@ bool ConfigDB::listVolumesForSnapshotPolicy(std::vector<int64_t> & vecVolumes, c
     return true;
 }
 
+/******************************************************************************
+ *                      Snapshot Section
+ *****************************************************************************/
+
 bool ConfigDB::createSnapshot(fpi::Snapshot& snapshot) {
     TRACKMOD();
     try {
@@ -2461,7 +2537,13 @@ bool ConfigDB::setSnapshotState(fds_volid_t const volumeId, fds_volid_t const sn
     return setSnapshotState(snapshot, state);
 }
 
-bool ConfigDB::deleteSvcMap(const fpi::SvcInfo& svcinfo) {
+/******************************************************************************
+ *                      Service Map Section
+ *****************************************************************************/
+
+bool ConfigDB::deleteSvcMap(const fpi::SvcInfo& svcinfo)
+{
+    SCOPEDWRITE(svcMapLock);
     try {
         std::stringstream uuid;
         uuid << svcinfo.svc_id.svc_uuid.svc_uuid;
@@ -2474,7 +2556,19 @@ bool ConfigDB::deleteSvcMap(const fpi::SvcInfo& svcinfo) {
     return true;
 }
 
-bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo) {
+/*
+ * !! WARNING !! : Do NOT, on any account call the below two functions
+ * (updateSvcMap, changeStateSvcMap) directly.
+ * If a change to a svc state in configDB must be made, go through
+ * the ::updateSvcMaps function in omutils.cpp
+ * That function ensures state is changed consistently across configDB
+ * and svcLayer
+ */
+
+bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo)
+{
+    SCOPEDWRITE(svcMapLock);
+
     bool bRetCode = false;
     try {
         
@@ -2482,12 +2576,12 @@ bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo) {
         uuid << svcinfo.svc_id.svc_uuid.svc_uuid;
         
         LOGDEBUG << "ConfigDB updating Service Map:"
-                 << " type: " << svcinfo.name 
+                 << " type: " << svcinfo.name
                  << " uuid: " << std::hex << svcinfo.svc_id.svc_uuid.svc_uuid << std::dec
-                 << " ip: " << svcinfo.ip 
+                 << " ip: " << svcinfo.ip
         		 << " port: " << svcinfo.svc_port
                  << " incarnation: " << svcinfo.incarnationNo
-                 << " status: " << svcinfo.svc_status;
+                 << " status: " << DltDmtUtil::getInstance()->printSvcStatus(svcinfo.svc_status);
                 
         FDSP_SERIALIZE( svcinfo, serialized );        
         bRetCode = kv_store.hset( "svcmap", uuid.str().c_str(), *serialized );
@@ -2501,9 +2595,47 @@ bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo) {
     return bRetCode;
 }
 
+bool ConfigDB::changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr)
+{
+    SCOPEDWRITE(svcMapLock);
+    bool bRetCode = false;
+
+    try
+    {
+        fpi::SvcInfo dbInfo;
+        bool ret = getSvcInfo(svcInfoPtr->svc_id.svc_uuid.svc_uuid, dbInfo);
+
+        bRetCode = updateSvcMap( *svcInfoPtr );
+
+        if (ret)
+        {
+            LOGNOTIFY << "ConfigDB updated service status:"
+                       << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid << std::dec
+                       << " from status: " << DltDmtUtil::getInstance()->printSvcStatus(dbInfo.svc_status)
+                       << " to status: " << DltDmtUtil::getInstance()->printSvcStatus(svcInfoPtr->svc_status);
+        } else {
+            LOGNOTIFY << "ConfigDB updated map with new record:"
+                       << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid << std::dec
+                       << "  status: " << DltDmtUtil::getInstance()->printSvcStatus(svcInfoPtr->svc_status);
+        }
+
+        /* Convert new registration request to existing registration request */
+        kvstore::NodeInfoType nodeInfo;
+        fromTo( *svcInfoPtr, nodeInfo );
+        updateNode( nodeInfo );
+
+    }
+    catch( const RedisException& e )
+    {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+
+    return bRetCode;
+}
 
 bool ConfigDB::getSvcInfo(const fds_uint64_t svc_uuid, fpi::SvcInfo& svcInfo)
 {
+    SCOPEDREAD(svcMapLock);
     bool result = false;
     try
     {
@@ -2523,10 +2655,7 @@ bool ConfigDB::getSvcInfo(const fds_uint64_t svc_uuid, fpi::SvcInfo& svcInfo)
             std::string value = reply.getString();
             fds::deserializeFdspMsg( value, svcInfo );
 
-            if ( svcInfo != NULL )
-                result = true;
-            else
-                result = false;
+            result = true;
 
         } else {
             LOGDEBUG << "Retrieved a nil value from configDB for uuid"
@@ -2541,55 +2670,14 @@ bool ConfigDB::getSvcInfo(const fds_uint64_t svc_uuid, fpi::SvcInfo& svcInfo)
     return result;
 }
 
-/*
- * WARNING : Do NOT, on any account call this function directly.
- * If a change to a svc state in configDB must be made, go through
- * the change_service_state function in omutils.cpp
- * That function ensures state is changed consistently across configDB
- * and svcLayer
- */
-bool ConfigDB::changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr)
-{
-    bool bRetCode = false;
-    
-    try
-    {
-		fpi::SvcInfo dbInfo;
-        bool ret = getSvcInfo(svcInfoPtr->svc_id.svc_uuid.svc_uuid, dbInfo);
 
-        bRetCode = updateSvcMap( *svcInfoPtr );
-    
-        if (ret)
-        {
-            LOGNOTIFY << "ConfigDB updated service status:"
-                       << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid << std::dec
-                       << " from status: " << printSvcStatus(dbInfo.svc_status)
-                       << " to status: " << printSvcStatus(svcInfoPtr->svc_status);
-        } else {
-            LOGNOTIFY << "ConfigDB updated map with new record:"
-                       << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid << std::dec
-                       << "  status: " << printSvcStatus(svcInfoPtr->svc_status);
-        }
-
-        /* Convert new registration request to existing registration request */
-        kvstore::NodeInfoType nodeInfo;
-        fromTo( *svcInfoPtr, nodeInfo );
-        updateNode( nodeInfo );
-
-    }
-    catch( const RedisException& e ) 
-    {
-        LOGCRITICAL << "error with redis " << e.what();
-    }
-    
-    return bRetCode;
-}
 
 //
 // If service not found in configDB, returns SVC_STATUS_INVALID
 //
 fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
 {
+    SCOPEDREAD(svcMapLock);
     fpi::ServiceStatus retStatus = fpi::SVC_STATUS_INVALID;
 
     try
@@ -2612,7 +2700,7 @@ fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
 
             LOGDEBUG << "ConfigDB retrieved service status for service"
                      << " uuid: " << std::hex << svc_uuid << std::dec
-                     << " status: " << retStatus;
+                     << " status: " << DltDmtUtil::getInstance()->printSvcStatus(retStatus);
         }
     }
     catch( const RedisException& e )
@@ -2625,6 +2713,8 @@ fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
 
 bool ConfigDB::isPresentInSvcMap( const int64_t svc_uuid )
 {
+    SCOPEDREAD(svcMapLock);
+
     bool isPresent = false;
     try
     {
@@ -2665,40 +2755,10 @@ bool ConfigDB::isPresentInSvcMap( const int64_t svc_uuid )
     return isPresent;
 }
 
-void ConfigDB::fromTo( fpi::SvcInfo svcInfo,
-                       kvstore::NodeInfoType nodeInfo )
-{
-    nodeInfo.control_port = svcInfo.svc_port;
-    nodeInfo.data_port = svcInfo.svc_port;
-    nodeInfo.ip_lo_addr = fds::net::ipString2Addr(svcInfo.ip);  
-    nodeInfo.node_name = svcInfo.name;   
-    nodeInfo.node_type = svcInfo.svc_type;
-
-    fds::assign( nodeInfo.service_uuid, svcInfo.svc_id );
-
-    NodeUuid node_uuid;
-    node_uuid.uuid_set_type( nodeInfo.service_uuid.uuid, fpi::FDSP_PLATFORM );
-    nodeInfo.node_uuid.uuid  = static_cast<int64_t>( node_uuid.uuid_get_val() );
-
-    fds_assert( nodeInfo.node_type != fpi::FDSP_PLATFORM ||
-                nodeInfo.service_uuid == nodeInfo.node_uuid );
-
-    if ( nodeInfo.node_type == fpi::FDSP_PLATFORM ) 
-    {
-        fpi::FDSP_AnnounceDiskCapability& diskInfo = nodeInfo.disk_info;
-        
-        util::Properties props( &svcInfo.props );
-        diskInfo.node_iops_max = props.getInt( "node_iops_max" );
-        diskInfo.node_iops_min = props.getInt( "node_iops_min" );
-        diskInfo.disk_capacity = props.getDouble( "disk_capacity" );
-
-        diskInfo.ssd_capacity = props.getDouble( "ssd_capacity" );
-        diskInfo.disk_type = props.getInt( "disk_type" );
-    }
-}
-
 bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
 {
+    SCOPEDREAD(svcMapLock);
+
     try 
     {
         svcMap.clear();
@@ -2730,8 +2790,42 @@ bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
     return true;
 }
 
+void ConfigDB::fromTo( fpi::SvcInfo svcInfo,
+                       kvstore::NodeInfoType nodeInfo )
+{
+    nodeInfo.control_port = svcInfo.svc_port;
+    nodeInfo.data_port = svcInfo.svc_port;
+    nodeInfo.ip_lo_addr = fds::net::ipString2Addr(svcInfo.ip);
+    nodeInfo.node_name = svcInfo.name;
+    nodeInfo.node_type = svcInfo.svc_type;
 
-// Subscriptions
+    fds::assign( nodeInfo.service_uuid, svcInfo.svc_id );
+
+    NodeUuid node_uuid;
+    node_uuid.uuid_set_type( nodeInfo.service_uuid.uuid, fpi::FDSP_PLATFORM );
+    nodeInfo.node_uuid.uuid  = static_cast<int64_t>( node_uuid.uuid_get_val() );
+
+    fds_assert( nodeInfo.node_type != fpi::FDSP_PLATFORM ||
+                nodeInfo.service_uuid == nodeInfo.node_uuid );
+
+    if ( nodeInfo.node_type == fpi::FDSP_PLATFORM )
+    {
+        fpi::FDSP_AnnounceDiskCapability& diskInfo = nodeInfo.disk_info;
+
+        util::Properties props( &svcInfo.props );
+        diskInfo.node_iops_max = props.getInt( "node_iops_max" );
+        diskInfo.node_iops_min = props.getInt( "node_iops_min" );
+        diskInfo.disk_capacity = props.getDouble( "disk_capacity" );
+
+        diskInfo.ssd_capacity = props.getDouble( "ssd_capacity" );
+        diskInfo.disk_type = props.getInt( "disk_type" );
+    }
+}
+
+/******************************************************************************
+ *                      Subscriptions Section
+ *****************************************************************************/
+
 // Note that subscriptions are global domain objects. While they might be created from any given
 // local domain or cached in any given local domain, they are definitively stored and maintained
 // in the context of the global domain and therefore, the master domain and master OM.

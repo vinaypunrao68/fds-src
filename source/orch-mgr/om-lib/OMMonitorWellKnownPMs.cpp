@@ -230,7 +230,7 @@ namespace fds
             if ( (gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.svc_uuid) ) == fpi::SVC_STATUS_INACTIVE_FAILED ||
                  (gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.svc_uuid) ) == fpi::SVC_STATUS_INACTIVE_STOPPED )
             {
-                fds::change_service_state(gl_orch_mgr->getConfigDB(), uuid.svc_uuid, fpi::SVC_STATUS_ACTIVE);
+                updateSvcMaps(gl_orch_mgr->getConfigDB(), uuid.svc_uuid, fpi::SVC_STATUS_ACTIVE);
 
                 OM_NodeContainer *local         = OM_NodeDomainMod::om_loc_domain_ctrl();
                 OM_PmContainer::pointer pmNodes = local->om_pm_nodes();
@@ -311,7 +311,7 @@ namespace fds
 
         // Update service state in the configDB, svclayer Map
         {
-		    fds::change_service_state(gl_orch_mgr->getConfigDB(), svcUuid.svc_uuid, fpi::SVC_STATUS_INACTIVE_FAILED);
+		    updateSvcMaps(gl_orch_mgr->getConfigDB(), svcUuid.svc_uuid, fpi::SVC_STATUS_INACTIVE_FAILED);
 
             OM_NodeContainer *local         = OM_NodeDomainMod::om_loc_domain_ctrl();
             OM_PmContainer::pointer pmNodes = local->om_pm_nodes();

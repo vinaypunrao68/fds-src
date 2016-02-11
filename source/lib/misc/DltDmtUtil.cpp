@@ -127,4 +127,50 @@ fds_uint64_t DltDmtUtil::getDMTargetVersionForAbort()
     return dmtTargetVersionForAbort;
 }
 
+// This function probably does not fit in this file
+// but to be able to access this from configDB.cpp putting
+// it here seems to be the only way
+std::string DltDmtUtil::printSvcStatus(fpi::ServiceStatus svcStatus)
+        {
+            int32_t status = svcStatus;
+            std::string statusString;
+            switch ( status )
+            {
+                case 0:
+                    statusString = "INVALID";
+                    break;
+                case 1:
+                    statusString = "ACTIVE";
+                    break;
+                case 2:
+                    statusString = "INACTIVE_STOPPED";
+                    break;
+                case 3:
+                    statusString = "DISCOVERED";
+                    break;
+                case 4:
+                    statusString = "STANDBY";
+                    break;
+                case 5:
+                    statusString = "ADDED";
+                    break;
+                case 6:
+                    statusString = "STARTED";
+                    break;
+                case 7:
+                    statusString = "STOPPED";
+                    break;
+                case 8:
+                    statusString = "REMOVED";
+                    break;
+                case 9:
+                    statusString = "INACTIVE_FAILED";
+                    break;
+                default:
+                    statusString = "Invalid entry";
+                    break;
+            }
+
+            return statusString;
+        }
 } // namespace fds

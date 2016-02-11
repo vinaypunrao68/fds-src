@@ -10,6 +10,7 @@
 #include <kvstore/kvstore.h>
 #include <kvstore/configdb.h>
 #include <util/stringutils.h>
+#include <OmResources.h>
 
 #include "net/SvcMgr.h"
 
@@ -26,9 +27,31 @@ namespace fds
         return fds_get_uuid64(name);
     }
 
-    void change_service_state( kvstore::ConfigDB* configDB,
-                                   const fds_uint64_t svc_uuid,
-                                   const fpi::ServiceStatus svc_status)
+    /*
+     * Update the svcMap in both the configDB and svc layer
+     *
+     * @param configDB           pointer to OM's configDB object
+     * @param svc_uuid           svc uuid of the service that is being updated
+     * @param svc_status         desired status of the service
+     * @param registration       { true:  if the update is being called from the svc
+     *                                    registration path
+     *                             false: svc update is coming from any other code path
+     *                           }
+     * @param registeringSvcInfo svcInfo of the svc that is being registered.
+     *                           This info is guaranteed to be populated if the
+     *                           registration flag is true. This svcInfo, if valid, should
+     *                           not be modified in any way by this function
+     *
+     *
+     * @return ERR_OK if successful
+    */
+
+    void updateSvcMaps( kvstore::ConfigDB*       configDB,
+                        const fds_uint64_t       svc_uuid,
+                        const fpi::ServiceStatus svc_status,
+                        bool                     registration,      // false by default
+                        fpi::SvcInfo             registeringSvcInfo // new, empty object by default
+                        )
         {
             fpi::SvcUuid uuid;
             fpi::SvcInfo svcLayerInfo;
@@ -36,12 +59,60 @@ namespace fds
             fpi::SvcInfoPtr svcLayerInfoPtr;
             fpi::SvcInfoPtr dbInfoPtr;
 
+            fpi::ServiceStatus initialSvcLayerSvcStatus = fpi::SVC_STATUS_INVALID;
+            fpi::ServiceStatus initialDBSvcStatus;
+
             uuid.svc_uuid = svc_uuid;
 
-            bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(uuid, svcLayerInfo);
+            /*
+             * ======================================================
+             *  Setting up svcInfo objects from configDB and svcLayer
+             * ======================================================
+             * */
 
-            if (ret)
+            bool ret = false;
+            // Do configDB related work first so the window
+            // for svcLayer getting updated while we potentially
+            // wait on locks is minimized
+            if ( !registration )
             {
+                // Read LOCK acquired here
+                ret = configDB->getSvcInfo(svc_uuid, dbInfo);
+
+                if (ret)
+                {
+                    dbInfo.svc_status = svc_status;
+                    dbInfoPtr = boost::make_shared<fpi::SvcInfo>(dbInfo);
+                } else {
+                    LOGWARN << "Could not find SvcInfo for uuid:"
+                            << std::hex << svc_uuid << std::dec
+                            << " in the OM's configDB";
+
+                    dbInfoPtr = boost::make_shared<fpi::SvcInfo>();
+                    dbInfoPtr->svc_id.svc_uuid.svc_uuid = svc_uuid;
+                    dbInfoPtr->svc_status = svc_status;
+                }
+            } else {
+                // If registration flag is true, the registeringSvcInfo has to be true
+                // In this case, we don't want to modify the svcInfo passed in
+
+                if (registeringSvcInfo.svc_id.svc_uuid.svc_uuid == 0) {
+                    LOGWARN << "Attempted to update state for svc uuid:"
+                            << std::hex << svc_uuid << std::dec
+                            << " without passing a valid svcInfo!! Will not perform update, returning..";
+                    return;
+                }
+                dbInfo = registeringSvcInfo;
+            }
+
+
+            // LOCK acquired here
+            ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(uuid, svcLayerInfo);
+
+            // Setup of svcLayer svcInfo
+            if ( ret )
+            {
+                initialSvcLayerSvcStatus = svcLayerInfo.svc_status;
                 // update the status to what we need to update to, since
                 // this svcInfoPtr will be treated as "incoming" record
                 svcLayerInfo.svc_status = svc_status;
@@ -51,46 +122,42 @@ namespace fds
                 LOGWARN << "Could not find svcInfo for uuid:"
                           << std::hex << svc_uuid << std::dec
                           << " in the svcMap, generating new";
+
                 svcLayerInfoPtr = boost::make_shared<fpi::SvcInfo>();
                 svcLayerInfoPtr->svc_id.svc_uuid.svc_uuid = uuid.svc_uuid;
                 svcLayerInfoPtr->svc_status = svc_status;
             }
 
-            ret = configDB->getSvcInfo(svc_uuid, dbInfo);
-
-            if (ret)
-            {
-                dbInfo.svc_status = svc_status;
-                dbInfoPtr = boost::make_shared<fpi::SvcInfo>(dbInfo);
-            } else {
-                LOGWARN << "Could not find SvcInfo for uuid:"
-                        << std::hex << svc_uuid << std::dec
-                        << " in the OM's configDB";
-
-                dbInfoPtr = boost::make_shared<fpi::SvcInfo>();
-                dbInfoPtr->svc_id.svc_uuid.svc_uuid = svc_uuid;
-                dbInfoPtr->svc_status = svc_status;
-
-            }
-
-            // This really should NEVER be the case
-            if (svcLayerInfoPtr->incarnationNo == 0 && dbInfoPtr->incarnationNo == 0)
+            // The only time both incarnationNos can be zero is when a service is getting added
+            // into the cluster for the very first time. The ADDED status is set prior to even
+            // sending the start to PM, so the service processes aren't running yet.
+            // Could be that svcLayer is unaware of the svc too
+            if ( !(svc_status == fpi::SVC_STATUS_ADDED) &&
+                 svcLayerInfoPtr->incarnationNo == 0 && dbInfoPtr->incarnationNo == 0 )
             {
                 LOGWARN << "No record for svc found in SvcLayer or ConfigDB!! Will not make any updates, returning..";
                 return;
-
             }
 
-            bool updateConfigDB = dbRecordNeedsUpdate(svcLayerInfoPtr, dbInfoPtr);
+            /*
+             * ======================================================
+             *  Determine which entity has the most current info
+             *  using incarnation number
+             * ======================================================
+             * */
 
-            if (updateConfigDB)
+            bool dbHasOlderRecord = dbRecordNeedsUpdate(svcLayerInfoPtr, dbInfoPtr);
+
+            // WRITE lock acquired here
+            if ( dbHasOlderRecord )
             {
                 // If the flag is true implies that svcLayer has a more recent
                 // record of the service in question, so first update the record
                 // in configDB
                 configDB->changeStateSvcMap( svcLayerInfoPtr );
 
-                // Update the dbInfo record that is being managed by the dbInfoPtr
+                // Update the dbInfo record that is being managed by the dbInfoPtr to the
+                // latest (from the update above)
                 // we will use this record now to update svcLayer
                 ret = configDB->getSvcInfo(svc_uuid, dbInfo);
 
@@ -98,8 +165,58 @@ namespace fds
                 {
                     LOGWARN << "Could not retrieve updated svc record from configDB, potentially making outdated updates ";
                 }
+            } else {
+                // db has latest record, go ahead and update it for the new svc status
+                // this record will be used to update svcLayer
+                configDB->changeStateSvcMap( dbInfoPtr );
             }
 
+            /*
+             * ======================================================
+             *  Determine whether a change has taken place for this
+             *  svc in svc layer while we were doing above checks.
+             *  Initiate new update if that is the case
+             * ======================================================
+             * */
+
+            fpi::SvcInfo svcLayerNewerInfo;
+            ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(uuid, svcLayerNewerInfo);
+
+            if ( ret )
+            {
+                if ( (initialSvcLayerSvcStatus != fpi::SVC_STATUS_INVALID) &&
+                     (svcLayerNewerInfo.svc_status != initialSvcLayerSvcStatus) )
+                {
+                    LOGNOTIFY << "The status of svc:" << std::hex << uuid.svc_uuid << std::dec
+                              << " has already changed in service layer from:"
+                              << DltDmtUtil::getInstance()->printSvcStatus(initialSvcLayerSvcStatus)
+                              << " to:"
+                              << DltDmtUtil::getInstance()->printSvcStatus(svcLayerNewerInfo.svc_status)
+                              << " . Initiating new update";
+
+                    // Something has already changed in the svc layer, so the current update of
+                    // status we are proceeding with is already outdated
+                    // Call a new update of configDB, and return from the current cycle
+                    // No locks being acquired on function entry, so we should be OK with
+                    // this recursive call.
+
+                    updateSvcMaps(configDB, uuid.svc_uuid, svcLayerNewerInfo.svc_status);
+
+                    return;
+                } else if ( svcLayerNewerInfo.svc_status == svc_status ) {
+                    LOGNOTIFY << "SvcLayer already has the latest state for service:"
+                              << std::hex << uuid.svc_uuid << std::dec
+                              << " , no need to update&broadcast. Current status:"
+                              << DltDmtUtil::getInstance()->printSvcStatus(svcLayerNewerInfo.svc_status);
+                    return;
+                }
+            }
+
+            /*
+             * ======================================================
+             *  Consistent view, update and broadcast svc map
+             * ======================================================
+             * */
             LOGNOTIFY << "Updating SvcMgr svcMap now";
 
             // The only reason why an update to svcLayer svcMap will be rejected is if
@@ -112,12 +229,14 @@ namespace fds
             // (which will be applied under the condition incarnationNo is equal, but status is different)
             // Assumption is that EVERY change to service state of configDB comes through here
             MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {*dbInfoPtr} );
+
+            // Broadcast the service map
+            OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
         }
 
     bool dbRecordNeedsUpdate(fpi::SvcInfoPtr svcLayerInfoPtr, fpi::SvcInfoPtr dbInfoPtr)
     {
         fds_bool_t ret(false);
-
 
         // It should never be that incarnationNo for both records is 0. We should have
         // filtered those records before proceeding to this point
@@ -133,11 +252,11 @@ namespace fds
         } else if ( svcLayerInfoPtr->incarnationNo < dbInfoPtr->incarnationNo ) {
             // db has more current information, no update required
             ret = false;
-        } else if ( (svcLayerInfoPtr->incarnationNo == dbInfoPtr->incarnationNo)) {
+        } else if ( svcLayerInfoPtr->incarnationNo == dbInfoPtr->incarnationNo ) {
             // db and svcLayer have the same information regarding incarnationNo, nothing
             // to do. The svc state will get updated separately
             ret = false;
-        } else if (svcLayerInfoPtr->incarnationNo > dbInfoPtr->incarnationNo) {
+        } else if ( svcLayerInfoPtr->incarnationNo > dbInfoPtr->incarnationNo ) {
             // SvcLayer has more recent information, will need to update the record
             // in the db first before updating svc state
             ret = true;
@@ -149,51 +268,6 @@ namespace fds
         return ret;
     }
 
-    /*
-    // See header file
-    void change_service_state( kvstore::ConfigDB* configDB,
-                               const fpi::SvcInfoPtr svcInfo,
-                               const bool updateSvcMap )
-    {
-        fpi::SvcUuid svcUuid;
-        svcUuid.svc_uuid = svcInfo->svc_id.svc_uuid.svc_uuid;
-
-
-        if ( configDB && configDB->changeStateSvcMap( svcInfo, svc_status ) )
-        {
-            LOGDEBUG << "Successfully updated configdbs service ID ( "
-                     << std::hex << svcUuid << std::dec
-                     << " ) state to ( " << svc_status << " )";
-
-            if ( updateSvcMap )
-            {
-                fpi::SvcInfo svc;
-
-                bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo( svcUuid, svc );
-                if ( ret )
-                {
-                    svc.svc_status = svc_status;
-
-                    std::vector<fpi::SvcInfo> svcs;
-                    svcs.push_back( svc );
-
-                    MODULEPROVIDER()->getSvcMgr()->updateSvcMap( svcs );
-                    //ConfigDB svcMap is already updated in the above changeStateSvcMap call
-
-                    LOGDEBUG << "Successfully updated svcmaps service ID ( "
-                             << std::hex << svcUuid << std::dec
-                             << " ) state to ( " << svc_status << " )";
-                }
-            }
-        }
-        else
-        {
-            LOGWARN << "Failed to changed service ID ( "
-                    << std::hex << svcUuid << std::dec << " ) "
-                    << "state to ( " << svc_status << " )";
-        }
-    }
-    */
     
     fpi::FDSP_Node_Info_Type fromSvcInfo( const fpi::SvcInfo& svcinfo )
     {
@@ -533,81 +607,11 @@ namespace fds
                               kvstore::ConfigDB* configDB)
     {
 
-        bool found = false;
-        fpi::SvcInfoPtr svcPtr;
-        for (std::vector<fpi::SvcInfo>::const_iterator iter = svcInfos.begin();
-                iter != svcInfos.end(); ++iter)
-        {
-            if (iter->svc_id.svc_uuid.svc_uuid == serviceTypeId.svc_uuid)
-            {
-                svcPtr = boost::make_shared<fpi::SvcInfo>(*iter);
-                found = true;
-                break;
-            }
-        }
-
-        if (!found)
-        {
-            LOGDEBUG << "Unable to find service in list. Making a fake svcPtr. Fix this?"; \
-            svcPtr = boost::make_shared<fpi::SvcInfo>();
-            svcPtr->svc_id.svc_uuid.svc_uuid = serviceTypeId.svc_uuid;
-        }
-
         DltDmtUtil::getInstance()->addToRemoveList(serviceTypeId.svc_uuid, type);
 
-        // ToDo : Modify below call to use the other change_service_state function so the
-        // call will go to the below function through the macro call. In which case make
-        // sure to REMOVE the scoped lock in send_remove_service since the macro acquires
-        // a separate lock
-        change_service_state( configDB,
-                              svcPtr,
-                              fpi::SVC_STATUS_REMOVED,
-                              true );
-
+        updateSvcMaps( configDB,
+                       serviceTypeId.svc_uuid,
+                       fpi::SVC_STATUS_REMOVED);
     }
-
-    std::string printSvcStatus(fpi::ServiceStatus svcStatus)
-        {
-            int32_t status = svcStatus;
-            std::string statusString;
-            switch ( status )
-            {
-                case 0:
-                    statusString = "INVALID";
-                    break;
-                case 1:
-                    statusString = "ACTIVE";
-                    break;
-                case 2:
-                    statusString = "INACTIVE_STOPPED";
-                    break;
-                case 3:
-                    statusString = "DISCOVERED";
-                    break;
-                case 4:
-                    statusString = "STANDBY";
-                    break;
-                case 5:
-                    statusString = "ADDED";
-                    break;
-                case 6:
-                    statusString = "STARTED";
-                    break;
-                case 7:
-                    statusString = "STOPPED";
-                    break;
-                case 8:
-                    statusString = "REMOVED";
-                    break;
-                case 9:
-                    statusString = "INACTIVE_FAILED";
-                    break;
-                default:
-                    statusString = "Invalid entry";
-                    break;
-            }
-
-            return statusString;
-        }
 
 }  // namespace fds
