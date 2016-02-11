@@ -385,7 +385,7 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
               << msg->healthReport.serviceInfo.svc_id.svc_name
               << " state: " << msg->healthReport.serviceState
               << " status: " << msg->healthReport.statusCode 
-              << " uuid:
+              << " uuid:"
               << std::hex 
               << msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid
               << std::dec
