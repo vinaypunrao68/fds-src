@@ -796,7 +796,7 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
     if (isSvcDown_()) {
         /* No point trying to send when service is down */
         GLOGDEBUG << "No point in sending when service is down! ( "
-                  << svcInfo_.ip << ":" << svcInfo_.svc_port << " )";
+                  << svcInfo_.ip << ":" << svcInfo_.svc_port << svcInfo_.incarnationNo << " )";
         return false;
     }
     try {
