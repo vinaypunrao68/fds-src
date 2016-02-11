@@ -964,6 +964,12 @@ void VolumeInfo::initSnapshotVolInfo(VolumeInfo::pointer vol, const fpi::Snapsho
 void
 VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
 {
+    /*
+     * TODO make sure that for the time being both VolumeDesc and this method are updated together!
+     *
+     * We should deprecate the C++ version ( VolumeDesc ) and just use the thrift generated class.
+     */
+
     VolumeDesc *pVol;
 
     pVol                        = vol_properties;
@@ -978,6 +984,7 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
     pkt->volType                = pVol->volType;
 
     pkt->volPolicyId            = pVol->volPolicyId;
+    pkt->placementPolicy        = pVol->placementPolicy;
     pkt->iops_throttle          = pVol->iops_throttle;
     pkt->iops_assured           = pVol->iops_assured;
     pkt->rel_prio               = pVol->relativePrio;
@@ -987,9 +994,12 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
     pkt->srcVolumeId            = pVol->srcVolumeId.get();
     pkt->contCommitlogRetention = pVol->contCommitlogRetention;
     pkt->timelineTime           = pVol->timelineTime;
+    pkt->createTime             = pVol->createTime;
     pkt->state                  = pVol->getState();
+
     pkt->iscsi                  = pVol->iscsiSettings;
     pkt->nfs                    = pVol->nfsSettings;
+    pkt->coordinator            = pVol->coordinator;
 }
 
 // vol_fmt_message
