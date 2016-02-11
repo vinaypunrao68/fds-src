@@ -13,6 +13,7 @@ import org.apache.log4j.Logger;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -58,23 +59,21 @@ public class AmOps implements IoOps {
 
     @Override
     public void writeMetadata(String domain, String volume, String blobName, FdsMetadata metadata) throws IOException {
-        metadata.lock(m -> {
-            String operationName = "AM.writeMetadata";
-            String description = "volume=" + volume + ", blobName=" + blobName + ", fieldCount=" + m.mutableMap().size();
-            WorkUnit<Void> workUnit = new WorkUnit<Void>(operationName, description) {
-                @Override
-                public Void supply() throws Exception {
-                    counters.increment(Counters.Key.AM_updateMetadataTx);
-                    TxDescriptor tx = asyncAm.startBlobTx(domain, volume, blobName, 0).get();
-                    asyncAm.updateMetadata(domain, volume, blobName, tx, m.mutableMap()).get();
-                    asyncAm.commitBlobTx(domain, volume, blobName, tx).get();
-                    return null;
-                }
-            };
+        String operationName = "AM.writeMetadata";
+        HashMap<String, String> map = metadata.lock(m -> new HashMap<>(m.mutableMap()));
+        String description = "volume=" + volume + ", blobName=" + blobName + ", fieldCount=" + map.size();
+        WorkUnit<Void> workUnit = new WorkUnit<Void>(operationName, description) {
+            @Override
+            public Void supply() throws Exception {
+                counters.increment(Counters.Key.AM_updateMetadataTx);
+                TxDescriptor tx = asyncAm.startBlobTx(domain, volume, blobName, 0).get();
+                asyncAm.updateMetadata(domain, volume, blobName, tx, map).get();
+                asyncAm.commitBlobTx(domain, volume, blobName, tx).get();
+                return null;
+            }
+        };
 
-            handleExceptions(new ErrorCode[0], ec -> null, workUnit);
-            return null;
-        });
+        handleExceptions(new ErrorCode[0], ec -> null, workUnit);
     }
 
     @Override
