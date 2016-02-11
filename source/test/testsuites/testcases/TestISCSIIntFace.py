@@ -858,7 +858,7 @@ class TestStandardInquiry(ISCSIFixture):
                 self.sg_device = self.getGenericDevice(self.volume_name)
 
         if not self.sg_device:
-            self.log.error("Missing required iCSSI generic device")
+            self.log.error("Missing required iSCSI generic device")
             return False
 
         # Get the FdsConfigRun object for this test.
@@ -889,6 +889,56 @@ class TestStandardInquiry(ISCSIFixture):
         if result.count('Vendor identification: FDS') == 0:
             return False
 
+        return True
+
+
+class TestISCSIVolumeDelete(ISCSIFixture):
+    """FDS test case to delete an iSCSI volume.
+
+    Clears the volume from the test fixture.
+
+    Attributes
+    ----------
+    passedName : str
+        FDS volume name
+    """
+    def __init__(self, parameters=None, volume_name=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_VolumeDelete,
+                                             "Delete iSCSI volume")
+        self.passedName = volume_name
+
+    def test_VolumeDelete(self):
+        """Attempt to delete iSCSI volume."""
+
+        if not self.passedName:
+            self.passedName = DEFAULT_VOLUME_NAME
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
+        vol_service = get_volume_service(self,om_node.nd_conf_dict['ip'])
+        volume_id = None
+        volumes = vol_service.list_volumes()
+        for volume in volumes:
+            if self.passedName == volume.name:
+                volume_id = volume.id
+                break
+
+        if volume_id is None:
+            self.log.error('Failed to find volume {0}'.format(self.passedName))
+            return False
+
+        status = vol_service.delete_volume(volume_id)
+
+        if isinstance(status, FdsError) or type(status).__name__ == 'FdsError':
+            self.log.error('Delete volume {0} failed, status {1}'.format(self.passedName, status))
+            return False
+
+        # Clear volume from fixture
+        self.deleteVolumeName(self.passedName)
         return True
 
 
