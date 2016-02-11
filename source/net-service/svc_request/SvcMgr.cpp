@@ -796,7 +796,7 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
     if (isSvcDown_()) {
         /* No point trying to send when service is down */
         GLOGDEBUG << "No point in sending when service is down! ( "
-                  << svcInfo_.ip << ":" << svcInfo_.svc_port << svcInfo_.incarnationNo << " )";
+                  << fds::logString(svcInfo_) << ")";
         return false;
     }
     try {
@@ -819,10 +819,12 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
         }
         return true;
     } catch (std::exception &e) {
-        GLOGWARN << "allocRpcClient failed.  Exception: " << e.what() << ".  "  << header;
+        GLOGWARN << "allocRpcClient failed.  Exception: " << e.what() << ".  "  << header
+                 << " SvcInfo ( " << fds::logString(svcInfo_) << " )";
         markSvcDown_();
     } catch (...) {
-        GLOGWARN << "allocRpcClient failed.  Unknown exception. " << header;
+        GLOGWARN << "allocRpcClient failed.  Unknown exception. " << header
+                 << " SvcInfo ( " << fds::logString(svcInfo_) << " )";
         markSvcDown_();
     }
     return false;

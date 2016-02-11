@@ -385,10 +385,8 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
               << msg->healthReport.serviceInfo.svc_id.svc_name
               << " state: " << msg->healthReport.serviceState
               << " status: " << msg->healthReport.statusCode 
-              << " uuid:"
-              << std::hex 
-              << msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid
-              << std::dec
+              << " SvcInfo ("
+              << fds::logString(msg->healthReport.serviceInfo) << " )"
               << " from service uuid:" << std::hex << hdr->msg_src_id << std::dec;
 
     ResourceUUID service_UUID (msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
@@ -588,17 +586,15 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
             auto domain = OM_NodeDomainMod::om_local_domain();
             Error reportError(msg->healthReport.statusCode);
 
-            LOGERROR << "Will set service to failed state: "
-            << msg->healthReport.serviceInfo.name
-            << ":0x" << std::hex << uuid.uuid_get_val() << std::dec
-            << " incarnationNo:" << msg->healthReport.serviceInfo.incarnationNo;
+            LOGERROR << "Will set service to failed state, svcInfo ("
+                     << fds::logString(msg->healthReport.serviceInfo) << " )";
 
             /*
              * change the state and update service map; then broadcast updated service map
              */
             auto svcInfo = boost::make_shared<fpi::SvcInfo>(msg->healthReport.serviceInfo);
             domain->om_change_svc_state_and_bcast_svcmap( svcInfo, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
-            domain->om_service_down( reportError, uuid, svc_type );
+            //domain->om_service_down( reportError, uuid, svc_type );
         }
 
         return;
@@ -615,21 +611,18 @@ void OmSvcHandler::healthReportError(fpi::FDSP_MgrIdType &svc_type,
     {
         if ((reportError == ERR_SERVICE_CAPACITY_FULL) )
         {
-            LOGERROR << "Svc:" << msg->healthReport.serviceInfo.name
-                     << " uuid:" << std::hex << msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid
+            LOGERROR << "Svc (" << fds::logString(msg->healthReport.serviceInfo) << " )"
                      << " reported error: ERR_SERVICE_CAPACITY_FULL";
             return;
 
         } else if (reportError == ERR_TOKEN_NOT_READY) {
-            LOGERROR << "Svc:" << msg->healthReport.serviceInfo.name
-                     << " uuid:" << std::hex << msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid
+            LOGERROR << "Svc (" << fds::logString(msg->healthReport.serviceInfo) << " )"
                      << " reported error: ERR_TOKEN_NOT_READY";
             return;
 
         } else if (reportError == ERR_NODE_NOT_ACTIVE) {
             // service is unavailable -- most likely failed to initialize
-            LOGERROR << "Svc:" << msg->healthReport.serviceInfo.name
-                     << " uuid:" << std::hex << msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid
+            LOGERROR << "Svc (" << fds::logString(msg->healthReport.serviceInfo) << " )"
                      << " reported error: ERR_NODE_NOT_ACTIVE";
             return;
         }
