@@ -536,6 +536,8 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
         }
         // Finish tracking IO request.
         trackIOReqs.finishTrackIOReqs();
+
+        delete snapRequest;
         return;
     }
 
@@ -554,11 +556,15 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
         }
         // Finish tracking IO request.
         trackIOReqs.finishTrackIOReqs();
+
+        delete snapRequest;
         return;
     }
 
     leveldb::Iterator *iterDB = dbFromFirstSnap->NewIterator(read_options);
     iterDB->SeekToFirst();
+
+    delete snapRequest;
 
     // This will build the delta set and call the next method w/ "resume method" bound
     buildDeltaSetWorkerFirstPhase(iterDB, dbFromFirstSnap, firstPhaseSnapshotDir, env);

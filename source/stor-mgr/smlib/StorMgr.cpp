@@ -1101,6 +1101,9 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
                                           },
                                           snapReq);
         }
+        /* Mark the request as complete */
+        qosCtrl->markIODone(*snapReq, diskio::diskTier);
+
         snapReq->smio_snap_resp_cb(err, snapReq, options, db, snapReq->retryReq, snapReq->unique_id);
     } else {
         std::string snapDir;
@@ -1117,10 +1120,12 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
                                           snapReq);
         }
 
+        /* Mark the request as complete */
+        qosCtrl->markIODone(*snapReq, diskio::diskTier);
+
         snapReq->smio_persist_snap_resp_cb(err, snapReq, snapDir, env);
     }
-    /* Mark the request as complete */
-    qosCtrl->markIODone(*snapReq, diskio::diskTier);
+
 }
 
 void
@@ -1213,6 +1218,8 @@ ObjectStorMgr::applyRebalanceDeltaSet(SmIoReq* ioReq)
             // we will stop applying object metadata/data and report error to migr mgr
             LOGERROR << "Failed to apply object metadata/data " << objId
                      << ", " << err;
+
+            delete rebalReq;
             break;
         }
     }

@@ -609,7 +609,6 @@ set(SOURCE_FILES
     ./orch-mgr/include/orchMgr.h
     ./orch-mgr/om-common/om-service.cpp
     ./orch-mgr/om-common/om-svc-handler.cpp
-    ./orch-mgr/om-dlt/deletescheduler.cpp
     ./orch-mgr/om-dlt/OmClusMap.cpp
     ./orch-mgr/om-dlt/OmDataPlacement.cpp
     ./orch-mgr/om-dlt/OmDeploy.cpp
