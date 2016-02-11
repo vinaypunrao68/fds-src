@@ -79,14 +79,32 @@ void SmDiskMap::diskMapInitialize() {
     return;
 }
 
+DiskIdSet
+SmDiskMap::initAndValidateDiskMap() {
+    diskMapInitialize();
+
+    DiskIdSet badDisks;
+    for (auto& diskId : ssd_ids) {
+        if (!isDiskAlive(diskId)) {
+            badDisks.insert(diskId);
+        }
+    }
+
+    for (auto& diskId : hdd_ids) {
+        if (!isDiskAlive(diskId)) {
+            badDisks.insert(diskId);
+        }
+    }
+    return badDisks;
+}
+
 Error
 SmDiskMap::handleNewDiskMap() {
-    diskMapInitialize();
     return superblock->redistributeTokens(hdd_ids,ssd_ids, disk_map, diskDevMap);
 }
 
 bool
-SmDiskMap::isDiskAlive(DiskId& diskId) {
+SmDiskMap::isDiskAlive(const DiskId& diskId) {
     return superblock->isDiskAlive(diskId);
 }
 
@@ -124,9 +142,10 @@ SmDiskMap::loadPersistentState() {
     // it will handle changes in diskmap (vs. its persisted state)
     Error err = superblock->loadSuperblock(hdd_ids, ssd_ids, disk_map, diskDevMap);
     if (err.ok()) {
-        LOGDEBUG << "Loaded superblock " << *superblock;
+        LOGNOTIFY << "SM ON-DISK state: Non Pristine";
+        LOGNORMAL << "Loaded superblock: " << *superblock;
     } else if (err == ERR_SM_NOERR_PRISTINE_STATE) {
-        LOGNOTIFY << "SM is coming up from CLEAN state";
+        LOGNOTIFY << "SM ON-DISK state: Pristine ";
     } else {
         LOGERROR << "Failed to load superblock " << err;
     }
@@ -247,6 +266,10 @@ void SmDiskMap::mod_startup() {
 
 void SmDiskMap::mod_shutdown() {
     Module::mod_shutdown();
+}
+
+bool SmDiskMap::loadDiskMap() {
+    return getDiskMap();
 }
 
 bool SmDiskMap::getDiskMap() {

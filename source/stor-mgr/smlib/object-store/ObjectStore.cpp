@@ -280,7 +280,7 @@ ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& ti
     }
 
     if (diskMap->isDiskAlive(diskId)) {
-        LOGDEBUG << "Disk with diskId = " << diskId << " accessible. Ignoring IO failure event.";
+        LOGDEBUG << "Disk: " << diskId << " accessible. Ignoring IO failure event.";
         return ERR_OK;
     }
     diskMap->makeDiskOffline(diskId);
@@ -295,18 +295,30 @@ ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& ti
     }
     if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.useSsdForMeta")) {
         if (diskMap->getTotalDisks(tier) > 1) {
+            // Remove token files and meta dbs for the lost disk.
+            movedTokensFileCleanup(lostTokens);
+            // Remove lost disk references from disk map and superblock.
+            // Recompute and reassign tokens to other disks on this SM.
             diskMap->eraseLostDiskReferences(diskId, tier);
             diskMap->removeDiskAndRecompute(diskId, tier);
-            movedTokensFileCleanup();
+            for (auto& token : lostTokens) {
+                movedTokens.erase(token);
+            }
         } else {
             LOGCRITICAL << "Disk Failure. Node is out of disks!";
             return ERR_SM_NO_DISK;
         }
     } else {
         if (diskMap->getTotalDisks() > 1) {
+            // Remove token files and meta dbs for the lost disk.
+            movedTokensFileCleanup(lostTokens);
+            // Remove lost disk references from disk map and superblock.
+            // Recompute and reassign tokens to other disks on this SM.
             diskMap->eraseLostDiskReferences(diskId, tier);
             diskMap->removeDiskAndRecompute(diskId, tier);
-            movedTokensFileCleanup();
+            for (auto& token : lostTokens) {
+                movedTokens.erase(token);
+            }
         } else {
             LOGCRITICAL << "Disk Failure. Node is out of disks!";
             return ERR_SM_NO_DISK;
@@ -438,6 +450,13 @@ ObjectStore::handleDltClose(const DLT* dlt) {
 
 fds_bool_t
 ObjectStore::doResync() const {
+    // if some tokens of this sm has been redistributed
+    // due to disk failure or ownership change wrt
+    // disk and token, override peristed resync
+    // instruction.
+    if (movedTokens.size() > 0) {
+        return true;
+    }
     if (diskMap) {
         return diskMap->doResync();
     } else {
@@ -1600,12 +1619,49 @@ ObjectStore::updateMediaTrackers(fds_token_id smTokId,
     }
 }
 
+bool
+ObjectStore::duplicateDiskMap() {
+    SmDiskMap tempDiskMap("Temp disk map");
+    tempDiskMap.loadDiskMap();
+
+    auto addHDDs = DiskUtils::diffDiskSet(tempDiskMap.getDiskIds(diskio::diskTier),
+                                          diskMap->getDiskIds(diskio::diskTier));
+
+    auto rmHDDs = DiskUtils::diffDiskSet(diskMap->getDiskIds(diskio::diskTier),
+                                         tempDiskMap.getDiskIds(diskio::diskTier));
+
+    auto addSSDs = DiskUtils::diffDiskSet(tempDiskMap.getDiskIds(diskio::flashTier),
+                                          diskMap->getDiskIds(diskio::flashTier));
+
+    auto rmSSDs = DiskUtils::diffDiskSet(diskMap->getDiskIds(diskio::flashTier),
+                                         tempDiskMap.getDiskIds(diskio::flashTier));
+
+    if (addHDDs.size() == 0 &&
+        rmHDDs.size() == 0 &&
+        addSSDs.size() == 0 &&
+        rmHDDs.size() == 0) {
+        return true;
+    } else {
+        return false;
+    }
+}
 
 void
 ObjectStore::handleNewDiskMap() {
+
+    if (duplicateDiskMap()) {
+        LOGNOTIFY << "Duplicate disk map. Ignoring disk map change notification";
+        return;
+    }
+
+    auto badDisks = diskMap->initAndValidateDiskMap();
+    for (auto &disk : badDisks) {
+        movedTokensFileCleanup(diskMap->getSmTokens(disk));
+    }
+
     auto err = diskMap->handleNewDiskMap();
-    auto resyncRequired = (movedTokens.size() > 0);
     movedTokensFileCleanup();
+    auto resyncRequired = (movedTokens.size() > 0);
 
     if (err.ok()) {
         // open metadata store for tokens owned by this SM
@@ -1685,21 +1741,27 @@ ObjectStore::handleDiskChanges(const bool &added,
     }
 }
 void
-ObjectStore::movedTokensFileCleanup() {
+ObjectStore::movedTokensFileCleanup(SmTokenSet lostTokens) {
+    auto tokenSet = lostTokens;
+    if (lostTokens.size() == 0) {
+        tokenSet = movedTokens;
+    }
     if (metaStore->isUp()) {
         /**
          * Delete in-memory and persisted levelDB files(if exists)
          * for given SM Tokens.
          */
         LOGNOTIFY << "Close and delete metadata DBs for smTokens ";
-        metaStore->closeAndDeleteMetadataDbs(movedTokens);
+        metaStore->closeAndDeleteMetadataDbs(tokenSet);
     }
 
     if (dataStore->isUp()) {
         LOGNOTIFY << "Close and delete token files for smTokens ";
-        dataStore->closeAndDeleteSmTokensStore(movedTokens, true);
+        dataStore->closeAndDeleteSmTokensStore(tokenSet, true);
     }
-    movedTokens.clear();
+    if (lostTokens.size() == 0) {
+        movedTokens.clear();
+    }
 }
 
 /**

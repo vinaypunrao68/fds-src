@@ -113,7 +113,11 @@ namespace fds
 
         if (disk->dsk_parent == disk)
         {
-            if (disk->dsk_capacity_gb() >= DISK_MINIMUM_CAPACITY_GB)
+            if (!disk->dsk_is_fds_disk())
+            {
+                LOGNORMAL << "Non-FDS disk removed from usage consideration (device = " << disk << ")";
+            }
+            else if (disk->dsk_capacity_gb() >= DISK_MINIMUM_CAPACITY_GB)
             {
                 dsk_qualify_cnt++;
                 DiskInventory::dsk_add_to_inventory_mtx(disk, &dsk_hdd);
