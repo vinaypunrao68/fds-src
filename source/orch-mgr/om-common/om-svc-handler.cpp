@@ -713,11 +713,28 @@ OmSvcHandler::setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     if (volumePtr != nullptr) {
         auto volDescPtr = volumePtr->vol_get_properties();
         fpi::VolumeGroupCoordinatorInfo volCoordinatorInfo = msg->coordinator;
+        if (volCoordinatorInfo.id.svc_uuid == 0) {
+            if (hdr->msg_src_id != volDescPtr->getCoordinatorId().svc_uuid) {
+                LOGWARN << "Attempting clear coordinator from svc: " << hdr->msg_src_id
+                    << " volid: " << volId
+                    << " from AM that isn't a coordinator anymore.  Rejected";
+                hdr->msg_code = ERR_INVALID;
+                sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+                return;
+            }
+            /* No need for taking incoming version into account for now.  Changing to zero
+             * so that zero is persisted as version when we clear and persist in configdb
+             */
+            volCoordinatorInfo.version = 0;
+        }
         volDescPtr->setCoordinatorId(volCoordinatorInfo.id);
         volDescPtr->setCoordinatorVersion(volCoordinatorInfo.version);
         LOGNOTIFY << "Set volume coordinator for volid: " << volId
             << " coordinator: " << volCoordinatorInfo.id.svc_uuid;
-        // Persist the new desc w/ coordinator info in configDB and broadcast it
+        /* Persist the new desc w/ coordinator info in configDB.  NOTE: below vol_modify will
+         * broadcast modified volume around the domain.  This isn't necessary when we
+         * set the coordinator.  This is a side effect of the way vol_modify is implemented
+         */
         auto boostPtr = boost::make_shared<VolumeDesc>(*volDescPtr);
         volumePtr->vol_modify(boostPtr);
         e = ERR_OK;
