@@ -10,6 +10,18 @@ namespace fds
 {
     extern FdsProcess *g_fdsprocess;
 
+    static constexpr long MOUNT_OPTION_SKIP = -1;
+    static constexpr long MOUNT_OPTION_FS   = -2;
+
+    // Add options to this map if options are added in /etc/fstab
+    MountOptionMap mountOptionMap = {
+            {"noatime", MS_NOATIME} ,
+            {"nodiratime", MS_NODIRATIME},
+            {"noauto", MOUNT_OPTION_SKIP},  // skip this option when mounting
+            {"discard", MOUNT_OPTION_FS}    // filesystem-specific option
+    };
+
+
     FileSystemTable::FileSystemTable (std::string fstabFile) : m_tabFile (fstabFile)
     {
     }
@@ -86,5 +98,41 @@ namespace fds
                 fileSystemsToMount.push_back (vectIter->m_deviceName);
             }
         }
+    }
+
+    unsigned long FileSystemTable::parseMountOptions(std::string mountOptions, std::string& fsMountOptions)
+    {
+        unsigned long flags = 0;
+        std::vector<std::string> options;
+        std::istringstream s(mountOptions);
+        std::string option;
+        LOGDEBUG << "Parsing mount options " << mountOptions.c_str();
+        while (getline(s, option, ','))
+        {
+            long flag = fds::mountOptionMap[option];
+            if (flag > 0)
+            {
+                LOGDEBUG << "Adding mount flag for option " << option;
+                flags |= flag;
+            }
+            else if (flag == MOUNT_OPTION_SKIP)
+            {
+                LOGDEBUG << "Not using mount option " << option;
+            }
+            else if (flag == MOUNT_OPTION_FS)
+            {
+                LOGDEBUG << "Adding filesystem specific mount option " << option;
+                if (fsMountOptions.empty())
+                {
+                    fsMountOptions.append(",");
+                }
+                fsMountOptions.append(option);
+            }
+            else
+            {
+                LOGWARN << "Unknown mount option " << option << ", ignoring";
+            }
+        }
+        return flags;
     }
 }  // namespace fds
