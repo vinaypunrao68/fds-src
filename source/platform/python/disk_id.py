@@ -51,6 +51,8 @@ class Disk:
         self.dsk_bus = Disk.DISK_BUS_NA
         self.dsk_os_use = is_os_disk
 
+        self.target = None
+
         # parse disk information
         self.__parse_with_lshw(path, virtualized)
 
@@ -113,6 +115,11 @@ class Disk:
         tree = Disk.dsk_lshw_xml
         root = tree.getroot()
         for node in root.findall('node'):
+            type=node.get('id')
+            if type == 'cdrom':
+                continue
+            target=type.partition(':')
+            self.target = target[2]
             if node.get('id') == 'cdrom':
                 continue
             node_logicalname = node.find('logicalname')
@@ -384,33 +391,31 @@ if __name__ == "__main__":
 
     if options.stor_cli:
         for disk in dev_list:
-            if disk.get_type() == Disk.DSK_TYP_UNKNOWN:
-                sys.stdout.write ("  Phase 2:   ")
-                sys.stdout.flush()
-                dbg_print ('')
+            sys.stdout.write ("  Phase 2:   ")
+            sys.stdout.flush()
+            dbg_print ('')
 
-                controller_disk_list = disk_type_with_stor_cli(options.stor_cli)
+            controller_disk_list = disk_type_with_stor_cli(options.stor_cli)
 
-                sys.stdout.write ("Complete")
-                sys.stdout.flush()
+            sys.stdout.write ("Complete")
+            sys.stdout.flush()
 
-                break
+            break
     print ''
 
     dbg_print ("controller_disk_list = " + ', '.join(controller_disk_list))
 
     for disk in dev_list:
-        if disk.get_type() == Disk.DSK_TYP_UNKNOWN:
-            print disk.get_type(), disk.get_path()
-            if len (controller_disk_list) > 0:
-                disk.dsk_typ = controller_disk_list.pop(0)
-                if disk.dsk_typ == Disk.DSK_TYP_HDD:
-                    disk.set_bus (controller_disk_list.pop(0))
-            else:
-                # devices exist in /dev/sd* that can't be identified.
-                print ( "Error:  Identified but unknown type devices remain.  Try using -s perhaps?  Can not continue.")
-                #debug_dump (dev_list)
-                sys.exit(1)
+        print disk.get_type(), disk.get_path()
+        if len (controller_disk_list) > 0 and disk.target:  # don't try to use controller info for internal disks
+            disk.dsk_typ = controller_disk_list.pop(0)
+            if disk.dsk_typ == Disk.DSK_TYP_HDD:
+                disk.set_bus (controller_disk_list.pop(0))
+        elif disk.get_type() == Disk.DSK_TYP_UNKNOWN:
+            # devices exist in /dev/sd* that can't be identified.
+            print ( "Error:  Identified but unknown type devices remain.  Try using -s perhaps?  Can not continue.")
+            #debug_dump (dev_list)
+            sys.exit(1)
 
     # no more devices are known in /dev/sd*, but we have more drives documented on hardware controllers
     if len (controller_disk_list) > 0:
