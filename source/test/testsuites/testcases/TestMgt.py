@@ -323,7 +323,7 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                                           (scenario.nd_conf_dict['scenario-name']))
                     raise Exception
 
-        elif (action.count("remove") > 0) or (action.count("kill") > 0) or (action.count("uninst") > 0) or (action.count("shutdown") > 0):
+        elif (action.count("remove") > 0) or (action.count("kill") > 0) or (action.count("term") > 0) or (action.count("uninst") > 0) or (action.count("shutdown") > 0):
             # Shutdown the node according to the specified action.
             for script in nds:
                 found = False
@@ -347,6 +347,9 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                                                                     maxwait= maxwait))
                         if action.count("kill") > 0:
                             suite.addTest(TestFDSSysMgt.TestNodeKill(node=node))
+
+                        if action.count("term") > 0:
+                            suite.addTest(TestFDSSysMgt.TestNodeKill(node=node, sig="SIGTERM"))
 
                         if action.count("uninst") > 0:
                             suite.addTest(TestFDSEnvMgt.TestFDSDeleteInstDir(node=node))
@@ -531,7 +534,7 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
             elif service == "am":
                 suite.addTest(TestFDSServiceMgt.TestAMActivate(node=node))
 
-        if (action.count("stop") > 0) or (action.count("remove")) or (action.count("add")) or (action.count("start")) or (action.count("kill")) > 0:
+        if (action.count("stop") > 0) or (action.count("remove")) or (action.count("add")) or (action.count("start")) or (action.count("kill") or (action.count("term") > 0)) > 0:
             if selectedServices == None:
                 selectedServices = service.split(',')
             if fdsNodes is not None:
@@ -574,6 +577,18 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                                     suite.addTest(TestFDSServiceMgt.TestOMKill(node=node))
                                 elif service == "am":
                                     suite.addTest(TestFDSServiceMgt.TestAMKill(node=node))
+
+                            elif (action.count("term")) > 0:
+                                if service == "pm":
+                                    suite.addTest(TestFDSServiceMgt.TestPMKill(node=node, sig="SIGTERM"))
+                                elif service == "dm":
+                                    suite.addTest(TestFDSServiceMgt.TestDMKill(node=node, sig="SIGTERM"))
+                                elif service == "sm":
+                                    suite.addTest(TestFDSServiceMgt.TestSMKill(node=node, sig="SIGTERM"))
+                                elif service == "om":
+                                    suite.addTest(TestFDSServiceMgt.TestOMKill(node=node, sig="SIGTERM"))
+                                elif service == "am":
+                                    suite.addTest(TestFDSServiceMgt.TestAMKill(node=node, sig="SIGTERM"))
 
                             elif (action.count("start")) > 0:
                                 if service == "pm":
@@ -621,16 +636,28 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
                             suite.addTest(TestFDSServiceMgt.TestAMStop(node=node))
 
                 elif (action.count("kill")) > 0:
-                        if service == "pm":
-                            suite.addTest(TestFDSServiceMgt.TestPMKill(node=node))
-                        elif service == "dm":
-                            suite.addTest(TestFDSServiceMgt.TestDMKill(node=node))
-                        elif service == "sm":
-                            suite.addTest(TestFDSServiceMgt.TestSMKill(node=node))
-                        elif service == "om":
-                            suite.addTest(TestFDSServiceMgt.TestOMKill(node=node))
-                        elif service == "am":
-                            suite.addTest(TestFDSServiceMgt.TestAMKill(node=node))
+                    if service == "pm":
+                        suite.addTest(TestFDSServiceMgt.TestPMKill(node=node))
+                    elif service == "dm":
+                        suite.addTest(TestFDSServiceMgt.TestDMKill(node=node))
+                    elif service == "sm":
+                        suite.addTest(TestFDSServiceMgt.TestSMKill(node=node))
+                    elif service == "om":
+                        suite.addTest(TestFDSServiceMgt.TestOMKill(node=node))
+                    elif service == "am":
+                        suite.addTest(TestFDSServiceMgt.TestAMKill(node=node))
+
+                elif (action.count("term")) > 0:
+                    if service == "pm":
+                        suite.addTest(TestFDSServiceMgt.TestPMKill(node=node, sig="SIGTERM"))
+                    elif service == "dm":
+                        suite.addTest(TestFDSServiceMgt.TestDMKill(node=node, sig="SIGTERM"))
+                    elif service == "sm":
+                        suite.addTest(TestFDSServiceMgt.TestSMKill(node=node, sig="SIGTERM"))
+                    elif service == "om":
+                        suite.addTest(TestFDSServiceMgt.TestOMKill(node=node, sig="SIGTERM"))
+                    elif service == "am":
+                        suite.addTest(TestFDSServiceMgt.TestAMKill(node=node, sig="SIGTERM"))
 
 
         if (action.count("verifydown") > 0):
