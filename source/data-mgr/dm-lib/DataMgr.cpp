@@ -530,7 +530,28 @@ Error DataMgr::addVolume(const std::string& vol_name,
     // create vol catalogs, etc first
 
     bool fPrimary = false;
-    bool fOldVolume = (!vdesc->isSnapshot() && vdesc->isStateCreated());
+    bool fOldVolume = (vdesc->isStateCreated() ||
+                       vdesc->isStateActive() ||
+                       vdesc->isStateMarkedForDeletion());
+    bool fDbExists = false;
+    // double check for file on disk
+    std::string dbfile;
+    if (vdesc->isSnapshot()) {
+        dbfile = dmutil::getLevelDBFile(MODULEPROVIDER()->proc_fdsroot(),vdesc->srcVolumeId , vdesc->volUUID);
+    } else {
+        dbfile = dmutil::getLevelDBFile(MODULEPROVIDER()->proc_fdsroot(), vdesc->volUUID);
+    }
+    LOGDEBUG << dbfile;
+    fDbExists = util::dirExists(dbfile);
+
+    if (fDbExists && !fOldVolume) {
+        LOGWARN << "db file [" << dbfile << "] exists - assuming old volume:" << vdesc->volUUID;
+        fOldVolume = true;
+    }
+
+    if (fOldVolume && !fDbExists) {
+        LOGWARN << "previously active vol:"<< vdesc->volUUID <<", but dbfile missing.. this should be either be a new Node or DM was down during previous addVolume";
+    }
 
     if (vdesc->isClone()) {
         // clone happens only on primary
@@ -546,15 +567,20 @@ Error DataMgr::addVolume(const std::string& vol_name,
               << " clone:" << vdesc->isClone()
               << " snap:" << vdesc->isSnapshot()
               << " state:" << vdesc->getState()
-              << " created:" << vdesc->isStateCreated()
               << " old:" << fOldVolume
               << " primary:" << fPrimary;
 
+    if (vdesc->isSnapshot()) {
+        if (!fPrimary) {
+            LOGWARN << "not primary - nothing to do for snapshot "
+                    << "for vol:" << vdesc->srcVolumeId;
+            return err;
+        }
 
-    if (vdesc->isSnapshot() && !fPrimary) {
-        LOGWARN << "not primary - nothing to do for snapshot "
-                << "for vol:" << vdesc->srcVolumeId;
-        return err;
+        if (fOldVolume) {
+            LOGWARN << "previous existing snap.. should not happen";
+            return ERR_OK;
+        }
     }
 
     // do this processing only in the case..
@@ -960,6 +986,9 @@ int DataMgr::mod_init(SysParams const *const param)
     features.setTimelineEnabled(CONFIG_BOOL("fds.feature_toggle.common.enable_timeline", true));
     timelineMgr.reset(new timeline::TimelineManager(this));
 
+    dmFullnessThreshold = MODULEPROVIDER()->get_fds_config()->\
+            get<fds_uint32_t>("fds.dm.disk_fullness_threshold", 75);
+
     /**
      * FEATURE TOGGLE: Volume Open Support
      * Thu 02 Apr 2015 12:39:27 PM PDT
@@ -1012,6 +1041,7 @@ int DataMgr::mod_init(SysParams const *const param)
 
     fileTransfer.reset(new net::FileTransferService(MODULEPROVIDER()->proc_fdsroot()->dir_filetransfer(), MODULEPROVIDER()->getSvcMgr()));
     refCountMgr.reset(new refcount::RefCountManager(this));
+    requestHandler.reset(new dm::Handler(*this));
     return 0;
 }
 
@@ -1530,6 +1560,14 @@ DmPersistVolDB::ptr DataMgr::getPersistDB(fds_volid_t volId) {
 
     DmPersistVolDB::ptr voldDBPtr = boost::dynamic_pointer_cast <DmPersistVolDB>(persistVolDirPtr);
     return voldDBPtr;
+}
+
+void DataMgr::addToQueue(DmRequest* req) {
+    requestHandler->addToQueue(req);
+}
+
+void DataMgr::addToQueue(std::function<void()>&& func, fds_volid_t volId) {
+    requestHandler->addToQueue(new DmFunctor(volId, func));
 }
 
 Error DataMgr::copyVolumeToOtherDMs(fds_volid_t volId) {

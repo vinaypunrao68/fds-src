@@ -6,6 +6,7 @@
 #include <util/path.h>
 #include <util/stringutils.h>
 #include <unistd.h> // for unlink
+#include <util/disk_utils.h>
 
 namespace fds { namespace timeline {
 #define TIMELINE_FEATURE_CHECK(...) if (!dm->features.isTimelineEnabled()) { return ERR_FEATURE_DISABLED ;}
@@ -135,9 +136,22 @@ Error TimelineManager::unloadSnapshot(fds_volid_t volid, fds_volid_t snapshotid)
 }
 
 Error TimelineManager::createSnapshot(VolumeDesc *vdesc) {
+    Error err;
     TIMELINE_FEATURE_CHECK();
+
+    float_t dm_user_repo_pct_used = getUsedCapacityAsPct();
+    if (dm_user_repo_pct_used >= dm->dmFullnessThreshold) {
+           err = ERR_DM_DISK_CAPACITY_ERROR_THRESHOLD;
+            LOGERROR << "ERROR: DM user-repo already used " << dm_user_repo_pct_used
+                    << "% of available storage space!"
+                     <<" Not creating a new snapshot for vol: ." << vdesc->volUUID
+                    << err;
+            return err;
+    }
+
+
     util::TimeStamp createTime = util::getTimeStampMicros();
-    Error err = dm->timeVolCat_->copyVolume(*vdesc);
+    err = dm->timeVolCat_->copyVolume(*vdesc);
     if (err.ok()) {
         // add it to timeline
         if (dm->features.isTimelineEnabled()) {
@@ -260,6 +274,21 @@ Error TimelineManager::createClone(VolumeDesc *vdesc) {
 
     return err;
 }
+
+float_t
+TimelineManager::getUsedCapacityAsPct() {
+    // Get fds root dir
+    const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
+    // Get user-repo dir
+    DiskUtils::CapacityPair cap = DiskUtils::getDiskConsumedSize(root->dir_user_repo_dm());
+
+    // Calculate pct
+    float_t result = ((1. * cap.usedCapacity) / cap.totalCapacity) * 100;
+    GLOGDEBUG << "Found DM user-repo disk capacity of (" << cap.usedCapacity << "/" << cap.totalCapacity << ") = " << result;
+
+    return result;
+}
+
 
 }  // namespace timeline
 }  // namespace fds
