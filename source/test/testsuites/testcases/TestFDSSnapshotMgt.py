@@ -137,7 +137,6 @@ class TestCreateVolClone(TestCase.FDSTestCase):
         self.passedSnapshort_end = snapshot_end
 
     def test_CreateVolClone(self):
-        #create clone: volume clone -volume_id 15 -name clone1 -time <specify time after s2>
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
@@ -163,6 +162,8 @@ class TestCreateVolClone(TestCase.FDSTestCase):
 
         # Case3:Two snapshots are passed -> timeline is between first and second snapshot
         elif self.passedSnapshort_start is not None and self.passedSnapshort_end is not None:
+            time_start = 0
+            time_end = 0
             for snapshot in snapshot_list:
                 if str(snapshot.name) == self.passedSnapshort_start:
                     time_start = snapshot.created
