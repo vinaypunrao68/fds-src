@@ -362,7 +362,9 @@ namespace fds
 
                         realDeviceName = item->second;
 
-                        auto retCode = mount (realDeviceName.c_str(), tabEntry->m_mountPath.c_str(), tabEntry->m_fileSystemType.c_str(), 0, nullptr);
+                        std::string options;
+                        unsigned long flags = fds::FileSystemTable::parseMountOptions(tabEntry->m_mountOptions, options);
+                        auto retCode = mount (realDeviceName.c_str(), tabEntry->m_mountPath.c_str(), tabEntry->m_fileSystemType.c_str(), flags, options.empty() ? nullptr : options.c_str() );
 
                         if (0 != retCode)
                         {
