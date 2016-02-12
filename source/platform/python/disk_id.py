@@ -120,8 +120,6 @@ class Disk:
                 continue
             target=type.partition(':')
             self.target = target[2]
-            if node.get('id') == 'cdrom':
-                continue
             node_logicalname = node.find('logicalname')
 
             if node_logicalname is None:
