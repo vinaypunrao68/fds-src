@@ -41,11 +41,17 @@ while getopts "duD:P:h" opt; do
   esac
 done
 
+if [ ! -z "${CHANNEL}" ]; then
+    build_channel=${CHANNEL}
+else
+    build_channel="nightly"
+fi
+
 ORGDIR="$(pwd)"
 # Make sure we are in the build script dir
 cd "$( dirname "${BASH_SOURCE[0]}" )"
-ARTIFACTORY_URL="http://jenkins:UP93STXWFy5c@artifacts.artifactoryonline.com/artifacts/simple/formation-apt/pool/beta/"
-ARTIFACTORY_INTERNAL_URL="http://jenkins:UP93STXWFy5c@bld-artifactory:8081/artifactory/simple/formation-apt/pool/beta/"
+ARTIFACTORY_URL="http://jenkins:UP93STXWFy5c@artifacts.artifactoryonline.com/artifacts/simple/formation-apt/pool/${build_channel}/"
+ARTIFACTORY_INTERNAL_URL="http://jenkins:UP93STXWFy5c@bld-artifactory:8081/artifactory/simple/formation-apt/pool/${build_channel}/"
 # If these aren't defined - we assign default values
 DEPS="${DEPS:-fds-deps_2015.06.19-32_amd64.deb}"
 PLATFORM="${PLATFORM:-fds-platform-rel_2015.06.19-32_amd64.deb}"
