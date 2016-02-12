@@ -76,6 +76,12 @@ public interface MetricRepository extends CRUDRepository<IVolumeDatapoint, Long>
 
     /**
      *
+     * @return the total number of used bytes gathered via vfstat looking at mount points.
+     */
+    Double sumUsedBytes();
+
+    /**
+     *
      * @param volumeName the volume to query
      * @param metrics the list of metrics to query.  If null or empty, all metrics are returned.
      *

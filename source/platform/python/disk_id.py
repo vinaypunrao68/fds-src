@@ -26,7 +26,7 @@ class Disk:
     DISK_BUS_SAS = 'SAS'
     DISK_BUS_NA = 'NA'
 
-    p_dev = re.compile('sd[a-z]$')
+    p_dev = re.compile('sd[a-z]{1,2}$')
 
     # We are using 1000*1000
     # device size with M = 1024*1024:     1907729 MBytes
@@ -44,7 +44,7 @@ class Disk:
         assert re.match(Disk.DSK_PREFIX, path)
 
         self.dsk_path = path
-        self.dsk_cap  = 0
+        self.dsk_cap  = -1
         self.dsk_typ  = Disk.DSK_TYP_UNKNOWN
         self.dsk_formatted = 'Unknown'
         self.dsk_index_use = False
@@ -85,7 +85,8 @@ class Disk:
         if not header_output:
             print >>dest, '#path      os_use  index_use  type  bus   capacity (GB)'
             header_output = True
-        print >>dest, '%-11s%-8s%-11s%-6s%-6s%-d' % (self.dsk_path, self.dsk_os_use, self.dsk_index_use, self.dsk_typ, self.dsk_bus, self.dsk_cap)
+        if self.dsk_cap > 0:
+            print >>dest, '%-11s%-8s%-11s%-6s%-6s%-d' % (self.dsk_path, self.dsk_os_use, self.dsk_index_use, self.dsk_typ, self.dsk_bus, self.dsk_cap)
 
 ## ----------------------------------------------------------------
 
@@ -123,17 +124,21 @@ class Disk:
                 continue
 
             node_size = node.find('size')
-            assert node_size != None
+
+            if node_size is None:
+                continue
 
             units = node_size.get('units')
+
             if units == 'bytes':
                 self.dsk_cap = int(node_size.text) / Disk.DSK_GSIZE
                 break
             else:
                 self.dsk_cap = 0
-                print 'ERROR: lshw units size not implemented for:  ', node_logicalname.text
-                assert False
-        assert self.dsk_cap != 0
+                print 'WARNING: lshw units size not implemented for:  ', node_logicalname.text, ', ignoring. '
+
+        if self.dsk_cap < 0:
+            print 'WARNING: Size not detected for " ', node_logicalname.text, '", will ignore this device'
 
         # match type
         dev = re.split('/', path)
@@ -328,6 +333,7 @@ if __name__ == "__main__":
     parser.add_option('-s', '--stor', dest = 'stor_cli', help = 'Full path and file name of the StorCli binary')
     parser.add_option('-v', '--virtual', dest = 'virtual', action = 'store_true', help = 'Running in a virtualized environment, treats all detected drives as HDDs')
     parser.add_option('-w', '--write', dest = 'write_disk', action = 'store_true', help = 'Writes the disk configuration information file.')
+    parser.add_option('-m', '--map', dest = 'disk_config_dest', help = 'The destination disk config file.')
 
     (options, args)   = parser.parse_args()
     debug_on          = options.debug
@@ -347,7 +353,10 @@ if __name__ == "__main__":
     fds_root = options.fds_root
     if not fds_root.endswith ('/'):
         fds_root += '/'
-    destination_dir = fds_root + "dev"
+    if not options.disk_config_dest:
+        destination_dir = fds_root + "dev"
+    else:
+        destination_dir = options.disk_config_dest
     index_mount_point = fds_root + "sys-repo"
 
     # verify destination directory exists
@@ -355,7 +364,11 @@ if __name__ == "__main__":
         if not os.path.isdir (destination_dir):
             print ( "Error:  Directory '" + destination_dir + "', does not exist.  Can not continue.")
             sys.exit(1)
-
+    elif options.disk_config_dest:
+        print ( "Error: must specify -m(--map) option together with the -w (--write) option.")
+        sys.exit(1)
+    
+    
     os_device_list = discover_os_devices()
 
     sys.stdout.write ('Scanning hardware:  Phase 1:  ')

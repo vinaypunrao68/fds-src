@@ -345,7 +345,7 @@ class FDSConsole(cmd.Cmd):
             print '%10s   =  %5s' % (argv[0], self.config.getSystem(argv[0]))
             return
 
-        modifiablekeys=['username','gridoutput','password','port','host']
+        modifiablekeys=['username','gridoutput','password','port','redis.port']
         if not self.debugTool:
             modifiablekeys.append('host')
 

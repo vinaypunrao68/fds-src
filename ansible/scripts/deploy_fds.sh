@@ -2,12 +2,11 @@
 usage() {
 cat << EOF
 Usage:
-${0##/*} inventory-file local|nightly [debug]
+${0##/*} inventory-file local [debug]
 Deploy FDS to a group of hosts defined in an Ansible inventory file. Can deploy from local Debs or Artifactory release channels.
 inventory-file can be a filename (assumed to exist in {fds-src}/ansible/inventory} or a path to your inventory file
 Examples:
-${0##/*} bld-nightly-nodes nightly
-${0##/*} ../foo/bar/inventories/cody-local-nodes local
+${0##/*} bld-test-nodes local
 EOF
 }
 
@@ -49,6 +48,8 @@ ansible_base_dir="$( cd "${script_dir}/.." && pwd -P)"
 playbooks="${ansible_base_dir}/playbooks"
 ansible_args="${playbooks}/deploy_fds.yml"
 inventory_filename=$(echo "${inventory}" | awk -F '/' '{ print $NF }')
+
+[[ "${deploy_source}" == "nightly" ]] && echo "${0##*/} no longer supports using the nightly package build as an install source.  Please use the nightly installer bundle." && exit 1
 
 D "Inventory:           ${inventory}"
 D "Deploy Artifact:     ${deploy_source}"

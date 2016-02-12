@@ -177,7 +177,7 @@ class DiskTest (unittest.TestCase):
         self.assertFalse(d.formatted)
         d.set_formatted()
         self.assertTrue (d.formatted)
- 
+
     def testDiskCheckForMarkerOS (self):
         d = disk_format.Disk (DiskTest.TEST_PATH, True, True, disk_format.Disk.DISK_TYPE_HDD, 'NA', 200)
         self.assertFalse (d.check_for_fds())
@@ -276,6 +276,19 @@ class DiskTest (unittest.TestCase):
 #        assert mock_call_subproc.call_args_list == expected
 #        assert 4 == mock_call_subproc.call_count
 
+
+
+    @mock.patch ('disk_format.Disk.call_subproc')
+    def testDiskPartitionDriveWBadPartitions (self, mock_call_subproc):
+        d = disk_format.Disk (DiskTest.TEST_PATH, False, False, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
+        partname = DiskTest.TEST_PATH + "1"
+        badpartfile = open(partname, 'w').close()
+        call_list = ['ls', partname]
+        res = subprocess.call (call_list, stdout = None)
+        assert (res == 0)
+        d.partition(1,1)
+        res = subprocess.call (call_list, stdout = None)
+        assert (res == 2)
 
     @mock.patch ('disk_format.Disk.call_subproc')
     def testDiskPartitionDMIndex (self, mock_call_subproc):
@@ -568,9 +581,9 @@ class testDiskUtils (unittest.TestCase):
         for line in output:
             dev = line.strip ('\r\n')
             uuid = self.du.get_uuid(dev)
-            if uuid:   
+            if uuid:
                 retdev = self.du.find_device_by_uuid_str("UUID="+uuid)
-                assert retdev == dev 
+                assert retdev == dev
 
     @mock.patch ('disk_format.DiskUtils.call_subproc')
     def testCleanUpMounted (self, mock_subproc):
@@ -649,7 +662,7 @@ class testDiskManager (unittest.TestCase):
 
     @mock.patch ('disk_format.Disk.verifySystemDiskPartitionSize')
     @mock.patch ('disk_format.Disk.format')
-    @mock.patch ('disk_format.Disk.partition') 
+    @mock.patch ('disk_format.Disk.partition')
     def testDiskManagerFormatExisting (self, mock_verifySystemDiskPartitionSize, mock_format, mock_partition):
         self.manager.disk_config_file = 'test_data/disk_config'
         self.manager.load_disk_config_file()
@@ -986,4 +999,4 @@ class testDiskManager (unittest.TestCase):
         uuid = '1'
         base_name="hdd-"
         index = self.manager.generate_mount_point_index(base_name, index, uuid)
-        assert index == 2  
+        assert index == 2

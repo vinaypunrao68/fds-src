@@ -158,15 +158,27 @@
 
     <!-- Formation Data System, INC. maven repo -->
     <repository>
-      <id>release</id>
+      <id>artifactory-release</id>
       <name>artifacts-releases</name>
       <url>http://${user}:${user.passwd}@artifacts.artifactoryonline.com/artifacts/maven-formation</url>
     </repository>
 
     <repository>
-      <id>snapshot</id>
+      <id>artifactory-snapshot</id>
       <name>artifacts-snapshots</name>
       <url>http://${user}:${user.passwd}@artifacts.artifactoryonline.com/artifacts/maven-formation</url>
+    </repository>
+
+    <repository>
+      <id>boulder-release</id>
+      <name>artifacts-releases</name>
+      <url>http://${user}:${user.passwd}@bld-artifactory:8081/artifactory/maven-formation</url>
+    </repository>
+
+    <repository>
+      <id>boulder-snapshot</id>
+      <name>artifacts-snapshots</name>
+      <url>http://${user}:${user.passwd}@bld-artifactory:8081/artifactory/maven-formation</url>
     </repository>
 
     <repository>

@@ -35,8 +35,8 @@ public class InodeMap {
     public InodeMap(IoOps io, ExportResolver exportResolver) {
         this.exportResolver = exportResolver;
         this.io = io;
-        this.usedBytes = new PersistentCounter(io, XdiVfs.DOMAIN, "usedBytes", 0, true);
-        this.usedFiles = new PersistentCounter(io, XdiVfs.DOMAIN, "usedFiles", 0, true);
+        this.usedBytes = new PersistentCounter(io, XdiVfs.DOMAIN, "usedBytes", 0);
+        this.usedFiles = new PersistentCounter(io, XdiVfs.DOMAIN, "usedFiles", 0);
         chunker = new Chunker(io);
     }
 
@@ -130,22 +130,23 @@ public class InodeMap {
         }
     }
 
-    public Inode create(InodeMetadata metadata, long exportId, boolean deferrable) throws IOException {
+    public Inode create(InodeMetadata metadata, long exportId) throws IOException {
         String volumeName = exportResolver.volumeName((int) exportId);
-        Inode inode = doUpdate(metadata, exportId, deferrable);
+        Inode inode = doUpdate(metadata, exportId);
         usedFiles.increment(volumeName);
         return inode;
     }
 
-    private Inode doUpdate(InodeMetadata metadata, long exportId, boolean deferrable) throws IOException {
+    private Inode doUpdate(InodeMetadata metadata, long exportId) throws IOException {
         String volume = exportResolver.volumeName((int) exportId);
         String blobName = blobName(metadata.asInode(exportId));
-        return io.readMetadata(XdiVfs.DOMAIN, volume, blobName).orElse(new FdsMetadata()).lock(m -> {
+        FdsMetadata updated = io.readMetadata(XdiVfs.DOMAIN, volume, blobName).orElse(new FdsMetadata()).lock(m -> {
             Map<String, String> mutableMap = m.mutableMap();
             mutableMap.putAll(metadata.asMap());
-            io.writeMetadata(XdiVfs.DOMAIN, volume, blobName, m.fdsMetadata(), deferrable);
-            return metadata.asInode(exportId);
+            return m.fdsMetadata();
         });
+        io.writeMetadata(XdiVfs.DOMAIN, volume, blobName, updated);
+        return metadata.asInode(exportId);
     }
 
     public int volumeId(Inode inode) {
@@ -160,9 +161,9 @@ public class InodeMap {
         return InodeMetadata.fileId(inode);
     }
 
-    public void update(long exportId, boolean deferrable, InodeMetadata... entries) throws IOException {
+    public void update(long exportId, InodeMetadata... entries) throws IOException {
         for (InodeMetadata entry : entries) {
-            doUpdate(entry, exportId, deferrable);
+            doUpdate(entry, exportId);
         }
     }
 

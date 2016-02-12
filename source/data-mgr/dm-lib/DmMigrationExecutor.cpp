@@ -402,15 +402,8 @@ Error
 DmMigrationExecutor::processTxState(fpi::CtrlNotifyTxStateMsgPtr txStateMsg) {
     Error err;
 
-    DmCommitLog::ptr commitLog;
-    err = dataMgr.timeVolCat_->getCommitlog(volumeUuid, commitLog);
-
-    if (!err.ok()) {
-        LOGERROR << logString() << "Error getting commit log for vol: " << volumeUuid << " with error: " << err;
-        return err;
-    }
-
-    err = commitLog->applySerializedTxs(txStateMsg->transactions);
+    auto volmeta = dataMgr.getVolumeMeta(volumeUuid, false);
+    err = volmeta->applyActiveTxState(txStateMsg->highest_op_id, txStateMsg->transactions);
 
     if (err.ok()) {
         {

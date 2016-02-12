@@ -31,7 +31,7 @@ formation_one_path        := /opt/fds/formation_one
 packages_path             := $(formation_one_path)/packages
 rabbitmq_path             := $(packages_path)/rabbitmq-c-0.7.1
 simpleamqpclient_path     := $(packages_path)/simpleamqpclient-0.7.1
-statscpp_path             := $(packages_path)/fds-stats-client-c-1.0.0
+statscpp_path             := $(packages_path)/fds-stats-client-c-2.0.0
 rabbitmq_lib_path         := $(rabbitmq_path)/lib
 simpleamqpclient_lib_path := $(simpleamqpclient_path)/lib
 statscpp_lib_path         := $(statscpp_path)/lib
@@ -106,7 +106,7 @@ toolchain_incl_flags += $(toolchain_gmock_incl)
 toolchain_incl_flags += $(toolchain_statscpp_incl)
 
 ifdef COVERAGE
-coverage_cc_flags  := --coverage
+coverage_cc_flags  := --coverage -pg
 coverage_cpp_flags := $(coverage_cc_flags)
 coverage_ld_flags  := $(coverage_cc_flags)
 main_ld_flags      += $(coverage_cc_flags)

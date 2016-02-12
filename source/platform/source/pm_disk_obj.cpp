@@ -15,7 +15,6 @@ extern "C" {
 #include "disk_plat_module.h"
 #include "platform_disk_obj.h"               // TODO(donavan) the .h file is named wrong
 #include "disk_print_iter.h"
-#include "disk_mnt_pt_iter.h"
 #include "disk_constants.h"
 
 namespace fds
@@ -82,15 +81,6 @@ namespace fds
             {
                 // In simulation, the mount point is the same as the device.
                 dsk_mount_pt.assign(rs_name);
-            }
-            else
-            {
-                if (this->dsk_parent == this)
-                {   // iterate through the slices and set the mount point to the mount point of the last slice
-                    LOGDEBUG << "getting mount point for " << this->rs_get_name();
-                    DiskMntPtIter    iter;
-                    dsk_dev_foreach(&iter);
-                }
             }
         }
         return dsk_mount_pt;
@@ -178,7 +168,29 @@ namespace fds
     //
     void PmDiskObj::dsk_read_capability()
     {
-        fds_uint64_t    uuid;
+        // Don't look at partitions if we couldn't find the disk marker
+        if (!dsk_read_fds_mark())
+        {
+            return;
+        }
+
+        LOGDEBUG << "Reading capabilities from: " << rs_name;
+        // Storage space is on the last partition
+        dsk_parent->rs_mutex()->lock();
+        auto partition = dsk_parent->dsk_part_head.chain_peek_back<PmDiskObj>();
+        if (partition) {
+            dsk_capability->capacity_gb = partition->dsk_cap_gb;
+            LOGDEBUG << "Discovered storage size: " << partition->dsk_cap_gb;
+        }
+        dsk_parent->rs_mutex()->unlock();
+    }
+
+    // dsk_read_fds_mark
+    // return true if fds mark is found; false otherwise
+    // -------------
+    //
+    bool PmDiskObj::dsk_read_fds_mark()
+    {
         DiskCapability  *tmp;
 
         if (dsk_capability == NULL)
@@ -189,27 +201,31 @@ namespace fds
             if (dsk_capability == NULL)
             {
                 dsk_capability = tmp;
-            }else {
+            }
+            else
+            {
                 delete tmp;
             }
             rs_mutex()->unlock();
         }
-        LOGDEBUG << "Reading capabilities from: " << rs_name;
+
         dsk_capability->dsk_capability_read();
+        dsk_is_fds = dsk_capability->initialized;
+        return dsk_is_fds;
+    }
 
-        // Don't look at partitions if we couldn't find the disk marker
-        if (!dsk_capability->initialized) {
-            return;
+    // Determine whether it's an fds disk (read fds mark); only if use_new_superblock
+    //
+    void PmDiskObj::dsk_set_fds_disk(bool use_new_superblock)
+    {
+        if (!use_new_superblock)
+        {
+            dsk_is_fds = true;
         }
-
-        // Storage space is on the last partition
-        dsk_parent->rs_mutex()->lock();
-        auto partition = dsk_parent->dsk_part_head.chain_peek_back<PmDiskObj>();
-        if (partition) {
-            dsk_capability->capacity_gb = partition->dsk_cap_gb;
-            LOGDEBUG << "Discovered storage size: " << partition->dsk_cap_gb;
+        if (!dsk_is_fds)
+        {
+            dsk_read_fds_mark();
         }
-        dsk_parent->rs_mutex()->unlock();
     }
 
     // dsk_read_uuid

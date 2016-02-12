@@ -179,16 +179,23 @@ class SmDiskMap : public Module, public boost::noncopyable {
 
     // Remove disk from disk map data structures.
     void eraseLostDiskReferences(DiskId& diskId, const diskio::DataTier& tier);
+    /**
+     * Inits and validates the disk(s) in new disk map.
+     * Returns a set of disks which are bad.
+     */
+    DiskIdSet initAndValidateDiskMap();
 
     /**
-     * Goes and reads the updated disk map.
+     * Reads the updated disk map.
      */
     Error handleNewDiskMap();
 
     // check for disk status.
-    bool isDiskAlive(DiskId& diskId);
+    bool isDiskAlive(const DiskId& diskId);
 
     void diskMapInitialize();
+
+    bool loadDiskMap();
 
     /**
      * Module methods
