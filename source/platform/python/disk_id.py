@@ -257,7 +257,7 @@ def disk_type_with_stor_cli (stor_client):
     drive_info_section = re.compile ("^Drive Information :$")
 
     # Only look for online drives, others are not exposed to the OS
-    online_drive_info = re.compile (".* (Onln|JBOD) .* (HDD|SSD) .*") # JBOD used for perccli, only supported by the DELL PERC controller
+    online_drive_info = re.compile (".* (Onln|JBOD) .* (HDD|SSD) .*")
 
     found_drive_info = False
     return_list = []
