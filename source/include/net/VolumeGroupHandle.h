@@ -309,7 +309,7 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     bool replayFromWriteOpsBuffer_(const VolumeReplicaHandle &handle, const int64_t fromOpId);
     void toggleWriteOpsBuffering_(bool enable);
     void resetGroup_(fpi::ResourceState state);
-    EPSvcRequestPtr createSetVolumeGroupCoordinatorMsgReq_();
+    EPSvcRequestPtr createSetVolumeGroupCoordinatorMsgReq_(bool clearCoordinator = false);
     QuorumSvcRequestPtr createPreareOpenVolumeGroupMsgReq_();
     fpi::OpenVolumeRspMsgPtr determineFunctaionalReplicas_(QuorumSvcRequest* openReq);
     QuorumSvcRequestPtr createBroadcastGroupInfoReq_();
