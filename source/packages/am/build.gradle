@@ -43,6 +43,12 @@ task buildDeb(type: Deb) {
 		into 'lib'
 		fileMode 644
 	}
+
+	from( '../../cinder' ){
+		include 'nbdadm.py'
+		into 'bin'
+		fileMode 755
+	}
 }
 
 task deployDeb( dependsOn: 'buildDeb' ) << {
