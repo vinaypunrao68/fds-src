@@ -136,7 +136,7 @@ class AMService(object):
             log.warn('Fail - AM service has not started - unable to locate node')
             return False
 
-    def kill(self, node_ip):
+    def kill(self, node_ip, sig="SIGKILL"):
         '''
         Kill AM service
 
@@ -154,7 +154,7 @@ class AMService(object):
 
         log.info(AMService.kill.__name__)
         log.info('Killing bare_am service')
-        sudo('pkill -9 bare_am')
+        sudo('pkill -{0} bare_am'.format(sig))
         time.sleep(7)
         am_pid_after = sudo('pgrep bare_am')
         #Get new node state
@@ -377,7 +377,7 @@ class DMService(object):
             log.warn('Fail - DM service has not started - unable to locate node')
             return False
 
-    def kill(self, node_ip):
+    def kill(self, node_ip, sig="SIGKILL"):
         '''
         Kill DM service
 
@@ -395,7 +395,7 @@ class DMService(object):
 
         log.info(DMService.kill.__name__)
         log.info('Killing DataMgr service')
-        sudo('pkill -9 DataMgr')
+        sudo('pkill -{0} DataMgr'.format(sig))
         time.sleep(7)
         dm_pid_after = sudo('pgrep DataMgr')
         #Get new node state
@@ -618,7 +618,7 @@ class SMService(object):
             log.warn('Fail - SM service has not started - unable to locate node')
             return False
 
-    def kill(self, node_ip):
+    def kill(self, node_ip, sig="SIGKILL"):
         '''
         Kill SM service
 
@@ -636,7 +636,7 @@ class SMService(object):
 
         log.info(SMService.kill.__name__)
         log.info('Killing StorMgr service')
-        sudo('pkill -9 StorMgr')
+        sudo('pkill -{0} StorMgr'.format(sig))
         time.sleep(7)
         sm_pid_after = sudo('pgrep StorMgr')
         #Get new node state
@@ -865,7 +865,7 @@ class PMService(object):
             log.warn('Fail - PM service has not started - unable to locate node')
             return False
 
-    def kill(self, node_ip):
+    def kill(self, node_ip, sig="SIGKILL"):
         '''
         Kill PM service
 
@@ -883,7 +883,7 @@ class PMService(object):
 
         log.info(PMService.kill.__name__)
         log.info('Killing platformd service')
-        sudo('pkill -9 platformd')
+        sudo('pkill -{0} platformd'.format(sig))
         time.sleep(7)
         pm_pid_after = sudo('pgrep platformd')
         #Get new node state
@@ -997,12 +997,11 @@ class PMService(object):
             return False
 
 class OMService(object):
-    def __init__(self, om_ip, node_ip):
+    def __init__(self, om_ip):
         #self.log_dir = fdscfg.rt_env.get_log_dir()
         #self.om_node =  fdscfg.rt_om_node
         #self.om_ip = self.om_node.nd_conf_dict['ip']
         self.om_ip =  om_ip
-        self.node_ip =  node_ip
         env.user='root'
         env.password='passwd'
         env.host_string = self.om_ip
@@ -1108,7 +1107,7 @@ class OMService(object):
             log.warn('Fail - OM service has not started - unable to locate node')
             return False
 
-    def kill(self, node_ip):
+    def kill(self, node_ip, sig="SIGKILL"):
         '''
         Kill OM service
 
@@ -1126,7 +1125,7 @@ class OMService(object):
 
         log.info(OMService.kill.__name__)
         log.info('Killing om.formation.om.Main service')
-        sudo('pkill -9 {}'.format(om_pid_before))
+        sudo('pkill -{0} {1}'.format(sig, om_pid_before))
         time.sleep(7)
         om_pid_after = sudo("ps aux | grep om.Main | grep -v grep | awk '{print $2}'")
         #Get new node state
