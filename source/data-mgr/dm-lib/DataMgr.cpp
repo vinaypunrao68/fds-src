@@ -508,6 +508,11 @@ VolumeMetaPtr  DataMgr::getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked)
 Error DataMgr::addVolume(const std::string& vol_name,
                          fds_volid_t vol_uuid,
                          VolumeDesc *vdesc) {
+    if (features.isVolumegroupingEnabled() && !amIinVolumeGroup(vol_uuid)) {
+        LOGNORMAL << "Request to add volume that isn't owned by this dm is ignored. volid: "
+            << vol_uuid;
+        return ERR_OK;
+    }
 
     // check if the volume already exists ..
     {
@@ -728,6 +733,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
             return err;
         }else{
             volmeta->setSequenceId(seq_id);
+            LOGNORMAL << volmeta->logString() << " - sequence id read and set";
         }
         /* Set version */
         int32_t version;
@@ -1531,9 +1537,6 @@ DataMgr::getAllVolumeDescriptors()
         GLOGNOTIFY << "Pulled create for vol "
                    << "[" << vol_uuid << ", "
                    << desc.getName() << "]";
-        if (features.isVolumegroupingEnabled() && !amIinVolumeGroup(vol_uuid)) {
-            continue;
-        }
         err = addVolume(getPrefix() + std::to_string(vol_uuid.get()),
                         vol_uuid,
                         &desc);
