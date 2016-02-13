@@ -48,6 +48,7 @@ struct RemoveErroredVolume {
         auto iter = dm->vol_meta_map.find(vol_uuid);
         if (iter != dm->vol_meta_map.end() && iter->second == NULL) {
             dm->vol_meta_map.erase(iter);
+            LOGERROR << "add volume failed for vol:" << vol_uuid;
         }
     }
     DataMgr* dm;
@@ -416,9 +417,9 @@ void DataMgr::deleteUnownedVolumes() {
         /* Flow for deleting the volume is to mark it for delete first
          * followed by acutally deleting it
          */
-        Error err = process_rm_vol(volId, true);        // Mark for delete
+        Error err = removeVolume(volId, true);        // Mark for delete
         if (err == ERR_OK) {
-            err = process_rm_vol(volId, false);         // Do the actual delete
+            err = removeVolume(volId, false);         // Do the actual delete
         }
         // TODO(xxx): Remove snapshots once the api is available
         if (err != ERR_OK) {
@@ -568,7 +569,8 @@ Error DataMgr::addVolume(const std::string& vol_name,
               << " snap:" << vdesc->isSnapshot()
               << " state:" << vdesc->getState()
               << " old:" << fOldVolume
-              << " primary:" << fPrimary;
+              << " primary:" << fPrimary
+              << " name:" << vdesc->name;
 
     if (vdesc->isSnapshot()) {
         if (!fPrimary) {
@@ -799,36 +801,34 @@ Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
     return err;
 }
 
-Error DataMgr::process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
+Error DataMgr::removeVolume(fds_volid_t volId, fds_bool_t fMarkAsDeleted) {
     Error err(ERR_OK);
 
     // mark volume as deleted if it's not empty
-    if (check_only) {
-        // check if not empty and mark volume as deleted to
-        // prevent further updates to the volume as we are going
-        // to remove it
-        err = timeVolCat_->markVolumeDeleted(vol_uuid);
+    if (fMarkAsDeleted) {
+        err = timeVolCat_->markVolumeDeleted(volId);
         if (!err.ok()) {
-            LOGERROR << "Failed to mark volume as deleted " << err;
+            LOGERROR << "failed to mark volume as deleted " << err;
             return err;
         }
-        LOGNORMAL << "Notify volume rm check only, did not "
-                  << " remove vol meta for vol " << std::hex
-                  << vol_uuid << std::dec;
-        // if notify delete asked to only check if deleting volume
-        // was ok; so we return here; DM will get
-        // another notify volume delete with check_only == false to
-        // actually cleanup all other data structures for this volume
         return err;
     }
 
-    // we we are here, check_only == false
-    err = timeVolCat_->deleteEmptyVolume(vol_uuid);
+    // we we are here, fMarkAsDeleted == false
+    err = timeVolCat_->deleteVolume(volId);
     if (err.ok()) {
-        detachVolume(vol_uuid);
+        detachVolume(volId);
+        // NOTE!! DONT worry about the error , as it may return FEATURE_DISABLED & OM cant handle it
+        timelineMgr->removeVolume(volId);
+
+        // remove any user-repo info.
+        const auto root =  MODULEPROVIDER()->proc_fdsroot();
+        std::string dir=util::strformat("%s/%ld", root->dir_user_repo_dm().c_str(), volId.get());
+        LOGNOTIFY << "removing vol:" << volId << " from user-repo:" << dir;
+        boost::filesystem::remove_all(dir);
+
     } else {
-        LOGERROR << "Failed to remove volume " << std::hex
-                 << vol_uuid << std::dec << " " << err;
+        LOGERROR << "failed to remove vol:" << volId << " from volume catalog err:" << err;
     }
 
     return err;
@@ -1882,21 +1882,25 @@ std::string getTempDir(const FdsRootDir* _root, fds_volid_t volId) {
 // location of all snapshots for a volume
 std::string getSnapshotDir(const FdsRootDir* root, fds_volid_t volId) {
     return util::strformat("%s/%ld/snapshot",
-                           root->dir_user_repo_dm().c_str(), volId);
+                           root->dir_user_repo_dm().c_str(), volId.get());
+}
+// location of journal archives
+std::string getTimelineDir(const FdsRootDir* root, fds_volid_t volId) {
+    return util::strformat("%s/%ld",root->dir_timeline_dm().c_str(), volId.get());
 }
 
 std::string getVolumeMetaDir(const FdsRootDir* root, fds_volid_t volId) {
     return util::strformat("%s/%ld/volumemeta",
-                           root->dir_user_repo_dm().c_str(), volId);
+                           root->dir_user_repo_dm().c_str(), volId.get());
 }
 
 std::string getLevelDBFile(const FdsRootDir* root, fds_volid_t volId, fds_volid_t snapId) {
     if (invalid_vol_id < snapId) {
         return util::strformat("%s/%ld/snapshot/%ld_vcat.ldb",
-                               root->dir_user_repo_dm().c_str(), volId.get(), snapId);
+                               root->dir_user_repo_dm().c_str(), volId.get(), snapId.get());
     } else {
         return util::strformat("%s/%ld/%ld_vcat.ldb",
-                               root->dir_sys_repo_dm().c_str(), volId, volId);
+                               root->dir_sys_repo_dm().c_str(), volId.get(), volId.get());
     }
 }
 
