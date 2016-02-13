@@ -869,7 +869,7 @@ SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr &current, const fpi::SvcI
         LOGDEBUG << "THIS NEEDS TO BE FIXED. Should be passing in with complete info.";
         ret = true;
     } else {
-        LOGWARN << "Criteria not met, will not allow update of svcMap";
+        LOGDEBUG << "Criteria not met, will not allow update of svcMap";
     }
 
     return (ret);
