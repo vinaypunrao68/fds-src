@@ -277,60 +277,60 @@ public class ExternalModelConverter {
 
         Optional<Size> extUsage = Optional.empty();
 
-        FDSP_VolumeDescType volDescType = null;
-        try
-        {
-            volDescType = getConfigApi().GetVolInfo( new FDSP_GetVolInfoReqType( internalVolume.getName( ),
-                                                                                 0 /* Local Domain Id */ ) );
-        }
-        catch ( Exception e )
-        {
-            logger.warn( "The specified volume {}:{} encountered an error, reason {}.",
-                         internalVolume.getName(),
-                         internalVolume.getVolId(),
-                         e.getMessage() != null ? e.getMessage() : "none reported" );
-            logger.debug( "", e );
-        }
+//        FDSP_VolumeDescType volDescType = null;
+//        try
+//        {
+//            volDescType = getConfigApi().GetVolInfo( new FDSP_GetVolInfoReqType( internalVolume.getName( ),
+//                                                                                 0 /* Local Domain Id */ ) );
+//        }
+//        catch ( Exception e )
+//        {
+//            logger.warn( "The specified volume {}:{} encountered an error, reason {}.",
+//                         internalVolume.getName(),
+//                         internalVolume.getVolId(),
+//                         e.getMessage() != null ? e.getMessage() : "none reported" );
+//            logger.debug( "", e );
+//        }
 
-        if( volDescType != null )
-        {
-            final Optional<VolumeGroupCoordinatorInfo> coordinatorInfo =
-                Optional.ofNullable( volDescType.getCoordinator( ) );
-            if( coordinatorInfo.isPresent( ) && ( coordinatorInfo.get( )
-                                                                 .getId( )
-                                                                 .getSvc_uuid( ) != 0 ) )
-            {
-                final AsyncAmClientFactory factory =
-                    new AsyncAmClientFactory( SingletonConfiguration.getConfig( ) );
-
-                try
-                {
-                    CompletableFuture<com.formationds.apis.VolumeStatus> volumeStatus =
-                        factory.newClient( coordinatorInfo.get()
-                                                          .getId() )
-                               .volumeStatus( "" /* Local Domain Name */,
-                                              internalVolume.getName() );
-                    final com.formationds.apis.VolumeStatus vstatus = volumeStatus.get();
-                    if( vstatus != null )
-                    {
-                        extUsage =
-                            Optional.of( Size.of( vstatus.getCurrentUsageInBytes( ), SizeUnit.B ) );
-                    }
-                }
-                catch ( IOException | InterruptedException | ExecutionException e )
-                {
-                    logger.warn( "Failed to retrieve volume description for {}:{} - reason: {}.",
-                                 internalVolume.getVolId(),
-                                 internalVolume.getName(),
-                                 e.getMessage() != null ? e.getMessage() : "none reported" );
-                    logger.debug( "", e );
-                }
-            }
-            else
-            {
-                logger.trace( "Volume Coordinator isn't set, will attempt retrieving usage from stats" );
-            }
-        }
+//        if( volDescType != null )
+//        {
+//            final Optional<VolumeGroupCoordinatorInfo> coordinatorInfo =
+//                Optional.ofNullable( volDescType.getCoordinator( ) );
+//            if( coordinatorInfo.isPresent( ) && ( coordinatorInfo.get( )
+//                                                                 .getId( )
+//                                                                 .getSvc_uuid( ) != 0 ) )
+//            {
+//                final AsyncAmClientFactory factory =
+//                    new AsyncAmClientFactory( SingletonConfiguration.getConfig( ) );
+//
+//                try
+//                {
+//                    CompletableFuture<com.formationds.apis.VolumeStatus> volumeStatus =
+//                        factory.newClient( coordinatorInfo.get()
+//                                                          .getId() )
+//                               .volumeStatus( "" /* Local Domain Name */,
+//                                              internalVolume.getName() );
+//                    final com.formationds.apis.VolumeStatus vstatus = volumeStatus.get();
+//                    if( vstatus != null )
+//                    {
+//                        extUsage =
+//                            Optional.of( Size.of( vstatus.getCurrentUsageInBytes( ), SizeUnit.B ) );
+//                    }
+//                }
+//                catch ( IOException | InterruptedException | ExecutionException e )
+//                {
+//                    logger.warn( "Failed to retrieve volume description for {}:{} - reason: {}.",
+//                                 internalVolume.getVolId(),
+//                                 internalVolume.getName(),
+//                                 e.getMessage() != null ? e.getMessage() : "none reported" );
+//                    logger.debug( "", e );
+//                }
+//            }
+//            else
+//            {
+//                logger.trace( "Volume Coordinator isn't set, will attempt retrieving usage from stats" );
+//            }
+//        }
 
         if( !extUsage.isPresent() )
         {
