@@ -148,6 +148,8 @@ float_t ObjectStore::getUsedCapacityAsPct() {
 
     float_t max = 0;
     // For disks
+    //TODO(brian): Rework this to something smarter. Right now we can enter into a loop of RO -> RW -> RO ... if
+    // an SSD hits capacity on an all SSD volume.
     for (auto diskId : diskMap->getDiskIds()) {
         // Get the (used, total) pair
         DiskUtils::CapacityPair capacity = diskMap->getDiskConsumedSize(diskId);
@@ -202,6 +204,12 @@ float_t ObjectStore::getUsedCapacityAsPct() {
         }
 
         if (pct_used > max) {
+            // Basically ignore SSDs for this capacity check UNLESS it's an all SSD system
+            // This may still cause a RO -> RW -> RO ... loop on hybrid systems, but
+            // for now this should be OK
+            if ((diskMap->diskMediaType(diskId) == diskio::FlashTier) && (!diskMap->isAllDiskSSD())) {
+                continue;          
+            }
             max = pct_used;
         }
     }
