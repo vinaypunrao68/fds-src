@@ -31,6 +31,7 @@ public class EvictingCacheTest {
 
         for (int i = 0; i < 1024 * 8; i++) {
             pool.submit(() -> {
+                assertNotNull(cache.unlockedRead(key, c -> c.get(key)));
                 return cache.lock(key, m -> {
                     m.put(new SimpleKey(UUID.randomUUID().toString()), new CacheEntry<>(UUID.randomUUID().toString(), true, false));
                     m.put(key, new CacheEntry<>(UUID.randomUUID().toString(), true, false));
