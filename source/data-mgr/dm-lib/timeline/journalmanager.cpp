@@ -171,32 +171,46 @@ void JournalManager::monitorLogs() {
     char buffer[BUF_LEN] = {0};
     fds_bool_t processedEvent = false;
     fds_bool_t eventReady = false;
+    std::string gzip = util::which("gzip");
+
+    if (gzip.empty()) {
+        LOGWARN << "unable to locate gzip binary, will skip gzipping";
+    }
 
     while (!fStopLogMonitoring) {
         do {
             processedEvent = false;
             std::vector<std::string> volDirs;
             util::getSubDirectories(dmDir, volDirs);
-            LOGDEBUG << "monitoring : " << dmDir;
+            LOGDEBUG << "monitoring : " << dmDir << " subdirs:" << volDirs.size();
 
             for (const auto & d : volDirs) {
                 std::string volPath = dmDir + d + "/";
                 std::vector<std::string> catFiles;
                 util::getFiles(volPath, catFiles);
+                LOGDEBUG << "processing:" << volPath << " with files:" << catFiles.size();
 
                 for (const auto & f : catFiles) {
+                    LOGDEBUG << "file:" << f;
                     if (0 == f.find(leveldb::DEFAULT_ARCHIVE_PREFIX)) {
                         LOGDEBUG << "Found leveldb archive file '" << volPath << f << "'";
                         std::string volTLPath = root->dir_timeline_dm() + d + "/";
                         FdsRootDir::fds_mkdir(volTLPath.c_str());
 
                         std::string srcFile = volPath + f;
-                        std::string destFile = volTLPath + f + ".gz";
+                        std::string destFile = volTLPath + f;
+                        if (!gzip.empty()) destFile += ".gz";
+
                         TimeStamp startTime = 0;
                         getJournalStartTime(srcFile, startTime);
-                        std::string zipCmd = "gzip  --stdout " + srcFile + " > " + destFile;
-                        LOGDEBUG << "running command: [" << zipCmd << "]";
-                        auto rc = std::system(zipCmd.c_str());
+                        std::string cmd;
+                        if (gzip.empty()) {
+                            cmd  = "cp -f " + srcFile + " " + destFile;
+                        } else {
+                            cmd = "gzip  --stdout " + srcFile + " > " + destFile;
+                        }
+                        LOGDEBUG << "running command: [" << cmd << "]";
+                        auto rc = std::system(cmd.c_str());
 
                         if (!rc) {
                             fds_verify(0 == unlink(srcFile.c_str()));
@@ -204,7 +218,7 @@ void JournalManager::monitorLogs() {
                             fds_volid_t volId (std::atoll(d.c_str()));
                             dm->timelineMgr->getDB()->addJournalFile(volId, startTime, destFile);
                         } else {
-                            LOGWARN << "command failed [" << zipCmd << "], error:" << rc << ":" << strerror(rc);
+                            LOGWARN << "command failed [" << cmd << "], error:" << rc << ":" << strerror(rc);
                         }
                     }
                 }
@@ -215,7 +229,7 @@ void JournalManager::monitorLogs() {
                         LOGCRITICAL << "Failed to add watch for directory '" << volPath << "'";
                         continue;
                     } else {
-                        LOGDEBUG << "Watching directory '" << volPath << "'";
+                        LOGDEBUG << "Watching directory [" << volPath << "]";
                         processedEvent = true;
                         watched.insert(volPath);
                     }
@@ -234,6 +248,7 @@ void JournalManager::monitorLogs() {
             eventReady = false;
             errno = 0;
             fds_int32_t fdCount = epoll_wait(efd, &ev, MAX_POLL_EVENTS, POLL_WAIT_TIME_MS);
+            LOGDEBUG << "fdcount:" << fdCount;
             if (fStopLogMonitoring) {
                 return;
             }
@@ -255,6 +270,7 @@ void JournalManager::monitorLogs() {
 
                 for (char * p = buffer; p < buffer + len; ) {
                     struct inotify_event * event = reinterpret_cast<struct inotify_event *>(p);
+                    LOGDEBUG << "event name:" << event->name;
                     if (event->mask | IN_ISDIR
                         || 0 == strncmp(event->name,
                                         leveldb::DEFAULT_ARCHIVE_PREFIX.c_str(),
