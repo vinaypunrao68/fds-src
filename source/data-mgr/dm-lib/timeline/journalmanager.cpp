@@ -182,14 +182,16 @@ void JournalManager::monitorLogs() {
             processedEvent = false;
             std::vector<std::string> volDirs;
             util::getSubDirectories(dmDir, volDirs);
-            LOGDEBUG << "monitoring : " << dmDir;
+            LOGDEBUG << "monitoring : " << dmDir << " subdirs:" << volDirs.size();
 
             for (const auto & d : volDirs) {
                 std::string volPath = dmDir + d + "/";
                 std::vector<std::string> catFiles;
                 util::getFiles(volPath, catFiles);
+                LOGDEBUG << "processing:" << volPath << " with files:" << catFiles.size();
 
                 for (const auto & f : catFiles) {
+                    LOGDEBUG << "file:" << f;
                     if (0 == f.find(leveldb::DEFAULT_ARCHIVE_PREFIX)) {
                         LOGDEBUG << "Found leveldb archive file '" << volPath << f << "'";
                         std::string volTLPath = root->dir_timeline_dm() + d + "/";
@@ -227,7 +229,7 @@ void JournalManager::monitorLogs() {
                         LOGCRITICAL << "Failed to add watch for directory '" << volPath << "'";
                         continue;
                     } else {
-                        LOGDEBUG << "Watching directory '" << volPath << "'";
+                        LOGDEBUG << "Watching directory [" << volPath << "]";
                         processedEvent = true;
                         watched.insert(volPath);
                     }
@@ -246,6 +248,7 @@ void JournalManager::monitorLogs() {
             eventReady = false;
             errno = 0;
             fds_int32_t fdCount = epoll_wait(efd, &ev, MAX_POLL_EVENTS, POLL_WAIT_TIME_MS);
+            LOGDEBUG << "fdcount:" << fdCount;
             if (fStopLogMonitoring) {
                 return;
             }
@@ -267,6 +270,7 @@ void JournalManager::monitorLogs() {
 
                 for (char * p = buffer; p < buffer + len; ) {
                     struct inotify_event * event = reinterpret_cast<struct inotify_event *>(p);
+                    LOGDEBUG << "event name:" << event->name;
                     if (event->mask | IN_ISDIR
                         || 0 == strncmp(event->name,
                                         leveldb::DEFAULT_ARCHIVE_PREFIX.c_str(),
