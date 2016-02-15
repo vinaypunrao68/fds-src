@@ -105,6 +105,22 @@ TEST_F(UtilTest, which) {
     EXPECT_EQ("", binary);
 }
 
+TEST_F(UtilTest, dirlist) {
+    std::string dmDir="/fds/sys-repo/dm-names/";
+    const char* args[] = {"/", "/fds", "/fds/sys-repo","/fds/user-repo/","/lib"};
+    std::vector<std::string> dirs(args,args+5);
+    std::vector<std::string> volDirs;
+
+    for (const auto& dir : dirs) {
+        volDirs.clear();
+        if (util::dirExists(dir)) {
+            util::getSubDirectories(dir, volDirs);
+            EXPECT_TRUE(volDirs.size() > 0);
+        }
+    }
+}
+
+
 TEST_F(UtilTest, checksum) {
     // std::cout << "chksum of /tmp/Log.cpp : " << util::getFileChecksum("/tmp/Log.cpp");
 }
