@@ -77,7 +77,7 @@ class TestDomainActivateServices(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # the kill the services of an FDS node.
 class TestNodeKill(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None):
+    def __init__(self, parameters=None, node=None, sig="SIGKILL"):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_NodeKill,
@@ -85,6 +85,7 @@ class TestNodeKill(TestCase.FDSTestCase):
                                              True)  # Always run.
 
         self.passedNode = node
+        self.passedSig = sig
 
     def test_NodeKill(self, ansibleBoot=False):
         """
@@ -108,7 +109,7 @@ class TestNodeKill(TestCase.FDSTestCase):
             self.log.info("Kill node %s." % n.nd_conf_dict['node-name'])
 
             # First kill PM to prevent respawn of other services
-            killPM = TestPMKill(node=n)
+            killPM = TestPMKill(node=n, sig=self.passedSig)
             killSuccess = killPM.test_PMKill()
 
             if not killSuccess:
@@ -118,7 +119,7 @@ class TestNodeKill(TestCase.FDSTestCase):
 
             # Then kill AM if on this node.
             if (n.nd_services.count("am") > 0) or ansibleBoot:
-                killAM = TestAMKill(node=n)
+                killAM = TestAMKill(node=n, sig=self.passedSig)
                 killSuccess = killAM.test_AMKill()
 
                 if not killSuccess and not ansibleBoot:
@@ -127,7 +128,7 @@ class TestNodeKill(TestCase.FDSTestCase):
 
             # SM and DM next.
             if (n.nd_services.count("sm") > 0) or ansibleBoot:
-                killSM = TestSMKill(node=n)
+                killSM = TestSMKill(node=n, sig=self.passedSig)
                 killSuccess = killSM.test_SMKill()
 
                 if not killSuccess and not ansibleBoot:
@@ -135,7 +136,7 @@ class TestNodeKill(TestCase.FDSTestCase):
                     return False
 
             if (n.nd_services.count("dm") > 0) or ansibleBoot:
-                killDM = TestDMKill(node=n)
+                killDM = TestDMKill(node=n, sig=self.passedSig)
                 killSuccess = killDM.test_DMKill()
 
                 if not killSuccess and not ansibleBoot:
@@ -144,7 +145,7 @@ class TestNodeKill(TestCase.FDSTestCase):
 
             # Lastly, kill OM if on this node.
             if (fdscfg.rt_om_node.nd_conf_dict['node-name'] == n.nd_conf_dict['node-name']) or ansibleBoot:
-                killOM = TestOMKill(node=n)
+                killOM = TestOMKill(node=n, sig=self.passedSig)
                 killSuccess = killOM.test_OMKill()
 
                 if not killSuccess and not ansibleBoot:

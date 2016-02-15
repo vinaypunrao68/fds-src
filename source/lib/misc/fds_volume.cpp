@@ -65,6 +65,8 @@ VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
 
     iscsiSettings = vdesc.iscsiSettings;
     nfsSettings = vdesc.nfsSettings;
+
+    coordinator = vdesc.coordinator;
 }
 
 // NOTE: counterpart of outputting toFdspDesc
