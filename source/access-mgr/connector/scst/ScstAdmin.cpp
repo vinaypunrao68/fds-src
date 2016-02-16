@@ -53,6 +53,50 @@ static std::string scst_iscsi_host_mgmt_path { "/initiators/" };
 static std::string scst_iscsi_host_mgmt      { "mgmt" };
 
 /**
+ * Is the driver enabled
+ */
+bool
+ScstAdmin::driverEnabled() {
+    auto path = scst_iscsi_target_path + scst_iscsi_target_enable;
+    std::ifstream scst_enable(path, std::ios::in);
+    if (scst_enable.is_open()) {
+        std::string line;
+        if (std::getline(scst_enable, line)) {
+            std::istringstream iss(line);
+            uint32_t enable_value;
+            if (iss >> enable_value) {
+                return 1 == enable_value;
+            }
+        }
+    }
+    return false;
+}
+
+/**
+ * Is the driver enabled
+ */
+void
+ScstAdmin::toggleDriver(bool const enable) {
+    // Do nothing if already in that state
+    if (enable == driverEnabled()) return;
+
+    std::ofstream dev(scst_iscsi_target_path + scst_iscsi_target_enable,
+                      std::ios::out);
+    if (!dev.is_open()) {
+        GLOGERROR << "Could not toggle driver, no iSCSI devices will be presented!";
+        return;
+    }
+
+    // Enable target
+    if (enable) {
+        dev << "1" << std::endl;
+    } else {
+        dev << "0" << std::endl;
+    }
+    GLOGNORMAL << "iSCSI driver has been " << (enable ? "enabled" : "disabled");
+}
+
+/**
  * Is the target enabled
  */
 bool
@@ -72,7 +116,7 @@ ScstAdmin::targetEnabled(std::string const& target_name) {
     return false;
 }
 
-void ScstAdmin::toggleState(std::string const& target_name, bool const enable) {
+void ScstAdmin::toggleTarget(std::string const& target_name, bool const enable) {
     // Do nothing if already in that state
     if (enable == targetEnabled(target_name)) return;
 

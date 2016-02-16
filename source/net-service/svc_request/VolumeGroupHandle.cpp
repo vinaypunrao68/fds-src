@@ -139,7 +139,7 @@ bool VolumeGroupHandle::replayFromWriteOpsBuffer_(const VolumeReplicaHandle &han
          * the replica to be functional yet.  Also, on the DM side incase opid doens't match
          * DM will reject messages
          */
-        req->invoke();
+        req->invokeDirect();
     }
     return true;
 }
@@ -265,6 +265,11 @@ void VolumeGroupHandle::close(const VoidCb &closeCb)
         changeState_(fpi::ResourceState::Unknown,
                      true,  /* Clear replica lists */
                      "Close");
+
+        /* Notify OM to clear the coordinator */
+        auto clearCoordinatorreq = createSetVolumeGroupCoordinatorMsgReq_(true);
+        clearCoordinatorreq->invokeDirect();
+
         if (refCnt_ == 0) {
             closeCb_ = nullptr;
             closeCb();
@@ -340,10 +345,14 @@ void VolumeGroupHandle::decRef()
 }
 
 EPSvcRequestPtr
-VolumeGroupHandle::createSetVolumeGroupCoordinatorMsgReq_()
+VolumeGroupHandle::createSetVolumeGroupCoordinatorMsgReq_(bool clearCoordinator)
 {
     auto msg = MAKE_SHARED<fpi::SetVolumeGroupCoordinatorMsg>();
-    msg->coordinator.id =  MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
+    if (clearCoordinator) {
+        msg->coordinator.id.svc_uuid = 0;
+    } else {
+        msg->coordinator.id =  MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
+    }
     msg->coordinator.version = version_;
     msg->volumeId = groupId_;
     auto omUuid = MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid();
@@ -702,7 +711,7 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
 
     } else if (VolumeReplicaHandle::isFunctional(targetState)){
         if (replicaVersion != volumeHandle->version) {
-            fds_assert(!"Invalid version");
+            fds_assert(!"Invalid version: expecting %d got %d");
             return ERR_INVALID_VOLUME_VERSION;
         }
         /* When transition to functional we must transition from sync state and latest opids

@@ -48,6 +48,7 @@ struct RemoveErroredVolume {
         auto iter = dm->vol_meta_map.find(vol_uuid);
         if (iter != dm->vol_meta_map.end() && iter->second == NULL) {
             dm->vol_meta_map.erase(iter);
+            LOGERROR << "add volume failed for vol:" << vol_uuid;
         }
     }
     DataMgr* dm;
@@ -122,7 +123,7 @@ void DataMgr::handleForwardComplete(DmRequest *io) {
     vol_map_mtx->lock();
     auto volIt = vol_meta_map.find(io->volId);
     fds_verify(vol_meta_map.end() != volIt);
-    VolumeMeta *vol_meta = volIt->second;
+    auto vol_meta = volIt->second;
     vol_meta->dmVolQueue->activate();
     vol_map_mtx->unlock();
 
@@ -312,7 +313,7 @@ DataMgr::finishCloseDMT() {
          ++iter) {
         if (!iter->second) continue;
         fds_volid_t volid (iter->first);
-        VolumeMeta *vol_meta = iter->second;
+        auto vol_meta = iter->second;
         if (vol_meta->isForwarding()) {
             vol_meta->setForwardFinish();
             done_vols.insert(volid);
@@ -371,7 +372,7 @@ const VolumeDesc* DataMgr::getVolumeDesc(fds_volid_t volId) const {
     FDSGUARD(vol_map_mtx);
     auto iter = vol_meta_map.find(volId);
     return (vol_meta_map.end() != iter && iter->second ?
-            iter->second->vol_desc : 0);
+            iter->second->vol_desc : nullptr);
 }
 
 void DataMgr::getActiveVolumes(std::vector<fds_volid_t>& vecVolIds) {
@@ -416,9 +417,9 @@ void DataMgr::deleteUnownedVolumes() {
         /* Flow for deleting the volume is to mark it for delete first
          * followed by acutally deleting it
          */
-        Error err = process_rm_vol(volId, true);        // Mark for delete
+        Error err = removeVolume(volId, true);        // Mark for delete
         if (err == ERR_OK) {
-            err = process_rm_vol(volId, false);         // Do the actual delete
+            err = removeVolume(volId, false);         // Do the actual delete
         }
         // TODO(xxx): Remove snapshots once the api is available
         if (err != ERR_OK) {
@@ -439,7 +440,7 @@ void DataMgr::finishForwarding(fds_volid_t volid) {
     vol_map_mtx->lock();
     auto volIt = vol_meta_map.find(volid);
     fds_assert(vol_meta_map.end() != volIt);
-    VolumeMeta *vol_meta = volIt->second;
+    auto vol_meta = volIt->second;
     // Skip this verify because it's actually set later?
     // TODO(Andrew): If the above comment is correct, we
     // remove most of what this function actually do
@@ -484,7 +485,7 @@ Error DataMgr::enqueueMsg(fds_volid_t volId,
     return err;
 }
 
-VolumeMeta*  DataMgr::getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked) {
+VolumeMetaPtr  DataMgr::getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked) {
     if (!fMapAlreadyLocked) {
         FDSGUARD(*vol_map_mtx);
         auto iter = vol_meta_map.find(volId);
@@ -497,7 +498,7 @@ VolumeMeta*  DataMgr::getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked) {
             return iter->second;
         }
     }
-    return NULL;
+    return nullptr;
 }
 
 /*
@@ -518,7 +519,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
         }
         // add a dummy vol meta [FS-3207]
         // This will make sure no other Volume with same id is being created at the same time
-        vol_meta_map[vol_uuid] = NULL;
+        vol_meta_map[vol_uuid] = nullptr;
     }
 
     // this will remove
@@ -530,7 +531,28 @@ Error DataMgr::addVolume(const std::string& vol_name,
     // create vol catalogs, etc first
 
     bool fPrimary = false;
-    bool fOldVolume = (!vdesc->isSnapshot() && vdesc->isStateCreated());
+    bool fOldVolume = (vdesc->isStateCreated() ||
+                       vdesc->isStateActive() ||
+                       vdesc->isStateMarkedForDeletion());
+    bool fDbExists = false;
+    // double check for file on disk
+    std::string dbfile;
+    if (vdesc->isSnapshot()) {
+        dbfile = dmutil::getLevelDBFile(MODULEPROVIDER()->proc_fdsroot(),vdesc->srcVolumeId , vdesc->volUUID);
+    } else {
+        dbfile = dmutil::getLevelDBFile(MODULEPROVIDER()->proc_fdsroot(), vdesc->volUUID);
+    }
+    LOGDEBUG << dbfile;
+    fDbExists = util::dirExists(dbfile);
+
+    if (fDbExists && !fOldVolume) {
+        LOGWARN << "db file [" << dbfile << "] exists - assuming old volume:" << vdesc->volUUID;
+        fOldVolume = true;
+    }
+
+    if (fOldVolume && !fDbExists) {
+        LOGWARN << "previously active vol:"<< vdesc->volUUID <<", but dbfile missing.. this should be either be a new Node or DM was down during previous addVolume";
+    }
 
     if (vdesc->isClone()) {
         // clone happens only on primary
@@ -546,20 +568,26 @@ Error DataMgr::addVolume(const std::string& vol_name,
               << " clone:" << vdesc->isClone()
               << " snap:" << vdesc->isSnapshot()
               << " state:" << vdesc->getState()
-              << " created:" << vdesc->isStateCreated()
               << " old:" << fOldVolume
-              << " primary:" << fPrimary;
+              << " primary:" << fPrimary
+              << " name:" << vdesc->name;
 
+    if (vdesc->isSnapshot()) {
+        if (!fPrimary) {
+            LOGWARN << "not primary - nothing to do for snapshot "
+                    << "for vol:" << vdesc->srcVolumeId;
+            return err;
+        }
 
-    if (vdesc->isSnapshot() && !fPrimary) {
-        LOGWARN << "not primary - nothing to do for snapshot "
-                << "for vol:" << vdesc->srcVolumeId;
-        return err;
+        if (fOldVolume) {
+            LOGWARN << "previous existing snap.. should not happen";
+            return ERR_OK;
+        }
     }
 
     // do this processing only in the case..
     if (vdesc->isSnapshot() || (vdesc->isClone() && fPrimary && !fOldVolume)) {
-        VolumeMeta * volmeta = getVolumeMeta(vdesc->srcVolumeId);
+        auto volmeta = getVolumeMeta(vdesc->srcVolumeId);
         if (!volmeta) {
             GLOGWARN << "Volume [" << vdesc->srcVolumeId << "] not found!";
             return ERR_NOT_FOUND;
@@ -607,12 +635,12 @@ Error DataMgr::addVolume(const std::string& vol_name,
         }
     }
 
-    VolumeMeta *volmeta = new VolumeMeta(MODULEPROVIDER(),
-                                         vol_name,
-                                         vol_uuid,
-                                         GetLog(),
-                                         vdesc,
-                                         this);
+    auto volmeta = MAKE_SHARED<VolumeMeta>(MODULEPROVIDER(),
+                                           vol_name,
+                                           vol_uuid,
+                                           GetLog(),
+                                           vdesc,
+                                           this);
 
     if (vdesc->isSnapshot()) {
         volmeta->dmVolQueue.reset(qosCtrl->getQueue(vdesc->qosQueueId));
@@ -639,7 +667,6 @@ Error DataMgr::addVolume(const std::string& vol_name,
     }
 
     if (!err.ok()) {
-        delete volmeta;
         vol_map_mtx->unlock();
         return err;
     }
@@ -680,7 +707,6 @@ Error DataMgr::addVolume(const std::string& vol_name,
                  << " volid 0x" << std::hex << vol_uuid << std::dec;
         qosCtrl->deregisterVolume(vdesc->isSnapshot() ? vdesc->qosQueueId : vol_uuid);
         volmeta->dmVolQueue.reset();
-        delete volmeta;
         return  err;
     }
 
@@ -742,7 +768,7 @@ Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
 
     vol_map_mtx->lock();
     /* make sure volume exists */
-    if (volExistsLocked(vol_uuid) == false || NULL == getVolumeMeta(vol_uuid, true)) {
+    if (volExistsLocked(vol_uuid) == false || nullptr == getVolumeMeta(vol_uuid, true)) {
         LOGERROR << "Received modify policy request for "
                  << "non-existant volume [" << vol_uuid
                  << ", " << voldesc.name << "]";
@@ -750,7 +776,7 @@ Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
         vol_map_mtx->unlock();
         return err;
     }
-    VolumeMeta *vm = vol_meta_map[vol_uuid];
+    auto vm = vol_meta_map[vol_uuid];
     // FIXME: Why are we doubling assured?
     vm->vol_desc->modifyPolicyInfo(2 * voldesc.iops_assured,
                                    voldesc.iops_throttle,
@@ -775,43 +801,41 @@ Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
     return err;
 }
 
-Error DataMgr::process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only) {
+Error DataMgr::removeVolume(fds_volid_t volId, fds_bool_t fMarkAsDeleted) {
     Error err(ERR_OK);
 
     // mark volume as deleted if it's not empty
-    if (check_only) {
-        // check if not empty and mark volume as deleted to
-        // prevent further updates to the volume as we are going
-        // to remove it
-        err = timeVolCat_->markVolumeDeleted(vol_uuid);
+    if (fMarkAsDeleted) {
+        err = timeVolCat_->markVolumeDeleted(volId);
         if (!err.ok()) {
-            LOGERROR << "Failed to mark volume as deleted " << err;
+            LOGERROR << "failed to mark volume as deleted " << err;
             return err;
         }
-        LOGNORMAL << "Notify volume rm check only, did not "
-                  << " remove vol meta for vol " << std::hex
-                  << vol_uuid << std::dec;
-        // if notify delete asked to only check if deleting volume
-        // was ok; so we return here; DM will get
-        // another notify volume delete with check_only == false to
-        // actually cleanup all other data structures for this volume
         return err;
     }
 
-    // we we are here, check_only == false
-    err = timeVolCat_->deleteEmptyVolume(vol_uuid);
+    // we we are here, fMarkAsDeleted == false
+    err = timeVolCat_->deleteVolume(volId);
     if (err.ok()) {
-        detachVolume(vol_uuid);
+        detachVolume(volId);
+        // NOTE!! DONT worry about the error , as it may return FEATURE_DISABLED & OM cant handle it
+        timelineMgr->removeVolume(volId);
+
+        // remove any user-repo info.
+        const auto root =  MODULEPROVIDER()->proc_fdsroot();
+        std::string dir=util::strformat("%s/%ld", root->dir_user_repo_dm().c_str(), volId.get());
+        LOGNOTIFY << "removing vol:" << volId << " from user-repo:" << dir;
+        boost::filesystem::remove_all(dir);
+
     } else {
-        LOGERROR << "Failed to remove volume " << std::hex
-                 << vol_uuid << std::dec << " " << err;
+        LOGERROR << "failed to remove vol:" << volId << " from volume catalog err:" << err;
     }
 
     return err;
 }
 
 void DataMgr::detachVolume(fds_volid_t vol_uuid) {
-    VolumeMeta* vol_meta = NULL;
+    VolumeMetaPtr vol_meta;
     qosCtrl->deregisterVolume(vol_uuid);
     vol_map_mtx->lock();
     if (vol_meta_map.count(vol_uuid) > 0) {
@@ -821,7 +845,6 @@ void DataMgr::detachVolume(fds_volid_t vol_uuid) {
     vol_map_mtx->unlock();
     if (vol_meta) {
         vol_meta->dmVolQueue.reset();
-        delete vol_meta;
     }
     statStreamAggr_->detachVolume(vol_uuid);
     LOGNORMAL << "Detached vol meta for vol uuid "
@@ -904,7 +927,7 @@ Error DataMgr::getVolObjSize(fds_volid_t volId,
      * Get a local reference to the vol meta.
      */
     vol_map_mtx->lock();
-    VolumeMeta *vol_meta = vol_meta_map[volId];
+    auto vol_meta = vol_meta_map[volId];
     vol_map_mtx->unlock();
 
     fds_verify(vol_meta != NULL);
@@ -963,6 +986,9 @@ int DataMgr::mod_init(SysParams const *const param)
     features.setTimelineEnabled(CONFIG_BOOL("fds.feature_toggle.common.enable_timeline", true));
     timelineMgr.reset(new timeline::TimelineManager(this));
 
+    dmFullnessThreshold = MODULEPROVIDER()->get_fds_config()->\
+            get<fds_uint32_t>("fds.dm.disk_fullness_threshold", 75);
+
     /**
      * FEATURE TOGGLE: Volume Open Support
      * Thu 02 Apr 2015 12:39:27 PM PDT
@@ -1004,6 +1030,10 @@ int DataMgr::mod_init(SysParams const *const param)
     fds_verify(primary_check > 0);
     setNumOfPrimary((unsigned)primary_check);
 
+    // FEATURE TOGGLE: Report stats to the new stats service.
+    features.setSendToNewStatsServiceEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
+            "fds.feature_toggle.common.send_to_new_stats_service", false));
+
     /**
      * Instantiate migration manager.
      */
@@ -1011,6 +1041,7 @@ int DataMgr::mod_init(SysParams const *const param)
 
     fileTransfer.reset(new net::FileTransferService(MODULEPROVIDER()->proc_fdsroot()->dir_filetransfer(), MODULEPROVIDER()->getSvcMgr()));
     refCountMgr.reset(new refcount::RefCountManager(this));
+    requestHandler.reset(new dm::Handler(*this));
     return 0;
 }
 
@@ -1053,11 +1084,6 @@ DataMgr::~DataMgr()
     LOGDEBUG << "Received shutdown message DM ... shutdown modules..";
     mod_shutdown();
 
-    for (auto it = vol_meta_map.begin();
-         it != vol_meta_map.end();
-         it++) {
-        delete it->second;
-    }
     vol_meta_map.clear();
     delete requestMgr;
     delete sysTaskQueue;
@@ -1387,7 +1413,7 @@ DataMgr::snapVolCat(DmRequest *io) {
         // which will also happen with other forwarded updates).
         vol_map_mtx->lock();
         fds_verify(vol_meta_map.count(snapReq->volId) > 0);
-        VolumeMeta *vol_meta = vol_meta_map[snapReq->volId];
+        auto vol_meta = vol_meta_map[snapReq->volId];
         // TODO(Andrew): We're setting the forwarding state separately from
         // taking the snapshot, which means that we'll start forwarding
         // data that will also be in the delta snapshot that we rsync, which
@@ -1534,6 +1560,14 @@ DmPersistVolDB::ptr DataMgr::getPersistDB(fds_volid_t volId) {
 
     DmPersistVolDB::ptr voldDBPtr = boost::dynamic_pointer_cast <DmPersistVolDB>(persistVolDirPtr);
     return voldDBPtr;
+}
+
+void DataMgr::addToQueue(DmRequest* req) {
+    requestHandler->addToQueue(req);
+}
+
+void DataMgr::addToQueue(std::function<void()>&& func, fds_volid_t volId) {
+    requestHandler->addToQueue(new DmFunctor(volId, func));
 }
 
 Error DataMgr::copyVolumeToOtherDMs(fds_volid_t volId) {
@@ -1848,21 +1882,25 @@ std::string getTempDir(const FdsRootDir* _root, fds_volid_t volId) {
 // location of all snapshots for a volume
 std::string getSnapshotDir(const FdsRootDir* root, fds_volid_t volId) {
     return util::strformat("%s/%ld/snapshot",
-                           root->dir_user_repo_dm().c_str(), volId);
+                           root->dir_user_repo_dm().c_str(), volId.get());
+}
+// location of journal archives
+std::string getTimelineDir(const FdsRootDir* root, fds_volid_t volId) {
+    return util::strformat("%s/%ld",root->dir_timeline_dm().c_str(), volId.get());
 }
 
 std::string getVolumeMetaDir(const FdsRootDir* root, fds_volid_t volId) {
     return util::strformat("%s/%ld/volumemeta",
-                           root->dir_user_repo_dm().c_str(), volId);
+                           root->dir_user_repo_dm().c_str(), volId.get());
 }
 
 std::string getLevelDBFile(const FdsRootDir* root, fds_volid_t volId, fds_volid_t snapId) {
     if (invalid_vol_id < snapId) {
         return util::strformat("%s/%ld/snapshot/%ld_vcat.ldb",
-                               root->dir_user_repo_dm().c_str(), volId.get(), snapId);
+                               root->dir_user_repo_dm().c_str(), volId.get(), snapId.get());
     } else {
         return util::strformat("%s/%ld/%ld_vcat.ldb",
-                               root->dir_sys_repo_dm().c_str(), volId, volId);
+                               root->dir_sys_repo_dm().c_str(), volId.get(), volId.get());
     }
 }
 

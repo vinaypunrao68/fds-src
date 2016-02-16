@@ -14,7 +14,7 @@
 
   <name>${formationds.project.name} Project POM</name>
   <artifactId>formationds</artifactId>
-  <version>2016.01.29-SNAPSHOT</version>
+  <version>2016.02.12-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <!-- formationds scoped project properties -->

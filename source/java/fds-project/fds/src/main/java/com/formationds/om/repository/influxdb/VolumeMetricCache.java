@@ -51,7 +51,10 @@ public class VolumeMetricCache {
             try {
                 result.put( Metrics.lookup( vdp.getKey() ), vdp );
             } catch (UnsupportedMetricException e) {
-                logger.debug( "Metric {} not found in Volume Metrics list.  Skipping.", vdp.getKey() );
+                // NOTE: We currently only populate InfluxDB with metrics explicitly defined in the
+                // Metrics enum.  Additional metrics were recently added to the stat stream that we
+                // are NOT writing to Influx at this time.
+                logger.trace( "Metric {} not found in Volume Metrics list.  Skipping.", vdp.getKey() );
             }
         } );
         return result;
@@ -79,6 +82,7 @@ public class VolumeMetricCache {
     public VolumeMetricCache( InfluxMetricRepository repository ) {
         metricRepository = repository;
         volumeMetricLoader = ( volumeId ) -> {
+            logger.trace( "CACHE_MISS - Loading volume {}", volumeId );
             List<IVolumeDatapoint> vdps = metricRepository.loadMostRecentVolumeStats( volumeId );
             return toEnumMap( vdps );
         };

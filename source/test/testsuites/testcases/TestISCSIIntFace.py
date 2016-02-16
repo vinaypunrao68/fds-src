@@ -76,6 +76,7 @@ class TestISCSICrtVolume(ISCSIFixture):
                                (new_volume.name, om_node.nd_conf_dict['node-name'], status))
             return False
 
+        self.log.info('Created volume {0}'.format(self.passedName))
         # Cache this volume name in the fixture so that other test cases
         # can use it to map to ISCSI target name and drive
         self.addVolumeName(self.passedName)
@@ -161,7 +162,9 @@ class TestISCSIDiscoverVolume(ISCSIFixture):
         else:
             g = result.split()
             for s in g:
-                if s.count(self.volume_name) > 0:
+                # Now s is a target name like 'iqn.2012-05.com.formationds:vol60'.
+                # Don't use count here, because 'vol6' would match the above.
+                if s.endswith(self.volume_name):
                     self.target_name = s
                     # Cache target name in fixture
                     self.setTargetName(self.target_name, self.volume_name)
@@ -257,20 +260,29 @@ class TestISCSIFioSeqW(ISCSIFixture):
 #                 "--iodepth=128 --numjobs=1 --fill_device=1 --filename=%s --verify=md5 --verify_fatal=%d" %\
 #                 (self.sd_device, verify_fatal)
 
+        # Produces SIGSEGV 11 when --size=512m at about 47 % complete
+        # --debug=all was not illuminating
         cmd = "sudo fio --name=seq-writers --readwrite=write --ioengine=posixaio --direct=1 --bsrange=512-1M " \
                  "--iodepth=128 --numjobs=1 --fill_device=1 --filename=%s --size=16m --verify=md5 --verify_fatal=%d" %\
                  (self.sd_device, verify_fatal)
 
-        if initiator_ip:
-            # Fabric run a shell command on a remote host
-            result = run(cmd)
-            disconnect_fabric()
-        else:
-            result = local(cmd)
-
-        if result.failed:
+        try:
+            if initiator_ip:
+                # Fabric run a shell command on a remote host
+                result = run(cmd)
+                disconnect_fabric()
+            else:
+                result = local(cmd)
+        except Exception as e:
+            self.log.error(str(e))
             return False
 
+        self.log.info('fio result: {0}'.format(result));
+        if result.failed:
+            self.log.error('FIO FAIL')
+            return False
+
+        self.log.info('FIO PASS')
         return True
 
 
@@ -550,10 +562,13 @@ class TestISCSIMakeFilesystem(ISCSIFixture):
 
         do_mkdir = False
         path = '/mnt/%s' % self.volume_name
+        ps = ("import os\n"
+              "if not os.path.isdir('{0}'):\n"
+              "    print('do_mkdir')".format(path))
+
         if status:
             if initiator_ip:
                 # Run a bit of Python on remote host...
-                ps = "import os\nif not os.path.isdir('{0}'):exit('do_mkdir')".format(path)
                 cmd3 = 'echo -e "{0}" | python'.format(ps)
                 result = run(cmd3)
                 if result.failed:
@@ -755,6 +770,7 @@ class TestISCSIDetachVolume(ISCSIFixture):
 
         status = True
         path = '/mnt/{0}'.format(self.volume_name)
+        self.log.info('Unmounting {0}...'.format(path))
         if initiator_ip:
             # Fabric run a shell command on a remote host
             result = run('umount -f -v {0}'.format(path))
@@ -799,6 +815,131 @@ class TestISCSIDetachVolume(ISCSIFixture):
         if initiator_ip:
             disconnect_fabric()
         return status
+
+class TestStandardInquiry(ISCSIFixture):
+    """FDS test case to send INQUIRY CDB and check response
+
+    An INQUIRY is standard when both the EVPD and CmdDt bits are clear.
+    """
+    def __init__(self, parameters=None, initiator_name=None, sg_device=None, volume_name=None):
+        """Only one of sg_device or volume_name is required
+
+        Parameters
+        ----------
+        sg_device : str
+            The generic sg device (example: '/dev/sg2')
+        volume_name : str
+            FDS volume name
+        """
+        super(self.__class__, self).__init__(parameters,
+                self.__class__.__name__,
+                self.test_standard_inquiry,
+                "Testing standard INQUIRY CDB in full feature phase")
+
+        self.initiator_name = initiator_name
+        self.sg_device = sg_device
+        self.volume_name = volume_name
+
+    def test_standard_inquiry(self):
+        """
+        Sends INQUIRY CDB and checks response.
+
+        Returns
+        -------
+        bool
+            True if successful, False otherwise
+        """
+        if not self.sg_device:
+            if not self.volume_name:
+                self.log.error("Missing required iSCSI device")
+                return False
+            else:
+                # Use fixture target name
+                self.sg_device = self.getGenericDevice(self.volume_name)
+
+        if not self.sg_device:
+            self.log.error("Missing required iSCSI generic device")
+            return False
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        initiator_ip = None
+        if self.initiator_name:
+            initiator_ip = self.getInitiatorEndpoint(self.initiator_name, fdscfg)
+
+
+        cmd = "sg_inq {0}".format(self.sg_device)
+        try:
+            if initiator_ip:
+                # Specify connection info
+                assert connect_fabric(self, initiator_ip) is True
+                result = run(cmd)
+            else:
+                result = local(cmd)
+        except Exception as e:
+            self.log.error(str(e))
+            if initiator_ip:
+                disconnect_fabric()
+            return False
+
+        if result.failed:
+            return False
+
+        self.log.info('standard INQUIRY: \n {0}'.format(result))
+        if result.count('Vendor identification: FDS') == 0:
+            return False
+
+        return True
+
+
+class TestISCSIVolumeDelete(ISCSIFixture):
+    """FDS test case to delete an iSCSI volume.
+
+    Clears the volume from the test fixture.
+
+    Attributes
+    ----------
+    passedName : str
+        FDS volume name
+    """
+    def __init__(self, parameters=None, volume_name=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_VolumeDelete,
+                                             "Delete iSCSI volume")
+        self.passedName = volume_name
+
+    def test_VolumeDelete(self):
+        """Attempt to delete iSCSI volume."""
+
+        if not self.passedName:
+            self.passedName = DEFAULT_VOLUME_NAME
+
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+
+        vol_service = get_volume_service(self,om_node.nd_conf_dict['ip'])
+        volume_id = None
+        volumes = vol_service.list_volumes()
+        for volume in volumes:
+            if self.passedName == volume.name:
+                volume_id = volume.id
+                break
+
+        if volume_id is None:
+            self.log.error('Failed to find volume {0}'.format(self.passedName))
+            return False
+
+        status = vol_service.delete_volume(volume_id)
+
+        if isinstance(status, FdsError) or type(status).__name__ == 'FdsError':
+            self.log.error('Delete volume {0} failed, status {1}'.format(self.passedName, status))
+            return False
+
+        # Clear volume from fixture
+        self.deleteVolumeName(self.passedName)
+        return True
 
 
 if __name__ == '__main__':

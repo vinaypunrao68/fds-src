@@ -104,7 +104,7 @@ struct ScstTarget
     void startNewDevices();
 
     void toggle_state(bool const enable)
-    { ScstAdmin::toggleState(target_name, enable); }
+    { ScstAdmin::toggleTarget(target_name, enable); }
 
     void wakeupCb(ev::async &watcher, int revents);
 };

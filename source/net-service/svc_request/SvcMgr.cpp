@@ -796,7 +796,7 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
     if (isSvcDown_()) {
         /* No point trying to send when service is down */
         GLOGDEBUG << "No point in sending when service is down! ( "
-                  << svcInfo_.ip << ":" << svcInfo_.svc_port << " )";
+                  << fds::logString(svcInfo_) << ")";
         return false;
     }
     try {
@@ -819,10 +819,12 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
         }
         return true;
     } catch (std::exception &e) {
-        GLOGWARN << "allocRpcClient failed.  Exception: " << e.what() << ".  "  << header;
+        GLOGWARN << "allocRpcClient failed.  Exception: " << e.what() << ".  "  << header
+                 << " SvcInfo ( " << fds::logString(svcInfo_) << " )";
         markSvcDown_();
     } catch (...) {
-        GLOGWARN << "allocRpcClient failed.  Unknown exception. " << header;
+        GLOGWARN << "allocRpcClient failed.  Unknown exception. " << header
+                 << " SvcInfo ( " << fds::logString(svcInfo_) << " )";
         markSvcDown_();
     }
     return false;
@@ -836,15 +838,19 @@ SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr &current, const fpi::SvcI
     if ( current->incarnationNo < incoming->incarnationNo ) {
         ret = true;
     } else if ( (current->incarnationNo == incoming->incarnationNo) &&
-                (current->svc_status != incoming->svc_status) &&
-                (current->svc_status != fpi::SVC_STATUS_INACTIVE_FAILED) ) {
+                (current->svc_status != incoming->svc_status) ) {
         /**
-         * Once a process is declared INACTIVE_FAILED, then nothing can revive it,
-         * until a new incarnation number has come.
+         * Once a process is declared INACTIVE_FAILED, it is possible that a service
+         * can transition to multiple other states.
+         * A svc gets set to failed is because svc layer for some reason cannot reach the service.
+         * However, periodic heartbeat checks can revive the svcLayer connection in which case an
+         * update can come in for the incarnation number for a change from FAILED -> ACTIVE
          *
-         * If a identical incarnation number that attempts to revive a service from
-         * an inactive to active, then it's considered an invalid operation.
-         * The only allowable use case is if a dead service were to restart, in which
+         * We can also have scenarios where non-PM services in INACTIVE_FAILED state are being
+         * re-started through activate_known_services call in which case a FAILED->STARTED update can
+         * come in for the same incarnation number
+         *
+         * The other allowable use case is if a dead service were to restart, in which
          * it would then come with a newer incarnation number.
          *
          * TODO(Neil): make this check more detailed and centralize the conditionals...
@@ -859,8 +865,11 @@ SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr &current, const fpi::SvcI
          * configDB. Until all areas of PM and OM are sending incarnation number,
          * this has to be here... and bugs may be coming in.
          */
-        LOGWARN << "THIS NEEDS TO BE FIXED. Should be passing in with complete info.";
+        LOGWARN << "Allowing update with zero incarnatioNo!";
+        LOGDEBUG << "THIS NEEDS TO BE FIXED. Should be passing in with complete info.";
         ret = true;
+    } else {
+        LOGWARN << "Criteria not met, will not allow update of svcMap";
     }
 
     return (ret);

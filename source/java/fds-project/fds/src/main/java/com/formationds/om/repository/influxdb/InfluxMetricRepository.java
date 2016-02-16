@@ -26,7 +26,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -55,11 +54,6 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
 
     public static final int DEFAULT_BATCH_SIZE = 1024;
 
-    /**
-     * the static list of metric names store in the influxdb database.
-     */
-    public static final List<String> VOL_METRIC_NAMES = Collections.unmodifiableList( getMetricNames() );
-
     public static final InfluxDatabase DEFAULT_METRIC_DB =
             new InfluxDatabase.Builder( "om-metricdb" )
             .addShardSpace( "default", "30d", "1d", "/.*/", 1, 1 )
@@ -68,7 +62,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     /**
      * @return the list of metric names in the order they are stored.
      */
-    public static List<String> getMetricNames() {
+    private static List<String> getMetricNames() {
         List<String> metricNames = Arrays.stream( Metrics.values() )
                 .map( Enum::name )
                 .collect( Collectors.toList() );
@@ -76,8 +70,8 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         List<String> volMetricNames = new ArrayList<>();
 
         // time column necessary for writes where we want to force a timestamp
-        // based on what we receive from the server side.  For queries it is automatically returned
-        // and does not need to be included.
+        // based on what we receive from the server side.  For queries
+        // it is automatically returned and does not need to be included.
         volMetricNames.add( InfluxRepository.TIMESTAMP_COLUMN_NAME );
 
         // add the volume metadata columns
@@ -94,14 +88,14 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
      *
      * @param base the list to add the volume metadata columns to.  They are added to the end of the list.
      */
-    protected static void addVolumeMetadataColumns( List<String> base ) {
+    private static void addVolumeMetadataColumns( List<String> base ) {
         base.add( VOL_ID_COLUMN_NAME );
         base.add( VOL_DOMAIN_COLUMN_NAME );
         base.add( VOL_NAME_COLUMN_NAME );
     }
 
     private final VolumeMetricCache metricCache;
-
+    private final List<String> metricColumnNames;
     private boolean batchedWritesEnabled;
     private int batchSize = DEFAULT_BATCH_SIZE;
 
@@ -111,10 +105,35 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
      * @param adminCredentials the credentials
      */
     public InfluxMetricRepository( String url, String adminUser, char[] adminCredentials ) {
-        super( url, adminUser, adminCredentials );
-        metricCache = new VolumeMetricCache( this );
-        batchedWritesEnabled = FdsFeatureToggles.INFLUX_WRITE_BATCHING.isActive();
-        batchSize = (batchedWritesEnabled ?
+        this( url,
+              adminUser,
+              adminCredentials,
+              DEFAULT_METRIC_DB,
+              getMetricNames(),
+              Arrays.asList( VOL_ID_COLUMN_NAME, VOL_DOMAIN_COLUMN_NAME, VOL_NAME_COLUMN_NAME ) );
+    }
+
+    /**
+     *
+     * @param url
+     * @param adminUser
+     * @param adminCredentials
+     * @param database
+     * @param metricColumnNames the list of column names for writing
+     * @param queryMetadataColumns the list of column names required in the projection
+     *          list when selecting specific columns
+     */
+    protected InfluxMetricRepository( String url,
+                                      String adminUser,
+                                      char[] adminCredentials,
+                                      InfluxDatabase database,
+                                      List<String> metricColumnNames,
+                                      List<String> queryMetadataColumns) {
+        super( url, adminUser, adminCredentials, database, queryMetadataColumns );
+        this.metricCache = new VolumeMetricCache( this );
+        this.metricColumnNames = Collections.unmodifiableList( metricColumnNames );
+        this.batchedWritesEnabled = FdsFeatureToggles.INFLUX_WRITE_BATCHING.isActive();
+        this.batchSize = (batchedWritesEnabled ?
                                SingletonConfiguration.getIntValue( "fds.om.influxdb.batch_write_size",
                                                                    DEFAULT_BATCH_SIZE ) :
                                1 );
@@ -138,11 +157,8 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         super.open( properties );
 
         // command is silently ignored if the database already exists.
-        super.createDatabaseAsync( DEFAULT_METRIC_DB );
+        super.createDatabaseAsync( super.getDatabase() );
     }
-
-    @Override
-    public String getInfluxDatabaseName() { return DEFAULT_METRIC_DB.getName(); }
 
     @Override
     public String getEntityName() {
@@ -154,19 +170,13 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         return super.getTimestampColumnName();
     }
 
+    /**
+     *
+     * @return the optional context id column name for filtering by context.  For the metric repo this is "volume_id"
+     */
     @Override
-    public Optional<String> getVolumeNameColumnName() {
-        return Optional.of( VOL_NAME_COLUMN_NAME );
-    }
-
-    @Override
-    public Optional<String> getVolumeIdColumnName() {
-        return Optional.of( VOL_ID_COLUMN_NAME );
-    }
-
-    @Override
-    public Optional<String> getVolumeDomainColumnName() {
-        return Optional.of( VOL_DOMAIN_COLUMN_NAME );
+    public Optional<String> getContextIdColumnName() {
+       return Optional.of(VOL_ID_COLUMN_NAME);
     }
 
     /**
@@ -180,12 +190,19 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     }
 
     /**
+     * @return an unmodifiable list of the volume metric column names
+     */
+    public List<String> getVolumeMetricColumnNames() {
+        return metricColumnNames;
+    }
+
+    /**
      * @param metricKey the metric key or enum name
      * @return the index of the specified metric key in the Volume metrics array.  -1 if not found
      */
     protected int indexOf( String metricKey ) {
         try {
-            return VOL_METRIC_NAMES.indexOf( Metrics.lookup( metricKey ).name() );
+            return getVolumeMetricColumnNames().indexOf( Metrics.lookup( metricKey ).name() );
         } catch (UnsupportedMetricException ume) {
             return -1;
         }
@@ -214,40 +231,22 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
 
             for ( Map.Entry<String, List<IVolumeDatapoint>> e2 : volumeDatapoints.entrySet() ) {
 
-                Object[] metricValues = new Object[VOL_METRIC_NAMES.size()];
-
-                // TODO: need volume ids as long everywhere
-                Long volid = Long.valueOf( e2.getKey() );
-                String volDomain = "";
-
-                metricValues[0] = ts;
-                metricValues[1] = volid;
-                metricValues[2] = volDomain;
-
+                Long volumeId = Long.valueOf( e2.getKey() );
                 List<IVolumeDatapoint> voldps = e2.getValue();
-                for ( IVolumeDatapoint vdp : voldps ) {
-                    metricValues[3] = vdp.getVolumeName();
-
-                    // find the metric position
-                    int midx = indexOf( vdp.getKey() );
-                    if (midx == -1) {
-                        logger.debug( "Metric {} not found in Volume Metrics list.  Skipping.", vdp.getKey() );
-                        continue;
-                    }
-                    metricValues[midx] = vdp.getValue();
-                }
+                VolumeInfo vid = extractVolumeMetadata( volumeId, voldps );
+                Object[] metricValues = convertPointsToSeriesRow( ts, vid, voldps );
 
                 // update the metric cache
-                metricCache.updateLatestVolumeStats( Long.valueOf( volid ),  voldps );
+                metricCache.updateLatestVolumeStats( volumeId,  voldps );
 
-                int batchCount = builder.addRow(metricValues);
+                int batchCount = builder.addRow(vid, metricValues);
 
                 if ( batchedWritesEnabled ) {
 
                     if ( batchCount >= batchSize ) {
 
                         // build (and reset) the batch
-                        Serie writeBatch = builder.build();
+                        Serie[] writeBatch = builder.build();
 
                         // We are now explicitly specifying the timestamp and since VolumeDatapoint timestamps are
                         // in seconds since the epoch, specify a SECONDS precision on the series
@@ -255,7 +254,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
                     }
                 } else {
 
-                    Serie writeSingle = builder.build();
+                    Serie[] writeSingle = builder.build();
                     getConnection().getAsyncDBWriter().write( TimeUnit.SECONDS, writeSingle );
                 }
             }
@@ -264,7 +263,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         // if there are any remaining entries in the batch, make sure they are written
         if ( batchedWritesEnabled && builder.getRowCount() > 0 ) {
 
-            Serie writeBatch = builder.build();
+            Serie[] writeBatch = builder.build();
 
             // We are now explicitly specifying the timestamp and since VolumeDatapoint timestamps are
             // in seconds since the epoch, specify a SECONDS precision on the series
@@ -275,60 +274,85 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     }
 
     /**
-     * Wrap a influxdb-java Serie.Builder to track the row count and reset the builder
+     * Extract volume metadata from the given list of datapoints.  It is assumed that
+     * the list of datapoints contains data for only one volume.
      *
-     * This class is not thread safe.
+     * @param volumeId
+     * @param dps
+     * @return the VolumeInfo for the datapoints.
      */
-    public static class SerieBuilder {
-
-        private final String seriesName;
-        private final List<String> columns;
-        private Serie.Builder serieBuilder;
-        private int rowCount = 0;
-
-        public SerieBuilder( String seriesName, List<String> columns ) {
-            super();
-            this.seriesName = seriesName;
-            this.columns = columns;
+    private VolumeInfo extractVolumeMetadata(Long volumeId, List<IVolumeDatapoint> dps) {
+        if (dps == null || dps.size() == 0 ) {
+            return new VolumeInfo(volumeId);
         }
+        IVolumeDatapoint vdp = dps.get( 0 );
+        return new VolumeInfo("", vdp.getVolumeName(), volumeId);
+    }
 
-        public int getRowCount() {
-            return rowCount;
-        }
+    /**
+     * Convert the set of volume data points to an array of metric values for
+     * insertion into an InfluxDB Serie row.
+     *
+     * @param ts
+     * @param volumeId
+     * @param voldps
+     *
+     * @return the metric values from the volume datapoints, ordered by the index of
+     *    columns defined by {@link #getVolumeMetricColumnNames()}
+     */
+    protected Object[] convertPointsToSeriesRow( Long ts, VolumeInfo volumeInfo, List<IVolumeDatapoint> voldps ) {
+        Object[] metricValues = new Object[getVolumeMetricColumnNames().size()];
 
-        private Serie.Builder getSerieBuilder() {
-            if (serieBuilder == null) {
-                serieBuilder = new Serie.Builder( seriesName )
-                        .columns( columns.toArray( new String[columns.size()] ) );
-                rowCount = 0;
+        metricValues[0] = ts;
+        metricValues[1] = volumeInfo.getVolumeId();
+        metricValues[2] = volumeInfo.getDomainName();
+        metricValues[3] = volumeInfo.getVolumeName();
+
+        populateMetricValues( voldps, metricValues );
+
+        return metricValues;
+    }
+
+    /**
+     * For each volume datapoint, populate the corresponding entry in the
+     * metric values array.
+     *
+     * @param voldps the volume datapoints
+     * @param metricValues the metric values array to populate
+     */
+    protected void populateMetricValues( List<IVolumeDatapoint> voldps, Object[] metricValues ) {
+        for ( IVolumeDatapoint vdp : voldps ) {
+
+            // TODO: assert that volume name in datapoint matches the volume info volume name.
+
+            // find the metric position
+            int midx = indexOf( vdp.getKey() );
+            if (midx == -1) {
+                // NOTE: We currently only populate InfluxDB with metrics explicitly defined in the
+                // Metrics enum.  Additional metrics were recently added to the stat stream that we
+                // are NOT writing to Influx at this time.
+                logger.trace( "Metric {} not found in Volume Metrics list.  Skipping.", vdp.getKey() );
+                continue;
             }
-            return serieBuilder;
-        }
-
-        /**
-         *
-         * @param metricValues
-         * @return the current number of rows after addition
-         */
-        public int addRow( Object[] metricValues ) {
-            getSerieBuilder().values( metricValues );
-            return ++rowCount;
-        }
-
-        /**
-         * Build the series from the current set of rows and reset the builder.
-         *
-         * @return the series.
-         */
-        public Serie build() {
-            Serie s = getSerieBuilder().build();
-            serieBuilder = null;
-            return s;
+            metricValues[midx] = vdp.getValue();
         }
     }
 
-    private SerieBuilder newSerieBuilder() {
-        return new SerieBuilder( VOL_SERIES_NAME, VOL_METRIC_NAMES );
+    /**
+     *
+     * @param v the volume
+     * @return the series name for the specified volume
+     */
+    protected String getSeriesName(VolumeInfo v) {
+        return getEntityName();
+    }
+
+    /**
+     *
+     * @return a new InfluxDB SerieBuilder populated by the series name function and list of metric columns
+     */
+    protected SerieBuilder newSerieBuilder() {
+        return new SerieBuilder( (v)-> {return getSeriesName(v); }, getVolumeMetricColumnNames() );
     }
 
     @Override
@@ -367,7 +391,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
      *
      * @return the list of volume data points from the series.  empty list if the series is null
      */
-    protected List<IVolumeDatapoint> convertSeriesToPoints( QueryCriteria criteria, List<Serie> series ) {
+    protected final List<IVolumeDatapoint> convertSeriesToPoints( QueryCriteria criteria, List<Serie> series ) {
 
         final List<IVolumeDatapoint> datapoints = new ArrayList<>();
         if (series == null) {
@@ -387,7 +411,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
      *
      * @return the list of datapoints. empty list if the chunked response is null
      */
-    protected List<IVolumeDatapoint> convertSeriesToPoints( QueryCriteria criteria, ChunkedResponse chunkedResponse ) {
+    protected final List<IVolumeDatapoint> convertSeriesToPoints( QueryCriteria criteria, ChunkedResponse chunkedResponse ) {
 
         final List<IVolumeDatapoint> datapoints = new ArrayList<>();
 
@@ -436,8 +460,8 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
 
             try {
                 timestampO = row.get( getTimestampColumnName() );
-                volumeIdO = row.get( getVolumeIdColumnName().get() );
-                volumeNameO = row.get( getVolumeNameColumnName().get() );
+                volumeIdO = row.get( VOL_ID_COLUMN_NAME );
+                volumeNameO = row.get( VOL_NAME_COLUMN_NAME );
             } catch ( NoSuchElementException nsee ) {
                 logger.warn( "Failed to locate expected metadata row: " + nsee.getMessage() );
                 continue;
@@ -471,11 +495,9 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
                 // we're only interested in the stats columns at this point
                 try {
                     if ( super.isTimestampColumn( key ) ||
-                            super.isSequenceColumn( key ) ||
-                            key.equals( getVolumeIdColumnName().get() ) ||
-                            key.equals( getVolumeNameColumnName().get() ) ||
-                            key.equals( getVolumeDomainColumnName().get() ) ||
-                            value == null ) {
+                         super.isSequenceColumn( key ) ||
+                         super.getQueryMetadataColumns().contains( key ) ||
+                         value == null ) {
                         return;
                     }
                 } catch ( NoSuchElementException nsee ) {
@@ -509,7 +531,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
     public List<IVolumeDatapoint> query( QueryCriteria queryCriteria ) {
 
         // get the query string
-        String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get(), getVolumeNameColumnName().get() );
+        String queryString = formulateQueryString( queryCriteria );
 
         List<IVolumeDatapoint> datapoints = null;
 
@@ -553,8 +575,13 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
 
     @Override
     public Double sumPhysicalBytes() {
+        return sumMetric( Metrics.PBYTES );
+    }
+
+    public Double sumUsedBytes() {
         return sumMetric( Metrics.UBYTES );
     }
+
 
     protected Double sumMetric( Metrics metrics ) {
         final List<IVolumeDatapoint> datapoints = new ArrayList<>();
@@ -585,24 +612,6 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
      */
     @Override
     public List<IVolumeDatapoint> mostRecentOccurrenceBasedOnTimestamp( Long volumeId, EnumSet<Metrics> metrics) {
-
-        // if the cache is empty, submit an async task that will pre-load it.
-        // This volume's metrics will most likely be loaded by a separate query via
-        // the cache's metric loader.
-        if ( metricCache.isEmpty() ) {
-            CompletableFuture.runAsync( () -> {
-                try {
-                    logger.trace( "Attempting to pre-load volume metric cache" );
-                    List<Long> volids = getVolumeIds();
-
-                    metricCache.loadCache( volids );
-                } catch ( Exception te ) {
-                    logger.trace( "Failed to pre-load volume metric cache", te );
-                }
-            }
-                    );
-        }
-
         EnumMap<Metrics, IVolumeDatapoint> m = metricCache.getLatestVolumeStats( volumeId, metrics );
         return VolumeMetricCache.toVolumeDatapoints( m );
     }
@@ -634,21 +643,8 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         queryCriteria.addOrderBy( new OrderBy(getTimestampColumnName(), false) );
         queryCriteria.setPoints(1);
 
-        // get the query string
-        String queryString = formulateQueryString( queryCriteria, getVolumeIdColumnName().get(), getVolumeNameColumnName().get() );
-
-        // execute the query -  limiting it to the most recent row for the volume is now done in
-        // formulateQueryString
-        List<Serie> series = getConnection().getDBReader().query( queryString, TimeUnit.SECONDS );
-
-        if (series.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        // convert from influxdb format to FDS model format
-        List<IVolumeDatapoint> datapoints = convertSeriesToPoints( queryCriteria, series );
+        List<IVolumeDatapoint> datapoints = query( queryCriteria );
 
         return datapoints;
-
     }
 }

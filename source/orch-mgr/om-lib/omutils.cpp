@@ -78,7 +78,7 @@ namespace fds
                     svcs.push_back( svc );
 
                     MODULEPROVIDER()->getSvcMgr()->updateSvcMap( svcs );
-                    configDB->updateSvcMap( svc );
+                    //ConfigDB svcMap is already updated in the above changeStateSvcMap call
 
                     LOGDEBUG << "Successfully updated svcmaps service ID ( " 
                              << std::hex << svcUuid << std::dec
@@ -425,4 +425,44 @@ namespace fds
         }
 
     }
+
+    void populateAndRemoveSvc(fpi::SvcUuid serviceTypeId,
+                              fpi::FDSP_MgrIdType type,
+                              std::vector<fpi::SvcInfo> svcInfos,
+                              kvstore::ConfigDB* configDB)
+    {
+
+        bool found = false;
+        fpi::SvcInfoPtr svcPtr;
+        for (std::vector<fpi::SvcInfo>::const_iterator iter = svcInfos.begin();
+                iter != svcInfos.end(); ++iter)
+        {
+            if (iter->svc_id.svc_uuid.svc_uuid == serviceTypeId.svc_uuid)
+            {
+                svcPtr = boost::make_shared<fpi::SvcInfo>(*iter);
+                found = true;
+                break;
+            }
+        }
+
+        if (!found)
+        {
+            LOGDEBUG << "Unable to find service in list. Making a fake svcPtr. Fix this?"; \
+            svcPtr = boost::make_shared<fpi::SvcInfo>();
+            svcPtr->svc_id.svc_uuid.svc_uuid = serviceTypeId.svc_uuid;
+        }
+
+        DltDmtUtil::getInstance()->addToRemoveList(serviceTypeId.svc_uuid, type);
+
+        // ToDo : Modify below call to use the other change_service_state function so the
+        // call will go to the below function through the macro call. In which case make
+        // sure to REMOVE the scoped lock in send_remove_service since the macro acquires
+        // a separate lock
+        change_service_state( configDB,
+                              svcPtr,
+                              fpi::SVC_STATUS_REMOVED,
+                              true );
+
+    }
+
 }  // namespace fds

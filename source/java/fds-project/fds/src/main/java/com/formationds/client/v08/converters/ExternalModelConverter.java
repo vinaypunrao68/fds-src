@@ -1,13 +1,17 @@
 package com.formationds.client.v08.converters;
 
-import com.formationds.apis.FDSP_GetVolInfoReqType;
-import com.formationds.apis.LocalDomainDescriptor;
-import com.formationds.apis.VolumeDescriptor;
+import com.formationds.apis.*;
 import com.formationds.apis.VolumeType;
 import com.formationds.client.ical.RecurrenceRule;
 import com.formationds.client.v08.model.*;
 import com.formationds.client.v08.model.Domain.DomainState;
+import com.formationds.client.v08.model.MediaPolicy;
+import com.formationds.client.v08.model.SnapshotPolicy;
 import com.formationds.client.v08.model.SnapshotPolicy.SnapshotPolicyType;
+import com.formationds.client.v08.model.Tenant;
+import com.formationds.client.v08.model.User;
+import com.formationds.client.v08.model.VolumeSettings;
+import com.formationds.client.v08.model.VolumeStatus;
 import com.formationds.client.v08.model.iscsi.Credentials;
 import com.formationds.client.v08.model.iscsi.Initiator;
 import com.formationds.client.v08.model.iscsi.LUN;
@@ -23,6 +27,7 @@ import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.redis.RedisSingleton;
 import com.formationds.om.redis.VolumeDesc;
 import com.formationds.om.repository.MetricRepository;
@@ -31,6 +36,7 @@ import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair;
 import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria.QueryType;
+import com.formationds.om.util.AsyncAmClientFactory;
 import com.formationds.protocol.IScsiTarget;
 import com.formationds.protocol.LogicalUnitNumber;
 import com.formationds.protocol.NfsOption;
@@ -38,17 +44,21 @@ import com.formationds.protocol.svc.types.FDSP_MediaPolicy;
 import com.formationds.protocol.svc.types.FDSP_VolType;
 import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
 import com.formationds.protocol.svc.types.ResourceState;
+import com.formationds.protocol.svc.types.VolumeGroupCoordinatorInfo;
 import com.formationds.util.thrift.ConfigurationApi;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.net.UnknownHostException;
 import java.text.ParseException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 @SuppressWarnings("unused")
@@ -265,49 +275,89 @@ public class ExternalModelConverter {
                                                                  EnumMap<FirebreakType, ?> fbResults ) {
         VolumeState volumeState = convertToExternalVolumeState( internalVolume.getState() );
 
-        Size extUsage;
+        Optional<Size> extUsage = Optional.empty();
 
-        /**
-         * We used to do the following in an attempt to get current usage. It seems to try to
-         * make use of collected volume stats.
-         *
-         *
-         *   final Optional<com.formationds.apis.VolumeStatus> optionalStatus =
-         *       SingletonRepositoryManager.instance()
-         *                                 .getMetricsRepository()
-         *                                 .getLatestVolumeStatus( internalVolume.getName() );
-         *   if ( optionalStatus.isPresent() ) {
-         *       com.formationds.apis.VolumeStatus internalStatus = optionalStatus.get();
-         *       extUsage = Size.of( internalStatus.getCurrentUsageInBytes(), SizeUnit.B );
-         * }
-         */
+//        FDSP_VolumeDescType volDescType = null;
+//        try
+//        {
+//            volDescType = getConfigApi().GetVolInfo( new FDSP_GetVolInfoReqType( internalVolume.getName( ),
+//                                                                                 0 /* Local Domain Id */ ) );
+//        }
+//        catch ( Exception e )
+//        {
+//            logger.warn( "The specified volume {}:{} encountered an error, reason {}.",
+//                         internalVolume.getName(),
+//                         internalVolume.getVolId(),
+//                         e.getMessage() != null ? e.getMessage() : "none reported" );
+//            logger.debug( "", e );
+//        }
 
-        /**
-         * But currently (01/07/2016) there seems to be some difficulty with this method.
-         * Most likely, given the delay in reporting volume stats, the difficulty is in the
-         * user not waiting long enough to see stats appear. However, should the user have to
-         * wait for stats that are delayed a number of minutes from present to get a count
-         * of bytes currently used by a volume?
-         */
-        com.formationds.apis.VolumeStatus volumeStatus;
-        try {
-            volumeStatus = SingletonAmAPI.instance().api().volumeStatus("" /* TODO: Dummy domain name. */,
-                                                                        internalVolume.getName()).get();
-        } catch (Exception e) {
-            logger.warn("Unknown Exception requesting volume status for " +
-                        internalVolume.getName() +
-                        ": " + e.getMessage());
+//        if( volDescType != null )
+//        {
+//            final Optional<VolumeGroupCoordinatorInfo> coordinatorInfo =
+//                Optional.ofNullable( volDescType.getCoordinator( ) );
+//            if( coordinatorInfo.isPresent( ) && ( coordinatorInfo.get( )
+//                                                                 .getId( )
+//                                                                 .getSvc_uuid( ) != 0 ) )
+//            {
+//                final AsyncAmClientFactory factory =
+//                    new AsyncAmClientFactory( SingletonConfiguration.getConfig( ) );
+//
+//                try
+//                {
+//                    CompletableFuture<com.formationds.apis.VolumeStatus> volumeStatus =
+//                        factory.newClient( coordinatorInfo.get()
+//                                                          .getId() )
+//                               .volumeStatus( "" /* Local Domain Name */,
+//                                              internalVolume.getName() );
+//                    final com.formationds.apis.VolumeStatus vstatus = volumeStatus.get();
+//                    if( vstatus != null )
+//                    {
+//                        extUsage =
+//                            Optional.of( Size.of( vstatus.getCurrentUsageInBytes( ), SizeUnit.B ) );
+//                    }
+//                }
+//                catch ( IOException | InterruptedException | ExecutionException e )
+//                {
+//                    logger.warn( "Failed to retrieve volume description for {}:{} - reason: {}.",
+//                                 internalVolume.getVolId(),
+//                                 internalVolume.getName(),
+//                                 e.getMessage() != null ? e.getMessage() : "none reported" );
+//                    logger.debug( "", e );
+//                }
+//            }
+//            else
+//            {
+//                logger.trace( "Volume Coordinator isn't set, will attempt retrieving usage from stats" );
+//            }
+//        }
 
-            return new VolumeStatus(volumeState, Size.ZERO);
+        if( !extUsage.isPresent() )
+        {
+            final Optional<com.formationds.apis.VolumeStatus> optionalStatus =
+                SingletonRepositoryManager.instance()
+                                          .getMetricsRepository()
+                                          .getLatestVolumeStatus( internalVolume.getName() );
+            if( optionalStatus.isPresent() )
+            {
+                extUsage =
+                    Optional.of( Size.of( optionalStatus.get().getCurrentUsageInBytes(),
+                                          SizeUnit.B ) );
+            }
         }
 
-        extUsage = Size.of(volumeStatus.getCurrentUsageInBytes(), SizeUnit.B);
-        logger.trace("Determined extUsage for " + internalVolume.getName() + " to be " + extUsage + ".");
+        if( !extUsage.isPresent() )
+        {
+            extUsage = Optional.of( Size.of( 0L, SizeUnit.B ) );
+        }
+
+        logger.trace( "Determined extUsage for " + internalVolume.getName() +
+                      " to be " + extUsage + "." );
 
         Instant[] instants = {Instant.EPOCH, Instant.EPOCH};
         extractTimestamps( fbResults, instants );
 
-        return new VolumeStatus( volumeState, extUsage, instants[0], instants[1] );
+        return new VolumeStatus( volumeState, extUsage.get(), instants[0], instants[1] );
     }
 
     /**

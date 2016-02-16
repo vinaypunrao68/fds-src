@@ -199,6 +199,9 @@ void SvcProcess::shutdown_modules()
     LOGNOTIFY << "Stopping timer";
     timer_servicePtr_->destroy();
 
+    LOGNOTIFY << "Destroying cntrs mgr";
+    cntrs_mgrPtr_->reset();
+
     LOGNOTIFY << "Stopping threadpool";
     proc_thrp->stop();
 }

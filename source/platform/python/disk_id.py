@@ -26,7 +26,7 @@ class Disk:
     DISK_BUS_SAS = 'SAS'
     DISK_BUS_NA = 'NA'
 
-    p_dev = re.compile('sd[a-z]$')
+    p_dev = re.compile('sd[a-z]{1,2}$')
 
     # We are using 1000*1000
     # device size with M = 1024*1024:     1907729 MBytes
@@ -44,12 +44,14 @@ class Disk:
         assert re.match(Disk.DSK_PREFIX, path)
 
         self.dsk_path = path
-        self.dsk_cap  = 0
+        self.dsk_cap  = -1
         self.dsk_typ  = Disk.DSK_TYP_UNKNOWN
         self.dsk_formatted = 'Unknown'
         self.dsk_index_use = False
         self.dsk_bus = Disk.DISK_BUS_NA
         self.dsk_os_use = is_os_disk
+
+        self.target = None
 
         # parse disk information
         self.__parse_with_lshw(path, virtualized)
@@ -85,7 +87,8 @@ class Disk:
         if not header_output:
             print >>dest, '#path      os_use  index_use  type  bus   capacity (GB)'
             header_output = True
-        print >>dest, '%-11s%-8s%-11s%-6s%-6s%-d' % (self.dsk_path, self.dsk_os_use, self.dsk_index_use, self.dsk_typ, self.dsk_bus, self.dsk_cap)
+        if self.dsk_cap > 0:
+            print >>dest, '%-11s%-8s%-11s%-6s%-6s%-d' % (self.dsk_path, self.dsk_os_use, self.dsk_index_use, self.dsk_typ, self.dsk_bus, self.dsk_cap)
 
 ## ----------------------------------------------------------------
 
@@ -112,8 +115,11 @@ class Disk:
         tree = Disk.dsk_lshw_xml
         root = tree.getroot()
         for node in root.findall('node'):
-            if node.get('id') == 'cdrom':
+            type=node.get('id')
+            if type == 'cdrom':
                 continue
+            target=type.partition(':')
+            self.target = target[2]
             node_logicalname = node.find('logicalname')
 
             if node_logicalname is None:
@@ -123,17 +129,21 @@ class Disk:
                 continue
 
             node_size = node.find('size')
-            assert node_size != None
+
+            if node_size is None:
+                continue
 
             units = node_size.get('units')
+
             if units == 'bytes':
                 self.dsk_cap = int(node_size.text) / Disk.DSK_GSIZE
                 break
             else:
                 self.dsk_cap = 0
-                print 'ERROR: lshw units size not implemented for:  ', node_logicalname.text
-                assert False
-        assert self.dsk_cap != 0
+                print 'WARNING: lshw units size not implemented for:  ', node_logicalname.text, ', ignoring. '
+
+        if self.dsk_cap < 0:
+            print 'WARNING: Size not detected for " ', node_logicalname.text, '", will ignore this device'
 
         # match type
         dev = re.split('/', path)
@@ -226,11 +236,11 @@ def discover_os_devices ():
 
 def disk_type_with_stor_cli (stor_client):
     '''
-    This uses the megaraid storcli64 tool to inspect the raid controllers and enclosures
+    This uses the megaraid storcli64 tool (or perccli64 tool) to inspect the raid controllers and enclosures
     to find storage media types attached to hardware controllers.
 
     inputs:
-        stor_client:  Full path and binary name of the storcli64 tool
+        stor_client:  Full path and binary name of the storcli64/perccli64 tool
 
     returns:
         A list of Disk device types and bus type for HDD's
@@ -247,12 +257,12 @@ def disk_type_with_stor_cli (stor_client):
     drive_info_section = re.compile ("^Drive Information :$")
 
     # Only look for online drives, others are not exposed to the OS
-    online_drive_info = re.compile (".* Onln .* (HDD|SSD) .*")
+    online_drive_info = re.compile (".* (Onln|JBOD) .* (HDD|SSD) .*")
 
     found_drive_info = False
     return_list = []
 
-    # storcli64 arguments:
+    # storcli64/perccli64 arguments:
     #    /call = check all controllers
     #    /eall = check all enclosures (megaraid sas card concept)
     #    /sall = check all slots (aka physical devices, e.g., drives)
@@ -260,6 +270,7 @@ def disk_type_with_stor_cli (stor_client):
     output = subprocess.Popen([stor_client, "/call/eall/sall", "show"], stdout=subprocess.PIPE).stdout
 
     last_drive_group = 99999999
+    drive_group = re.compile("[0-9]")
 
     for line in output:
         # Look for beginning of drive information section in output
@@ -277,9 +288,10 @@ def disk_type_with_stor_cli (stor_client):
             items = line.strip ('\r\n').split()
 
             # check for hardware raid array
-            if last_drive_group == items[3]:
-                continue
-            last_drive_group = items[3]
+            if drive_group.match(items[3]):  # check if drive group is applicable (n/a for JBOD)
+                if last_drive_group == items[3]:
+                    continue
+                last_drive_group = items[3]
 
             if Disk.DSK_TYP_HDD == items[7]:
                 return_list.append(Disk.DSK_TYP_HDD)
@@ -302,13 +314,14 @@ def disk_type_with_stor_cli (stor_client):
     dbg_print ("return_list=" + ', '.join(return_list))
     return return_list
 
-def find_index_devices() :
-    output = subprocess.Popen(["df", "/fds/sys-repo"], stdout=subprocess.PIPE).stdout
+def find_index_devices(index_mount_point) :
+    devnull = open(os.devnull, 'wb')
+    output = subprocess.Popen(["df", index_mount_point], stdout=subprocess.PIPE, stderr=devnull).stdout
     index_devs = []
     dev = ""
     for line in output:
         items = line.strip ('\r\n').split()
-        if "/fds/sys-repo" == items[5]:
+        if index_mount_point == items[5]:
             dev = items[0]
             dbg_print("Found an existing index device in df output: %s" % dev)
             break
@@ -324,9 +337,10 @@ if __name__ == "__main__":
 
     parser.add_option('-D', '--debug', dest = 'debug', action = 'store_true', help = 'Turn on debugging')
     parser.add_option('-f', '--fds-root', dest = 'fds_root', default='/fds', help = 'Path to fds-root')
-    parser.add_option('-s', '--stor', dest = 'stor_cli', help = 'Full path and file name of the StorCli binary')
+    parser.add_option('-s', '--stor', dest = 'stor_cli', help = 'Full path and file name of the StorCli/PercCli binary')
     parser.add_option('-v', '--virtual', dest = 'virtual', action = 'store_true', help = 'Running in a virtualized environment, treats all detected drives as HDDs')
     parser.add_option('-w', '--write', dest = 'write_disk', action = 'store_true', help = 'Writes the disk configuration information file.')
+    parser.add_option('-m', '--map', dest = 'disk_config_dest', help = 'The destination disk config file.')
 
     (options, args)   = parser.parse_args()
     debug_on          = options.debug
@@ -343,14 +357,25 @@ if __name__ == "__main__":
             print ( "Error:  Can not access '" + options.stor_cli + "', please use or verify the -s command line option.  Can not continue.")
             sys.exit(1)
 
-    destination_dir = options.fds_root + "/dev"
+    fds_root = options.fds_root
+    if not fds_root.endswith ('/'):
+        fds_root += '/'
+    if not options.disk_config_dest:
+        destination_dir = fds_root + "dev"
+    else:
+        destination_dir = options.disk_config_dest
+    index_mount_point = fds_root + "sys-repo"
 
     # verify destination directory exists
     if write_disk_config:
         if not os.path.isdir (destination_dir):
             print ( "Error:  Directory '" + destination_dir + "', does not exist.  Can not continue.")
             sys.exit(1)
-
+    elif options.disk_config_dest:
+        print ( "Error: must specify -m(--map) option together with the -w (--write) option.")
+        sys.exit(1)
+    
+    
     os_device_list = discover_os_devices()
 
     sys.stdout.write ('Scanning hardware:  Phase 1:  ')
@@ -366,33 +391,31 @@ if __name__ == "__main__":
 
     if options.stor_cli:
         for disk in dev_list:
-            if disk.get_type() == Disk.DSK_TYP_UNKNOWN:
-                sys.stdout.write ("  Phase 2:   ")
-                sys.stdout.flush()
-                dbg_print ('')
+            sys.stdout.write ("  Phase 2:   ")
+            sys.stdout.flush()
+            dbg_print ('')
 
-                controller_disk_list = disk_type_with_stor_cli(options.stor_cli)
+            controller_disk_list = disk_type_with_stor_cli(options.stor_cli)
 
-                sys.stdout.write ("Complete")
-                sys.stdout.flush()
+            sys.stdout.write ("Complete")
+            sys.stdout.flush()
 
-                break
+            break
     print ''
 
     dbg_print ("controller_disk_list = " + ', '.join(controller_disk_list))
 
     for disk in dev_list:
-        if disk.get_type() == Disk.DSK_TYP_UNKNOWN:
-            print disk.get_type(), disk.get_path()
-            if len (controller_disk_list) > 0:
-                disk.dsk_typ = controller_disk_list.pop(0)
-                if disk.dsk_typ == Disk.DSK_TYP_HDD:
-                    disk.set_bus (controller_disk_list.pop(0))
-            else:
-                # devices exist in /dev/sd* that can't be identified.
-                print ( "Error:  Identified but unknown type devices remain.  Try using -s perhaps?  Can not continue.")
-                #debug_dump (dev_list)
-                sys.exit(1)
+        print disk.get_type(), disk.get_path()
+        if len (controller_disk_list) > 0 and disk.target:  # don't try to use controller info for internal disks
+            disk.dsk_typ = controller_disk_list.pop(0)
+            if disk.dsk_typ == Disk.DSK_TYP_HDD:
+                disk.set_bus (controller_disk_list.pop(0))
+        elif disk.get_type() == Disk.DSK_TYP_UNKNOWN:
+            # devices exist in /dev/sd* that can't be identified.
+            print ( "Error:  Identified but unknown type devices remain.  Try using -s perhaps?  Can not continue.")
+            #debug_dump (dev_list)
+            sys.exit(1)
 
     # no more devices are known in /dev/sd*, but we have more drives documented on hardware controllers
     if len (controller_disk_list) > 0:
@@ -432,10 +455,11 @@ if __name__ == "__main__":
     index_device_list = []
 
     # keep existing index disk(s)
-    index_device_list = find_index_devices()
+    index_device_list = find_index_devices(index_mount_point)
     if len(index_device_list) < 1:
-        subprocess.call(['mount', '/fds/sys-repo'], stdout = None, stderr = None)
-        index_device_list = find_index_devices()
+        devnull = open(os.devnull, 'wb')
+        subprocess.call(['mount', index_mount_point], stdout = None, stderr = devnull)
+        index_device_list = find_index_devices(index_mount_point)
 
     # copy one SSD into the index device list
     while len (index_device_list) < 1 and len (ssd_device_list) > 0:

@@ -186,14 +186,16 @@ Error DmVolumeCatalog::activateCatalog(fds_volid_t volId) {
 
 Error DmVolumeCatalog::reloadCatalog(const VolumeDesc & voldesc) {
     LOGNORMAL << "Will reload catalog for volume " << voldesc.volUUID;
-    deleteEmptyCatalog(voldesc.volUUID, false);
+    deleteCatalog(voldesc.volUUID, false);
     Error rc = addCatalog(voldesc);
     if (!rc.ok()) {
         LOGWARN << "Failed to re-instantiate the volume '" << voldesc.volUUID;
         return rc;
     }
     rc = activateCatalog(voldesc.volUUID);
+
     if (rc.ok()) {
+        /*
         synchronized(lockVolSummaryMap_) {
             DmVolumeSummaryMap_t::const_iterator iter = volSummaryMap_.find(voldesc.volUUID);
             if (volSummaryMap_.end() != iter) {
@@ -201,11 +203,12 @@ Error DmVolumeCatalog::reloadCatalog(const VolumeDesc & voldesc) {
             }
         }
         fds_uint64_t volSize=0, blobCount=0, objCount=0;
-        statVolumeLogical(voldesc.volUUID, &volSize, &blobCount, &objCount);
+        // statVolumeLogical(voldesc.volUUID, &volSize, &blobCount, &objCount);
         LOGNORMAL << "reloaded vol:" << voldesc.volUUID << "["
                   << " size:" << volSize
                   << " blobs:" << blobCount
                   << " objects:" << objCount << "]";
+        */
     } else {
         LOGWARN << "unable to activate vol:" << voldesc.volUUID
                 << "error:" << rc;
@@ -234,13 +237,12 @@ Error DmVolumeCatalog::markVolumeDeleted(fds_volid_t volId) {
     return rc;
 }
 
-Error DmVolumeCatalog::deleteEmptyCatalog(fds_volid_t volId, bool checkDeleted /* = true */) {
-    LOGDEBUG << "Will delete catalog for volume '" << std::hex << volId << std::dec << "'";
+Error DmVolumeCatalog::deleteCatalog(fds_volid_t volId, bool checkDeleted /* = true */) {
+    LOGDEBUG << "will delete catalog for vol:" << volId;
     GET_VOL(volId);
     if (!vol) return ERR_VOL_NOT_FOUND;
 
-
-        // wait for all snapshots to be released
+    // wait for all mem snapshots to be released
     if (0 != vol->getNumInMemorySnapshots()) {
         LOGWARN << "waiting for all db mem snapshots to be released.";
         uint count = 0;

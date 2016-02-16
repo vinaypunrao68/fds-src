@@ -55,6 +55,23 @@ def suiteConstruction(self, action="kill-uninst"):
             # Verify operational DBs are down.
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisDown())
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBDown())
+    elif action.count("term") > 0:
+        # One test case to shutdown the domain.
+        suite.addTest(testcases.TestFDSSysMgt.TestNodeKill(sig="SIGTERM"))
+
+        # Shutdown Redis and InfluxDB.
+        suite.addTest(testcases.TestFDSEnvMgt.TestShutdownRedis())
+        suite.addTest(testcases.TestFDSEnvMgt.TestShutdownInfluxDB())
+
+        # Verify down unless requested not to.
+        if action.count("term_noverify") == 0:
+            # Verify that all nodes are down.
+            nodeDownSuite = NodeVerifyDownSuite.suiteConstruction(self=None)
+            suite.addTest(nodeDownSuite)
+
+            # Verify operational DBs are down.
+            suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisDown())
+            suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBDown())
 
     if action.count("uninst") > 0:
         if fdscfg.rt_om_node.nd_cmd_line_options['reusecluster'] is not True:
@@ -85,5 +102,5 @@ if __name__ == '__main__':
     #runner = xmlrunner.XMLTestRunner(output=log_dir, failfast=failfast)
     runner = xmlrunner.XMLTestRunner(output=log_dir)
 
-    test_suite = suiteConstruction(self=None)
+    test_suite = suiteConstruction(self=None, action='kill')
     runner.run(test_suite)

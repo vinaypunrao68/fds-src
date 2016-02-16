@@ -677,6 +677,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
 DmtDplyFSM::GRD_ReRegister::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    LOGNOTIFY << "DmtDplyFSM::GRD_ReRegister";
     fds_bool_t bret = false;
     NodeUuid nodeChk = evt.uuid;
 
@@ -728,7 +729,7 @@ DmtDplyFSM::DACT_Start::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
 			    dst.dms_to_ack.insert(*cit);
 		    }
         }
-        LOGDEBUG << "Will wait for " << dst.dms_to_ack.size()
+        LOGNOTIFY << "DmtDplyFSM::DACT_Start, Will wait for " << dst.dms_to_ack.size()
 				 << " DMs to acks volume notify";
     } else {
     	/*
@@ -736,7 +737,7 @@ DmtDplyFSM::DACT_Start::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     	 * DM will have its service layer pull the volume descriptor, so no need to
     	 * waste resources broadcasting unchanged vol desc's to all the nodes.
     	 */
-    	LOGDEBUG << "DM Resync OM DmtFSM. Will not broadcast volume descriptors";
+    	LOGNOTIFY << "DmtDplyFSM::DACT_Start, DM Resync OM DmtFSM. Will not broadcast volume descriptors";
     }
 }
 
@@ -747,7 +748,7 @@ DmtDplyFSM::DACT_Start::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
 template <class Evt, class Fsm, class SrcST, class TgtST>
 void
 DmtDplyFSM::DACT_Waiting::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst) {
-    LOGDEBUG << "DACT_Waiting: entering wait state.";
+    LOGNOTIFY << "DACT_Waiting: entering wait state.";
     if (!dst.waitingTimer->schedule(dst.waitingTimerTask,
             std::chrono::seconds(1))) {
         LOGWARN << "DACT_DmtWaiting: failed to start retry timer!!!"
@@ -773,7 +774,7 @@ DmtDplyFSM::GRD_DmtRebal::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     }
 
     bool bret = (src.dms_to_ack.size() == 0);
-    LOGDEBUG << "DMs to wait " << src.dms_to_ack.size()
+    LOGNOTIFY << "DmtDplyFSM::GRD_DmtRebal, DMs to wait " << src.dms_to_ack.size()
              << " for vol acks; returning " << bret;
 
     return bret;
@@ -821,7 +822,7 @@ DmtDplyFSM::DACT_Rebalance::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     if (dst.pull_meta_dms.size() < 1) {
         fsm.process_event(DmtPushMetaAckEvt(NodeUuid()));
     }
-    LOGDEBUG << "Will wait for " << dst.pull_meta_dms.size() << " push_meta acks";
+    LOGNOTIFY << "DmtDplyFSM::DACT_Rebalance, Will wait for " << dst.pull_meta_dms.size() << " push_meta acks";
 }
 
 /**
@@ -842,7 +843,7 @@ DmtDplyFSM::GRD_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     }
 
     bool bret = (src.pull_meta_dms.size() == 0);
-    LOGDEBUG << "Meta acks to wait " << src.pull_meta_dms.size()
+    LOGNOTIFY << "DmtDplyFSM::GRD_Commit, Meta acks to wait " << src.pull_meta_dms.size()
              << "; returning " << bret;
     return bret;
 }
@@ -878,8 +879,8 @@ DmtDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
     // unless all failed? -- in that case we should handle errors
     //    fds_verify(dst.commit_acks_to_wait > 0);
 
-    LOGNOTIFY << "Committed DMT to DMs, will wait for " << dst.commit_acks_to_wait
-             << " DMT commit acks";
+    LOGNOTIFY << "DmtDplyFSM::DACT_Commit, Committed DMT to DMs, will wait for "
+              << dst.commit_acks_to_wait << " DMT commit acks";
 
     // Once we're in this state, it means all DMs ongoing staticMigrations have
     // completed. We need to clear the ongoingMigrations list at this point.
@@ -924,7 +925,7 @@ DmtDplyFSM::GRD_BcastAM::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
     src.commit_acks_to_wait--;
 
     bool bret = (src.commit_acks_to_wait == 0);
-    LOGDEBUG << "Commit acks to wait from DMs: " << src.commit_acks_to_wait
+    LOGNOTIFY << "DmtDplyFSM::GRD_BcastAM, Commit acks to wait from DMs: " << src.commit_acks_to_wait
              << ", returning " << bret;
 
     return bret;
@@ -1001,7 +1002,7 @@ DmtDplyFSM::GRD_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &d
     }
 
     bool bret = (src.commit_acks_to_wait == 0);
-    LOGDEBUG << "Commit acks to wait from AM/SM: " << src.commit_acks_to_wait
+    LOGNOTIFY << "Commit acks to wait from AM/SM: " << src.commit_acks_to_wait
              << ", returning " << bret;
 
     return bret;
@@ -1043,7 +1044,7 @@ DmtDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     LOGDEBUG << "Sending dmt up event";
     domain->local_domain_event(DltDmtUpEvt(fpi::FDSP_DATA_MGR));
 
-    LOGNOTIFY << "Will wait for " << dst.close_acks_to_wait << " DMT close acks";
+    LOGNOTIFY << "DmtDplyFSM::DACT_Close, Will wait for " << dst.close_acks_to_wait << " DMT close acks";
 }
 
 /**
@@ -1069,8 +1070,8 @@ DmtDplyFSM::GRD_Done::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &ds
     }
 
     bool bret = (src.close_acks_to_wait == 0);
-    LOGDEBUG << "Close acks to wait " << src.close_acks_to_wait
-             << ", returning " << bret;
+    LOGNOTIFY << "DmtDplyFSM::GRD_Done, Close acks to wait " << src.close_acks_to_wait
+              << ", returning " << bret;
 
     return bret;
 }

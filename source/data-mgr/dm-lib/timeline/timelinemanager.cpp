@@ -6,6 +6,8 @@
 #include <util/path.h>
 #include <util/stringutils.h>
 #include <unistd.h> // for unlink
+#include <util/disk_utils.h>
+#include <boost/filesystem.hpp>
 
 namespace fds { namespace timeline {
 #define TIMELINE_FEATURE_CHECK(...) if (!dm->features.isTimelineEnabled()) { return ERR_FEATURE_DISABLED ;}
@@ -41,12 +43,12 @@ Error TimelineManager::deleteSnapshot(fds_volid_t volId, fds_volid_t snapshotId)
     }
 
     for (const auto& snapshotId : vecSnaps) {
-        LOGDEBUG << "deleting snap:" << snapshotId
-                 << " of vol:" << volId;
+        LOGNOTIFY << "deleting snap:" << snapshotId << " of vol:" << volId;
 
-        // node remove the contents of the snapshot
-        err = dm->deleteVolumeContents(snapshotId);
-        err = dm->process_rm_vol(snapshotId, true);
+        // mark as deleted
+        err = dm->removeVolume(snapshotId, true);
+        // remove the snapshot
+        err = dm->removeVolume(snapshotId, false);
 
         // remove info about this snapshot from timelinedb
         timelineDB->removeSnapshot(snapshotId);
@@ -65,15 +67,14 @@ Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
     std::string snapDir;
     std::vector<std::string> vecDirs;
     Error err;
-
+    const auto root = dm->getModuleProvider()->proc_fdsroot();
     if (invalid_vol_id == snapshotid) {
         // load all snapshots
-        snapDir  = dmutil::getSnapshotDir(dm->getModuleProvider()->proc_fdsroot(), volid);
+        snapDir  = dmutil::getSnapshotDir(root, volid);
         util::getSubDirectories(snapDir, vecDirs);
     } else {
         // load only a particluar snapshot
-        snapDir = dmutil::getVolumeDir(dm->getModuleProvider()->proc_fdsroot(),
-                                       volid, snapshotid);
+        snapDir = dmutil::getVolumeDir(root, volid, snapshotid);
         if (!util::dirExists(snapDir)) {
             LOGERROR << "unable to locate snapshot [" << snapshotid << "]"
                      << " for vol:" << volid
@@ -90,7 +91,7 @@ Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
         snapId = std::atoll(snap.c_str());
         //now add the snap
         if (dm->getVolumeDesc(snapId) != NULL) {
-            LOGWARN << "snapshot:" << snapId << " already loaded";
+            LOGDEBUG << "snapshot:" << snapId << " already loaded";
             continue;
         }
         VolumeDesc *desc = new VolumeDesc(*(dm->getVolumeDesc(volid)));
@@ -104,12 +105,12 @@ Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
         desc->setState(fpi::Active);
         desc->name = util::strformat("snaphot_%ld_%ld",
                                      volid.get(), snapId.get());
-        VolumeMeta *meta = new(std::nothrow) VolumeMeta(dm->getModuleProvider(),
-                                                        desc->name,
-                                                        snapId,
-                                                        GetLog(),
-                                                        desc,
-                                                        dm);
+        auto meta = MAKE_SHARED<VolumeMeta>(dm->getModuleProvider(),
+                                            desc->name,
+                                            snapId,
+                                            GetLog(),
+                                            desc,
+                                            dm);
         {
             FDSGUARD(dm->vol_map_mtx);
             if (dm->vol_meta_map.find(snapId) != dm->vol_meta_map.end()) {
@@ -135,9 +136,22 @@ Error TimelineManager::unloadSnapshot(fds_volid_t volid, fds_volid_t snapshotid)
 }
 
 Error TimelineManager::createSnapshot(VolumeDesc *vdesc) {
+    Error err;
     TIMELINE_FEATURE_CHECK();
+
+    float_t dm_user_repo_pct_used = getUsedCapacityAsPct();
+    if (dm_user_repo_pct_used >= dm->dmFullnessThreshold) {
+           err = ERR_DM_DISK_CAPACITY_ERROR_THRESHOLD;
+            LOGERROR << "ERROR: DM user-repo already used " << dm_user_repo_pct_used
+                    << "% of available storage space!"
+                     <<" Not creating a new snapshot for vol: ." << vdesc->volUUID
+                    << err;
+            return err;
+    }
+
+
     util::TimeStamp createTime = util::getTimeStampMicros();
-    Error err = dm->timeVolCat_->copyVolume(*vdesc);
+    err = dm->timeVolCat_->copyVolume(*vdesc);
     if (err.ok()) {
         // add it to timeline
         if (dm->features.isTimelineEnabled()) {
@@ -157,14 +171,28 @@ Error TimelineManager::createSnapshot(VolumeDesc *vdesc) {
 
 Error TimelineManager::removeVolume(fds_volid_t volId) {
     TIMELINE_FEATURE_CHECK();
-    return timelineDB->removeVolume(volId);    
+    LOGNOTIFY << "removing from timeline db vol:" << volId;
+    Error err =  timelineDB->removeVolume(volId);
+
+    const auto root = dm->getModuleProvider()->proc_fdsroot();
+    std::string timelineDir = dmutil::getTimelineDir(root, volId);
+    LOGNOTIFY << "removing timeline journal archives for vol:" << volId << " @ " << timelineDir;
+    boost::filesystem::remove_all(timelineDir);
+
+    LOGNORMAL << "will delete all snapshots for vol:" << volId;
+    deleteSnapshot(volId);
+
+    std::string snapshotDir = dmutil::getSnapshotDir(root, volId);
+    LOGNOTIFY << "removing snapshot dir for vol:" << volId << " @ " << snapshotDir;
+    boost::filesystem::remove_all(snapshotDir);
+    return err;
 }
 
 Error TimelineManager::createClone(VolumeDesc *vdesc) {
     TIMELINE_FEATURE_CHECK();
     Error err;
 
-    VolumeMeta * volmeta = dm->getVolumeMeta(vdesc->srcVolumeId);
+    auto volmeta = dm->getVolumeMeta(vdesc->srcVolumeId);
     if (!volmeta) {
         LOGERROR << "vol:" << vdesc->srcVolumeId
                  << " not found";
@@ -260,6 +288,21 @@ Error TimelineManager::createClone(VolumeDesc *vdesc) {
 
     return err;
 }
+
+float_t
+TimelineManager::getUsedCapacityAsPct() {
+    // Get fds root dir
+    const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
+    // Get user-repo dir
+    DiskUtils::CapacityPair cap = DiskUtils::getDiskConsumedSize(root->dir_user_repo_dm());
+
+    // Calculate pct
+    float_t result = ((1. * cap.usedCapacity) / cap.totalCapacity) * 100;
+    GLOGDEBUG << "Found DM user-repo disk capacity of (" << cap.usedCapacity << "/" << cap.totalCapacity << ") = " << result;
+
+    return result;
+}
+
 
 }  // namespace timeline
 }  // namespace fds

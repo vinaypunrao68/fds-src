@@ -27,7 +27,7 @@ task buildDeb(type: Deb) {
 
 	def baseDir = main_dir_build
 
-	into '/opt/fds/formation_one/packages/am-' + version + '-' + release
+	into '/opt/fds/formation_one/packages/' + packagePrefix + '-' + version + '-' + release
 
 	from(baseDir + '/bin/bare_am') {
 		into 'bin'
@@ -42,6 +42,12 @@ task buildDeb(type: Deb) {
 	from(baseDir + '/lib/libfds-am-engine.a') {
 		into 'lib'
 		fileMode 644
+	}
+
+	from( '../../cinder' ){
+		include 'nbdadm.py'
+		into 'bin'
+		fileMode 755
 	}
 }
 
@@ -69,16 +75,30 @@ task deployDeb( dependsOn: 'buildDeb' ) << {
 
 	def fullName = debName
 
-	def command = 'curl -v -X PUT http://' + username + ':' + password + '@artifacts.artifactoryonline.com/artifacts/formation-apt/pool/nightly/' + fullName + ';deb.distribution=platform;deb.component=nightly;deb.architecture=amd64 -T ' + projectDir.getName() + '/build/distributions/' + fullName
+	def deploy_artifactoryonline = 'curl -v -X PUT http://' + username + ':' + password + '@artifacts.artifactoryonline.com/artifacts/formation-apt/pool/nightly/' + fullName + ';deb.distribution=platform;deb.component=nightly;deb.architecture=amd64 -T ' + projectDir.getName() + '/build/distributions/' + fullName
 
-	println command
+	println deploy_artifactoryonline
 
-	def proc = command.execute()
+	def proc_online = deploy_artifactoryonline.execute()
 
-	proc.text.eachLine { line -> println line }
+	proc_online.text.eachLine { line -> println line }
 
-	if ( proc.exitValue() ) {
-		throw new GradleException( 'Artifact upload failed.' )
+	if ( proc_online.exitValue() ) {
+		throw new GradleException( 'Artifact upload to artifactoryonline failed.' )
 	}
+
+
+  def deploy_artifactory_local = 'curl -v -X PUT http://' + username + ':' + password + '@bld-artifactory:8081/artifactory/formation-apt/pool/nightly/' + fullName + ';deb.distribution=platform;deb.component=nightly;deb.architecture=amd64 -T ' + projectDir.getName() + '/build/distributions/' + fullName
+
+	println deploy_artifactory_local
+
+	def proc_local = deploy_artifactory_local.execute()
+
+	proc_local.text.eachLine { line -> println line }
+
+	if ( proc_local.exitValue() ) {
+		println 'Artifact upload to local artifactory failed.'
+	}
+
 
 }

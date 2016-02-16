@@ -27,33 +27,27 @@ ifdef user_thrift_loc
 toolchain_thrf_opts  += -out $(user_thrift_loc)
 endif
 
+formation_one_path        := /opt/fds/formation_one
+packages_path             := $(formation_one_path)/packages
+rabbitmq_path             := $(packages_path)/rabbitmq-c-0.7.1
+simpleamqpclient_path     := $(packages_path)/simpleamqpclient-0.7.1
+statscpp_path             := $(packages_path)/fds-stats-client-c-2.0.0
+rabbitmq_lib_path         := $(rabbitmq_path)/lib
+simpleamqpclient_lib_path := $(simpleamqpclient_path)/lib
+statscpp_lib_path         := $(statscpp_path)/lib
+
 # Stats CPP settings.
 #
-toolchain_rabbitmq-c_lib  := -L/opt/fds/formation_one/packages/rabbitmq-c-0.7.1/lib
-toolchain_rabbitmq-c_incl := -I/opt/fds/formation_one/packages/rabbitmq-c-0.7.1/include
-toolchain_simpleamqpclient_lib  := -L/opt/fds/formation_one/packages/simpleamqpclient-0.7.1/lib
-toolchain_simpleamqpclient_incl := -I/opt/fds/formation_one/packages/simpleamqpclient-0.7.1/include
-toolchain_statscpp_lib  := -L/opt/fds/formation_one/packages/fds-stats-client-c-1.0.0/lib
-toolchain_statscpp_incl := -I/opt/fds/formation_one/packages/fds-stats-client-c-1.0.0/include
+toolchain_rabbitmq-c_lib  := -L$(rabbitmq_lib_path) -Wl,-rpath=$(rabbitmq_lib_path)
+toolchain_rabbitmq-c_incl := -I$(rabbitmq_path)/include
+toolchain_simpleamqpclient_lib  := -L$(simpleamqpclient_lib_path) -Wl,-rpath=$(simpleamqpclient_lib_path)
+toolchain_simpleamqpclient_incl := -I$(simpleamqpclient_path)/include
+toolchain_statscpp_lib  := -L$(statscpp_lib_path) -Wl,-rpath=$(statscpp_lib_path)
+toolchain_statscpp_incl := -I$(statscpp_path)/include
 toolchain_statscpp_lib  += $(toolchain_simpleamqpclient_lib)
 toolchain_statscpp_lib  += $(toolchain_rabbitmq-c_lib)
 toolchain_statscpp_incl += $(toolchain_simpleamqpclient_incl)
 toolchain_statscpp_incl += $(toolchain_rabbitmq-c_incl)
-
-# Start support for old stats directory structure
-dep_toolchain_rabbitmq-c_lib  := -L/opt/rabbitmq-c/libs
-dep_toolchain_rabbitmq-c_incl := -I/opt/rabbitmq-c/include
-dep_toolchain_simpleamqpclient_lib  += -L/opt/simpleamqpclient/libs
-dep_toolchain_simpleamqpclient_incl += -I/opt/simpleamqpclient/include
-
-toolchain_statscpp_lib  += -L/opt/fds-stats-client-c/libs
-toolchain_statscpp_incl += -I/opt/fds-stats-client-c/include
-toolchain_statscpp_lib  += $(dep_toolchain_simpleamqpclient_lib)
-toolchain_statscpp_lib  += $(dep_toolchain_rabbitmq-c_lib)
-toolchain_statscpp_incl += $(dep_toolchain_simpleamqpclient_incl)
-toolchain_statscpp_incl += $(dep_toolchain_rabbitmq-c_incl)
-# End support for old stats directory structure
-
 
 # Boost settings.
 #
@@ -112,7 +106,7 @@ toolchain_incl_flags += $(toolchain_gmock_incl)
 toolchain_incl_flags += $(toolchain_statscpp_incl)
 
 ifdef COVERAGE
-coverage_cc_flags  := --coverage
+coverage_cc_flags  := --coverage -pg
 coverage_cpp_flags := $(coverage_cc_flags)
 coverage_ld_flags  := $(coverage_cc_flags)
 main_ld_flags      += $(coverage_cc_flags)

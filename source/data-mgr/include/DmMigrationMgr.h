@@ -242,6 +242,11 @@ class DmMigrationMgr {
         return idleTimeoutSecs;
     }
 
+    inline uint32_t getidleTimeoutSecs() {
+        // 15 minutes
+        return 60*15;
+    }
+
     /**
      * Version 2: Uses volume group coordinator for peer migration.
      * This is the hook to start a migration.

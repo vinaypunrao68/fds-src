@@ -1,17 +1,24 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#include <string>
 #include <limits>
+#include <string>
+#include <unordered_map>
 #include <vector>
-#include <fdsp/fds_stream_types.h>
-#include <fds_process.h>
-#include <net/SvcMgr.h>
-#include <util/math-util.h>
-#include <DataMgr.h>
-#include <StatStreamAggregator.h>
-#include <fdsp/Streaming.h>
+
 #include <time.h>
+
+#include <StatsConnFactory.h>
+
+#include "fdsp/fds_stream_types.h"
+#include "fdsp/Streaming.h"
+#include "net/SvcMgr.h"
+#include "util/math-util.h"
+#include "DataMgr.h"
+#include "fds_config.hpp"
+#include "fds_process.h"
+
+#include "StatStreamAggregator.h"
 
 namespace fds {
 
@@ -276,6 +283,11 @@ StatStreamAggregator::StatStreamAggregator(CommonModuleProviderIf *modProvider,
         hist_config.longstat_slots_ = fds_config->\
                 get<int>("fds.dm.testing.long_slots", hist_config.longstat_slots_);
     }
+
+    // Optimally, we'd get this from the same place as the config service. However, we'll be
+    // getting all service info from Consul eventually, so it's not worth tying to the stats
+    // service's config file.
+    new_stats_service_port_ = fds_config->get<int>("fds.common.stats_port", 11011);
 
     /**
      * Make sure our fine-grained stats are not collected less frequently than
@@ -812,6 +824,9 @@ void VolStatsTimerTask::runTimerTask() {
  * By default, this runs according to FdsStatPushAndAggregatePeriodSec.
  */
 void StatStreamTimerTask::runTimerTask() {
+
+    using fds::StatDataPoint;
+
     LOGTRACE << "Streaming stats for registration '" << reg_->id << "'";
 
     std::vector<fpi::volumeDataPoints> dataPoints;
@@ -832,6 +847,13 @@ void StatStreamTimerTask::runTimerTask() {
         for (auto i : reg_->volumes) {
             volumes.push_back(fds_volid_t(i));
         }
+    }
+
+    // New stats service metrics are populated here, if the feature toggle is enabled.
+    std::unique_ptr<std::list<StatDataPoint>> newStatsServiceMetrics;
+    if (dataManager_.features.isSendToNewStatsServiceEnabled())
+    {
+        newStatsServiceMetrics.reset({});
     }
 
     bool logLocal = reg_->method == std::string("log-local");
@@ -881,11 +903,10 @@ void StatStreamTimerTask::runTimerTask() {
 
         vol_last_rel_sec_[volId] = hist->toSlotList(slots, last_rel_sec, last_secs_to_ignore);
 
-        for (auto slot : slots) {
-            //LOGTRACE << "Processing slot:\n" << slot;
-            fds_uint64_t timestamp = hist->getTimestamp((slot).getRelSeconds());
-
-            timestamp /= NANOS_IN_SECOND;
+        for (auto slot : slots)
+        {
+            auto const timestamp = hist->getTimestamp((slot).getRelSeconds()) / NANOS_IN_SECOND;
+            auto const slotDuration = slot.slotLengthSec();
 
             fpi::DataPointPair putsDP;
             putsDP.key = "Puts";
@@ -1080,6 +1101,41 @@ void StatStreamTimerTask::runTimerTask() {
             volDataPointsMap[timestamp].push_back(recentPerfStdevDP);
             volDataPointsMap[timestamp].push_back(longPerfStdevDP);
             volDataPointsMap[timestamp].push_back(recentPerfWma);
+
+            if (newStatsServiceMetrics)
+            {
+                auto addMetric =
+                        [&newStatsServiceMetrics, timestamp, slotDuration, &volId]
+                        (std::string const& metricName, double const value)
+                        {
+                            newStatsServiceMetrics->emplace_back(newStatDataPoint(timestamp,
+                                                                                  metricName,
+                                                                                  value,
+                                                                                  slotDuration,
+                                                                                  volId.get()));
+                        };
+
+                addMetric("PUTS", putsDP.value);
+                addMetric("GETS", getsDP.value);
+                addMetric("QFULL", qfullDP.value);
+                addMetric("SSD_GETS", ssdGetsDP.value);
+                addMetric("HDD_GETS", hddGetsDP.value);
+                addMetric("LBYTES", logicalBytesDP.value);
+                addMetric("PBYTES", physicalBytesDP.value);
+                addMetric("MBYTES", mdBytesDP.value);
+                addMetric("BLOBS", blobsDP.value);
+                addMetric("OBJECTS", logicalObjectsDP.value);
+                addMetric("ABS", aveBlobSizeDP.value);
+                addMetric("AOPB", aveObjectsDP.value);
+                addMetric("STC_SIGMA", recentCapStdevDP.value);
+                addMetric("LTC_SIGMA", longCapStdevDP.value);
+                addMetric("STP_SIGMA", recentPerfStdevDP.value);
+                addMetric("LTP_SIGMA", longPerfStdevDP.value);
+                addMetric("STC_WMA", recentCapWmaDP.value);
+                // LTC_WMA doesn't exist.
+                addMetric("STP_WMA", recentPerfWma.value);
+                // LTP_WMA doesn't exist.
+            }
         }
 
         for (auto dp : volDataPointsMap) {
@@ -1115,6 +1171,32 @@ void StatStreamTimerTask::runTimerTask() {
             // XXX: hard-coded to bind to java endpoint in AM
             EpInvokeRpc(fpi::StreamingClient, publishMetaStream, info.ip, 8911,
                     reg_->id, dataPoints);
+
+            if (newStatsServiceMetrics)
+            {
+                // The stats service runs on the same host as OM for now. Later, we'll get the
+                // service location from Consul.
+                std::string newStatsServiceIp;
+                {
+                    fds_uint32_t dummy;
+                    MODULEPROVIDER()->getSvcMgr()->getOmIPPort(newStatsServiceIp, dummy);
+                }
+
+                // UN & PW is not yet configurable.
+                auto conn = StatsConnFactory::newConnection(newStatsServiceIp,
+                                                            statStreamAggr_.new_stats_service_port_,
+                                                            "stats-service",
+                                                            "$t@t$");
+                if (conn)
+                {
+                    conn->publishStatistics(*newStatsServiceMetrics);
+                }
+                else
+                {
+                    GLOGERROR << "Unable to connect to stats service on " << newStatsServiceIp
+                              << " port " << statStreamAggr_.new_stats_service_port_ << ".";
+                }
+            }
         }
     }
 }
@@ -1133,6 +1215,23 @@ void StatStreamCancelTimerTask::runTimerTask() {
     LOGTRACE << "Streaming stats registration with id <" << reg_id << "> has expired.";
 
     streamTimer.cancel(statStreamTask);
+}
+
+StatDataPoint StatStreamTimerTask::newStatDataPoint (int64_t timestamp,
+                                                     std::string const& name,
+                                                     double value,
+                                                     int64_t slotSeconds,
+                                                     int64_t volumeId)
+{
+    return { timestamp,
+             name,
+             value,
+             slotSeconds,
+             TimeUnit::SECONDS,
+             1,
+             volumeId,
+             ContextType::VOLUME,
+             AggregationType::SUM };
 }
 
 }  // namespace fds
