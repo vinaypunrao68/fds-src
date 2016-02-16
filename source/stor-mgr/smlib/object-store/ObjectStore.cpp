@@ -207,8 +207,8 @@ float_t ObjectStore::getUsedCapacityAsPct() {
             // Basically ignore SSDs for this capacity check UNLESS it's an all SSD system
             // This may still cause a RO -> RW -> RO ... loop on hybrid systems, but
             // for now this should be OK
-            if ((diskMap->diskMediaType(diskId) == diskio::FlashTier) && (!diskMap->isAllDiskSSD())) {
-                continue;          
+            if ((diskMap->diskMediaType(diskId) == diskio::flashTier) && (!diskMap->isAllDisksSSD())) {
+                continue;
             }
             max = pct_used;
         }
