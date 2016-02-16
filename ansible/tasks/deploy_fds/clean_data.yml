@@ -1,4 +1,12 @@
 ---
+-   name: umount cores sparse file system
+    mount: name=/fds/var/log/corefiles src=/fds/var/log/sfs/loopmount_sparse_file_system_for_core_files state=unmounted fstype=xfs
+    when: (clean_fds is defined and clean_fds == "yes")
+
+-   name: Remove fstab entry for cores sparse file system
+    mount: name=/fds/var/log/corefiles src=/fds/var/log/sfs/loopmount_sparse_file_system_for_core_files state=absent fstype=xfs
+    when: (clean_fds is defined and clean_fds == "yes")
+
 -   name: clean_node
     shell: rm -rf {{item}}
     with_items:
@@ -6,8 +14,10 @@
         - /fds/bin/core.*
         - /fds/bin/core
         - /fds/var/db
-        - /fds/var/log/*
-        - /fds/var/logs/*
+        - /fds/var/log/*.log
+        - /fds/var/log/*.gz
+        - /fds/var/logs/*.log
+        - /fds/var/logs/*.gz
         - /fds/var/stats
         - /corefiles/*
         - /fds/var/core/*.core
