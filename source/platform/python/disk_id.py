@@ -234,18 +234,103 @@ def discover_os_devices ():
 
     return os_device_list
 
-def disk_type_with_stor_cli (stor_client):
+def disk_type_with_controller_tool (controller_tool):
     '''
-    This uses the megaraid storcli64 tool (or perccli64 tool) to inspect the raid controllers and enclosures
-    to find storage media types attached to hardware controllers.
-
     inputs:
-        stor_client:  Full path and binary name of the storcli64/perccli64 tool
+        controller_tool:  Full path and binary name of the controller tool (storcli64/perccli64 or arcconf)
 
     returns:
         A list of Disk device types and bus type for HDD's
         e.g., ['SSD', 'SSD', 'HDD', 'SAS', 'HDD', 'SATA']
+    '''
+    cmdpath = controller_tool.lower()
+    if 'storcli' in cmdpath or 'perccli' in cmdpath:
+        return disk_type_with_stor_cli (controller_tool)
+    elif 'arcconf' in cmdpath:
+        return disk_type_with_arcconf (controller_tool)
+    else:
+        print ( "Error: Unknown controller tool %s " % controller_tool )
+        sys.exit(1)
 
+def disk_type_with_arcconf (arcconf):
+    '''
+    This issues an arcconf command; for description of inputs and outputs see disk_type_with_controller_tool
+    '''
+
+    return_list = []
+    
+    # Regular expressions to find particular details needed from arcconf output
+    controller_number_section = re.compile ("Controllers found: ([0-9]*)")
+    device_section = re.compile("Device #")
+    state_line = re.compile("State\s+:\s*Online")
+    ssd_line = re.compile("SSD\s+:")
+    transfer_line = re.compile("Transfer Speed\s+:\s*(S[A-Z]+)\s")
+
+    controller_number = 1
+    found_controller_number_section = False
+    num_controllers = 0
+
+    while True: # keep calling the command until we run out of controllers, then break out of the loop 
+        # arcconf arguments
+        # GETCONFIG = the actual command being issued
+        # controller_number = controller to check
+        # PD = only check physical devices
+        output = subprocess.Popen([arcconf, "GETCONFIG", str(controller_number), "PD" ], stdout=subprocess.PIPE).stdout
+
+        state_line_found = False
+        ssd_line_found = False
+        transfer_line_found = False
+ 
+        for line in output:
+            if not found_controller_number_section:
+                found_controller_number_section = controller_number_section.match(line) 
+                if found_controller_number_section:
+                    num_controllers = int(controller_number_section.match(line).group(1))
+                    if num_controllers == 0:
+                        print ( "Error: no controllers found" )
+                        sys.exit(1)
+                    continue
+            device_section_found = device_section.match(line)
+            if device_section_found:
+                # from this point on gather info about a device
+                # if we found a qualified device before, record the info
+                if state_line_found:
+                    if ssd:
+                        return_list.append(Disk.DSK_TYP_SSD)
+                    else:
+                        return_list.append(Disk.DSK_TYP_HDD)
+                        if transfer == Disk.DISK_BUS_SAS:
+                            return_list.append(Disk.DISK_BUS_SAS)
+                        elif transfer == Disk.DISK_BUS_SATA:
+                            return_list.append(Disk.DISK_BUS_SATA)
+                        else:
+                            return_list.append(Disk.DISK_BUS_NA)
+                else: # initialize all variables for the new round (new device)
+                    state_line_found = False
+                    ssd_line_found = False
+                    ssd = False
+                    transfer_line_found = False
+                    transfer = Disk.DISK_BUS_NA
+            else: # we are in device section parsing mode
+                if not state_line_found: 
+                    state_line_found = state_line.match(line)
+                if not ssd_line_found:
+                    ssd_line_found = ssd_line.match(line)
+                    if ssd_line_found and "Yes" in line:
+                        ssd = True 
+                if not transfer_line_found:
+                    transfer_line_found = transfer_line.match(line)
+                    if transfer_line_found:
+                        transfer = transfer_line.match(line).group(1)
+        
+        controller_number = controller_number + 1            
+        if controller_number > num_controllers:
+            break
+    return return_list
+
+def disk_type_with_stor_cli (stor_client):
+    '''
+    This issues a storcli/perccli command; for description of inputs and outputs see disk_type_with_controller_tool
     notes:
         This may need to be expanded in the future to limit commands to certain
         controllers or enclosures.
@@ -395,7 +480,7 @@ if __name__ == "__main__":
             sys.stdout.flush()
             dbg_print ('')
 
-            controller_disk_list = disk_type_with_stor_cli(options.stor_cli)
+            controller_disk_list = disk_type_with_controller_tool(options.stor_cli)
 
             sys.stdout.write ("Complete")
             sys.stdout.flush()
