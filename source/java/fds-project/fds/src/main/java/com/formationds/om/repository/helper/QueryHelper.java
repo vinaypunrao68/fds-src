@@ -1,7 +1,6 @@
 /*
- * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
+ * Copyright (c) 2014-2016, Formation Data Systems, Inc. All Rights Reserved.
  */
-
 package com.formationds.om.repository.helper;
 
 import com.formationds.client.v08.model.Size;
@@ -72,15 +71,30 @@ public class QueryHelper {
     private static final Logger logger =
         LoggerFactory.getLogger( QueryHelper.class );
 
-    private final MetricRepository repo;
+    /**
+     * A shared instance, used only if the USE_SHARED_QUERY_HELPER feature toggle is enabled.
+     */
+    private static final QueryHelper SHARED = new QueryHelper();
+
+    /**
+     * If the {@link #USE_SHARED_QUERY_HELPER} configuration/toggle is set, the use
+     * a shared instance that may perform query caching.  Otherwise, use a new instance that
+     * will not cache values.
+     *
+     * @return a QueryHelper instance
+     */
+    public static QueryHelper instance() {
+        if (FdsFeatureToggles.USE_SHARED_QUERY_HELPER.isActive()) {
+            return SHARED;
+        } else {
+            return new QueryHelper();
+        }
+    }
 
     /**
      * default constructor
      */
-    public QueryHelper() {
-        this.repo =
-            SingletonRepositoryManager.instance()
-                                      .getMetricsRepository();
+    protected QueryHelper() {
     }
 
     /**
@@ -472,10 +486,6 @@ public class QueryHelper {
     	return contexts;
     }
 
-    protected MetricRepository getRepo(){
-    	return this.repo;
-    }
-
     /**
      * @return Returns a {@link List} of {@link Metadata}
      */
@@ -597,10 +607,20 @@ public class QueryHelper {
         List<Volume> volumes = p.getLeft();
         Size systemCapacity = p.getRight();
 
+        return doCalculateTimeToFull( volumes, systemCapacity );
+
+    } );
+
+    /**
+     * @param volumes
+     * @param systemCapacity
+     * @return
+     */
+    protected CapacityToFull doCalculateTimeToFull( List<Volume> volumes, Size systemCapacity ) {
         MetricQueryCriteriaBuilder queryBuilder =
                 new MetricQueryCriteriaBuilder( QueryCriteria.QueryType.SYSHEALTH_CAPACITY );
 
-        //REVIEWERS: IS UBYTES correct now or should this be PBYTES now???
+        //REVIEWERS: IS UBYTES correct now or should this be PBYTES now????
 
         // For capacity time-to-full we need enough history to calculate the regression.  Using 30 days
         DateRange range = DateRange.last( 30L, com.formationds.client.v08.model.TimeUnit.DAYS );
@@ -624,8 +644,7 @@ public class QueryHelper {
 
         return toFull( series.get( 0 ), systemCapacity.getValue( SizeUnit.B )
                        .doubleValue() );
-
-    } );
+    }
 
     /**
      *

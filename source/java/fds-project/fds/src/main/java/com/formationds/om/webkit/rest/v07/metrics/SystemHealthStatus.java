@@ -272,7 +272,7 @@ public class SystemHealthStatus implements RequestHandler {
                                                                                         .query( query );
 
         // has some helper functions we can use for calculations
-        QueryHelper qh = new QueryHelper();
+        QueryHelper qh = QueryHelper.instance();
 
         // TODO:  Replace this with the correct call to get real capacity
         final Double systemCapacity = Long.valueOf(SizeUnit.TB.totalBytes(1))
