@@ -55,11 +55,18 @@ struct ScstAdmin
     ~ScstAdmin() = delete;
 
     /**
+     * Is the driver enabled
+     */
+    static bool driverEnabled();
+
+    static void toggleDriver(bool const enable);
+
+    /**
      * Is the target enabled
      */
     static bool targetEnabled(std::string const& target_name);
 
-    static void toggleState(std::string const& target_name, bool const enable);
+    static void toggleTarget(std::string const& target_name, bool const enable);
 
     /**
      * Build a map of the current users known to SCST for a given target
