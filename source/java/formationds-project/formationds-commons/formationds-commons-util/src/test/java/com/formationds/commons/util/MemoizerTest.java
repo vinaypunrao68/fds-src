@@ -50,7 +50,8 @@ public class MemoizerTest {
     // hack a pool for submitting a bunch of sleep tasks concurrently
     private ThreadPoolExecutor tpe = (ThreadPoolExecutor)Executors.newFixedThreadPool( 100 );
 
-    static final long SLEEP_TASK_SLEEP_TIME = 100;
+    static final long SLEEP_TASK_SLEEP_TIME = 10;
+    static final long CACHED_TASK_MAX_SLEEP_TIME = SLEEP_TASK_SLEEP_TIME / 3;
 
     static int i = 0;
     public static final Supplier<Integer> sleepySupplier = () -> {
@@ -70,13 +71,11 @@ public class MemoizerTest {
         Supplier<Integer> msup = Memoizer.memoize( sleepySupplier );
 
         Timed<Integer> t1 = timedOp(msup);
-        logger.debug( t1 );
-        Assert.assertTrue( t1.elapsedMS() >= 100  );
+        Assert.assertTrue( t1.elapsedMS() >= SLEEP_TASK_SLEEP_TIME  );
 
         for (int i = 0; i < 100; i++) {
             Timed<Integer> t2 = timedOp(msup);
-            logger.debug( t2 );
-            Assert.assertTrue( t2.elapsedMS() < 10  );
+            Assert.assertTrue( t2.elapsedMS() < CACHED_TASK_MAX_SLEEP_TIME  );
             Assert.assertEquals( Integer.valueOf( 0 ), t2.result() );
         }
 
@@ -90,21 +89,20 @@ public class MemoizerTest {
 
     @Test
     public void testMemoizeSupplierOfUExpiration() throws Exception {
-        Supplier<Integer> msup = Memoizer.memoize( Duration.ofMillis( 500 ), sleepySupplier );
+        Supplier<Integer> msup = Memoizer.memoize( Duration.ofMillis( 100 ), sleepySupplier );
 
         Timed<Integer> t1 = timedOp(msup);
-        logger.debug( t1 );
-        Assert.assertTrue( t1.elapsedMS() >= 100  );
+        Assert.assertTrue( t1.elapsedMS() >= SLEEP_TASK_SLEEP_TIME  );
 
         // each execution here (up to the expiration, which should not be hit here)
         // should be retrieved from the memoized cache and should return the original
         // value (0).
         // What is a reasonable/reliable expectation for cache lookup time, but not too long.
-        // was using 2, but that failed sometimes (when running laptop on basttery!)
+        // was using 2, but that failed sometimes (when running laptop on battery)
         for (int i = 0; i < 100; i++) {
             Timed<Integer> t2 = timedOp(msup);
             Assert.assertTrue( i + "[" + t2.elapsedMS()  + "]",
-                               t2.elapsedMS() <= 5  );
+                               t2.elapsedMS() < CACHED_TASK_MAX_SLEEP_TIME  );
             Assert.assertEquals( i + ": ",  Integer.valueOf( 0 ), t2.result() );
         }
 
@@ -114,12 +112,11 @@ public class MemoizerTest {
         // if we memoize a second supplier this would be 2, but we only have 1 here.
         Assert.assertEquals("Expecting exactly 1 entry in all caches", 1, Memoizer.size());
 
-        // wait expiration (500) plus the "sleepy supplier time" (100)
-        Thread.sleep( 601 );
+        // wait expiration plus the "sleepy supplier time" (10)
+        Thread.sleep( 200 );
 
         Timed<Integer> t3 = timedOp(msup);
-        logger.debug( t3 );
-        Assert.assertTrue( t3.elapsedMS() >= 100  );
+        Assert.assertTrue( t3.toString(), t3.elapsedMS() >= SLEEP_TASK_SLEEP_TIME  );
         Assert.assertTrue( 1 == t3.result() );
     }
 
@@ -142,13 +139,11 @@ public class MemoizerTest {
                 " will sleep for a specified amount of time and then return the" +
                 " result." );
         Timed<Integer> t1 = timedOp(1, mfunc);
-        logger.debug( t1 );
         Assert.assertTrue( t1.elapsedMS() >= SLEEP_TASK_SLEEP_TIME  );
         Assert.assertTrue( 1 == t1.result() );
 
         for (int i = 0; i < 100; i++) {
             Timed<Integer> t2 = timedOp(1, mfunc);
-            logger.debug( t2 );
             Assert.assertTrue( t2.elapsedMS() <= 1  );
         }
 
@@ -161,7 +156,6 @@ public class MemoizerTest {
             final int x = n;
             CompletableFuture.runAsync( () -> {
                 Timed<Integer> t2 = timedOp(x, mfunc);
-                logger.debug( t2 );
                 if ( x != 1 ) Assert.assertTrue( t2.elapsedMS() >= SLEEP_TASK_SLEEP_TIME  );
                 Assert.assertTrue( x == t2.result() );
                 c.countDown();
@@ -179,8 +173,7 @@ public class MemoizerTest {
         // and subsequent execs with other args return from cache
         for (int i = 0; i < 100; i++) {
             Timed<Integer> t2 = timedOp(i, mfunc);
-            logger.debug( t2 );
-            Assert.assertTrue( t2.elapsedMS() <= 4  );
+            Assert.assertTrue( t2.elapsedMS() <= CACHED_TASK_MAX_SLEEP_TIME  );
         }
     }
 
@@ -193,14 +186,12 @@ public class MemoizerTest {
                                                             sleepyFunction );
 
         Timed<Integer> t1 = timedOp(1, mfunc);
-        logger.debug( t1 );
-        Assert.assertTrue( t1.elapsedMS() >= 100  );
+        Assert.assertTrue( t1.elapsedMS() >= SLEEP_TASK_SLEEP_TIME  );
         Assert.assertTrue( 1 == t1.result() );
 
         for (int i = 0; i < 100; i++) {
             Timed<Integer> t2 = timedOp(1, mfunc);
-           logger.debug( t2 );
-            Assert.assertTrue( t2.elapsedMS() <= 1  );
+            Assert.assertTrue( t2.elapsedMS() <= CACHED_TASK_MAX_SLEEP_TIME  );
         }
 
         CountDownLatch c = new CountDownLatch( 100 );
@@ -211,7 +202,6 @@ public class MemoizerTest {
             CompletableFuture.runAsync( () -> {
                 try {
                     Timed<Integer> t2 = timedOp(x, mfunc);
-                    logger.debug( t2 );
                     if (x != 1) Assert.assertTrue( t2.elapsedMS() >= SLEEP_TASK_SLEEP_TIME  );
                     Assert.assertTrue( x == t2.result() );
                 } finally {
@@ -231,7 +221,7 @@ public class MemoizerTest {
 
             for (int i = 0; i < 100; i++) {
                 Timed<Integer> t2 = timedOp(i, mfunc);
-                Assert.assertTrue( t2.elapsedMS() <= 4  );
+                Assert.assertTrue( t2.elapsedMS() <= CACHED_TASK_MAX_SLEEP_TIME  );
             }
 
             elapsed = System.nanoTime() - start;
