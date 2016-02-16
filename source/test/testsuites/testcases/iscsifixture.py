@@ -52,6 +52,14 @@ class ISCSIFixture(TestCase.FDSTestCase):
         if not volume_name in ISCSIFixture._volumes:
             ISCSIFixture._volumes[volume_name] = {}
 
+    def deleteVolumeName(self, volume_name):
+        """
+        Parameters
+        ----------
+        volume_name : str
+            FDS volume name to add to mapping
+        """
+        del ISCSIFixture._volumes[volume_name]
 
     def getDriveDevice(self, volume_name):
         """Get drive device mapped to given volume name

@@ -51,6 +51,8 @@ class Disk:
         self.dsk_bus = Disk.DISK_BUS_NA
         self.dsk_os_use = is_os_disk
 
+        self.target = None
+
         # parse disk information
         self.__parse_with_lshw(path, virtualized)
 
@@ -113,8 +115,11 @@ class Disk:
         tree = Disk.dsk_lshw_xml
         root = tree.getroot()
         for node in root.findall('node'):
-            if node.get('id') == 'cdrom':
+            type=node.get('id')
+            if type == 'cdrom':
                 continue
+            target=type.partition(':')
+            self.target = target[2]
             node_logicalname = node.find('logicalname')
 
             if node_logicalname is None:
@@ -231,11 +236,11 @@ def discover_os_devices ():
 
 def disk_type_with_stor_cli (stor_client):
     '''
-    This uses the megaraid storcli64 tool to inspect the raid controllers and enclosures
+    This uses the megaraid storcli64 tool (or perccli64 tool) to inspect the raid controllers and enclosures
     to find storage media types attached to hardware controllers.
 
     inputs:
-        stor_client:  Full path and binary name of the storcli64 tool
+        stor_client:  Full path and binary name of the storcli64/perccli64 tool
 
     returns:
         A list of Disk device types and bus type for HDD's
@@ -252,12 +257,12 @@ def disk_type_with_stor_cli (stor_client):
     drive_info_section = re.compile ("^Drive Information :$")
 
     # Only look for online drives, others are not exposed to the OS
-    online_drive_info = re.compile (".* Onln .* (HDD|SSD) .*")
+    online_drive_info = re.compile (".* (Onln|JBOD) .* (HDD|SSD) .*")
 
     found_drive_info = False
     return_list = []
 
-    # storcli64 arguments:
+    # storcli64/perccli64 arguments:
     #    /call = check all controllers
     #    /eall = check all enclosures (megaraid sas card concept)
     #    /sall = check all slots (aka physical devices, e.g., drives)
@@ -265,6 +270,7 @@ def disk_type_with_stor_cli (stor_client):
     output = subprocess.Popen([stor_client, "/call/eall/sall", "show"], stdout=subprocess.PIPE).stdout
 
     last_drive_group = 99999999
+    drive_group = re.compile("[0-9]")
 
     for line in output:
         # Look for beginning of drive information section in output
@@ -282,9 +288,10 @@ def disk_type_with_stor_cli (stor_client):
             items = line.strip ('\r\n').split()
 
             # check for hardware raid array
-            if last_drive_group == items[3]:
-                continue
-            last_drive_group = items[3]
+            if drive_group.match(items[3]):  # check if drive group is applicable (n/a for JBOD)
+                if last_drive_group == items[3]:
+                    continue
+                last_drive_group = items[3]
 
             if Disk.DSK_TYP_HDD == items[7]:
                 return_list.append(Disk.DSK_TYP_HDD)
@@ -330,7 +337,7 @@ if __name__ == "__main__":
 
     parser.add_option('-D', '--debug', dest = 'debug', action = 'store_true', help = 'Turn on debugging')
     parser.add_option('-f', '--fds-root', dest = 'fds_root', default='/fds', help = 'Path to fds-root')
-    parser.add_option('-s', '--stor', dest = 'stor_cli', help = 'Full path and file name of the StorCli binary')
+    parser.add_option('-s', '--stor', dest = 'stor_cli', help = 'Full path and file name of the StorCli/PercCli binary')
     parser.add_option('-v', '--virtual', dest = 'virtual', action = 'store_true', help = 'Running in a virtualized environment, treats all detected drives as HDDs')
     parser.add_option('-w', '--write', dest = 'write_disk', action = 'store_true', help = 'Writes the disk configuration information file.')
     parser.add_option('-m', '--map', dest = 'disk_config_dest', help = 'The destination disk config file.')
@@ -384,33 +391,31 @@ if __name__ == "__main__":
 
     if options.stor_cli:
         for disk in dev_list:
-            if disk.get_type() == Disk.DSK_TYP_UNKNOWN:
-                sys.stdout.write ("  Phase 2:   ")
-                sys.stdout.flush()
-                dbg_print ('')
+            sys.stdout.write ("  Phase 2:   ")
+            sys.stdout.flush()
+            dbg_print ('')
 
-                controller_disk_list = disk_type_with_stor_cli(options.stor_cli)
+            controller_disk_list = disk_type_with_stor_cli(options.stor_cli)
 
-                sys.stdout.write ("Complete")
-                sys.stdout.flush()
+            sys.stdout.write ("Complete")
+            sys.stdout.flush()
 
-                break
+            break
     print ''
 
     dbg_print ("controller_disk_list = " + ', '.join(controller_disk_list))
 
     for disk in dev_list:
-        if disk.get_type() == Disk.DSK_TYP_UNKNOWN:
-            print disk.get_type(), disk.get_path()
-            if len (controller_disk_list) > 0:
-                disk.dsk_typ = controller_disk_list.pop(0)
-                if disk.dsk_typ == Disk.DSK_TYP_HDD:
-                    disk.set_bus (controller_disk_list.pop(0))
-            else:
-                # devices exist in /dev/sd* that can't be identified.
-                print ( "Error:  Identified but unknown type devices remain.  Try using -s perhaps?  Can not continue.")
-                #debug_dump (dev_list)
-                sys.exit(1)
+        print disk.get_type(), disk.get_path()
+        if len (controller_disk_list) > 0 and disk.target:  # don't try to use controller info for internal disks
+            disk.dsk_typ = controller_disk_list.pop(0)
+            if disk.dsk_typ == Disk.DSK_TYP_HDD:
+                disk.set_bus (controller_disk_list.pop(0))
+        elif disk.get_type() == Disk.DSK_TYP_UNKNOWN:
+            # devices exist in /dev/sd* that can't be identified.
+            print ( "Error:  Identified but unknown type devices remain.  Try using -s perhaps?  Can not continue.")
+            #debug_dump (dev_list)
+            sys.exit(1)
 
     # no more devices are known in /dev/sd*, but we have more drives documented on hardware controllers
     if len (controller_disk_list) > 0:

@@ -116,30 +116,15 @@ DMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
             LOGNOTIFY << "will delete volume:" << vol_uuid << ":" << volDesc->name;
             if (msg->vol_desc.fSnapshot) {
                 if (fCheck) {
-                    err = this->dataManager_.timelineMgr->deleteSnapshot(volDesc->srcVolumeId, volDesc->volUUID);
+                    err = ERR_OK;
                 } else {
-                    err = this->dataManager_.process_rm_vol(vol_uuid, fCheck);
+                    err = this->dataManager_.timelineMgr->deleteSnapshot(volDesc->srcVolumeId, volDesc->volUUID);
                 }
             } else {
                 if (fCheck) {
-                    //delete all the snapshots
-                    err = this->dataManager_.timelineMgr->deleteSnapshot(volDesc->volUUID);
-                    // delete the volume blobs
-                    err = this->dataManager_.deleteVolumeContents(vol_uuid);
-                    err = this->dataManager_.process_rm_vol(vol_uuid, fCheck);
-
-                    // If timeline is disabled, then the remove volume check is
-                    // simply going to return with err = FEATUER_DISABLED.
-                    // When this err gets propagated back to the OM it causes volume
-                    // delete not to clean up properly. So only removeVol against timelineMgr
-                    // if the feature is enabled
-                    if (this->dataManager_.features.isTimelineEnabled())
-                    {
-                        // remove volume from timelineDB
-                        err = this->dataManager_.timelineMgr->removeVolume(vol_uuid);
-                    }
+                    err = this->dataManager_.removeVolume(vol_uuid, true);
                 } else {
-                    err = this->dataManager_.process_rm_vol(vol_uuid, fCheck);
+                    err = this->dataManager_.removeVolume(vol_uuid, false);
                 }
             }
         }
@@ -200,9 +185,9 @@ void DMSvcHandler::deleteSnapshot(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
      * invoke the deleteSnapshot DM function
      */
     fds_volid_t vol_uuid (deleteSnapshot->snapshotId);
-    err = dataManager_.process_rm_vol(vol_uuid, true);
+    err = dataManager_.removeVolume(vol_uuid, true);
     if (err.ok()) {
-        err = dataManager_.process_rm_vol(vol_uuid, false);
+        err = dataManager_.removeVolume(vol_uuid, false);
     }
 
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());

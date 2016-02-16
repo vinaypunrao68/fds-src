@@ -125,7 +125,7 @@ class DmVolumeCatalog : public HasModuleProvider,
      * @return ERR_OK if catalog was deleted; ERR_NOT_READY if volume is not marked
      * as deleted.
      */
-    Error deleteEmptyCatalog(fds_volid_t volId, bool checkDeleted = true);
+    Error deleteCatalog(fds_volid_t volId, bool checkDeleted = true);
 
     /**
      * Returns logical size of volume and number of blob in the volume 'volume_id'

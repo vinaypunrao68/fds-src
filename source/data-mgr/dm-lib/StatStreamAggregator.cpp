@@ -824,6 +824,9 @@ void VolStatsTimerTask::runTimerTask() {
  * By default, this runs according to FdsStatPushAndAggregatePeriodSec.
  */
 void StatStreamTimerTask::runTimerTask() {
+
+    using fds::StatDataPoint;
+
     LOGTRACE << "Streaming stats for registration '" << reg_->id << "'";
 
     std::vector<fpi::volumeDataPoints> dataPoints;
@@ -846,14 +849,14 @@ void StatStreamTimerTask::runTimerTask() {
         }
     }
 
-    bool logLocal = reg_->method == std::string("log-local");
-    // Needed because the new stats service identifies volume by ID. Populated toward the bottom
-    // of the loop.
-    std::unique_ptr<std::unordered_map<std::string, fds_volid_t>> volumeNameToVolumeId;
+    // New stats service metrics are populated here, if the feature toggle is enabled.
+    std::unique_ptr<std::list<StatDataPoint>> newStatsServiceMetrics;
     if (dataManager_.features.isSendToNewStatsServiceEnabled())
     {
-        volumeNameToVolumeId.reset(new std::unordered_map<std::string, fds_volid_t>);
+        newStatsServiceMetrics.reset({});
     }
+
+    bool logLocal = reg_->method == std::string("log-local");
     for (auto volId : volumes) {
         //LOGTRACE << "Generating stream for volume <" << volId << ">.";
         std::vector<StatSlot> slots;
@@ -900,11 +903,10 @@ void StatStreamTimerTask::runTimerTask() {
 
         vol_last_rel_sec_[volId] = hist->toSlotList(slots, last_rel_sec, last_secs_to_ignore);
 
-        for (auto slot : slots) {
-            //LOGTRACE << "Processing slot:\n" << slot;
-            fds_uint64_t timestamp = hist->getTimestamp((slot).getRelSeconds());
-
-            timestamp /= NANOS_IN_SECOND;
+        for (auto slot : slots)
+        {
+            auto const timestamp = hist->getTimestamp((slot).getRelSeconds()) / NANOS_IN_SECOND;
+            auto const slotDuration = slot.slotLengthSec();
 
             fpi::DataPointPair putsDP;
             putsDP.key = "Puts";
@@ -1099,13 +1101,41 @@ void StatStreamTimerTask::runTimerTask() {
             volDataPointsMap[timestamp].push_back(recentPerfStdevDP);
             volDataPointsMap[timestamp].push_back(longPerfStdevDP);
             volDataPointsMap[timestamp].push_back(recentPerfWma);
-        }
 
-        // Populate just before adding the volume to the list of stats, so we'll never try to look
-        // up a name that isn't present.
-        if (volumeNameToVolumeId)
-        {
-            volumeNameToVolumeId->emplace(volName, volId);
+            if (newStatsServiceMetrics)
+            {
+                auto addMetric =
+                        [&newStatsServiceMetrics, timestamp, slotDuration, &volId]
+                        (std::string const& metricName, double const value)
+                        {
+                            newStatsServiceMetrics->emplace_back(newStatDataPoint(timestamp,
+                                                                                  metricName,
+                                                                                  value,
+                                                                                  slotDuration,
+                                                                                  volId.get()));
+                        };
+
+                addMetric("PUTS", putsDP.value);
+                addMetric("GETS", getsDP.value);
+                addMetric("QFULL", qfullDP.value);
+                addMetric("SSD_GETS", ssdGetsDP.value);
+                addMetric("HDD_GETS", hddGetsDP.value);
+                addMetric("LBYTES", logicalBytesDP.value);
+                addMetric("PBYTES", physicalBytesDP.value);
+                addMetric("MBYTES", mdBytesDP.value);
+                addMetric("BLOBS", blobsDP.value);
+                addMetric("OBJECTS", logicalObjectsDP.value);
+                addMetric("ABS", aveBlobSizeDP.value);
+                addMetric("AOPB", aveObjectsDP.value);
+                addMetric("STC_SIGMA", recentCapStdevDP.value);
+                addMetric("LTC_SIGMA", longCapStdevDP.value);
+                addMetric("STP_SIGMA", recentPerfStdevDP.value);
+                addMetric("LTP_SIGMA", longPerfStdevDP.value);
+                addMetric("STC_WMA", recentCapWmaDP.value);
+                // LTC_WMA doesn't exist.
+                addMetric("STP_WMA", recentPerfWma.value);
+                // LTP_WMA doesn't exist.
+            }
         }
 
         for (auto dp : volDataPointsMap) {
@@ -1142,7 +1172,7 @@ void StatStreamTimerTask::runTimerTask() {
             EpInvokeRpc(fpi::StreamingClient, publishMetaStream, info.ip, 8911,
                     reg_->id, dataPoints);
 
-            if (volumeNameToVolumeId)
+            if (newStatsServiceMetrics)
             {
                 // The stats service runs on the same host as OM for now. Later, we'll get the
                 // service location from Consul.
@@ -1152,24 +1182,6 @@ void StatStreamTimerTask::runTimerTask() {
                     MODULEPROVIDER()->getSvcMgr()->getOmIPPort(newStatsServiceIp, dummy);
                 }
 
-                std::list<StatDataPoint> stats;
-                for (auto const& dataPoint : dataPoints)
-                {
-                    for (auto const& metric : dataPoint.meta_list)
-                    {
-                        stats.emplace_back(dataPoint.timestamp,
-                                           metric.key,
-                                           metric.value,
-                                           StatConstants::singleton()
-                                                        ->FdsStatFGStreamPeriodFactorSec,
-                                           TimeUnit::SECONDS,
-                                           1,
-                                           (*volumeNameToVolumeId)[dataPoint.volume_name].get(),
-                                           ContextType::VOLUME,
-                                           AggregationType::UNKNOWN);
-                    }
-                }
-
                 // UN & PW is not yet configurable.
                 auto conn = StatsConnFactory::newConnection(newStatsServiceIp,
                                                             statStreamAggr_.new_stats_service_port_,
@@ -1177,7 +1189,7 @@ void StatStreamTimerTask::runTimerTask() {
                                                             "$t@t$");
                 if (conn)
                 {
-                    conn->publishStatistics(stats);
+                    conn->publishStatistics(*newStatsServiceMetrics);
                 }
                 else
                 {
@@ -1203,6 +1215,23 @@ void StatStreamCancelTimerTask::runTimerTask() {
     LOGTRACE << "Streaming stats registration with id <" << reg_id << "> has expired.";
 
     streamTimer.cancel(statStreamTask);
+}
+
+StatDataPoint StatStreamTimerTask::newStatDataPoint (int64_t timestamp,
+                                                     std::string const& name,
+                                                     double value,
+                                                     int64_t slotSeconds,
+                                                     int64_t volumeId)
+{
+    return { timestamp,
+             name,
+             value,
+             slotSeconds,
+             TimeUnit::SECONDS,
+             1,
+             volumeId,
+             ContextType::VOLUME,
+             AggregationType::SUM };
 }
 
 }  // namespace fds

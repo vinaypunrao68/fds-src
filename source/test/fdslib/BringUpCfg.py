@@ -226,11 +226,16 @@ class FdsNodeConfig(FdsConfig):
 
             print "Start OM on %s in %s" % (self.nd_host_name(),fds_dir)
 
-            self.nd_start_influxdb();
+            self.nd_start_influxdb()
 
             if test_harness:
-                status = self.nd_agent.exec_wait('bash -c \"(nohup ./orchMgr --fds-root=%s %s > %s/om.out 2>&1 &) \"' %
-                                                 (fds_dir, om_ip_arg, log_dir),
+                # GMON_OUT_PREFIX is set so that the gprof output, if the executable is
+                # compiled to generate such, is uniquely identified by PID. If we were
+                # not to set this, the outputs of all executables would be written to the
+                # same file, gmon.out, overwriting each other.
+                status = self.nd_agent.exec_wait('bash -c \"export GMON_OUT_PREFIX=gmon.out;'
+                                                 '(nohup ./orchMgr --fds-root={0} {1} > {2}/om.out 2>&1 &) \"'.
+                                                 format(fds_dir, om_ip_arg, log_dir),
                                                  fds_bin=True)
             else:
                 status = self.nd_agent.ssh_exec_fds(
@@ -424,9 +429,13 @@ class FdsNodeConfig(FdsConfig):
         # When running from the test harness, we want to wait for results
         # but not assume we are running from an FDS package install.
         if test_harness:
-            status = self.nd_agent.exec_wait('bash -c \"(nohup ./platformd --fds-root=%s > %s/pm.%s.out 2>&1 &) \"' %
-                                            #(bin_dir, fds_dir, log_dir if self.nd_agent.env_install else ".",
-                                            (fds_dir, log_dir, port),
+            # GMON_OUT_PREFIX is set so that the gprof output, if the executable is
+            # compiled to generate such, is uniquely identified by PID. If we were
+            # not to set this, the outputs of all executables would be written to the
+            # same file, gmon.out, overwriting each other.
+            status = self.nd_agent.exec_wait('bash -c \"export GMON_OUT_PREFIX=gmon.out;'
+                                             '(nohup ./platformd --fds-root={0} > {1}/pm.{2}.out 2>&1 &) \"'.
+                                             format(fds_dir, log_dir, port),
                                              fds_bin=True)
         else:
             status = self.nd_agent.ssh_exec_fds('platformd ' + port_arg + ' &> %s/pm.out' % log_dir)

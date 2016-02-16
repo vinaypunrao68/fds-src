@@ -176,15 +176,13 @@ def canonMatch(canon, fileToCheck, adjustLines = False, moreVersions=False):
     idx = 0
     for canonLine in canonLines:
         if re.match(canonLine.encode('string-escape'), linesToCheck[idx]) is None:
-            if moreVersions:
-                log.info("No match.")
-            else:
-                log.warn("File %s, differs from canon file, %s, at line %d." %
-                          (fileToCheck, canon, idx + 1))
-                log.warn("File line:")
-                log.warn(linesToCheck[idx])
-                log.warn("Canon line:")
-                log.warn(canonLine)
+            log.warn("File %s, differs from canon file, %s, at line %d." %
+                      (fileToCheck, canon, idx + 1))
+            log.warn("File line:")
+            log.warn(linesToCheck[idx])
+            log.warn("Canon line:")
+            log.warn(canonLine)
+
             return False
         else:
             idx += 1

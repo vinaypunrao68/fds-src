@@ -106,7 +106,7 @@ toolchain_incl_flags += $(toolchain_gmock_incl)
 toolchain_incl_flags += $(toolchain_statscpp_incl)
 
 ifdef COVERAGE
-coverage_cc_flags  := --coverage
+coverage_cc_flags  := --coverage -pg
 coverage_cpp_flags := $(coverage_cc_flags)
 coverage_ld_flags  := $(coverage_cc_flags)
 main_ld_flags      += $(coverage_cc_flags)

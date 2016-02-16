@@ -85,6 +85,11 @@ public class EvictingCache<TKey extends SortableKey<TKey>, TValue> {
         }
     }
 
+    public <T> T unlockedRead(TKey key, IoFunction<SortedMap<TKey, CacheEntry<TValue>>, T> f) throws IOException {
+        bubbleExceptions();
+        return f.apply(this.traversableView);
+    }
+
     private void bubbleExceptions() throws IOException {
         List<Exception> exs = new ArrayList<>();
         exceptions.drainTo(exs);

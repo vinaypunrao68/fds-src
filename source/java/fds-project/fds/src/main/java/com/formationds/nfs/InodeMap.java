@@ -140,12 +140,13 @@ public class InodeMap {
     private Inode doUpdate(InodeMetadata metadata, long exportId) throws IOException {
         String volume = exportResolver.volumeName((int) exportId);
         String blobName = blobName(metadata.asInode(exportId));
-        return io.readMetadata(XdiVfs.DOMAIN, volume, blobName).orElse(new FdsMetadata()).lock(m -> {
+        FdsMetadata updated = io.readMetadata(XdiVfs.DOMAIN, volume, blobName).orElse(new FdsMetadata()).lock(m -> {
             Map<String, String> mutableMap = m.mutableMap();
             mutableMap.putAll(metadata.asMap());
-            io.writeMetadata(XdiVfs.DOMAIN, volume, blobName, m.fdsMetadata());
-            return metadata.asInode(exportId);
+            return m.fdsMetadata();
         });
+        io.writeMetadata(XdiVfs.DOMAIN, volume, blobName, updated);
+        return metadata.asInode(exportId);
     }
 
     public int volumeId(Inode inode) {
