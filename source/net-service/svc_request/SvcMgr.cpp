@@ -249,16 +249,17 @@ int SvcMgr::mod_init(SysParams const *const p)
 
     svcRequestHandler_->setTaskExecutor(taskExecutor_);
     Error e = startServer();
+
+    if (MODULEPROVIDER()->get_cntrs_mgr() != nullptr) {
+        stateProviderId = "svcmgr";
+        MODULEPROVIDER()->get_cntrs_mgr()->add_for_export(this);
+    }
+
     return e.getFdspErr();
 }
 
 void SvcMgr::mod_startup()
 {
-    if (MODULEPROVIDER()->get_cntrs_mgr() != nullptr) {
-        stateProviderId = "svcmgr";
-        MODULEPROVIDER()->get_cntrs_mgr()->add_for_export(this);
-    }
-    
     GLOGNOTIFY;
 }
 
@@ -722,6 +723,7 @@ std::string SvcMgr::getStateProviderId() {
 std::string SvcMgr::getStateInfo() {
 
     Json::Value state;
+    state["outstandingRequestsCount"] = static_cast<Json::Value::UInt64>(svcRequestMgr_->getOutstandingRequestsCount());
     state["outstandingRequestsCount"] = static_cast<Json::Value::UInt64>(svcRequestMgr_->getOutstandingRequestsCount());
 
     std::stringstream ss;
