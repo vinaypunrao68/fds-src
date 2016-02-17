@@ -509,12 +509,6 @@ VolumeMetaPtr  DataMgr::getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked)
 Error DataMgr::addVolume(const std::string& vol_name,
                          fds_volid_t vol_uuid,
                          VolumeDesc *vdesc) {
-    if (features.isVolumegroupingEnabled() && !amIinVolumeGroup(vol_uuid)) {
-        LOGNORMAL << "Request to add volume that isn't owned by this dm is ignored. volid: "
-            << vol_uuid;
-        return ERR_OK;
-    }
-
     // check if the volume already exists ..
     {
         FDSGUARD(vol_map_mtx);
@@ -680,6 +674,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
         // For now, volumes only land in the map if it is already active.
         if (fActivated) {
             if (features.isVolumegroupingEnabled() &&
+                amIinVolumeGroup(vol_uuid) &&
                 !(vdesc->isSnapshot())) {
                 volmeta->setPersistVolDB(getPersistDB(vol_uuid));
                 if (volmeta->isCoordinatorSet()) {
