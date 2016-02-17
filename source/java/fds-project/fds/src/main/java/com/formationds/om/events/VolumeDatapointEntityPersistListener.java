@@ -7,6 +7,7 @@ import com.formationds.commons.crud.EntityPersistListener;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.Volume;
+import com.formationds.commons.model.builder.DatapointBuilder;
 import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
@@ -14,6 +15,7 @@ import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.FirebreakHelper.FirebreakEventCache;
+
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,7 +83,11 @@ public class VolumeDatapointEntityPersistListener implements EntityPersistListen
                 if ( !activeFbe.isPresent() ) {
                     logger.trace( "Firebreak event for '{}({})' with datapoints '{}'", v.getId(), v.getName(), volDp );
 
-                    Datapoint dp = volDp.getDatapoint();
+                    Datapoint dp = new DatapointBuilder()
+                    	.withX( volDp.getDatapoint().getX() )
+                    	.withY( volDp.getDatapoint().getY() )
+                    	.build();
+                    
                     FirebreakEvent fbe = new FirebreakEvent( v, fbtype,
                                                              Instant.ofEpochSecond( dp.getY().longValue() )
                                                                     .toEpochMilli(),

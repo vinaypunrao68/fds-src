@@ -4,11 +4,9 @@
 
 package com.formationds.om.repository.helper;
 
+import com.formationds.client.v08.model.stats.Datapoint;
 import com.formationds.client.v08.model.stats.Series;
-import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.DateRange;
-import com.formationds.commons.model.builder.DatapointBuilder;
-import com.formationds.commons.model.builder.SeriesBuilder;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.StatOperation;
@@ -302,9 +300,7 @@ public class SeriesHelper {
             logger.trace( "DOUBLE::{} LONG::{} TIMESTAMP::{}",
                           d, d.longValue(), bytesTimestamp );
 
-            datapoints.add( new DatapointBuilder().withY( d )
-                            .withX( (double)bytesTimestamp )
-                            .build() );
+            datapoints.add( new Datapoint( (double)bytesTimestamp, d ) );
         } );
 
         logger.trace( "START::{} INTERVAL::{} MAX::{} SIZE::{}",
@@ -374,7 +370,7 @@ public class SeriesHelper {
                     break;
             }
 
-            results.add( new DatapointBuilder().withX( key ).withY( rolledupValue ).build() );
+            results.add( new Datapoint( key, rolledupValue ) );
         }
 
         results.sort( ( dp1, dp2 ) -> dp1.getX().compareTo( dp2.getX() ) );
@@ -382,15 +378,12 @@ public class SeriesHelper {
         if ( results.isEmpty() ){
 
             // at start time
-            results.add( new DatapointBuilder()
-                         .withX( (double) timestampSeconds )
-                         .withY( 0.0 ).build() );
+            results.add( new Datapoint( (double) timestampSeconds, 0.0 ) );
 
             // at end time
-            results.add( new DatapointBuilder()
-                         .withX( (double) timestampSeconds +
-                                 (maxResults * TimeUnit.MINUTES.toSeconds( distributionSeconds ) ) )
-                         .withY( 0.0 ).build() );
+            results.add( new Datapoint( 
+            		(double) timestampSeconds + (maxResults * TimeUnit.MINUTES.toSeconds( distributionSeconds )),
+            		0.0 ) );
         }
 
         // if our earliest timestamp is after the requested start time we will add a zero "distribution"
@@ -398,18 +391,20 @@ public class SeriesHelper {
         else if ( results.get( 0 ).getX() > timestampSeconds ){
 
             // a point just earlier than the first real point. ... let's do one second
-            results.add( 0, new DatapointBuilder()
-                         .withX( results.get( 0 ).getX() - 1 )
-                         .withY( 0.0 ).build() );
+            results.add( 0, new Datapoint( 
+            					results.get( 0 ).getX() - 1,
+            					0.0 ) );
 
             // at start time
-            results.add( 0, new DatapointBuilder()
-                         .withX( (double) timestampSeconds )
-                         .withY( 0.0 ).build() );
+            results.add( 0, new Datapoint(
+            					(double) timestampSeconds,
+            					0.0 ) );
         }
 
-        return new SeriesBuilder().withType( metrics )
-                .withDatapoints( results )
-                .build();
+        final Series realS = new Series();
+        realS.setType( metrics.name() );
+        realS.setDatapoints( results );
+        
+        return realS;
     }
 }

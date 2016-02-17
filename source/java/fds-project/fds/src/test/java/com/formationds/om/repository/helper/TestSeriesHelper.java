@@ -1,11 +1,12 @@
 package com.formationds.om.repository.helper;
 
-import com.formationds.commons.model.Datapoint;
-import com.formationds.commons.model.Series;
+import com.formationds.client.v08.model.stats.Datapoint;
+import com.formationds.client.v08.model.stats.Series;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.StatOperation;
+
 import org.junit.BeforeClass;
 import org.junit.Test;
 
