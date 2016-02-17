@@ -1106,34 +1106,37 @@ void StatStreamTimerTask::runTimerTask() {
             {
                 auto addMetric =
                         [&newStatsServiceMetrics, timestamp, slotDuration, &volId]
-                        (std::string const& metricName, double const value)
+                        (std::string const& metricName,
+                         double const value,
+                         AggregationType const& aggregation)
                         {
                             newStatsServiceMetrics->emplace_back(newStatDataPoint(timestamp,
                                                                                   metricName,
                                                                                   value,
                                                                                   slotDuration,
-                                                                                  volId.get()));
+                                                                                  volId.get(),
+                                                                                  aggregation));
                         };
 
-                addMetric("PUTS", putsDP.value);
-                addMetric("GETS", getsDP.value);
-                addMetric("QFULL", qfullDP.value);
-                addMetric("SSD_GETS", ssdGetsDP.value);
-                addMetric("HDD_GETS", hddGetsDP.value);
-                addMetric("LBYTES", logicalBytesDP.value);
-                addMetric("PBYTES", physicalBytesDP.value);
-                addMetric("MBYTES", mdBytesDP.value);
-                addMetric("BLOBS", blobsDP.value);
-                addMetric("OBJECTS", logicalObjectsDP.value);
-                addMetric("ABS", aveBlobSizeDP.value);
-                addMetric("AOPB", aveObjectsDP.value);
-                addMetric("STC_SIGMA", recentCapStdevDP.value);
-                addMetric("LTC_SIGMA", longCapStdevDP.value);
-                addMetric("STP_SIGMA", recentPerfStdevDP.value);
-                addMetric("LTP_SIGMA", longPerfStdevDP.value);
-                addMetric("STC_WMA", recentCapWmaDP.value);
+                addMetric("PUTS", putsDP.value, AggregationType::SUM);
+                addMetric("GETS", getsDP.value, AggregationType::SUM);
+                addMetric("QFULL", qfullDP.value, AggregationType::MAX);
+                addMetric("SSD_GETS", ssdGetsDP.value, AggregationType::SUM);
+                addMetric("HDD_GETS", hddGetsDP.value, AggregationType::SUM);
+                addMetric("LBYTES", logicalBytesDP.value, AggregationType::SUM);
+                addMetric("PBYTES", physicalBytesDP.value, AggregationType::SUM);
+                addMetric("MBYTES", mdBytesDP.value, AggregationType::SUM);
+                addMetric("BLOBS", blobsDP.value, AggregationType::SUM);
+                addMetric("OBJECTS", logicalObjectsDP.value, AggregationType::SUM);
+                addMetric("ABS", aveBlobSizeDP.value, AggregationType::AVG);
+                addMetric("AOPB", aveObjectsDP.value, AggregationType::AVG);
+                addMetric("STC_SIGMA", recentCapStdevDP.value, AggregationType::MAX);
+                addMetric("LTC_SIGMA", longCapStdevDP.value, AggregationType::MAX);
+                addMetric("STP_SIGMA", recentPerfStdevDP.value, AggregationType::MAX);
+                addMetric("LTP_SIGMA", longPerfStdevDP.value, AggregationType::MAX);
+                addMetric("STC_WMA", recentCapWmaDP.value, AggregationType::MAX);
                 // LTC_WMA doesn't exist.
-                addMetric("STP_WMA", recentPerfWma.value);
+                addMetric("STP_WMA", recentPerfWma.value, AggregationType::MAX);
                 // LTP_WMA doesn't exist.
             }
         }
@@ -1221,7 +1224,8 @@ StatDataPoint StatStreamTimerTask::newStatDataPoint (int64_t timestamp,
                                                      std::string const& name,
                                                      double value,
                                                      int64_t slotSeconds,
-                                                     int64_t volumeId)
+                                                     int64_t volumeId,
+                                                     AggregationType aggregation)
 {
     return { timestamp,
              name,
@@ -1231,7 +1235,7 @@ StatDataPoint StatStreamTimerTask::newStatDataPoint (int64_t timestamp,
              1,
              volumeId,
              ContextType::VOLUME,
-             AggregationType::SUM };
+             aggregation };
 }
 
 }  // namespace fds
