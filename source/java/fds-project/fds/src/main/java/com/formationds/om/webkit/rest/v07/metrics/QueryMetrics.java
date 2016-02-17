@@ -4,7 +4,7 @@
 
 package com.formationds.om.webkit.rest.v07.metrics;
 
-import com.formationds.commons.model.Statistics;
+import com.formationds.client.v08.model.stats.Statistics;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.repository.helper.QueryHelper;
 import com.formationds.om.repository.query.MetricQueryCriteria;

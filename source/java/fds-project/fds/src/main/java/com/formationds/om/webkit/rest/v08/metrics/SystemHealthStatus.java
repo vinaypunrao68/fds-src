@@ -361,7 +361,7 @@ public class SystemHealthStatus implements RequestHandler {
             throw new IllegalStateException( "Failed to retrieve system capacity", te );
         }
 
-        Calculated consumed = new Calculated( Calculated.TOTAL_CAPACITY, systemCapacityUsed.getValue().doubleValue() );
+        Calculated consumed = new Calculated( Calculated.CONSUMED_BYTES, systemCapacityUsed.getValue().doubleValue() );
 
 //        List<Series> series = SeriesHelper.getRollupSeries( queryResults,
 //                                                            query.getRange(),
