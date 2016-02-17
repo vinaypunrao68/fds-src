@@ -86,6 +86,12 @@ fds: {
            /** if enabled, query from new series per volume implementation */
            enable_influxdb_query_series_per_volume = false
 
+           /** if enabled, stats queries will now go to the stats service instead of influx **/
+           enable_stats_service_query = {{ ft_enable_stats_service_query }}
+
+           /** if enabled, om will write metrics into influx db **/
+           enable_influx_persistence = {{ ft_enable_influx_persistence }}
+
            ignore_failed_svcs = true
         }
     }

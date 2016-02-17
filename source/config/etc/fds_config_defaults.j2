@@ -162,6 +162,8 @@
 {% set ft_enable_influxdb_query_series_per_volume = fds_ft_enable_influxdb_query_series_per_volume if fds_ft_enable_influxdb_query_series_per_volume is defined else 'false' %}
 {% set ft_ignore_failed_svcs                      = fds_ft_ignore_failed_svcs                      if fds_ft_ignore_failed_svcs                      is defined else 'true'  %}
 {% set ft_send_to_new_stats_service               = fds_ft_send_to_new_stats_service               if fds_ft_send_to_new_stats_service               is defined else 'false' %}
+{% set ft_enable_stats_service_query = fds_ft_enable_stats_service_query if fds_ft_enable_stats_service_query is defined else 'false' %}
+{% set ft_enable_influx_persistence = fds_ft_enable_influx_persistence if fds_ft_enable_influx_persistence is defined else 'true' %}
 {#
     Java Options -- not stored in platform.conf, but rather in formation_env and ultimately in environment variables
     The Logging and service name configuration in the defaults are important.  Without it, the logging may not be configured properly.

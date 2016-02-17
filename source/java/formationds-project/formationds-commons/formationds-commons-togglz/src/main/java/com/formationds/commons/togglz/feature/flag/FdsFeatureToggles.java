@@ -46,7 +46,14 @@ public enum FdsFeatureToggles implements Feature {
     INFLUX_SERIES_PER_VOLUME( "fds.feature_toggle.om.enable_influxdb_series_per_volume" ),
 
     @Label( "If enabled, use query results from experimental series per volume influxdb schema." )
-    INFLUX_QUERY_SERIES_PER_VOLUME( "fds.feature_toggle.om.enable_influxdb_query_series_per_volume" );
+    INFLUX_QUERY_SERIES_PER_VOLUME( "fds.feature_toggle.om.enable_influxdb_query_series_per_volume" ),
+    
+    @Label( "If enabled, queries for stats will no longer go to Influx, but will go to the stats service instead." )
+    STATS_SERVICE_QUERY( "fds.feature_toggle.om.enable_stats_service_query" ),
+    
+    @Label( "If enabled, the OM will write metrics into the Influx Database.")
+    INFLUX_WRITE_METRICS( "fds.feature_toggle.om.enable_influx_persistence" );
+    
 
     /**
      * @return Returns {@code true} if the feature associated with {@code this}

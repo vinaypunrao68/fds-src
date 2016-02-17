@@ -4,14 +4,15 @@
 
 package com.formationds.om.repository.helper;
 
+import com.formationds.client.v08.model.stats.Series;
 import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.DateRange;
-import com.formationds.commons.model.Series;
 import com.formationds.commons.model.builder.DatapointBuilder;
 import com.formationds.commons.model.builder.SeriesBuilder;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.StatOperation;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -11,6 +11,14 @@ public class Calculated {
 	
 	private static final long serialVersionUID = -3524304479018347948L;
 
+	public static final String IOPS_CONSUMED = "dailyAverage";
+	public static final String TOTAL_CAPACITY = "totalCapacity";
+	public static final String CONSUMED_BYTES = "total";
+	public static final String AVERAGE_IOPS = "average";
+	public static final String PERCENTAGE = "percentage";
+	public static final String RATIO = "ratio";
+	public static final String TO_FULL = "toFull";
+	
 	private String key;
 	private Double value;
 	
