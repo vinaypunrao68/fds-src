@@ -978,7 +978,9 @@ MigrationMgr::reportMigrationCompleted(fds_bool_t resyncOnRestart) {
     bool resyncPending = false;
     resyncPending = std::atomic_exchange(&isResyncPending, resyncPending);
     if (resyncPending || resyncOnRestart) {
-        cachedResyncDoneOrPendingCb(resyncPending, resyncOnRestart);
+        if (cachedResyncDoneOrPendingCb) {
+            cachedResyncDoneOrPendingCb(resyncPending, resyncOnRestart);
+        }
     } else {
         LOGNOTIFY << "No pending resync";
     }
