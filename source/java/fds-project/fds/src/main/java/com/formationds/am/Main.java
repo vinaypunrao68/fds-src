@@ -13,8 +13,6 @@ import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
 import com.formationds.util.ServerPortFinder;
 import com.formationds.util.thrift.ConfigurationApi;
-import com.formationds.util.thrift.OMConfigServiceClient;
-import com.formationds.util.thrift.OMConfigServiceRestClientImpl;
 import com.formationds.util.thrift.OMConfigurationServiceProxy;
 import com.formationds.web.toolkit.HttpConfiguration;
 import com.formationds.web.toolkit.HttpsConfiguration;
@@ -102,8 +100,6 @@ public class Main {
         LOG.debug("PM port " + pmPort +
                 " my port " + amResponsePort);
 
-        XdiClientFactory clientFactory = new XdiClientFactory();
-
         String amHost = platformConfig.defaultString("fds.xdi.am_host", "localhost");
         boolean useFakeAm = platformConfig.defaultBoolean( "fds.am.memory_backend", false );
 
@@ -138,32 +134,18 @@ public class Main {
                           .retryOn( TTransportException.class )
                           .retryOn( ConnectException.class );
 
-        final CompletableFuture<OMConfigServiceClient> restCompletableFuture =
-            asyncRetryExecutor.getWithRetry(
-                ( ) -> {
-                    return new OMConfigServiceRestClientImpl( secretKey,
-                                                              "http",
-                                                              omHost,
-                                                              omHttpPort );
-                } );
-
-        final OMConfigServiceClient omConfigServiceRestClient = restCompletableFuture.get( );
-        if( omConfigServiceRestClient == null )
-        {
-            throw new RuntimeException( "Failed to connect to service proxy " +
-                                        omHost + ":" + omConfigPort );
-        }
-
         LOG.debug( "Attempting to connect to configuration API, on " +
                    omHost + ":" + omHttpPort + "." );
         final CompletableFuture<ConfigurationApi> cfgApicompletableFuture =
             asyncRetryExecutor.getWithRetry(
                 ( ) -> {
-                    return OMConfigurationServiceProxy.newOMConfigProxy(
-                                   omConfigServiceRestClient,
-                                   clientFactory.remoteOmService( omHost,
-                                                                  omConfigPort ) );
+                    return OMConfigurationServiceProxy.newOMConfigProxy( secretKey,
+                                                                         "http",
+                                                                         omHost,
+                                                                         omHttpPort,
+                                                                         omConfigPort );
                 } );
+
         final ConfigurationApi omCachedConfigProxy = cfgApicompletableFuture.get();
         if( omCachedConfigProxy == null )
         {

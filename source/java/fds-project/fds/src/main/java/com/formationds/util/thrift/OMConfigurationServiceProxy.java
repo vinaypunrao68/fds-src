@@ -14,6 +14,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.Arrays;
+import javax.crypto.SecretKey;
 
 /**
  * Proxy calls to the ConfigurationService interface in the OM to intercept
@@ -26,12 +27,48 @@ public class OMConfigurationServiceProxy implements InvocationHandler {
     private static final Logger logger = Logger.getLogger(OMConfigurationServiceProxy.class);
 
     /**
+     *
+     * @param secretKey
+     * @param protocol
+     * @param omHost
+     * @param omHttpPort
+     * @param omConfigPort
+     *
+     * @return the proxied OM Configuration API
+     *
+     * @throws TTransportException
+     * @throws ConnectException
+     */
+    public static ConfigurationApi newOMConfigProxy( SecretKey secretKey,
+                                                     String protocol,
+                                                     String omHost,
+                                                     int omHttpPort,
+                                                     int omConfigPort ) {
+
+        ThriftClientFactory<ConfigurationService.Iface> configService =
+                ConfigServiceClientFactory.newConfigService();
+
+        final OMConfigServiceClient omConfigServiceRestClient =
+                new OMConfigServiceRestClientImpl( secretKey,
+                                                   "http",
+                                                   omHost,
+                                                   omHttpPort );
+
+        logger.debug( "Attempting to connect to configuration API, on " +
+                      omHost + ":" + omHttpPort + "." );
+
+        return OMConfigurationServiceProxy.newOMConfigProxy( omConfigServiceRestClient,
+                                                             configService.getClient( omHost,
+                                                                                      omConfigPort ) );
+    }
+
+    /**
      * @param omConfigServiceClient
      * @param configApi
      * @return
      */
-    public static ConfigurationApi newOMConfigProxy(OMConfigServiceClient omConfigServiceClient,
-                                                    ConfigurationService.Iface configApi) {
+    private static ConfigurationApi newOMConfigProxy(OMConfigServiceClient omConfigServiceClient,
+                                                     ConfigurationService.Iface configApi) {
         return (ConfigurationApi) Proxy.newProxyInstance(OMConfigurationServiceProxy.class.getClassLoader(),
                                               new Class<?>[] {ConfigurationApi.class},
                                               new OMConfigurationServiceProxy(omConfigServiceClient,
