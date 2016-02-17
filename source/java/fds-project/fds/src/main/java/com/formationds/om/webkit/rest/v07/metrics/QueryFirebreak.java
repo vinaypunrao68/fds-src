@@ -8,7 +8,7 @@ import java.util.Map;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
-import com.formationds.commons.model.Statistics;
+import com.formationds.client.v08.model.stats.Statistics;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.query.FirebreakQueryCriteria;
