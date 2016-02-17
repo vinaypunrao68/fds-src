@@ -73,7 +73,7 @@ class SnapshotPolicyContext(Context):
             return 'attach snap policy  failed: {}'.format(vol_name)
     
     #--------------------------------------------------------------------------------------
-    @clidebugcmd
+    @clicmd
     @arg('vol-name', help= "-Volume name for detaching snap policy")
     @arg('policy-id', type=long,  help= "-snap shot policy name")
     def detach(self, vol_name, policy_id):
