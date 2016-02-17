@@ -599,8 +599,6 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                         volumeSettings.getBlockDeviceSizeInBytes() :
                         volumeSettings.getMaxObjectSizeInBytes());
 
-        getCache().loadVolume( domainName, volumeName );
-
         // load the new volume into the cache
         getCache().loadVolume( domainName, volumeName );
 
