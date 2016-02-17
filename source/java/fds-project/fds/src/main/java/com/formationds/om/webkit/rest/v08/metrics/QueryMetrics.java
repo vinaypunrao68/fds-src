@@ -4,10 +4,10 @@
 package com.formationds.om.webkit.rest.v08.metrics;
 
 import com.formationds.client.v08.model.stats.Statistics;
+import com.formationds.client.v08.model.stats.query.MetricQueryCriteria;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.repository.helper.QueryHelper;
-import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.webkit.rest.v08.users.GetUser;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
