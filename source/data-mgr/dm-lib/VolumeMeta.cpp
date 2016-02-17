@@ -126,8 +126,9 @@ Error VolumeMeta::applyActiveTxState(const int64_t &highestOpId,
 {
     fds_volid_t volId = fds_volid_t(getId());
     DmCommitLog::ptr commitLog;
+    Error err = ERR_OK;
 
-    auto err = dataManager->timeVolCat_->getCommitlog(volId, commitLog);
+    err = dataManager->timeVolCat_->getCommitlog(volId, commitLog);
     if (!err.ok()) {
         return err;
     }
@@ -140,7 +141,7 @@ Error VolumeMeta::applyActiveTxState(const int64_t &highestOpId,
 
     setOpId(highestOpId);
 
-    return ERR_OK;
+    return err;
 }
 
 void VolumeMeta::setSequenceId(sequence_id_t new_seq_id){
@@ -333,9 +334,6 @@ Error VolumeMeta::startMigration(const fpi::SvcUuid &srcDmUuid,
     uint32_t deltaBlobTimeout = uint32_t(MODULEPROVIDER()->get_fds_config()->
                                 get<int32_t>("fds.dm.migration.migration_max_delta_blobs_to", 5));
 
-
-    // DataMgr *nonConstDm = dataManager;
-
     auto dummyId = 0;
     auto srcDmNodeid = NodeUuid(srcDmUuid);
     migrationDest.reset(new DmMigrationDest(dummyId,
@@ -508,7 +506,6 @@ void VolumeMeta::handleFinishStaticMigration(DmRequest *dmRequest)
     cbToVGMgr=nullptr;
 }
 
-// TODO(Rao): remoe the following
 void VolumeMeta::cleanUpMigrationDestination(NodeUuid srcNodeUuid,
                                              fds_volid_t volId,
                                              const Error &err) {
@@ -523,6 +520,8 @@ void VolumeMeta::cleanUpMigrationDestination(NodeUuid srcNodeUuid,
             << " dest node: " << srcNodeUuid << " with error: " << err;
     }
 
+    /* This shouldn't block.  This is there to avoid the assert ~MigrationTrackIOReqs() */
+    migrationDest->waitForAsyncMsgs();
     migrationDest.reset();
 
     cbToVGMgr(err);
@@ -557,6 +556,14 @@ void VolumeMeta::handleVolumegroupUpdate(DmRequest *dmRequest)
     }
     setOpId(request->reqMessage->group.lastOpId);
     setState(fpi::Active, " - VolumegroupUpdateHandler:state matched with coordinator");
+}
+
+void VolumeMeta::markAbortMigration(bool destination)
+{
+    if (destination) {
+        LOGWARN << "For vol: " << vol_desc->volUUID << " received abort migration externally";
+        migrationDest->routeAbortMigration();
+    }
 }
 
 }  // namespace fds

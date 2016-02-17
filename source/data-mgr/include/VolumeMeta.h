@@ -16,6 +16,7 @@
 #include <fds_error.h>
 #include <fds_counters.h>
 #include <util/Log.h>
+#include <future>
 
 #include <concurrency/Mutex.h>
 #include <fds_volume.h>
@@ -87,7 +88,8 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     * @param highestOpId
     * @param txs
     */
-    Error applyActiveTxState(const int64_t &highestOpId, const std::vector<std::string> &txs);
+    Error applyActiveTxState(const int64_t &highestOpId,
+                             const std::vector<std::string> &txs);
 
     /**
     * @return  Returns base directory path for the volume
@@ -211,9 +213,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     /* Handlers */
     void handleVolumegroupUpdate(DmRequest *dmRequest);
 
-
     VolumeDesc *vol_desc;
-
 
     /*
      * per volume queue
@@ -225,6 +225,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     uint32_t                                maxInitializerTriesCnt;
 
  private:
+    friend class DmMigrationMgr;
     /*
      * This class is non-copyable.
      * Disable copy constructor/assignment operator.
@@ -299,6 +300,12 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     void cleanUpMigrationSource(fds_volid_t volId,
                                 const Error &err,
                                 const NodeUuid destDmUuid);
+
+    /**
+     * Internally used only in a few places where things are not done in a volume context
+     * such as when DmMigrationMgr tries to apply activeTx and cannot.
+     */
+    void markAbortMigration(bool destination);
 
     /**
      * Internally cleans up the destination

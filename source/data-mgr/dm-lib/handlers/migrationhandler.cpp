@@ -184,6 +184,7 @@ void DmMigrationDeltaBlobDescHandler::handleQueueItem(DmRequest* dmRequest) {
     if (dataManager.features.isVolumegroupingEnabled()) {
         auto volMeta = dataManager.getVolumeMeta(typedRequest->volId);
         if (volMeta == nullptr) {
+            LOGMIGRATE << "Volume meta for " << typedRequest->volId << " not found.";
             helper.err = ERR_VOLMETA_NOT_FOUND;
             // Let handleResponse delete the request
             return;
@@ -249,6 +250,7 @@ void DmMigrationDeltaBlobHandler::handleQueueItem(DmRequest* dmRequest) {
     if (dataManager.features.isVolumegroupingEnabled()) {
         auto volMeta = dataManager.getVolumeMeta(typedRequest->volId);
         if (volMeta == nullptr) {
+            LOGMIGRATE << "Volume meta for " << typedRequest->volId << " not found.";
             // overload this error to mean that we'll delete the dmrequest
             helper.err = ERR_INVALID_VOLUME_VERSION;
         }
