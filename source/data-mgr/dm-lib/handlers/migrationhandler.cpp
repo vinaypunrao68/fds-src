@@ -294,7 +294,8 @@ void DmMigrationTxStateHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
 
     NodeUuid destUuid;
     destUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
-    auto dmReq = new DmIoMigrationTxState(destUuid, message);
+    auto dmReq = new DmIoMigrationTxState(destUuid, message, !dataManager.features.isVolumegroupingEnabled());
+    dmReq->version = message->version;
 
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationTxStateHandler::handleResponse, asyncHdr, message);
 
@@ -309,7 +310,12 @@ void DmMigrationTxStateHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
 void DmMigrationTxStateHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoMigrationTxState* typedRequest = static_cast<DmIoMigrationTxState*>(dmRequest);
-    helper.err = dataManager.dmMigrationMgr->applyTxState(typedRequest);
+    if (dataManager.features.isVolumegroupingEnabled()) {
+        auto volMeta = dataManager.getVolumeMeta(typedRequest->volId);
+        helper.err = volMeta->handleMigrationActiveTx(dmRequest);
+    } else {
+        helper.err = dataManager.dmMigrationMgr->applyTxState(typedRequest);
+    }
 }
 
 void DmMigrationTxStateHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

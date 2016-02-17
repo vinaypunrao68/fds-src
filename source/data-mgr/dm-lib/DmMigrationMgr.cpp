@@ -724,37 +724,26 @@ DmMigrationMgr::applyTxState(DmIoMigrationTxState* txStateReq) {
     fds_volid_t volId(txStateMsg->volume_id);
     Error err(ERR_OK);
 
-    if (dataManager.features.isVolumegroupingEnabled()) {
-        auto volMeta = dataManager.getVolumeMeta(volId, false);
-        err = volMeta->applyActiveTxState(txStateMsg->highest_op_id, txStateMsg->transactions);
-        if (!err.ok()) {
-            LOGERROR << "Unable to apply active tx state for volume " << volId;
-            volMeta->markAbortMigration(true);
+    auto uniqueId = std::make_pair(txStateReq->destUuid, volId);
+    SCOPEDREAD(migrExecutorLock);
+    DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(uniqueId);
+    if (executor == nullptr) {
+        if (isMigrationAborted()) {
+            LOGMIGRATE << "Unable to find executor for volume " << volId << " during migration abort";
         } else {
-            LOGMIGRATE << "ActiveTx applied for volume:" << volId;
+            LOGERROR << "Unable to find executor for volume " << volId;
+            // this is an race cond error that needs to be fixed in dev env.
+            // Only panic in debug build.
+            // fds_assert(0);
         }
-    } else {
-        auto uniqueId = std::make_pair(txStateReq->destUuid, volId);
-        SCOPEDREAD(migrExecutorLock);
-        DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(uniqueId);
-        if (executor == nullptr) {
-            if (isMigrationAborted()) {
-                LOGMIGRATE << "Unable to find executor for volume " << volId << " during migration abort";
-            } else {
-                LOGERROR << "Unable to find executor for volume " << volId;
-                // this is an race cond error that needs to be fixed in dev env.
-                // Only panic in debug build.
-                // fds_assert(0);
-            }
-            return ERR_NOT_FOUND;
-        }
+        return ERR_NOT_FOUND;
+    }
 
-        err = executor->processTxState(txStateMsg);
+    err = executor->processTxState(txStateMsg);
 
-        if (!err.ok()) {
-            LOGERROR << "Error applying migrated commit log: " << err;
-            abortMigration();
-        }
+    if (!err.ok()) {
+        LOGERROR << "Error applying migrated commit log: " << err;
+        abortMigration();
     }
 
     return (err);

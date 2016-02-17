@@ -181,6 +181,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     Error handleMigrationDeltaBlobDescs(DmRequest *dmRequest);
     Error handleMigrationDeltaBlobs(DmRequest *dmRequest);
     void handleFinishStaticMigration(DmRequest *dmRequest);
+    Error handleMigrationActiveTx(DmRequest *dmRequest);
 
 
     /**
@@ -300,12 +301,6 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     void cleanUpMigrationSource(fds_volid_t volId,
                                 const Error &err,
                                 const NodeUuid destDmUuid);
-
-    /**
-     * Internally used only in a few places where things are not done in a volume context
-     * such as when DmMigrationMgr tries to apply activeTx and cannot.
-     */
-    void markAbortMigration(bool destination);
 
     /**
      * Internally cleans up the destination

@@ -378,6 +378,20 @@ Error VolumeMeta::handleMigrationDeltaBlobs(DmRequest *dmRequest)
     return err;
 }
 
+Error VolumeMeta::handleMigrationActiveTx(DmRequest *dmRequest)
+{
+    /**
+     * This is a weird re-route to dest to executor then back to volmeta again
+     * because we want to ensure similar failure handling path.
+     */
+    auto typedRequest = static_cast<DmIoMigrationTxState*>(dmRequest);
+    auto err = migrationDest->checkVolmetaVersion(dmRequest->version);
+    if (err.OK()) {
+        err = migrationDest->processTxState(typedRequest->txStateMsg);
+    }
+    return err;
+}
+
 Error VolumeMeta::serveMigration(DmRequest *dmRequest) {
 
     Error err(ERR_OK);
@@ -557,13 +571,4 @@ void VolumeMeta::handleVolumegroupUpdate(DmRequest *dmRequest)
     setOpId(request->reqMessage->group.lastOpId);
     setState(fpi::Active, " - VolumegroupUpdateHandler:state matched with coordinator");
 }
-
-void VolumeMeta::markAbortMigration(bool destination)
-{
-    if (destination) {
-        LOGWARN << "For vol: " << vol_desc->volUUID << " received abort migration externally";
-        migrationDest->routeAbortMigration();
-    }
-}
-
 }  // namespace fds
