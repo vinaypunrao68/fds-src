@@ -543,19 +543,26 @@ void VolumeMeta::cleanUpMigrationDestination(NodeUuid srcNodeUuid,
             << " dest node: " << srcNodeUuid << " with error: " << err;
     }
 
-    /* This shouldn't block.  This is there to avoid the assert ~MigrationTrackIOReqs() */
-    migrationDest->waitForAsyncMsgs();
-    migrationDest.reset();
-    dataManager->counters->numberOfActiveMigrExecutors.decr(1);
-    if (err.OK()) {
-        dataManager->counters->totalVolumesReceivedMigration.incr(1);
-    } else {
-        dataManager->counters->totalMigrationsAborted.incr(1);
-    }
-    dataManager->dmMigrationMgr->dumpStats();
+    if (cbToVGMgr) {
+        /**
+         * If this cleanup has been called as part of executor's failure handling,
+         * then we do not execute the following. Since everything is done on a volume context
+         * we can guarantee there will not be races.
+         */
+        migrationDest->waitForAsyncMsgs();
+        migrationDest.reset();
+        dataManager->counters->numberOfActiveMigrExecutors.decr(1);
+        if (err.OK()) {
+            dataManager->counters->totalVolumesReceivedMigration.incr(1);
+        } else {
+            dataManager->counters->totalMigrationsAborted.incr(1);
+        }
+        dataManager->dmMigrationMgr->dumpStats();
 
-    cbToVGMgr(err);
-    cbToVGMgr=nullptr;
+        cbToVGMgr(err);
+        cbToVGMgr=nullptr;
+    }
+
 }
 
 
