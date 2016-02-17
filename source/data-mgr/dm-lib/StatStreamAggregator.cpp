@@ -853,7 +853,7 @@ void StatStreamTimerTask::runTimerTask() {
     std::unique_ptr<std::list<StatDataPoint>> newStatsServiceMetrics;
     if (dataManager_.features.isSendToNewStatsServiceEnabled())
     {
-        newStatsServiceMetrics.reset({});
+        newStatsServiceMetrics.reset(new std::list<StatDataPoint> {});
     }
 
     bool logLocal = reg_->method == std::string("log-local");
