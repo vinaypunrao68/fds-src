@@ -49,7 +49,7 @@
 #include <dm-tvc/TimeVolumeCatalog.h>
 #include <StatStreamAggregator.h>
 #include <DataMgrIf.h>
-
+#include <dmutil.h>
 #include <DmMigrationMgr.h>
 #include "util/ExecutionGate.h"
 
@@ -159,7 +159,7 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
      */
     Error getAllVolumeDescriptors();
 
-    Error process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
+    Error removeVolume(fds_volid_t vol_uuid, fds_bool_t check_only);
 
     /**
     * @brief Detach in any in memory state for the volume
