@@ -8,12 +8,10 @@ import java.io.Reader;
 import java.lang.reflect.Type;
 import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
-
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
-import com.formationds.commons.model.Statistics;
+import com.formationds.client.v08.model.stats.Statistics;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.query.FirebreakQueryCriteria;
@@ -21,7 +19,6 @@ import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
-import com.formationds.web.toolkit.RequestLog;
 import com.formationds.web.toolkit.Resource;
 import com.google.gson.reflect.TypeToken;
 
