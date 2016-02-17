@@ -91,7 +91,7 @@ public class DeferredIoOps implements IoOps {
     @Override
     public void commitMetadata(String domain, String volumeName, String blobName) throws IOException {
         MetaKey key = new MetaKey(domain, volumeName, blobName);
-        CacheEntry<FdsMetadata> cacheEntry = metadataCache.lock(key, c -> c.get(key));
+        CacheEntry<FdsMetadata> cacheEntry = metadataCache.unlockedRead(key, c -> c.get(key));
         if (cacheEntry != null) {
             doCommitMetadata(key, cacheEntry);
         }
@@ -128,7 +128,7 @@ public class DeferredIoOps implements IoOps {
     @Override
     public void commitObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset) throws IOException {
         ObjectKey objectKey = new ObjectKey(domain, volumeName, blobName, objectOffset);
-        CacheEntry<FdsObject> cacheEntry = objectCache.lock(objectKey, oc -> oc.get(objectKey));
+        CacheEntry<FdsObject> cacheEntry = objectCache.unlockedRead(objectKey, oc -> oc.get(objectKey));
         if (cacheEntry != null) {
             doCommitObject(objectKey, cacheEntry);
         }

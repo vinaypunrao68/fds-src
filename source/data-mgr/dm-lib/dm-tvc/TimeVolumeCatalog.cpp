@@ -336,35 +336,30 @@ DmTimeVolCatalog::markVolumeDeleted(fds_volid_t volId) {
     if (vol == NULL)
        return ERR_VOL_NOT_FOUND;                                   \
 
-    if (!vol->isSnapshot() && isPendingTx(volId, 0)) return ERR_VOL_NOT_EMPTY;
+    // if (!vol->isSnapshot() && isPendingTx(volId, 0)) return ERR_VOL_NOT_EMPTY;
     Error err = volcat->markVolumeDeleted(volId);
     if (err.ok()) {
         // TODO(Anna) @Umesh we should mark commit log as
         // deleted and reject all tx to this commit log
         // only mark log as deleted if no pending tx, otherwise
         // return error
-        LOGDEBUG << "Marked volume as deleted, vol "
-                 << std::hex << volId << std::dec;
+        LOGDEBUG << "Marked volume as deleted, vol:" << volId;
     }
     return err;
 }
 
 Error
-DmTimeVolCatalog::deleteEmptyVolume(fds_volid_t volId) {
-    Error err = volcat->deleteEmptyCatalog(volId);
+DmTimeVolCatalog::deleteVolume(fds_volid_t volId) {
+    Error err = volcat->deleteCatalog(volId);
     if (err.ok()) {
-        {
-            fds_scoped_lock l(commitLogLock_);
-            if (commitLogs_.count(volId) > 0) {
-                // found commit log
-                commitLogs_.erase(volId);
-            }
+        fds_scoped_lock l(commitLogLock_);
+        if (commitLogs_.count(volId) > 0) {
+            // found commit log
+            commitLogs_.erase(volId);
+            LOGNOTIFY << "removed commit logs for vol:" << volId;
         }
-
-        auto volDir = dmutil::getVolumeDir(MODULEPROVIDER()->proc_fdsroot(), volId);
-        const std::string rmCmd = "rm -rf  " + volDir;
-        int retcode = std::system((const char *)rmCmd.c_str());
-        LOGNOTIFY << "Removed leveldb dir, retcode " << retcode;
+    } else {
+        LOGERROR << "will not remove commit logs for vol:" << volId << " err:" << err;
     }
     return err;
 }
