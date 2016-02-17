@@ -553,6 +553,28 @@ Error DataMgr::addVolume(const std::string& vol_name,
         LOGWARN << "previously active vol:"<< vdesc->volUUID <<", but dbfile missing.. this should be either be a new Node or DM was down during previous addVolume";
     }
 
+    if (features.isVolumegroupingEnabled()) {
+        /* We only add the volume if the volume is owned by this DM */
+        bool fShouldBeHere = true;
+
+        if (vdesc->isSnapshot()) {
+            fShouldBeHere = amIinVolumeGroup(vdesc->srcVolumeId);
+        } else if (vdesc->isClone()) {
+            fShouldBeHere = fOldVolume ?
+                amIinVolumeGroup(vdesc->volUUID) :
+                amIinVolumeGroup(vdesc->srcVolumeId);
+        } else {
+            fShouldBeHere = amIinVolumeGroup(vdesc->volUUID);
+        }
+        if (!fShouldBeHere) {
+            FDSGUARD(vol_map_mtx);
+            vol_meta_map.erase(vol_uuid);
+            LOGNORMAL << "Ignoring add volume: " << vol_uuid
+                << " as volume doesn't belong in the group";
+            return ERR_OK;
+        }
+    }
+
     if (vdesc->isClone()) {
         // clone happens only on primary
         fPrimary = amIPrimary(vdesc->srcVolumeId);
@@ -674,7 +696,6 @@ Error DataMgr::addVolume(const std::string& vol_name,
         // For now, volumes only land in the map if it is already active.
         if (fActivated) {
             if (features.isVolumegroupingEnabled() &&
-                amIinVolumeGroup(vol_uuid) &&
                 !(vdesc->isSnapshot())) {
                 volmeta->setPersistVolDB(getPersistDB(vol_uuid));
                 if (volmeta->isCoordinatorSet()) {
