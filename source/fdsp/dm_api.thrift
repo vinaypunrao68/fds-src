@@ -597,6 +597,8 @@ struct CtrlNotifyFinishMigrationMsg {
   2: i32                     status;
   /* Version of the volume stored in volumeMeta */
   3: i64                     version;
+  /* For logging purposes */
+  4: svc_types.SvcUuid       srcUuid;
 }
 
 /**

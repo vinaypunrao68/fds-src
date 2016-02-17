@@ -334,6 +334,9 @@ Error VolumeMeta::startMigration(const fpi::SvcUuid &srcDmUuid,
     uint32_t deltaBlobTimeout = uint32_t(MODULEPROVIDER()->get_fds_config()->
                                 get<int32_t>("fds.dm.migration.migration_max_delta_blobs_to", 5));
 
+    // dataManager->counters->migrationLastRun.set(util::getTimeStampSeconds());
+    dataManager->counters->numberOfActiveMigrExecutors.incr(1);
+
     auto dummyId = 0;
     auto srcDmNodeid = NodeUuid(srcDmUuid);
     migrationDest.reset(new DmMigrationDest(dummyId,
@@ -496,14 +499,24 @@ void VolumeMeta::cleanUpMigrationSource(fds_volid_t volId,
             migrationSrcMap.erase(search);
         }
     }
+    if (err.OK()) {
+        dataManager->counters->totalVolumesSentMigration.incr(1);
+    } else {
+        dataManager->counters->totalMigrationsAborted.incr(1);
+    }
+    dataManager->dmMigrationMgr->dumpStats();
 }
 
 void VolumeMeta::handleFinishStaticMigration(DmRequest *dmRequest)
 {
     dm::QueueHelper helper(*dataManager, dmRequest);
     DmIoFinishStaticMigration *request = static_cast<DmIoFinishStaticMigration*>(dmRequest);
+    NodeUuid srcUuid;
+    fds_volid_t volId;
 
     Error err(request->reqMessage->status);
+    srcUuid = request->reqMessage->srcUuid.svc_uuid;
+    volId.v = request->reqMessage->volume_id;
 
     /** volId and srcNodeUuid is there for formality */
     if (!err.ok()) {
@@ -512,12 +525,8 @@ void VolumeMeta::handleFinishStaticMigration(DmRequest *dmRequest)
         LOGNORMAL << "[migrate] Cleaning up DmMigrationDest " << logString();
     }
 
-    /* This shouldn't block.  This is there to avoid the assert ~MigrationTrackIOReqs() */
-    migrationDest->waitForAsyncMsgs();
-    migrationDest.reset();
+    cleanUpMigrationDestination(srcUuid, volId, err);
 
-    cbToVGMgr(err);
-    cbToVGMgr=nullptr;
 }
 
 void VolumeMeta::cleanUpMigrationDestination(NodeUuid srcNodeUuid,
@@ -537,6 +546,13 @@ void VolumeMeta::cleanUpMigrationDestination(NodeUuid srcNodeUuid,
     /* This shouldn't block.  This is there to avoid the assert ~MigrationTrackIOReqs() */
     migrationDest->waitForAsyncMsgs();
     migrationDest.reset();
+    dataManager->counters->numberOfActiveMigrExecutors.decr(1);
+    if (err.OK()) {
+        dataManager->counters->totalVolumesReceivedMigration.incr(1);
+    } else {
+        dataManager->counters->totalMigrationsAborted.incr(1);
+    }
+    dataManager->dmMigrationMgr->dumpStats();
 
     cbToVGMgr(err);
     cbToVGMgr=nullptr;
