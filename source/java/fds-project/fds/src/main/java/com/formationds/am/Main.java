@@ -8,6 +8,7 @@ import com.formationds.commons.libconfig.Assignment;
 import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.nfs.NfsServer;
 import com.formationds.nfs.XdiStaticConfiguration;
+import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
@@ -167,6 +168,12 @@ public class Main {
             throw new RuntimeException( "Failed to populate XDI config cache" );
         }
 
+        // initialize darth vader.  Note that this is kinda circular and sucks!
+        // The v08 OM Rest Client uses the ExternalModelConverter, which accesses
+        // the config API through this singleton, but it ultimately references back
+        // to to OMConfigurationServiceProxy.
+        SingletonConfigAPI.instance().api( configCache );
+        
         // TODO: make cache update check configurable.
         // The config cache has been modified so that it captures all events that come through
         // the XDI apis.  However, it does not capture events that go direct through the

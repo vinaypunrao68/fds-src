@@ -5,6 +5,7 @@ package com.formationds.util.thrift;
 
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.VolumeSettings;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.security.AuthenticationToken;
 import org.apache.log4j.Logger;
@@ -21,7 +22,6 @@ import javax.crypto.SecretKey;
  * create/delete operations that must go through the Java OM for cluster management
  * and consensus.
  */
-// TODO: ultimately this needs to be modified to ensure it goes through the cluster leader.
 public class OMConfigurationServiceProxy implements InvocationHandler {
 
     private static final Logger logger = Logger.getLogger(OMConfigurationServiceProxy.class);
@@ -46,18 +46,15 @@ public class OMConfigurationServiceProxy implements InvocationHandler {
                                                      int omConfigPort ) {
 
         ThriftClientFactory<ConfigurationService.Iface> configService =
-                ConfigServiceClientFactory.newConfigService();
-
-        final OMConfigServiceClient omConfigServiceRestClient =
-                new OMConfigServiceRestClientImpl( secretKey,
-                                                   "http",
-                                                   omHost,
-                                                   omHttpPort );
+                ConfigServiceClientFactory.newConfigService( omHost, omConfigPort );
 
         logger.debug( "Attempting to connect to configuration API, on " +
                       omHost + ":" + omHttpPort + "." );
 
-        return OMConfigurationServiceProxy.newOMConfigProxy( omConfigServiceRestClient,
+        return OMConfigurationServiceProxy.newOMConfigProxy( secretKey,
+                                                             "http",
+                                                             omHost,
+                                                             omHttpPort,
                                                              configService.getClient( omHost,
                                                                                       omConfigPort ) );
     }
@@ -65,24 +62,67 @@ public class OMConfigurationServiceProxy implements InvocationHandler {
     /**
      * @param omConfigServiceClient
      * @param configApi
-     * @return
+     * @return the proxy to the ConfigurationApi
      */
-    private static ConfigurationApi newOMConfigProxy(OMConfigServiceClient omConfigServiceClient,
-                                                     ConfigurationService.Iface configApi) {
-        return (ConfigurationApi) Proxy.newProxyInstance(OMConfigurationServiceProxy.class.getClassLoader(),
-                                              new Class<?>[] {ConfigurationApi.class},
-                                              new OMConfigurationServiceProxy(omConfigServiceClient,
-                                                                              configApi));
+    private static ConfigurationApi newOMConfigProxy( SecretKey secretKey,
+                                                      String protocol,
+                                                      String omHost,
+                                                      int omHttpPort,
+                                                      ConfigurationService.Iface configApi) {
+
+        return (ConfigurationApi) Proxy.newProxyInstance( OMConfigurationServiceProxy.class.getClassLoader(),
+                                                          new Class<?>[] {ConfigurationApi.class},
+                                                          new OMConfigurationServiceProxy( secretKey,
+                                                                                           "http",
+                                                                                           omHost,
+                                                                                           omHttpPort,
+                                                                                           configApi ) );
     }
 
     private final ConfigurationService.Iface  configurationService;
-    private       OMConfigServiceClient omConfigServiceClient;
 
-    private OMConfigurationServiceProxy( OMConfigServiceClient omConfigServiceClient,
+    private final SecretKey secretKey;
+    private final String protocol;
+    private final String omHost;
+    private final int omHttpPort;
+
+    private OMConfigServiceClient omConfigServiceClient;
+
+    private OMConfigurationServiceProxy( SecretKey secretKey,
+                                         String protocol,
+                                         String omHost,
+                                         int omHttpPort,
                                          ConfigurationService.Iface configurationApi ) {
 
         this.configurationService = configurationApi;
-        this.omConfigServiceClient = omConfigServiceClient;
+        this.secretKey = secretKey;
+        this.protocol = protocol;
+        this.omHost = omHost;
+        this.omHttpPort = omHttpPort;
+    }
+
+    /**
+     *
+     * @return the currently configured OM rest client implementation, based on the {@link FdsFeatureToggles#OM_CONFIG_REST_CLIENT_PROXY_V08}
+     * feature toggle
+     */
+    private OMConfigServiceClient getRestClient() {
+
+        if (FdsFeatureToggles.OM_CONFIG_REST_CLIENT_PROXY_V08.isActive()) {
+            if ( omConfigServiceClient == null ||
+                 !( omConfigServiceClient instanceof OMConfigServiceRestClientv08Impl ) ) {
+
+                omConfigServiceClient = new OMConfigServiceRestClientv08Impl( secretKey, protocol,
+                                                                              omHost, omHttpPort );
+            }
+        } else {
+            if ( omConfigServiceClient == null ||
+                 !( omConfigServiceClient instanceof OMConfigServiceRestClientImpl ) ) {
+                omConfigServiceClient = new OMConfigServiceRestClientImpl( secretKey, protocol,
+                                                                           omHost, omHttpPort );
+            }
+        }
+        return omConfigServiceClient;
     }
 
     @Override
@@ -112,8 +152,8 @@ public class OMConfigurationServiceProxy implements InvocationHandler {
                 case "statVolume":
                 case "listVolumes":
 
-                    // METHODS that *should* probably be redirected but are not yet
-                    // supported by OM REST Client
+                // METHODS that *should* probably be redirected but are not yet
+                // supported by OM REST Client
                 case "createTenant":
                 case "createUser":
                 case "assignUserToTenant":
@@ -123,7 +163,7 @@ public class OMConfigurationServiceProxy implements InvocationHandler {
                 case "createSnapshot":
                 case "restoreClone":
 
-                    // Other methods can go direct to OM Thrift Server
+                // Other methods can go direct to OM Thrift Server
                 case "listTenants":
                 case "allUsers":
                 case "listUsersForTenant":
@@ -180,7 +220,7 @@ public class OMConfigurationServiceProxy implements InvocationHandler {
             String name = (String) args[1];
             VolumeSettings volumeSettings = (VolumeSettings) args[2];
             long tenantId = (Long) args[3];
-            omConfigServiceClient.createVolume( token,
+            getRestClient().createVolume( token,
                                                 domain,
                                                 name,
                                                 volumeSettings,
@@ -207,7 +247,7 @@ public class OMConfigurationServiceProxy implements InvocationHandler {
             AuthenticationToken token = AuthenticatedRequestContext.getToken();
             String domain = (String)args[0];
             String name = (String)args[1];
-            omConfigServiceClient.deleteVolume(token, domain, name);
+            getRestClient().deleteVolume(token, domain, name);
         } finally {
             if (logger.isTraceEnabled()) {
                 logger.trace(String.format( "CONFIGPROXY::HTTP::%-9s %s(%s)",

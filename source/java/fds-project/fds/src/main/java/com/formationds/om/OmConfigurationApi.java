@@ -40,7 +40,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     private StatStreamRegistrationHandler statStreamRegistrationHandler;
 
-    public OmConfigurationApi( ThriftClientFactory<Iface> configClientFactory ) throws Exception {
+    public OmConfigurationApi( ThriftClientFactory<Iface> configClientFactory ) throws TException {
         this.configClientFactory = configClientFactory;
 
         cache = new CachedConfiguration( configClientFactory.getClient() );

@@ -25,9 +25,7 @@ import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
-import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
-import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.redis.RedisSingleton;
 import com.formationds.om.redis.VolumeDesc;
 import com.formationds.om.repository.MetricRepository;
@@ -36,7 +34,6 @@ import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair;
 import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria.QueryType;
-import com.formationds.om.util.AsyncAmClientFactory;
 import com.formationds.protocol.IScsiTarget;
 import com.formationds.protocol.LogicalUnitNumber;
 import com.formationds.protocol.NfsOption;
@@ -44,21 +41,17 @@ import com.formationds.protocol.svc.types.FDSP_MediaPolicy;
 import com.formationds.protocol.svc.types.FDSP_VolType;
 import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
 import com.formationds.protocol.svc.types.ResourceState;
-import com.formationds.protocol.svc.types.VolumeGroupCoordinatorInfo;
 import com.formationds.util.thrift.ConfigurationApi;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.net.UnknownHostException;
 import java.text.ParseException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 @SuppressWarnings("unused")
@@ -541,7 +534,13 @@ public class ExternalModelConverter {
         return ext;
     }
 
-    private static Volume convertToExternalVolume( VolumeDescriptor internalVolume, VolumeStatus extStatus ) {
+    /**
+     *
+     * @param internalVolume
+     * @param extStatus
+     * @return
+     */
+    public static Volume convertToExternalVolume( VolumeDescriptor internalVolume, VolumeStatus extStatus ) {
         String extName = internalVolume.getName();
         Long volumeId = internalVolume.getVolId();
 
