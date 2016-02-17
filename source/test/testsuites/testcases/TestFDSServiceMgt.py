@@ -590,7 +590,7 @@ class TestDMStop(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # killing a Data Manager (DM) service.
 class TestDMKill(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None):
+    def __init__(self, parameters=None, node=None, sig="SIGKILL"):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
@@ -602,6 +602,7 @@ class TestDMKill(TestCase.FDSTestCase):
                                              "DM service kill")
 
         self.passedNode = node
+        self.passedSig = sig
 
     def test_DMKill(self):
         """
@@ -630,7 +631,7 @@ class TestDMKill(TestCase.FDSTestCase):
             # Get the PID of the processes in question and ... kill them!
             pid = getSvcPIDforNode('DataMgr', n)
             if pid != -1:
-                cmd = "kill -KILL %s" % pid
+                cmd = "kill -{0} {1}".format(self.passedSig, pid)
                 status = n.nd_agent.exec_wait(cmd)
 
                 if status != 0:
@@ -656,7 +657,7 @@ class TestDMKill(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # killing an (DM) service.
 class TestAWSDMKill(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None):
+    def __init__(self, parameters=None, node=None, sig="SIGKILL"):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
@@ -668,6 +669,7 @@ class TestAWSDMKill(TestCase.FDSTestCase):
                                              "DM service kill  ")
 
         self.passedNode = node
+        self.passedSig = sig
 
     def test_AWS_DMKill(self):
         """
@@ -701,7 +703,7 @@ class TestAWSDMKill(TestCase.FDSTestCase):
             om_ip = om_node.nd_conf_dict['ip']
             node_ip = n.nd_conf_dict['ip']
             dm_obj = FDSServiceUtils.DMService(om_ip, node_ip)
-            ret_status = dm_obj.kill(node_ip)
+            ret_status = dm_obj.kill(node_ip, self.passedSig)
 
             if ret_status:
                 status = 0
@@ -1214,7 +1216,7 @@ class TestSMStop(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # killing a Storage Manager (SM) service.
 class TestSMKill(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None):
+    def __init__(self, parameters=None, node=None, sig="SIGKILL"):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
@@ -1226,6 +1228,7 @@ class TestSMKill(TestCase.FDSTestCase):
                                              "SM service kill")
 
         self.passedNode = node
+        self.passedSig = sig
 
     def test_SMKill(self):
         """
@@ -1254,7 +1257,7 @@ class TestSMKill(TestCase.FDSTestCase):
             # Get the PID of the process in question and ... kill it!
             pid = getSvcPIDforNode('StorMgr', n)
             if pid != -1:
-                cmd = "kill -9 %s" % pid
+                cmd = "kill -{0} {1}".format(self.passedSig, pid)
                 status = n.nd_agent.exec_wait(cmd)
 
                 if status != 0:
@@ -1280,7 +1283,7 @@ class TestSMKill(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # killing an (SM) service.
 class TestAWSSMKill(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None):
+    def __init__(self, parameters=None, node=None, sig="SIGKILL"):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
@@ -1292,6 +1295,7 @@ class TestAWSSMKill(TestCase.FDSTestCase):
                                              "SM service kill  ")
 
         self.passedNode = node
+        self.passedSig = sig
 
     def test_AWS_SMKill(self):
         """
@@ -1325,7 +1329,7 @@ class TestAWSSMKill(TestCase.FDSTestCase):
             om_ip = om_node.nd_conf_dict['ip']
             node_ip = n.nd_conf_dict['ip']
             sm_obj = FDSServiceUtils.SMService(om_ip, node_ip)
-            ret_status = sm_obj.kill(node_ip)
+            ret_status = sm_obj.kill(node_ip, self.passedSig)
 
             if ret_status:
                 status = 0
@@ -1754,7 +1758,7 @@ class TestPMWait(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # killing a Platform Manager (PM) service.
 class TestPMKill(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None):
+    def __init__(self, parameters=None, node=None, sig="SIGKILL"):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
@@ -1766,6 +1770,7 @@ class TestPMKill(TestCase.FDSTestCase):
                                              "PM service kill")
 
         self.passedNode = node
+        self.passedSig = sig
 
     def test_PMKill(self):
         """
@@ -1792,7 +1797,7 @@ class TestPMKill(TestCase.FDSTestCase):
             # Get the PID of the process in question and ... kill it!
             pid = getSvcPIDforNode('platformd', n)
             if pid != -1:
-                cmd = "kill -9 %s" % pid
+                cmd = "kill -{0} {1}".format(self.passedSig, pid)
                 status = n.nd_agent.exec_wait(cmd)
 
                 if status != 0:
@@ -1816,7 +1821,7 @@ class TestPMKill(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # killing an (SM) service.
 class TestAWSPMKill(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None):
+    def __init__(self, parameters=None, node=None, sig="SIGKILL"):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
@@ -1828,6 +1833,7 @@ class TestAWSPMKill(TestCase.FDSTestCase):
                                              "PM service kill  ")
 
         self.passedNode = node
+        self.passedSig = sig
 
     def test_AWS_PMKill(self):
         """
@@ -1853,7 +1859,7 @@ class TestAWSPMKill(TestCase.FDSTestCase):
             om_ip = om_node.nd_conf_dict['ip']
             node_ip = n.nd_conf_dict['ip']
             pm_obj = FDSServiceUtils.PMService(om_ip, node_ip)
-            ret_status = pm_obj.kill(node_ip)
+            ret_status = pm_obj.kill(node_ip, self.passedSig)
 
             if ret_status:
                 status = 0
@@ -2132,7 +2138,7 @@ class TestPMForOMWait(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # killing the Platform Manager (PM) service on the OM node.
 class TestPMForOMKill(TestCase.FDSTestCase):
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, sig="SIGKILL"):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
@@ -2142,6 +2148,8 @@ class TestPMForOMKill(TestCase.FDSTestCase):
                                              self.__class__.__name__,
                                              self.test_PMForOMKill,
                                              "PM service for OM node kill")
+
+        self.passedSig = sig
 
     def test_PMForOMKill(self):
         """
@@ -2155,7 +2163,7 @@ class TestPMForOMKill(TestCase.FDSTestCase):
 
         self.log.info("Kill PM on OM's node, %s." % om_node.nd_conf_dict['node-name'])
 
-        status = om_node.nd_agent.exec_wait("pkill -9 platformd")
+        status = om_node.nd_agent.exec_wait("pkill -{0} platformd".format(self.passedSig))
 
         if status != 0:
             self.log.error("PM kill on OM's node, %s, returned status %d." %
@@ -2316,7 +2324,7 @@ class TestOMWait(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # killing an Orchestration Manager (OM) service.
 class TestOMKill(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None):
+    def __init__(self, parameters=None, node=None, sig="SIGKILL"):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
@@ -2328,6 +2336,7 @@ class TestOMKill(TestCase.FDSTestCase):
                                              "OM service kill")
 
         self.passedNode = node
+        self.passedSig = sig
 
     def test_OMKill(self):
         """
@@ -2337,7 +2346,6 @@ class TestOMKill(TestCase.FDSTestCase):
 
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
-
 
         # If we were passed a node and it is not the OM node
         # captured during config parsing, just exit.
@@ -2354,7 +2362,7 @@ class TestOMKill(TestCase.FDSTestCase):
         if om_node is not None:
             self.log.info("Kill OM on %s." % om_node.nd_conf_dict['node-name'])
 
-            status = om_node.nd_agent.exec_wait('pkill -KILL -f com.formationds.om.Main')
+            status = om_node.nd_agent.exec_wait('pkill -{0} -f com.formationds.om.Main'.format(self.passedSig))
 
             # Probably we get the -9 return because pkill for a java process will
             # not find it based on the class name alone. See getSvcPIDforNode().
@@ -2364,7 +2372,7 @@ class TestOMKill(TestCase.FDSTestCase):
                                (om_node.nd_conf_dict['node-name'], status))
                 return False
 
-            status = om_node.nd_agent.exec_wait("pkill -KILL orchMgr")
+            status = om_node.nd_agent.exec_wait("pkill -{0} orchMgr".format(self.passedSig))
 
             if (status != 1) and (status != 0):
                 self.log.error("OM (orchMgr) kill on %s returned status %d." %
@@ -2377,7 +2385,7 @@ class TestOMKill(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # killing an (OM) service.
 class TestAWSOMKill(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None):
+    def __init__(self, parameters=None, node=None, sig="SIGKILL"):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
@@ -2389,6 +2397,7 @@ class TestAWSOMKill(TestCase.FDSTestCase):
                                              "OM service kill  ")
 
         self.passedNode = node
+        self.passedSig = sig
 
     def test_AWS_OMKill(self):
         """
@@ -2417,8 +2426,8 @@ class TestAWSOMKill(TestCase.FDSTestCase):
 
             om_node = fdscfg.rt_om_node
             om_ip = om_node.nd_conf_dict['ip']
-            om_obj = FDSServiceUtils.OMService(om_ip, node_ip)
-            ret_status = om_obj.kill(om_ip)
+            om_obj = FDSServiceUtils.OMService(om_ip)
+            ret_status = om_obj.kill(om_ip, self.passedSig)
 
             if ret_status:
                 status = 0
@@ -2862,7 +2871,7 @@ class TestAMWait(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # killing an Access Manager (AM) service.
 class TestAMKill(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None):
+    def __init__(self, parameters=None, node=None, sig="SIGKILL"):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
@@ -2874,6 +2883,7 @@ class TestAMKill(TestCase.FDSTestCase):
                                              "AM service kill")
 
         self.passedNode = node
+        self.passedSig = sig
 
     def test_AMKill(self):
         """
@@ -2903,7 +2913,7 @@ class TestAMKill(TestCase.FDSTestCase):
             # Get the PID of the processes in question and ... kill them!
             pid = getSvcPIDforNode('bare_am', n)
             if pid != -1:
-                cmd = "kill -KILL %s" % pid
+                cmd = "kill -{0} {1}".format(self.passedSig, pid)
                 status = n.nd_agent.exec_wait(cmd)
 
                 if status != 0:
@@ -2920,7 +2930,7 @@ class TestAMKill(TestCase.FDSTestCase):
             time.sleep(2)
             pid = getSvcPIDforNode('java', n, javaClass='com.formationds.am.Main')
             if pid != -1:
-               cmd = "kill -KILL %s" % pid
+               cmd = "kill -{0} {1}".format(self.passedSig, pid)
                status = n.nd_agent.exec_wait(cmd)
             if status != 0:
                 self.log.error("AM (com.formationds.am.Main) shutdown on %s returned status %d." %
@@ -2944,7 +2954,7 @@ class TestAMKill(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # killing an Access Manager (AM) service.
 class TestAWSAMKill(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None):
+    def __init__(self, parameters=None, node=None, sig="SIGKILL"):
         """
         When run by a qaautotest module test runner,
         "parameters" will have been populated with
@@ -2956,6 +2966,7 @@ class TestAWSAMKill(TestCase.FDSTestCase):
                                              "AM service kill  ")
 
         self.passedNode = node
+        self.passedSig = sig
 
     def test_AWS_AMKill(self):
         """
@@ -2989,7 +3000,7 @@ class TestAWSAMKill(TestCase.FDSTestCase):
             om_ip = om_node.nd_conf_dict['ip']
             node_ip = n.nd_conf_dict['ip']
             am_obj = FDSServiceUtils.AMService(om_ip, node_ip)
-            ret_status = am_obj.kill(node_ip)
+            ret_status = am_obj.kill(node_ip, self.passedSig)
 
             if ret_status:
                 status = 0

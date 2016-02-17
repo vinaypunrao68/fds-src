@@ -7,6 +7,7 @@
 #include <util/stringutils.h>
 #include <unistd.h> // for unlink
 #include <util/disk_utils.h>
+#include <boost/filesystem.hpp>
 
 namespace fds { namespace timeline {
 #define TIMELINE_FEATURE_CHECK(...) if (!dm->features.isTimelineEnabled()) { return ERR_FEATURE_DISABLED ;}
@@ -42,12 +43,12 @@ Error TimelineManager::deleteSnapshot(fds_volid_t volId, fds_volid_t snapshotId)
     }
 
     for (const auto& snapshotId : vecSnaps) {
-        LOGDEBUG << "deleting snap:" << snapshotId
-                 << " of vol:" << volId;
+        LOGNOTIFY << "deleting snap:" << snapshotId << " of vol:" << volId;
 
-        // node remove the contents of the snapshot
-        err = dm->deleteVolumeContents(snapshotId);
-        err = dm->process_rm_vol(snapshotId, true);
+        // mark as deleted
+        err = dm->removeVolume(snapshotId, true);
+        // remove the snapshot
+        err = dm->removeVolume(snapshotId, false);
 
         // remove info about this snapshot from timelinedb
         timelineDB->removeSnapshot(snapshotId);
@@ -66,15 +67,14 @@ Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
     std::string snapDir;
     std::vector<std::string> vecDirs;
     Error err;
-
+    const auto root = dm->getModuleProvider()->proc_fdsroot();
     if (invalid_vol_id == snapshotid) {
         // load all snapshots
-        snapDir  = dmutil::getSnapshotDir(dm->getModuleProvider()->proc_fdsroot(), volid);
+        snapDir  = dmutil::getSnapshotDir(root, volid);
         util::getSubDirectories(snapDir, vecDirs);
     } else {
         // load only a particluar snapshot
-        snapDir = dmutil::getVolumeDir(dm->getModuleProvider()->proc_fdsroot(),
-                                       volid, snapshotid);
+        snapDir = dmutil::getVolumeDir(root, volid, snapshotid);
         if (!util::dirExists(snapDir)) {
             LOGERROR << "unable to locate snapshot [" << snapshotid << "]"
                      << " for vol:" << volid
@@ -91,7 +91,7 @@ Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
         snapId = std::atoll(snap.c_str());
         //now add the snap
         if (dm->getVolumeDesc(snapId) != NULL) {
-            LOGWARN << "snapshot:" << snapId << " already loaded";
+            LOGDEBUG << "snapshot:" << snapId << " already loaded";
             continue;
         }
         VolumeDesc *desc = new VolumeDesc(*(dm->getVolumeDesc(volid)));
@@ -171,7 +171,21 @@ Error TimelineManager::createSnapshot(VolumeDesc *vdesc) {
 
 Error TimelineManager::removeVolume(fds_volid_t volId) {
     TIMELINE_FEATURE_CHECK();
-    return timelineDB->removeVolume(volId);    
+    LOGNOTIFY << "removing from timeline db vol:" << volId;
+    Error err =  timelineDB->removeVolume(volId);
+
+    const auto root = dm->getModuleProvider()->proc_fdsroot();
+    std::string timelineDir = dmutil::getTimelineDir(root, volId);
+    LOGNOTIFY << "removing timeline journal archives for vol:" << volId << " @ " << timelineDir;
+    boost::filesystem::remove_all(timelineDir);
+
+    LOGNORMAL << "will delete all snapshots for vol:" << volId;
+    deleteSnapshot(volId);
+
+    std::string snapshotDir = dmutil::getSnapshotDir(root, volId);
+    LOGNOTIFY << "removing snapshot dir for vol:" << volId << " @ " << snapshotDir;
+    boost::filesystem::remove_all(snapshotDir);
+    return err;
 }
 
 Error TimelineManager::createClone(VolumeDesc *vdesc) {

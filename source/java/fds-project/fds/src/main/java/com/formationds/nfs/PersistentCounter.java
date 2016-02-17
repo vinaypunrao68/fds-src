@@ -40,13 +40,14 @@ public class PersistentCounter implements IoConsumer<MetaKey> {
 
     private long mutate(String volume, Function<Long, Long> mutator) throws IOException {
         FdsMetadata metadata = io.readMetadata(domain, volume, counterName).orElse(new FdsMetadata());
-        return metadata.lock(m -> {
+        long result = metadata.lock(m -> {
             long currentValue = Long.parseLong(m.mutableMap().getOrDefault(counterName, Long.toString(startValue)));
             long mutated = mutator.apply(currentValue);
             m.mutableMap().put(counterName, Long.toString(mutated));
-            io.writeMetadata(domain, volume, counterName, m.fdsMetadata());
             return mutated;
         });
+        io.writeMetadata(domain, volume, counterName, metadata);
+        return result;
     }
 
     @Override

@@ -195,7 +195,7 @@ class DmTimeVolCatalog : public HasModuleProvider,
      * @return ERR_OK if volume is deleted; ERR_NOT_READY if volume not marked
      * as deleted
      */
-    Error deleteEmptyVolume(fds_volid_t volId);
+    Error deleteVolume(fds_volid_t volId);
 
     /**
      * Sets the key-value metadata pairs for the volume. Any keys that already
