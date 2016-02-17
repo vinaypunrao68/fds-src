@@ -18,6 +18,7 @@ public class Calculated {
 	public static final String PERCENTAGE = "percentage";
 	public static final String RATIO = "ratio";
 	public static final String TO_FULL = "toFull";
+	public static final String COUNT = "count";
 	
 	private String key;
 	private Double value;

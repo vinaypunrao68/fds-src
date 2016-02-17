@@ -6,13 +6,12 @@ package com.formationds.om.repository.helper;
 
 import com.formationds.apis.VolumeStatus;
 import com.formationds.client.v08.model.Volume;
+import com.formationds.client.v08.model.stats.Calculated;
+import com.formationds.client.v08.model.stats.Datapoint;
+import com.formationds.client.v08.model.stats.Series;
+import com.formationds.client.v08.model.stats.Statistics;
 import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.events.FirebreakType;
-import com.formationds.commons.model.Datapoint;
-import com.formationds.commons.model.Series;
-import com.formationds.commons.model.Statistics;
-import com.formationds.commons.model.abs.Calculated;
-import com.formationds.commons.model.builder.SeriesBuilder;
 import com.formationds.commons.model.calculated.firebreak.FirebreakCount;
 import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
@@ -28,6 +27,7 @@ import com.formationds.om.repository.query.FirebreakQueryCriteria;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.google.common.base.Preconditions;
+
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -347,8 +347,7 @@ public class FirebreakHelper extends QueryHelper {
         final List<IVolumeDatapoint> queryResults = (List<IVolumeDatapoint>) repo.query( query );
 
         Map<String, List<VolumeDatapointPair>> firebreaks = findAllFirebreaksByVolume( queryResults );
-        final FirebreakCount fbCount = new FirebreakCount();
-        fbCount.setCount( 0 );
+        final Calculated fbCount = new Calculated( Calculated.COUNT, 0.0 );
 
         Iterator<Volume> volIt = query.getContexts().iterator();
 
@@ -385,6 +384,8 @@ public class FirebreakHelper extends QueryHelper {
             // if we requested this series, at least give a zero point back
             if ( dpPairs == null || dpPairs.isEmpty() ) {
 
+       
+            	
                 seri.getDatapoints().add( buildDatapoint( query,
                                                           NEVER,
                                                           0.0D,
@@ -402,7 +403,7 @@ public class FirebreakHelper extends QueryHelper {
                                                    currentUsageInBytes );
 
                     seri.getDatapoints().add( dp );
-                    fbCount.setCount( fbCount.getCount() + 1 );
+                    fbCount.setValue( fbCount.getValue() + 1 );
                 }// process each datapoint
             }
 
@@ -488,10 +489,11 @@ public class FirebreakHelper extends QueryHelper {
 
                 // only provide stats for existing volumes
                 if( volumeName != null && volumeName.length() > 0 ) {
-                    final Series s =
-                            new SeriesBuilder().withContext( new Volume( Long.parseLong( key ), volumeName ) )
-                            .withDatapoint( firebreakPoints.get( key ) )
-                            .build();
+                	
+                	final Series s = new Series();
+                	s.setContext( new Volume( Long.parseLong( key ), volumeName ) );
+                	s.setDatapoint( firebreakPoints.get( key ) );
+                	
                     /*
                      * "Firebreak" is not a valid series type, based on the
                      * Metrics enum type. But since the UI provides all of its

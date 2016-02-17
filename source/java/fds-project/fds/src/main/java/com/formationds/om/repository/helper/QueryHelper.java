@@ -571,10 +571,10 @@ public class QueryHelper {
      *
      * @return Returns {@link CapacityFull}
      */
-    public Calculated percentageFull( final CapacityConsumed consumed,
+    public Calculated percentageFull( final Calculated consumed,
                                         final Double systemCapacity ) {
     	
-    	final int percentageFull = (int) Calculation.percentage( consumed.getTotal(), systemCapacity );
+    	final int percentageFull = (int) Calculation.percentage( consumed.getValue(), systemCapacity );
     	
         Calculated full = new Calculated( Calculated.PERCENTAGE, (double)percentageFull );
         return full;
