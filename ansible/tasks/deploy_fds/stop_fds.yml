@@ -120,8 +120,7 @@
     shell: pkill -9 -f {{item}} || true
     ignore_errors: True
     when: fds_installed|success and
-      (clean_fds is defined and clean_fds == "yes") and
-      (force is defined and force == "yes")
+      (clean_fds is defined and clean_fds == "yes")
     with_items:
         - com.formationds.am.Main
         - bare_am
