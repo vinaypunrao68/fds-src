@@ -7,10 +7,12 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
 import com.amazonaws.services.s3.model.*;
 import com.formationds.apis.ConfigurationService;
+import com.formationds.apis.MediaPolicy;
+import com.formationds.apis.VolumeDescriptor;
 import com.formationds.commons.Fds;
 import com.formationds.commons.util.Uris;
+import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
 import com.formationds.protocol.svc.types.Snapshot;
-import com.formationds.util.DigestUtil;
 import com.formationds.util.RngFactory;
 import com.formationds.util.s3.auth.S3SignatureGeneratorV2;
 import com.formationds.xdi.XdiClientFactory;
@@ -27,13 +29,10 @@ import org.junit.*;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -179,6 +178,18 @@ public class S3SmokeTest {
             Thread.sleep(ms);
         } catch (java.lang.InterruptedException e) {
         }
+    }
+
+    @Test
+    public void testVolumeHDD() throws Exception {
+        String bucketName = "test-volume-is-hdd-" + userBucket;
+        Bucket b = userClient.createBucket( bucketName );
+
+        VolumeDescriptor vd = config.statVolume( "ignored", bucketName );
+
+        assertEquals(vd.toString(), bucketName, vd.getName());
+        assertEquals(vd.toString(), b.getName(), vd.getName());
+        assertEquals(vd.toString(), MediaPolicy.HDD_ONLY, vd.policy.mediaPolicy);
     }
 
     @Test
