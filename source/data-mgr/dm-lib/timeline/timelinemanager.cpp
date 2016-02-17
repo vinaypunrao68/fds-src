@@ -139,7 +139,7 @@ Error TimelineManager::createSnapshot(VolumeDesc *vdesc) {
     Error err;
     TIMELINE_FEATURE_CHECK();
 
-    float_t dm_user_repo_pct_used = getUsedCapacityAsPct();
+    float_t dm_user_repo_pct_used = dmutil::getUsedCapacityOfUserRepo();
     if (dm_user_repo_pct_used >= dm->dmFullnessThreshold) {
            err = ERR_DM_DISK_CAPACITY_ERROR_THRESHOLD;
             LOGERROR << "ERROR: DM user-repo already used " << dm_user_repo_pct_used
@@ -274,21 +274,6 @@ Error TimelineManager::createClone(VolumeDesc *vdesc) {
 
     return err;
 }
-
-float_t
-TimelineManager::getUsedCapacityAsPct() {
-    // Get fds root dir
-    const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
-    // Get user-repo dir
-    DiskUtils::CapacityPair cap = DiskUtils::getDiskConsumedSize(root->dir_user_repo_dm());
-
-    // Calculate pct
-    float_t result = ((1. * cap.usedCapacity) / cap.totalCapacity) * 100;
-    GLOGDEBUG << "Found DM user-repo disk capacity of (" << cap.usedCapacity << "/" << cap.totalCapacity << ") = " << result;
-
-    return result;
-}
-
 
 }  // namespace timeline
 }  // namespace fds
