@@ -76,7 +76,8 @@ ObjectStore::ObjectStore(const std::string &modName,
                                          diskMap, data_store)),
           liveObjectsTable(new LiveObjectsDB(g_fdsprocess->proc_fdsroot()->dir_user_repo() + "liveobj.db")),
           currentState(OBJECT_STORE_INIT),
-          lastCapacityMessageSentAt(0)
+          lastCapacityMessageSentAt(0),
+          sentPutToHddMsg(false)
 {
     liveObjectsTable->createLiveObjectsTblAndIdx();
     nullary_always (ObjectStorMgr::*Lock)(ObjectID const&, bool) = &ObjectStorMgr::getTokenLock;
@@ -160,7 +161,7 @@ float_t ObjectStore::getUsedCapacityAsPct() {
             LOGDEBUG << "Found disk used capacity of zero, possible error. DiskID = " << diskId
                         << ". Disk path = " << diskMap->getDiskPath(diskId) << ". If this is an SSD drive"
                         << " and you have not yet written data to the system, this message is OK.";
-            break;
+            continue;
         }
 
         // We're going to piggyback on this to refresh stats in our capacity map. We still want to do periodic checking
@@ -203,13 +204,21 @@ float_t ObjectStore::getUsedCapacityAsPct() {
             }
         }
 
-        if (pct_used > max) {
+        if (diskMap->diskMediaType(diskId) == diskio::flashTier) {
+            // This will re-enable the hybrid tier SSD being redirected to HDD message if we fall below < 95%
+            if (sentPutToHddMsg && (pct_used < DISK_CAPACITY_ERROR_THRESHOLD)) {
+                sentPutToHddMsg = false;
+            }
+
             // Basically ignore SSDs for this capacity check UNLESS it's an all SSD system
             // This may still cause a RO -> RW -> RO ... loop on hybrid systems, but
             // for now this should be OK
-            if ((diskMap->diskMediaType(diskId) == diskio::flashTier) && (!diskMap->isAllDisksSSD())) {
+            if (!diskMap->isAllDisksSSD()) {
                 continue;
             }
+        }
+
+        if (pct_used > max) {
             max = pct_used;
         }
     }
@@ -2076,7 +2085,10 @@ fds_errno_t ObjectStore::triggerReadOnlyIfPutWillfail(StorMgrVolume *vol,
                 return ERR_SM_READ_ONLY;
             } else if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_HYBRID) {
                 // If we can't write, backoff to HDD since this is hybrid
-                LOGNOTIFY << "Write bound for SSD but SSD capacity exceeded. Using HDD instead.";
+                if (!sentPutToHddMsg) {
+                    sentPutToHddMsg = true;
+                    LOGNOTIFY << "Write bound for SSD but SSD capacity exceeded. Using HDD instead.";
+                }
                 useTier = diskio::diskTier;
             }
         }
