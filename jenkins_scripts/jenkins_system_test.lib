@@ -150,9 +150,19 @@ function clean_up_environment
 
    message "CLEAN existing core files (prebuild)"
    #  This could be improved by looking in more places and for specific core files (e.g., from FDS processes and test tools)
-   find /fds/var/log/corefiles -type f -name "*.core" -print -delete
-   find /fds/var/log/corefiles -type f -name "*.hprof" -print -delete
-   find /fds/var/log/corefiles -type f -name "*hs_err_pid*.log" -print -delete
+
+   for dir in /corefiles /fds/var/log/corefiles
+   do
+       if [[ ! -e ${dir} ]]
+       then
+           continue
+       fi
+
+       for mask in '*.core' '*.hprof' '*hs_err_pid*.log'
+       do
+           echo find ${dir} -type f -name "${mask}" -delete
+       done
+   done
 
    capture_process_list ${FUNCNAME}
 }
