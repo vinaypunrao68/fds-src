@@ -714,7 +714,7 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
             LOGWARN << "unable to reset target DMT version to config db ";
         }
 
-        DltDmtUtil::getInstance()->setDMAbortParams(true, targetVersion);
+        OmExternalApi::getInstance()->setDMAbortParams(true, targetVersion);
     } else {
         if (0 == targetVersion) {
             LOGDEBUG << "There is only commited DMT in configDB (OK)";

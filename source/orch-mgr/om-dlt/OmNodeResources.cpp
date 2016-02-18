@@ -1320,6 +1320,7 @@ OM_PmAgent::send_add_service
             item.svc_type == fpi::FDSP_DATA_MGR ||
             item.svc_type == fpi::FDSP_ACCESS_MGR) {
 
+            LOGNORMAL << "Will try to add service of type:" << item.svc_type;
             fpi::SvcUuid svcuuid;
             fpi::SvcID* svcId;
 
@@ -2838,6 +2839,7 @@ om_prepare_services_start
 {
     TRACEFUNC;
 
+    LOGDEBUG << "!!om_prepare_services_start";
     std::vector<fpi::SvcInfo> svcInfoList;
     Error err(ERR_OK);
 

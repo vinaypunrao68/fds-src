@@ -7,7 +7,7 @@
 #include <map>
 #include <algorithm>
 #include <dlt.h>
-#include <DltDmtUtil.h>
+#include <OmExternalApi.h>
 #include <iostream>
 #include <string>
 #include <util/Log.h>
@@ -346,7 +346,7 @@ Error DLT::verify(const NodeUuidSet& expectedUuidSet) const {
     Error err(ERR_OK);
 
     // we should not have more rows than nodes
-    if (depth > (expectedUuidSet.size() + DltDmtUtil::getInstance()->getPendingNodeRemoves(fpi::FDSP_STOR_MGR) )) {
+    if (depth > (expectedUuidSet.size() + OmExternalApi::getInstance()->getPendingNodeRemoves(fpi::FDSP_STOR_MGR) )) {
         LOGERROR << "DLT has more rows (" << depth
                  << ") than nodes (" << expectedUuidSet.size() << ")";
         return ERR_INVALID_DLT;
@@ -361,7 +361,7 @@ Error DLT::verify(const NodeUuidSet& expectedUuidSet) const {
             NodeUuid uuid = column->get(j);
             if ((uuid.uuid_get_val() == 0) ||
                 (expectedUuidSet.count(uuid) == 0)) {
-                if (!DltDmtUtil::getInstance()->isMarkedForRemoval(uuid.uuid_get_val())) {
+                if (!OmExternalApi::getInstance()->isMarkedForRemoval(uuid.uuid_get_val())) {
                     // unexpected uuid in this DLT cell
                     LOGERROR << "DLT contains unexpected uuid " << std::hex
                              << uuid.uuid_get_val() << std::dec;

@@ -744,8 +744,8 @@ NodeDomainFSM::DACT_WaitDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
         OM_Module *om     = OM_Module::om_singleton();
         ClusterMap *cm    = om->om_clusmap_mod();
 
-        bool smMigAbort =  DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue();
-        bool dmMigAbort =  DltDmtUtil::getInstance()->isDMAbortAfterRestartTrue();
+        bool smMigAbort =  OmExternalApi::getInstance()->isSMAbortAfterRestartTrue();
+        bool dmMigAbort =  OmExternalApi::getInstance()->isDMAbortAfterRestartTrue();
 
         if ( smMigAbort ) {
             LOGDEBUG << "OM needs to send abortMigration to all SMs,"
@@ -1568,7 +1568,7 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                         }
                     } else {
                             LOGDEBUG << "Adding to the remove list";
-                            DltDmtUtil::getInstance()->addToRemoveList(svc.svc_id.svc_uuid.svc_uuid, svc.svc_type);
+                            OmExternalApi::getInstance()->addToRemoveList(svc.svc_id.svc_uuid.svc_uuid, svc.svc_type);
                         }
                 }
             }
@@ -1626,14 +1626,14 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         // if it is. The unset flag will cause this NULL set of newDlt so prevent it.
         // At the end of error handling we will explicitly clear "next" version
         // and newDlt out as a part of clearSMAbortParams()
-        bool unsetTarget = !(DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue());
+        bool unsetTarget = !(OmExternalApi::getInstance()->isSMAbortAfterRestartTrue());
         bool committed = dp->commitDlt( unsetTarget );
 
         LOGNOTIFY << "OM deployed DLT with "
                   << deployed_sm_services.size() << " nodes, committedDlt? " << committed;
 
         // Same reasoning as above
-        unsetTarget = !(DltDmtUtil::getInstance()->isDMAbortAfterRestartTrue());
+        unsetTarget = !(OmExternalApi::getInstance()->isDMAbortAfterRestartTrue());
         vp->commitDMT( unsetTarget );
 
         if ( isAnyNonePlatformSvcActive( &pmSvcs, &amSvcs, &smSvcs, &dmSvcs ) ) {
@@ -2114,7 +2114,7 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
         om_locDomain->om_bcast_svcmap();
 
         if (svcInfo->svc_type == fpi::FDSP_PLATFORM) {
-            updateSvcMaps(configDB, svcInfo->svc_id.svc_uuid.svc_uuid, svcInfo->svc_status, true, *svcInfo);
+            updateSvcMaps(configDB, svcInfo->svc_id.svc_uuid.svc_uuid, svcInfo->svc_status, false, true , *svcInfo);
         }
     }
     catch(const Exception& e)
@@ -2363,8 +2363,6 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                      svc.svc_status == fpi::SVC_STATUS_INACTIVE_STOPPED ||
                      svc.svc_status == fpi::SVC_STATUS_STANDBY) ) )
             {
-                svc.svc_status = fpi::SVC_STATUS_ACTIVE;
-
                 updateSvcMaps(configDB, svc.svc_id.svc_uuid.svc_uuid, fpi::SVC_STATUS_ACTIVE);
             }
 
@@ -2417,7 +2415,7 @@ void OM_NodeDomainMod::handlePendingSvcRemoval(std::vector<fpi::SvcInfo> removed
                      << uuid.uuid_get_val() << std::dec
                      << " in configDB, skip processing of removed svc:"
                      << std::hex << svcId << std::dec;
-            DltDmtUtil::getInstance()->clearFromRemoveList(svc.svc_id.svc_uuid.svc_uuid);
+            OmExternalApi::getInstance()->clearFromRemoveList(svc.svc_id.svc_uuid.svc_uuid);
             continue;
         }
 
@@ -3090,7 +3088,7 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
                       << infoPtr->svc_id.svc_uuid.svc_uuid
                       << std::dec;
 
-            updateSvcMaps(configDB, infoPtr->svc_id.svc_uuid.svc_uuid, infoPtr->svc_status, true, *infoPtr);
+            updateSvcMaps(configDB, infoPtr->svc_id.svc_uuid.svc_uuid, infoPtr->svc_status, false, true, *infoPtr);
 
             // Now erase the svc from the the local tracking vector
             removeRegisteredSvc(infoPtr->svc_id.svc_uuid.svc_uuid);
@@ -3359,7 +3357,7 @@ OM_NodeDomainMod::removeNodeComplete(NodeUuid uuid) {
 
         configDB->deleteSvcMap(svcInfo);
 
-        DltDmtUtil::getInstance()->clearFromRemoveList(uuid.uuid_get_val());
+        OmExternalApi::getInstance()->clearFromRemoveList(uuid.uuid_get_val());
     }
 }
 
@@ -3490,7 +3488,8 @@ OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap(boost::shared_ptr<fpi::Sv
                                                         const fpi::ServiceStatus status)
 {
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-    updateSvcMaps( configDB, svcInfo->svc_id.svc_uuid.svc_uuid, status);
+    // Not sure whether passing this reference to the object managed by the shared ptr is safe
+    updateSvcMaps( configDB, svcInfo->svc_id.svc_uuid.svc_uuid, status, true, false, *svcInfo);
 
     om_locDomain->om_bcast_svcmap();
 }

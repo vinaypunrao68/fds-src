@@ -477,7 +477,7 @@ void OmSvcHandler::healthReportRunning( boost::shared_ptr<fpi::NotifyHealthRepor
      case fpi::FDSP_STOR_MGR:
        comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_STOR_MGR : comp_type;
 
-       if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
+       //if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
        {
            auto domain = OM_NodeDomainMod::om_local_domain();
 
@@ -567,7 +567,7 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
         /*
          * if unreachable service incarnation is the same as the service map, change the state to INVALID
         */
-        if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
+        //if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
         {
             NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
 
@@ -586,12 +586,18 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
             auto domain = OM_NodeDomainMod::om_local_domain();
             Error reportError(msg->healthReport.statusCode);
 
-            LOGERROR << "Will set service to failed state, svcInfo ("
+            LOGERROR << "Will try to service to failed state, svcInfo ("
                      << fds::logString(msg->healthReport.serviceInfo) << " )";
 
             /*
              * change the state and update service map; then broadcast updated service map
              */
+
+            if ( msg->healthReport.serviceInfo.incarnationNo == 0 )
+            {
+                // update incarnation number
+                msg->healthReport.serviceInfo.incarnationNo = util::getTimeStampSeconds();
+            }
             auto svcInfo = boost::make_shared<fpi::SvcInfo>(msg->healthReport.serviceInfo);
             domain->om_change_svc_state_and_bcast_svcmap( svcInfo, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
             //domain->om_service_down( reportError, uuid, svc_type );

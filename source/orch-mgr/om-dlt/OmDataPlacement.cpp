@@ -692,7 +692,7 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services,
             LOGWARN << "unable to reset DLT target version in configDB";
         }
 
-        DltDmtUtil::getInstance()->setSMAbortParams(true, nextVersion);
+        OmExternalApi::getInstance()->setSMAbortParams(true, nextVersion);
 
     } else {
         if (0 == nextVersion) {

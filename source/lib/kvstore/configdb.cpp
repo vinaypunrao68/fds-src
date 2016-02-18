@@ -15,8 +15,7 @@
 #include <net/net_utils.h>
 #include <ratio>
 #include <net/SvcMgr.h>
-#include <DltDmtUtil.h>
-
+#include <OmExternalApi.h>
 #include "platform/platform_shm_typedefs.h"
 #include "platform/node_data.h"
 
@@ -1664,18 +1663,19 @@ bool ConfigDB::addNode(const NodeInfoType& node)
         LOGCRITICAL << "error with redis " << e.what();
         NOMOD();
     }
+
     return false;
 }
 
 bool ConfigDB::updateNode(const NodeInfoType& node)
 {
-    SCOPEDWRITE(nodeLock);
-
+    // No lock needed here since addNode will acquire it
     try {
         return addNode(node);
     } catch(const RedisException& e) {
         LOGERROR << e.what();
     }
+
     return false;
 }
 
@@ -1699,12 +1699,57 @@ bool ConfigDB::removeNode(const NodeUuid& uuid)
         LOGERROR << e.what();
         NOMOD();
     }
+
     return false;
+}
+
+
+bool ConfigDB::setNodeServices(const NodeUuid& uuid, const NodeServices& services)
+{
+    SCOPEDWRITE(nodeLock);
+
+    try{
+        std::string serialized;
+        services.getSerialized(serialized);
+        Reply reply = kv_store.sendCommand("set %ld:services %b",
+                                    uuid, serialized.data(), serialized.length());
+        return reply.isOk();
+    } catch(const RedisException& e) {
+        LOGCRITICAL << "error with redis " << e.what();
+    }
+
+    return false;
+}
+
+bool ConfigDB::setCapacityUsedNode( const int64_t svcUuid, const unsigned long usedCapacityInBytes )
+{
+    SCOPEDWRITE(nodeLock);
+
+    bool bRetCode = false;
+
+    std::stringstream uuid;
+    uuid << svcUuid;
+    std::stringstream used;
+    used << usedCapacityInBytes;
+
+    try
+    {
+        LOGDEBUG << "Setting used capacity for uuid [ " << std::hex << svcUuid << std::dec << " ]";
+        bRetCode = kv_store.hset( "used.capacity", uuid.str( ).c_str( ), used.str( ) );
+    }
+    catch(const RedisException& e)
+    {
+        LOGERROR << "Failed to persist node capacity for node [ "
+                 << std::hex << svcUuid << std::dec << " ], error: " << e.what();
+    };
+
+    return bRetCode;
 }
 
 bool ConfigDB::getNode(const NodeUuid& uuid, NodeInfoType& node)
 {
     SCOPEDREAD(nodeLock);
+
     try {
         Reply reply = kv_store.get(format("node:%ld", uuid.uuid_get_val()));
         if (reply.isOk()) {
@@ -1714,18 +1759,21 @@ bool ConfigDB::getNode(const NodeUuid& uuid, NodeInfoType& node)
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
     }
+
     return false;
 }
 
 bool ConfigDB::nodeExists(const NodeUuid& uuid)
 {
     SCOPEDREAD(nodeLock);
+
     try {
         Reply reply = kv_store.sendCommand("exists node:%ld", uuid);
         return reply.isOk();
     } catch(RedisException& e) {
         LOGERROR << e.what();
     }
+
     return false;
 }
 
@@ -1754,13 +1802,13 @@ bool ConfigDB::getNodeIds(std::unordered_set<NodeUuid, UuidHash>& nodes, int loc
     } catch(RedisException& e) {
         LOGERROR << e.what();
     }
+
     return false;
 }
 
 bool ConfigDB::getAllNodes(std::vector<NodeInfoType>& nodes, int localDomain)
 {
     SCOPEDREAD(nodeLock);
-
     std::vector<long long> nodeIds; //NOLINT
 
     try {
@@ -1781,13 +1829,13 @@ bool ConfigDB::getAllNodes(std::vector<NodeInfoType>& nodes, int localDomain)
     } catch(RedisException& e) {
         LOGERROR << e.what();
     }
+
     return false;
 }
 
 std::string ConfigDB::getNodeName(const NodeUuid& uuid)
 {
-    SCOPEDREAD(nodeLock);
-
+    // No lock needed here since getNode will acquire it
     try {
         NodeInfoType node;
         if (getNode(uuid, node)) {
@@ -1796,12 +1844,14 @@ std::string ConfigDB::getNodeName(const NodeUuid& uuid)
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
     }
+
     return "";
 }
 
 bool ConfigDB::getNodeServices(const NodeUuid& uuid, NodeServices& services)
 {
     SCOPEDREAD(nodeLock);
+
     try{
         Reply reply = kv_store.sendCommand("get %ld:services", uuid);
         if (reply.isNil()) return false;
@@ -1810,21 +1860,9 @@ bool ConfigDB::getNodeServices(const NodeUuid& uuid, NodeServices& services)
     } catch(const RedisException& e) {
         LOGCRITICAL << "error with redis " << e.what();
     }
-    return false;
-}
 
-bool ConfigDB::setNodeServices(const NodeUuid& uuid, const NodeServices& services)
-{
-    SCOPEDWRITE(nodeLock);
-    try{
-        std::string serialized;
-        services.getSerialized(serialized);
-        Reply reply = kv_store.sendCommand("set %ld:services %b",
-                                    uuid, serialized.data(), serialized.length());
-        return reply.isOk();
-    } catch(const RedisException& e) {
-        LOGCRITICAL << "error with redis " << e.what();
-    }
+    //nodeLock.read_unlock();
+
     return false;
 }
 
@@ -1839,31 +1877,6 @@ uint ConfigDB::getNodeNameCounter()
         LOGCRITICAL << "error with redis " << e.what();
     }
     return 0;
-}
-
-bool ConfigDB::setCapacityUsedNode( const int64_t svcUuid, const unsigned long usedCapacityInBytes )
-{
-    SCOPEDWRITE(nodeLock);
-
-    bool bRetCode = false;
-
-    std::stringstream uuid;
-    uuid << svcUuid;
-    std::stringstream used;
-    used << usedCapacityInBytes;
-
-    try
-    {
-        LOGDEBUG << "Setting used capacity for uuid [ " << std::hex << svcUuid << std::dec << " ]";
-        bRetCode = kv_store.hset( "used.capacity", uuid.str( ).c_str( ), used.str( ) );
-    }
-    catch(const RedisException& e)
-    {
-        LOGERROR << "Failed to persist node capacity for node [ "
-                 << std::hex << svcUuid << std::dec << " ], error: " << e.what();
-    };
-
-    return bRetCode;
 }
 
 /******************************************************************************
@@ -2543,7 +2556,10 @@ bool ConfigDB::setSnapshotState(fds_volid_t const volumeId, fds_volid_t const sn
 
 bool ConfigDB::deleteSvcMap(const fpi::SvcInfo& svcinfo)
 {
+    LOGDEBUG << "!!Acquiring write svcMapLock";
+    //svcMapLock.write_lock();
     SCOPEDWRITE(svcMapLock);
+
     try {
         std::stringstream uuid;
         uuid << svcinfo.svc_id.svc_uuid.svc_uuid;
@@ -2553,6 +2569,9 @@ bool ConfigDB::deleteSvcMap(const fpi::SvcInfo& svcinfo)
         LOGCRITICAL << "error with redis " << e.what();
         return false;
     }
+
+    //svcMapLock.write_unlock();
+
     return true;
 }
 
@@ -2575,13 +2594,13 @@ bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo)
         std::stringstream uuid;
         uuid << svcinfo.svc_id.svc_uuid.svc_uuid;
         
-        LOGDEBUG << "ConfigDB updating Service Map:"
-                 << " type: " << svcinfo.name
+        LOGDEBUG << "!!ConfigDB updating Service Map:"
+                 << " type: " << svcinfo.svc_type
                  << " uuid: " << std::hex << svcinfo.svc_id.svc_uuid.svc_uuid << std::dec
                  << " ip: " << svcinfo.ip
         		 << " port: " << svcinfo.svc_port
                  << " incarnation: " << svcinfo.incarnationNo
-                 << " status: " << DltDmtUtil::getInstance()->printSvcStatus(svcinfo.svc_status);
+                 << " status: " << OmExternalApi::getInstance()->printSvcStatus(svcinfo.svc_status);
                 
         FDSP_SERIALIZE( svcinfo, serialized );        
         bRetCode = kv_store.hset( "svcmap", uuid.str().c_str(), *serialized );
@@ -2591,13 +2610,12 @@ bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo)
         LOGCRITICAL << "error with redis " << e.what();
         
     }
-    
+
     return bRetCode;
 }
 
 bool ConfigDB::changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr)
 {
-    SCOPEDWRITE(svcMapLock);
     bool bRetCode = false;
 
     try
@@ -2609,19 +2627,22 @@ bool ConfigDB::changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr)
 
         if (ret)
         {
-            LOGNOTIFY << "ConfigDB updated service status:"
+            LOGNOTIFY << "!!ConfigDB changed service"
                        << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid << std::dec
-                       << " from status: " << DltDmtUtil::getInstance()->printSvcStatus(dbInfo.svc_status)
-                       << " to status: " << DltDmtUtil::getInstance()->printSvcStatus(svcInfoPtr->svc_status);
+                       << " from [incarnation:" << dbInfo.incarnationNo << ", status:"
+                       << OmExternalApi::getInstance()->printSvcStatus(dbInfo.svc_status) << "]"
+                       << " to [incarnation:" << svcInfoPtr->incarnationNo << ", status:"
+                       << OmExternalApi::getInstance()->printSvcStatus(svcInfoPtr->svc_status) << "]";
         } else {
-            LOGNOTIFY << "ConfigDB updated map with new record:"
+            LOGNOTIFY << "!!ConfigDB updated map with new record:"
                        << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid << std::dec
-                       << "  status: " << DltDmtUtil::getInstance()->printSvcStatus(svcInfoPtr->svc_status);
+                       << " status:" << OmExternalApi::getInstance()->printSvcStatus(svcInfoPtr->svc_status);
         }
 
         /* Convert new registration request to existing registration request */
         kvstore::NodeInfoType nodeInfo;
         fromTo( *svcInfoPtr, nodeInfo );
+
         updateNode( nodeInfo );
 
     }
@@ -2636,6 +2657,7 @@ bool ConfigDB::changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr)
 bool ConfigDB::getSvcInfo(const fds_uint64_t svc_uuid, fpi::SvcInfo& svcInfo)
 {
     SCOPEDREAD(svcMapLock);
+
     bool result = false;
     try
     {
@@ -2658,7 +2680,7 @@ bool ConfigDB::getSvcInfo(const fds_uint64_t svc_uuid, fpi::SvcInfo& svcInfo)
             result = true;
 
         } else {
-            LOGDEBUG << "Retrieved a nil value from configDB for uuid"
+            LOGDEBUG << "Retrieved a nil value from configDB for uuid: "
                      << std::hex << svc_uuid << std::dec;
         }
     }
@@ -2678,6 +2700,7 @@ bool ConfigDB::getSvcInfo(const fds_uint64_t svc_uuid, fpi::SvcInfo& svcInfo)
 fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
 {
     SCOPEDREAD(svcMapLock);
+
     fpi::ServiceStatus retStatus = fpi::SVC_STATUS_INVALID;
 
     try
@@ -2689,7 +2712,7 @@ fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
                  << " uuid: " << std::hex << svc_uuid << std::dec;
 
         Reply reply = kv_store.hget( "svcmap", uuid.str().c_str() ); //NOLINT
-        if ( reply.isValid() )
+        if ( !reply.isNil() )
         {
             std::string value = reply.getString();
             fpi::SvcInfo svcInfo;
@@ -2700,7 +2723,7 @@ fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
 
             LOGDEBUG << "ConfigDB retrieved service status for service"
                      << " uuid: " << std::hex << svc_uuid << std::dec
-                     << " status: " << DltDmtUtil::getInstance()->printSvcStatus(retStatus);
+                     << " status: " << OmExternalApi::getInstance()->printSvcStatus(retStatus);
         }
     }
     catch( const RedisException& e )
@@ -2708,6 +2731,7 @@ fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
         LOGCRITICAL << "error with redis " << e.what();
     }
 
+    //svcMapLock.read_unlock();
     return retStatus;
 }
 
@@ -2752,6 +2776,7 @@ bool ConfigDB::isPresentInSvcMap( const int64_t svc_uuid )
         LOGCRITICAL << "error with redis " << e.what();
     }
 
+    //svcMapLock.read_unlock();
     return isPresent;
 }
 
@@ -2793,6 +2818,7 @@ bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
 void ConfigDB::fromTo( fpi::SvcInfo svcInfo,
                        kvstore::NodeInfoType nodeInfo )
 {
+    LOGDEBUG << "!!fromTo svc to node info";
     nodeInfo.control_port = svcInfo.svc_port;
     nodeInfo.data_port = svcInfo.svc_port;
     nodeInfo.ip_lo_addr = fds::net::ipString2Addr(svcInfo.ip);
@@ -2804,9 +2830,6 @@ void ConfigDB::fromTo( fpi::SvcInfo svcInfo,
     NodeUuid node_uuid;
     node_uuid.uuid_set_type( nodeInfo.service_uuid.uuid, fpi::FDSP_PLATFORM );
     nodeInfo.node_uuid.uuid  = static_cast<int64_t>( node_uuid.uuid_get_val() );
-
-    fds_assert( nodeInfo.node_type != fpi::FDSP_PLATFORM ||
-                nodeInfo.service_uuid == nodeInfo.node_uuid );
 
     if ( nodeInfo.node_type == fpi::FDSP_PLATFORM )
     {

@@ -1,7 +1,6 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
-#include <DltDmtUtil.h>
 #include <ostream>
 #include <sstream>
 #include <iostream>
@@ -12,6 +11,7 @@
 
 #include <fds_dmt.h>
 #include <include/net/SvcMgr.h>
+#include <OmExternalApi.h>
 
 namespace fds {
 
@@ -208,7 +208,7 @@ Error DMT::verify(const NodeUuidSet& expectedUuidSet) const {
     Error err(ERR_OK);
 
     // we should not have more rows than nodes
-    if (getDepth() >  (expectedUuidSet.size() + DltDmtUtil::getInstance()->getPendingNodeRemoves(fpi::FDSP_DATA_MGR))){
+    if (getDepth() >  (expectedUuidSet.size() + OmExternalApi::getInstance()->getPendingNodeRemoves(fpi::FDSP_DATA_MGR))){
         LOGERROR << "DMT has more rows (" << depth
                  << ") than nodes (" << expectedUuidSet.size() << ")";
         return ERR_INVALID_DLT;
@@ -223,7 +223,7 @@ Error DMT::verify(const NodeUuidSet& expectedUuidSet) const {
             NodeUuid uuid = column->get(j);
             if ((uuid.uuid_get_val() == 0) ||
                 (expectedUuidSet.count(uuid) == 0)) {
-                if (!DltDmtUtil::getInstance()->isMarkedForRemoval(uuid.uuid_get_val())) {
+                if (!OmExternalApi::getInstance()->isMarkedForRemoval(uuid.uuid_get_val())) {
                     // unexpected uuid in this DMT cell
                     LOGERROR << "DMT contains unexpected uuid " << std::hex
                              << uuid.uuid_get_val() << std::dec;

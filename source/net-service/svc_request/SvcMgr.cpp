@@ -25,7 +25,7 @@
 #include <fiu-control.h>
 #include <util/fiu_util.h>
 #include <json/json.h>
-#include <DltDmtUtil.h>
+#include <OmExternalApi.h>
 
 namespace fds {
 
@@ -45,7 +45,7 @@ std::string logString(const FDS_ProtocolInterface::SvcInfo &info)
         << SvcMgr::mapToSvcUuidAndName(info.svc_id.svc_uuid)
         << " ip: " << info.ip << " port: " << info.svc_port
         << " incarnation: " << info.incarnationNo << " status: "
-        << DltDmtUtil::getInstance()->printSvcStatus(info.svc_status);
+        << OmExternalApi::getInstance()->printSvcStatus(info.svc_status);
     return ss.str();
 }
 
@@ -837,6 +837,7 @@ SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr &current, const fpi::SvcI
 {
     fds_bool_t ret(false);
 
+    std::string error = "uninitialized";
     if ( current->incarnationNo < incoming->incarnationNo ) {
         ret = true;
     } else if ( (current->incarnationNo == incoming->incarnationNo) &&
@@ -870,7 +871,16 @@ SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr &current, const fpi::SvcI
         LOGWARN << "Allowing update with zero incarnatioNo! Should never come to this";
         ret = true;
     } else {
-        LOGWARN << "Criteria not met, will not allow update of svcMap for now";
+
+        if (current->incarnationNo < incoming->incarnationNo)
+        {
+            LOGWARN << "Criteria not met: Incoming update has a lower incarnationNo than current record";
+        } else if ((current->incarnationNo == incoming->incarnationNo) &&
+                   (current->svc_status == incoming->svc_status) ) {
+            LOGWARN << "Criteria not met: Incoming update has the same incarnation & same status as current record";
+        } else {
+            LOGWARN << "Criteria not met, will not update svcMgr for now";
+        }
     }
 
     return (ret);
@@ -883,7 +893,8 @@ void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
     auto newPtr = boost::make_shared<fpi::SvcInfo>(newInfo);
     GLOGDEBUG << "Incoming update: " << fds::logString(*newPtr) << " vs current status: "
             << fds::logString(*currentPtr);
-    if (shouldUpdateSvcHandle(currentPtr, newPtr)) {
+
+    if (OmExternalApi::getInstance()->isIncomingUpdateValid(newInfo, *currentPtr)) {
         svcInfo_ = newInfo;
         svcClient_.reset();
         GLOGDEBUG << "Operation Applied.";
