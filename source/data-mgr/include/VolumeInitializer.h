@@ -385,7 +385,9 @@ void ReplicaInitializer<T>::doStaticMigrationWithPeer_(const StatusCb &cb)
     setProgress_(STATIC_MIGRATION);
 
     // Helps trace: startMigration should call volumeMeta's startMigration
-    replica_->startMigration(syncPeer_, replica_->getId(), cb);
+    if (replica_->startMigration(syncPeer_, replica_->getId(), cb) != ERR_OK) {
+        abort();
+    }
 }
 
 template <class T>
@@ -410,7 +412,7 @@ void ReplicaInitializer<T>::abort()
 
     /* Issue aborts on any outstanding operations */
     if (progress_ == STATIC_MIGRATION) {
-        // TODO(Rao): Abort static migration
+        // startMigration's cleanup should take care of the cleanups
     } else if (progress_ == REPLAY_ACTIVEIO) {
         bufferReplay_->abort();
     }
