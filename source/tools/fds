@@ -36,7 +36,7 @@ BINDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/bin"
 TESTDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/tests"
 KODIR="${SOURCEDIR}/fds_client/blk_dev"
 RABBITDIR="/opt/fds-stats-deps/embedded/bin"
-STATSDIR="/opt/fds/formation_one/packages/fds-stats-service-1.0.0"
+STATSDIR="/opt/fds/formation_one/packages/fds-stats-service-2.0.0"
 
 #######################################################################
 

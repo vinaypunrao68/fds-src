@@ -48,8 +48,10 @@ public class QueryMetrics implements RequestHandler {
 
         try( final Reader reader = new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
 
-            final Statistics stats = new QueryHelper().execute(
-                                                               ObjectModelHelper.toObject( reader, TYPE ), authorizer, token );
+            final Statistics stats = QueryHelper.instance()
+                                                .execute( ObjectModelHelper.toObject( reader,
+                                                                                      TYPE ),
+                                                          authorizer, token );
 
             return new JsonResource( new JSONObject( stats ) );
         }

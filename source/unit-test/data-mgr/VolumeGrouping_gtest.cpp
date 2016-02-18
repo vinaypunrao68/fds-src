@@ -143,6 +143,10 @@ struct DmGroupFixture : BaseTestFixture {
         v1Desc = generateVolume(v1Id);
         omHandle.proc->addVolume(v1Id, v1Desc);
         for (uint32_t i = 0; i < dmGroup.size(); i++) {
+            e = dmGroup[i]->proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
+                                                                                 nullptr,
+                                                                                 DMT_COMMITTED);
+            ASSERT_TRUE(e == ERR_OK);
             e = dmGroup[i]->proc->getDataMgr()->addVolume("test1", v1Id, v1Desc.get());
             ASSERT_TRUE(e == ERR_OK);
             ASSERT_TRUE(dmGroup[i]->proc->getDataMgr()->\
@@ -274,6 +278,12 @@ struct DmGroupFixture : BaseTestFixture {
         ASSERT_TRUE(dmGroup[idx]->proc->getDataMgr()->getVolumeMeta(volId)->getState() == desiredState);
     }
 
+    void doMigrationCheck(int idx, fds_volid_t volId)
+    {
+        ASSERT_TRUE(dmGroup[idx]->proc->getDataMgr()->counters->totalVolumesReceivedMigration.value() > 0);
+        ASSERT_TRUE(dmGroup[idx]->proc->getDataMgr()->counters->totalMigrationsAborted.value() == 0);
+    }
+
     OmHandle                                omHandle;
     AmHandle                                amHandle;
     std::vector<std::unique_ptr<DmHandle>>  dmGroup;
@@ -309,6 +319,10 @@ TEST_F(DmGroupFixture, singledm) {
     Error e = amHandle.proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
                                                                             nullptr,
                                                                             DMT_COMMITTED);
+    ASSERT_TRUE(e == ERR_OK);
+    e = dmGroup[0]->proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
+                                                                         nullptr,
+                                                                         DMT_COMMITTED);
     ASSERT_TRUE(e == ERR_OK);
 
     /* Open without volume being add to DM.  Open should fail */
@@ -366,6 +380,8 @@ TEST_F(DmGroupFixture, staticio_restarts) {
         doGroupStateCheck(v1Id);
     }
 
+
+    ASSERT_TRUE(dmGroup[0]->proc->getDataMgr()->counters->totalVolumesReceivedMigration.value() == 0);
     /* Bring a dm down */
     dmGroup[0]->stop();
     /* Do more IO.  IO should succeed */
@@ -399,7 +415,8 @@ TEST_F(DmGroupFixture, staticio_restarts) {
         }
     }
     /* By now sync must complete */
-    ASSERT_TRUE(dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Active);
+    doVolumeStateCheck(0, v1Id, fpi::Active);
+    doMigrationCheck(0, v1Id);
 
     /* Do more IO.  IO should succeed */
     doIo(10);
@@ -432,6 +449,7 @@ TEST_F(DmGroupFixture, activeio_restart) {
         }
     });
 
+    ASSERT_TRUE(dmGroup[0]->proc->getDataMgr()->counters->totalVolumesReceivedMigration.value() == 0);
     for (int i = 0; i < 4; i++) {
         /* Bring a dm down */
         dmGroup[0]->stop();
@@ -439,6 +457,7 @@ TEST_F(DmGroupFixture, activeio_restart) {
         /* Bring 1st dm up again */
         dmGroup[0]->start();
         doVolumeStateCheck(0, v1Id, fpi::Active);
+        doMigrationCheck(0, v1Id);
     }
 
     ioAbort = true;

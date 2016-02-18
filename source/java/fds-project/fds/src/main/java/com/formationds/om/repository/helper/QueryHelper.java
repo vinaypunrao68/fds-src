@@ -1,7 +1,6 @@
 /*
- * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
+ * Copyright (c) 2014-2016, Formation Data Systems, Inc. All Rights Reserved.
  */
-
 package com.formationds.om.repository.helper;
 
 import com.formationds.client.v08.model.Size;
@@ -31,6 +30,9 @@ import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.StatOperation;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.commons.util.DateTimeUtil;
+import com.formationds.commons.util.Memoizer;
+import com.formationds.commons.util.Tuples;
+import com.formationds.commons.util.Tuples.Pair;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.redis.RedisSingleton;
 import com.formationds.om.repository.EventRepository;
@@ -47,16 +49,18 @@ import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Instant;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
 
@@ -67,15 +71,30 @@ public class QueryHelper {
     private static final Logger logger =
         LoggerFactory.getLogger( QueryHelper.class );
 
-    private final MetricRepository repo;
+    /**
+     * A shared instance, used only if the USE_SHARED_QUERY_HELPER feature toggle is enabled.
+     */
+    private static final QueryHelper SHARED = new QueryHelper();
+
+    /**
+     * If the {@link #USE_SHARED_QUERY_HELPER} configuration/toggle is set, the use
+     * a shared instance that may perform query caching.  Otherwise, use a new instance that
+     * will not cache values.
+     *
+     * @return a QueryHelper instance
+     */
+    public static QueryHelper instance() {
+        if (FdsFeatureToggles.USE_SHARED_QUERY_HELPER.isActive()) {
+            return SHARED;
+        } else {
+            return new QueryHelper();
+        }
+    }
 
     /**
      * default constructor
      */
-    public QueryHelper() {
-        this.repo =
-            SingletonRepositoryManager.instance()
-                                      .getMetricsRepository();
+    protected QueryHelper() {
     }
 
     /**
@@ -467,10 +486,6 @@ public class QueryHelper {
     	return contexts;
     }
 
-    protected MetricRepository getRepo(){
-    	return this.repo;
-    }
-
     /**
      * @return Returns a {@link List} of {@link Metadata}
      */
@@ -567,7 +582,6 @@ public class QueryHelper {
         return dedup;
     }
 
-
     /**
      * @param consumed       the {@link CapacityConsumed} representing bytes
      *                       used
@@ -584,44 +598,64 @@ public class QueryHelper {
         return full;
     }
 
-    private CapacityToFull capacityToFull = null;
-    private Instant lastUpdated;
-    private static final long SecondsIn24Hours = TimeUnit.HOURS.toSeconds( 24 );
+    // So here we are using Memoization to store the computed results.  As the system capacity
+    // or volume list changes, this will automatically be recalculated (because the Pair tuple
+    // representing the arguments to the function and stored as the memoized key will change)
+    private final Function<Pair<List<Volume>, Size>,
+                           CapacityToFull> ctfTask = Memoizer.memoize( Optional.of( Duration.ofHours( 12 ) ),
+                                                                       (p) -> {
+        List<Volume> volumes = p.getLeft();
+        Size systemCapacity = p.getRight();
+
+        return doCalculateTimeToFull( volumes, systemCapacity );
+
+    } );
+
+    /**
+     * @param volumes
+     * @param systemCapacity
+     * @return
+     */
+    protected CapacityToFull doCalculateTimeToFull( List<Volume> volumes, Size systemCapacity ) {
+        MetricQueryCriteriaBuilder queryBuilder =
+                new MetricQueryCriteriaBuilder( QueryCriteria.QueryType.SYSHEALTH_CAPACITY );
+
+        //REVIEWERS: IS UBYTES correct now or should this be PBYTES now????
+
+        // For capacity time-to-full we need enough history to calculate the regression.  Using 30 days
+        DateRange range = DateRange.last( 30L, com.formationds.client.v08.model.TimeUnit.DAYS );
+        MetricQueryCriteria query = queryBuilder.withContexts( volumes )
+                                                .withSeriesType( Metrics.UBYTES )
+                                                .withRange( range )
+                                                .build();
+
+        final MetricRepository metricsRepository =
+            SingletonRepositoryManager.instance( )
+                                      .getMetricsRepository( );
+
+        @SuppressWarnings("unchecked")
+        final List<IVolumeDatapoint> queryResults =
+            ( List<IVolumeDatapoint> ) metricsRepository.query( query );
+
+        List<Series> series = SeriesHelper.getRollupSeries( queryResults,
+                                                            query.getRange( ),
+                                                            query.getSeriesType( ),
+                                                            StatOperation.SUM );
+
+        return toFull( series.get( 0 ), systemCapacity.getValue( SizeUnit.B )
+                       .doubleValue() );
+    }
+
+    /**
+     *
+     * @param volumes
+     * @param systemCapacity
+     * @return the seconds to full calculation based on a regression over up to the last thirty days.
+     */
     public CapacityToFull secondsToFullThirtyDays( final List<Volume> volumes,
                                                    final Size systemCapacity )
     {
-        if( ( capacityToFull == null ) || lastUpdated.isAfter( Instant.now( )
-                                                                      .plusSeconds(
-                                                                          SecondsIn24Hours ) ) )
-        {
-            MetricQueryCriteriaBuilder queryBuilder =
-                new MetricQueryCriteriaBuilder( QueryCriteria.QueryType.SYSHEALTH_CAPACITY );
-
-            // TODO: for capacity time-to-full we need enough history to calculate the regression
-            // This was previously querying from 0 for all possible datapoints.  I think reducing to
-            // the last 30 days is sufficient, but will need to validate that.
-            DateRange range = DateRange.last( 30L, com.formationds.client.v08.model.TimeUnit.DAYS );
-            MetricQueryCriteria query = queryBuilder.withContexts( volumes )
-                                                    .withSeriesType( Metrics.UBYTES )
-                                                    .withRange( range )
-                                                    .build( );
-            query.setColumns( new ArrayList<>( ) );
-
-            final MetricRepository metricsRepository = SingletonRepositoryManager.instance( )
-                                                                                 .getMetricsRepository( );
-
-            @SuppressWarnings( "unchecked" ) final List<IVolumeDatapoint> queryResults =
-                ( List<IVolumeDatapoint> ) metricsRepository.query( query );
-
-            List<Series> series = SeriesHelper.getRollupSeries( queryResults, query.getRange( ),
-                                                                query.getSeriesType( ),
-                                                                StatOperation.SUM );
-
-            capacityToFull = toFull( series.get( 0 ), systemCapacity.getValue( SizeUnit.B ).doubleValue() );
-            lastUpdated = Instant.now();
-        }
-
-        return capacityToFull;
+        return ctfTask.apply( Tuples.tupleOf( volumes, systemCapacity ) );
     }
 
     /**

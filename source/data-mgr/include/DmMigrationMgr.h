@@ -50,7 +50,7 @@ class DmMigrationMgr {
      */
     enum MigrationRole {
     	MIGR_EXECUTOR,
-		MIGR_CLIENT
+		MIGR_CLIENT,
     };
 
     enum MigrationType {
