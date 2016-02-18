@@ -48,9 +48,6 @@ external libraries (argh) are throwing SystemExit Exception on errors.
 class ConsoleExit(Exception):
     pass
 
-def checkFDSNode():
-    if os.path.isfile('/fds/etc/platform.conf'): return True
-
 class FDSConsole(cmd.Cmd):
 
     def __init__(self,fInit, debugTool, *args):
@@ -204,7 +201,7 @@ class FDSConsole(cmd.Cmd):
         #print AccessLevel.getName(self.get_access_level())
         if len(argv) == 0 or argv[0] in ['help']:
 
-            helplist=sorted(ctx.get_help(self.get_access_level()), key=lambda h: '{}{}'.format(h[0],h[1]))
+            helplist=sorted(ctx.get_help(self.get_access_level()), key=lambda h: h[0])
             print tabulate(helplist,headers= ['command', 'description'],
                             tablefmt=self.config.getTableFormat())
             if ctx == self.root:
@@ -465,7 +462,20 @@ class FDSConsole(cmd.Cmd):
                 return None
             ctx, pos, isctx = self.get_context_for_command(argv)
             if ctx == None:
-                print '[error] : unknown command :',line
+                #print pos,isctx,argv
+                print 'command NOT found [{}]'.format(line)
+                cmdlist=[cmd[0] for cmd in sorted(self.root.get_help(self.get_access_level()), key=lambda h: h[0])]
+                count = len(argv)
+                #cmdlist=list(set([' '.join(cmd.split()[:count]) for cmd in cmdlist]))
+                options=helpers.didyoumean(line, cmdlist)
+                print
+                if len(options) > 0:
+                    print 'Did you mean one of these?' if len(options)>1 else 'Did you mean?'
+                    for option in options:
+                        print '{} -> {}'.format(' '*5,option)
+                else:
+                    print 'May be you can try [help/?]'
+
                 return None
 
             #print 'dispatching:{}:{}:{}'.format(argv[pos:], isctx, ctx)
@@ -512,7 +522,7 @@ class FDSConsole(cmd.Cmd):
         l += ['============================================']
         l += ['']
 
-        if self.debugTool and not checkFDSNode():
+        if self.debugTool and not helpers.isFDSNode():
             print 'Debug Tool should be used only on fds nodes. This node does NOT seem to be one!!'
             sys.exit(1)
 

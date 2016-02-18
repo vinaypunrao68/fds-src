@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 ATTR_CLICMD='clicmd'
 KEY_SYSTEM = '__system__'
 KEY_ACCESSLEVEL = '__accesslevel__'
@@ -20,6 +21,23 @@ import re
 import humanize
 import itertools
 import time
+import autocorrect
+import os
+
+def isFDSNode():
+    if os.path.isfile('/fds/etc/platform.conf'): return True
+
+def get_om_ip_from_conf():
+    filename='/fds/etc/platform.conf'
+    om_pattern=re.compile('om_ip_list *= *"(.*)"')
+    with open(filename,'r') as f:
+        for line in f:
+            if 'om_ip_list' in line:
+                ips=om_pattern.findall(line)
+                if len(ips) > 0:
+                    return ips[0].split(',')[0]
+
+    return None
 
 def get_simple_re(pattern, flags=re.IGNORECASE):
     if pattern == None:
@@ -123,6 +141,9 @@ class ConfigData:
             if None == self.getSystem(key):
                 self.setSystem(key, defaults[key])
 
+        if self.isDebugTool():
+            self.setSystem(KEY_HOST, get_om_ip_from_conf())
+
     def getRestApi(self):
         if self.__rest == None:
             self.__rest = restendpoint.RestEndpoint(self.getHost(), 7443, user=self.getUser(), password=self.getPass(), auth=False)
@@ -225,6 +246,10 @@ class ConfigData:
             return 'grid'
         else:
             return 'simple'
+
+def didyoumean(usercmd, cmdlist, count=5):
+    suggest = autocorrect.AutoCorrect()
+    return suggest.suggestions(usercmd, cmdlist, count)
 
 def setupHistoryFile(debugTool = False):
     '''
