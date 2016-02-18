@@ -179,7 +179,7 @@ Error DmPersistVolDB::archive(const std::string& destDir, const std::string& fil
             err = ERR_NOT_FOUND;
         }
     }
-    
+
     // remove all temp files ..
     boost::filesystem::remove_all(tempArchiveDir);
 
@@ -385,7 +385,7 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t offse
     fds_verify(0 == offset % objSize_);
 
     auto objectIndex = offset / objSize_;
-    fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
+    if (objectIndex > std::numeric_limits<fds_uint32_t>::max()) {return ERR_DM_OFFSET_OUT_RANGE;}
 
     BlobObjectKey key {blobName, static_cast<fds_uint32_t>(objectIndex)};
 
@@ -530,7 +530,7 @@ Error DmPersistVolDB::putObject(const std::string & blobName, fds_uint64_t offse
     fds_verify(0 == offset % objSize_);
 
     auto objectIndex = offset / objSize_;
-    fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
+    if (objectIndex > std::numeric_limits<fds_uint32_t>::max()) {return ERR_DM_OFFSET_OUT_RANGE;}
 
     BlobObjectKey key {blobName, static_cast<fds_uint32_t>(objectIndex)};
     leveldb::Slice const valRec(reinterpret_cast<char const*>(obj.GetId()), obj.GetLen());
@@ -557,7 +557,7 @@ Error DmPersistVolDB::putObject(const std::string & blobName, const BlobObjList 
         fds_verify(0 == it.first % objSize_);
 
         auto objectIndex = it.first / objSize_;
-        fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
+        if (objectIndex > std::numeric_limits<fds_uint32_t>::max()) {return ERR_DM_OFFSET_OUT_RANGE;}
 
         BlobObjectKey const key {blobName, static_cast<fds_uint32_t>(objectIndex)};
         leveldb::Slice const valRec(reinterpret_cast<const char *>(it.second.oid.GetId()),
@@ -586,7 +586,7 @@ Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc 
         fds_verify(0 == it.first % objSize_);
 
         auto objectIndex = it.first / objSize_;
-        fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
+        if (objectIndex > std::numeric_limits<fds_uint32_t>::max()) {return ERR_DM_OFFSET_OUT_RANGE;}
 
         BlobObjectKey const key {blobName, static_cast<fds_uint32_t>(objectIndex)};
         leveldb::Slice const valRec(reinterpret_cast<const char *>(it.second.oid.GetId()),
@@ -599,7 +599,7 @@ Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc 
         fds_verify(0 == it % objSize_);
 
         auto objectIndex = it / objSize_;
-        fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
+        if (objectIndex > std::numeric_limits<fds_uint32_t>::max()) {return ERR_DM_OFFSET_OUT_RANGE;}
 
         BlobObjectKey const key {blobName, static_cast<fds_uint32_t>(objectIndex)};
         batch.Delete(static_cast<leveldb::Slice>(key));
@@ -655,7 +655,7 @@ Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t of
     // IS_OP_ALLOWED();
 
     auto objectIndex = offset / objSize_;
-    fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
+    if (objectIndex > std::numeric_limits<fds_uint32_t>::max()) {return ERR_DM_OFFSET_OUT_RANGE;}
 
     BlobObjectKey const key {blobName, static_cast<fds_uint32_t>(objectIndex)};
 
@@ -686,7 +686,7 @@ Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t st
         TIMESTAMP_OP(batch);
 
         auto objectIndex = i / objSize_;
-        fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
+        if (objectIndex > std::numeric_limits<fds_uint32_t>::max()) {return ERR_DM_OFFSET_OUT_RANGE;}
 
         key.setObjectIndex(static_cast<fds_uint32_t>(objectIndex));
         batch.Delete(static_cast<leveldb::Slice>(key));
