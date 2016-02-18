@@ -6,8 +6,7 @@ package com.formationds.am;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.commons.libconfig.Assignment;
 import com.formationds.commons.libconfig.ParsedConfig;
-import com.formationds.nfs.NfsServer;
-import com.formationds.nfs.XdiStaticConfiguration;
+import com.formationds.nfs.*;
 import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
@@ -19,6 +18,7 @@ import com.formationds.util.thrift.OMConfigurationServiceProxy;
 import com.formationds.web.toolkit.HttpConfiguration;
 import com.formationds.web.toolkit.HttpsConfiguration;
 import com.formationds.xdi.*;
+import com.formationds.xdi.experimental.XdiConnector;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.formationds.xdi.swift.SwiftEndpoint;
 import com.nurkiewicz.asyncretry.AsyncRetryExecutor;
@@ -232,6 +232,13 @@ public class Main {
                 secretKey,
                 httpsConfiguration,
                 httpConfiguration).start(), "S3 service thread").start();
+
+        // Experimental: XDI server
+        Counters counters = new Counters();
+        IoOps ioOps = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
+        // ioOps = new MemoryIoOps();
+        XdiConnector connector = new XdiConnector(configCache, ioOps);
+        // Start your server here
 
         // Default NFS port is 2049, or 7000 - 4951
         new NfsServer().start(xdiStaticConfig, configCache, asyncAm, pmPort - 4951);
