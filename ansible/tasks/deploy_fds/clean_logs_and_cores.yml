@@ -5,10 +5,11 @@
         - /fds/bin/*.core
         - /fds/bin/core.*
         - /fds/bin/core
-        - /fds/var/log/*.log
-        - /fds/var/log/*.gz
-        - /fds/var/logs/*.log
-        - /fds/var/logs/*.gz
+        - /fds/var/log/*log
+        - /fds/var/logs/*log
+        - /fds/var/log/*gz
+        - /fds/var/logs/*gz
+        - /fds/var/log/corefiles/*
         - /corefiles/*
         - /fds/var/core/*.core
     tags:

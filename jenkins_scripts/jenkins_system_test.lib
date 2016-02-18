@@ -120,8 +120,8 @@ function configure_limits
     message "CONFIGURE ulimit and core file settings"
 
     ulimit -c unlimited
-    [[ ! -d /corefiles ]] && mkdir -p /corefiles
-    sysctl -w "kernel.core_pattern=/corefiles/%e-%p-%u-%t.core"
+    [[ ! -d /fds/var/log/corefiles ]] && mkdir -p /fds/var/log/corefiles
+    sysctl -w "kernel.core_pattern=/fds/var/log/corefiles/%e-%p-%u-%t.core"
     ulimit -n 400000
 
     message "CURRENT ulimit settings"
@@ -150,9 +150,9 @@ function clean_up_environment
 
    message "CLEAN existing core files (prebuild)"
    #  This could be improved by looking in more places and for specific core files (e.g., from FDS processes and test tools)
-   find /corefiles -type f -name "*.core" -print -delete
-   find /corefiles -type f -name "*.hprof" -print -delete
-   find /corefiles -type f -name "*hs_err_pid*.log" -print -delete
+   find /fds/var/log/corefiles -type f -name "*.core" -print -delete
+   find /fds/var/log/corefiles -type f -name "*.hprof" -print -delete
+   find /fds/var/log/corefiles -type f -name "*hs_err_pid*.log" -print -delete
 
    capture_process_list ${FUNCNAME}
 }
@@ -212,7 +212,7 @@ function check_for_cores
         echo "OHHHHH NO, an ERROR has occurred return_code = ${return_code}"
         echo ""
         echo "Build aborted due to the presence of core files on the builder following a system test scenario:"
-        ls -la /corefiles
+        ls -la /fds/var/log/corefiles
         run_coroner 1
     fi
 }
@@ -403,7 +403,7 @@ function run_coroner
     do_popd
 
     rm -rf /tmp/fdscoroner*
-    rm -f /corefiles/*
+    rm -f fds/var/log/corefiles/*
     rm -f /fds/var/cores/*
 
     end_time=$(date +%s)
