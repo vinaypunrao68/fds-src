@@ -82,16 +82,21 @@ void ScstConnector::targetDone(const std::string target_name) {
     if (0 < targets_.erase(target_name)) {
         LOGNOTIFY << "Connector has removed target: " << target_name;
     }
+    if (targets_.empty()) {
+        ScstAdmin::toggleDriver(false);
+    }
 }
 
 void ScstConnector::addTarget(VolumeDesc const& volDesc) {
     std::lock_guard<std::mutex> lk(target_lock_);
     if (!stopping) {
-        _addTarget(volDesc);
+        if (_addTarget(volDesc)) {
+            ScstAdmin::toggleDriver(true);
+        }
     }
 }
 
-void ScstConnector::_addTarget(VolumeDesc const& volDesc) {
+bool ScstConnector::_addTarget(VolumeDesc const& volDesc) {
     // Create target if it does not already exist
     auto target_name = target_prefix + volDesc.name;
     bool happened {false};
@@ -105,13 +110,13 @@ void ScstConnector::_addTarget(VolumeDesc const& volDesc) {
                                             amProcessor));
         } catch (ScstError& e) {
             LOGERROR << "Failed to initialize target [" << target_name << "], ensure that SCST is installed and running.";
-            return;
+            return false;
         }
         it->second->addDevice(volDesc);
     }
     if (targets_.end() == it) {
         LOGERROR << "Failed to insert target into target map...";
-        return;
+        return false;
     }
     auto& target = *it->second;
 
@@ -119,7 +124,7 @@ void ScstConnector::_addTarget(VolumeDesc const& volDesc) {
     // before trying to apply the apparently new descriptor
     if (!happened && !target.enabled()) {
         LOGNOTIFY << "Waiting for existing target to complete shutdown: " << target_name;
-        return;
+        return false;
     }
 
     // Setup initiator masking
@@ -150,6 +155,7 @@ void ScstConnector::_addTarget(VolumeDesc const& volDesc) {
     target.setCHAPCreds(credentials);
 
     target.enable();
+    return true;
 }
 
 void ScstConnector::removeTarget(VolumeDesc const& volDesc) {
@@ -179,6 +185,7 @@ ScstConnector::discoverTargets() {
     // guaranteed to be complete when initializing.
     std::unique_lock<std::mutex> lk(target_lock_);
     while (!stopping) {
+        bool added_target {false};
         auto amProc = amProcessor.lock();
         if (!amProc) {
             GLOGERROR << "No processing layer, no targets.";
@@ -191,7 +198,12 @@ ScstConnector::discoverTargets() {
         for (auto const& vol : volumes) {
             if ((fpi::FDSP_VOL_BLKDEV_TYPE != vol.volType && fpi::FDSP_VOL_ISCSI_TYPE != vol.volType)
                 || vol.isSnapshot()) continue;
-            _addTarget(vol);
+            if (_addTarget(vol)) {
+                added_target = true;
+            }
+        }
+        if (added_target) {
+            ScstAdmin::toggleDriver(true);
         }
         stopping_condition_.wait_for(lk, rediscovery_delay);
     }

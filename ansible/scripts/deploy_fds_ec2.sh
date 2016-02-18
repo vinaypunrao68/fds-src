@@ -3,11 +3,10 @@
 usage() {
 cat << EOF
 Usage:
-${0##/*} name-tag instance-count local|nightly [debug]
+${0##/*} name-tag instance-count local [debug]
 Deploy FDS to a cluster in EC2
 name-tag needs to exactly match the name of your inventory file in fds-src/ansible/inventory/
 Examples:
-${0##/*} cody-ec2 4 nightly
 ${0##/*} foobar-nodes 4 local
 EOF
 }
@@ -49,6 +48,8 @@ deploy_source="${3}"
 script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
 ansible_base_dir="$( cd "${script_dir}/.." && pwd -P)"
 playbooks="${ansible_base_dir}/playbooks"
+
+[[ "${deploy_source}" == "nightly" ]] && echo "${0##*/} no longer supports using the nightly package build as an install source.  Please use the nightly installer bundle." && exit 1
 
 # Passing in -e fds_cluster_name for the sake of getting an identifiable set of metrics
 ansible_args="${playbooks}/deploy_fds_ec2.yml -i ${ansible_base_dir}/inventory/${inventory} -e "instance_name_tag=${inventory}" -e "instance_count=${instance_count}" -e "deploy_artifact=${deploy_source}" -e "fds_cluster_name=${inventory}""

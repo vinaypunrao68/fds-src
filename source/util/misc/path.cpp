@@ -3,6 +3,9 @@
  */
 
 #include <util/path.h>
+#include <util/stringutils.h>
+#include <util/process.h>
+
 #include <hash/md5.h>
 
 #include <fstream>
@@ -10,8 +13,11 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <stdlib.h>
 
 #include <string>
+
+
 namespace fds {
 namespace util {
 bool dirExists(const std::string& dirname) {
@@ -31,12 +37,15 @@ void getSubDirectories(const std::string& dirname, std::vector<std::string>& vec
     DIR *dp;
     struct dirent *ep;
     dp = opendir (dirname.c_str());
-
     if (dp != NULL) {
         std::string name;
         while ((ep = readdir(dp))) {
-            if (ep->d_type == DT_DIR) {
-                name = ep->d_name;
+            name = ep->d_name;
+            bool fIsDir = ep->d_type == DT_DIR;
+            if (ep->d_type == DT_UNKNOWN) {
+                fIsDir = dirExists(dirname + "/" + name);
+            }
+            if (fIsDir) {
                 if (name != ".." && name != ".") {
                     vecDirs.push_back(name);
                 }
@@ -55,7 +64,12 @@ void getFiles(const std::string& dirname, std::vector<std::string>& vecDirs) {
     if (dp != NULL) {
         std::string name;
         while ((ep = readdir (dp))) {
-            if (ep->d_type == DT_REG) {
+            bool fIsFile = ep->d_type == DT_REG;
+            if (ep->d_type == DT_UNKNOWN) {
+                fIsFile = fileExists(dirname + "/" + std::string(ep->d_name));
+            }
+
+            if (fIsFile) {
                 vecDirs.push_back(ep->d_name);
             }
         }
@@ -104,6 +118,63 @@ fds_uint64_t getBytesFromHumanSize(const std::string& strFileSize) {
     return bytes * mult;
 }
 
+// get the PATH env variable
+void getPATH(std::vector<std::string>& paths) {
+    char *path = getenv("PATH");
+    tokenize(path, paths, ':');
+}
 
+// add the given path to the PATH env variable
+bool addPATH(const std::string& path) {
+    std::vector<std::string> paths;
+    getPATH(paths);
+    bool fExists = false;
+    for(const auto& item : paths) {
+        if (item == path) {
+            fExists = true;
+            break;
+        }
+    }
+
+    if (!fExists) {
+        paths.push_back(path);
+        setenv("PATH", join(paths,':').c_str(), true);
+        return true;
+    }
+    return false;
+}
+
+// remove the given path from the PATH env variable
+bool removePATH(const std::string& path) {
+    std::vector<std::string> paths;
+    getPATH(paths);
+    bool fExists = false;
+    auto pos = 0;
+    for(const auto& item : paths) {
+        if (item == path) {
+            fExists = true;
+            break;
+        } else {
+            pos ++ ;
+        }
+    }
+
+    if (fExists) {
+        paths.erase(paths.begin()+pos);
+        setenv("PATH", join(paths,':').c_str(), true);
+        return true;
+    }
+    return false;
+}
+
+// get the binary location of the given command
+std::string which(const std::string& path) {
+    SubProcess process;
+    std::string output;
+    process.run(std::string("which ") + path);
+    process.readLine(output);
+    process.close();
+    return output;
+}
 }  // namespace util
 }  // namespace fds

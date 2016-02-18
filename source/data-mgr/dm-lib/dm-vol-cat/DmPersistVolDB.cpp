@@ -23,10 +23,11 @@
 #include "util/path.h"
 #include "fds_module.h"
 #include "fds_process.h"
+#include <dmutil.h>
 #include <net/volumegroup_extensions.h>
 
-#define TIMESTAMP_OP(WB) \
-    const fds_uint64_t ts__ = util::getTimeStampMicros(); \
+#define TIMESTAMP_OP(WB)                                                \
+    const fds_uint64_t ts__ = util::getTimeStampMicros();               \
     const leveldb::Slice tsval__(reinterpret_cast<const char *>(&ts__), sizeof(fds_uint64_t)); \
     WB.Put(OP_TIMESTAMP_REC, tsval__);
 
@@ -56,12 +57,10 @@ DmPersistVolDB::~DmPersistVolDB() {
     catalog_.reset();
     if (deleted_) {
         const FdsRootDir* root = MODULEPROVIDER()->proc_fdsroot();
-        const std::string loc_src_db = (snapshot_ ? root->dir_user_repo_dm() :
-                root->dir_sys_repo_dm()) + std::to_string(srcVolId_.get()) +
-                (snapshot_ ? "/snapshot/" : "/") + getVolIdStr() + "_vcat.ldb";
-        const std::string rm_cmd = "rm -rf  " + loc_src_db;
-        int retcode = std::system((const char *)rm_cmd.c_str());
-        LOGNOTIFY << "Removed leveldb dir, retcode " << retcode;
+        std::string dbfile=snapshot_?dmutil::getVolumeDir(root, srcVolId_, volId_):dmutil::getVolumeDir(root, volId_);
+        boost::filesystem::remove_all(dbfile);
+        LOGNOTIFY << "removed leveldb for " << (snapshot_? "snap:":"vol:") << volId_
+                  << " file:" << dbfile;
     }
 }
 
@@ -89,12 +88,12 @@ Error DmPersistVolDB::activate() {
     bool fAlreadyExists = util::dirExists(catName);
     if (snapshot_) {
         if (!fAlreadyExists) {
-            LOGNORMAL << "Received activate on empty clone or snapshot! Directory " << catName;
+            LOGDEBUG << "Received activate on empty clone or snapshot! Directory " << catName;
             return ERR_OK;
         }
     }
 
-    LOGNOTIFY << "Activating '" << catName << "'";
+    LOGDEBUG << "activating:" << catName;
     FdsRootDir::fds_mkdir(catName.c_str());
 
     if (!snapshot_ && !readOnly_) {
@@ -102,9 +101,9 @@ Error DmPersistVolDB::activate() {
     }
 
     fds_uint32_t writeBufferSize = configHelper_.get<fds_uint32_t>(CATALOG_WRITE_BUFFER_SIZE_STR,
-            Catalog::WRITE_BUFFER_SIZE);
+                                                                   Catalog::WRITE_BUFFER_SIZE);
     fds_uint32_t cacheSize = configHelper_.get<fds_uint32_t>(CATALOG_CACHE_SIZE_STR,
-            Catalog::CACHE_SIZE);
+                                                             Catalog::CACHE_SIZE);
     fds_uint32_t maxLogFiles = configHelper_.get<fds_uint32_t>(CATALOG_MAX_LOG_FILES_STR, 5);
 
     std::string logDirName = snapshot_ ? "" : root->dir_sys_repo_dm() + getVolIdStr() + "/";
@@ -180,7 +179,7 @@ Error DmPersistVolDB::archive(const std::string& destDir, const std::string& fil
             err = ERR_NOT_FOUND;
         }
     }
-    
+
     // remove all temp files ..
     boost::filesystem::remove_all(tempArchiveDir);
 
@@ -290,17 +289,17 @@ Error DmPersistVolDB::getBlobMetaDescForPrefix (std::string const& prefix,
 }
 
 Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsSeqId,
-														Catalog::MemSnap snap) {
+                                                Catalog::MemSnap snap) {
     fds_bool_t dummyFlag = false;
     return (getAllBlobsWithSequenceId(blobsSeqId, snap, dummyFlag));
 }
 
 Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsSeqId,
-														Catalog::MemSnap snap,
-														const fds_bool_t &abortFlag) {
-	auto dbIt = catalog_->NewIterator(snap);
+                                                Catalog::MemSnap snap,
+                                                const fds_bool_t &abortFlag) {
+    auto dbIt = catalog_->NewIterator(snap);
 
-	if (!dbIt) {
+    if (!dbIt) {
         LOGERROR << "Error generating set of <blobs,seqId> for volume: " << volId_;
         return ERR_INVALID;
     }
@@ -329,7 +328,7 @@ Error DmPersistVolDB::getAllBlobsWithSequenceId(std::map<std::string, int64_t>& 
         return status2error(dbIt->status());
     }
 
-	return (ERR_OK);
+    return (ERR_OK);
 }
 
 Error DmPersistVolDB::getLatestSequenceId(sequence_id_t & max) {
@@ -382,11 +381,11 @@ Error DmPersistVolDB::getLatestSequenceId(sequence_id_t & max) {
 }
 
 Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t offset,
-        ObjectID & obj) {
+                                ObjectID & obj) {
     fds_verify(0 == offset % objSize_);
 
     auto objectIndex = offset / objSize_;
-    fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
+    if (objectIndex > std::numeric_limits<fds_uint32_t>::max()) {return ERR_DM_OFFSET_OUT_RANGE;}
 
     BlobObjectKey key {blobName, static_cast<fds_uint32_t>(objectIndex)};
 
@@ -395,7 +394,7 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t offse
     Error rc = catalog_->Query(key, &value);
     if (!rc.ok()) {
         LOGNOTIFY << "Failed to get oid for offset: '" << std::hex << offset << std::dec
-                << "' blob: '" << blobName << "' volume: '" << std::hex << volId_ <<
+                  << "' blob: '" << blobName << "' volume: '" << std::hex << volId_ <<
                 std::dec << "'";
         return rc;
     }
@@ -428,7 +427,7 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
     objList.reserve(endObjIndex - startObjIndex + 1);
     for (dbIt->Seek(static_cast<leveldb::Slice>(startKey));
          dbIt->Valid()
-         && catalog_->GetOptions().comparator->Compare(dbIt->key(), endSlice) <= 0;
+                 && catalog_->GetOptions().comparator->Compare(dbIt->key(), endSlice) <= 0;
          dbIt->Next()) {
         BlobObjectKey key { dbIt->key() };
 
@@ -451,7 +450,7 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
 }
 
 Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t startOffset,
-        fds_uint64_t endOffset, BlobObjList & objList) {
+                                fds_uint64_t endOffset, BlobObjList & objList) {
     fds_assert(startOffset <= endOffset);
     fds_verify(0 == startOffset % objSize_);
     fds_verify(0 == endOffset % objSize_);
@@ -467,7 +466,7 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t start
     fds_assert(dbIt);
     for (dbIt->Seek(static_cast<leveldb::Slice>(startKey));
          dbIt->Valid()
-         && catalog_->GetOptions().comparator->Compare(dbIt->key(), endSlice) <= 0;
+                 && catalog_->GetOptions().comparator->Compare(dbIt->key(), endSlice) <= 0;
          dbIt->Next()) {
         BlobObjectKey key { dbIt->key() };
 
@@ -493,11 +492,9 @@ Error DmPersistVolDB::putVolumeMetaDesc(const VolumeMetaDesc & volDesc) {
         batch.Put(static_cast<leveldb::Slice>(key), value);
         rc = catalog_->Update(&batch);
         if (!rc.ok()) {
-            LOGERROR << "Failed to update metadata descriptor for volume: "
-                     << volDesc;
+            LOGERROR << "Failed to update metadata descriptor for vol:" << volId_;
         } else {
-            LOGNORMAL << "Successfully updated metadata descriptor for volume: "
-                      << volDesc;
+            LOGDEBUG << "Successfully updated metadata descriptor for vol:" << volId_;
         }
     }
 
@@ -505,7 +502,7 @@ Error DmPersistVolDB::putVolumeMetaDesc(const VolumeMetaDesc & volDesc) {
 }
 
 Error DmPersistVolDB::putBlobMetaDesc(const std::string & blobName,
-        const BlobMetaDesc & blobMeta) {
+                                      const BlobMetaDesc & blobMeta) {
     IS_OP_ALLOWED();
 
     BlobMetadataKey key {blobName};
@@ -519,7 +516,7 @@ Error DmPersistVolDB::putBlobMetaDesc(const std::string & blobName,
         rc = catalog_->Update(&batch);
         if (!rc.ok()) {
             LOGERROR << "Failed to update metadata for blob: '" << blobName << "' volume: '"
-                    << std::hex << volId_ << std::dec << "'";
+                     << std::hex << volId_ << std::dec << "'";
         }
     }
 
@@ -527,13 +524,13 @@ Error DmPersistVolDB::putBlobMetaDesc(const std::string & blobName,
 }
 
 Error DmPersistVolDB::putObject(const std::string & blobName, fds_uint64_t offset,
-        const ObjectID & obj) {
+                                const ObjectID & obj) {
     IS_OP_ALLOWED();
 
     fds_verify(0 == offset % objSize_);
 
     auto objectIndex = offset / objSize_;
-    fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
+    if (objectIndex > std::numeric_limits<fds_uint32_t>::max()) {return ERR_DM_OFFSET_OUT_RANGE;}
 
     BlobObjectKey key {blobName, static_cast<fds_uint32_t>(objectIndex)};
     leveldb::Slice const valRec(reinterpret_cast<char const*>(obj.GetId()), obj.GetLen());
@@ -560,7 +557,7 @@ Error DmPersistVolDB::putObject(const std::string & blobName, const BlobObjList 
         fds_verify(0 == it.first % objSize_);
 
         auto objectIndex = it.first / objSize_;
-        fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
+        if (objectIndex > std::numeric_limits<fds_uint32_t>::max()) {return ERR_DM_OFFSET_OUT_RANGE;}
 
         BlobObjectKey const key {blobName, static_cast<fds_uint32_t>(objectIndex)};
         leveldb::Slice const valRec(reinterpret_cast<const char *>(it.second.oid.GetId()),
@@ -572,14 +569,14 @@ Error DmPersistVolDB::putObject(const std::string & blobName, const BlobObjList 
     rc = catalog_->Update(&batch);
     if (!rc.ok()) {
         LOGERROR << "Failed to put blob: '" << blobName << "' volume: '" << std::hex
-                << volId_ << std::dec << "'";
+                 << volId_ << std::dec << "'";
     }
 
     return rc;
 }
 
 Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc & blobMeta,
-        const BlobObjList & puts, const std::vector<fds_uint64_t> & deletes) {
+                               const BlobObjList & puts, const std::vector<fds_uint64_t> & deletes) {
     IS_OP_ALLOWED();
 
     CatWriteBatch batch;
@@ -589,7 +586,7 @@ Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc 
         fds_verify(0 == it.first % objSize_);
 
         auto objectIndex = it.first / objSize_;
-        fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
+        if (objectIndex > std::numeric_limits<fds_uint32_t>::max()) {return ERR_DM_OFFSET_OUT_RANGE;}
 
         BlobObjectKey const key {blobName, static_cast<fds_uint32_t>(objectIndex)};
         leveldb::Slice const valRec(reinterpret_cast<const char *>(it.second.oid.GetId()),
@@ -602,7 +599,7 @@ Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc 
         fds_verify(0 == it % objSize_);
 
         auto objectIndex = it / objSize_;
-        fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
+        if (objectIndex > std::numeric_limits<fds_uint32_t>::max()) {return ERR_DM_OFFSET_OUT_RANGE;}
 
         BlobObjectKey const key {blobName, static_cast<fds_uint32_t>(objectIndex)};
         batch.Delete(static_cast<leveldb::Slice>(key));
@@ -614,7 +611,7 @@ Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc 
     Error rc = blobMeta.getSerialized(value);
     if (!rc.ok()) {
         LOGERROR << "Failed to update metadata for blob: '" << blobName << "' volume: '"
-                << std::hex << volId_ << std::dec << "'";
+                 << std::hex << volId_ << std::dec << "'";
         return rc;
     }
 
@@ -622,14 +619,14 @@ Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc 
     rc = catalog_->Update(&batch);
     if (!rc.ok()) {
         LOGERROR << "Failed to put blob: '" << blobName << "' volume: '" << std::hex
-                << volId_ << std::dec << "'";
+                 << volId_ << std::dec << "'";
     }
 
     return rc;
 }
 
 Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc & blobMeta,
-            CatWriteBatch & wb) {
+                               CatWriteBatch & wb) {
     IS_OP_ALLOWED();
 
     TIMESTAMP_OP(wb);
@@ -640,7 +637,7 @@ Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc 
     Error rc = blobMeta.getSerialized(value);
     if (!rc.ok()) {
         LOGERROR << "Failed to update metadata for blob: '" << blobName << "' volume: '"
-                << std::hex << volId_ << std::dec << "'";
+                 << std::hex << volId_ << std::dec << "'";
         return rc;
     }
 
@@ -648,7 +645,7 @@ Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc 
     rc = catalog_->Update(&wb);
     if (!rc.ok()) {
         LOGERROR << "Failed to put blob: '" << blobName << "' volume: '" << std::hex
-                << volId_ << std::dec << "'";
+                 << volId_ << std::dec << "'";
     }
 
     return rc;
@@ -658,7 +655,7 @@ Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t of
     // IS_OP_ALLOWED();
 
     auto objectIndex = offset / objSize_;
-    fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
+    if (objectIndex > std::numeric_limits<fds_uint32_t>::max()) {return ERR_DM_OFFSET_OUT_RANGE;}
 
     BlobObjectKey const key {blobName, static_cast<fds_uint32_t>(objectIndex)};
 
@@ -668,14 +665,14 @@ Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t of
     Error rc = catalog_->Update(&batch);
     if (!rc.ok()) {
         LOGERROR << "Failed to delete object at offset '" << std::hex << offset << std::dec
-                << "' of a blob: '" << blobName << "' volume: '" << std::hex << volId_ <<
+                 << "' of a blob: '" << blobName << "' volume: '" << std::hex << volId_ <<
                 std::dec << "'";
     }
     return rc;
 }
 
 Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t startOffset,
-        fds_uint64_t endOffset) {
+                                   fds_uint64_t endOffset) {
     // commenting this out to support snapshot delete
     // IS_OP_ALLOWED();
 
@@ -689,7 +686,7 @@ Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t st
         TIMESTAMP_OP(batch);
 
         auto objectIndex = i / objSize_;
-        fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
+        if (objectIndex > std::numeric_limits<fds_uint32_t>::max()) {return ERR_DM_OFFSET_OUT_RANGE;}
 
         key.setObjectIndex(static_cast<fds_uint32_t>(objectIndex));
         batch.Delete(static_cast<leveldb::Slice>(key));
@@ -697,7 +694,7 @@ Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t st
         rc = catalog_->Update(&batch);
         if (!rc.ok()) {
             LOGERROR << "Failed to delete object for blob: '" << blobName << "' volume: '"
-                << std::hex << volId_ << std::dec << "'";
+                     << std::hex << volId_ << std::dec << "'";
             break;
         }
     }
@@ -738,8 +735,8 @@ void DmPersistVolDB::forEachObject(std::function<void(const ObjectID&)> func) {
     fds_assert(dbIt);
     for (dbIt->Seek(BlobObjectKey(std::string()));
          dbIt->Valid()
-         && *reinterpret_cast<CatalogKeyType const*>(dbIt->key().data())
-         == CatalogKeyType::BLOB_OBJECTS;
+                 && *reinterpret_cast<CatalogKeyType const*>(dbIt->key().data())
+                 == CatalogKeyType::BLOB_OBJECTS;
          dbIt->Next())
     {
         leveldb::Slice dbKey = dbIt->key();

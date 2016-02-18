@@ -49,7 +49,7 @@
 #include <dm-tvc/TimeVolumeCatalog.h>
 #include <StatStreamAggregator.h>
 #include <DataMgrIf.h>
-
+#include <dmutil.h>
 #include <DmMigrationMgr.h>
 #include "util/ExecutionGate.h"
 
@@ -91,7 +91,9 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     * Callback for DMT close
     */
     DmtCloseCb sendDmtCloseCb;
-
+    SHPTR<dm::Handler> requestHandler;
+    void addToQueue(DmRequest*);
+    void addToQueue(std::function<void()>&& func, fds_volid_t volId = FdsDmSysTaskId);
     /**
      * DmIoReqHandler method implementation
      */
@@ -157,7 +159,7 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
      */
     Error getAllVolumeDescriptors();
 
-    Error process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
+    Error removeVolume(fds_volid_t vol_uuid, fds_bool_t check_only);
 
     /**
     * @brief Detach in any in memory state for the volume
@@ -320,6 +322,9 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     fds_bool_t testUturnStartTx;
     fds_bool_t testUturnSetMeta;
 
+    // DM user-repo disk fullness threshold to stop creating snapshots
+    fds_uint32_t dmFullnessThreshold = 75;
+
     /* Overrides from Module */
     virtual int  mod_init(SysParams const *const param) override;
     virtual void mod_startup() override;
@@ -445,27 +450,6 @@ class CloseDMTTimerTask : public FdsTimerTask {
   private:
     cbType timeout_cb;
 };
-
-namespace dmutil {
-// location of volume
-std::string getVolumeDir(const FdsRootDir* root,
-                         fds_volid_t volId, fds_volid_t snapId = invalid_vol_id);
-std::string getTempDir(const FdsRootDir* root = NULL, fds_volid_t volId = invalid_vol_id);
-// location of all snapshots for a volume
-std::string getSnapshotDir(const FdsRootDir* root, fds_volid_t volId);
-std::string getVolumeMetaDir(const FdsRootDir* root, fds_volid_t volId);
-std::string getLevelDBFile(const FdsRootDir* root, fds_volid_t volId, fds_volid_t snapId = invalid_vol_id);
-
-/**
-* @brief Returns list of volume id in dm catalog under FdsRootDir root
-*
-* @param root
-* @param vecVolumes
-*/
-void getVolumeIds(const FdsRootDir* root, std::vector<fds_volid_t>& vecVolumes);
-
-std::string getTimelineDBPath(const FdsRootDir* root);
-}  // namespace dmutil
 
 }  // namespace fds
 

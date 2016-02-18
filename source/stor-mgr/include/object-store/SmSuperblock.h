@@ -364,7 +364,7 @@ class SmSuperblockMgr {
     fds_uint64_t getDLTVersion();
 
     // check for disk state.
-    bool isDiskAlive(DiskId& diskId);
+    bool isDiskAlive(const DiskId& diskId);
     fds_bool_t doResync();
     void setResync();
     void resetResync();
@@ -399,9 +399,6 @@ class SmSuperblockMgr {
 
     void
     checkDisksAlive(DiskIdSet& newHDDs, DiskIdSet& newSSDs);
-
-    DiskIdSet
-    diffDiskSet(const DiskIdSet& diskSet1, const DiskIdSet& diskSet2);
 
     SmTokenSet getTokensOfThisSM(fds_uint16_t diskId);
 

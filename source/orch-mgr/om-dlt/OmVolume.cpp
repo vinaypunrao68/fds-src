@@ -252,6 +252,7 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>, public HasLog
     DEFINE_GUARD(GRD_VolOp);
     DEFINE_GUARD(GRD_DelSent);
     DEFINE_GUARD(GRD_QueueDel);
+    DEFINE_GUARD(GRD_CrtPendDel);
     DEFINE_GUARD(GRD_Detach);
     DEFINE_GUARD(GRD_DelDone);
 
@@ -264,6 +265,7 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>, public HasLog
         // +---------------------,---------------,----------------,----------------,---------------  , //NOLINT
         msf::Row< VST_Inactive   , VolCreateEvt  , VST_CrtPend    , VACT_NotifCrt  , GRD_NotifCrt>   , //NOLINT
         msf::Row< VST_CrtPend    , VolCrtOkEvt   , VST_Active     , VACT_CrtDone   , GRD_VolCrt  >   , //NOLINT
+	msf::Row< VST_CrtPend    , VolDeleteEvt  , VST_DelPend    , VACT_QueueDel  , GRD_CrtPendDel> , //NOLINT
         msf::Row< VST_Active     , VolOpEvt      , VST_Waiting    , VACT_VolOp     , GRD_VolOp   >   , //NOLINT
         msf::Row< VST_Waiting    , VolOpRespEvt  , VST_Active     , VACT_OpResp    , GRD_OpResp  >   , //NOLINT
         // +---------------------,---------------,----------------,----------------,---------------  , //NOLINT
@@ -622,6 +624,25 @@ bool VolumeFSM::GRD_QueueDel::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
     return (src.detach_ack_wait == 0);
 }
 
+template <class Evt, class Fsm, class SrcST, class TgtST>
+bool VolumeFSM::GRD_CrtPendDel::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
+{
+    STATELOG();
+    VolumeInfo* vol = evt.vol_ptr;
+    if (vol == NULL)
+    {
+        GLOGWARN << "GRD_CrtPendDel: VolumeInfo object is NULL, return false";
+        return false;
+    }
+
+    if (vol->isStateMarkedForDeletion())
+    {
+        GLOGDEBUG << "GRD_CrtPendDel, returning true";
+        return true;
+    }
+    return true;
+}
+
 /**
  * GRD_Detach
  * ------------
@@ -680,7 +701,13 @@ bool VolumeFSM::GRD_DelSent::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
     // that delete volume failed, all subsequent delete notify from other DMs
     // will be ignored
     if (!evt.chk_err.ok()) {
+	VolumeDesc* volDesc= vol->vol_get_properties();
+	if (volDesc->isSnapshot() && evt.chk_err == fds::ERR_VOL_NOT_FOUND) {
+		return true;
+	}
+
         src.del_chk_ack_wait = 0;
+
     } else if (src.del_chk_ack_wait == 0) {
         ret = true;
 
@@ -937,6 +964,12 @@ void VolumeInfo::initSnapshotVolInfo(VolumeInfo::pointer vol, const fpi::Snapsho
 void
 VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
 {
+    /*
+     * TODO make sure that for the time being both VolumeDesc and this method are updated together!
+     *
+     * We should deprecate the C++ version ( VolumeDesc ) and just use the thrift generated class.
+     */
+
     VolumeDesc *pVol;
 
     pVol                        = vol_properties;
@@ -951,6 +984,7 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
     pkt->volType                = pVol->volType;
 
     pkt->volPolicyId            = pVol->volPolicyId;
+    pkt->placementPolicy        = pVol->placementPolicy;
     pkt->iops_throttle          = pVol->iops_throttle;
     pkt->iops_assured           = pVol->iops_assured;
     pkt->rel_prio               = pVol->relativePrio;
@@ -960,9 +994,12 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
     pkt->srcVolumeId            = pVol->srcVolumeId.get();
     pkt->contCommitlogRetention = pVol->contCommitlogRetention;
     pkt->timelineTime           = pVol->timelineTime;
+    pkt->createTime             = pVol->createTime;
     pkt->state                  = pVol->getState();
+
     pkt->iscsi                  = pVol->iscsiSettings;
     pkt->nfs                    = pVol->nfsSettings;
+    pkt->coordinator            = pVol->coordinator;
 }
 
 // vol_fmt_message

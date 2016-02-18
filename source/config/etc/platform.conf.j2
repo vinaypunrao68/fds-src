@@ -30,6 +30,8 @@ fds: {
 
     	    /* Volume grouping allows IO to volumes to driven by a coordinator at AM */
     	    enable_volumegrouping = {{ ft_enable_volumegrouping }}
+            /* If volume grouping mode is on, calculate 1 DMT version once # of DMs have matched */
+	    volumegrouping_dm_cluster_size = {{ ft_dm_cluster_size }}
 
     	    /* applies to OM and XDI web toolkit */
             enable_web_logging_request_wrapper = {{ ft_enable_web_logging_request_wrapper }}
@@ -78,6 +80,8 @@ fds: {
            enable_influxdb_query_series_per_volume = {{ ft_enable_influxdb_query_series_per_volume }}
 
            ignore_failed_svcs = {{ ft_ignore_failed_svcs }}
+
+           use_shared_queryhelper = {{ ft_use_shared_queryhelper }}
         }
     }
 
@@ -131,12 +135,6 @@ fds: {
                 results_option = "--xml-file="
                 results_suffix = ".%p.memcheck"
 	   }
-        }
-
-        /* volume grouping options */
-        volume_group: {
-            /* If volume grouping mode is on, calculate 1 DMT version once # of DMs have matched */
-            dm_cluster_size = 4
         }
     }
 
@@ -259,6 +257,7 @@ fds: {
         number_of_primary = 2
         req_serialization = {{ dm_req_serialization }}
         realtime_stats_sampling = {{ dm_realtime_stats_sampling }}
+	disk_fullness_threshold = {{ dm_disk_fullness_threshold }}
 
         /* process id */
         id      = "dm"

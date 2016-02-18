@@ -139,7 +139,7 @@ class ObjectStore : public Module, public boost::noncopyable {
     void initObjectStoreMediaErrorHandlers();
 
     // cleanup old meta dbs and token files for tokens moved to a new disk/node.
-    void movedTokensFileCleanup();
+    void movedTokensFileCleanup(SmTokenSet tokenSet=SmTokenSet());
 
     /// returns ERR_OK if Object Store is available for IO
     Error checkAvailability() const;
@@ -333,6 +333,8 @@ class ObjectStore : public Module, public boost::noncopyable {
                            const DiskId& dId,
                            const diskio::DataTier& diskType,
                            const TokenDiskIdPairSet& tokenDiskPairs);
+
+    bool duplicateDiskMap();
 
     void handleNewDiskMap();
 

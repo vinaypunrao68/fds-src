@@ -82,6 +82,7 @@ var en_US = {
         l_year: 'Year',
         l_second: 'Second',
         l_minute: 'Minute',
+        l_hour: 'Hour',
         l_milli: 'Millisecond',
         
         bytes: 'bytes',
@@ -209,6 +210,7 @@ var en_US = {
         th_priority: 'Priority',
         th_used_limit: 'Used/Limit',
         th_volume_usage: 'Usage',
+        err_name: 'Volume name must contain at least one character and no whitespaces.',
         
         tt_volume_name: 'Volume name',
         tt_tenant_name: 'Tenant name',
@@ -221,7 +223,8 @@ var en_US = {
         title_volumes_by_type: 'Number of Volumes by Connector Type',
         
         iscsi: {
-            l_incoming_users: 'Incoming Credentials'
+            l_incoming_users: 'Incoming Credentials',
+            err_chap_error: 'Password must be between 12 and 16 characters'
         },
         
         nfs: {
@@ -231,7 +234,8 @@ var en_US = {
             l_async: 'Asynchronous',
             l_root_squash: 'Root Squash',
             l_acls: 'Use ACLs',
-            l_add_filter: 'Add Filter'
+            l_add_filter: 'Add Filter',
+            err_ip_filter: 'An IP filter without spaces is required. If none is present, * will be used.'
         },
         
         view : {

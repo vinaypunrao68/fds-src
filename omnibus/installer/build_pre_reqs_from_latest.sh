@@ -6,6 +6,9 @@ then
     exit 1;
 fi
 
+# override the version with nightly if given.
+nightly="${2}"
+
 #first make it so the path we're in is fds-src/omnibus/installer
 
 location="${PWD##*/}"
@@ -39,7 +42,7 @@ mkdir -p ../omnibus-rabbitmq-c/pkg
 mkdir -p ../omnibus-simpleamqpclient/pkg
 mkdir -p ../omnibus-fds-stats-client-c/pkg
 
-apt-get download fds-stats-service-1.0.0
+apt-get download fds-stats-service-2.0.0
 [[ $? -ne 0 ]] && echo 'Failure downloading the fds-stats-service from apt repo' && exit 99
 mv fds-stats-service*.deb ../omnibus-fds-stats-service/pkg
 
@@ -55,7 +58,7 @@ apt-get download simpleamqpclient-0.7.1
 [[ $? -ne 0 ]] && echo 'Failure downloading the simpleamqpclient package from apt repo' && exit 99
 mv simpleamqpclient*.deb ../omnibus-simpleamqpclient/pkg
 
-apt-get download fds-stats-client-c-1.0.0
+apt-get download fds-stats-client-c-2.0.0
 [[ $? -ne 0 ]] && echo 'Failure downloading the fds-stats-client-c package from apt repo' && exit 99
 mv fds-stats-client-c*.deb ../omnibus-fds-stats-client-c/pkg
 
@@ -65,6 +68,11 @@ then
     echo "Uploading the platform and fds-deps packages to artifactory"
     ./deploy_artifacts.sh
     cd ../omnibus/installer
+fi
+
+if [[ ${#nightly} -gt 0 ]]
+then
+    echo "${nightly}" > ../VERSION
 fi
 
 echo "Building the offline installer."

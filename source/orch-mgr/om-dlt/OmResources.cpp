@@ -586,6 +586,7 @@ NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
         // to cluster map (but make them not pending in cluster map
         // because they are already in DLT), so that we will not try to update DLT
         // with those nodes again
+        LOGDEBUG << "NodeDomainFSM DACT_NodesUp: updating SM nodes in cluster map";
         OM_SmContainer::pointer smNodes = local->om_sm_nodes();
         NodeList addNodes, rmNodes;
         smNodes->om_splice_nodes_pend(&addNodes, &rmNodes, src.sm_up);
@@ -602,6 +603,7 @@ NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
         // to cluster map (but make them not pending in cluster map
         // because they are already in DMT), so that we will not try to update DMT
         // with those nodes again
+        LOGDEBUG << "NodeDomainFSM DACT_NodesUp: updating DM nodes in cluster map";
         OM_DmContainer::pointer dmNodes = local->om_dm_nodes();
         addNodes.clear();
         rmNodes.clear();
@@ -938,6 +940,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 bool
 NodeDomainFSM::GRD_DltDmtUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
+    LOGNOTIFY << "NodeDomainFSM::GRD_DltDmtUp";
     fds_bool_t b_ret = false;
     
     try {
@@ -1358,7 +1361,7 @@ OM_NodeDomainMod::mod_init(SysParams const *const param)
     om_test_mode = conf_helper.get<bool>("test_mode");
     om_locDomain->om_init_domain();
     dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
-                             get<uint32_t>("fds.common.volume_group.dm_cluster_size", 1));
+                             get<uint32_t>("fds.feature_toggle.common.volumegrouping_dm_cluster_size", 1));
     return 0;
 }
 
@@ -1590,9 +1593,6 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                      << "persistent state and restart cluster again";
             return err;
         }
-        fds_verify((sm_services.size() == 0 && dm_services.size() == 0) ||
-                   (sm_services.size() > 0 && dm_services.size() > 0));
-
     }
 
     if (( sm_services.size() > 0) || (dm_services.size() > 0)) {
@@ -3452,7 +3452,7 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
         dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
     } else {
         auto dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
-                                        get<uint32_t>("fds.common.volume_group.dm_cluster_size", 1));
+                                        get<uint32_t>("fds.feature_toggle.common.volumegrouping_dm_cluster_size", 1));
         if ((!dmClusterPresent()) && (awaitingDMs == dmClusterSize)) {
             LOGNOTIFY << "Volume Group Mode has reached quorum with " << dmClusterSize
                     << " DMs. Calculating DMT now.";

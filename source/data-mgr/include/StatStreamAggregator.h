@@ -5,15 +5,17 @@
 #define SOURCE_DATA_MGR_INCLUDE_STATSTREAMAGGREGATOR_H_
 
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
-#include <util/Log.h>
-#include <fds_error.h>
-#include <concurrency/RwLock.h>
-#include <fds_module.h>
-#include <PerfHistory.h>
-#include <fdsp/fds_stream_types.h>
+#include "StatDataPoint.h"
+
+#include "concurrency/RwLock.h"
+#include "fdsp/fds_stream_types.h"
+#include "util/Log.h"
+#include "fds_error.h"
+#include "fds_module.h"
+#include "PerfHistory.h"
 
 namespace fds {
 
@@ -43,6 +45,13 @@ class StatStreamTimerTask : public FdsTimerTask {
     fpi::StatStreamRegistrationMsgPtr reg_;
     StatStreamAggregator & statStreamAggr_;
     std::unordered_map<fds_volid_t, fds_uint64_t> vol_last_rel_sec_;
+
+    static StatDataPoint newStatDataPoint (int64_t timestamp,
+                                           std::string const& name,
+                                           double value,
+                                           int64_t slotSeconds,
+                                           int64_t volumeId,
+                                           AggregationType aggregation);
 };
 
 /**
