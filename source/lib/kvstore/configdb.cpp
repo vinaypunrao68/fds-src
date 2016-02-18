@@ -2712,6 +2712,12 @@ fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
                  << " uuid: " << std::hex << svc_uuid << std::dec;
 
         Reply reply = kv_store.hget( "svcmap", uuid.str().c_str() ); //NOLINT
+<<<<<<< HEAD
+=======
+        /*
+         * the reply.isValid() always == true, because its not NULL
+         */
+>>>>>>> 1c135a8fccf219b1282f008d27df2acbc0c7791b
         if ( !reply.isNil() )
         {
             std::string value = reply.getString();

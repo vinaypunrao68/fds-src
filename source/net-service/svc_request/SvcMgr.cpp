@@ -251,16 +251,17 @@ int SvcMgr::mod_init(SysParams const *const p)
 
     svcRequestHandler_->setTaskExecutor(taskExecutor_);
     Error e = startServer();
+
+    if (MODULEPROVIDER()->get_cntrs_mgr() != nullptr) {
+        stateProviderId = "svcmgr";
+        MODULEPROVIDER()->get_cntrs_mgr()->add_for_export(this);
+    }
+
     return e.getFdspErr();
 }
 
 void SvcMgr::mod_startup()
 {
-    if (MODULEPROVIDER()->get_cntrs_mgr() != nullptr) {
-        stateProviderId = "svcmgr";
-        MODULEPROVIDER()->get_cntrs_mgr()->add_for_export(this);
-    }
-    
     GLOGNOTIFY;
 }
 
@@ -871,16 +872,7 @@ SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr &current, const fpi::SvcI
         LOGWARN << "Allowing update with zero incarnatioNo! Should never come to this";
         ret = true;
     } else {
-
-        if (current->incarnationNo < incoming->incarnationNo)
-        {
-            LOGWARN << "Criteria not met: Incoming update has a lower incarnationNo than current record";
-        } else if ((current->incarnationNo == incoming->incarnationNo) &&
-                   (current->svc_status == incoming->svc_status) ) {
-            LOGWARN << "Criteria not met: Incoming update has the same incarnation & same status as current record";
-        } else {
-            LOGWARN << "Criteria not met, will not update svcMgr for now";
-        }
+        LOGDEBUG << "Criteria not met, will not allow update of svcMap";
     }
 
     return (ret);
