@@ -209,9 +209,20 @@ public class OMConfigServiceRestClientv08Impl implements OMConfigServiceClient {
     public void deleteVolume(AuthenticationToken token, final String domainName, final String volumeName)
         throws OMConfigException {
 
+        // rest call here is going to get all volumes and search for the requested one.  If you
+        // can acess the volume id outside of this and call deleteVolume directly with that id,
+        // it will be much more efficient.
+        VolumeDescriptor vd = statVolume(token, domainName, volumeName);
+
+        deleteVolume(token, vd.getVolId() );
+    }
+
+    public void deleteVolume(AuthenticationToken token, final Long volumeId)
+        throws OMConfigException {
+
         final ClientResponse response =
             webResource().path( volumesUrl )
-                         .path(volumeName)
+                         .path( Long.toString( volumeId ) )
                          .type( MediaType.APPLICATION_JSON_TYPE )
                          .header( FDS_AUTH_HEADER, getToken(token) )
                          .delete( ClientResponse.class );

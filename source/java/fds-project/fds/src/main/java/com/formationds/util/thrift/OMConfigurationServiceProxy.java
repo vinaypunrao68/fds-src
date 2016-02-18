@@ -9,6 +9,7 @@ import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.security.AuthenticationToken;
 import org.apache.log4j.Logger;
+import org.apache.thrift.TException;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
@@ -243,11 +244,18 @@ public class OMConfigurationServiceProxy implements InvocationHandler {
                                        Arrays.toString(args)));
         }
 
+        AuthenticationToken token = AuthenticatedRequestContext.getToken();
+        String domain = (String)args[0];
+        String name = (String)args[1];
         try {
-            AuthenticationToken token = AuthenticatedRequestContext.getToken();
-            String domain = (String)args[0];
-            String name = (String)args[1];
-            getRestClient().deleteVolume(token, domain, name);
+            if ( omConfigServiceClient instanceof OMConfigServiceRestClientv08Impl ) {
+                Long volumeId = configurationService.getVolumeId( name );
+                ((OMConfigServiceRestClientv08Impl)getRestClient()).deleteVolume( token, volumeId );
+            } else {
+                getRestClient().deleteVolume(token, domain, name);
+            }
+        } catch (TException te) {
+            throw new OMConfigException("Failed to load volume id for volume=" + name);
         } finally {
             if (logger.isTraceEnabled()) {
                 logger.trace(String.format( "CONFIGPROXY::HTTP::%-9s %s(%s)",
