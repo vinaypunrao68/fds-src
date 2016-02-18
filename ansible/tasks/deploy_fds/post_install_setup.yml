@@ -70,21 +70,21 @@
     environment:
         PATH: /opt/fds-deps/embedded/sbin:{{ ansible_env.PATH }}
     shell: ./fdsinstall.py -o 5 -o 3  chdir=/root
-    when: (clean_fds is defined and clean_fds == "yes") and (force is defined and force == "yes") and (fds_ft_enable_disk_activation is not defined or fds_ft_enable_disk_activation == "false") and (fds_ft_platform_use_new_superblock is not defined or fds_ft_platform_use_new_superblock == "false")
+    when: (clean_fds is defined and clean_fds == "yes") and (fds_ft_enable_disk_activation is not defined or fds_ft_enable_disk_activation == "false") and (fds_ft_platform_use_new_superblock is not defined or fds_ft_platform_use_new_superblock == "false")
     tags:
         - post-install
 
 # OLD SUPER BLOCK LOCATION and manual disk selection using disk_activation
 -   name: manual selection and format disks
     pause: prompt="please select and format disks using [/fds/bin/fds-disk --select] and format [/fds/bin/fds-disk --format]"
-    when: (clean_fds is defined and clean_fds == "yes") and (force is defined and force == "yes") and (fds_ft_enable_disk_activation is defined and fds_ft_enable_disk_activation == "true") and (fds_ft_platform_use_new_superblock is not defined or fds_ft_platform_use_new_superblock == "false")
+    when: (clean_fds is defined and clean_fds == "yes") and (fds_ft_enable_disk_activation is defined and fds_ft_enable_disk_activation == "true") and (fds_ft_platform_use_new_superblock is not defined or fds_ft_platform_use_new_superblock == "false")
     tags:
         - post-install
 
 # NEW Super Block , disk detection
 -   name: Automatic disk identification
     command: /fds/bin/disk_id.py -w
-    when: (clean_fds is defined and clean_fds == "yes") and (force is defined and force == "yes") and (fds_ft_platform_use_new_superblock is defined ) and (fds_ft_platform_use_new_superblock == "true")
+    when: (clean_fds is defined and clean_fds == "yes") and (fds_ft_platform_use_new_superblock is defined ) and (fds_ft_platform_use_new_superblock == "true")
     tags:
         - post-install
 
@@ -93,7 +93,7 @@
     pause: prompt="Please examine /fds/dev/disk-config.conf on each node in your cluster, verify correctness and update as necessary for this deployment............  When you have completed the inspection, please return here and press enter to finish the deployment"
 
     any_errors_fatal: true
-    when: (clean_fds is defined and clean_fds == "yes") and (force is defined and force == "yes") and (fds_ft_platform_use_new_superblock is defined ) and (fds_ft_platform_use_new_superblock == "true") and (auto_disk_id is not defined or auto_disk_id == "false")
+    when: (clean_fds is defined and clean_fds == "yes") and (fds_ft_platform_use_new_superblock is defined ) and (fds_ft_platform_use_new_superblock == "true") and (auto_disk_id is not defined or auto_disk_id == "false")
     tags:
         - post-install
 
@@ -101,7 +101,7 @@
 -   name: Formatting disks for use by Formation One
     command: /fds/bin/disk_format.py --format --reset
     any_errors_fatal: true
-    when: (clean_fds is defined and clean_fds == "yes") and (force is defined and force == "yes") and (fds_ft_platform_use_new_superblock is defined ) and (fds_ft_platform_use_new_superblock == "true")
+    when: (clean_fds is defined and clean_fds == "yes") and (fds_ft_platform_use_new_superblock is defined ) and (fds_ft_platform_use_new_superblock == "true")
     tags:
         - post-install
 

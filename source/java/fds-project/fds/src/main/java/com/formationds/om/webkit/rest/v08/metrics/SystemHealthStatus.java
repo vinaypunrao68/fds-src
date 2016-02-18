@@ -22,14 +22,12 @@ import com.formationds.commons.model.calculated.capacity.CapacityToFull;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.Metrics;
-import com.formationds.commons.model.type.StatOperation;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.redis.RedisSingleton;
 import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.QueryHelper;
-import com.formationds.om.repository.helper.SeriesHelper;
 import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria.QueryType;
 import com.formationds.om.repository.query.builder.MetricQueryCriteriaBuilder;
@@ -315,7 +313,7 @@ public class SystemHealthStatus implements RequestHandler {
 //        final List<IVolumeDatapoint> queryResults = (List<IVolumeDatapoint>) metricsRepository.query( query );
 
         // has some helper functions we can use for calculations
-        QueryHelper qh = new QueryHelper();
+        QueryHelper qh = QueryHelper.instance();
 
         /*
          * NOTE!!

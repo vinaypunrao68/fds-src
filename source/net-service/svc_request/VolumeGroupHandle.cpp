@@ -59,7 +59,7 @@ VolumeGroupHandle::VolumeGroupHandle(CommonModuleProviderIf* provider,
     groupSize_ = 0;
     quorumCnt_ = quorumCnt;
 
-    state_ = fpi::ResourceState::Unknown;
+    state_ = fpi::ResourceState::Unknown;   // same as closed
     groupId_ = volId.get();
     version_ = VolumeGroupConstants::VERSION_INVALID;
 
@@ -288,6 +288,8 @@ std::string VolumeGroupHandle::logString() const
         << " up:" << functionalReplicas_.size()
         << " sync:" << syncingReplicas_.size()
         << " down:" << nonfunctionalReplicas_.size()
+        << " opid:" << opSeqNo_
+        << " sequenceid:" << commitNo_
         << "] ";
     return ss.str();
 }
@@ -547,7 +549,17 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
                                              VolumeGroupRequest::Acks &successAcks)
 {
     ASSERT_SYNCHRONIZED();
-    GROUPHANDLE_FUNCTIONAL_CHECK();
+
+    /* Make sure we are not in the middle of open or prior open */
+    if (state_ == fpi::ResourceState::Unknown ||
+        state_ == fpi::ResourceState::Loading) {
+        LOGWARN << "VolumeGroupHandle not active: "
+            << logString()
+            << " Rejecting response from svcuuid: "
+            << SvcMgr::mapToSvcUuidAndName(srcSvcUuid)
+            << " opid: " << hdr.opId << " version: " << replicaVersion << inStatus;
+        return;
+    }
 
     LOGDEBUG << "svcuuid: " << SvcMgr::mapToSvcUuidAndName(srcSvcUuid)
         << " opid: " << hdr.opId << " version: " << replicaVersion << inStatus;
@@ -598,7 +610,12 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
         /* When replica isn't functional we don't expect subsequent IO to return with
          * success status
          */
-        fds_verify(inStatus != ERR_OK);
+        if (inStatus == ERR_OK) {
+            LOGWARN << "ERR_OK response from non-functional replica.  svcuuid: "
+                << SvcMgr::mapToSvcUuidAndName(srcSvcUuid)
+                << " opid: " << hdr.opId << " version: " << replicaVersion
+                << volumeHandle->logString();
+        }
     }
 }
 
