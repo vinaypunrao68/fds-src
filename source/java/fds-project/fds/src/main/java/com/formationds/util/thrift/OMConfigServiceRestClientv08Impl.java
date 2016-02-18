@@ -31,10 +31,10 @@ import java.util.Optional;
 /**
  * @author ptinius
  */
-// The v08 implementation is nearly identical to 
-// the original v07 api version, with the exception 
+// The v08 implementation is nearly identical to
+// the original v07 api version, with the exception
 // of the volume creation using the ExternalModelConverter
-// and the API paths.  This is intended to be loaded behind a 
+// and the API paths.  This is intended to be loaded behind a
 // a feature toggle and work side-by-side with existing
 // v07 api for now, with the expectation that it will soon
 // completely replace the v07 version.
@@ -152,7 +152,11 @@ public class OMConfigServiceRestClientv08Impl implements OMConfigServiceClient {
         vd.setTenantId( tenantId );
         vd.setPolicy( volumeSettings );
 
+        // use the model converter to create the v08 representation of the volume
         final Volume volume = ExternalModelConverter.convertToExternalVolume( vd, null );
+
+        // Set a default Qos Policy.  Without this, the OM handler will fail with
+        // an exception indicating that the Qos Policy is not valid (null)
         volume.setQosPolicy( QosPolicy.defaultPolicy() );
 
         final ClientResponse response =
@@ -234,17 +238,9 @@ public class OMConfigServiceRestClientv08Impl implements OMConfigServiceClient {
         }
 
         // or is not accessible by the user associated with the request
-        logger.debug("The specified volume ( " +
-                     volumeName +
-                     " ) does not exist.");
-
-        // TODO: remove
-        if (logger.isTraceEnabled()) {
-            logger.trace("Volume " +
-                         volumeName +
-                         " either does not exist or is not accessible by userid: " +
-                         token.getUserId() );
-        }
+        logger.debug( "The specified volume ({}) does not exist or is not accessible by userid {}",
+                      volumeName +
+                      token.getUserId() );
 
         // maintain consistency with previous implementation of XDI ConfigurationApi
         // and return null instead of throwing exception
@@ -256,13 +252,13 @@ public class OMConfigServiceRestClientv08Impl implements OMConfigServiceClient {
         if( !response.getClientResponseStatus()
                      .equals( ClientResponse.Status.OK ) ) {
 
-            logger.error( "ISOK::RESPONSE::" + response.toString() );
+            logger.error( "ISOK::RESPONSE::{}", response );
 
             throw new OMConfigException( response.toString() );
 
         } else {
 
-            logger.debug( "ISOK::RESPONSE::" + response.toString() );
+            logger.debug( "ISOK::RESPONSE::{}", response );
         }
     }
 

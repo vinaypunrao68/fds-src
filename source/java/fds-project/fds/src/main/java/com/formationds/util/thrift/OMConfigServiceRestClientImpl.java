@@ -1,8 +1,7 @@
 /*
- * Copyright (c) 2015 Formation Data Systems. All rights Reserved.
+ * Copyright (c) 2015-2016 Formation Data Systems. All rights Reserved.
  */
 package com.formationds.util.thrift;
-
 
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeSettings;
@@ -18,14 +17,12 @@ import com.formationds.commons.model.type.ConnectorType;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.util.SizeUnit;
 import com.google.common.base.Preconditions;
-import com.google.common.net.HostAndPort;
 import com.google.gson.reflect.TypeToken;
 import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.WebResource;
 import com.sun.jersey.api.client.config.DefaultClientConfig;
 import com.sun.jersey.api.uri.UriBuilderImpl;
-import org.apache.commons.httpclient.protocol.Protocol;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,7 +31,6 @@ import javax.ws.rs.core.MediaType;
 import java.lang.reflect.Type;
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -275,17 +271,9 @@ public class OMConfigServiceRestClientImpl implements OMConfigServiceClient {
         }
 
         // or is not accessible by the user associated with the request
-        logger.debug("The specified volume ( " +
-                     volumeName +
-                     " ) does not exist.");
-
-        // TODO: remove
-        if (logger.isTraceEnabled()) {
-            logger.trace("Volume " +
-                         volumeName +
-                         " either does not exist or is not accessible by userid: " +
-                         token.getUserId() );
-        }
+        logger.debug( "The specified volume ({}) does not exist or is not accessible by userid {}",
+                      volumeName +
+                      token.getUserId() );
 
         // maintain consistency with previous implementation of XDI ConfigurationApi
         // and return null instead of throwing exception
@@ -297,13 +285,13 @@ public class OMConfigServiceRestClientImpl implements OMConfigServiceClient {
         if( !response.getClientResponseStatus()
                      .equals( ClientResponse.Status.OK ) ) {
 
-            logger.error( "ISOK::RESPONSE::" + response.toString() );
+            logger.error( "ISOK::RESPONSE::{}", response );
 
             throw new OMConfigException( response.toString() );
 
         } else {
 
-            logger.debug( "ISOK::RESPONSE::" + response.toString() );
+            logger.debug( "ISOK::RESPONSE::{}", response );
         }
     }
 
