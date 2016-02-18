@@ -162,6 +162,7 @@
 {% set ft_enable_influxdb_query_series_per_volume = fds_ft_enable_influxdb_query_series_per_volume if fds_ft_enable_influxdb_query_series_per_volume is defined else 'false' %}
 {% set ft_ignore_failed_svcs                      = fds_ft_ignore_failed_svcs                      if fds_ft_ignore_failed_svcs                      is defined else 'true'  %}
 {% set ft_configsvc_rest_client_proxy_v08         = fds_ft_configsvc_rest_client_proxy_v08         if fds_ft_configsvc_rest_client_proxy_v08         is defined else 'true'  %}
+{% set ft_use_shared_queryhelper                  = fds_ft_use_shared_queryhelper                  if fds_ft_use_shared_queryhelper                  is defined else 'true'  %}
 {% set ft_send_to_new_stats_service               = fds_ft_send_to_new_stats_service               if fds_ft_send_to_new_stats_service               is defined else 'false' %}
 {#
     Java Options -- not stored in platform.conf, but rather in formation_env and ultimately in environment variables
