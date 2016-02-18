@@ -535,6 +535,7 @@ void VolumeMeta::cleanUpMigrationDestination(NodeUuid srcNodeUuid,
 
     /** volId and srcNodeUuid is there for formality */
     fds_assert(volId == vol_desc->volUUID);
+    fds_assert(isSynchronized());
     if (!err.ok()) {
         LOGERROR << "Cleaning up DmMigrationDest for vol: "
             << volId << " dest node: " << srcNodeUuid << " with error: " << err;
