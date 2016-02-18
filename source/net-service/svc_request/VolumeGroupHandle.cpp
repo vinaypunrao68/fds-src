@@ -610,7 +610,12 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
         /* When replica isn't functional we don't expect subsequent IO to return with
          * success status
          */
-        fds_verify(inStatus != ERR_OK);
+        if (inStatus == ERR_OK) {
+            LOGWARN << "ERR_OK response from non-functional replica.  svcuuid: "
+                << SvcMgr::mapToSvcUuidAndName(srcSvcUuid)
+                << " opid: " << hdr.opId << " version: " << replicaVersion
+                << volumeHandle->logString();
+        }
     }
 }
 
