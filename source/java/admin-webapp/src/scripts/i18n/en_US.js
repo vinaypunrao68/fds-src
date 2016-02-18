@@ -82,6 +82,7 @@ var en_US = {
         l_year: 'Year',
         l_second: 'Second',
         l_minute: 'Minute',
+        l_hour: 'Hour',
         l_milli: 'Millisecond',
         
         bytes: 'bytes',
