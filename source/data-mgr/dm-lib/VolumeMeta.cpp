@@ -589,7 +589,7 @@ void VolumeMeta::handleVolumegroupUpdate(DmRequest *dmRequest)
             << " current sequence id: " << getSequenceId()
             << " expected sequence id: " << request->reqMessage->group.lastCommitId;
         setState(fpi::Offline, " - VolumegroupUpdateHandler:sequence id mismatch");
-        // TODO(Rao): At this point we should trigger a sync
+        scheduleInitializer(false);
         return;
     }
     setOpId(request->reqMessage->group.lastOpId);

@@ -467,6 +467,14 @@ void DMSvcHandler::NotifyDMAbortMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMAbortMigration), *msg);
 }
 
+/**
+* Debug only command
+* Only inovke this call when you are certain volume doesn't have
+* any oustanding jobs/operations running.
+*
+* @param hdr
+* @param queryMsg
+*/
 void
 DMSvcHandler::handleDbgForceVolumeSyncMsg(SHPTR<fpi::AsyncHdr>& hdr,
                                           SHPTR<fpi::DbgForceVolumeSyncMsg> &queryMsg)
@@ -486,11 +494,7 @@ DMSvcHandler::handleDbgForceVolumeSyncMsg(SHPTR<fpi::AsyncHdr>& hdr,
 
     /* Execute under synchronized context */
     auto func = volMeta->makeSynchronized([volMeta, cb]() {
-            if (volMeta->getState() != fpi::Offline) {
-                LOGWARN << "Force sync failed.  Volume is not offline." << volMeta->logString();
-                cb(ERR_INVALID);
-                return;
-            } else if (!volMeta->isCoordinatorSet()) {
+            if (!volMeta->isCoordinatorSet()) {
                 LOGWARN << "Force sync failed.  Volume coordinator is not set."
                 << volMeta->logString();
                 cb(ERR_INVALID);
@@ -500,7 +504,11 @@ DMSvcHandler::handleDbgForceVolumeSyncMsg(SHPTR<fpi::AsyncHdr>& hdr,
                 cb(ERR_INVALID);
                 return;
             }
-            volMeta->startInitializer();
+
+            LOGNORMAL << "Doing a force sync volume.  Current state: " << volMeta->logString();
+
+            volMeta->setState(fpi::Offline, "force sync message");
+            volMeta->scheduleInitializer(true);
             cb(ERR_OK);
         });
     func();

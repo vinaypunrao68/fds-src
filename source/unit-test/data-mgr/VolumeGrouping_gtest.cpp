@@ -143,6 +143,10 @@ struct DmGroupFixture : BaseTestFixture {
         v1Desc = generateVolume(v1Id);
         omHandle.proc->addVolume(v1Id, v1Desc);
         for (uint32_t i = 0; i < dmGroup.size(); i++) {
+            e = dmGroup[i]->proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
+                                                                                 nullptr,
+                                                                                 DMT_COMMITTED);
+            ASSERT_TRUE(e == ERR_OK);
             e = dmGroup[i]->proc->getDataMgr()->addVolume("test1", v1Id, v1Desc.get());
             ASSERT_TRUE(e == ERR_OK);
             ASSERT_TRUE(dmGroup[i]->proc->getDataMgr()->\
@@ -315,6 +319,10 @@ TEST_F(DmGroupFixture, singledm) {
     Error e = amHandle.proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
                                                                             nullptr,
                                                                             DMT_COMMITTED);
+    ASSERT_TRUE(e == ERR_OK);
+    e = dmGroup[0]->proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
+                                                                         nullptr,
+                                                                         DMT_COMMITTED);
     ASSERT_TRUE(e == ERR_OK);
 
     /* Open without volume being add to DM.  Open should fail */
