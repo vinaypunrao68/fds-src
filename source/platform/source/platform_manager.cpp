@@ -970,6 +970,9 @@ namespace fds
 
                 switch (vectItem.svc_type)
                 {
+                    case fpi::FDSP_PLATFORM:
+                    break; // always sent by OM, ignore
+
                     case fpi::FDSP_ACCESS_MGR:
                     {
                         FDS_ProtocolInterface::SvcChangeReqInfo amChangeInfo;
@@ -1070,6 +1073,9 @@ namespace fds
 
                 switch (vectItem.svc_type)
                 {
+                    case fpi::FDSP_PLATFORM:
+                    break; // always sent by OM, ignore
+
                     case fpi::FDSP_ACCESS_MGR:
                     {
                         if (fpi::SERVICE_RUNNING == m_nodeInfo.bareAMState && fpi::SERVICE_RUNNING == m_nodeInfo.javaAMState)
@@ -1390,7 +1396,7 @@ namespace fds
                     {
                         LOGERROR << "Error sending signal (SIGKILL) to process" << pid << "; errno = " << errno;
                     }
-                    pidIter++;
+                    ++pidIter;
                 }
             }
         }
