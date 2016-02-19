@@ -6,7 +6,7 @@
         - { key: 'fs.file-max', value: '400000', state: 'present' }
         - { key: 'kernel.core_uses_pid', value: '1', state: 'present' }
         - { key: 'fs.suid_dumpable', value: '1', state: 'present' }
-        - { key: 'kernel.core_pattern', value: '/corefiles/%e-%p-%u-%t.core', state: 'present' }
+        - { key: 'kernel.core_pattern', value: '/fds/var/log/corefiles/%e-%p-%u-%t.core', state: 'present' }
     tags:
         - install-deps
 
@@ -36,13 +36,13 @@
     tags:
         - install-deps
 
--   name: ensure_corefiles_exists
+-   name: ensure corefiles does not exist
     file:
         path=/corefiles
         owner=root
         group=root
         mode=0755
-        state=directory
+        state=absent
     tags:
         - install-deps
 

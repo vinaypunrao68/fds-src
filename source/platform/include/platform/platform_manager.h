@@ -144,6 +144,9 @@ namespace fds
                 std::string                         m_javaXdiMainClassName;
                 std::string                         m_javaXdiJavaCmd;              // path to java command
 
+                std::mutex                          m_killedProcessesMutex;
+                std::vector <pid_t>                 m_killedProcesses;             // pids of previously killed processes to harvest the exit codes
+
                 void loadRedisKeyId();
                 void childProcessMonitor();
                 void startQueueMonitor();
@@ -158,6 +161,7 @@ namespace fds
                 void verifyAndMountFDSFileSystems();
                 void loadEnvironmentVariables();
                 void notifyDiskMapChange();
+                void waitForKilledProcesses();
         };
     }  // namespace pm
 }  // namespace fds

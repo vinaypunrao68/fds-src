@@ -17,25 +17,19 @@
     tags:
         - post-install
 
--   name: create /fds/dev directory
-    when: fds_ft_platform_use_new_superblock is defined and fds_ft_platform_use_new_superblock == "true"
-    file:
-        path=/fds/dev
-        state=directory
-        owner=root
-        group=root
-        mode=0755
-    tags:
-        - post-install
-
--   name: ensure fds/var/log directory exists
+-   name: ensure directory {{ item }} exists
     when: fds_ft_platform_use_new_superblock is defined and fds_ft_platform_use_new_superblock == "true"
     file:
         state=directory
-        path=/fds/var/log
+        path={{ item }}
         owner=root
         group=root
         mode=0755
+    with_items:
+        - /fds/dev
+        - /fds/var/log
+        - /fds/var/log/corefiles
+        - /fds/var/log/sfs
 
 -   name: create symlink for /fds/dev/logs
     when: fds_ft_platform_use_new_superblock is defined and fds_ft_platform_use_new_superblock == "true"
@@ -45,6 +39,28 @@
         dest=/fds/var/logs
         owner=root
         group=root
+
+-   name:  Check existance of virtual disk for core file storage
+    stat: path=/fds/var/log/sfs/loopmount_sparse_file_system_for_core_files
+    register: loopfs
+
+-   name: Create a sparse file to mount the virtual file system for core files
+    shell: dd if=/dev/null of=/fds/var/log/sfs/loopmount_sparse_file_system_for_core_files bs=1G seek=12
+    when: (loopfs.stat.exists == False) or
+          ((clean_fds is defined and clean_fds == "yes") and
+          (force is defined and force == "yes") and
+          (fds_ft_platform_use_new_superblock is defined and fds_ft_platform_use_new_superblock == "true"))
+    register: created_sparse
+    tags:
+        - post-install
+
+-   name: Format cores sparse file system
+    shell: mkfs.xfs -f /fds/var/log/sfs/loopmount_sparse_file_system_for_core_files
+    when: created_sparse.changed == True
+
+-   name: add fstab entry and mount cores sparse file system
+    mount: name=/fds/var/log/corefiles src=/fds/var/log/sfs/loopmount_sparse_file_system_for_core_files state=mounted fstype=xfs opts=loop
+    when: created_sparse.changed == True
 
 -   name: set local for error messages
     command: update-locale LC_MESSAGES=POSIX
@@ -219,6 +235,15 @@
     cron: name="compress logs" minute=49 hour=*/4
         user="root" job="find /fds/var/log -type f -size +50000000c -mmin +180 | /usr/bin/nice /usr/bin/xargs gzip --quiet --best >> /var/log/fds-gzip-cron.log"
         cron_file=fds-gzip-cron
+        state=absent
     tags:
         - post-install
 
+
+-   name: add cron job to gzip logs
+    cron: name="compress logs placed by ansible" minute=49 hour=*/4
+        user="root" job="/usr/bin/find /fds/var/log -type f -name '*log' -size +50000000c -mmin +180 | /usr/bin/nice /usr/bin/xargs gzip --quiet --best >> /var/log/fds-gzip-cron.log"
+        cron_file=fds-gzip-cron
+    tags:
+        - post-install
+#

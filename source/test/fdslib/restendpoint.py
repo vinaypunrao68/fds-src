@@ -8,6 +8,7 @@ import unittest
 import random
 import xml.etree.ElementTree as ET
 import time
+import copy
 from tabulate import tabulate
 from collections import OrderedDict
 import socket, struct
@@ -132,6 +133,21 @@ class RestEndpoint(object):
     # TODO(brian): add rest URL builder
     def build_path(self):
         pass
+
+class StatsEndpoint:
+    def __init__(self, rest):
+        self.rest = rest
+        self.rest_path = self.rest.base_path + '/fds/config/v08' + '/stats/volumes'
+        self.cmddata={'contexts': [], 'range': {'start': 0, 'end': 0}, 'seriesType': ['LBYTES']}
+
+    def getStats(self,series=[],start=0, end=0,contexts=[]):
+        cmddata=copy.copy(self.cmddata)
+        cmddata['contexts']=contexts
+        cmddata['range']['start'] = start
+        cmddata['range']['end'] = end if end > 0 else int(time.time())
+        cmddata['seriesType'] = series
+        res =  self.rest.put(self.rest_path, data=str(cmddata))
+        return self.rest.parse_result(res)
 
 class ServiceEndpoint:
 
