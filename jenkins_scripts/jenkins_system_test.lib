@@ -297,7 +297,12 @@ function check_xunit_errors
 
 function system_test_error
 {
-    message "EEEEE System Test problem(s) detected running ${1}"
+    scenario=${1}
+    message "EEEEE System Test problem(s) detected running ${scenario}"
+
+    check_xunit_errors ${scenario}
+    check_xunit_failures ${scenario}
+
     run_coroner 1
 }
 
@@ -314,10 +319,6 @@ function system_test_scenario_wrapper
     do_popd
 
     capture_process_list SysTest.${scenario}
-
-    check_xunit_errors ${scenario}
-    check_xunit_failures ${scenario}
-
     check_for_cores
 }
 
