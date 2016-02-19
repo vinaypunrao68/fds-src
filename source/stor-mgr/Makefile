@@ -36,7 +36,7 @@ user_non_fds_libs := \
     leveldb \
     ssl \
     crypto \
-    tcmalloc \
+    jemalloc \
     leveldb \
     sqlite3
 
