@@ -6,6 +6,7 @@
 #include <fdsp_utils.h>
 #include <fdsp/OMSvc.h>
 #include <fdsp/PlatNetSvc.h>
+#include "fdsp/common_constants.h"
 
 namespace fds{
 class SvcMapChecker : public SvcProcess
@@ -26,7 +27,9 @@ class SvcMapChecker : public SvcProcess
             auto client = allocRpcClient<fpi::PlatNetSvcClient>(
                                                 ip,
                                                 port,
-                                                1);
+                                                1,
+                                                fpi::commonConstants().PLATNET_SERVICE_NAME,
+                                                MODULEPROVIDER()->get_fds_config());
             client->getSvcMap(svcMap, nullarg);
             std::sort(svcMap.begin(), svcMap.end(), svcInfoComparator);
         } catch (...) {

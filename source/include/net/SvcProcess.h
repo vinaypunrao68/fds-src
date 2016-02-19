@@ -44,7 +44,8 @@ struct SvcProcess : FdsProcess, SvcServerListener {
                const std::string &def_log_file,
                fds::Module **mod_vec,
                PlatNetSvcHandlerPtr handler,
-               fpi::PlatNetSvcProcessorPtr processor);
+               fpi::PlatNetSvcProcessorPtr processor,
+               const std::string &strThriftServiceName);
     SvcProcess(int argc, char *argv[],
                bool initAsModule,
                const std::string &def_cfg_file,
@@ -52,7 +53,8 @@ struct SvcProcess : FdsProcess, SvcServerListener {
                const std::string &def_log_file,
                fds::Module **mod_vec,
                PlatNetSvcHandlerPtr handler,
-               fpi::PlatNetSvcProcessorPtr processor);
+               fpi::PlatNetSvcProcessorPtr processor,
+               const std::string &strThiftServiceName);
     virtual ~SvcProcess();
 
     /**
@@ -85,39 +87,59 @@ struct SvcProcess : FdsProcess, SvcServerListener {
               const std::string &def_log_file,
               fds::Module **mod_vec,
               PlatNetSvcHandlerPtr handler,
-              fpi::PlatNetSvcProcessorPtr processor);
+              fpi::PlatNetSvcProcessorPtr processor,
+              const std::string &strThriftServiceName);
     void init(int argc, char *argv[],
               const std::string &def_cfg_file,
               const std::string &base_path,
               const std::string &def_log_file,
               fds::Module **mod_vec,
               PlatNetSvcHandlerPtr handler,
-              fpi::PlatNetSvcProcessorPtr processor);
+              fpi::PlatNetSvcProcessorPtr processor,
+              const std::string &strThriftServiceName);
 
-    // XXX: Handler should be of type PlatNetSvcHandler and Processor
-    //      should be of type fpi::PlatNetSvcProcessor
+    /**
+     * Note on Thrift service compatibility:
+     * If a backward incompatible change arises, pass additional pairs of
+     * processor and Thrift service name to SvcProcess::init(). Similarly,
+     * if the Thrift service API wants to be broken up.
+     *
+     * @tparam Handler of type PlatNetSvcHandler
+     * @tparam Processor of type fpi::PlatNetSvcProcessor (or a subtype)
+     */
     template<typename Handler, typename Processor>
     void init(int argc, char *argv[],
               const std::string &def_cfg_file,
               const std::string &base_path,
               const std::string &def_log_file,
-              fds::Module **mod_vec) {
+              fds::Module **mod_vec,
+              const std::string &strThriftServiceName) {
         auto handler = boost::make_shared<Handler>(this);
         auto processor = boost::make_shared<Processor>(handler);
         init(argc, argv, false, def_cfg_file, base_path, def_log_file, mod_vec,
-                handler, processor);
+                handler, processor, strThriftServiceName);
     }
 
+    /**
+     * Note on Thrift service compatibility:
+     * If a backward incompatible change arises, pass additional pairs of
+     * processor and Thrift service name to SvcProcess::init(). Similarly,
+     * if the Thrift service API wants to be broken up.
+     *
+     * @tparam Handler of type PlatNetSvcHandler
+     * @tparam Processor of type fpi::PlatNetSvcProcessor (or a subtype)
+     */
     template<typename Handler, typename Processor>
     void init(int argc, char *argv[], bool initAsModule,
               const std::string &def_cfg_file,
               const std::string &base_path,
               const std::string &def_log_file,
-              fds::Module **mod_vec) {
+              fds::Module **mod_vec,
+              const std::string& strThriftServiceName) {
         auto handler = boost::make_shared<Handler>(this);
         auto processor = boost::make_shared<Processor>(handler);
         init(argc, argv, initAsModule, def_cfg_file, base_path, def_log_file, mod_vec,
-                handler, processor);
+                handler, processor, strThriftServiceName);
     }
 
     /**
@@ -174,7 +196,8 @@ struct SvcProcess : FdsProcess, SvcServerListener {
     * @param processor
     */
     virtual void setupSvcMgr_(PlatNetSvcHandlerPtr handler,
-                              fpi::PlatNetSvcProcessorPtr processor);
+                              fpi::PlatNetSvcProcessorPtr processor,
+                              const std::string &strThriftServiceName);
 
     /* TODO(Rao): Include persistence as well */
     boost::shared_ptr<SvcMgr> svcMgr_;

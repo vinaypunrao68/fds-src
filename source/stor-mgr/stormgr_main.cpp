@@ -6,6 +6,7 @@
 
 #include <SMSvcHandler.h>
 #include <net/SvcProcess.h>
+#include "fdsp/common_constants.h"
 
 class SMMain : public SvcProcess
 {
@@ -24,8 +25,12 @@ class SMMain : public SvcProcess
         };
 
         /* Init platform process */
+        // Note on Thrift service compatibility:
+        // If a backward incompatible change arises, pass additional pairs of
+        // processor and Thrift service name to SvcProcess::init(). Similarly,
+        // if the Thrift service API wants to be broken up.
         init<fds::SMSvcHandler, FDS_ProtocolInterface::SMSvcProcessor>(argc, argv, "platform.conf", "fds.sm.",
-                "sm.log", smVec);
+                "sm.log", smVec, fds::fpi::commonConstants().SM_SERVICE_NAME);
 
         /* setup signal handler */
         setupSigHandler();

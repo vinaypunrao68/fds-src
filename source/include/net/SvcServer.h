@@ -13,8 +13,10 @@
 #include <concurrency/Mutex.h>
 #include <thrift/server/TServer.h>
 #include <thrift/TProcessor.h>
+#include <thrift/processor/TMultiplexedProcessor.h> /* For multiplexing different API versions on the same server. */
 #include <concurrency/taskstatus.h>
 #include <fds_error.h>
+#include <fds_module_provider.h>  /* For CommonModuleProviderIf. */
 
 /* Forward declarations */
 namespace apache { namespace thrift { namespace transport {
@@ -38,7 +40,7 @@ namespace ts = apache::thrift::server;
 namespace tt = apache::thrift::transport;
 
 /**
-* @brief Listerner inteface for SvcServer notifications 
+* @brief Listener interface for SvcServer notifications 
 */
 struct SvcServerListener {
     virtual void notifyServerDown(const Error &e) = 0;
@@ -51,7 +53,9 @@ struct SvcServer : boost::enable_shared_from_this<SvcServer>,
     apache::thrift::server::TServerEventHandler,
     apache::thrift::TProcessorEventHandler
 {
-    SvcServer(int port, fpi::PlatNetSvcProcessorPtr processor);
+    SvcServer(int port, boost::shared_ptr<at::TProcessor> currentProcessor,
+        const std::string &strThriftServiceName,
+        CommonModuleProviderIf *moduleProvider);
     virtual ~SvcServer();
 
 
@@ -113,6 +117,7 @@ struct SvcServer : boost::enable_shared_from_this<SvcServer>,
     void closeClientConnections_();
     
     int port_;
+    boost::shared_ptr<at::TMultiplexedProcessor> processor_;
     boost::shared_ptr<tt::TServerTransport> serverTransport_;
     boost::shared_ptr<ts::TServer> server_;
     std::unique_ptr<std::thread> serverThread_;

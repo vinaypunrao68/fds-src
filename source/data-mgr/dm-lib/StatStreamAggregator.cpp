@@ -10,6 +10,7 @@
 
 #include <StatsConnFactory.h>
 
+#include "fdsp/common_constants.h"
 #include "fdsp/fds_stream_types.h"
 #include "fdsp/Streaming.h"
 #include "net/SvcMgr.h"
@@ -1170,6 +1171,8 @@ void StatStreamTimerTask::runTimerTask() {
         } else {
             // XXX: hard-coded to bind to java endpoint in AM
             EpInvokeRpc(fpi::StreamingClient, publishMetaStream, info.ip, 8911,
+                    fpi::commonConstants().STREAMING_SERVICE_NAME,
+                    MODULEPROVIDER()->get_fds_config(),
                     reg_->id, dataPoints);
 
             if (newStatsServiceMetrics)

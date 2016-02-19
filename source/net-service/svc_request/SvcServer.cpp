@@ -4,7 +4,6 @@
 #include <arpa/inet.h>
 #include <util/Log.h>
 #include <fds_assert.h>
-#include <fdsp/PlatNetSvc.h>
 #include <thrift/server/TThreadedServer.h>
 #include <thrift/transport/TBufferTransports.h>
 #include <thrift/protocol/TBinaryProtocol.h>
@@ -12,6 +11,7 @@
 #include <thrift/transport/TServerSocket.h>
 #include <net/SvcServer.h>
 #include <fds_error.h>
+#include "fdsp/common_constants.h"
 
 namespace fds {
 
@@ -32,15 +32,40 @@ static std::string getTransportKey(
     return ret.str();
 }
 
-SvcServer::SvcServer(int port, fpi::PlatNetSvcProcessorPtr processor)
+SvcServer::SvcServer(int port, boost::shared_ptr<at::TProcessor> currentProcessor,
+    const std::string &strThriftServiceName, CommonModuleProviderIf *moduleProvider)
 {
     port_ = port;
     boost::shared_ptr<tp::TProtocolFactory>  proto(new tp::TBinaryProtocolFactory());
     serverTransport_.reset(new tt::TServerSocket(port));
     boost::shared_ptr<tt::TTransportFactory> tfact(new tt::TFramedTransportFactory());
 
-    server_ = boost::shared_ptr<ts::TThreadedServer>(
-        new ts::TThreadedServer(processor, serverTransport_, tfact, proto));
+    /**
+     * FEATURE TOGGLE: enable subscriptions (async replication)
+     * Mon Dec 28 16:51:58 MST 2015
+     */
+    bool enableSubscriptions = false;
+    if (moduleProvider) {
+        // The module provider might not supply the base path we want,
+        // so make our own config access. This is libConfig data, not
+        // to be confused with FDS configuration (platform.conf).
+        FdsConfigAccessor configAccess(moduleProvider->get_fds_config(), "fds.feature_toggle.");
+        enableSubscriptions = configAccess.get<bool>("common.enable_subscriptions", false);
+    }
+    if (enableSubscriptions) {
+        // Note on Thrift service compatibility:
+        // If a backward incompatible change arises, pass additional pairs of
+        // processor and Thrift service name to SvcProcess::init(). Similarly,
+        // if the Thrift service API wants to be broken up.
+        processor_.reset(new ::apache::thrift::TMultiplexedProcessor());
+        processor_->registerProcessor(strThriftServiceName, currentProcessor);
+        processor_->registerProcessor(fpi::commonConstants().PLATNET_SERVICE_NAME, currentProcessor);
+        server_ = boost::shared_ptr<ts::TThreadedServer>(
+            new ts::TThreadedServer(processor_, serverTransport_, tfact, proto));
+    } else {
+        server_ = boost::shared_ptr<ts::TThreadedServer>(
+            new ts::TThreadedServer(currentProcessor, serverTransport_, tfact, proto));
+    }
     stopped_ = true;
 }
 

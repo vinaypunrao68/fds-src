@@ -14,6 +14,7 @@
 #include <testlib/TestUtils.h>
 #include <net/VolumeGroupHandle.h>
 #include <boost/filesystem.hpp>
+#include "fdsp/common_constants.h"
 
 using ::testing::AtLeast;
 using ::testing::Return;
@@ -28,7 +29,7 @@ struct TestAm : SvcProcess {
         handler_ = MAKE_SHARED<PlatNetSvcHandler>(this);
         auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler_);
         init(argc, argv, initAsModule, "platform.conf",
-             "fds.am.", "am.log", nullptr, handler_, processor);
+             "fds.am.", "am.log", nullptr, handler_, processor, fpi::commonConstants().PLATNET_SERVICE_NAME);
         REGISTER_FDSP_MSG_HANDLER_GENERIC(handler_, \
                                           fpi::AddToVolumeGroupCtrlMsg, addToVolumeGroup);
     }

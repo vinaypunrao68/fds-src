@@ -19,6 +19,17 @@ const string CURRENT_XDI_VERSION = INITIAL_XDI_VERSION
 const i32 STAT_STREAM_FINE_GRAINED_FREQUENCY_SECONDS = 120
 const i32 STAT_STREAM_RUN_FOR_EVER_DURATION = -1
 
+/**
+ * Thrift service names used with multiplexed processor
+ */
+const string AM_SERVICE_NAME            = "AMSvc"
+const string CONFIGURATION_SERVICE_NAME = "ConfigurationService"
+const string DM_SERVICE_NAME            = "DMSvc"
+const string OM_SERVICE_NAME            = "OMSvc"
+const string PLATNET_SERVICE_NAME       = "PlatNetSvc"
+const string SM_SERVICE_NAME            = "SMSvc"
+const string STREAMING_SERVICE_NAME     = "Streaming"
+
 enum BlobListOrder {
     UNSPECIFIED = 0,
     LEXICOGRAPHIC,

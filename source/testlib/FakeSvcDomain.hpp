@@ -10,6 +10,7 @@
 #include <fds_process.h>
 #include <net/SvcMgr.h>
 #include <net/SvcProcess.h>
+#include "fdsp/common_constants.h"
 #include <fdsp_utils.h>
 #include <net/filetransferservice.h>
 
@@ -480,7 +481,7 @@ FakeSvc::FakeSvc(FakeSvcDomain *domain,
     /* Set up service layer */
     auto handler = boost::make_shared<PlatNetSvcHandler>(this);
     auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
-    setupSvcMgr_(handler, processor);
+    setupSvcMgr_(handler, processor, fpi::commonConstants().PLATNET_SERVICE_NAME);
     filetransfer = SHPTR<net::FileTransferService>(new net::FileTransferService(std::string("/tmp/ft-") + std::to_string(platformUuid),
                                                                                 getSvcMgr() ));
 }
@@ -522,7 +523,8 @@ FakeOm::FakeOm(FakeSvcDomain *domain, const std::string &configFile)
          "",
          nullptr,
          handler,
-         processor);
+         processor,
+         fpi::commonConstants().PLATNET_SERVICE_NAME);
 
     domain->omSvcUuid = getSvcMgr()->getSelfSvcUuid();
     domain->omPort = getSvcMgr()->getSvcPort();

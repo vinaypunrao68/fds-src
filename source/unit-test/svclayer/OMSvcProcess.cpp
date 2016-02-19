@@ -9,6 +9,7 @@
 #include <net/SvcMgr.h>
 #include <net/SvcRequestPool.h>
 #include <net/SvcProcess.h>
+#include "fdsp/common_constants.h"
 #include <fdsp_utils.h>
 #include <OMSvcProcess.h>
 // #include <OMSvcHandler2.h>
@@ -97,7 +98,7 @@ void OMSvcProcess::init(int argc, char *argv[])
 
     /* Set up process related services such as logger, timer, etc. */
     SvcProcess::init(argc, argv, "platform.conf", "fds.om.",
-                     "om.log", nullptr, handler, processor);
+        "om.log", nullptr, handler, processor, fpi::commonConstants().OM_SERVICE_NAME);
 }
 
 void OMSvcProcess::registerSvcProcess()

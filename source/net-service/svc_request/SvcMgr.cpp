@@ -8,6 +8,8 @@
 #include <concurrency/Mutex.h>
 #include <arpa/inet.h>
 #include <thrift/protocol/TBinaryProtocol.h>
+#include <thrift/protocol/TMultiplexedProtocol.h>
+#include "fdsp/common_constants.h"
 #include <fdsp/PlatNetSvc.h>
 #include <fdsp/health_monitoring_api_types.h>
 #include <net/PlatNetSvcHandler.h>
@@ -58,14 +60,41 @@ std::string logDetailedString(const FDS_ProtocolInterface::SvcInfo &info)
     return ss.str();
 }
 
-template<class T>
-boost::shared_ptr<T> allocRpcClient(const std::string &ip, const int &port,
-                                    const int &retryCnt)
+/**
+ * Conditionally (guarded by feature toggle) creates multiplexed service.client.
+ * Multiplexed servers enable us to break up existing large services.
+ * Multiplexed servers enable the introduction of new services for an IP/port
+ * when a change to an existing service would be backward incompatible.
+ */
+template<class ClientT>
+boost::shared_ptr<ClientT> allocRpcClient(const std::string &ip, const int &port,
+    const int &retryCnt,
+    const std::string &strThriftServiceName,
+    const boost::shared_ptr<FdsConfig> plc)
 {
     auto sock = bo::make_shared<net::Socket>(ip, port);
     auto trans = bo::make_shared<tt::TFramedTransport>(sock);
     auto proto = bo::make_shared<tp::TBinaryProtocol>(trans);
-    boost::shared_ptr<T> client = bo::make_shared<T>(proto);
+    boost::shared_ptr<ClientT> client;
+    if (plc) {
+        // The module provider might not supply the base path we want,
+        // so make our own config access. This is libConfig data, not
+        // to be confused with FDS configuration (platform.conf).
+        FdsConfigAccessor configAccess(plc, "fds.feature_toggle.");
+        /**
+         * FEATURE TOGGLE: enable subscriptions (async replication)
+         * Mon Dec 28 16:51:58 MST 2015
+         */
+        bool enableSubscriptions = configAccess.get<bool>("common.enable_subscriptions", false);
+        if (enableSubscriptions) {
+            boost::shared_ptr<::apache::thrift::protocol::TMultiplexedProtocol> multiproto =
+                boost::make_shared<tp::TMultiplexedProtocol>(proto, strThriftServiceName);
+            client = bo::make_shared<ClientT>(multiproto);
+        }
+    }
+    if (!client) {
+        client = bo::make_shared<ClientT>(proto);
+    }
     bool bConnected = sock->connect(retryCnt);
     if (!bConnected) {
         GLOGWARN << "Failed to connect to ip: " << ip << " port: " << port;
@@ -73,21 +102,33 @@ boost::shared_ptr<T> allocRpcClient(const std::string &ip, const int &port,
     }
     return client;
 }
+/*********************************************************************************
+ * Explicit template instantiations
+ ********************************************************************************/
 template
 boost::shared_ptr<fpi::PlatNetSvcClient> allocRpcClient<fpi::PlatNetSvcClient>(
     const std::string &ip, const int &port,
-    const int &retryCnt);
+    const int &retryCnt, const std::string &strServiceName,
+    const boost::shared_ptr<FdsConfig> plc);
+// Adding a new service method is a backward compatible change.
+// If an old client stub is used, the consumer code can not even know about
+// the new service method. If a new client stub is used against an older
+// server, 'invalid method name' is raised.
 template
 boost::shared_ptr<fpi::OMSvcClient> allocRpcClient<fpi::OMSvcClient>(
     const std::string &ip, const int &port,
-    const int &retryCnt);
+    const int &retryCnt, const std::string &strServiceName,
+    const boost::shared_ptr<FdsConfig> plc);
 template
 boost::shared_ptr<fpi::StreamingClient> allocRpcClient<fpi::StreamingClient>(
     const std::string &ip, const int &port,
-    const int &retryCnt);
+    const int &retryCnt, const std::string &strServiceName,
+    const boost::shared_ptr<FdsConfig> plc);
 template
-boost::shared_ptr<apis::ConfigurationServiceClient> allocRpcClient<apis::ConfigurationServiceClient>(const std::string &ip, const int &port,
-    const int &retryCnt);
+boost::shared_ptr<apis::ConfigurationServiceClient> allocRpcClient<apis::ConfigurationServiceClient>(
+    const std::string &ip, const int &port,
+    const int &retryCnt, const std::string &strServiceName,
+    const boost::shared_ptr<FdsConfig> plc);
 
 /*********************************************************************************
  * class methods
@@ -99,7 +140,8 @@ std::size_t SvcUuidHash::operator()(const fpi::SvcUuid& svcId) const {
 SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
                PlatNetSvcHandlerPtr handler,
                fpi::PlatNetSvcProcessorPtr processor,
-               const fpi::SvcInfo &svcInfo)
+               const fpi::SvcInfo &svcInfo,
+               const std::string &strServiceName)
     : HasModuleProvider(moduleProvider),
     Module("SvcMgr")
 {
@@ -147,7 +189,7 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
     LOGNOTIFY << "Initializing Service Layer server for " << SvcMgr::mapToSvcName( svcInfo_.svc_type ) <<
             "[" << svcInfo_.ip << ":" << svcInfo_.svc_port << "]";
 
-    svcServer_ = boost::make_shared<SvcServer>(port, processor);
+    svcServer_ = boost::make_shared<SvcServer>(port, processor, strServiceName, moduleProvider);
 
     taskExecutor_ = new SynchronizedTaskExecutor<uint64_t>(*MODULEPROVIDER()->proc_thrpool());
 
@@ -487,7 +529,11 @@ fpi::OMSvcClientPtr SvcMgr::getNewOMSvcClient() const
         try {
             LOGTRACE << "Connecting to OM[" << omIp_ << ":" << omPort_ <<
                     "] with max retries of [" << omRetries << "]";
-            omClient = allocRpcClient<fpi::OMSvcClient>(omIp_, omPort_, omRetries);
+            omClient = allocRpcClient<fpi::OMSvcClient>(omIp_,
+                omPort_,
+                omRetries,
+                fpi::commonConstants().OM_SERVICE_NAME,
+                MODULEPROVIDER()->get_fds_config());
             break;
         } catch (std::exception &e) {
             GLOGWARN << "allocRpcClient failed.  Exception: " << e.what()
@@ -804,7 +850,9 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
             GLOGDEBUG << "Allocating PlatNetSvcClient for: " << logString();
             svcClient_ = allocRpcClient<fpi::PlatNetSvcClient>(svcInfo_.ip,
                                                                svcInfo_.svc_port,
-                                                               SvcMgr::MIN_CONN_RETRIES);
+                                                               SvcMgr::MIN_CONN_RETRIES,
+                                                               fpi::commonConstants().PLATNET_SERVICE_NAME,
+                                                               MODULEPROVIDER()->get_fds_config());
         }
         if (isAsyncReqt) {
             /**

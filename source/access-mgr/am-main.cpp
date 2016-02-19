@@ -6,6 +6,7 @@
 
 #include "AMSvcHandler.h"
 #include "net/SvcProcess.h"
+#include "fdsp/common_constants.h"
 
 namespace fds {
 
@@ -29,6 +30,10 @@ class AMMain : public SvcProcess
         auto svc_processor = boost::make_shared<fpi::AMSvcProcessor>(svc_handler);
 
         /* Init service process */
+        // Note on Thrift service compatibility:
+        // If a backward incompatible change arises, pass additional pairs of
+        // processor and Thrift service name to SvcProcess::init(). Similarly,
+        // if the Thrift service API wants to be broken up.
         init(argc,
              argv,
              "platform.conf",
@@ -36,7 +41,8 @@ class AMMain : public SvcProcess
              "am.log",
              modVec,
              svc_handler,
-             svc_processor);
+             svc_processor,
+             fpi::commonConstants().AM_SERVICE_NAME);
     }
 
     int run() override {

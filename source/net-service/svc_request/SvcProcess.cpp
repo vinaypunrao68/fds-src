@@ -5,6 +5,7 @@
 #include <fds_process.h>
 #include <fdsp/PlatNetSvc.h>
 #include <net/PlatNetSvcHandler.h>
+#include "fdsp/common_constants.h"
 #include <fdsp/OMSvc.h>
 #include <util/timeutils.h>
 #include <net/SvcMgr.h>
@@ -26,7 +27,7 @@ SvcProcess::SvcProcess(int argc, char *argv[],
     auto handler = boost::make_shared<PlatNetSvcHandler>(this);
     auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
     init(argc, argv, false, def_cfg_file, base_path, def_log_file, mod_vec,
-            handler, processor);
+            handler, processor, fpi::commonConstants().PLATNET_SERVICE_NAME);
 }
 
 SvcProcess::SvcProcess(int argc, char *argv[],
@@ -35,9 +36,10 @@ SvcProcess::SvcProcess(int argc, char *argv[],
                        const std::string &def_log_file,
                        fds::Module **mod_vec,
                        PlatNetSvcHandlerPtr handler,
-                       fpi::PlatNetSvcProcessorPtr processor)
+                       fpi::PlatNetSvcProcessorPtr processor,
+                       const std::string& strThriftServiceName)
 : SvcProcess(argc, argv, false, def_cfg_file, base_path, def_log_file, mod_vec,
-            handler, processor)
+            handler, processor, strThriftServiceName)
 {
 }
 
@@ -48,10 +50,11 @@ SvcProcess::SvcProcess(int argc, char *argv[],
                        const std::string &def_log_file,
                        fds::Module **mod_vec,
                        PlatNetSvcHandlerPtr handler,
-                       fpi::PlatNetSvcProcessorPtr processor)
+                       fpi::PlatNetSvcProcessorPtr processor,
+                       const std::string &strThriftServiceName)
 {
     init(argc, argv, initAsModule, def_cfg_file,
-         base_path, def_log_file, mod_vec, handler, processor);
+         base_path, def_log_file, mod_vec, handler, processor, strThriftServiceName);
 }
 
 SvcProcess::~SvcProcess()
@@ -64,10 +67,11 @@ void SvcProcess::init(int argc, char *argv[],
                       const std::string &def_log_file,
                       fds::Module **mod_vec,
                       PlatNetSvcHandlerPtr handler,
-                      fpi::PlatNetSvcProcessorPtr processor)
+                      fpi::PlatNetSvcProcessorPtr processor,
+                      const std::string& strThriftServiceName)
 {
     init(argc, argv, false, def_cfg_file,
-         base_path, def_log_file, mod_vec, handler, processor);
+         base_path, def_log_file, mod_vec, handler, processor, strThriftServiceName);
 }
 void SvcProcess::init(int argc, char *argv[],
                       bool initAsModule,
@@ -76,7 +80,8 @@ void SvcProcess::init(int argc, char *argv[],
                       const std::string &def_log_file,
                       fds::Module **mod_vec,
                       PlatNetSvcHandlerPtr handler,
-                      fpi::PlatNetSvcProcessorPtr processor)
+                      fpi::PlatNetSvcProcessorPtr processor,
+                      const std::string &strThriftServiceName)
 {
     if (!initAsModule) {
         /* Set up process related services such as logger, timer, etc. */
@@ -100,7 +105,7 @@ void SvcProcess::init(int argc, char *argv[],
     setupSvcInfo_();
 
     /* Set up service layer */
-    setupSvcMgr_(handler, processor);
+    setupSvcMgr_(handler, processor, strThriftServiceName);
 }
 
 void SvcProcess::initAsModule_(int argc, char *argv[],
@@ -311,7 +316,8 @@ void SvcProcess::setupSvcInfo_()
 }
 
 void SvcProcess::setupSvcMgr_(PlatNetSvcHandlerPtr handler,
-                              fpi::PlatNetSvcProcessorPtr processor)
+                              fpi::PlatNetSvcProcessorPtr processor,
+                              const std::string &strThriftServiceName)
 {
     LOGNOTIFY << "setup service manager";
 
@@ -320,7 +326,7 @@ void SvcProcess::setupSvcMgr_(PlatNetSvcHandlerPtr handler,
         throw std::runtime_error("Failed to initialize service handler");
     }
 
-    svcMgr_.reset(new SvcMgr(this, handler, processor, svcInfo_));
+    svcMgr_.reset(new SvcMgr(this, handler, processor, svcInfo_, strThriftServiceName));
     svcMgr_->setSvcServerListener(this);
     /* This will start SvcServer instance */
     if (svcMgr_->mod_init(nullptr) != 0) {

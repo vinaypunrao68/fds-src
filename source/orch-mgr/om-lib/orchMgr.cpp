@@ -15,6 +15,7 @@
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
 #include <fdsp/OMSvc.h>
+#include "fdsp/common_constants.h"
 #include <om-svc-handler.h>
 #include <net/SvcMgr.h>
 
@@ -46,8 +47,12 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule, bool initAsModule,
         node_id_to_name[i] = "";
     }
 
+    // Note on Thrift service compatibility:
+    // If a backward incompatible change arises, pass additional pairs of
+    // processor and Thrift service name to SvcProcess::init(). Similarly,
+    // if the Thrift service API wants to be broken up.
     init<fds::OmSvcHandler, fpi::OMSvcProcessor>(argc, argv, initAsModule, "platform.conf",
-                                                 "fds.om.", "om.log", omVec);
+        "fds.om.", "om.log", omVec, fpi::commonConstants().OM_SERVICE_NAME);
 
     enableTimeline = get_fds_config()->get<bool>(
             "fds.feature_toggle.common.enable_timeline", true);

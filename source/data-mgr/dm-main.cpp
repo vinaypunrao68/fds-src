@@ -10,6 +10,7 @@
 #include <net/SvcProcess.h>
 
 #include <fdsp/DMSvc.h>
+#include "fdsp/common_constants.h"
 #include <DMSvcHandler.h>
 
 #include "util/ExecutionGate.h"
@@ -87,7 +88,12 @@ class DMMain : public SvcProcess
         auto handler = boost::make_shared<DMSvcHandler>(this, *_dm);
         auto processor = boost::make_shared<DMSvcProcessor>(handler);
 
-        init(argc, argv, "platform.conf", "fds.dm.", "dm.log", _dmVec, handler, processor);
+        // Note on Thrift service compatibility:
+        // If a backward incompatible change arises, pass additional pairs of
+        // processor and Thrift service name to SvcProcess::init(). Similarly,
+        // if the Thrift service API wants to be broken up.
+        init(argc, argv, "platform.conf", "fds.dm.", "dm.log", _dmVec, handler, processor,
+            fpi::commonConstants().DM_SERVICE_NAME);
     }
 };
 
