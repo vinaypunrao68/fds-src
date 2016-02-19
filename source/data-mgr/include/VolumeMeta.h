@@ -148,6 +148,39 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
 
     void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
 
+    /* Helper only added to avoid having to include DataMgr.h in this file */
+    static void enqueDmIoReq(DataMgr &dataManager, DmRequest *dmReq);
+    /**
+    * Helper wrapper class for synchornizing function objects to be run under
+    * volume synchronized context
+    */
+    template<typename FunctionType>
+    struct Synchronized {
+        DataMgr         &dataManager;
+        fds_volid_t     volId;
+        FunctionType    f;
+
+        Synchronized(DataMgr &d, const fds_volid_t &vId, const FunctionType &f_)
+            : dataManager(d), volId(vId), f(f_) {}
+
+        template<typename... Args>
+        void operator() (Args&&... args) {
+            auto ioReq = new DmFunctor(volId, std::bind(f, std::forward<Args>(args)...));
+            enqueDmIoReq(dataManager, ioReq);
+        }
+    };
+
+    /**
+    * @brief Returns wrapper function around f that exectues f in volume synchronized
+    * context
+    */
+    template<typename FunctionType>
+    Synchronized<FunctionType> makeSynchronized(const FunctionType &f) {
+        return Synchronized<FunctionType>(*dataManager,
+                                          vol_desc->volUUID,
+                                          f);
+    }
+
     /**
     * @brief Returns true if this function is invoked by the thread responsible executing
     * VolumeMeta tasks
@@ -155,20 +188,6 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     inline bool isSynchronized() const {
         return std::this_thread::get_id() == threadId;
     }
-    /**
-    * @brief Returns wrapper function around f that exectues f in volume synchronized
-    * context
-    */
-    std::function<void()> makeSynchronized(const std::function<void()> &f);
-    std::function<void(EPSvcRequest*,const Error &e, StringPtr)>
-    makeSynchronized(const std::function<void(EPSvcRequest*,const Error &e, StringPtr)> &f);
-
-    StatusCb makeSynchronized(const StatusCb &f);
-    /* NOTE: Should be overloaded as makeSynchronized.  I was getting compiler errors I named it
-     * makeSynchronized.  I ended up renaming as a quick fix
-     */
-    BufferReplay::ProgressCb synchronizedProgressCb(const BufferReplay::ProgressCb &f);
-
 
     /**
      * DM Migration related

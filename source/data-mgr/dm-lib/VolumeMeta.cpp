@@ -205,65 +205,14 @@ std::string VolumeMeta::getStateInfo()
     return ss.str();
 }
 
-std::function<void()> VolumeMeta::makeSynchronized(const std::function<void()> &f)
+void VolumeMeta::enqueDmIoReq(DataMgr &dataManager, DmRequest *dmReq)
 {
-    auto qosCtrl = dataManager->getQosCtrl();
-    fds_volid_t volId(getId());
-    auto newCb = [f, qosCtrl, volId]() {
-        auto ioReq = new DmFunctor(volId, std::bind(f));
-        auto err = qosCtrl->enqueueIO(volId, ioReq);
-        if (err != ERR_OK) {
-            GLOGWARN << "Failed to enqueue volume synchronized DmFunctor.  Dropping. " << err;
-            delete ioReq;
-        }
-    };
-    return newCb;
-}
-
-EPSvcRequestRespCb
-VolumeMeta::makeSynchronized(const EPSvcRequestRespCb &f)
-{
-    auto qosCtrl = dataManager->getQosCtrl();
-    fds_volid_t volId(getId());
-    auto newCb = [f, qosCtrl, volId](EPSvcRequest* req, const Error &e, StringPtr payload) {
-        auto ioReq = new DmFunctor(volId, std::bind(f, req, e, payload));
-        auto err = qosCtrl->enqueueIO(volId, ioReq);
-        if (err != ERR_OK) {
-            GLOGWARN << "Failed to enqueue volume synchronized DmFunctor.  Dropping. " << err;
-            delete ioReq;
-        }
-    };
-    return newCb;
-}
-
-StatusCb VolumeMeta::makeSynchronized(const StatusCb &f)
-{
-    auto qosCtrl = dataManager->getQosCtrl();
-    fds_volid_t volId(getId());
-    auto newCb = [f, qosCtrl, volId](const Error &e) {
-        auto ioReq = new DmFunctor(volId, std::bind(f, e));
-        auto err = qosCtrl->enqueueIO(volId, ioReq);
-        if (err != ERR_OK) {
-            GLOGWARN << "Failed to enqueue volume synchronized DmFunctor.  Dropping. " << err;
-            delete ioReq;
-        }
-    };
-    return newCb;
-}
-
-BufferReplay::ProgressCb VolumeMeta::synchronizedProgressCb(const BufferReplay::ProgressCb &f)
-{
-    auto qosCtrl = dataManager->getQosCtrl();
-    fds_volid_t volId(getId());
-    auto newCb = [f, qosCtrl, volId](BufferReplay::Progress status) {
-        auto ioReq = new DmFunctor(volId, std::bind(f, status));
-        auto err = qosCtrl->enqueueIO(volId, ioReq);
-        if (err != ERR_OK) {
-            GLOGWARN << "Failed to enqueue volume synchronized DmFunctor.  Dropping. " << err;
-            delete ioReq;
-        }
-    };
-    return newCb;
+    auto err = dataManager.getQosCtrl()->enqueueIO(dmReq->getVolId(), dmReq);
+    if (err != ERR_OK) {
+        GLOGWARN << "Failed to enqueue volume synchronized DmFunctor.  Dropping. "
+            << err;
+        delete dmReq;
+    }
 }
 
 void VolumeMeta::startInitializer(bool force)
