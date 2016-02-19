@@ -31,6 +31,18 @@ extern const fds_uint64_t VOL_META_ID;
 extern const JournalTimestampKey OP_TIMESTAMP_KEY;
 extern const leveldb::Slice OP_TIMESTAMP_REC;
 
+/**
+ * A cache of volume stats to avoid calculation by Data Object scan.
+ * Size is in bytes.
+ * Size and Data Object counts are "logical" (no deduplication applied).
+ */
+struct DmVolumeSummary {
+    bool initialized{false};
+    fds_uint64_t size{0};
+    fds_uint64_t blobCount{0};
+    fds_uint64_t objectCount{0};
+};
+
 class DmPersistVolCat : public HasModuleProvider {
   public:
     // types
@@ -188,6 +200,37 @@ class DmPersistVolCat : public HasModuleProvider {
 
     virtual uint64_t getNumInMemorySnapshots() = 0;
 
+    /**
+     * Returns false if the volume summary cache has not been initialized.
+     */
+    virtual bool volSummaryInitialized() = 0;
+
+    /**
+     * Returns ERR_DUPLICATE if the initialization has already succeeded.
+     */
+    virtual Error initVolSummary(fds_uint64_t logicalSize,
+                                 fds_uint64_t blobCount,
+                                 fds_uint64_t logicalObjectCount) = 0;
+
+    /**
+     * Returns ERR_NOT_READY if the volume summary cache has not been initialized.
+     */
+    virtual Error applyStatDeltas(const fds_uint64_t bytesAdded,
+                                  const fds_uint64_t bytesRemoved,
+                                  const fds_uint64_t blobsAdded,
+                                  const fds_uint64_t blobsRemoved,
+                                  const fds_uint64_t objectsAdded,
+                                  const fds_uint64_t objectsRemoved) = 0;
+
+    virtual void resetVolSummary() = 0;
+
+    /**
+     * Returns ERR_NOT_READY if the volume summary cache has not been initialized.
+     */
+    virtual Error getVolSummary(fds_uint64_t* logicalSize,
+                                fds_uint64_t* blobCount,
+                                fds_uint64_t* logicalObjectCount) = 0;
+
     // sync
     virtual Error syncCatalog(const NodeUuid & dmUuid);
 
@@ -218,6 +261,10 @@ class DmPersistVolCat : public HasModuleProvider {
     std::string rsyncUser;
     /// Password for rsync migration
     std::string rsyncPasswd;
+
+    DmVolumeSummary volSummary_;
+    fds_mutex lockVolSummary_;
+
 };
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVOLCAT_H_
