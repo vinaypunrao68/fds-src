@@ -151,8 +151,6 @@ struct DmGroupFixture : BaseTestFixture {
             ASSERT_TRUE(e == ERR_OK);
             ASSERT_TRUE(dmGroup[i]->proc->getDataMgr()->\
                         getVolumeMeta(v1Id)->getState() == fpi::Offline);
-            e = dmGroup[i]->proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData, nullptr, DMT_COMMITTED);
-            ASSERT_TRUE(e.ok());
         }
 
         /* open should succeed */
