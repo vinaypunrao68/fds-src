@@ -18,6 +18,12 @@ import com.formationds.util.thrift.OMConfigurationServiceProxy;
 import com.formationds.web.toolkit.HttpConfiguration;
 import com.formationds.web.toolkit.HttpsConfiguration;
 import com.formationds.xdi.*;
+import com.formationds.xdi.contracts.ConnectorConfig;
+import com.formationds.xdi.contracts.ConnectorData;
+import com.formationds.xdi.contracts.transport.ConnectorConfigMessageHandler;
+import com.formationds.xdi.contracts.transport.ConnectorDataMessageHandler;
+import com.formationds.xdi.contracts.transport.TransportServer;
+import com.formationds.xdi.contracts.transport.pipe.NamedPipeServer;
 import com.formationds.xdi.experimental.XdiConnector;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.formationds.xdi.swift.SwiftEndpoint;
@@ -35,8 +41,11 @@ import org.eclipse.jetty.io.ByteBufferPool;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.net.ConnectException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 
@@ -238,7 +247,13 @@ public class Main {
         IoOps ioOps = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
         // ioOps = new MemoryIoOps();
         XdiConnector connector = new XdiConnector(configCache, ioOps);
-        // Start your server here
+
+        // start XDI connector servers -- add this to config?
+        TransportServer xdiConfigServer = createXdiConfigServer(connector, Executors.newFixedThreadPool(4));
+        monitorNamedPipePath(xdiConfigServer, Paths.get("/tmp/xdi/config"));
+
+        TransportServer xdiDataServer = createXdiDataServer(connector, Executors.newFixedThreadPool(16));
+        monitorNamedPipePath(xdiDataServer, Paths.get("/tmp/xdi/data"));
 
         // Default NFS port is 2049, or 7000 - 4951
         new NfsServer().start(xdiStaticConfig, configCache, asyncAm, pmPort - 4951);
@@ -266,5 +281,21 @@ public class Main {
         new Thread(runnable, "Statistics streaming thread").start();
     }
 
+    private void monitorNamedPipePath(TransportServer server, Path path) {
+        NamedPipeServer namedPipeServer = new NamedPipeServer(server, path);
+        Thread thread = new Thread(namedPipeServer::open);
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private TransportServer createXdiDataServer(ConnectorData connectorData, Executor runner) {
+        ConnectorDataMessageHandler handler = new ConnectorDataMessageHandler(connectorData);
+        return new TransportServer(handler, runner);
+    }
+
+    private TransportServer createXdiConfigServer(ConnectorConfig connectorConfig, Executor runner) {
+        ConnectorConfigMessageHandler handler = new ConnectorConfigMessageHandler(connectorConfig);
+        return new TransportServer(handler, runner);
+    }
 }
 
