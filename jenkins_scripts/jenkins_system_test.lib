@@ -263,7 +263,7 @@ function run_python_unit_tests
 
 function run_cpp_unit_tests
 {
-    message "IIIII RUNNING C++ unit tests"
+    message "IIIII RUNNING unit tests"
 
     # Run Unit Test
     do_pushd jenkins_scripts
@@ -272,7 +272,7 @@ function run_cpp_unit_tests
 
     if [[ $? -ne 0 ]]
     then
-        message "EEEEE C++ unit test problem(s) detected"
+        message "EEEEE Unit test problem(s) detected"
         run_coroner 1
     fi
 
