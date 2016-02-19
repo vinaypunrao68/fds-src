@@ -48,6 +48,7 @@ user_cpp      := $(wildcard *.cpp)
 
 user_no_style     := $(user_cc) $(wildcard com_*.h)
 user_bin_exe      := VolumeChecker
+user_ar_libs      := fds-volume-checker
 VolumeChecker     := VolumeChecker.cpp
 
 include $(topdir)/Makefile.incl

@@ -7,10 +7,7 @@
 #include <chrono>
 #include <util/stringutils.h>
 #include <concurrency/RwLock.h>
-#include <testlib/TestFixtures.h>
-#include <testlib/TestOm.hpp>
-#include <testlib/TestAm.hpp>
-#include <testlib/TestDm.hpp>
+#include <testlib/VolumeGroupFixture.hpp>
 #include <testlib/ProcessHandle.hpp>
 #include <testlib/SvcMsgFactory.h>
 #include <testlib/TestUtils.h>
@@ -22,6 +19,32 @@ using ::testing::Return;
 using namespace fds;
 using namespace fds::TestUtils;
 
+/**
+ * Test 1: Positive test
+ * 1. Create a VG of 2 DMs with a single volume.
+ * 2. Write IO to both DMs on the volume.
+ * 3. Run Volume checker on volume, should return consistent result.
+ */
+TEST_F(VolumeGroupFixture, twoHappyDMs) {
+
+    // Create 2 DMs
+    createCluster(2);
+    setupVolumeGroup(2);
+
+    /* Do some io. After Io is done, every volume replica must have same state */
+    for (uint32_t i = 0; i < 10; i++) {
+        sendUpdateOnceMsg(*v1, blobName, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+        sendQueryCatalogMsg(*v1, blobName, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+        doGroupStateCheck(v1Id);
+    }
+
+    // TODO(Neil) - implement volume checker phase 1 and run it here.
+    initVolumeChecker();
+
+}
+
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     g_fdslog = new fds_log("volume_checker_gtest");
@@ -29,6 +52,6 @@ int main(int argc, char* argv[]) {
     opts.add_options()
         ("help", "produce help message")
         ("puts-cnt", po::value<int>()->default_value(1), "puts count");
-    // DmGroupFixture::init(argc, argv, opts);
+    VolumeGroupFixture::init(argc, argv, opts);
     return RUN_ALL_TESTS();
 }

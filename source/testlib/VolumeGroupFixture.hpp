@@ -11,6 +11,7 @@
 #include <testlib/TestAm.hpp>
 #include <testlib/TestUtils.h>
 #include <net/VolumeGroupHandle.h>
+#include <VolumeChecker.h>
 
 #define MAX_OBJECT_SIZE 1024 * 1024 * 2
 
@@ -21,6 +22,7 @@ struct VolumeGroupFixture : BaseTestFixture {
     using DmHandle = ProcessHandle<TestDm>;
     using OmHandle = ProcessHandle<TestOm>;
     using AmHandle = ProcessHandle<TestAm>;
+    using VcHandle = ProcessHandle<VolumeChecker>;
 
     void createCluster(int numDms) {
         std::string fdsSrcPath;
@@ -76,7 +78,7 @@ struct VolumeGroupFixture : BaseTestFixture {
 
     void setupVolumeGroup(uint32_t quorumCnt)
     {
-        /* Create a coordinator with quorum of 1*/
+        /* Create a coordinator with quorum of quorumCnt */
         v1 = MAKE_SHARED<VolumeGroupHandle>(amHandle.proc, v1Id, quorumCnt);
         amHandle.proc->setVolumeHandle(v1.get());
 
@@ -241,6 +243,11 @@ struct VolumeGroupFixture : BaseTestFixture {
         ASSERT_TRUE(dmGroup[idx]->proc->getDataMgr()->counters->totalMigrationsAborted.value() == 0);
     }
 
+    void initVolumeChecker()
+    {
+        // TODO
+    }
+
     OmHandle                                omHandle;
     AmHandle                                amHandle;
     std::vector<std::unique_ptr<DmHandle>>  dmGroup;
@@ -252,6 +259,7 @@ struct VolumeGroupFixture : BaseTestFixture {
     SHPTR<VolumeGroupHandle>                v1;
     SHPTR<VolumeDesc>                       v1Desc;
     DMTPtr                                  dmt;
+    VcHandle                                vcHandle;
 };
 
 using DmGroupFixture = VolumeGroupFixture;

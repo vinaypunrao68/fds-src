@@ -6,6 +6,7 @@ user_rtime_env    := user
 user_incl_dir     += \
     $(topdir)/platform/include \
     $(topdir)/data-mgr/include \
+    $(topdir)/access-mgr/include \
     $(topdir)/lib \
     $(topdir)/util \
     $(topdir)
@@ -18,6 +19,7 @@ user_fds_ar_libs  +=  \
     fds-dsk-mgnt \
     fds-net-svc \
     fds-fdsp \
+    fds-volume-checker \
     fds-dm-lib
 
 user_non_fds_libs +=  \
