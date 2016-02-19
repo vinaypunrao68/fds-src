@@ -8,6 +8,10 @@ include "common.thrift"
 namespace cpp fds.apis
 namespace java com.formationds.apis
 
+/**
+ * As implemented currently (1/14/2016), currentUsageInBytes is
+ * "logical" usage - does not account for deduping.
+ */
 struct VolumeStatus {
     1: required i64 blobCount,
     2: required i64 currentUsageInBytes,
@@ -23,11 +27,6 @@ struct ObjectOffset {
 
 struct TxDescriptor {
     1: required i64 txId
-}
-
-service XdiService { 
-        VolumeStatus volumeStatus(1:string domainName, 2:string volumeName)
-        throws (1: common.ApiException e),
 }
 
 service AsyncXdiServiceRequest {

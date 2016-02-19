@@ -31,8 +31,9 @@ DataPlacement::DataPlacement()
           placementMutex("Data Placement mutex"),
           prevDlt(NULL),
           commitedDlt(NULL),
-          newDlt(NULL) {
-    curClusterMap = &gl_OMClusMapMod;
+          newDlt(NULL),
+          numOfFailures(0)
+{
     numOfPrimarySMs = 0;
 }
 
@@ -88,9 +89,13 @@ DataPlacement::computeDlt() {
 
     fds_uint64_t version;
     Error err(ERR_OK);
-    
-    fds_verify( newDlt == NULL );
-    
+
+    /**
+     * as of 11/24/2015, this should be a no harm fds_verify, so removing it, because we are now setting the
+     * newDlt on all restart use cases.
+     */
+//    fds_verify( newDlt == NULL );
+
     if (commitedDlt == NULL) 
     {
         version = DLT_VER_INVALID + 1;
@@ -117,6 +122,7 @@ DataPlacement::computeDlt() {
                      depth,
                      version,
                      true);
+
     err = placeAlgo->computeNewDlt(curClusterMap,
                                    commitedDlt,
                                    newDlt, getNumOfPrimarySMs());
@@ -179,9 +185,9 @@ DataPlacement::beginRebalance() {
         return err;
     }
 
-    // at this point we have commited DLT
+    // at this point we have committed DLT
     // find all SMs that will either get a new responsibility for a DLT token
-    // or need resync because an SM became a primary
+    // or need re-sync because an SM became a primary
     NodeUuidSet rmSMs = curClusterMap->getRemovedServices(fpi::FDSP_STOR_MGR);
     NodeUuidSet failedSMs = curClusterMap->getFailedServices(fpi::FDSP_STOR_MGR);
     // NodeUuid.uuid_get_val() for source SM to CtrlNotifySMStartMigrationPtr msg
@@ -190,7 +196,7 @@ DataPlacement::beginRebalance() {
         DltTokenGroupPtr cmtCol = commitedDlt->getNodes(tokId);
         DltTokenGroupPtr tgtCol = newDlt->getNodes(tokId);
 
-        // find all SMs in target column that need resync: either they
+        // find all SMs in target column that need re-sync: either they
         // got a new responsibility for a DLT token or became a primary
         NodeUuidSet destSms = tgtCol->getNewAndNewPrimaryUuids(*cmtCol, getNumOfPrimarySMs());
         if (destSms.size() == 0) continue;
@@ -209,11 +215,11 @@ DataPlacement::beginRebalance() {
             srcCandidates.erase(sm);
         }
 
-        // if all SMs need resync, this means that we moved a secondary to be
+        // if all SMs need re-sync, this means that we moved a secondary to be
         // a primary (both primaries failed)
         if (destSms.size() == tgtCol->getLength()) {
             // this should not happen if number of primary SMs == 0 (this config
-            // means original implementation where we do not resync when promoting secondaries)
+            // means original implementation where we do not re-sync when promoting secondaries)
             // If that happens, it means that DLT calculation algorithm managed to
             // place all new SMs into the same column -- will need to fix that!
             fds_verify(getNumOfPrimarySMs() > 0);
@@ -253,7 +259,8 @@ DataPlacement::beginRebalance() {
         // otherwise we need to revisit DLT computation algorithm
         LOGMIGRATE << "Found " << srcCandidates.size() << " candidates for a source "
                    << " for DLT token " << tokId;
-        fds_verify(srcCandidates.size() > 0);
+
+//        fds_verify(srcCandidates.size() > 0);
 
         for (auto smUuid: destSms) {
             // see if we already have a startMigration msg prepared for this source
@@ -274,23 +281,28 @@ DataPlacement::beginRebalance() {
                     break;
                 }
             }
-            fds_verify(sourceUuid.uuid_get_val() !=0);
-            LOGMIGRATE << "Destination " << std::hex << smUuid.uuid_get_val()
-                       << " Source " << sourceUuid.uuid_get_val() << std::dec
-                       << " token " << tokId;
 
-            // find if there is already a migration group created for this src SM
+//            fds_verify(sourceUuid.uuid_get_val() !=0);
             fds_bool_t found = false;
-            for (fds_uint32_t index = 0; index < (startMigrMsg->migrations).size(); ++index) {
-                if ((startMigrMsg->migrations)[index].source == sourceUuid.toSvcUuid()) {
-                    found = true;
-                    (startMigrMsg->migrations)[index].tokens.push_back(tokId);
-                    LOGTRACE << "Found group for destination: " << std::hex << smUuid.uuid_get_val()
-                             << ", source: " << sourceUuid.uuid_get_val() << std::dec
-                             << ", adding token " << tokId;
-                    break;
+            if ( sourceUuid.uuid_get_val() > 0 ) {
+                LOGMIGRATE << "Destination " << std::hex << smUuid.uuid_get_val()
+                << " Source " << sourceUuid.uuid_get_val() << std::dec
+                << " token " << tokId;
+
+                // find if there is already a migration group created for this src SM
+
+                for (fds_uint32_t index = 0; index < (startMigrMsg->migrations).size(); ++index) {
+                    if ((startMigrMsg->migrations)[index].source == sourceUuid.toSvcUuid()) {
+                        found = true;
+                        (startMigrMsg->migrations)[index].tokens.push_back(tokId);
+                        LOGTRACE << "Found group for destination: " << std::hex << smUuid.uuid_get_val()
+                        << ", source: " << sourceUuid.uuid_get_val() << std::dec
+                        << ", adding token " << tokId;
+                        break;
+                    }
                 }
             }
+
             if (!found) {
                 fpi::SMTokenMigrationGroup grp;
                 grp.source = sourceUuid.toSvcUuid();
@@ -395,14 +407,20 @@ fds_bool_t DataPlacement::hasCommitedNotPersistedTarget() const {
  */
 void
 DataPlacement::commitDlt() {
-    commitDlt( false );
+    bool committed = commitDlt( false );
+    LOGNOTIFY << "Committed DLT ? " << committed;
 }
-void
+bool
 DataPlacement::commitDlt( const bool unsetTarget ) {
 
     fds_mutex::scoped_lock l(placementMutex);
     
-    fds_verify(newDlt != NULL);
+    if ( newDlt == NULL )
+    {
+        LOGWARN << "Target/New DLT value is NULL, nothing to commit, return";
+        return false;
+    }
+
     fds_uint64_t oldVersion = -1;
     if (commitedDlt) {
         oldVersion = commitedDlt->getVersion();
@@ -422,6 +440,8 @@ DataPlacement::commitDlt( const bool unsetTarget ) {
         }
         newDlt = NULL;
     }
+
+    return true;
 }
 
 ///  only reverts if we did not persist it..
@@ -467,6 +487,8 @@ DataPlacement::persistCommitedTargetDlt() {
         LOGWARN << "unable to store dlt type to config db "
                 << "[" << commitedDlt->getVersion() << "]";
     }
+
+    LOGNORMAL << "DLT version: " << commitedDlt->getVersion();
 
     // TODO(prem) do we need to remove the old dlt from the config db ??
     // oldVersion ?
@@ -537,7 +559,7 @@ DataPlacement::mod_init(SysParams const *const param) {
         type = PlacementAlgorithm::AlgorithmTypes::RoundRobin;
     } else {
         LOGWARN << "DataPlacement: unknown placement algorithm type in "
-                << "config file, will use Consistent Hashing algorith";
+                << "config file, will use Consistent Hashing algorithm";
     }
 
     setAlgorithm(type);
@@ -550,7 +572,7 @@ DataPlacement::mod_init(SysParams const *const param) {
     LOGNOTIFY << "DataPlacement: DLT width " << curDltWidth
               << ", dlt depth " << curDltDepth
               << ", algorithm " << algo_type_str
-              <<", number of primary SMs" << numOfPrimarySMs;
+              << ", number of primary SMs " << numOfPrimarySMs;
 
     return 0;
 }
@@ -590,6 +612,23 @@ DataPlacement::validateDltOnDomainActivate(const NodeUuidSet& sm_services) {
     return err;
 }
 
+
+
+void DataPlacement::generateNodeTokenMapOnRestart()
+{
+    LOGDEBUG << "Generating token map on OM restart";
+
+    if ( commitedDlt == NULL ) {
+        if ( newDlt != NULL ) {
+            newDlt->generateNodeTokenMap();
+        } else {
+            LOGWARN << "No values for committed or new DLT, unable to generate node token map";
+        }
+    } else {
+        commitedDlt->generateNodeTokenMap();
+    }
+}
+
 Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services,
                                           const NodeUuidSet& deployed_sm_services) {
     Error err(ERR_OK);
@@ -617,6 +656,7 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services,
             // i.e. only contains node uuis that are in deployed_sm_services
             // set and does not contain any zeroes, etc.
             err = dlt->verify(deployed_sm_services);
+
             if (err.ok()) {
                 LOGNOTIFY << "Current DLT in config DB is valid!";
                 // we will set newDLT because we don't know yet if
@@ -644,12 +684,16 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services,
     // but this is an optimization, may do later
     fds_uint64_t nextVersion = configDB->getDltVersionForType("next");
     if (nextVersion > 0 && nextVersion != currentVersion) {
-        LOGNOTIFY << "OM went down in the middle of migration. Will thow away "
+        LOGNOTIFY << "OM went down in the middle of migration. Will throw away "
                   << "persisted  target DLT and re-compute it again if discovered "
                   << "SMs re-register";
+
         if (!configDB->setDltType(0, "next")) {
-            LOGWARN << "unable to reset DMT target version in configDB";
+            LOGWARN << "unable to reset DLT target version in configDB";
         }
+
+        DltDmtUtil::getInstance()->setSMAbortParams(true, nextVersion);
+
     } else {
         if (0 == nextVersion) {
             LOGDEBUG << "There is only commited DLT in configDB (OK)";
@@ -662,8 +706,33 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services,
     return err;
 }
 
-void DataPlacement::setConfigDB(kvstore::ConfigDB* configDB) {
+void DataPlacement::setConfigDB(kvstore::ConfigDB* configDB)
+{
     this->configDB = configDB;
+}
+
+void DataPlacement::clearTargetDlt()
+{
+    LOGDEBUG << "Clearing out target DLT in configDB";
+
+    if (!configDB->setDltType(0, "next")) {
+        LOGWARN << "Failed to unset target DLT in config db";
+    }
+    newDlt = NULL;
+}
+
+fds_bool_t DataPlacement::canRetryMigration()
+{
+    fds_bool_t ret = false;
+
+    // For now, maximize retries at 3. Keeping consistent with DM retries
+
+    if (numOfFailures < 4)
+    {
+        ret = true;
+    }
+
+    return ret;
 }
 
 }  // namespace fds

@@ -55,6 +55,12 @@
       <artifactId>formationds-jsvc-layer</artifactId>
       <version>${formationds.jsvc.layer.version}</version>
     </dependency>
+    
+    <dependency>
+        <groupId>com.formationds</groupId>
+        <artifactId>fds-stats-client</artifactId>
+        <version>${formationds.stats.client.version}</version>
+    </dependency>
 
     <!-- third party dependencies -->
     <dependency>
@@ -270,8 +276,13 @@
     </dependency>
 
     <dependency>
-      <groupId>org.influxdb</groupId>
-      <artifactId>influxdb-java</artifactId>
+      <!-- NOTE: Using forked version with chunked response streaming support
+           from git@github.com:davefds/influxdb-java.git (0.8.x.chunked_response branch)
+        <groupId>org.influxdb</groupId>
+        <artifactId>influxdb-java</artifactId>
+        -->
+        <groupId>com.formationds</groupId>
+        <artifactId>influxdb-java</artifactId>
     </dependency>
 
 
@@ -283,6 +294,11 @@
     <dependency>
       <groupId>org.apache.lucene</groupId>
       <artifactId>lucene-analyzers-common</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.lucene</groupId>
+      <artifactId>lucene-queryparser</artifactId>
     </dependency>
 
     <!--<dependency>-->
@@ -354,6 +370,24 @@
         </exclusion>
       </exclusions>
     </dependency>
+
+    <!-- InfluxDB-Java dependencies
+        Note that we should not have to declare these explicitly, but we are having
+        problems with the pom file in artifactory with our custom version of
+        the influxdb-java library and it being unable to find the transitive dependencies -->
+    <dependency>
+        <groupId>com.squareup.retrofit</groupId>
+        <artifactId>retrofit</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>com.squareup.okhttp</groupId>
+        <artifactId>okhttp</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>com.squareup.okhttp</groupId>
+        <artifactId>okhttp-urlconnection</artifactId>
+    </dependency>
+
   </dependencies>
 
 

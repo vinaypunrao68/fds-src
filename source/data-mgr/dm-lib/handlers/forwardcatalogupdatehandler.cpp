@@ -28,7 +28,7 @@ void ForwardCatalogUpdateHandler::handleRequest(
         boost::shared_ptr<fpi::ForwardCatalogMsg>& message) {
 	NodeUuid srcUuid;
 	srcUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
-    auto dmReq = new DmIoFwdCat(srcUuid, message);
+    auto dmReq = new DmIoFwdCat(srcUuid, message, !dataManager.features.isVolumegroupingEnabled());
     DBG(LOGMIGRATE << "Enqueued new forward request " << logString(*asyncHdr)
         << " " << *reinterpret_cast<DmIoFwdCat*>(dmReq));
     /* Route the message to right executor.  If static migration is in progress
@@ -56,7 +56,9 @@ void ForwardCatalogUpdateHandler::handleQueueItem(DmRequest* dmRequest) {
     	 */
     	NodeUuid srcUuid(typedRequest->srcUuid);
     	dataManager.dmMigrationMgr->
-			finishActiveMigration(srcUuid, fds_volid_t(typedRequest->fwdCatMsg->volume_id));
+			finishActiveMigration(srcUuid,
+                                  fds_volid_t(typedRequest->fwdCatMsg->volume_id),
+                                  typedRequest->fwdCatMsg->DMT_version);
 
     	// finishActiveMigration would potentially remove the executor so the cb
     	// set above in handleRequest would no longer be valid.

@@ -46,7 +46,8 @@ class ObjectDataStore : public Module, public boost::noncopyable {
 public:
     ObjectDataStore(const std::string &modName,
                     SmIoReqHandler *data_store,
-                    UpdateMediaTrackerFnObj obj=UpdateMediaTrackerFnObj());
+                    UpdateMediaTrackerFnObj obj=UpdateMediaTrackerFnObj(),
+                    EvaluateObjSetFn evalFn=EvaluateObjSetFn());
     ~ObjectDataStore();
     typedef std::unique_ptr<ObjectDataStore> unique_ptr;
     typedef std::shared_ptr<ObjectDataStore> ptr;
@@ -115,7 +116,8 @@ public:
     boost::shared_ptr<const std::string> getObjectData(fds_volid_t volId,
                                                        const ObjectID &objId,
                                                        ObjMetaData::const_ptr objMetaData,
-                                                       Error &err);
+                                                       Error &err,
+                                                       diskio::DataTier *tier=nullptr);
 
     /**
      * Removes object from cache and notifies persistent layer

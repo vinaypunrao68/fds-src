@@ -9,8 +9,6 @@
 
 namespace fds {
 
-ClusterMap gl_OMClusMapMod;
-
 ClusterMap::ClusterMap()
         : Module("OM Cluster Map"),
           version(0),
@@ -158,13 +156,13 @@ ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
             removed = curSmMap.erase(uuid);
             // For now, assume it's incorrect to try and remove
             // a node that doesn't exist
-            fds_verify(removed == 1);
+//            fds_verify(removed == 1);
             removedSMs.insert(uuid);
         } else {
             removed = curDmMap.erase(uuid);
             // For now, assume it's incorrect to try and remove
             // a node that doesn't exist
-            fds_verify(removed == 1);
+//            fds_verify(removed == 1);
             removedDMs.insert(uuid);
         }
     }
@@ -175,15 +173,9 @@ ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
          it++) {
         uuid = (*it)->get_uuid();
         if (svc_type == fpi::FDSP_STOR_MGR) {
-            // For now, assume it's incorrect to add a node
-            // that already exists
-            fds_verify(curSmMap.count(uuid) == 0);
             curSmMap[uuid] = (*it);
             addedSMs.insert(uuid);
         } else {
-            // For now, assume it's incorrect to add a node
-            // that already exists
-            // fds_verify(curDmMap.count(uuid) == 0);
             curDmMap[uuid] = (*it);
             addedDMs.insert(uuid);
         }
@@ -194,11 +186,10 @@ ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
 		 it++) {
 		uuid = (*it)->get_uuid();
 		if (svc_type == fpi::FDSP_STOR_MGR) {
-			// Invalid use case
-			fds_assert(0);
+			fds_assert(!"Invalid use case");
 		} else {
-			curDmMap[uuid] = (*it);
-			resyncDMs.insert(uuid);
+		    curDmMap[uuid] = (*it);
+		    resyncDMs.insert(uuid);
 		}
 	}
 
@@ -232,11 +223,21 @@ ClusterMap::addPendingRmService(fpi::FDSP_MgrIdType svc_type,
     switch (svc_type) {
         case fpi::FDSP_STOR_MGR:
             fds_verify(curSmMap.count(rm_uuid) == 0);
-            removedSMs.insert(rm_uuid);
+            if (removedSMs.count(rm_uuid) == 0) {
+                removedSMs.insert(rm_uuid);
+            } else {
+                LOGNOTIFY << "Uuid:" << std::hex << rm_uuid.uuid_get_val() << std::hex
+                          << " is already in removedSMs list";
+            }
             break;
         case fpi::FDSP_DATA_MGR:
             fds_verify(curDmMap.count(rm_uuid) == 0);
-            removedDMs.insert(rm_uuid);
+            if (removedDMs.count(rm_uuid) == 0) {
+                removedDMs.insert(rm_uuid);
+            } else {
+                LOGNOTIFY << "Uuid:" << std::hex << rm_uuid.uuid_get_val() << std::hex
+                          << " is already in removedDMs list";
+            }
             break;
         default:
             fds_panic("Unknown MgrIdType %u", svc_type);
@@ -257,10 +258,11 @@ ClusterMap::rmPendingAddedService(fpi::FDSP_MgrIdType svc_type,
             curSmMap.erase(svc_uuid);
             break;
         case fpi::FDSP_DATA_MGR:
-            fds_verify(addedDMs.count(svc_uuid) != 0);
+            fds_verify((addedDMs.count(svc_uuid) != 0) || (resyncDMs.count(svc_uuid) != 0));
             fds_verify(curDmMap.count(svc_uuid) != 0);
             addedDMs.erase(svc_uuid);
             curDmMap.erase(svc_uuid);
+            resyncDMs.erase(svc_uuid);
             break;
         default:
             fds_panic("Unknown MgrIdType %u", svc_type);
@@ -337,6 +339,8 @@ ClusterMap::getDmResyncServices() const {
 NodeUuidSet
 ClusterMap::getNonfailedServices(fpi::FDSP_MgrIdType svc_type) const {
     NodeUuidSet retSet;
+    bool fIgnoreFailedSvcs = MODULEPROVIDER()->get_fds_config()->get<bool>
+                             ("fds.feature_toggle.om.ignore_failed_svcs", true);
     switch (svc_type) {
         case fpi::FDSP_STOR_MGR:
             {
@@ -345,6 +349,10 @@ ClusterMap::getNonfailedServices(fpi::FDSP_MgrIdType svc_type) const {
                      ++it) {
                     if (( ((*it).second)->node_state() == fpi::FDS_Node_Up ) ||
                         ( ((*it).second)->node_state() == fpi::FDS_Node_Discovered )) {
+                        retSet.insert(((*it).second)->get_uuid());
+
+                    } else if (fIgnoreFailedSvcs) {
+                        LOGNOTIFY << "Ignoring failed SM svc:" << (*it).second->get_uuid();
                         retSet.insert(((*it).second)->get_uuid());
                     }
                 }
@@ -357,6 +365,10 @@ ClusterMap::getNonfailedServices(fpi::FDSP_MgrIdType svc_type) const {
                      ++it) {
                     if (( ((*it).second)->node_state() == fpi::FDS_Node_Up ) ||
                         ( ((*it).second)->node_state() == fpi::FDS_Node_Discovered )) {
+                        retSet.insert(((*it).second)->get_uuid());
+
+                    } else if (fIgnoreFailedSvcs) {
+                        LOGNOTIFY << "Ignoring failed DM svc:" << (*it).second->get_uuid();
                         retSet.insert(((*it).second)->get_uuid());
                     }
                 }

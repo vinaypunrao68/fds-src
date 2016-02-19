@@ -24,7 +24,8 @@ import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair;
 import com.formationds.om.repository.query.MetricQueryCriteria;
-import com.formationds.protocol.FDSP_VolumeDescType;
+import com.formationds.om.repository.query.QueryCriteria.QueryType;
+import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.JsonArrayCollector;
@@ -76,7 +77,7 @@ public class ListVolumes implements RequestHandler {
 /*
  * HACK
  * .filter( v -> isSystemVolume() != true )
- * 
+ *
  * THIS IS ALSO IN QueryHelper.java
  */
         .filter( v-> !v.getName().startsWith( "SYSTEM_VOLUME" )  )
@@ -243,19 +244,19 @@ public class ListVolumes implements RequestHandler {
 
 	/**
 	 * Getting the possible firebreak events for this volume in the past 24 hours
-	 * 
+	 *
 	 * @param v the {@link Volume}
 	 * @return Returns EnumMap<FirebreakType, VolumeDatapointPair>
 	 */
 	private static EnumMap<FirebreakType, VolumeDatapointPair> getFirebreakEvents( Volume v ){
 
-		MetricQueryCriteria query = new MetricQueryCriteria();
+		MetricQueryCriteria query = new MetricQueryCriteria(QueryType.FIREBREAK_METRIC);
         DateRange range = DateRange.last24Hours();
 
 		query.setSeriesType( new ArrayList<>( Metrics.FIREBREAK ) );
 
 		// "For now" code to use the new volume instead of the old.
-		com.formationds.client.v08.model.Volume newVolume = new com.formationds.client.v08.model.Volume( 
+		com.formationds.client.v08.model.Volume newVolume = new com.formationds.client.v08.model.Volume(
 				Long.parseLong( v.getId() ), v.getName() );
 
         query.setContexts( Collections.singletonList( newVolume ) );

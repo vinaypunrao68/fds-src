@@ -3,9 +3,7 @@
   ~ Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
   -->
 
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <name>${company.base.name} Company POM</name>
@@ -85,7 +83,7 @@
     <redisson.version>1.2.1</redisson.version>
     <slf4j.version>1.7.12</slf4j.version>
     <snmp4j.version>2.3.3_1</snmp4j.version>
-    <thrift.version>0.9.0</thrift.version>
+    <thrift.version>0.9.3</thrift.version>
     <togglz.version>2.2.0.Final</togglz.version>
     <uncommons.maths.version>1.2.2a</uncommons.maths.version>
     <grizzly.framework.version>2.3.21</grizzly.framework.version>
@@ -96,15 +94,16 @@
     <mockito.version>1.10.8</mockito.version>
 
     <!-- formation data systems, inc dependencies -->
-    <formationds.commons.libconfig.version>2015.08.14-SNAPSHOT</formationds.commons.libconfig.version>
-    <formationds.commons.togglz.version>2015.08.14-SNAPSHOT</formationds.commons.togglz.version>
-    <formationds.commons.util.version>2015.08.14-SNAPSHOT</formationds.commons.util.version>
-    <formationds.ext.model.version>2015.08.14-SNAPSHOT</formationds.ext.model.version>
-    <formationds.project.version>2015.08.14-SNAPSHOT</formationds.project.version>
-    <formationds.thrift.client.util.version>2015.08.14-SNAPSHOT</formationds.thrift.client.util.version>
-    <formationds.thrift.version>2015.08.14-SNAPSHOT</formationds.thrift.version>
-    <formationds.jsvc.layer.version>2015.08.14-SNAPSHOT</formationds.jsvc.layer.version>
-    <formationds.commons.version>2015.08.14-SNAPSHOT</formationds.commons.version>
+    <formationds.commons.libconfig.version>2016.02.12-SNAPSHOT</formationds.commons.libconfig.version>
+    <formationds.commons.togglz.version>2016.02.12-SNAPSHOT</formationds.commons.togglz.version>
+    <formationds.commons.util.version>2016.02.12-SNAPSHOT</formationds.commons.util.version>
+    <formationds.ext.model.version>2016.02.12-SNAPSHOT</formationds.ext.model.version>
+    <formationds.project.version>2016.02.12-SNAPSHOT</formationds.project.version>
+    <formationds.thrift.client.util.version>2016.02.12-SNAPSHOT</formationds.thrift.client.util.version>
+    <formationds.thrift.version>2016.02.12-SNAPSHOT</formationds.thrift.version>
+    <formationds.jsvc.layer.version>2016.02.12-SNAPSHOT</formationds.jsvc.layer.version>
+    <formationds.commons.version>2016.02.12-SNAPSHOT</formationds.commons.version>
+    <formationds.stats.client.version>0.0.1-SNAPSHOT</formationds.stats.client.version>
 
     <!-- plugin versions -->
     <assembly.plugin.version>2.5.4</assembly.plugin.version>
@@ -159,15 +158,27 @@
 
     <!-- Formation Data System, INC. maven repo -->
     <repository>
-      <id>release</id>
+      <id>artifactory-release</id>
       <name>artifacts-releases</name>
       <url>http://${user}:${user.passwd}@artifacts.artifactoryonline.com/artifacts/maven-formation</url>
     </repository>
 
     <repository>
-      <id>snapshot</id>
+      <id>artifactory-snapshot</id>
       <name>artifacts-snapshots</name>
       <url>http://${user}:${user.passwd}@artifacts.artifactoryonline.com/artifacts/maven-formation</url>
+    </repository>
+
+    <repository>
+      <id>boulder-release</id>
+      <name>artifacts-releases</name>
+      <url>http://${user}:${user.passwd}@bld-artifactory:8081/artifactory/maven-formation</url>
+    </repository>
+
+    <repository>
+      <id>boulder-snapshot</id>
+      <name>artifacts-snapshots</name>
+      <url>http://${user}:${user.passwd}@bld-artifactory:8081/artifactory/maven-formation</url>
     </repository>
 
     <repository>
@@ -379,9 +390,16 @@
       </dependency>
 
       <dependency>
+      <!-- NOTE: Using forked version with chunked response streaming support
+           from git@github.com:davefds/influxdb-java.git (0.8.x.chunked_response branch)
         <groupId>org.influxdb</groupId>
         <artifactId>influxdb-java</artifactId>
         <version>${influxdb.version}</version>
+        -->
+        <groupId>com.formationds</groupId>
+        <artifactId>influxdb-java</artifactId>
+        <version>1.6.1-SNAPSHOT</version>
+        
       </dependency>
 
       <dependency>
@@ -457,6 +475,27 @@
         <!-- add scope back in once test code is removed from production -->
         <!--<scope>test</scope>-->
       </dependency>
+
+      <!-- InfluxDB-Java dependencies
+        Note that we should not have to declare these explicitly, but we are having
+        problems with the pom file in artifactory with our custom version of
+        the influxdb-java library and it being unable to find the transitive dependencies -->
+      <dependency>
+         <groupId>com.squareup.retrofit</groupId>
+         <artifactId>retrofit</artifactId>
+         <version>1.9.0</version>
+      </dependency>
+      <dependency>
+         <groupId>com.squareup.okhttp</groupId>
+         <artifactId>okhttp</artifactId>
+         <version>2.4.0</version>
+      </dependency>
+      <dependency>
+         <groupId>com.squareup.okhttp</groupId>
+         <artifactId>okhttp-urlconnection</artifactId>
+         <version>2.4.0</version>
+      </dependency>
+
     </dependencies>
   </dependencyManagement>
 
@@ -568,7 +607,7 @@
                     </goals>
                   </pluginExecutionFilter>
                   <action>
-                    <execute/>
+                    <execute />
                   </action>
                 </pluginExecution>
                 <pluginExecution>
@@ -581,7 +620,7 @@
                     </goals>
                   </pluginExecutionFilter>
                   <action>
-                    <execute/>
+                    <execute />
                   </action>
                 </pluginExecution>
               </pluginExecutions>
@@ -661,7 +700,7 @@
         <configuration>
           <stylesheet>java</stylesheet>
           <doctitle>${project.name} ${project.version}</doctitle>
-          <footer>Copyright 2014-2015 ${company.base.name}</footer>
+          <footer>Copyright 2014-2016 ${company.base.name}</footer>
           <windowtitle>${project.name} ${project.version}</windowtitle>
           <version>true</version>
           <encoding>UTF-8</encoding>
@@ -676,7 +715,7 @@
 
   </build>
 
-  <reporting>
+  <!--reporting>
     <outputDirectory>${project.build.directory}/site</outputDirectory>
     <plugins>
       <plugin>
@@ -692,6 +731,6 @@
         </reportSets>
       </plugin>
     </plugins>
-  </reporting>
+  </reporting-->
 
 </project>

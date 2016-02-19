@@ -1,12 +1,12 @@
 package com.formationds.platform.svclayer;
 
-import com.formationds.protocol.FDSP_MgrIdType;
-import com.formationds.protocol.SvcID;
-import com.formationds.protocol.SvcUuid;
 import com.formationds.protocol.pm.types.NodeInfo;
 import com.formationds.protocol.pm.types.pmServiceStateTypeId;
+import com.formationds.protocol.svc.types.FDSP_MgrIdType;
 import com.formationds.protocol.svc.types.ServiceStatus;
+import com.formationds.protocol.svc.types.SvcID;
 import com.formationds.protocol.svc.types.SvcInfo;
+import com.formationds.protocol.svc.types.SvcUuid;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -26,7 +26,7 @@ public class SvcLayerThriftSerializationProviderTest {
                                                     ServiceStatus.SVC_STATUS_ACTIVE,
                                                     "om",
                                                     "127.0.0.1",
-                                                    -1,
+                                                    1451930523,
                                                     "om",
                                                     new HashMap<>() );
 

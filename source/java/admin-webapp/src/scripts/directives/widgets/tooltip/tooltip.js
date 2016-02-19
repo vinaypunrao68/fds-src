@@ -4,7 +4,7 @@ angular.module( 'display-widgets' ).directive( 'toolTip', function(){
         restrict: 'A',
         replace: false,
         transclude: false,
-        scope: { text: '@', bindText: '=?' },
+        scope: { text: '@', bindText: '=?', visible: '=?' },
         controller: function( $scope, $element, $timeout, $templateCache, $compile, $document ){
             
             $scope.show = false;
@@ -112,9 +112,14 @@ angular.module( 'display-widgets' ).directive( 'toolTip', function(){
                 $scope.target = {};
             };
             
-            parent.addEventListener( 'mousemove', mousemove );
-            parent.addEventListener( 'mouseenter', mouseenter );
-            parent.addEventListener( 'mouseleave', mouseleave ); 
+            // only go into true tool tip mode if visible is not defined.
+            // if it is defined that means the parent controller will control 
+            // whether or not it's displayed.
+            if ( angular.isDefined( $scope.visible ) ){
+                parent.addEventListener( 'mousemove', mousemove );
+                parent.addEventListener( 'mouseenter', mouseenter );
+                parent.addEventListener( 'mouseleave', mouseleave ); 
+            }
             
             var tooltip = $templateCache.get('scripts/directives/widgets/tooltip/tooltip.html');
             var compiled = $compile( tooltip );            
@@ -127,6 +132,10 @@ angular.module( 'display-widgets' ).directive( 'toolTip', function(){
                 parent.removeEventListener( 'mouseleave', mouseleave );
                 parent.removeEventListener( 'mousemove', mousemove );
                 parent.removeEventListener( 'mouseenter', mouseenter );
+            });
+            
+            $scope.$watch( 'visible', function( newVal ){
+                $scope.show = newVal;
             });
         }
     };

@@ -85,6 +85,8 @@ typedef std::atomic<fds_uint64_t> fds_atomic_ullong;
 
 typedef boost::shared_ptr<void> VoidPtr;
 
+using VoidCb = std::function<void()>;
+
 /**
  * Blob versions cannot be 0. That value will represent
  * either a null or uninitialized version.
@@ -263,6 +265,7 @@ typedef enum {
     FDS_DM_STAT_STREAM,
     FDS_DM_SYS_STATS,
     FDS_DM_RELOAD_VOLUME,
+    FDS_DM_LOAD_FROM_ARCHIVE,
     FDS_DM_LIST_BLOBS_BY_PATTERN,
     FDS_DM_MIGRATION,
     FDS_DM_RESYNC_INIT_BLOB,
@@ -270,6 +273,11 @@ typedef enum {
     FDS_DM_MIG_DELTA_BLOB,
     FDS_DM_MIG_FINISH_VOL_RESYNC,
     FDS_DM_MIG_TX_STATE,
+    FDS_DM_MIG_FINISH_STATIC_MIGRATION,
+    FDS_DM_FUNCTOR,
+    FDS_DM_VOLUMEGROUP_UPDATE,
+    FDS_DM_VOLUME_IO,
+    FDS_DM_MIG_REQ_TX_STATE,
     FDS_OP_INVALID
 } fds_io_op_t;
 

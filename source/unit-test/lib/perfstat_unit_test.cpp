@@ -85,7 +85,7 @@ int runMultivolTest(int slots, int sec_in_slot)
 
 
 void printSlot(const std::string& name,
-               FdsStatType evt,
+               FdsVolStatType evt,
                const StatSlot& slot) {
     std::cout << name << " Ev/sec " << slot.getEventsPerSec(evt) << " total "
               << slot.getTotal(evt) << " average " << slot.getAverage(evt)
@@ -260,11 +260,11 @@ int runUnitTest(int slots, int sec_in_slot)
   statfile << *hist << std::endl;
 
   boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();
-  hist->print(statfile, now, 0);
+  hist->print(statfile, now, std::numeric_limits<fds_uint64_t>::max() /* Indicates first time */);
 
   std::cout << "Testing converting to FDSP and back" << std::endl;
   fpi::VolStatList fdsp_stats;
-  fds_uint64_t rel_sec = hist->toFdspPayload(fdsp_stats, 0);
+  auto last_rel_seconds = hist->toFdspPayload(fdsp_stats, std::numeric_limits<fds_uint64_t>::max() /* Indicates first time */);
 
   fds_uint64_t recv_start_time = start_time + nanos_in_slot;
   VolumePerfHistory *recv_hist = new VolumePerfHistory(fds_volid_t(1), recv_start_time,
@@ -287,7 +287,7 @@ int runUnitTest(int slots, int sec_in_slot)
 
   std::cout << "Testing converting to list of slots and back" << std::endl;
   std::vector<StatSlot> slot_list;
-  rel_sec = hist->toSlotList(slot_list, 0);
+  auto rel_sec = hist->toSlotList(slot_list, std::numeric_limits<fds_uint64_t>::max() /* First time. */);
 
   recv_start_time = start_time + nanos_in_slot;
   VolumePerfHistory *other_hist = new VolumePerfHistory(fds_volid_t(1), recv_start_time,
@@ -297,11 +297,11 @@ int runUnitTest(int slots, int sec_in_slot)
     return -1;
   }
 
-  other_hist->mergeSlots(slot_list, start_time);
+  other_hist->mergeSlots(slot_list);
   statfile << "Source history: " << *hist << std::endl;
   statfile << "Destination history: " << *other_hist << std::endl;
   statfile << "Add source history again" << std::endl;
-  other_hist->mergeSlots(slot_list, start_time);
+  other_hist->mergeSlots(slot_list);
   statfile << "Merged history: " << *other_hist << std::endl;
 
 

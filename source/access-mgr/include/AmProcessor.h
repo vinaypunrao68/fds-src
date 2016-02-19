@@ -8,8 +8,11 @@
 #include <memory>
 #include <string>
 
-#include <net/SvcMgr.h>
 #include "fds_volume.h"
+
+namespace FDS_ProtocolInterface {
+class AddToVolumeGroupRespCtrlMsg;
+}
 
 namespace fds {
 
@@ -18,12 +21,18 @@ namespace fds {
  */
 struct AmProcessor_impl;
 struct AmRequest;
+struct AccessMgr;
+struct CommonModuleProviderIf;
+
+using AddToVolumeGroupCb =
+    std::function<void(const Error&,
+                       const boost::shared_ptr<FDS_ProtocolInterface::AddToVolumeGroupRespCtrlMsg>&)>;
 
 class AmProcessor : public std::enable_shared_from_this<AmProcessor>
 {
     using shutdown_cb_type = std::function<void(void)>;
   public:
-    AmProcessor(Module* parent, CommonModuleProviderIf *modProvider);
+    AmProcessor(AccessMgr* parent, CommonModuleProviderIf *modProvider);
     AmProcessor(AmProcessor const&) = delete;
     AmProcessor& operator=(AmProcessor const&) = delete;
     ~AmProcessor();
@@ -35,25 +44,29 @@ class AmProcessor : public std::enable_shared_from_this<AmProcessor>
     void start();
 
     /**
-     * Asynchronous shutdown initiation.
+     * Synchronous shutdown initiation.
      */
-    bool stop();
+    void stop();
 
     void prepareForShutdownMsgRespBindCb(shutdown_cb_type&& cb);
-
-    void prepareForShutdownMsgRespCallCb();
 
     /**
      * Enqueue a connector request
      */
-    Error enqueueRequest(AmRequest* amReq);
+    void enqueueRequest(AmRequest* amReq);
+
+    void getVolumes(std::vector<VolumeDesc>& volumes);
 
     bool isShuttingDown() const;
 
     /**
      * Update volume description
      */
-    Error modifyVolumePolicy(fds_volid_t vol_uuid, const VolumeDesc& vdesc);
+    Error modifyVolumePolicy(const VolumeDesc& vdesc);
+
+    /* Volumegroup control message from volume replica */
+    void addToVolumeGroup(const FDS_ProtocolInterface::AddToVolumeGroupCtrlMsgPtr &addMsg,
+                          const AddToVolumeGroupCb &cb);
 
 
     /**
@@ -64,7 +77,7 @@ class AmProcessor : public std::enable_shared_from_this<AmProcessor>
     /**
      * Remove object/metadata/offset caches for the given volume
      */
-    Error removeVolume(const VolumeDesc& volDesc);
+    void removeVolume(const VolumeDesc& volDesc);
 
     /**
      * DMT/DLT table updates

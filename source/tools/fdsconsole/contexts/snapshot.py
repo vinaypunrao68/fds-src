@@ -1,27 +1,30 @@
 from svchelper import *
-from fdslib.pyfdsp.common.ttypes import ResourceState
-
+from fdslib.pyfdsp.svc_types.ttypes import ResourceState
+import humanize
 
 class SnapshotContext(Context):
     def __init__(self, *args):
         Context.__init__(self, *args)
 
     #--------------------------------------------------------------------------------------
-    @clicmd    
+    @clidebugcmd
     @arg('vol-name', help= "-list snapshot for Volume name")
-    @arg('--sortby', help='sort by name*/time', type=str)
+    @arg('--sortby', help='sort by name/time/delete', type=str)
     def list(self, vol_name,sortby='name'):
+        'list snapshots for given volume'
         try:
             volume_id  = ServiceMap.omConfig().getVolumeId(vol_name);
             snapshot = ServiceMap.omConfig().listSnapshots(volume_id)
             if sortby == 'time':
                 snapshot.sort(key=attrgetter('creationTimestamp'))
+            elif sortby == 'delete':
+                snapshot.sort(key=lambda s: s.creationTimestamp + s.retentionTimeSeconds)
             else:
                 snapshot.sort(key=attrgetter('snapshotName'))
             return tabulate([( item.snapshotId, item.snapshotName, item.volumeId, item.snapshotPolicyId,
                                ResourceState._VALUES_TO_NAMES[item.state],
-                               time.ctime((item.creationTimestamp)/1000)) for item in snapshot],
-                            headers=['Id', 'Snapshot-name', 'volume-Id',  'policy-Id', 'State', 'Creation-Time'], tablefmt=self.config.getTableFormat())
+                               time.ctime(item.creationTimestamp), humanize.naturaldelta(item.retentionTimeSeconds), time.ctime(item.creationTimestamp+item.retentionTimeSeconds) ) for item in snapshot],
+                            headers=['id', 'snapshot-name', 'vol',  'policy', 'state', 'create-date', 'retention', 'delete-date'], tablefmt=self.config.getTableFormat())
         except Exception, e:
             log.exception(e)
             return ' list snapshot polcies  snapshot polices for volume failed: {}'.format(vol_name)

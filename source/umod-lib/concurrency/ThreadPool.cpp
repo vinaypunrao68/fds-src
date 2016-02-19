@@ -298,18 +298,30 @@ fds_threadpool::~fds_threadpool()
 
 }
 
-void fds_threadpool::enableThreadpoolCheck(FdsTimer *timer) {
+void fds_threadpool::enableThreadpoolCheck(FdsTimer *timer,
+                                           const std::chrono::seconds &frequencySec)
+{
     fds_verify(use_lftp_instead == true);
     auto checkTask = boost::shared_ptr<FdsTimerTask>(
             new FdsTimerFunctionTask(*timer,
                 [this]() {
                     this->threadpoolCheck();
                 }));
-    timer->scheduleRepeated(checkTask, std::chrono::seconds(10));
+    timer->scheduleRepeated(checkTask, frequencySec);
 }
 
-void fds_threadpool::threadpoolCheck() {
+void fds_threadpool::threadpoolCheck()
+{
     lfthreadpool->threadpoolCheck();
+}
+
+void fds_threadpool::stop()
+{
+    if (use_lftp_instead) {
+        lfthreadpool->stop();
+    } else {
+        GLOGWARN << "STOP NOT IMPLMENTED BY fds_threadpool.  Consider using LFThreadpool";
+    }
 }
 
 /** \fds_threadpool::schedule
@@ -370,5 +382,13 @@ fds_threadpool::thp_dequeue_task_or_idle(thpool_worker *worker)
     return task;
 }
 
+<<<<<<< HEAD
+=======
+std::thread::id fds_threadpool::getThreadId(uint64_t affinity) const
+{
+    fds_assert(use_lftp_instead);
+    return lfthreadpool->getThreadId(affinity);
+}
+>>>>>>> 0062d371f4178b97a7d1cfe74fcfc62f6deb2146
 
 }  // namespace fds

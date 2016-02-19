@@ -25,7 +25,7 @@ class TenantContext(Context):
             return '[ERROR] : unable to get tenant list'
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('name', help= "tenant name")
     def create(self, name, password):
         'create a new tenant'
@@ -36,7 +36,7 @@ class TenantContext(Context):
             return '[ERROR] : unable to create tenant: {}'.format(name)
     
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('user', help= "name of the user")
     @arg('tenant', help= "password")
     def assign_user(self, user, tenant):

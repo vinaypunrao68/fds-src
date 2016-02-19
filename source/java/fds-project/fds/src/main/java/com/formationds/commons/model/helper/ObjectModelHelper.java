@@ -6,10 +6,11 @@ package com.formationds.commons.model.helper;
 
 import com.formationds.client.v08.model.VolumeSettings;
 import com.formationds.client.v08.model.VolumeSettingsBlock;
+import com.formationds.client.v08.model.VolumeSettingsISCSI;
+import com.formationds.client.v08.model.VolumeSettingsNfs;
 import com.formationds.client.v08.model.VolumeSettingsObject;
 import com.formationds.commons.model.type.Protocol;
 import com.google.gson.*;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,9 +46,7 @@ public class ObjectModelHelper {
         @Override
         public JsonElement serialize( VolumeSettings src, Type typeOfSrc,
                                       JsonSerializationContext context ) {
-
-            JsonElement elem = context.serialize( src );
-            return elem;
+            return context.serialize( src );
         }
 
         @Override
@@ -55,16 +54,26 @@ public class ObjectModelHelper {
                                            JsonDeserializationContext context ) throws JsonParseException {
             JsonObject jsonObject = json.getAsJsonObject();
 
-            Class<?> klass = null;
+            Class<?> klass;
             String type = jsonObject.get( "type" ).getAsString();
             
-            if ( type.equalsIgnoreCase( "BLOCK" ) ){
+            if ( type.equalsIgnoreCase( "BLOCK" ) )
+            {
             	klass = VolumeSettingsBlock.class;
             }
-            else {
-            	klass = VolumeSettingsObject.class;
+            else if ( type.equalsIgnoreCase( "ISCSI" ) )
+            {
+                klass = VolumeSettingsISCSI.class;
             }
-            
+            else if ( type.equalsIgnoreCase( "NFS" ) )
+            {
+                klass = VolumeSettingsNfs.class;
+            }
+            else // must be a object volume
+            {
+                klass = VolumeSettingsObject.class;
+            }
+
             return context.deserialize( jsonObject, klass );
         }
     }

@@ -59,6 +59,49 @@ public class Node extends AbstractResource<Long> {
         }
     }
 
+    public static class NodeCapacity {
+        private final Size ssd;
+        private final Size hdd;
+        private final Size total;
+
+        public NodeCapacity( final Size ssd, final Size hdd, final Size total )
+        {
+            this.ssd = ssd;
+            this.hdd = hdd;
+            this.total = total;
+        }
+
+        public Size getSSD( )
+        {
+            return ssd;
+        }
+
+        public Size getHDD( )
+        {
+            return hdd;
+        }
+
+        public Size getTotal( )
+        {
+            return total;
+        }
+
+        @Override
+        public boolean equals( Object o ) {
+            if ( this == o ) { return true; }
+            if ( !(o instanceof NodeCapacity) ) { return false; }
+            final NodeCapacity nodeCapacity = (NodeCapacity) o;
+            return Objects.equals( ssd, nodeCapacity.ssd ) &&
+                   Objects.equals( hdd, nodeCapacity.hdd ) &&
+                   Objects.equals( total, nodeCapacity.total );
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash( ssd, hdd, total );
+        }
+    }
+
     /**
      * A node may be addressed by one or both of an IPv4 or IPv6 address.
      */
@@ -222,34 +265,29 @@ public class Node extends AbstractResource<Long> {
     private NodeAddress address;
     private NodeState state;
     private Map<ServiceType, List<Service>> serviceMap;
+    private Size ssdCapacity;
+    private Size diskCapacity;
+    private Size usedCapacity;
 
     protected Node() {}
 
     /**
+     *  @param uid the node unique id
      * @param address the node address
      * @param state the current node state
-     * @param serviceMap the node's current service map
-     */
-    public Node( NodeAddress address, NodeState state,
-                 Map<ServiceType, List<Service>> serviceMap ) {
-        super( null, address.getHostAddress() );
-        this.address = address;
-        this.state = state;
-        this.serviceMap = serviceMap;
-    }
-
-    /**
-     *
-     * @param uid the node unique id
-     * @param address the node address
-     * @param state the current node state
+     * @param diskCapacity the nodes disk capacity
+     * @param ssdCapacity the node SSD capacity
+     * @param usedCapacity the node's used disk capacity
      * @param services the node's current service map
      */
-    public Node( Long uid, NodeAddress address, NodeState state,
-                 Map<ServiceType, List<Service>> services ) {
+    public Node( Long uid, NodeAddress address, NodeState state, Size diskCapacity, Size ssdCapacity,
+                 final Size usedCapacity, Map<ServiceType, List<Service>> services ) {
         super( uid, address.getHostAddress() );
         this.address = address;
         this.state = state;
+        this.diskCapacity = diskCapacity;
+        this.ssdCapacity = ssdCapacity;
+        this.usedCapacity = usedCapacity;
         this.serviceMap = services;
     }
 
@@ -311,4 +349,25 @@ public class Node extends AbstractResource<Long> {
     public int hashCode() {
         return Objects.hash( super.hashCode(), address, state, serviceMap );
     }
+
+    /**
+     *
+     * @return the SSD capacity
+     */
+    public Size getSsdCapacity() {
+        return ssdCapacity;
+    }
+
+    /**
+     *
+     * @return the Disk capacity
+     */
+    public Size getDiskCapacity() {
+        return diskCapacity;
+    }
+
+    /**
+     * @return the Used disk capacity
+     */
+    public Size getUsedDiskCapacity() { return usedCapacity; }
 }

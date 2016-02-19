@@ -26,6 +26,7 @@ pyUnitInstall = False
 pyUnitSudoPw = None
 pyUnitTCFailure = False
 pyUnitInventory = None
+pyUnitReuseCluster = False
 
 # This global is ued to indicate whether we've already
 # set up the logging facilities during a PyUnit run.
@@ -85,9 +86,10 @@ def setUpModule():
         print "pyUnitDrynrun: ", pyUnitDryrun
         print "pyUnitInstall: ", pyUnitInstall
         print "pyUnitSudoPw: ", pyUnitSudoPw
-        print "pyUnitInventory", pyUnitInventory
+        print "pyUnitInventory:", pyUnitInventory
+        print "pyUnitReuseCluster:", pyUnitReuseCluster
 
-        _parameters = TestUtils.get_config(True, pyUnitConfig, pyUnitVerbose, pyUnitDryrun, pyUnitInstall, pyUnitSudoPw, pyUnitInventory)
+        _parameters = TestUtils.get_config(True, pyUnitConfig, pyUnitVerbose, pyUnitDryrun, pyUnitInstall, pyUnitSudoPw, pyUnitInventory, pyUnitReuseCluster)
 
         # Set up logging. We wait to do it here after we've parsed
         # the qaautotest.ini file (also used for PyUnit runs)
@@ -172,19 +174,6 @@ class FDSTestCase(unittest.TestCase):
         """
         pass
 
-    def checkS3Info(self, bucket=None):
-        if (not "s3" in self.parameters) or (self.parameters["s3"].conn) is None:
-            self.log.error("No S3 connection")
-            return False
-
-        if bucket is not None:
-            self.parameters["s3"].bucket1 = self.parameters["s3"].conn.lookup(bucket)
-
-        if not self.parameters["s3"].bucket1:
-            self.log.error("No S3 bucket info")
-            return False
-
-        return True
 
     def runTest(self):
         """
@@ -292,13 +281,14 @@ class FDSTestCase(unittest.TestCase):
         global pyUnitInstall
         global pyUnitSudoPw
         global pyUnitInventory
+        global pyUnitReuseCluster
 
         log_dir = None
         failfast = False
 
         # We must have the -i option but that will be checked later.
-        options, args = getopt.getopt(_argv[1:], 'q:l:d:z:vrif', ['qat-file', 'log-dir', 'sudo-password', 'inventory-file', 'verbose',
-                                                                'dryrun', 'install', 'failfast'])
+        options, args = getopt.getopt(_argv[1:], 'q:l:d:z:vrify', ['qat-file', 'log-dir', 'sudo-password', 'inventory-file', 'verbose',
+                                                                'dryrun', 'install', 'failfast','reusecluster'])
 
         idx = 1
         for opt, value in options:
@@ -310,6 +300,9 @@ class FDSTestCase(unittest.TestCase):
             elif opt in ('-v','--verbose'):
                 pyUnitVerbose = True
                 # PyUnit has a --verbose option, so we don't want to remove it.
+            elif opt in ('-y','--reusecluster'):
+                pyUnitReuseCluster = True
+                #when this is passed, then we use exisitng IPs for test else we deploy nightly again
             elif opt in ('-r','--dryrun'):
                 pyUnitDryrun = True
                 # Remove this option from argv so as not to confuse PyUnit.
@@ -353,4 +346,4 @@ class FDSTestCase(unittest.TestCase):
             _parameters["stop_on_fail"] = True
 
         #print "Parameters: ", _parameters
-        return log_dir, failfast, pyUnitInstall
+        return log_dir, failfast, pyUnitInstall, pyUnitReuseCluster, pyUnitConfig

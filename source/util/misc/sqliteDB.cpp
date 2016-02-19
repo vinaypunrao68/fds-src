@@ -3,13 +3,14 @@
  */
 
 #include <util/sqliteDB.h>
+#include <util/Log.h>
+#include <fds_error.h>
 
 namespace fds {
 
-SqliteDB::SqliteDB(const std::string &dbFilePath):
-                   dbFile(dbFilePath) {
+SqliteDB::SqliteDB(const std::string &dbFilePath): dbFile(dbFilePath) {
     int errorCode = sqlite3_open(dbFilePath.c_str(), &db);
-    logOnError(errorCode, "Unable to open db.");
+    logOnError(errorCode, "Unable to open db");
 }
 
 SqliteDB::~SqliteDB() {
@@ -22,7 +23,16 @@ SqliteDB::~SqliteDB() {
     }
 }
 
+void SqliteDB::logOnError(const int &errorCode, const std::string &msg) {
+    if (errorCode != SQLITE_OK) {
+        LOGERROR << "code:" << errorCode
+                 << " errmsg:" << sqlite3_errmsg(db)
+                 << " msg:" << msg;
+    }
+}
+
 int SqliteDB::dropDB() {
+    fds_scoped_lock lock(mtx);
     int errorCode = 0;
     if (db) {
         errorCode = sqlite3_close(db);
@@ -38,21 +48,23 @@ int SqliteDB::dropDB() {
 }
 
 int SqliteDB::execute(const std::string &query) {
+    fds_scoped_lock lock(mtx);
     if (!db) {  return -1;  }
 
     int errorCode = sqlite3_exec(db, query.c_str(), nullptr, nullptr, nullptr);
-    logOnError(errorCode, "Statement execution failed.");
+    logOnError(errorCode, query);
     return errorCode;
 }
 
-int SqliteDB::getIntValue(const std::string &query, fds_uint64_t &value) {
+bool SqliteDB::getIntValue(const std::string &query, fds_uint64_t &value) {
+    fds_scoped_lock lock(mtx);
     if (!db) {  return -1;  }
 
     int  errorCode;
     sqlite3_stmt *stmt;
 
     errorCode = sqlite3_prepare(db, query.c_str(), -1, &stmt, nullptr);
-    logOnError(errorCode, "Unable to prepare statement");
+    logOnError(errorCode, query);
     do {
         errorCode = sqlite3_step(stmt);
         switch (errorCode) {
@@ -66,24 +78,23 @@ int SqliteDB::getIntValue(const std::string &query, fds_uint64_t &value) {
         }
     } while (errorCode == SQLITE_ROW);
     sqlite3_finalize(stmt);
-    return errorCode;
+    return (errorCode == SQLITE_DONE);
 }
 
-int SqliteDB::getTextValues(const std::string &query, std::vector<std::string> &value) {
+bool SqliteDB::getIntValues(const std::string &query, std::set<fds_uint64_t> &valueSet) {
+    fds_scoped_lock lock(mtx);
     if (!db) {  return -1;  }
 
     int  errorCode;
-    sqlite3_stmt * stmt;
+    sqlite3_stmt *stmt;
 
     errorCode = sqlite3_prepare(db, query.c_str(), -1, &stmt, nullptr);
-    logOnError(errorCode, "Unable to prepare statement");
+    logOnError(errorCode, query);
     do {
         errorCode = sqlite3_step(stmt);
-        std::string data;
         switch (errorCode) {
             case SQLITE_ROW:
-                data.assign(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)));
-                value.push_back(data);
+                valueSet.insert(sqlite3_column_int64(stmt, 0));
                 break;
             case SQLITE_DONE:
                 break;
@@ -92,7 +103,59 @@ int SqliteDB::getTextValues(const std::string &query, std::vector<std::string> &
         }
     } while (errorCode == SQLITE_ROW);
     sqlite3_finalize(stmt);
-    return errorCode;
+    return (errorCode == SQLITE_DONE);
+}
+
+bool SqliteDB::getTextValue(const std::string &query, std::string &value) {
+    fds_scoped_lock lock(mtx);
+    if (!db) {  return -1;  }
+
+    int  errorCode;
+    sqlite3_stmt * stmt;
+
+    errorCode = sqlite3_prepare(db, query.c_str(), -1, &stmt, nullptr);
+    logOnError(errorCode, query);
+    do {
+        errorCode = sqlite3_step(stmt);
+        switch (errorCode) {
+            case SQLITE_ROW:
+                value.assign(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)));
+                break;
+            case SQLITE_DONE:
+                break;
+            default:
+                LOGERROR << "Unknown error code: " << errorCode << " " << sqlite3_errmsg(db);
+        }
+    } while (errorCode == SQLITE_ROW);
+    sqlite3_finalize(stmt);
+    return (errorCode == SQLITE_DONE);
+}
+
+bool SqliteDB::getTextValues(const std::string &query, std::set<std::string> &valueSet) {
+    fds_scoped_lock lock(mtx);
+    if (!db) {  return -1;  }
+
+    int  errorCode;
+    sqlite3_stmt * stmt;
+
+    errorCode = sqlite3_prepare(db, query.c_str(), -1, &stmt, nullptr);
+    logOnError(errorCode, query);
+    do {
+        errorCode = sqlite3_step(stmt);
+        std::string data;
+        switch (errorCode) {
+            case SQLITE_ROW:
+                data.assign(reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)));
+                if (!data.empty()) { valueSet.insert(data); }
+                break;
+            case SQLITE_DONE:
+                break;
+            default:
+                LOGERROR << "Unknown error code: " << errorCode << " " << sqlite3_errmsg(db);
+        }
+    } while (errorCode == SQLITE_ROW);
+    sqlite3_finalize(stmt);
+    return (errorCode == SQLITE_DONE);
 }
 
 } // end namespace fds

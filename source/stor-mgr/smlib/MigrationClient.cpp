@@ -42,6 +42,8 @@ MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
     snapshotRequest.isPersistent = true;
     SMTokenID = SMTokenInvalidID;
     executorID = SM_INVALID_EXECUTOR_ID;
+    filterObjectSet.clear();
+    dltTokenIDs.clear();
 
     maxDeltaSetSize = g_fdsprocess->get_fds_config()->get<int>("fds.sm.migration.max_delta_set_size");
 }
@@ -254,7 +256,10 @@ void
 MigrationClient::migClientReadObjDeltaSetCb(const Error& error,
                                             SmIoReadObjDeltaSetReq *req)
 {
-    fds_verify(NULL != req);
+    if (!req) {
+        LOGWARN << "Invalid request; error: " << error;
+        return;
+    }
     LOGMIGRATE << "MigClientState=" << getMigClientState()
                << ": Complete ReadObjectDelta: "
                << " seqNum=" << req->seqNum
@@ -289,7 +294,11 @@ MigrationClient::migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr,
                                                                executorID,
                                                                getSeqNumDeltaSet(),
                                                                lastSet);
-    fds_verify(NULL != readDeltaSetReq);
+    if (!readDeltaSetReq) {
+        err = ERR_OUT_OF_MEMORY;
+        LOGERROR << "Memory allocation failed for readDeltaSet request with " << err;
+        return;
+    }
 
     readDeltaSetReq->io_type = FDS_SM_READ_DELTA_SET;
     readDeltaSetReq->smioReadObjDeltaSetReqCb = std::bind(
@@ -323,6 +332,9 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
                                                std::string &snapDir,
                                                leveldb::CopyEnv *env)
 {
+    // First phase snapshot directory
+    firstPhaseSnapshotDir = snapDir;
+
     // on error, set error state (abort migration)
     if (!error.ok()) {
         // This will set the ClientState to MC_ERROR
@@ -330,12 +342,13 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
     }
 
     if (getMigClientState() == MC_ERROR) {
-        // already in error state, don't do anything
         LOGMIGRATE << "Migration Client in error state, not processing snapshot";
-
+        // already in error state, don't do anything
+        if (env) {
+            env->DeleteDir(firstPhaseSnapshotDir);
+        }
         // Finish tracking IO request.
         trackIOReqs.finishTrackIOReqs();
-
         return;
     }
 
@@ -348,10 +361,6 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
      */
     std::vector<std::pair<ObjMetaData::ptr, fpi::ObjectMetaDataReconcileFlags>> objMetaDataSet;
 
-    /* First phase snapshot directory
-     */
-    firstPhaseSnapshotDir = snapDir;
-
     /* Setup db Options and create leveldb from the snapshot.
      */
     leveldb::DB* dbFromFirstSnap;
@@ -362,6 +371,9 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
     if (!status.ok()) {
         LOGCRITICAL << "Could not open leveldb instance for First Phase snapshot."
                    << "status " << status.ToString();
+        if (env) {
+            env->DeleteDir(firstPhaseSnapshotDir);
+        }
         // Finish tracking IO request.
         trackIOReqs.finishTrackIOReqs();
         return;

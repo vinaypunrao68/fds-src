@@ -4,6 +4,8 @@
  */
 
 include "common.thrift"
+include "FDSP.thrift"
+include "svc_types.thrift"
 
 namespace cpp fds.apis
 namespace java com.formationds.apis
@@ -27,6 +29,8 @@ enum MediaPolicy {
 enum VolumeType {
   OBJECT = 0;
   BLOCK = 1;
+  ISCSI = 2;
+  NFS = 3;
 }
 
 /* ------------------------------------------------------------
@@ -46,7 +50,7 @@ struct SnapshotPolicy {
   /** the retention time in seconds */
   4: i64 retentionTimeSeconds;
   /** the snapshot state */
-  5: common.ResourceState state;
+  5: svc_types.ResourceState state;
   /** the timeline time in seconds */
   6: i64  timelineTime;
 }
@@ -54,7 +58,7 @@ struct SnapshotPolicy {
 struct FDSP_ModifyVolType {
   1: string 		 vol_name,  /* Name of the volume */
   2: i64		 vol_uuid,
-  3: common.FDSP_VolumeDescType	vol_desc,  /* New updated volume descriptor */
+  3: svc_types.FDSP_VolumeDescType	vol_desc,  /* New updated volume descriptor */
 }
 
 /**
@@ -78,18 +82,36 @@ struct StreamingRegistrationMsg {
 /**
  * Local Domain descriptor.
  */
-struct LocalDomain {
+struct LocalDomainDescriptor {
+  /** The Local Domain uuid */
+  1: required i32 id;
+  /** A string representing the name of the Local Domain, i.e. domain name */
+  2: required string name;
+  /** A string representing the location or usage of the Local Domain. */
+  3: required string site;
+  /** The date created, in epoch seconds. */
+  4: required i64 createTime;
+  /** 'true' if the associated LocalDomain instance represents the current domain. However, once this crosses a domain boundary it can't be trusted. */
+  5: required bool current;
+  /** When not the current local domain, this provides OM contact information for the referenced local domain. */
+  6: required list<FDSP.FDSP_RegisterNodeType> omNodes;
+}
+
+/**
+ * Local Domain descriptor for interface version V07.
+ */
+struct LocalDomainDescriptorV07 {
   /** The Local Domain uuid */
   1: required i64 id;
   /** A string representing the name of the Local Domain, i.e. domain name */
   2: required string name;
-  /** A string representing the location of the Local Domain. */
+  /** A string representing the location or usage of the Local Domain. */
   3: required string site;
 }
 
 struct FDSP_ActivateOneNodeType {
   1: i32        domain_id,
-  2: common.FDSP_Uuid  node_uuid,
+  2: svc_types.FDSP_Uuid  node_uuid,
   3: bool       activate_sm,
   4: bool       activate_dm,
   5: bool       activate_am
@@ -97,7 +119,7 @@ struct FDSP_ActivateOneNodeType {
 
 struct FDSP_RemoveServicesType {
   1: string node_name, // Name of the node that contains services
-  2: common.FDSP_Uuid node_uuid,  // used if node name is not provided
+  2: svc_types.FDSP_Uuid node_uuid,  // used if node name is not provided
   3: bool remove_sm,   // true if sm needs to be removed
   4: bool remove_dm,   // true to remove dm
   5: bool remove_am    // true to remove am
@@ -119,19 +141,19 @@ struct Tenant {
 struct User {
   /** the user uuid */
   1: i64 id;
-  /** a string reprenseting the user identifier of the user, i.e. user name */
+  /** a string representing the user identifier of the user, i.e. user name */
   2: string identifier;
   /** a string representing the users password hash */
   3: string passwordHash;
-  /** a string represetning the secret passphrase */
+  /** a string representing the secret passphrase */
   4: string secret;
-  /** a boolean flag indicating if the user has adminstration permissions */
+  /** a boolean flag indicating if the user has administration permissions */
   5: bool isFdsAdmin;
 }
 
 struct FDSP_CreateVolType {
   1: string                  vol_name,
-  2: common.FDSP_VolumeDescType     vol_info, /* Volume properties and attributes */
+  2: svc_types.FDSP_VolumeDescType     vol_info, /* Volume properties and attributes */
 }
 
 struct FDSP_DeleteVolType {
@@ -165,6 +187,10 @@ struct VolumeSettings {
   5: MediaPolicy mediaPolicy;
   /** the default access mode */
   6: optional common.VolumeAccessMode default_mode;
+  /** the iscsi target */
+  7: optional common.IScsiTarget iscsiTarget;
+  /** nfs options */
+  8: optional common.NfsOption nfsOptions;
 }
 
 /**
@@ -173,7 +199,7 @@ struct VolumeSettings {
 struct VolumeDescriptor {
   /** the string representing the volume name, MUST be unique */
   1: required string name;
-  /** the date created, in epoach seconds */
+  /** the date created, in epoch seconds */
   2: required i64 dateCreated;
   /** the VolumeSettings representing the configuration parameters */
   3: required VolumeSettings policy;
@@ -182,7 +208,7 @@ struct VolumeDescriptor {
   /** the volume uuid */
   5: i64 volId;
   /** the ResourceState representing the current state of the volume */
-  6: common.ResourceState   state;
+  6: svc_types.ResourceState   state;
 }
 
 /**
@@ -224,11 +250,11 @@ enum SubscriptionScheduleType {
  * Subscription attributes and status
  */
 struct SubscriptionDescriptor {
-  /** A string representing the subscription name. MUST be unique within the global domain. */
-  1: required string name;
-
   /** ID of the subscription. MUST be unique within the global domain. */
-  2: required i64 id;
+  1: required i64 id;
+
+  /** A string representing the subscription name. MUST be unique within the global domain/tenant. */
+  2: required string name;
 
   /** The administrating tenant ID. */
   3: required i64 tenantID;
@@ -246,7 +272,7 @@ struct SubscriptionDescriptor {
   7: required i64 createTime;
 
   /** The current state of the subscription. */
-  8: required common.ResourceState state;
+  8: required svc_types.ResourceState state;
 
   /** The type of subscription, generally whether it is content based or transaction based. */
   9: required SubscriptionType type;
@@ -256,4 +282,12 @@ struct SubscriptionDescriptor {
 
   /** When scheduling, the "size" of the interval the expiration of which results in a primary snapshot pushed to the replica. Units according to scheduleType. */
   11: required i64 intervalSize;
+}
+
+exception SubscriptionNotFound {
+  1: string message;
+}
+
+exception SubscriptionNotModified {
+  1: string message;
 }

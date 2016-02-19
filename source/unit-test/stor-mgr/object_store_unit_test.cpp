@@ -14,6 +14,8 @@
 #include <fiu-control.h>
 #include <fdsp/sm_types_types.h>
 #include <util/Log.h>
+#include <util/bloomfilter.h>
+#include <object-store/LiveObjectsDB.h>
 #include <fdsp_utils.h>
 #include <fds_types.h>
 #include <ObjectId.h>
@@ -34,6 +36,7 @@ static StorMgrVolumeTable* volTbl;
 static ObjectStore::unique_ptr objectStore;
 static TestVolume::ptr volume1;
 static TestVolume::ptr largeCapVolume;
+static TestVolume::ptr vlargeCapVolume;
 static TestVolume::ptr largeObjVolume;
 static TestVolume::ptr migrVolume;
 
@@ -164,7 +167,8 @@ void SmObjectStoreTest::task(TestVolume::StoreOpType opType,
                 {
                     boost::shared_ptr<std::string> data =
                             (volume->testdata_).dataset_map_[oid].getObjectData();
-                    err = objectStore->putObject(volId, oid, data, false);
+                    diskio::DataTier tier = diskio::maxTier;
+                    err = objectStore->putObject(volId, oid, data, false, tier);
                     EXPECT_EQ(err, expectedError);
                 }
                 break;
@@ -223,6 +227,82 @@ SmObjectStoreTest::runMultithreadedTest(TestVolume::StoreOpType opType,
     threads_.clear();
 }
 
+/**
+ * Expunge TC 1
+ * This testcase adds only N/2 of the objects into the bloom filter out
+ * of total N objects put in the object DB. Basically trying to simulate
+ * deleted objects.
+ */
+TEST_F(SmObjectStoreTest, evaluate_object_sets) {
+    Error err(ERR_OK);
+    fds_token_id smToken = 1; // test sm token.
+    //test vol
+    vlargeCapVolume.reset(new TestVolume(fds_volid_t(200), "ut_vol_vcapacity",
+                                         20, 0,
+                                         TestVolume::STORE_OP_PUT,
+                                         400, 4096, smToken));
+    volTbl->registerVolume(vlargeCapVolume->voldesc_);
+    std::unique_ptr<util::BloomFilter> bf(new util::BloomFilter());
+
+    bool ignorePut = true;
+    // Add only N/2 objects to the bloom filter.
+    for (fds_uint32_t i = 0; i < (vlargeCapVolume->testdata_).dataset_.size(); ++i) {
+        ObjectID oid = (vlargeCapVolume->testdata_).dataset_[i];
+        boost::shared_ptr<std::string> data =
+                (vlargeCapVolume->testdata_).dataset_map_[oid].getObjectData();
+        if ((SmDiskMap::smTokenId(oid, bitsPerDltToken) == smToken)) {
+            diskio::DataTier tier = diskio::maxTier;
+            err = objectStore->putObject((vlargeCapVolume->voldesc_).volUUID, oid, data, false, tier);
+            if (ignorePut) {
+                bf->add(oid);
+                ignorePut = false;
+            } else {
+                ignorePut = true;
+            }
+            EXPECT_TRUE(err.ok());
+        }
+    }
+    std::string bfFileName("vlargeCapVolume.bf");
+    serialize::Serializer* s=serialize::getFileSerializer(bfFileName);
+    if (bf->write(s) <= 0) {
+        std::cout << "write failed" << std::endl;
+    }
+    delete s;
+
+    diskio::TokenStat tokStats;
+    /**
+     * Simulating the situation where SM received object delete count threshold number of
+     * bloom filters. Here each bloom filter basically has N/2 absent objects. And once the
+     * total delete count crosses the threshold, the token_reclaim_size takes note of that.
+     */
+    for (fds_uint8_t incDelCount = 0; incDelCount < fds::objDelCountThresh; ++incDelCount) {
+        objectStore->addObjectSet(smToken, (vlargeCapVolume->voldesc_).volUUID,
+                                  util::getTimeStampNanos(), bfFileName);
+        tokStats.tkn_id = 0;
+        tokStats.tkn_tot_size = 0;
+        tokStats.tkn_reclaim_size = 0;
+        objectStore->evaluateObjectSets(smToken, diskio::maxTier, tokStats);
+
+        // object will be ready to be claimed only when the delete count threshold is reached.
+        if (incDelCount < (fds::objDelCountThresh - 1)) {
+            EXPECT_EQ(tokStats.tkn_reclaim_size, 0);
+        } else {
+            fds_uint64_t toDelete = tokStats.tkn_tot_size / 2;
+            EXPECT_EQ(tokStats.tkn_reclaim_size, toDelete);
+        }
+
+        objectStore->removeObjectSet(smToken, (vlargeCapVolume->voldesc_).volUUID);
+    }
+
+    float_t used_pct = objectStore->getUsedCapacityAsPct();
+    EXPECT_TRUE(used_pct > 0);
+
+    if (unlink(bfFileName.c_str()) < 0) {
+        GLOGERROR << "Can't unlink file : " << bfFileName;
+    }
+    objectStore->dropLiveObjectDB();
+}
+
 TEST_F(SmObjectStoreTest, one_thread_puts) {
     Error err(ERR_OK);
 
@@ -231,7 +311,8 @@ TEST_F(SmObjectStoreTest, one_thread_puts) {
         ObjectID oid = (volume1->testdata_).dataset_[i];
         boost::shared_ptr<std::string> data =
                 (volume1->testdata_).dataset_map_[oid].getObjectData();
-        err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data, false);
+        diskio::DataTier tier = diskio::maxTier;
+        err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data, false, tier);
         EXPECT_TRUE(err.ok());
     }
     float_t used_pct = objectStore->getUsedCapacityAsPct();
@@ -260,7 +341,8 @@ TEST_F(SmObjectStoreTest, one_thread_dup_puts) {
         ObjectID oid = (volume1->testdata_).dataset_[i];
         boost::shared_ptr<std::string> data =
                 (volume1->testdata_).dataset_map_[oid].getObjectData();
-        err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data, false);
+        diskio::DataTier tier = diskio::maxTier;
+        err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data, false, tier);
         EXPECT_TRUE(err.ok());
         if (!err.ok()) {
             std::cout << oid << " putObject returned " << err << std::endl;

@@ -35,17 +35,20 @@ fi
 BINDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/bin"
 TESTDIR="${SOURCEDIR}/Build/linux-x86_64.${BUILDMODE}/tests"
 KODIR="${SOURCEDIR}/fds_client/blk_dev"
+RABBITDIR="/opt/fds-stats-deps/embedded/bin"
+STATSDIR="/opt/fds/formation_one/packages/fds-stats-service-2.0.0"
 
-########################################################################
+#######################################################################
 
 REDIS_ARG=
 
 # Variables
-applist="pm om dm sm am xdi"
+applist="pm om dm sm am xdi stats rabbitmq influxdb"
 declare -A proc
 proc["am"]="bare_am"
 proc["xdi"]="java"
 proc["om"]="java"
+proc["stats"]="java"
 
 declare -A apps
 apps["om"]="orchMgr"
@@ -54,69 +57,93 @@ apps["xdi"]="am.Main"
 apps["sm"]="StorMgr"
 apps["dm"]="DataMgr"
 apps["pm"]="platformd"
+apps["rabbitmq"]="rabbitmq"
+apps["stats"]="stats.service.Main"
+apps["redis"]="redis-server"
+apps["influxdb"]="influxd"
 
 declare -A TESTS
-TESTS["restart-full"]="FullRestartMultiNodeTest.ini"
-TESTS["restart-simple"]="SimpleRestartMultiNodeTest.ini"
-TESTS["restart"]="SimpleRestartTest.ini"
-TESTS["smoke"]="BuildSmokeTest_onpr.ini"
+TESTS["restart-full"]="FullRestartMultiNodeTest"
+TESTS["restart-simple"]="SimpleRestartMultiNodeTest"
+TESTS["restart"]="SimpleRestartTest"
+TESTS["restart-activeio"]="ActiveIORestartTest/ActiveIORestartTest"
+TESTS["smoke"]="BuildSmokeTest_onpr"
+TESTS["4node"]="FourNodeStart"
+TESTS["2node"]="TwoNodeStart"
+TESTS["unit"]="unit tests"
 
 function usage() {
-    log "$(yellow usage: $(basename $0) [cmd] [app/testname] [options])"
+    log "$(yellow usage: $(basename $0) [cmd] [app/testname/clustername/buildname] [options])"
     log " cmd : "
-    log "   - $(yellow start)     : start the app "
-    log "   - $(yellow stop)      : stop  the app "
-    log "   - $(yellow restart)   : stop & start  the app "
-    log "   - $(yellow status)    : print status of the apps"
-    log "   - $(yellow clogs)     : remove the logs"
+    log "   - $(yellow clean)     : remove the data"
     log "   - $(yellow clean)     : remove the data"
     log "   - $(yellow cleanstart): stop+clean+start all"
-    log "   - $(yellow test)      : run specific tests"
-    log "   - $(yellow tail)      : tail the application log file"
+    log "   - $(yellow clogs)     : remove the logs"
+    log "   - $(yellow debug)     : switch to $(red debug) build"
+    log "   - $(blue   deploy)    : deploy local build to a cluster"
     log "   - $(yellow error)     : show errors/warn/critical from application log"
     log "   - $(red    gdb)       : gdb attach app"
-    log "   - $(yellow nomemchk)  : run services $(green normally)"
     log "   - $(yellow memchk)    : run services under $(red valgrind)"
+    log "   - $(yellow nfs)       : <volname> set up an nfs mount under /mnt/volname"
+    log "   - $(yellow nomemchk)  : run services $(green normally)"
+    log "   - $(yellow package)   : package fds-platform/ fds-deps(specify param deps)"
     log "   - $(yellow release)   : switch to $(green release) build"
-    log "   - $(yellow debug)     : switch to $(red debug) build"
+    log "   - $(yellow restart)   : stop & start  the app "
+    log "   - $(yellow start)     : start the app "
+    log "   - $(yellow start[2/4]): start 2/4 node cluster "
+    log "   - $(yellow status)    : print status of the apps"
+    log "   - $(yellow stop)      : stop  the app "
+    log "   - $(yellow tail)      : tail the application log file"
+    log "   - $(yellow test)      : run specific tests"
+    log "   - $(yellow top)       : top command for fds apps"
     log " options :"
     log "   : $(yellow --fds-root/-f) rootdir"
     log "   : $(yellow --om-debug-port) java debugger port #"
     log "   : $(yellow --xdi-debug-port) java debugger port #"
     log " app : om/pm/sm/am/dm/all"
     log " $(yellow testname): name of a test"
-    echo -e "${!TESTS[@]}" | tr " " "\n" | sort | sed -e "s/^/    - /g" 
-    printBuildMode
-    printRunMode
+    echo -e "${!TESTS[@]}" | tr " " "\n" | sort | sed -e "s/^/    - /g"
+    printMode build run
     exit 0
 }
 
-function printRunMode() {
-    case "${RUNMODE}" in
-        nomemchk)
-            loginfo "$(blue current run mode) : $(green ${RUNMODE})"
-            ;;
-        memchk)
-            logwarn "$(blue current run mode) : $(red ${RUNMODE})"
-            ;;
-        *)
-            logerror "unknown run mode : ${RUNMODE}"
-            ;;
-    esac
-}
+function printMode() {
 
-function printBuildMode() {
-    case "${BUILDMODE}" in
-        release)
-            loginfo "$(blue current build mode) : $(green ${BUILDMODE})"
-            ;;
-        debug)
-            loginfo "$(blue current build mode) : $(red ${BUILDMODE})"
-            ;;
-        *)
-            logerror "unknown build mode : ${BUILDMODE}"
-            ;;
-    esac
+    local params="${@}"
+    local output
+    if [[ -z $params ]]; then params="build run" ; fi
+
+    if (echo $params | grep -qE "\brun\b"); then
+        output="$output run:"
+        case "${RUNMODE}" in
+            nomemchk)
+                output="${output}$(green ${RUNMODE})"
+                ;;
+            memchk)
+                output="${output}$(red ${RUNMODE})"
+                ;;
+            *)
+                output="${output}$(red err-${RUNMODE})"
+                ;;
+        esac
+    fi
+
+    if (echo $params | grep -qE "\bbuild\b"); then
+        output="$output build:"
+        case "${BUILDMODE}" in
+            release)
+                output="${output}$(green ${BUILDMODE})"
+                ;;
+            debug)
+                output="${output}$(red ${BUILDMODE})"
+                ;;
+            *)
+                output="${output}$(red err-${BUILDMODE})"
+                ;;
+        esac
+    fi
+
+    loginfo "$output"
 }
 
 function setRunMode() {
@@ -131,7 +158,7 @@ function setRunMode() {
         return 1
     fi
     RUNMODE=$mode
-    printRunMode
+    printMode run
     return 0
 }
 
@@ -147,7 +174,7 @@ function setBuildMode() {
         return 1
     fi
     BUILDMODE=$mode
-    printBuildMode
+    printMode build
     return 0
 }
 
@@ -178,17 +205,8 @@ function setupFdsDirs() {
 }
 
 function activate() {
-    local actapps
-    if [[ -z $(getAppPid am) ]]; then actapps="${actapps}am,"; fi
-    if [[ -z $(getAppPid dm) ]]; then actapps="${actapps}dm,"; fi
-    if [[ -z $(getAppPid sm) ]]; then actapps="${actapps}sm,"; fi
-    if [[ -n $actapps ]]; then
-        # Bao: wait for platformd before activate
-        sleep 14
-
-        logwarn "asking OM to accept all discovered nodes..."
-	(cd ${TOOLSDIR}; ./fdsconsole.py domain activateServices local dm,sm,am> cli.out) 2>/dev/null
-    fi
+    logwarn "asking OM to accept all discovered nodes..."
+    (cd ${TOOLSDIR}; /usr/bin/python ./fdsconsole.py set host localhost ; /usr/bin/python ./fdsconsole.py domain activateServices local dm,sm,am)
 }
 
 function startApp() {
@@ -215,6 +233,16 @@ function startApp() {
             ;;
     esac
 
+    # start rabbit mq if needed
+    case ${appname} in
+        stats|all|rabbitmq)
+            loginfo "Starting RabbitMQ server..."
+            PATH=$PATH:${RABBITDIR} rabbitmq-server start &
+            loginfo "Starting stats service..."
+            ${STATSDIR}/bin/fds-stats-service &
+            ;;
+    esac
+
     for name in $justapps ; do
         if [[ $appname == ${name} ]] || [[ $appname == "all" ]] ; then
             pid=$(getAppPid $name)
@@ -225,7 +253,9 @@ function startApp() {
                         ;;
                     om)
                         if [[ ! -z "${OM_DEBUG_PORT}" ]]; then
-                            params="--debug-port=${OM_DEBUG_PORT}"
+                            params="--fds.feature_toggle.common.volumegrouping_dm_cluster_size=1 --debug-port=${OM_DEBUG_PORT}"
+                        else
+                            params="--fds.feature_toggle.common.volumegrouping_dm_cluster_size=1"
                         fi
                         ;;
                     xdi)
@@ -240,19 +270,25 @@ function startApp() {
 
                 loginfo "$(boldblue ${name}) $(yellow starting ..)"
                 echo $params
-		valgrind=""
+                valgrind=""
                 if test ${RUNMODE} == "memchk"; then
                     valgrind="valgrind ${VALGRIND_OPTIONS}${apps[$name]}.%p.memcheck"
                 fi
-	        (cd ${BINDIR}; ${valgrind} ./${apps[$name]} --fds-root=${FDSROOT} $params > ${name}.out 2>&1 &)
+                (cd ${BINDIR}; ${valgrind} ./${apps[$name]} --fds-root=${FDSROOT} $params > ${name}.out 2>&1 &)
                 loginfo "$(boldblue ${name}) : console out : ${BINDIR}/${name}.out"
 
-		if ! (waitForApp $name) ; then
+                if ! (waitForApp $name) ; then
                     logerror "oops!! something wrong.. [$(boldblue $name)] is $(red not) showing up."
                     loginfo "here is the log file: ${BINDIR}/${name}.out"
                     tail ${BINDIR}/${name}.out
                 fi
 
+                if [[ $name == "om" ]]; then
+                    loginfo "waiting for om rest interface to initialize ..."
+                    if !(waitForPort 7443); then
+                        logerror "port 7443 is not showing up .. rest interface not ready"
+                    fi
+                fi
             else
                 logwarn "$(boldblue ${name}) ... already running"
             fi
@@ -273,11 +309,18 @@ function stopApp() {
         ${TOOLSDIR}/redis.sh stop 1 $REDIS_ARG
     fi
 
-    case "$appname" in 
+    case "$appname" in
         om|all|influx*)
             if [ "$CMD" != "clean" ]; then
                 stopInfluxDB
             fi
+            ;;
+    esac
+
+    # Stop the stats service and rabbitmq
+    case "$appname" in
+        stats|rabbitmq|all)
+            PATH=$PATH:${RABBITDIR} rabbitmqctl -q stop >> /dev/null
             ;;
     esac
 
@@ -301,10 +344,10 @@ function stopApp() {
 function startInfluxDB() {
     local ret=0
     sudo service influxdb status 2>&1 >> /dev/null
-    if [ $? != 0 ]; then
+    if [[ $? -ne 0 ]]; then
         sudo service influxdb start 2>&1 >> /dev/null
         ret=$?
-        if [ $ret != 0 ]; then
+        if [[ $ret -ne 0 ]]; then
             logwarn "Failed to start InfluxDB"
         fi
     fi
@@ -314,10 +357,10 @@ function startInfluxDB() {
 function stopInfluxDB() {
     local ret=0
     sudo service influxdb status 2>&1 >> /dev/null
-    if [ $? == 0 ]; then
+    if [[ $? == 0 ]]; then
         sudo service influxdb stop 2>&1 >> /dev/null
         ret=$?
-        if [ $ret != 0 ]; then
+        if [[ $ret -ne 0 ]]; then
             logwarn "Failed to stop InfluxDB"
         fi
     fi
@@ -331,7 +374,7 @@ function cleanInfluxDB() {
     local isRunning=$?
 
     ## if it is not running, start it.
-    if [ $isRunning != 0 ]; then
+    if [[ $isRunning -ne 0 ]]; then
         loginfo "Starting InfluxDB for clean"
         startInfluxDB
         sleep 5
@@ -340,7 +383,7 @@ function cleanInfluxDB() {
     loginfo "cleaning up InfluxDB databases"
     for db in om-eventdb om-metricdb; do
         local out=$(curl -s --write-out ":%{http_code}" -X DELETE "http://localhost:8086/db/$db?u=root&p=root")
-        if [ $? != 0 ]; then
+        if [[ $? -ne 0 ]]; then
             logwarn InfluxDB Request failed: $out
         fi
         local msg=$(echo $out | cut -d : -f 1)
@@ -353,7 +396,7 @@ function cleanInfluxDB() {
     done
 
     ## if influx was NOT running originally, stop it again.
-    if [ $isRunning != 0 ]; then
+    if [[ $isRunning -ne 0 ]]; then
         loginfo "Stopping InfluxDB"
         stopInfluxDB
     fi
@@ -398,12 +441,12 @@ function statusApp() {
         ${TOOLSDIR}/redis.sh status 1 $REDIS_ARG
     fi
 
-    case "$appname" in 
+    case "$appname" in
         om|all|influx*)
             sudo service influxdb status 2>&1 >> /dev/null
             if [ $? == 0 ]; then
                 echo "$(boldblue influxdb) : $(green RUNNING)"
-            else 
+            else
                 echo "$(boldblue influxdb) : $(yellow Not running)"
             fi
             ;;
@@ -413,10 +456,14 @@ function statusApp() {
 function getAppPid() {
     local name=$1
     local pid
-    if [[ $name == "om" ]]; then
+    if [[ ${name} == "om" ]]; then
         pid="$(pgrep -f com.formationds.om.Main)"
-    elif [[  $name == "xdi"  ]]; then
+    elif [[  ${name} == "xdi"  ]]; then
         pid="$(pgrep -f com.formationds.am.Main)"
+    elif [[  ${name} == "stats"  ]]; then
+        pid="$(pgrep -f com.formationds.stats.service.Main)"
+    elif [[  ${name} == "rabbitmq"  ]]; then
+        pid="$(pgrep -f rabbitmq)"
     else
         pid="$(pgrep -f \(valgrind\)?.\*${apps[$name]})"
     fi
@@ -424,7 +471,7 @@ function getAppPid() {
         echo -n $pid
     else
         for p in $pid; do
-            if [[ "Z" != $(ps -o s= -p $p) ]]; then 
+            if [[ "Z" != $(ps -o s= -p $p) ]]; then
                 echo -n "$p "
             fi
         done
@@ -483,6 +530,35 @@ function waitForApp() {
     fi
 }
 
+function waitForPort() {
+    local port=$1
+    local maxcount=30
+    local waittime=1
+    if [[ $# -ge 2 ]] ; then
+        maxcount=$2
+    fi
+
+    if [[ $# -ge 3 ]] ; then
+       waittime=$3
+    fi
+
+    local count=0
+    echo -n "... waiting for port:[$(boldblue $port)] to come up: "
+    lpid=""
+    while [[ $count -lt $maxcount ]] && !(nc -z localhost $port); do
+        echo -n "."
+        (( count++ ))
+        sleep ${waittime}s ;
+    done
+    echo
+
+    if (nc -z localhost $port); then
+        return 0
+    else
+        return 1
+    fi
+}
+
 function attachgdb() {
     local app=$1
     case "${app}" in
@@ -520,6 +596,30 @@ function taillog() {
     esac
 }
 
+function showtop() {
+    local justapps="${applist}"
+    if [[ $1 == 'all' ]]; then
+        justapps="${applist} influxdb"
+    else
+        justapps="$@"
+    fi
+
+    topparams=""
+    for name in $justapps ; do
+        pid="$(getAppPid $name zombie)"
+        if [[ -n $pid ]] ; then
+            for procid in $pid ; do
+                topparams="${topparams} -p $pid"
+            done
+        fi
+    done
+
+    if [[ -n ${topparams} ]]; then
+        exec top -c ${topparams}
+    fi
+}
+
+
 function showerrors() {
     local apps="$@"
     if [[ $1 == 'all' ]]; then
@@ -544,6 +644,8 @@ function showerrors() {
         echo
     done
 }
+
+
 
 function showports() {
     local apps="$@"
@@ -599,40 +701,136 @@ function clean() {
                 rm -rf /${node}/var/db/*
                 # redis stuff
                 ${TOOLSDIR}/redis.sh clean 1 $REDIS_ARG
-		# valgrind stuff
+                # valgrind stuff
                 rm -rf /${node}/memcheck/*.memcheck
 
-		rm -rf /${node}/var/logs/*.log*
-		rm -rf /${node}/var/logs/archive
-		rm -rf /${node}/var/logs/*DLT
+                rm -rf /${node}/var/logs/*.log*
+                rm -rf /${node}/var/logs/archive
+                rm -rf /${node}/var/logs/*DLT
                 #cleanlogs
             ) 2>/dev/null
         fi
     done
 
-	rm -f /dev/shm/0x*
+        rm -f /dev/shm/0x*
 
     cleanInfluxDB
     cleanBinDirs
 }
 
+function runUnitTests() {
+    local TEMPTESTFILE=/tmp/gtests.${EUID}
+    loginfo "running all jenkins unit tests"
+    sed -e "s|Build/linux-x86_64.debug/tests/||g" -e 's|./config|/fds|g' ${SOURCEDIR}/cit/gtest_ut > $TEMPTESTFILE
+    awk -v td="${TESTDIR}"  '{
+       print ""
+       print "------------------------------------"
+       print "RUNNING TEST - ", $0
+       print "------------------------------------"
+       k=system("sudo "td"/"$0)
+       if (k!=0) {
+           print "************************************"
+           print "\btest FAILED with status:",k,":",$0
+           print "************************************"
+       }
+    }' $TEMPTESTFILE
+}
+
 function runTest() {
     local testname=$1
+    if [[ $testname == unit* ]]; then
+        runUnitTests
+        return
+    fi
+
+
     local TESTSUITEDIR=${SOURCEDIR}/test/testsuites
 
     if [[ -n $testname ]] && [[ ${TESTS[$testname]+1} ]]; then
         stopApp all
-        (cd ${TESTSUITEDIR}; ./ScenarioDriverSuite.py -q ${TESTS[$testname]})
+        runScenario ${TESTS[$testname]}
+        #(cd ${TESTSUITEDIR}; ./ScenarioDriverSuite.py -q ${TESTS[$testname]})
     else
         logerror "no matching tests for [$testname]"
+        logwarn  "should be one of : "
+        echo -e "${!TESTS[@]}" | tr " " "\n" | sort | sed -e "s/^/    - /g"
     fi
 }
 
+function runScenario() {
+    local SCENENAME="$1"
+    local SCENEDIR=${SOURCEDIR}/test/cfg
+    local SCENENAME="${SCENENAME%%.cfg}.cfg"
+    if [[ ! -f ${SCENEDIR}/${SCENENAME} ]]; then
+        logerror "unable to locate scenario : ${SCENENAME}"
+        exit 0
+    fi
+
+    local TEMPINIFILE=/tmp/${SCENENAME//\//_}.${UID}.ini
+
+    echo "
+[harness]
+# Parameters for Jenkins build on commit testing
+test_source_dir: ${SOURCEDIR}/test/testcases
+log_dir: ${SOURCEDIR}/cit
+log_level: 20
+stop_on_fail: True
+run_as_root: False
+threads: 1
+iterations: 1
+fds_config_file: ${SCENEDIR}/${SCENENAME}
+fds_source_dir: ${SOURCEDIR}
+" > ${TEMPINIFILE}
+
+(cd ${SOURCEDIR}/test/testsuites; ./ScenarioDriverSuite.py --reusecluster -q ${TEMPINIFILE})
+
+}
+
+function deploy() {
+    local cluster="$1"
+    shift
+    local ansibledir="${SOURCEDIR}/../ansible"
+    if [[ ! -f  ${ansibledir}/inventory/${cluster} ]]; then
+        logwarn "deploy: cluster file [$cluster] missing from inventory dir"
+        return
+    fi
+    loginfo "deploying local build to  : $cluster "
+    (cd ${ansibledir}/scripts; ./deploy_fds.sh ${cluster} local)
+}
+
+function package() {
+    local params="$1"
+    if [[ -z $params ]]; then
+        (cd ${SOURCEDIR}/..; make package fds-platform BUILD_TYPE=${BUILDMODE})
+    elif [[ $params =~ dep* ]]; then
+        (cd ${SOURCEDIR}/..; make package fds-deps)
+    else
+        logerror "i dont know how to build : [$params]"
+    fi
+}
+
+function nfs() {
+    local volname=$1
+    local amip=$2
+
+    if [[ -z $volname ]]; then logerror "volume name needs to be specified. usage: nfs <volname> [amip:localhost]"; return ; fi
+    if [[ -z $amip ]]; then amip="localhost"; fi
+
+    loginfo "making dir : /mnt/$volname"
+    mkdir /mnt/$volname 2>/dev/null
+
+    loginfo "mounting volume : /mnt/$volname"
+    mount -o _netdev,bg,defaults,nfsvers=3,bg,wsize=1048576,rsize=1048576 $amip:/$volname /mnt/$volname
+}
+
 function cleanlogs() {
-    (
-        rm -f $(find /${FDSROOT}/var/ -type f | grep -v redis)
-        rm -f $(find /${FDSROOT}/logs -type f | grep -v redis)
-    ) 2>/dev/null
+    for node in ${FDSROOT} ${FDSROOT}/node{1..4} ; do
+        loginfo "cleaning logs in : ${node}"
+        (
+            rm -f $(find ${node}/var/ -type f | grep -v redis)
+            rm -f $(find ${node}/logs -type f | grep -v redis)
+        ) 2>/dev/null
+    done
 }
 
 ########################################################################
@@ -684,11 +882,11 @@ do
         -h|--help)
             usage
             ;;
-        nomemchk)
+        nomemch*)
             setRunMode nomemchk
             exit 0
             ;;
-        memchk)
+        memch*)
             setRunMode memchk
             exit 0
             ;;
@@ -701,8 +899,7 @@ do
             exit 0
             ;;
         mode)
-            printBuildMode
-            printRunMode
+            printMode build run
             exit 0
             ;;
         bindir)
@@ -714,11 +911,17 @@ do
             exit 0
             ;;
         # detect commands
-        kill|test|start|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*)
+        kill|start*|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*|top)
             CMD=$opt
             ;;
+        test|deploy|package|nfs)
+            CMD=$opt
+            (( n++ ))
+            NEXTARG="${args[@]:$n}"
+            (( n = $# ))
+            ;;
         # detect app
-        om|am|dm|sm|pm|all|redis) 
+        om|am|dm|sm|pm|all|redis|stat*|rabbit*|influx*)
             APP=$opt
             ;;
         *)
@@ -738,35 +941,34 @@ FDSTEST_ROOT=/fds-test
 
 VALGRIND_OPTIONS="--show-reachable=no --show-possibly-lost=no --tool=memcheck --leak-check=yes --num-callers=30 --gen-suppressions=all --xml=yes --xml-file=${FDSROOT}/memcheck/"
 
-if [[ $CMD == "test" ]]; then
-    TEST=$APP
-    APP="all"
-fi
-
 # check the values
 CMD=${CMD:="status"}
 APP=${APP:="all"}
 FDSROOT=${FDSROOT:=/fds}
-TESTNAME=""
 FDSLOGROOT=${FDSROOT}/var/logs
 
-#echo CMD:               ${CMD} 
-#echo APP:                ${APP} 
-#echo FDSROOT:      ${FDSROOT} 
-#echo SOURCEDIR:   ${SOURCEDIR} 
-#echo TOOLSDIR:     ${TOOLSDIR} 
-#echo CONFIG_ETC:  ${CONFIG_ETC} 
+#echo CMD:               ${CMD}
+#echo APP:                ${APP}
+#echo FDSROOT:      ${FDSROOT}
+#echo SOURCEDIR:   ${SOURCEDIR}
+#echo TOOLSDIR:     ${TOOLSDIR}
+#echo CONFIG_ETC:  ${CONFIG_ETC}
 #echo BINDIR:           ${BINDIR}
 #echo args:                ${args[@]}
 #exit 0
 
-printBuildMode
-printRunMode
+printMode
 
 case "${CMD}" in
     start) startApp $APP
         [[ $APP == "all" ]] && waitForAll
         statusApp $APP
+        ;;
+    start4)
+        runTest 4node
+        ;;
+    start2)
+        runTest 2node
         ;;
     kill) stopApp  $APP;;
     stop) stopApp  $APP;;
@@ -789,20 +991,23 @@ case "${CMD}" in
         waitForAll
         statusApp "all"
         ;;
-    gdb)
-        attachgdb $APP
+    gdb) attachgdb $APP
         ;;
-    tail)
-        taillog $APP
+    tail) taillog $APP
         ;;
-    err*)
-        showerrors $APP
+    err*) showerrors $APP
         ;;
-    test)
-        runTest $TEST
+    test) runTest "$NEXTARG"
         ;;
-    port*)
-        showports $APP
+    port*) showports $APP
+        ;;
+    top) showtop $APP
+        ;;
+    deploy) deploy "$NEXTARG"
+        ;;
+    package) package "$NEXTARG"
+        ;;
+    nfs) nfs "$NEXTARG"
         ;;
     *) usage ;;
 esac

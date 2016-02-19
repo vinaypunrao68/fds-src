@@ -20,6 +20,7 @@
 #include <dm-vol-cat/DmPersistVolCat.h>
 
 namespace fds {
+    class VolumeMeta;
 
 struct DmVolumeSummary {
     typedef boost::shared_ptr<DmVolumeSummary> ptr;
@@ -43,15 +44,21 @@ typedef std::unordered_map<fds_volid_t, DmVolumeSummary::ptr> DmVolumeSummaryMap
  * uses two sub-modules: persistent layer and a cache that
  * sits on top of persistent layer
  */
-class DmVolumeCatalog : public Module, public HasLogger,
-        public VolumeCatalogQueryIface {
+class DmVolumeCatalog : public HasModuleProvider,
+    public Module,
+    public HasLogger,
+    public VolumeCatalogQueryIface {
   public:
     typedef boost::shared_ptr<DmVolumeCatalog> ptr;
     typedef boost::shared_ptr<const DmVolumeCatalog> const_ptr;
 
     // static methods
     inline static fds_uint32_t getLastObjSize(fds_uint64_t blobSize, fds_uint32_t objSize) {
-        fds_uint32_t rc = blobSize ? (blobSize % objSize) : 0;
+        if (blobSize == 0) {
+            return 0;
+        }
+
+        fds_uint32_t rc = blobSize % objSize;
         return (rc ? rc : objSize);
     }
 
@@ -60,7 +67,8 @@ class DmVolumeCatalog : public Module, public HasLogger,
     }
 
     // ctor and dtor
-    explicit DmVolumeCatalog(char const * const name);
+    explicit DmVolumeCatalog(CommonModuleProviderIf* modProvider,
+                             char const * const name);
     ~DmVolumeCatalog();
 
     // Methods
@@ -117,18 +125,29 @@ class DmVolumeCatalog : public Module, public HasLogger,
      * @return ERR_OK if catalog was deleted; ERR_NOT_READY if volume is not marked
      * as deleted.
      */
-    Error deleteEmptyCatalog(fds_volid_t volId, bool checkDeleted = true);
+    Error deleteCatalog(fds_volid_t volId, bool checkDeleted = true);
 
     /**
-     * Returns size of volume and number of blob in the volume 'volume_id'
-     * @param[out] size size of volume in bytes
+     * Returns logical size of volume and number of blob in the volume 'volume_id'
+     * @param[out] size logical size of volume in bytes
      * @param[in] blob_count number of blobs in the volume
-     * @param[out] object_count object count per volume
+     * @param[out] object_count logical object count per volume
      * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
      * to volume catalog
      */
-    Error statVolume(fds_volid_t volId, fds_uint64_t* volSize,
-                     fds_uint64_t* blobCount, fds_uint64_t* objCount) override;
+    Error statVolumeLogical(fds_volid_t volId, fds_uint64_t* volSize,
+                            fds_uint64_t* blobCount, fds_uint64_t* objCount) override;
+
+    /**
+     * Returns physical size of the volume.
+     *
+     * @param[in] volId volume identifier
+     * @param[out] pbytes Volume physical size in bytes.
+     * @param[out] pobjects Number of physical oData Objects comprising the volume.
+     *
+     * @return ERR_OK on success
+     */
+    Error statVolumePhysical(fds_volid_t volId, fds_uint64_t* pbytes, fds_uint64_t* pObjCount);
 
     /**
      * Sets the key-value metadata pairs for the volume. Any keys that already
@@ -162,6 +181,24 @@ class DmVolumeCatalog : public Module, public HasLogger,
      * @return ERR_OK on success
      */
     Error getVolumeObjects(fds_volid_t volId, std::set<ObjectID> & objIds);
+
+    /**
+    * @brief Returns object ids in snap(if null then active volume) starting from dbItr upto
+    * maxObjs count of objects.
+    *
+    * @param volId
+    * @param maxObjs
+    * @param snap
+    * @param dbItr
+    * @param objects
+    *
+    * @return
+    */
+    Error getObjectIds(fds_volid_t volId,
+                       const uint32_t &maxObjs,
+                       const Catalog::MemSnap &snap,
+                       std::unique_ptr<Catalog::catalog_iterator_t>& dbItr,
+                       std::list<ObjectID> &objects) override;
 
     /**
      * Retrieves blob meta for the given blobName and volume 'volId'
@@ -226,6 +263,7 @@ class DmVolumeCatalog : public Module, public HasLogger,
                                fpi::BlobDescriptorListType& results,
                                std::vector<std::string>& skippedPrefixes) override;
 
+
     /**
      * Updates committed blob in the Volume Catalog.
      */
@@ -271,7 +309,8 @@ class DmVolumeCatalog : public Module, public HasLogger,
      */
     Error migrateDescriptor(fds_volid_t volId,
                             const std::string& blobName,
-                            const std::string& blobData);
+                            const std::string& blobData,
+                            VolumeMeta& volMeta);
 
     /**
      * Get total matadata size for a volume
@@ -285,6 +324,10 @@ class DmVolumeCatalog : public Module, public HasLogger,
 
     Error getAllBlobsWithSequenceId(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId,
 														const Catalog::MemSnap snap);
+
+    Error getAllBlobsWithSequenceId(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId,
+														const Catalog::MemSnap snap,
+														const fds_bool_t &abortFlag);
 
     DmPersistVolCat::ptr getVolume(fds_volid_t volId);
 
@@ -308,6 +351,7 @@ class DmVolumeCatalog : public Module, public HasLogger,
 
     Error putObject(fds_volid_t volId, const std::string & blobName, const BlobObjList & objs);
 
+    Error getVersion(fds_volid_t volId, int32_t &version) override;
   private:
     // methods
     Error statVolumeInternal(fds_volid_t volId, fds_uint64_t * volSize,

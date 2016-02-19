@@ -226,11 +226,16 @@ class FdsNodeConfig(FdsConfig):
 
             print "Start OM on %s in %s" % (self.nd_host_name(),fds_dir)
 
-            self.nd_start_influxdb();
+            self.nd_start_influxdb()
 
             if test_harness:
-                status = self.nd_agent.exec_wait('bash -c \"(nohup ./orchMgr --fds-root=%s %s > %s/om.out 2>&1 &) \"' %
-                                                 (fds_dir, om_ip_arg, log_dir),
+                # GMON_OUT_PREFIX is set so that the gprof output, if the executable is
+                # compiled to generate such, is uniquely identified by PID. If we were
+                # not to set this, the outputs of all executables would be written to the
+                # same file, gmon.out, overwriting each other.
+                status = self.nd_agent.exec_wait('bash -c \"export GMON_OUT_PREFIX=gmon.out;'
+                                                 '(nohup ./orchMgr --fds-root={0} {1} > {2}/om.out 2>&1 &) \"'.
+                                                 format(fds_dir, om_ip_arg, log_dir),
                                                  fds_bin=True)
             else:
                 status = self.nd_agent.ssh_exec_fds(
@@ -424,9 +429,13 @@ class FdsNodeConfig(FdsConfig):
         # When running from the test harness, we want to wait for results
         # but not assume we are running from an FDS package install.
         if test_harness:
-            status = self.nd_agent.exec_wait('bash -c \"(nohup ./platformd --fds-root=%s > %s/pm.%s.out 2>&1 &) \"' %
-                                            #(bin_dir, fds_dir, log_dir if self.nd_agent.env_install else ".",
-                                            (fds_dir, log_dir, port),
+            # GMON_OUT_PREFIX is set so that the gprof output, if the executable is
+            # compiled to generate such, is uniquely identified by PID. If we were
+            # not to set this, the outputs of all executables would be written to the
+            # same file, gmon.out, overwriting each other.
+            status = self.nd_agent.exec_wait('bash -c \"export GMON_OUT_PREFIX=gmon.out;'
+                                             '(nohup ./platformd --fds-root={0} > {1}/pm.{2}.out 2>&1 &) \"'.
+                                             format(fds_dir, log_dir, port),
                                              fds_bin=True)
         else:
             status = self.nd_agent.ssh_exec_fds('platformd ' + port_arg + ' &> %s/pm.out' % log_dir)
@@ -550,7 +559,7 @@ class FdsNodeConfig(FdsConfig):
             status = self.nd_agent.exec_wait('ls ' + dev_dir)
             if status == 0:
                 log.info("Cleanup hdd-* and sdd-* in: %s" % dev_dir)
-                self.nd_agent.exec_wait('cd ' + dev_dir + '&& rm -f hdd-* ssd-*')
+                self.nd_agent.exec_wait('cd ' + dev_dir + '&& rm -rf hdd-* ssd-* disk-map')
 
             status = self.nd_agent.exec_wait('ls ' + fds_dir)
             if status == 0:
@@ -873,7 +882,7 @@ class FdsPkgInstallConfig(FdsConfig):
 # Handle fds bring up config parsing
 #
 class FdsConfigFile(object):
-    def __init__(self, cfg_file, verbose = False, dryrun = False, install = False, inventory_file =None, rt_env=None):
+    def __init__(self, cfg_file, verbose = False, dryrun = False, install = False, inventory_file =None, reusecluster = False, rt_env=None):
         self.cfg_file      = cfg_file
         self.cfg_verbose   = verbose
         self.cfg_dryrun    = dryrun
@@ -881,6 +890,7 @@ class FdsConfigFile(object):
         self.cfg_am        = []
         self.cfg_user      = []
         self.cfg_nodes     = []
+        self.cfg_initiators = []
         self.cfg_volumes   = []
         self.cfg_vol_pol   = []
         self.cfg_scenarios = []
@@ -891,15 +901,17 @@ class FdsConfigFile(object):
         self.cfg_parser    = None
         self.cfg_localHost = None
         self.inventory = inventory_file
-        self.cfg_remote_fds_deploy = install
+        self.cfg_remote_nodes = install
         self.rt_env = rt_env
+        self.cfg_reusecluster = reusecluster
 
     def config_parse(self):
         cmd_line_options = {
             'verbose': self.cfg_verbose,
             'dryrun' : self.cfg_dryrun,
-            'install': self.cfg_remote_fds_deploy,
-            'inventory_file' : self.inventory
+            'install': self.cfg_remote_nodes,
+            'inventory_file' : self.inventory,
+            'reusecluster' : self.cfg_reusecluster
         }
         self.cfg_parser = ConfigParser.ConfigParser()
         self.cfg_parser.read(self.cfg_file)
@@ -909,14 +921,19 @@ class FdsConfigFile(object):
 
         nodeID = 0
         number_of_nodes = 0
+
+        initiatorID = 0
+        # Initiator names must be unique; track them
+        initiators = {}
+
         for section in self.cfg_parser.sections():
             if re.match('node', section):
                 number_of_nodes += 1
 
-        if self.cfg_remote_fds_deploy is True:
+        if cmd_line_options['install'] is True and cmd_line_options['reusecluster'] is not True:
             inventory_file = cmd_line_options['inventory_file']
             install_result = TestUtils.deploy_on_AWS(self,number_of_nodes,inventory_file)
-            assert(install_result,True)
+            assert install_result is True
 
         for section in self.cfg_parser.sections():
             items = self.cfg_parser.items(section)
@@ -945,12 +962,38 @@ class FdsConfigFile(object):
                     else:
                         n.nd_services = "dm,sm,am"
 
-                    if self.cfg_remote_fds_deploy is True and n.nd_conf_dict['ip'] == 'localhost':
+                    if self.cfg_remote_nodes is True and n.nd_conf_dict['ip'] == 'localhost':
                         # It's an extra IP in cfg and ignore it while running against AWS
                         print "Skip adding node %s because IP addr was not overwritten" %n.nd_conf_dict['node-name']
                     else:
                         self.cfg_nodes.append(n)
                     nodeID = nodeID + 1
+
+            elif re.match('initiator', section) != None:
+                # Found a section that defines an initiator.
+                # This is the endpoint that initiates a session (sends a command).
+                # Enables the machine running the test to specify a different,
+                # distinct endpoint as the initiator. Multiple initiators are
+                # allowed. Test cases can refer to initiators by name (the section
+                # string IS the initiator node name). 
+                n = None
+                # Initiator names must be unique
+                if section in initiators:
+                    print 'ERROR:  Duplicate initiator name {0}'.format(section)
+                    sys.exit (1)
+
+                items_d = dict(items)
+                if 'enable' in items_d:
+                    if items_d['enable'] == 'true':
+                        n = FdsNodeConfig(section, items, cmd_line_options, initiatorID, self.rt_env)
+                else:
+                    n = FdsNodeConfig(section, items, cmd_line_options, initiatorID, self.rt_env)
+
+                if n is not None:
+                    n.nd_nodeID = initiatorID
+                    self.cfg_initiators.append(n)
+                    initiators[section] = initiatorID
+                    initiatorID = initiatorID + 1
 
             elif (re.match('sh', section) != None) or (re.match('am', section) != None):
                 self.cfg_am.append(FdsAMConfig(section, items, cmd_line_options))
@@ -1012,7 +1055,7 @@ class FdsConfigRun(object):
             self.rt_env = inst.FdsEnv(opt.fds_root, _install=opt.install, _fds_source_dir=opt.fds_source_dir,
                                       _verbose=opt.verbose, _test_harness=test_harness)
 
-        self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun, opt.install, opt.inventory_file, self.rt_env )
+        self.rt_obj = FdsConfigFile(opt.config_file, opt.verbose, opt.dryrun, opt.install, opt.inventory_file,opt.reusecluster, self.rt_env )
         self.rt_obj.config_parse()
 
         # Fixup user/passwd in runtime env from config file.

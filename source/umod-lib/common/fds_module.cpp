@@ -13,7 +13,8 @@ namespace fds {
 
 Module::Module(char const *const name)
     : mod_lstp_idx(-1), mod_intern_cnt(0), mod_exec_state(MOD_ST_NULL),
-      mod_intern(NULL), mod_owner(NULL), mod_name(name), mod_params(NULL) {}
+      mod_intern(NULL), mod_owner(NULL), mod_name(name), mod_params(NULL),
+      testMode(false) {}
 
 Module::~Module() {}
 
@@ -546,6 +547,7 @@ FdsRootDir::FdsRootDir(const std::string &root)
       d_var_tools(root     + std::string("var/tools/")),
       d_dev(root           + std::string("dev/")),
       d_user_repo(root     + std::string("user-repo/")),
+      d_filetransfer(root  + std::string("user-repo/filetransfer/")),
       d_user_repo_objs(d_user_repo + std::string("objects/")),
       d_user_repo_dm(d_user_repo   + std::string("dm-names/")),
       d_user_repo_stats(d_user_repo   + std::string("vol-stats/")),
@@ -555,7 +557,7 @@ FdsRootDir::FdsRootDir(const std::string &root)
       d_sys_repo_volume(d_sys_repo    + std::string("volume/")),
       d_sys_repo_inventory(d_sys_repo + std::string("inventory/")),
       d_sys_repo_dm(d_sys_repo        + std::string("dm-names/")),
-      d_timeline_dm(d_sys_repo + std::string("timeline/")),
+      d_timeline_dm(d_user_repo + std::string("timeline/")),
       d_sys_repo_stats(d_sys_repo   + std::string("vol-stats/")),
       d_fds_repo(root      + std::string("fds-repo/")) {}
 

@@ -24,6 +24,9 @@
 #include <fdsp/svc_api_types.h>
 
 namespace fds {
+
+thread_local StringPtr PlatNetSvcHandler::threadLocalPayloadBuf;
+
 PlatNetSvcHandler::PlatNetSvcHandler(CommonModuleProviderIf *provider)
 : HasModuleProvider(provider),
 Module("PlatNetSvcHandler")
@@ -86,6 +89,12 @@ void PlatNetSvcHandler::setTaskExecutor(SynchronizedTaskExecutor<uint64_t>  *tas
     taskExecutor_ = taskExecutor;
 }
 
+void PlatNetSvcHandler::updateHandler(const fpi::FDSPMsgTypeId msgId,
+                                      const FdspMsgHandler &handler)
+{
+    asyncReqHandlers_[msgId] = handler;
+}
+
 /**
  * @brief
  *
@@ -107,7 +116,6 @@ void PlatNetSvcHandler::asyncReqt(const FDS_ProtocolInterface::AsyncHdr& header,
 void PlatNetSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                                      boost::shared_ptr<std::string>& payload)
 {
-    SVCPERF(header->rqRcvdTs = util::getTimeStampNanos());
     fiu_do_on("svc.uturn.asyncreqt", header->msg_code = ERR_INVALID;
               sendAsyncResp(*header, fpi::EmptyMsgTypeId, fpi::EmptyMsg()); return; );
 
@@ -123,7 +131,7 @@ void PlatNetSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::Async
     }
 
     fds_assert(state == ACCEPT_REQUESTS);
-    LOGDEBUG << logString(*header);
+    // LOGDEBUG << logString(*header);
     try
     {
         /* Deserialize the message and invoke the handler.  Deserialization is performed
@@ -166,7 +174,6 @@ void PlatNetSvcHandler::asyncResp(const FDS_ProtocolInterface::AsyncHdr& header,
 void PlatNetSvcHandler::asyncResp(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                                     boost::shared_ptr<std::string>& payload)
 {
-    SVCPERF(header->rspRcvdTs = util::getTimeStampNanos());
     fiu_do_on("svc.disable.schedule", asyncRespHandler(\
     MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker(), header, payload); return; );
     // fiu_do_on("svc.use.lftp", asyncResp2(header, payload); return; );
@@ -216,12 +223,6 @@ void PlatNetSvcHandler::asyncRespHandler(SvcRequestTracker* reqTracker,
          return;
      }
 
-     SVCPERF(asyncReq->ts.rqRcvdTs = header->rqRcvdTs);
-     SVCPERF(asyncReq->ts.rqHndlrTs = header->rqHndlrTs);
-     SVCPERF(asyncReq->ts.rspSerStartTs = header->rspSerStartTs);
-     SVCPERF(asyncReq->ts.rspSendStartTs = header->rspSendStartTs);
-     SVCPERF(asyncReq->ts.rspRcvdTs = header->rspRcvdTs);
-
      asyncReq->handleResponse(header, payload);
 }
 
@@ -265,6 +266,41 @@ void PlatNetSvcHandler::getSvcMap(std::vector<fpi::SvcInfo> & _return,
 {
     LOGDEBUG << "Service map request";
     MODULEPROVIDER()->getSvcMgr()->getSvcMap(_return);
+}
+
+void PlatNetSvcHandler::getDLT(fpi::CtrlNotifyDLTUpdate& dlt, SHPTR<int64_t>& nullarg)
+{
+    auto dtp = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
+    if (!dtp) {
+		LOGDEBUG << "Not sending DLT, because no " << " committed DLT yet";
+        dlt.__set_dlt_version(DLT_VER_INVALID);
+
+	} else {
+        std::string data_buffer;
+        fpi::FDSP_DLT_Data_Type dlt_val;
+
+		dtp->getSerialized(data_buffer);
+		dlt.__set_dlt_version(dtp->getVersion());
+		dlt_val.__set_dlt_data(data_buffer);
+		dlt.__set_dlt_data(dlt_val);
+	}
+}
+
+void PlatNetSvcHandler::getDMT(fpi::CtrlNotifyDMTUpdate& dmt, SHPTR<int64_t>& nullarg)
+{
+    DMTPtr dp = MODULEPROVIDER()->getSvcMgr()->getCurrentDMT();
+    if (!dp) {
+        LOGDEBUG << "Not sending DMT, because no committed DMT yet";
+        dmt.__set_dmt_version(DMT_VER_INVALID);
+    } else {
+    	fpi::FDSP_DMT_Data_Type fdt;
+        std::string data_buffer;
+
+    	dp->getSerialized(data_buffer);
+    	fdt.__set_dmt_data(data_buffer);
+    	dmt.__set_dmt_version(dp->getVersion());
+    	dmt.__set_dmt_data(fdt);
+    }
 }
 
 void PlatNetSvcHandler::allUuidBinding(const fpi::UuidBindMsg& mine)
@@ -320,6 +356,17 @@ void PlatNetSvcHandler::getProperties(std::map<std::string, std::string> & _retu
     _return = MODULEPROVIDER()->getProperties()->getAllProperties();
 }
 
+void PlatNetSvcHandler::getConfig(std::map<std::string, std::string> & _return, const int32_t nullarg) {
+    // Don't do anything here. This stub is just to keep cpp compiler happy
+}
+
+
+void PlatNetSvcHandler::getConfig(std::map<std::string, std::string> & _return, boost::shared_ptr<int32_t>& nullarg) {
+    if (!MODULEPROVIDER()) return;
+    MODULEPROVIDER()->get_fds_config()->getConfigMap(_return);
+}
+
+
 /**
  * Return list of domain nodes in the node inventory.
  */
@@ -355,12 +402,18 @@ void PlatNetSvcHandler::resetCounters(const std::string& id) // NOLINT
 {
 }
 
+void PlatNetSvcHandler::getStateInfo(std::string & _return,  // NOLINT
+                                     const std::string& id)
+{
+}
+
+
 void PlatNetSvcHandler::getFlags(std::map<std::string, int64_t> & _return,
                                  const int32_t nullarg)  // NOLINT
 {
 }
 
-void PlatNetSvcHandler::setConfigVal(const std::string& id, const int64_t val)
+void PlatNetSvcHandler::setConfigVal(const std::string& name, const std::string& value)
 {
 }
 
@@ -439,25 +492,38 @@ void PlatNetSvcHandler::resetCounters(boost::shared_ptr<std::string>& id)
         MODULEPROVIDER()->get_cntrs_mgr()->reset();
     }
 }
+
+/**
+* @brief Returns state as json from StateProvider identified by id
+*
+* @param _return
+* @param id
+*/
+void PlatNetSvcHandler::getStateInfo(std::string & _return,
+                                     boost::shared_ptr<std::string>& id) 
+{
+    if (!MODULEPROVIDER()) {
+        return;
+    }
+    MODULEPROVIDER()->get_cntrs_mgr()->getStateInfo(*id, _return);
+}
+
 /**
  * For setting a flag dynamically
  * @param id
  * @param val
  */
-void PlatNetSvcHandler::
-setConfigVal(boost::shared_ptr<std::string>& id,  // NOLINT
-             boost::shared_ptr<int64_t>& val)
-{
-    if (!MODULEPROVIDER())
-    {
+void PlatNetSvcHandler:: setConfigVal(SHPTR<std::string>& name, SHPTR<std::string>& value) {
+    if (!MODULEPROVIDER()) {
         return;
     }
 
-    try
-    {
-        MODULEPROVIDER()->get_fds_config()->set(*id, static_cast<fds_uint64_t>(*val));
-    } catch(...)
-    {
+    try {
+        if (name->find("log_severity") != std::string::npos) {
+            LOGGERPTR->setSeverityFilter(fds_log::getLevelFromName(*value));
+        }
+        MODULEPROVIDER()->get_fds_config()->set(*name, *value);
+    } catch(...) {
         // TODO(Rao): Only ignore SettingNotFound exception
         /* Ignore the error */
     }
@@ -505,6 +571,12 @@ void PlatNetSvcHandler::getFlags(std::map<std::string, int64_t> & _return,  // N
  */
 bool PlatNetSvcHandler::setFault(boost::shared_ptr<std::string>& cmdline)  // NOLINT
 {
+    // exception case for rotate logs
+    if (*cmdline == "log.rotate") {
+        LOGGERPTR->rotate();
+        return true;
+    }
+
     boost::char_separator<char>                       sep(", ");
     /* Parse the cmd line */
     boost::tokenizer<boost::char_separator<char> >    toknzr(*cmdline, sep);

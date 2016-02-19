@@ -190,6 +190,15 @@ namespace fds {
             if (que) {que->quiesceIOs();}
         }
 
+        virtual void quiesceIOs()
+        {
+            LOGDEBUG << "Quiescing all queues.";
+            SCOPEDREAD(qda_lock);
+            for (auto& queue_pair : queue_map) {
+                queue_pair.second->quiesceIOs();
+            }
+        }
+
         virtual void suspendQueue(fds_qid_t queue_id)
         {
             FDS_VolumeQueue *que = getQueue(queue_id);
@@ -382,7 +391,15 @@ namespace fds {
                 FDS_VolumeQueue *que = queue_map[queue_id];
 
                 FDS_IOType *io = que->dequeueIO();
-                assert(io != NULL);
+                if (io == NULL) {
+                    // Most likely NULL means that the queue is not ready to serve I/O
+                    // Probably due to snapshot
+                    qda_lock.read_unlock();
+
+                    LOGDEBUG << "NULL io dequeue in QOS. more than one of these messages per volume per migration means something is wrong.";
+
+                    continue;
+                }
 
                 ioProcessForDispatch(queue_id, io);
 
@@ -426,6 +443,7 @@ namespace fds {
                     fds_verify(n_oios < 2 * max_outstanding_ios);
                 }
             }
+            --n_oios;
 
             io->io_done_ts = util::getTimeStampNanos();
             fds_uint64_t wait_nano = io->dispatch_ts - io->enqueue_ts;
@@ -441,7 +459,7 @@ namespace fds {
                    << " completed in " << io->io_service_time
                    << " usecs with a wait time of " << io->io_wait_time
                    << " usecs with total io time of " << io->io_total_time
-                   << " usecs. # of outstanding ios = " << --n_oios;
+                   << " usecs. # of outstanding ios = " << n_oios;
 
             return n_oios;
         }

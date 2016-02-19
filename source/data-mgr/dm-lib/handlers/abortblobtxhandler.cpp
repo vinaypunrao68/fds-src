@@ -33,17 +33,21 @@ void AbortBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
     HANDLE_U_TURN();
 
     fds_volid_t volId(message->volume_id);
-    auto err = dataManager.validateVolumeIsActive(volId);
+    auto err = preEnqueueWriteOpHandling(volId, message->opId,
+                                         asyncHdr, PlatNetSvcHandler::threadLocalPayloadBuf);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
         return;
     }
 
+    HANDLE_FILTER_OLD_DMT_DURING_RESYNC();
+
     // Allocate a new Blob transaction class and queue to per volume queue.
     auto dmReq = new DmIoAbortBlobTx(volId,
                                      message->blob_name,
-                                     message->blob_version);
+                                     message->blob_version,
+                                     message->opId);
     dmReq->cb = BIND_MSG_CALLBACK(AbortBlobTxHandler::handleResponse, asyncHdr, message);
     dmReq->ioBlobTxDesc = boost::make_shared<const BlobTxId>(message->txId);
 
@@ -53,6 +57,8 @@ void AbortBlobTxHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
 void AbortBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoAbortBlobTx* typedRequest = static_cast<DmIoAbortBlobTx*>(dmRequest);
+
+    ENSURE_IO_ORDER(typedRequest, helper);
 
     // Call TVC abortTx
     helper.err = dataManager.timeVolCat_->abortBlobTx(typedRequest->volId,

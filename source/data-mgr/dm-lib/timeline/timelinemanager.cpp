@@ -6,12 +6,18 @@
 #include <util/path.h>
 #include <util/stringutils.h>
 #include <unistd.h> // for unlink
+#include <util/disk_utils.h>
+#include <boost/filesystem.hpp>
 
 namespace fds { namespace timeline {
-
+#define TIMELINE_FEATURE_CHECK(...) if (!dm->features.isTimelineEnabled()) { return ERR_FEATURE_DISABLED ;}
 TimelineManager::TimelineManager(fds::DataMgr* dm): dm(dm) {
+    if (!dm->features.isTimelineEnabled()) {
+        LOGWARN << "timeline feature is disabled";
+        return;
+    }
     timelineDB.reset(new TimelineDB());
-    Error err = timelineDB->open();
+    Error err = timelineDB->open(dm->getModuleProvider()->proc_fdsroot());
     if (!err.ok()) {
         LOGERROR << "unable to open timeline db";
     }
@@ -23,56 +29,52 @@ boost::shared_ptr<TimelineDB> TimelineManager::getDB() {
 }
 
 Error TimelineManager::deleteSnapshot(fds_volid_t volId, fds_volid_t snapshotId) {
+    TIMELINE_FEATURE_CHECK();
     Error err = loadSnapshot(volId, snapshotId);
 
     //get the list of snapIds
     std::vector<fds_volid_t> vecSnaps;
 
     if (invalid_vol_id == snapshotId) {
-        vecSnaps.reserve(blooms[volId].size());
-
-        for (auto const& item : blooms[volId]) {
-            vecSnaps.push_back(item.first);
-        }
+        timelineDB->getSnapshotsForVolume(volId, vecSnaps);
         LOGDEBUG << "will delete [" << vecSnaps.size() << "] snaps of vol:" << volId;
     } else {
         vecSnaps.push_back(snapshotId);
     }
 
     for (const auto& snapshotId : vecSnaps) {
-        LOGDEBUG << "deleting snap:" << snapshotId
-                 << " of vol:" << volId;
-        // remove the bloom filter from the map
-        // we need to do this first because we should not check this bf
-        // during expunge check.
-        blooms[volId].erase(snapshotId);
+        LOGNOTIFY << "deleting snap:" << snapshotId << " of vol:" << volId;
 
-        // node remove the contents of the snapshot
-        err = dm->deleteVolumeContents(snapshotId);
-        err = dm->process_rm_vol(snapshotId, true);
+        // mark as deleted
+        err = dm->removeVolume(snapshotId, true);
+        // remove the snapshot
+        err = dm->removeVolume(snapshotId, false);
 
         // remove info about this snapshot from timelinedb
         timelineDB->removeSnapshot(snapshotId);
-
-        // remove the bloomfilter file
-        unlink(getSnapshotBloomFile(snapshotId).c_str());
     }
     return err;
 }
 
+Error TimelineManager::getSnapshotsForVolume(fds_volid_t volId, std::vector<fds_volid_t>& vecVolIds) {
+    TIMELINE_FEATURE_CHECK();
+    return timelineDB->getSnapshotsForVolume(volId, vecVolIds);
+}
+
 Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
+    TIMELINE_FEATURE_CHECK();
     // get the list of snapshots.
     std::string snapDir;
     std::vector<std::string> vecDirs;
     Error err;
-
+    const auto root = dm->getModuleProvider()->proc_fdsroot();
     if (invalid_vol_id == snapshotid) {
         // load all snapshots
-        snapDir  = dmutil::getSnapshotDir(volid);
+        snapDir  = dmutil::getSnapshotDir(root, volid);
         util::getSubDirectories(snapDir, vecDirs);
     } else {
         // load only a particluar snapshot
-        snapDir = dmutil::getVolumeDir(volid, snapshotid);
+        snapDir = dmutil::getVolumeDir(root, volid, snapshotid);
         if (!util::dirExists(snapDir)) {
             LOGERROR << "unable to locate snapshot [" << snapshotid << "]"
                      << " for vol:" << volid
@@ -89,7 +91,7 @@ Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
         snapId = std::atoll(snap.c_str());
         //now add the snap
         if (dm->getVolumeDesc(snapId) != NULL) {
-            LOGWARN << "snapshot:" << snapId << " already loaded";
+            LOGDEBUG << "snapshot:" << snapId << " already loaded";
             continue;
         }
         VolumeDesc *desc = new VolumeDesc(*(dm->getVolumeDesc(volid)));
@@ -103,10 +105,12 @@ Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
         desc->setState(fpi::Active);
         desc->name = util::strformat("snaphot_%ld_%ld",
                                      volid.get(), snapId.get());
-        VolumeMeta *meta = new(std::nothrow) VolumeMeta(desc->name,
-                                                        snapId,
-                                                        GetLog(),
-                                                        desc);
+        auto meta = MAKE_SHARED<VolumeMeta>(dm->getModuleProvider(),
+                                            desc->name,
+                                            snapId,
+                                            GetLog(),
+                                            desc,
+                                            dm);
         {
             FDSGUARD(dm->vol_map_mtx);
             if (dm->vol_meta_map.find(snapId) != dm->vol_meta_map.end()) {
@@ -121,21 +125,33 @@ Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
             LOGERROR << "unable to load snapshot [" << snapId << "] for vol:"<< volid
                      << " - " << err;
         }
-
-        // load bloom
-        markObjectsInSnapshot(volid, snapId);
     }
     return err;
 }
 
 Error TimelineManager::unloadSnapshot(fds_volid_t volid, fds_volid_t snapshotid){
+    TIMELINE_FEATURE_CHECK();
     Error err;
     return err;
 }
 
 Error TimelineManager::createSnapshot(VolumeDesc *vdesc) {
+    Error err;
+    TIMELINE_FEATURE_CHECK();
+
+    float_t dm_user_repo_pct_used = getUsedCapacityAsPct();
+    if (dm_user_repo_pct_used >= dm->dmFullnessThreshold) {
+           err = ERR_DM_DISK_CAPACITY_ERROR_THRESHOLD;
+            LOGERROR << "ERROR: DM user-repo already used " << dm_user_repo_pct_used
+                    << "% of available storage space!"
+                     <<" Not creating a new snapshot for vol: ." << vdesc->volUUID
+                    << err;
+            return err;
+    }
+
+
     util::TimeStamp createTime = util::getTimeStampMicros();
-    Error err = dm->timeVolCat_->copyVolume(*vdesc);
+    err = dm->timeVolCat_->copyVolume(*vdesc);
     if (err.ok()) {
         // add it to timeline
         if (dm->features.isTimelineEnabled()) {
@@ -145,10 +161,7 @@ Error TimelineManager::createSnapshot(VolumeDesc *vdesc) {
         // activate it
         err = dm->timeVolCat_->activateVolume(vdesc->volUUID);
 
-        if (err.ok()) {
-            // mark the objects present in this snapshot
-            markObjectsInSnapshot(vdesc->srcVolumeId, vdesc->volUUID);
-        } else {
+        if (!err.ok()) {
             LOGWARN << "snapshot activation failed. vol:" << vdesc->srcVolumeId
                     << " snap:" << vdesc->volUUID;
         }
@@ -156,58 +169,30 @@ Error TimelineManager::createSnapshot(VolumeDesc *vdesc) {
     return err;
 }
 
-Error TimelineManager::markObjectsInSnapshot(fds_volid_t volId, fds_volid_t snapshotId) {
-    LOGDEBUG << "will mark objects in vol:" << volId << " snap:" << snapshotId;
-    if (blooms.find(volId) == blooms.end()) {
-        blooms[volId].find(snapshotId);
-    }
-    bool fNew = false, fLoaded=false;
-    std::string bfFileName = getSnapshotBloomFile(snapshotId);
-    LOGDEBUG << "object bf for snap:" << bfFileName;
+Error TimelineManager::removeVolume(fds_volid_t volId) {
+    TIMELINE_FEATURE_CHECK();
+    LOGNOTIFY << "removing from timeline db vol:" << volId;
+    Error err =  timelineDB->removeVolume(volId);
 
-    auto& bloom = blooms[volId][snapshotId];
-    if (bloom.get() == NULL) {
-        bloom.reset(new util::BloomFilter());
-        fNew = true;
-    }
+    const auto root = dm->getModuleProvider()->proc_fdsroot();
+    std::string timelineDir = dmutil::getTimelineDir(root, volId);
+    LOGNOTIFY << "removing timeline journal archives for vol:" << volId << " @ " << timelineDir;
+    boost::filesystem::remove_all(timelineDir);
 
-    if (fNew) {
-        // try to load the
-        if (util::fileExists(bfFileName)) {
-            LOGDEBUG << "will load object-bf: " << bfFileName;
-            serialize::Deserializer* d=serialize::getFileDeserializer(bfFileName);
-            if (bloom->read(d) > 0) {
-                fLoaded = true;
-            }
-            delete d;
-        }
-    }
+    LOGNORMAL << "will delete all snapshots for vol:" << volId;
+    deleteSnapshot(volId);
 
-    if (fLoaded) {
-        LOGWARN << "successfully loaded bloom for snap:" << snapshotId;
-        return ERR_OK;
-    }
-
-    std::function<void (const ObjectID&)> func = [&bloom](const ObjectID& objId) {
-        bloom->add(objId);
-        // LOGDEBUG << "adding to bf:" << objId;
-    };
-
-    dm->timeVolCat_->queryIface()->forEachObject(snapshotId, func);
-
-    // save the bloom
-    serialize::Serializer* s=serialize::getFileSerializer(bfFileName);
-    if (bloom->write(s) <= 0) {
-        LOGWARN << "unable to store bloom for snap:" << snapshotId;
-    }
-    delete s;
-    return ERR_OK;
+    std::string snapshotDir = dmutil::getSnapshotDir(root, volId);
+    LOGNOTIFY << "removing snapshot dir for vol:" << volId << " @ " << snapshotDir;
+    boost::filesystem::remove_all(snapshotDir);
+    return err;
 }
 
 Error TimelineManager::createClone(VolumeDesc *vdesc) {
+    TIMELINE_FEATURE_CHECK();
     Error err;
 
-    VolumeMeta * volmeta = dm->getVolumeMeta(vdesc->srcVolumeId);
+    auto volmeta = dm->getVolumeMeta(vdesc->srcVolumeId);
     if (!volmeta) {
         LOGERROR << "vol:" << vdesc->srcVolumeId
                  << " not found";
@@ -270,7 +255,7 @@ Error TimelineManager::createClone(VolumeDesc *vdesc) {
             }
             // XXX: Here we are creating and activating clone without copying src
             // volume, directory needs to exist for activation
-            const FdsRootDir *root = g_fdsprocess->proc_fdsroot();
+            const FdsRootDir *root = dm->getModuleProvider()->proc_fdsroot();
             const std::string dirPath = root->dir_sys_repo_dm() +
                     std::to_string(vdesc->volUUID.get());
             root->fds_mkdir(dirPath.c_str());
@@ -304,26 +289,20 @@ Error TimelineManager::createClone(VolumeDesc *vdesc) {
     return err;
 }
 
-bool TimelineManager::isObjectInSnapshot(const ObjectID& objId, fds_volid_t volId) {
-    auto snapMapIter = blooms.find(volId);
-    if (snapMapIter == blooms.end()) {
-        // LOGDEBUG << "no snaps found for vol:" << volId;
-        return false;
-    }
+float_t
+TimelineManager::getUsedCapacityAsPct() {
+    // Get fds root dir
+    const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
+    // Get user-repo dir
+    DiskUtils::CapacityPair cap = DiskUtils::getDiskConsumedSize(root->dir_user_repo_dm());
 
-    for (const auto& item : snapMapIter->second) {
-        if (item.second->lookup(objId)) return true;
-    }
+    // Calculate pct
+    float_t result = ((1. * cap.usedCapacity) / cap.totalCapacity) * 100;
+    GLOGDEBUG << "Found DM user-repo disk capacity of (" << cap.usedCapacity << "/" << cap.totalCapacity << ") = " << result;
 
-    return false;
+    return result;
 }
 
-std::string TimelineManager::getSnapshotBloomFile(fds_volid_t snapshotId) {
-    std::string metaDir=dmutil::getVolumeMetaDir(snapshotId);
-    FdsRootDir::fds_mkdir(metaDir.c_str());
-
-    return util::strformat("%s/objectset.bf",metaDir.c_str());
-}
 
 }  // namespace timeline
 }  // namespace fds

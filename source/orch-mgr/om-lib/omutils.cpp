@@ -26,23 +26,70 @@ namespace fds
         return fds_get_uuid64(name);
     }
 
+    /**
+     * TODO(Neil)
+     * We should *really* be doing changing service states with SvcInfo
+     * instead of just UUIDs. This will prevent incorrect overwrites of the
+     * service states due to the lack of incarnation number.
+     * This method stays here for legacy purposes, but we need to change all the
+     * callers to use SvcInfo. Right now, many callers do not have that info, but
+     * only UUID.
+     */
     void change_service_state( kvstore::ConfigDB* configDB,
                                const fds_uint64_t svc_uuid, 
                                const fpi::ServiceStatus svc_status )
+    {
+        // No incarnation number provided... do lookup and call the one below
+        fpi::SvcUuid uuid;
+        uuid.svc_uuid = svc_uuid;
+        fds_mutex dbLock; // for macro only
+        UPDATE_CONFIGDB_SERVICE_STATE(configDB, uuid, svc_status);
+    }
+
+    // See header file
+    void change_service_state( kvstore::ConfigDB* configDB,
+                               const fpi::SvcInfoPtr svcInfo,
+                               const fpi::ServiceStatus svc_status,
+                               const bool updateSvcMap )
     {       
+        fpi::SvcUuid svcUuid;
+        svcUuid.svc_uuid = svcInfo->svc_id.svc_uuid.svc_uuid;
+
         /*
          * Update configDB with the new status for the given service on the given node
+         *
          */
-        if ( configDB && configDB->changeStateSvcMap( svc_uuid, svc_status ) )
+        if ( configDB && configDB->changeStateSvcMap( svcInfo, svc_status ) )
         {
-            LOGDEBUG << "Successfully changed service ID ( " 
-                     << std::hex << svc_uuid << std::dec << " ) "
-                     << "state to ( " << svc_status << " )";
+            LOGDEBUG << "Successfully updated configdbs service ID ( " 
+                     << std::hex << svcUuid << std::dec
+                     << " ) state to ( " << svc_status << " )";
+
+            if ( updateSvcMap )
+            {       
+                fpi::SvcInfo svc;
+
+                bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo( svcUuid, svc );    
+                if ( ret )
+                {
+                    svc.svc_status = svc_status;
+
+                    std::vector<fpi::SvcInfo> svcs;
+                    svcs.push_back( svc );
+
+                    MODULEPROVIDER()->getSvcMgr()->updateSvcMap( svcs );
+                    //ConfigDB svcMap is already updated in the above changeStateSvcMap call
+
+                    LOGDEBUG << "Successfully updated svcmaps service ID ( " 
+                             << std::hex << svcUuid << std::dec
+                             << " ) state to ( " << svc_status << " )";     
+                }
+            }     
         }
         else
         {
             LOGWARN << "Failed to changed service ID ( " 
-                    << std::hex << svc_uuid << std::dec << " ) "
+                    << std::hex << svcUuid << std::dec << " ) "
                     << "state to ( " << svc_status << " )";
         }
     }
@@ -66,9 +113,11 @@ namespace fds
 
         switch ( svcinfo.svc_status )
         {
-            case fpi::SVC_STATUS_INACTIVE:
+            case fpi::SVC_STATUS_INACTIVE_STOPPED:
+            case fpi::SVC_STATUS_INACTIVE_FAILED:
             case fpi::SVC_STATUS_STOPPED:
             case fpi::SVC_STATUS_ADDED:
+            case fpi::SVC_STATUS_REMOVED:
                 nodeInfo.node_state = fpi::FDS_Node_Down;
                 break;
             case fpi::SVC_STATUS_INVALID:
@@ -95,9 +144,11 @@ namespace fds
         fpi::FDSP_NodeState retNodeState = fpi::FDS_Node_Down;
         switch ( svcStatus )
         {
-            case fpi::SVC_STATUS_INACTIVE:
+            case fpi::SVC_STATUS_INACTIVE_STOPPED:
+            case fpi::SVC_STATUS_INACTIVE_FAILED:
             case fpi::SVC_STATUS_STOPPED:
             case fpi::SVC_STATUS_ADDED:
+            case fpi::SVC_STATUS_REMOVED:
                 retNodeState = fpi::FDS_Node_Down;
                 break;
             case fpi::SVC_STATUS_INVALID:
@@ -157,11 +208,73 @@ namespace fds
 
 
         iter = fds::isServicePresent(svcInfos, FDS_ProtocolInterface::FDSP_MgrIdType::FDSP_ACCESS_MGR );
-        if ((iter != svcInfos.end()) && amFlag)
+        if ( ( iter != svcInfos.end( ) ) && amFlag )
         {
             LOGDEBUG << "Erasing AM svcInfo from list";
             svcInfos.erase(iter);
         }
+    }
+
+    bool isSameSvcInfoInstance( fpi::SvcInfo svcInfo )
+    {
+        std::vector<fpi::SvcInfo> entries;
+        MODULEPROVIDER()->getSvcMgr()->getSvcMap( entries );
+        if ( entries.size() > 0 )
+        {
+            for ( auto svc : entries )
+            {
+                if ( svc.svc_id.svc_uuid.svc_uuid == svcInfo.svc_id.svc_uuid.svc_uuid )
+                {
+                    LOGDEBUG << "service: " << svcInfo.name
+                             << " SvcInfo: " << svcInfo.incarnationNo
+                             << "  SvcMap: " << svc.incarnationNo
+                             << " status: " << svcInfo.svc_status;
+
+                    if ( svcInfo.incarnationNo < svc.incarnationNo )
+                    {
+                        LOGDEBUG << svcInfo.name
+                                 << " uuid( "
+                                 << std::hex << svcInfo.svc_id.svc_uuid.svc_uuid << std::dec
+                                 << " ) incarnation number is older then service map, not safe to change the status!";
+
+                        return false;
+                    }
+                    else if ( svcInfo.incarnationNo > svc.incarnationNo )
+                    {
+                        LOGDEBUG << svcInfo.name
+                                 << " uuid( "
+                                 << std::hex << svcInfo.svc_id.svc_uuid.svc_uuid << std::dec
+                                 << " ) incarnation number is newer then service map, not safe to change the status!";
+
+                        return false;
+                    }
+                    /*
+                     * entries are the same, service and service map are the same or service incarnation is zero
+                     */
+                    else if ( ( svc.incarnationNo == svcInfo.incarnationNo ) ||
+                              ( svcInfo.incarnationNo == 0 ) )
+                    {
+                        if ( svcInfo.incarnationNo == 0 )
+                        {
+                            // update incarnation number
+                            svcInfo.incarnationNo = util::getTimeStampSeconds();
+                        }
+
+                        LOGDEBUG << svcInfo.name
+                                 << " uuid( "
+                                 << std::hex << svcInfo.svc_id.svc_uuid.svc_uuid << std::dec
+                                 << " ) incarnation number is the same as service map or is zero, safe to change its status!";
+
+                        return true;
+                    }
+                }
+            }
+        }
+
+        LOGDEBUG << " No Matching Service Map enteries found for service "
+                 << svcInfo.name << ":" << std::hex << svcInfo.svc_id.svc_uuid.svc_uuid << std::dec;
+
+        return false;
     }
 
     std::vector<fpi::SvcInfo>::iterator isServicePresent
@@ -188,7 +301,9 @@ namespace fds
         LOGDEBUG << "Creating new SvcInfo of type:" << type;
         fpi::SvcInfo* info = new fpi::SvcInfo();
         info->__set_svc_type(type);
-        info->__set_svc_status(fpi::SVC_STATUS_INACTIVE);
+        // should not matter here whether it is inactive_stopped or
+        // inactive_failed
+        info->__set_svc_status(fpi::SVC_STATUS_INACTIVE_STOPPED);
         return *info;
 
     }
@@ -310,4 +425,44 @@ namespace fds
         }
 
     }
+
+    void populateAndRemoveSvc(fpi::SvcUuid serviceTypeId,
+                              fpi::FDSP_MgrIdType type,
+                              std::vector<fpi::SvcInfo> svcInfos,
+                              kvstore::ConfigDB* configDB)
+    {
+
+        bool found = false;
+        fpi::SvcInfoPtr svcPtr;
+        for (std::vector<fpi::SvcInfo>::const_iterator iter = svcInfos.begin();
+                iter != svcInfos.end(); ++iter)
+        {
+            if (iter->svc_id.svc_uuid.svc_uuid == serviceTypeId.svc_uuid)
+            {
+                svcPtr = boost::make_shared<fpi::SvcInfo>(*iter);
+                found = true;
+                break;
+            }
+        }
+
+        if (!found)
+        {
+            LOGDEBUG << "Unable to find service in list. Making a fake svcPtr. Fix this?"; \
+            svcPtr = boost::make_shared<fpi::SvcInfo>();
+            svcPtr->svc_id.svc_uuid.svc_uuid = serviceTypeId.svc_uuid;
+        }
+
+        DltDmtUtil::getInstance()->addToRemoveList(serviceTypeId.svc_uuid, type);
+
+        // ToDo : Modify below call to use the other change_service_state function so the
+        // call will go to the below function through the macro call. In which case make
+        // sure to REMOVE the scoped lock in send_remove_service since the macro acquires
+        // a separate lock
+        change_service_state( configDB,
+                              svcPtr,
+                              fpi::SVC_STATUS_REMOVED,
+                              true );
+
+    }
+
 }  // namespace fds

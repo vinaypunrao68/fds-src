@@ -6,11 +6,13 @@
 #define SOURCE_DATA_MGR_INCLUDE_DMMIGRATIONCLIENT_H_
 
 #include <dmhandler.h>
+#include <DmMigrationBase.h>
+#include <lib/Catalog.h>
+#include "dm-tvc/CommitLog.h"
 
 namespace fds {
 
 // Forward declaration.
-class DmIoReqHandler;
 class DataMgr;
 
 /**
@@ -23,12 +25,13 @@ using incrementCountFunc = std::function<void()>;
 
 class DmMigrationClient : public DmMigrationBase {
   public:
-    explicit DmMigrationClient(DmIoReqHandler* DmReqHandle,
-    		DataMgr& _dataMgr,
-    		const NodeUuid& _myUuid,
-			NodeUuid& _destDmUuid,
-			fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& _ribfsm,
-			DmMigrationClientDoneHandler _handle,
+    explicit DmMigrationClient(DataMgr& _dataMgr,
+            const NodeUuid& _myUuid,
+            NodeUuid& _destDmUuid,
+            int64_t migrationId,
+            fpi::CtrlNotifyInitialBlobFilterSetMsgPtr _ribfsm,
+            DmMigrationClientDoneHandler _handle,
+            migrationCb _cleanup,
             uint64_t _maxDeltaBlobs,
             uint64_t _maxDeltaBlobDesc);
     ~DmMigrationClient();
@@ -38,7 +41,7 @@ class DmMigrationClient : public DmMigrationBase {
      * make a list of blobs and generate the delta blob descriptor set,
      * and diffs it against the destination's InitialBlobFilterSet.
      */
-    Error processBlobFilterSet(incrementCountFunc inTracker);
+    Error processBlobFilterSet();
 
     Error processBlobFilterSet2();
 
@@ -46,15 +49,20 @@ class DmMigrationClient : public DmMigrationBase {
     typedef std::shared_ptr<DmMigrationClient> shared_ptr;
 
     /**
+     * "Main" of this client
+     */
+    virtual void run();
+
+    /**
      * Whether or not I/O to this volume needs to be forwarded
      * as part of Active Migration.
      * Input: dmtVersion - the version of DMT that the commit log belongs to
      */
-    fds_bool_t shouldForwardIO(fds_uint64_t dmtVersion);
+    virtual fds_bool_t shouldForwardIO(fds_uint64_t dmtVersion);
 
     /* Forwarding Modifiers */
-    void turnOnForwarding();
-    void turnOffForwarding();
+    virtual void turnOnForwarding();
+    virtual void turnOffForwarding();
     void turnOffForwardingInternal(); // No sending of finish messages
 
     /**
@@ -88,21 +96,25 @@ class DmMigrationClient : public DmMigrationBase {
                                std::vector<std::string>& update_list,
                                std::vector<std::string>& delete_list);
 
+
+    static Error diffBlobLists(const std::map<std::string, int64_t>& dest,
+                               const std::map<std::string, int64_t>& source,
+                               std::vector<std::string>& update_list,
+                               std::vector<std::string>& delete_list,
+                               const fds_bool_t &abortFlag);
+
     /**
-     * Response handler - no-op for OK, otherwise fail migration.
+     * Overrides the base and routes to the mgr
      */
-    void dmMigrationCheckResp(EPSvcRequest*, const Error&, boost::shared_ptr<std::string>);
+    void routeAbortMigration() override;
 
     // Called by MigrationMgr to clean up any ongoing residue due to migration
-    void abortMigration();
+    virtual void abortMigration();
 
- private:
-    /**
-     * Reference to the Data Manager.
-     */
-    DataMgr& dataMgr;
-    DmIoReqHandler* DmReqHandler;
+    // Wait for the run thread to rejoin
+    void finish();
 
+ protected:
     /**
      * local svc uuid
      */
@@ -148,7 +160,7 @@ class DmMigrationClient : public DmMigrationBase {
     /**
      * shared pointer to the initial blob filter set message
      */
-    fpi::CtrlNotifyInitialBlobFilterSetMsgPtr& ribfsm;
+    fpi::CtrlNotifyInitialBlobFilterSetMsgPtr ribfsm;
 
     /**
      * Snapshot used for diff.
@@ -185,6 +197,9 @@ class DmMigrationClient : public DmMigrationBase {
     Error sendDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& blobsMsg);
     Error sendDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& blobDescMsg);
 
+    // Sends the activeTxMap after a snapshot has been taken
+    Error sendActiveTx();
+
     /**
      * sequence number apis for blobs.
      * When getSeqNumBlobs() is called, it will automatically increment.
@@ -216,6 +231,19 @@ class DmMigrationClient : public DmMigrationBase {
     // Function pointer for incrementing count per message sent
     incrementCountFunc trackerFunc;
 
+    // abort flag (only set one way) to notify async tasks to exit
+    fds_bool_t abortFlag;
+
+    // The spawn off thread of this client
+    std::unique_ptr<std::thread> thrPtr;
+
+    // Removes the DmIoRequests
+	migrationCb cleanUp;
+
+	bool volumeGroupMode;
+
+	// ActiveTransactions to be sent
+	std::vector<std::string> transactions;
 };  // DmMigrationClient
 
 

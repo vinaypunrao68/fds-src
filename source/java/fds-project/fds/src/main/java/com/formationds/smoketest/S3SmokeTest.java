@@ -9,7 +9,7 @@ import com.amazonaws.services.s3.model.*;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.commons.Fds;
 import com.formationds.commons.util.Uris;
-import com.formationds.protocol.Snapshot;
+import com.formationds.protocol.svc.types.Snapshot;
 import com.formationds.util.DigestUtil;
 import com.formationds.util.RngFactory;
 import com.formationds.util.s3.auth.S3SignatureGeneratorV2;

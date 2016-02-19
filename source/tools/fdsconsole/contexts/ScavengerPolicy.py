@@ -16,12 +16,13 @@ class ScavengerPolicyContext(Context):
         return self.config.getPlatform()
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('threshold1', help= "-Threshold1", type=int)
     @arg('threshold2', help= "-Threshold2", type=int)
     @arg('token-reclaim-threshold', help= "-Token reclaim threshold" , type=int)
     @arg('tokens-per-disk', help="-Tokens per disk", type=int)
     def set(self, threshold1, threshold2, token_reclaim_threshold, tokens_per_disk):
+        'set a scavenger policy'
         try: 
             smUuids = self.smClient().svcMap.svcUuids('sm')
             setScavMsg = FdspUtils.newSetScavengerPolicyMsg(threshold1, threshold2, 
@@ -34,9 +35,9 @@ class ScavengerPolicyContext(Context):
             log.exception(e)
             return 'set scavenger policy failed'
 
-
-    @cliadmincmd
+    @clicmd
     def get(self):
+        'get the scavenger policy'
         try: 
             smUuids = self.smClient().svcMap.svcUuids('sm')
             getScavMsg = FdspUtils.newQueryScavengerPolicyMsg()

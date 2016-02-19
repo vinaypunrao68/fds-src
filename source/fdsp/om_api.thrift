@@ -19,12 +19,14 @@ namespace java com.formationds.protocol.om
 
 /**
  * Request a Volume's Descriptor
- * FIXME: Right now this response comes back as a NotifyVolAdd
- * message. In the future, this should get it's own response.
  */
 struct GetVolumeDescriptor {
   /** Volume name */
   1: string volume_name;
+}
+
+struct GetVolumeDescriptorResp {
+  1: svc_types.FDSP_VolumeDescType vol_desc;
 }
 
 /* ------------------------------------------------------------
@@ -46,11 +48,20 @@ struct CtrlTokenMigrationAbort {
  */
 struct CtrlSvcEvent {
   /** Uuid of service which caused error */
-  1: required common.SvcUuid    evt_src_svc_uuid;
+  1: required svc_types.SvcUuid    evt_src_svc_uuid;
   /** Error Code */
   2: required i32               evt_code;
   /** Message causing the Error */
   3: svc_types.FDSPMsgTypeId  evt_msg_type_id;
+}
+
+// Service action responses from PM
+// Keeping it generic, though we use it currently only for start
+struct SvcStateChangeResp {
+  /* List of services that have received change requests */
+  1: om_types.SvcChangeInfoList changeList;
+  /* Id of the PM that handled the request */
+  2: svc_types.SvcUuid          pmSvcUuid;
 }
 
 // Make NotifyHealthReport defined within the fpi namespace.
@@ -75,21 +86,7 @@ service OMSvc extends svc_api.PlatNetSvc {
   *
   * @return
   */
-  svc_types.SvcInfo getSvcInfo(1: common.SvcUuid svcUuid) throws (1: om_types.SvcLookupException e);
-
-  /**
-  * @brief Called by other managers to pull the DMT
-  *
-  * @param NULL
-  */
-  svc_api.CtrlNotifyDMTUpdate getDMT(1: i64 nullarg) throws (1: common.ApiException e);
-
-  /**
-  * @brief Called by other managers to pull the DLT
-  *
-  * @param NULL
-  */
-  svc_api.CtrlNotifyDLTUpdate getDLT(1: i64 nullarg) throws (1: common.ApiException e);
+  svc_types.SvcInfo getSvcInfo(1: svc_types.SvcUuid svcUuid) throws (1: om_types.SvcLookupException e);
 
   /**
    * @brief Called to get the volume descriptors

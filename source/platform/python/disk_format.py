@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+import sys
+
+sys.path.append("/opt/fds-deps/embedded/lib/python2.7/site-packages")
+
 import shutil
 import time
 import distutils.util
@@ -8,8 +12,8 @@ import re
 
 import fstab        # Installed via pypi or omnibus
 
-import sys
 import os
+import stat
 import optparse
 import subprocess
 import math
@@ -18,7 +22,6 @@ import math
 #  Global todo list
 # 1)  Support device filtering --device option
 # 2)  Support a dynamicly configured fstab, backups of the real fstab are created
-# 3)  Overriding --fds-root breaks numerous pseudo python constants
 
 # Some defaults
 DEFAULT_FDS_ROOT = '/fds/'
@@ -43,13 +46,14 @@ FDS_SUPERBLOCK_SIZE_IN_MB = 10
 
 PARTITION_TYPE = "xfs"
 
-DM_INDEX_MOUNT_POINT = DEFAULT_FDS_ROOT + "sys-repo"
-#SM_INDEX_MOUNT_POINT = DEFAULT_FDS_ROOT + "sys-repo/sm"
+DM_INDEX_MOUNT_POINT = "sys-repo"
+#SM_INDEX_MOUNT_POINT = "sys-repo/sm"
 
-BASE_SSD_MOUNT_POINT = DEFAULT_FDS_ROOT + "dev/ssd-"
-BASE_HDD_MOUNT_POINT = DEFAULT_FDS_ROOT + "dev/hdd-"
+BASE_SSD_MOUNT_POINT = "dev/ssd-"
+BASE_HDD_MOUNT_POINT = "dev/hdd-"
 
-MOUNT_OPTIONS = "noauto"           # mount defaults still apply
+MOUNT_OPTIONS = "noauto,noatime,nodiratime"       # mount defaults still apply
+MOUNT_OPTIONS_SSD = "discard"
 WHITE_SPACE = "   "                # used to pad fstab lines
 
 # Some General Constants
@@ -88,11 +92,28 @@ class extendedFstab (fstab.Fstab):
                 self.lines = lines_to_keep
                 self.altered = True
 
+    def mount_point_exists(self, uuid):
+        if len (uuid) > 0:
+            for line in self.lines:
+                if uuid in line.get_raw():
+                    return True
+        return ""
+
+    def add_mount_point_by_uuid(self, uuid, line):
+        exists = self.mount_point_exists(uuid)
+        if not exists:
+            self.add_mount_point(line)
 
     def add_mount_point (self, line):
         self.lines.append (fstab.Line (line + '\n'))
         self.altered = True
 
+    def get_devices_by_mount_point (self, mount_point):
+        devices = []
+        for line in self.lines:
+            if line.has_filesystem() and line.directory == mount_point:
+                devices.append(line.device)
+        return devices
 
     def backup_if_altered (self, fstab_file):
         if self.altered:
@@ -144,7 +165,7 @@ class BaseDisk (object):
     GET_UUID_COMMAND = ['blkid', '-s', 'UUID', '-o', 'value']
 
     def get_uuid (self, device):
-       
+
         call_list = copy.deepcopy (self.GET_UUID_COMMAND)
         call_list.append (device)
         output = subprocess.Popen (call_list, stdout=subprocess.PIPE).stdout
@@ -192,6 +213,7 @@ class Disk (Base):
 #        self.sm_flag = False
         self.dm_flag = False
         self.marker = None
+        self.formatted = False
 
         if Disk.DISK_TYPE_SSD == disk_type:
             self.disk_type = Disk.DISK_TYPE_SSD
@@ -235,6 +257,8 @@ class Disk (Base):
     def set_dm_flag (self):
         self.dm_flag = True
 
+    def set_formatted (self):
+        self.formatted = True
 
     def check_for_fds (self):
         if self.os_disk:
@@ -271,6 +295,16 @@ class Disk (Base):
 
         if self.os_disk:
             return False
+
+        # Remove non device links found in /dev/ for each partiiton we may create on this device
+        for part in ['1', '2', '3']:
+            device_path = self.path + part
+            try:
+                entry_mode_stat = os.stat (device_path).st_mode
+                if not stat.S_ISBLK(entry_mode_stat):
+                    os.unlink (device_path)
+            except OSError:
+                pass
 
         self.dbg_print ("Ready to partition %s as a Formation device." % (self.path))
 
@@ -329,9 +363,6 @@ class Disk (Base):
             partitioning scheme, this is not possible.
             Also need to fix load_disk_header() '''
 
-        if self.os_disk:
-            return False
-
         self.dbg_print ("Formatting:  %s" % (self.path))
 
         # Write the FDS disk marker and Zero out the FDS superblock partition
@@ -348,6 +379,9 @@ class Disk (Base):
         file_handle.write (self.disk_marker_id)
         file_handle.write (zero_buffer)
         file_handle.close()
+
+        if self.os_disk:
+            return False
 
         # format the remaining partions
         if self.index_disk:
@@ -482,6 +516,13 @@ class DiskUtils (Base, BaseDisk):
 
         return mount_points
 
+    def is_mounted (self, mount_point):
+        input_file = open ('/proc/mounts', 'r')
+        for line in input_file:
+            if mount_point in line:
+                items = line.strip ('\r\n').split()
+                return items[0]
+        return None
 
     def cleanup_mounted_file_systems (self, fstab, partition_list):
         ''' Unmount all files sytems that are FDS based '''
@@ -503,6 +544,12 @@ class DiskUtils (Base, BaseDisk):
                 return disk.get_type()
         self.system_exit ('Unable to determine disk type for ' + disk_path);
 
+    def find_device_by_uuid_str(self, uuid_str):
+        call_list = ['findfs']
+        call_list.append(uuid_str)
+        devnull = open(os.devnull, 'wb')
+        output = subprocess.Popen (call_list, stdout=subprocess.PIPE, stderr=devnull).stdout
+        return output.read().strip ('\r\n')
 
 class DiskManager (Base):
     ''' The manager of a list of disk in a given node '''
@@ -559,10 +606,15 @@ class DiskManager (Base):
         global_debug_on = self.options.debug
         self.print_disk = self.options.print_disk
 
-        if self.options.fds_root.endswith ('/'):
-            self.disk_config_file = self.options.fds_root + self.options.disk_config_file
-        else:
-            self.disk_config_file = self.options.fds_root + "/" + self.options.disk_config_file
+        fds_root = self.options.fds_root
+        if not fds_root.endswith ('/'):
+            fds_root += '/'
+
+        self.disk_config_file = fds_root + self.options.disk_config_file
+
+        self.dm_index_mount_point = fds_root + DM_INDEX_MOUNT_POINT
+        self.base_ssd_mount_point = fds_root + BASE_SSD_MOUNT_POINT
+        self.base_hdd_mount_point = fds_root + BASE_HDD_MOUNT_POINT
 
         if DEFAULT_SHORT_PATH_AND_HINTS != self.options.disk_config_file:
             if DEFAULT_FDS_ROOT != self.options.fds_root:
@@ -639,18 +691,14 @@ class DiskManager (Base):
         self.system_exit('')
 
 
-    def verify_fresh_disks (self):
-        ''' Make sure the disks are "new" to FDS or the --reset option must be used. '''
-
-        fds_detected = False
+    def find_formatted_disks(self):
+        ''' Find disks to be formatted '''
 
         for disk in self.disk_list:
             if disk.check_for_fds():
-                fds_detected = True;
-
-        if fds_detected:
-            self.system_exit ('Please use --reset to repartition and reformat all drives.')
-
+                disk.set_formatted()
+            else:
+                self.dbg_print ("Found unformatted disk:  %s" % (disk.path))
 
     def calculate_capacities (self):
         ''' calculate the system capacity and index sizing '''
@@ -693,6 +741,8 @@ class DiskManager (Base):
         for disk in self.disk_list:
             if disk.get_os_usage():
                 continue
+            if disk.formatted == True:
+                continue
             if disk.get_index():
                 if len (self.dm_index_partition_list) < 1:
                     self.dm_index_partition_list.append (disk.get_path() + '2')
@@ -709,21 +759,45 @@ class DiskManager (Base):
 
 
     def partition_and_format_disks (self):
-        ''' Partition and format each disk '''
+        ''' Partition and format each disk that needs formatting'''
 
         for disk in self.disk_list:
+            if disk.formatted == True:
+                self.dbg_print("Skipping formatted disk %s" % disk.path)
+                continue
             if disk.get_os_usage():
                 disk.verifySystemDiskPartitionSize()
+                if not self.options.reset:
+                    continue
+                print("Formatting FDS superblock partition on %s" % disk.path)
+            else:
+                print("Partitioning and formatting  disk %s" % disk.path)
 #            disk.partition (self.dm_index_MB, self.sm_index_MB / len (self.sm_index_partition_list))
             disk.partition (self.dm_index_MB, 0)
             disk.format()
 
+    def cleanup_fstab (self, uuid, mount_point):
+        ''' cleanup stale entries for this mount point'''
+        uuid_strs = self.fstab.get_devices_by_mount_point(mount_point)
+        self.dbg_print_list(uuid_strs)
+        for uuid_str in uuid_strs:
+            if uuid not in uuid_str : # different uuid
+                device = self.disk_utils.find_device_by_uuid_str(uuid_str)
+                if not device:
+                    print "Found an entry for %s in fstab corresponding to a non-existent device, deleting" % mount_point
+                    self.fstab.remove_mount_point_by_uuid (uuid_str)
 
+    def is_ssd_mount_point (self, mount_point):
+        if BASE_SSD_MOUNT_POINT in mount_point:
+            return True
+        return False
+  
     def add_mount_point (self, uuid, mount_point):
-        self.dbg_print ("add mount point %s" % (mount_point))
+        mount_options = MOUNT_OPTIONS
+        if self.is_ssd_mount_point (mount_point):
+            mount_options = MOUNT_OPTIONS + "," + MOUNT_OPTIONS_SSD
 
-        self.fstab.add_mount_point ('UUID=' + uuid + WHITE_SPACE + mount_point + WHITE_SPACE + PARTITION_TYPE + WHITE_SPACE + MOUNT_OPTIONS + WHITE_SPACE + '0 2')
-
+        self.fstab.add_mount_point_by_uuid (uuid, 'UUID=' + uuid + WHITE_SPACE + mount_point + WHITE_SPACE + PARTITION_TYPE + WHITE_SPACE + mount_options + WHITE_SPACE + '0 2')
 
 #    def add_sm_mount_point (self):
 #        ''' Create a raid array (if multiple sm_index_paritions are defined).  Add the new sm index mount point '''
@@ -737,14 +811,31 @@ class DiskManager (Base):
 #            sm_uuid = self.disk_utils.get_uuid (self.sm_index_partition_list[0])
 #
 #        # Add mount points to the fstab for Formation file systems
-#        self.add_mount_point (sm_uuid, SM_INDEX_MOUNT_POINT)
+#        self.add_mount_point (sm_uuid, self.sm_index_mount_point)
 
 
     def add_dm_mount_point (self):
         ''' Add the DM index data mount point '''
-        dm_uuid = self.disk_utils.get_uuid (self.dm_index_partition_list[0])
-        self.add_mount_point (dm_uuid, DM_INDEX_MOUNT_POINT)
+        if len(self.dm_index_partition_list) > 0:
+            dm_uuid = self.disk_utils.get_uuid (self.dm_index_partition_list[0])
+            self.add_mount_point (dm_uuid, self.dm_index_mount_point)
 
+    def generate_mount_point_index(self, base_name, count, uuid):
+       ''' Find the first unused hdd/ssd index '''
+       index = count
+       while True:
+           cur_name = base_name + str (index)
+           self.cleanup_fstab(uuid, cur_name)
+           devs = self.fstab.get_devices_by_mount_point(cur_name)
+           if len(devs) > 0:
+              index += 1
+              continue
+           mount_dev = self.disk_utils.is_mounted(cur_name)
+           if mount_dev:
+               print "%s is already mounted on %s " % (cur_name, mount_dev)
+               index += 1
+               continue
+           return index
 
     def add_data_mount_points (self):
         ''' Add mount points for each data storage partition '''
@@ -753,14 +844,16 @@ class DiskManager (Base):
 
         for part in self.data_partition_list:
             part_uuid = self.disk_utils.get_uuid (part)
+            if self.fstab.mount_point_exists(part_uuid):
+                self.dbg_print("Mount point for %s already exists, not adding" % part_uuid)
+                continue
             disk_type = self.disk_utils.find_disk_type (self.disk_list, part)
-
             if Disk.DISK_TYPE_HDD == disk_type:
-                mount_point = BASE_HDD_MOUNT_POINT + str (hdd_count)
-                hdd_count += 1
+                hdd_count = self.generate_mount_point_index(self.base_hdd_mount_point, hdd_count, part_uuid)
+                mount_point = self.base_hdd_mount_point + str (hdd_count)
             else:
-                mount_point = BASE_SSD_MOUNT_POINT + str (ssd_count)
-                ssd_count += 1
+                ssd_count = self.generate_mount_point_index(self.base_ssd_mount_point, ssd_count, part_uuid)
+                mount_point = self.base_ssd_mount_point + str (ssd_count)
 
             self.add_mount_point (part_uuid, mount_point)
 
@@ -775,7 +868,7 @@ class DiskManager (Base):
             self.disk_report()
 
         if self.options.format and not self.options.reset:
-            self.verify_fresh_disks()
+            self.find_formatted_disks()
 
         self.calculate_capacities()
         self.build_partition_lists()

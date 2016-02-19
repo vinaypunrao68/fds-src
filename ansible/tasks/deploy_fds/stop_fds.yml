@@ -16,22 +16,111 @@
     tags:
         - shutdown
 
--   name: shutdown_om
+-   name: Verify api is available
+    wait_for: host={{ fds_om_host }}
+        port=7777
+        delay=1
+        timeout=180
+        state=started
+    delegate_to: localhost
+    sudo: no
+    when: fds_installed|success and fds_om_host is defined and fds_om_host == inventory_hostname
+    ignore_errors: True
+    run_once: true
+    tags:
+      - shutdown
+
+-   name: get auth token
+    uri: url=http://{{ fds_om_host }}:7777/fds/config/v08/token?login={{ domain_admin_user }}&password={{ domain_admin_pass }}
+        method=POST
+        return_content=yes
+        status_code=200
+    delegate_to: localhost
+    register: auth_results
+    when: fds_installed|success
+    ignore_errors: True
+    run_once: true
+    sudo: no
+    tags:
+        - shutdown
+
+-   name: Gracefully shutdown domain services
+    when: fds_installed|success and fds_om_host is defined and fds_om_host == inventory_hostname and auth_results|success
+    uri: url=http://{{ fds_om_host }}:7777/fds/config/v08/local_domains/1
+        method=PUT
+        body_format=json
+        body="{{shutdown_domain_put_body_json}}"
+        HEADER_Content-Type="application/json"
+        HEADER_Cookie="token={{auth_results['json']['token']}}"
+        status_code=200
+        return_content=yes
+    delegate_to: localhost
+    ignore_errors: True
+    run_once: true
+    sudo: no
+    tags:
+        - shutdown
+
+-   name: wait for AM/DM/SM to be down on all nodes
+    wait_for: host={{inventory_hostname}}
+        port={{item}}
+        delay=1
+        timeout=180
+        state=absent
+    when: fds_installed|success and
+      (clean_fds is not defined or clean_fds == "no")
+    any_errors_fatal: true
+    with_items:
+        - 7001
+        - 7002
+        - 7003
+        - 8000
+    tags:
+        - shutdown
+
+-   name: Shutdown the OM
     service: name=fds-om state=stopped
     when: fds_om_host is defined and fds_om_host == inventory_hostname and fds_installed|success
+    ignore_errors: True
     tags:
         - shutdown
 
--   name: shutdown_pm
+-   name: Wait for OM to be down
+    wait_for: host={{inventory_hostname}}
+        port=7004
+        delay=1
+        timeout=180
+        state=absent
+    any_errors_fatal: true
+    when: fds_om_host is defined and
+      fds_om_host == inventory_hostname and
+      (clean_fds is not defined or clean_fds == "no")
+    tags:
+        - shutdown
+
+-   name: Shutdown the PM
     service: name=fds-pm state=stopped
     when: fds_installed|success
+    ignore_errors: True
     tags:
         - shutdown
 
--   name: kill_all_procs
+-   name: wait for PM to be down on all nodes
+    when: (clean_fds is not defined or clean_fds == "no")
+    wait_for: host={{inventory_hostname}}
+        port=7000
+        delay=1
+        timeout=180
+        state=absent
+    any_errors_fatal: true
+    tags:
+        - shutdown
+
+-   name: Kill any lingering processes when doing a clean install
     shell: pkill -9 -f {{item}} || true
     ignore_errors: True
-    when: fds_installed|success
+    when: fds_installed|success and
+      (clean_fds is defined and clean_fds == "yes")
     with_items:
         - com.formationds.am.Main
         - bare_am

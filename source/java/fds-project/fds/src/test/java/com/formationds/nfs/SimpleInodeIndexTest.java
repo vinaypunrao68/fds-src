@@ -18,19 +18,19 @@ public class SimpleInodeIndexTest {
 
     @Test
     public void testIndex() throws Exception {
-        ExportResolver exportResolver = new StubExportResolver(VOLUME, OBJECT_SIZE);
-        TransactionalIo transactions = new TransactionalIo(new MemoryIoOps());
-        SimpleInodeIndex index = new SimpleInodeIndex(transactions, exportResolver);
+        ExportResolver exportResolver = new StubExportResolver(VOLUME, OBJECT_SIZE, Long.MAX_VALUE);
+        IoOps io = new MemoryIoOps();
+        SimpleInodeIndex index = new SimpleInodeIndex(io, exportResolver);
         int exportId = exportResolver.exportId(VOLUME);
         int parentId = 3;
         int sueId = 4;
         int johnId = 5;
-        InodeMetadata parent = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, parentId, exportId);
-        InodeMetadata daughter = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, sueId, exportId).withLink(parentId, SUE);
-        InodeMetadata son = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, johnId, exportId).withLink(parentId, JOHN);
-        index.index(StubExportResolver.EXPORT_ID, false, parent);
-        index.index(StubExportResolver.EXPORT_ID, false, daughter);
-        index.index(StubExportResolver.EXPORT_ID, false, son);
+        InodeMetadata parent = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, parentId);
+        InodeMetadata daughter = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, sueId).withLink(parentId, SUE);
+        InodeMetadata son = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, johnId).withLink(parentId, JOHN);
+        index.index(StubExportResolver.EXPORT_ID, true, parent);
+        index.index(StubExportResolver.EXPORT_ID, true, daughter);
+        index.index(StubExportResolver.EXPORT_ID, true, son);
         Optional<InodeMetadata> result = index.lookup(parent.asInode(StubExportResolver.EXPORT_ID), SUE);
         assertEquals(sueId, result.get().getFileId());
         List<DirectoryEntry> children = index.list(parent, StubExportResolver.EXPORT_ID);

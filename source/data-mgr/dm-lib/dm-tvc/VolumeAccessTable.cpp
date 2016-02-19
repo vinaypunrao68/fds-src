@@ -10,27 +10,10 @@
 namespace fds
 {
 
-std::shared_ptr<FdsTimer>
-DmVolumeAccessTable::getTimer() {
-    static std::mutex lock;
-    static std::weak_ptr<FdsTimer> _timer;
-
-    // Create a timer instance if we need one, we
-    // use a weak pointer so the timer can be deleted
-    // once all volumes have been closed; i.e. shutdown
-    std::lock_guard<std::mutex> g(lock);
-    auto ret_val(_timer.lock());
-    if (!ret_val) {
-        ret_val = std::make_shared<FdsTimer>();
-        _timer = ret_val;
-    }
-    return ret_val;
-}
-
-DmVolumeAccessTable::DmVolumeAccessTable(fds_volid_t const vol_uuid)
+DmVolumeAccessTable::DmVolumeAccessTable(fds_volid_t const vol_uuid, const FdsTimerPtr &_timer)
     : access_map(),
       random_generator(vol_uuid.get()),
-      timer(DmVolumeAccessTable::getTimer())
+      timer(_timer)
 { }
 
 Error
@@ -65,8 +48,7 @@ DmVolumeAccessTable::getToken(fpi::SvcUuid const& client_uuid,
 
         // Start a timer to auto-expire this token
         auto task = boost::shared_ptr<FdsTimerTask>(
-            new FdsTimerFunctionTask(*timer,
-                                     [this, token] () {
+            new FdsTimerFunctionTask([this, token] () {
                                         LOGNOTIFY << "Expiring volume token: " << token;
                                         this->removeToken(token);
                                      }));

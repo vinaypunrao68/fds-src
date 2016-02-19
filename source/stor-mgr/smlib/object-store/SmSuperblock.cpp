@@ -5,6 +5,9 @@
 #include <set>
 #include <map>
 #include <utility>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <boost/crc.hpp>
 #include <util/Log.h>
 #include <fds_process.h>
@@ -27,10 +30,6 @@ SmSuperblockHeader::SmSuperblockHeader()
     /* poison the superblock header
      */
     memset(this, SmSuperblockHdrPoison, sizeof(*this));
-}
-
-SmSuperblockHeader::~SmSuperblockHeader()
-{
 }
 
 void
@@ -84,18 +83,15 @@ SmSuperblockHeader::validateSuperblockHeader()
 
 SmSuperblock::SmSuperblock()
 {
-}
-
-
-SmSuperblock::~SmSuperblock()
-{
+    memset(SmSuperblockReserved, '\0', sizeof(SmSuperblockReserved));
+    memset(SmSuperblockPadding, '\0', sizeof(SmSuperblockPadding));
 }
 
 void
 SmSuperblock::initSuperblock()
 {
     Header.initSuperblockHeader();
-
+    resync = true;
     DLTVersion = DLT_VER_INVALID;
 }
 
@@ -251,6 +247,20 @@ SmSuperblock::validateSuperblock()
     return err;
 }
 
+fds_bool_t
+SmSuperblock::doResync() const {
+    return resync;
+}
+
+void
+SmSuperblock::setResync() {
+    resync = true;
+}
+
+void
+SmSuperblock::resetResync() {
+    resync = false;
+}
 
 fds_bool_t
 SmSuperblock::operator ==(const SmSuperblock& rhs) const {
@@ -287,6 +297,15 @@ SmSuperblockMgr::getSuperblockPath(const std::string& dir_path) {
     return (dir_path + "/" + superblockName);
 }
 
+void
+SmSuperblockMgr::initMaps(const DiskLocMap& latestDiskMap,
+                          const DiskLocMap& latestDiskDevMap) {
+
+    diskMap = latestDiskMap;
+    diskDevMap = latestDiskDevMap;
+    setDiskHealthMap();
+}
+
 Error
 SmSuperblockMgr::loadSuperblock(DiskIdSet& hddIds,
                                 DiskIdSet& ssdIds,
@@ -303,9 +322,7 @@ SmSuperblockMgr::loadSuperblock(DiskIdSet& hddIds,
 
     /* Cache the diskMap to a local storage.
      */
-    diskMap = latestDiskMap;
-    diskDevMap = latestDiskDevMap;
-    setDiskHealthMap();
+    initMaps(latestDiskMap, latestDiskDevMap);
     LOGDEBUG << "Got disk map";
 
     /* Do initial state check.
@@ -342,20 +359,44 @@ SmSuperblockMgr::loadSuperblock(DiskIdSet& hddIds,
          * 2) disk(s) were removed.
          * 3) 1 and 2.
          */
+        checkDisksAlive(hddIds, ssdIds);
         checkDiskTopology(hddIds, ssdIds);
     }
 
     return err;
 }
 
+/**
+ * Redistribute tokens according to the new disk map received.
+ * Before recomputing token placement, make sure the disk(s)
+ * in the disk map are all live and accessible.
+ */
+Error
+SmSuperblockMgr::redistributeTokens(DiskIdSet &hddIds, DiskIdSet &ssdIds,
+                                    const DiskLocMap &latestDiskMap,
+                                    const DiskLocMap &latestDiskDevMap) {
+    SCOPEDWRITE(sbLock);
+    initMaps(latestDiskMap, latestDiskDevMap);
+    checkDisksAlive(hddIds, ssdIds);
+    return checkDiskTopology(hddIds, ssdIds);
+}
+
+/**
+ * Redistribute tokens for the lost disk. If this method is getting
+ * called that means, a disk check for this disk has already been
+ * done and this disk is declared failed. No need to do disk checks
+ * again, since each online disk failure will be handled separately.
+ * Each online disk failure requires cleanup of existing token files
+ * that were residing on the disk, before redistributing tokens to the
+ * remaining disk. So it is important to handle each online disk
+ * failure separately.
+ */
 void
 SmSuperblockMgr::recomputeTokensForLostDisk(const DiskId& failedDiskId,
                                             DiskIdSet& hddIds,
                                             DiskIdSet& ssdIds) {
     SCOPEDWRITE(sbLock);
     checkDiskTopology(hddIds, ssdIds);
-    diskMap.erase(failedDiskId);
-    diskDevMap.erase(failedDiskId);
 }
 
 Error
@@ -426,11 +467,14 @@ SmSuperblockMgr::updateNewSmTokenOwnership(const SmTokenSet& smTokensOwned,
         if (!err.ok()) {
             // if error, more logging for debugging
             for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; ++tokId){
-                LOGNOTIFY << "SM token " << tokId << " must be valid? " << (smTokensOwned.count(tokId) > 0)
-                          << "; valid in superblock? " << superblockMaster.tokTbl.isValidOnAnyTier(tokId);
+                LOGNOTIFY << "SM token " << tokId
+                          << " must be valid? " << (smTokensOwned.count(tokId) > 0)
+                          << "; valid in superblock? "
+                          << superblockMaster.tokTbl.isValidOnAnyTier(tokId);
             }
         }
-        if ((err != ERR_SM_SUPERBLOCK_INCONSISTENT) && (dltVersion != superblockMaster.DLTVersion)) {
+        if ((err != ERR_SM_SUPERBLOCK_INCONSISTENT) &&
+            (dltVersion != superblockMaster.DLTVersion)) {
             // make sure we save DLT version in superblock
             setDLTVersionLockHeld(dltVersion, true);
         }
@@ -441,8 +485,16 @@ SmSuperblockMgr::updateNewSmTokenOwnership(const SmTokenSet& smTokensOwned,
         // we either already handled the update or error happened
         return err;
     }
-
-    fds_bool_t initAtLeastOne = superblockMaster.tokTbl.initializeSmTokens(smTokensOwned);
+    std::set<SmTokenLoc> tokenLocations;
+    for (auto smToken : smTokensOwned) {
+        SmTokenLoc tokenLoc;
+        tokenLoc.id = smToken;
+        tokenLoc.hdd = superblockMaster.olt.getDiskId(smToken, diskio::diskTier);
+        tokenLoc.ssd = superblockMaster.olt.getDiskId(smToken, diskio::flashTier);
+        tokenLocations.insert(tokenLoc);
+    }
+    fds_bool_t initAtLeastOne =
+                superblockMaster.tokTbl.initializeSmTokens(tokenLocations);
     superblockMaster.DLTVersion = dltVersion;
 
     // sync superblock
@@ -490,23 +542,6 @@ SmSuperblockMgr::handleRemovedSmTokens(SmTokenSet& smTokensNotOwned,
     return lostSmTokens;
 }
 
-/*
- * A function that returns the difference between the diskSet 1 and diskSet 2.
- * The difference is defined as element(s) in diskSet1, but not in diskSet2.
- */
-DiskIdSet
-SmSuperblockMgr::diffDiskSet(const DiskIdSet& diskSet1,
-                             const DiskIdSet& diskSet2)
-{
-    DiskIdSet deltaDiskSet;
-
-    std::set_difference(diskSet1.begin(), diskSet1.end(),
-                        diskSet2.begin(), diskSet2.end(),
-                        std::inserter(deltaDiskSet, deltaDiskSet.begin()));
-
-    return deltaDiskSet;
-}
-
 /**
  * This method tries to check if the disks passed
  * are accessible or not.
@@ -535,14 +570,20 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
         if (DiskUtils::isDiskUnreachable(diskMap[diskId],
                                          diskDevMap[diskId],
                                          tempMountDir)) {
-            badDisks.insert(diskId);
+            std::string path = diskMap[diskId] + "/.tmp";
+            // check again
+            if (DiskUtils::diskFileTest(path)) {
+               //something's wrong with disk. Declare failed.
+               badDisks.insert(diskId);
+            }
         }
     }
     for (auto& badDiskId : badDisks) {
-        LOGDEBUG << "Disk with diskId = " << badDiskId << " is unaccessible";
+        LOGWARN << "Disk: " << badDiskId << " is unaccessible";
         markDiskBad(badDiskId);
         HDDs.erase(badDiskId);
         diskMap.erase(badDiskId);
+        diskDevMap.erase(badDiskId);
     }
     badDisks.clear();
 
@@ -551,23 +592,51 @@ SmSuperblockMgr::checkDisksAlive(DiskIdSet& HDDs,
         if (DiskUtils::isDiskUnreachable(diskMap[diskId],
                                          diskDevMap[diskId],
                                          tempMountDir)) {
-            badDisks.insert(diskId);
+            std::string path = diskMap[diskId] + "/.tmp";
+            // check again.
+            if (DiskUtils::diskFileTest(path)) {
+                //something's wrong with disk. Declare failed.
+                badDisks.insert(diskId);
+            }
         }
     }
     for (auto& badDiskId : badDisks) {
-        LOGDEBUG << "Disk with diskId = " << badDiskId << " is unaccessible";
+        LOGWARN << "Disk: " << badDiskId << " is unaccessible";
         markDiskBad(badDiskId);
         SSDs.erase(badDiskId);
         diskMap.erase(badDiskId);
+        diskDevMap.erase(badDiskId);
     }
     deleteMount(tempMountDir);
+}
+
+bool
+SmSuperblockMgr::isDiskAlive(const DiskId& diskId) {
+    std::string tempMountDir = MODULEPROVIDER()->proc_fdsroot()->\
+                               dir_fds_etc() + "testDevMount";
+    FdsRootDir::fds_mkdir(tempMountDir.c_str());
+    umount2(tempMountDir.c_str(), MNT_FORCE);
+
+    LOGNORMAL << "Do disk check for disk = " << diskId;
+    if (DiskUtils::isDiskUnreachable(diskMap[diskId],
+                                     diskDevMap[diskId],
+                                     tempMountDir)) {
+        LOGWARN << "Disk with diskId = " << diskId << " is unaccessible";
+        markDiskBad(diskId);
+        diskMap.erase(diskId);
+        diskDevMap.erase(diskId);
+        return false;
+    }
+
+    deleteMount(tempMountDir);
+    return true;
 }
 
 /*
  * Determine if the node's disk topology has changed or not.
  *
  */
-void
+Error
 SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
                                    DiskIdSet& newSSDs)
 {
@@ -576,14 +645,8 @@ SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
     DiskIdSet addedHDDs, removedHDDs;
     DiskIdSet addedSSDs, removedSSDs;
     bool recomputed = false;
-    LOGDEBUG << "Checking disk topology";
-
-    /**
-     * Check for all HDDs and SSDs passed to SM via diskMap
-     * are up and accessible. Remove the bad ones from SSD
-     * and/or HDD DiskIdSet.
-     */
-    checkDisksAlive(newHDDs, newSSDs);
+    bool diskAdded = true;
+    LOGNOTIFY << "Checking disk topology";
 
     /* Get the list of unique disk IDs from the OLT table.  This is
      * used to compare with the new set of HDDs and SSDs to determine
@@ -594,24 +657,32 @@ SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
 
     /* Determine if any HDD was added or removed.
      */
-    removedHDDs = diffDiskSet(persistentHDDs, newHDDs);
-    addedHDDs = diffDiskSet(newHDDs, persistentHDDs);
+    removedHDDs = DiskUtils::diffDiskSet(persistentHDDs, newHDDs);
+    addedHDDs = DiskUtils::diffDiskSet(newHDDs, persistentHDDs);
 
     /* Determine if any HDD was added or removed.
      */
-    removedSSDs = diffDiskSet(persistentSSDs, newSSDs);
-    addedSSDs = diffDiskSet(newSSDs, persistentSSDs);
+    removedSSDs = DiskUtils::diffDiskSet(persistentSSDs, newSSDs);
+    addedSSDs = DiskUtils::diffDiskSet(newSSDs, persistentSSDs);
 
-    /* Check if the disk topology has changed.
+    typedef std::set<std::pair<fds_token_id, fds_uint16_t>> TokDiskSet;
+
+    if ((removedHDDs.size() > 0) || (removedSSDs.size() > 0)) {
+        superblockMaster.setResync();
+    }
+    /**
+     * Check if the disk topology has changed.
      */
     if ((removedHDDs.size() > 0) ||
         (addedHDDs.size() > 0)) {
         LOGNOTIFY << "Disk Topology Changed: removed HDDs=" << removedHDDs.size()
                   << ", added HDDs=" << addedHDDs.size();
+
         for (auto &removedDiskId : removedHDDs) {
             LOGNOTIFY <<"Disk HDD=" << removedDiskId << " removed";
             SmTokenSet lostSmTokens = getTokensOfThisSM(removedDiskId);
-            std::set<std::pair<fds_token_id, fds_uint16_t>> smTokenDiskIdPairs;
+            TokDiskSet smTokenDiskIdPairs;
+
             for (auto& lostSmToken : lostSmTokens) {
                 DiskId metaDiskId = removedDiskId;
                 if (g_fdsprocess->
@@ -620,11 +691,17 @@ SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
                     metaDiskId = superblockMaster.olt.getDiskId(lostSmToken,
                                                                 diskio::flashTier);
                 }
-                changeTokenCompactionState(lostSmToken, diskio::diskTier, false, 0);
+                changeTokenCompactionState(removedDiskId, lostSmToken, diskio::diskTier, false, 0);
                 smTokenDiskIdPairs.insert(std::make_pair(lostSmToken, metaDiskId));
             }
+
             if (diskChangeFn) {
-                diskChangeFn(removedDiskId, diskio::diskTier, smTokenDiskIdPairs);
+                diskChangeFn(!diskAdded, removedDiskId, diskio::diskTier, smTokenDiskIdPairs);
+            }
+        }
+        for (auto &addedHDD : addedHDDs) {
+            if (diskChangeFn) {
+                diskChangeFn(diskAdded, addedHDD, diskio::diskTier, TokDiskSet());
             }
         }
         recomputed |= SmTokenPlacement::recompute(persistentHDDs,
@@ -632,21 +709,24 @@ SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
                                                   removedHDDs,
                                                   diskio::diskTier,
                                                   &(superblockMaster.olt),
+                                                  diskMap,
                                                   err);
         if (!err.ok()) {
             LOGCRITICAL << "Redistribution of data failed with error " << err;
-            return;
+            return err;
         }
     }
 
     if ((removedSSDs.size() > 0) ||
         (addedSSDs.size() > 0)) {
-        LOGNOTIFY << "Disk Topology Changed: removed SSDs=" << removedSSDs.size()
-                  << ", added SSDs=" << addedSSDs.size();
+        LOGNOTIFY << "Disk Topology Changed: removed SSDs: " << removedSSDs.size()
+                  << ", added SSDs: " << addedSSDs.size();
+
         for (auto &removedDiskId : removedSSDs) {
-            LOGNOTIFY <<"Disk SSD=" << removedDiskId << " removed";
+            LOGNOTIFY <<"Disk SSD: " << removedDiskId << " removed";
             SmTokenSet lostSmTokens = getTokensOfThisSM(removedDiskId);
             std::set<std::pair<fds_token_id, fds_uint16_t>> smTokenDiskIdPairs;
+
             for (auto& lostSmToken : lostSmTokens) {
                 DiskId diskId = removedDiskId;
                 if (g_fdsprocess->
@@ -657,8 +737,14 @@ SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
                 }
                 smTokenDiskIdPairs.insert(std::make_pair(lostSmToken, diskId));
             }
+
             if (diskChangeFn) {
-                diskChangeFn(removedDiskId, diskio::flashTier, smTokenDiskIdPairs);
+                diskChangeFn(!diskAdded, removedDiskId, diskio::flashTier, smTokenDiskIdPairs);
+            }
+        }
+        for (auto &addedSSD : addedSSDs) {
+            if (diskChangeFn) {
+                diskChangeFn(diskAdded, addedSSD, diskio::flashTier, TokDiskSet());
             }
         }
         recomputed |= SmTokenPlacement::recompute(persistentSSDs,
@@ -666,20 +752,38 @@ SmSuperblockMgr::checkDiskTopology(DiskIdSet& newHDDs,
                                                   removedSSDs,
                                                   diskio::flashTier,
                                                   &(superblockMaster.olt),
+                                                  diskMap,
                                                   err);
         if (!err.ok()) {
             LOGCRITICAL << "Redistribution of data failed with error " << err;
-            return;
+            return err;;
         }
     }
 
     /* Token mapping is recomputed.  Now sync out to disk. */
     if (recomputed) {
+        removeDisksFromSuperblock(removedHDDs, removedSSDs);
         err = syncSuperblock();
-        /* For now, panic if cannot sync superblock to disks.
-         * Need to understand why this can fail at this point.
-         */
-        fds_verify(err == ERR_OK);
+        if (!err.ok()) {
+            LOGERROR << "Superblock sync failed for one or more disks.";
+        }
+    }
+    return err;
+}
+
+void
+SmSuperblockMgr::removeDisksFromSuperblock(DiskIdSet &removedHDDs, DiskIdSet &removedSSDs) {
+
+    for (auto &diskId : removedHDDs) {
+        markDiskBad(diskId);
+        diskMap.erase(diskId);
+        diskDevMap.erase(diskId);
+    }
+
+    for (auto &diskId : removedSSDs) {
+        markDiskBad(diskId);
+        diskMap.erase(diskId);
+        diskDevMap.erase(diskId);
     }
 }
 
@@ -699,9 +803,13 @@ SmSuperblockMgr::syncSuperblock()
     /* Sync superblock to all devices in the disk map */
     for (auto cit = diskMap.begin(); cit != diskMap.end(); ++cit) {
         superblockPath = getSuperblockPath(cit->second.c_str());
-        err = superblockMaster.writeSuperblock(superblockPath);
-        if (err != ERR_OK) {
-            return err;
+        auto writeErr = superblockMaster.writeSuperblock(superblockPath);
+        if (!writeErr.ok()) {
+            LOGERROR << "Superblock sync failed for disk: " <<cit->first
+                     << " with error: " << writeErr;
+        }
+        if (err.ok()) {
+            err = writeErr;
         }
     }
 
@@ -920,6 +1028,9 @@ SmSuperblockMgr::reconcileSuperblock()
      * as th "master."  And, if necessary, overwrite bad superblocks with
      * the "master."
      */
+
+    // TODO(brian): Refactor this whole logic to be cleaner
+
     if (1 == uniqChecksum) {
         fds_verify(diskGoodSuperblock.size() > 0);
         auto goodSuperblock = diskGoodSuperblock.begin();
@@ -939,21 +1050,88 @@ SmSuperblockMgr::reconcileSuperblock()
             checkForHandledErrors(err);
         }
     } else {
-        /* TODO(sean)
-         * This error detection is a bit more involved.  Should break up this
-         * function before working on this.
-         * But, for reconciling this case is a bit tricky. Which set of
-         * superblocks to trust????  This can theoretically happen if the system
-         * goes down when syncing superblocks to disks.
+        /* TODO(brian)
+         * This case can happen if the system goes down when syncing superblocks to disks. There should NEVER be more
+         * than two conflicting checksums. If there are more it's a real problem.
          *
-         * So, algorithm should look something like:
-         * 1) keep the most recent superblock
-         * 2) if most recent superblock still has simple majority (51%), then
-         *    we elect that as the master.
-         * 3) or if we can't elect, then we need to throw away everything
-         *    and recompute and regen superblock.
+         * With that in mind, there are a few major cases here that can occur:
+         *
+         * A) The superblock was updating due to a DLT update message. In this case we will likely not have all of the
+         *    objects for the tokens we now own. The particular superblock we pick likely doesn't matter as we
+         *    are likely already considered in error and migration has been aborted.
+         *
+         * B) The superblock was updating due to a DLT commit message. When the commit message arrives we have completed
+         *    migration so we should select the most recent superblock as we now have all of the tokens we're
+         *    responsible for.
+         *
+         * C) The superblock was updating due to GC running. In this case we may have a conflict regarding which is the
+         *    correct token file. We should select the most recent superblock in this case, as the new token file may
+         *    have been written to during compaction and may now hold objects that are not present in the old file.
+         *
+         * Given these three scenarios it makes the most sense to simply select the most recent superblock and run
+         * with it.
+         *
          */
-        fds_panic("more than one unique checksum detected with SM superblocks");
+
+        LOGWARN << "SM superblock detected " << uniqChecksum << " checksums, attempting to reconcile.";
+
+        if (uniqChecksum > 2) {
+            LOGERROR << "SM superblock had more than two conflicting \"good\" checksums. This is particularly bad "
+                        "and should not be possible. Still attempting to repair, but this should be examined "
+                        "immediately.";
+        }
+
+        fds_checksum32_t mostRecent = findMostRecentSuperblock(checksumToGoodDiskIdMap);
+        auto it = checksumToGoodDiskIdMap.find(mostRecent);
+
+        if (it == checksumToGoodDiskIdMap.end()) {
+            // If we can't find the most recent entry that we *just* found then we're in an extra bad place
+            // but we can try to be heroic and just pick whatever superblock is still around and hope that
+            // whatever state we end up in we can be fixed with a resync.
+            LOGERROR << "Tried to use checksum " << mostRecent << " but failed. Picking arbitrary superblock in"
+                        "a heroic effort not to fall over. System may be unreliable.";
+
+            it = checksumToGoodDiskIdMap.begin();
+        }
+
+        std::string goodSuperblockPath = getSuperblockPath(diskMap[it->second]);
+
+        // Expand on our diskBadSuperblock set to include "good bad" superblocks as well
+        std::set<fds_uint16_t> fixers{diskBadSuperblock};
+
+        for (auto it = checksumToGoodDiskIdMap.begin();
+            it != checksumToGoodDiskIdMap.end();
+            it++) {
+
+            if (it->first == mostRecent) {
+                // These are the IDs of those with the correct superblock already
+                LOGDEBUG << "Just found ourselves ! " << it->first;
+                continue;
+            }
+
+            // If we got here this is a conflicting disk ID, so add it to the fixers list
+            LOGDEBUG << "Adding " << it->second << " to the fixers list.";
+            fixers.insert(it->second);
+        }
+
+        /* Just another round of validation.  Being paranoid.  Nothing
+         * should fail at this point.  If it fails, not sure how to recover
+         * from it.  It will be a bit complicated.
+         * So, for now just verify that everything has gone smoothly.
+         */
+        err = superblockMaster.readSuperblock(goodSuperblockPath);
+        if (ERR_OK != err) {
+            LOGCRITICAL << "Failed to read known good superblock at " << goodSuperblockPath;
+            return ERR_SM_SUPERBLOCK_NO_RECONCILE;
+        }
+        fds_assert(ERR_OK == err);
+        err = superblockMaster.validateSuperblock();
+        fds_assert(ERR_OK == err);
+
+
+        // Sync the fixers
+        err = syncSuperblock(fixers);
+        checkForHandledErrors(err);
     }
 
     return err;
@@ -1013,10 +1191,36 @@ fds_uint64_t
 SmSuperblockMgr::getDLTVersion()
 {
     SCOPEDREAD(sbLock);
-
     return superblockMaster.DLTVersion;
 }
 
+fds_bool_t
+SmSuperblockMgr::doResync() {
+    SCOPEDREAD(sbLock);
+    return superblockMaster.doResync();
+}
+
+void
+SmSuperblockMgr::setResync() {
+    Error err(ERR_OK);
+    SCOPEDWRITE(sbLock);
+    superblockMaster.setResync();
+    err = syncSuperblock();
+    if (!err.ok()) {
+        LOGCRITICAL << "SM failed to persist resync pending notice";
+    }
+}
+
+void
+SmSuperblockMgr::resetResync() {
+    Error err(ERR_OK);
+    SCOPEDWRITE(sbLock);
+    superblockMaster.resetResync();
+    err = syncSuperblock();
+    if (!err.ok()) {
+        LOGCRITICAL << "SM failed to persist no resync pending notice";
+    }
+}
 
 fds_uint16_t
 SmSuperblockMgr::getDiskId(fds_token_id smTokId,
@@ -1025,44 +1229,56 @@ SmSuperblockMgr::getDiskId(fds_token_id smTokId,
     return superblockMaster.olt.getDiskId(smTokId, tier);
 }
 
+DiskIdSet
+SmSuperblockMgr::getDiskIds(fds_token_id smTokId,
+                            diskio::DataTier tier) {
+    SCOPEDREAD(sbLock);
+    return superblockMaster.olt.getDiskIds(smTokId, tier);
+}
+
 fds_uint16_t
-SmSuperblockMgr::getWriteFileId(fds_token_id smToken,
+SmSuperblockMgr::getWriteFileId(DiskId diskId,
+                                fds_token_id smToken,
                                 diskio::DataTier tier) {
     SCOPEDREAD(sbLock);
-    return superblockMaster.tokTbl.getWriteFileId(smToken, tier);
+    return superblockMaster.tokTbl.getWriteFileId(diskId, smToken, tier);
 }
 
 fds_bool_t
-SmSuperblockMgr::compactionInProgress(fds_token_id smToken,
+SmSuperblockMgr::compactionInProgress(DiskId diskId,
+                                      fds_token_id smToken,
                                       diskio::DataTier tier) {
     SCOPEDREAD(sbLock);
-    return compactionInProgressNoLock(smToken, tier);
+    return compactionInProgressNoLock(diskId, smToken, tier);
 }
 
 fds_bool_t
-SmSuperblockMgr::compactionInProgressNoLock(fds_token_id smToken,
+SmSuperblockMgr::compactionInProgressNoLock(DiskId diskId,
+                                            fds_token_id smToken,
                                             diskio::DataTier tier) {
-    return superblockMaster.tokTbl.isCompactionInProgress(smToken, tier);
+    return superblockMaster.tokTbl.isCompactionInProgress(diskId, smToken, tier);
 }
 
 Error
-SmSuperblockMgr::changeCompactionState(fds_token_id smToken,
+SmSuperblockMgr::changeCompactionState(DiskId diskId,
+                                       fds_token_id smToken,
                                        diskio::DataTier tier,
                                        fds_bool_t inProg,
                                        fds_uint16_t newFileId) {
     SCOPEDWRITE(sbLock);
-    return changeTokenCompactionState(smToken, tier, inProg, newFileId);
+    return changeTokenCompactionState(diskId, smToken, tier, inProg, newFileId);
 }
 
 Error
-SmSuperblockMgr::changeTokenCompactionState(fds_token_id smToken,
+SmSuperblockMgr::changeTokenCompactionState(DiskId diskId,
+                                            fds_token_id smToken,
                                             diskio::DataTier tier,
                                             fds_bool_t inProg,
                                             fds_uint16_t newFileId) {
     Error err(ERR_OK);
-    superblockMaster.tokTbl.setCompactionState(smToken, tier, inProg);
+    superblockMaster.tokTbl.setCompactionState(diskId, smToken, tier, inProg);
     if (inProg) {
-        superblockMaster.tokTbl.setWriteFileId(smToken, tier, newFileId);
+        superblockMaster.tokTbl.setWriteFileId(diskId, smToken, tier, newFileId);
     }
     // sync superblock
     err = syncSuperblock();
@@ -1103,8 +1319,6 @@ std::ostream& operator<< (std::ostream &out,
                           const SmSuperblockMgr& sbMgr) {
     out << "Current DLT Version=" << sbMgr.superblockMaster.DLTVersion << "\n";
     out << "Current disk map:\n" << sbMgr.diskMap;
-    out << sbMgr.superblockMaster.olt;
-    out << sbMgr.superblockMaster.tokTbl;
     return out;
 }
 
@@ -1145,4 +1359,45 @@ SmSuperblockMgr::SmSuperblockMgrTestGetFileName()
     return superblockName;
 }
 
+/**
+ * Method determines which good superblock was most recently written. This is useful for complex reconciliation where
+ * we have multiple "good" disk maps.
+ *
+ * @param checkMap A multimap of <fds_checksum32_t, fds_int16_t> where keys are checksums, and values are disk IDs
+ *                 containing a superblock that checksums to it's key.
+ * @returns A key corresponding to the most recent superblock
+ */
+fds_checksum32_t
+SmSuperblockMgr::findMostRecentSuperblock(std::multimap<fds_checksum32_t, fds_uint16_t> checkMap) {
+    LOGNORMAL << "Trying to find most recent superblock!";
+    struct stat statbuf;
+    memset(&statbuf, 0, sizeof(statbuf));
+
+    // Track the path/time of the superblock that has been most recently updated
+    fds_checksum32_t latest_superblock {checkMap.begin()->first};
+    std::chrono::system_clock::time_point time_latest {};
+
+    // Stat each of the superblock files to determine which is the most recently written
+    for (auto it = checkMap.begin(); it != checkMap.end(); it++) {
+        std::string superblockPath = getSuperblockPath(diskMap[it->second]);
+
+        LOGDEBUG << "Trying to stat " << superblockPath << "...";
+
+         if (stat(superblockPath.c_str(), &statbuf) == -1) {
+            LOGERROR << "Tried to stat superblock @ " << superblockPath << " but the stat failed. "
+                        "Continuing anyway...";
+            continue;
+        }
+
+        std::chrono::system_clock::time_point file_time =
+            std::chrono::system_clock::from_time_t(statbuf.st_mtim.tv_sec);
+
+        if (file_time > time_latest) {
+            time_latest = file_time;
+            latest_superblock = it->first;
+        }
+
+    }
+    return latest_superblock;
+}
 }  // namespace fds

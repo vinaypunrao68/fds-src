@@ -4,7 +4,7 @@
 
 package com.formationds.platform.svclayer;
 
-import com.formationds.protocol.SvcUuid;
+import com.formationds.protocol.svc.types.SvcUuid;
 import com.formationds.protocol.om.OMSvc;
 import com.formationds.protocol.svc.CtrlNotifyDLTUpdate;
 import com.formationds.protocol.svc.CtrlNotifyDMTUpdate;

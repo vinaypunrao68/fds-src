@@ -26,23 +26,20 @@ void RenameBlobHandler::handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
     LOGDEBUG << logString(*asyncHdr) << logString(*message);
 
     HANDLE_INVALID_TX_ID_VAL(message->source_tx_id);
+    HANDLE_INVALID_TX_ID_VAL(message->destination_tx_id);
 
     HANDLE_U_TURN();
 
     fds_volid_t volId(message->volume_id);
-    Error err(ERR_OK);
-    if (!dataManager.amIPrimaryGroup(volId)) {
-    	err = ERR_DM_NOT_PRIMARY;
-    }
-    if (err.OK()) {
-    	err = dataManager.validateVolumeIsActive(volId);
-    }
-
+    auto err = preEnqueueWriteOpHandling(volId, message->opId,
+                                         asyncHdr, PlatNetSvcHandler::threadLocalPayloadBuf);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
         return;
     }
+
+    HANDLE_FILTER_OLD_DMT_DURING_RESYNC();
 
     auto dmReq = new DmIoRenameBlob(volId,
                                     message->source_blob,
@@ -65,7 +62,8 @@ void RenameBlobHandler::handleQueueItem(DmRequest* dmRequest) {
                                                                      dest_blob,
                                                                      blob_version_invalid,
                                                                      dmt_version,
-                                                                     typedRequest->seq_id);
+                                                                     typedRequest->seq_id,
+                                                                     typedRequest->opId);
     typedRequest->commitReq->cb = [this] (const Error& e, DmRequest* d) mutable -> void { handleCommitNewBlob(e, d); };
 
     (static_cast<DmIoCommitBlobTx*>(typedRequest->commitReq))->localCb =
@@ -77,6 +75,9 @@ void RenameBlobHandler::handleQueueItem(DmRequest* dmRequest) {
     typedRequest->commitReq->parent = typedRequest;
     typedRequest->commitReq->orig_request = false;
     QueueHelper helper(dataManager, typedRequest->commitReq);
+
+    ENSURE_IO_ORDER(typedRequest, helper);
+
     // This isn't the _real_ request, do not confuse QoS
     helper.ioIsMarkedAsDone = true;
 
@@ -196,7 +197,8 @@ void RenameBlobHandler::handleCommitNewBlob(Error const& e, DmRequest* dmRequest
                                                                      typedRequest->blob_name,
                                                                      blob_version_invalid,
                                                                      dmt_version,
-                                                                     typedRequest->seq_id);
+                                                                     typedRequest->seq_id,
+                                                                     typedRequest->opId);
     typedRequest->commitReq->cb = [this] (const Error& e, DmRequest* d) mutable -> void { handleDeleteOldBlob(e, d); };
 
     (static_cast<DmIoCommitBlobTx*>(typedRequest->commitReq))->localCb =
@@ -288,7 +290,19 @@ void RenameBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
 }
 
 void RenameBlobHandler::handleResponseCleanUp(Error const& e, DmRequest* dmRequest) {
-    delete dmRequest;
+    DmIoCommitBlobTx* commitBlobReq = static_cast<DmIoCommitBlobTx*>(dmRequest);
+    bool delete_req;
+
+    {
+        std::lock_guard<std::mutex> lock(commitBlobReq->migrClientCntMtx);
+        fds_assert(commitBlobReq->migrClientCnt);
+        commitBlobReq->migrClientCnt--;
+        delete_req = commitBlobReq->migrClientCnt ? false : true; // delete if commitBlobReq == 0
+    }
+
+    if (delete_req) {
+        delete dmRequest;
+    }
 }
 
 }  // namespace dm

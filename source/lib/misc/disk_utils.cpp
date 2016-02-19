@@ -9,14 +9,13 @@
 #include <fiu-control.h>
 #include <fiu-local.h>
 #include <include/util/disk_utils.h>
-#include <stor-mgr/include/SmTypes.h>
 extern "C" {
 #include <sys/mount.h>
 #include <fcntl.h>
 }
 
 namespace fds {
-DiskUtils::capacity_tuple
+DiskUtils::CapacityPair
 DiskUtils::getDiskConsumedSize(const std::string &mount_path, bool use_stat) {
 
     // Stat won't give us an accurate total size, so we always want to statvfs to get the totalSize
@@ -43,14 +42,14 @@ DiskUtils::getDiskConsumedSize(const std::string &mount_path, bool use_stat) {
         LOGDEBUG << "use_stat was TRUE found " << consumedSize << " as consumed size.";
     }
 
-    return DiskUtils::capacity_tuple(consumedSize, totalSize);
+    return DiskUtils::CapacityPair(consumedSize, totalSize);
 }
 
 fds_bool_t
 DiskUtils::diskFileTest(const std::string& path) {
     int fd = open(path.c_str(), O_RDWR | O_CREAT | O_SYNC, S_IRUSR | S_IWUSR);
     if (fd == -1 || fsync(fd) ||close(fd)) {
-        LOGDEBUG << "File test for disk = " << path << " failed with errno = " << errno;
+        LOGNOTIFY << "File test for disk = " << path << " failed with errno = " << errno;
         return true;
     } else {
         return false;
@@ -73,6 +72,22 @@ DiskUtils::isDiskUnreachable(const std::string& diskPath,
     umount2(mountPnt.c_str(), MNT_FORCE);
   }
   return (retVal | false);
+}
+
+/*
+ * A function that returns the difference between the diskSet 1 and diskSet 2.
+ * The difference is defined as element(s) in diskSet1, but not in diskSet2.
+ */
+DiskIdSet
+DiskUtils::diffDiskSet(const DiskIdSet& diskSet1,
+                       const DiskIdSet& diskSet2) {
+    DiskIdSet deltaDiskSet;
+
+    std::set_difference(diskSet1.begin(), diskSet1.end(),
+                        diskSet2.begin(), diskSet2.end(),
+                        std::inserter(deltaDiskSet, deltaDiskSet.begin()));
+
+    return deltaDiskSet;
 }
 
 }  // namespace fds

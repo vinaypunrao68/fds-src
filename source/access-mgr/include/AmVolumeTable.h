@@ -1,95 +1,116 @@
 /*
- * Copyright 2013-2014 Formation Data Systems, Inc.
+ * Copyright 2013-2016 Formation Data Systems, Inc.
  */
 
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMVOLUMETABLE_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AMVOLUMETABLE_H_
 
 #include <string>
-#include <mutex>
 #include <unordered_map>
 #include <vector>
 
-#include <fds_error.h>
 #include <fds_types.h>
-#include <qos_ctrl.h>
+#include "AmDataProvider.h"
 #include <blob/BlobTypes.h>
-#include <fds_qos.h>
 #include <util/Log.h>
 #include <concurrency/RwLock.h>
+#include "fds_module_provider.h"
 
 namespace fds {
 
 /* Forward declarations */
-struct AmQoSCtrl;
-struct AmRequest;
 struct AmVolume;
-struct AmVolumeAccessToken;
+struct EPSvcRequest;
+struct FdsTimerTask;
 struct WaitQueue;
 
-struct AmVolumeTable : public HasLogger {
+struct AmVolumeTable :
+    public HasLogger,
+    public AmDataProvider
+{
     using volume_ptr_type = std::shared_ptr<AmVolume>;
 
     /// Use logger that passed in to the constructor
-    AmVolumeTable(size_t const qos_threads, fds_log *parent_log);
+    AmVolumeTable(AmDataProvider* prev, size_t const max_thrds, fds_log *parent_log);
     AmVolumeTable(AmVolumeTable const& rhs) = delete;
     AmVolumeTable& operator=(AmVolumeTable const& rhs) = delete;
-    ~AmVolumeTable();
+    ~AmVolumeTable() override;
     
-    /// Registers the callback we make to the transaction layer
-    using processor_cb_type = std::function<void(AmRequest*)>;
-    void registerCallback(processor_cb_type cb);
+    /**
+     * These are the Volume specific DataProvider routines.
+     * Everything else is pass-thru.
+     */
+    bool done() override;
+    void start() override;
+    void stop() override;
+    Error modifyVolumePolicy(const VolumeDesc& vdesc) override;
+    void registerVolume(VolumeDesc const& volDesc) override;
+    void removeVolume(VolumeDesc const& volDesc) override;
+    void openVolume(AmRequest *amReq) override;
+    void closeVolume(AmRequest *amReq) override;
+    void statVolume(AmRequest *amReq) override          { read(amReq, &AmDataProvider::statVolume);}
+    void setVolumeMetadata(AmRequest *amReq) override   {write(amReq, &AmDataProvider::setVolumeMetadata);}
+    void getVolumeMetadata(AmRequest *amReq) override   { read(amReq, &AmDataProvider::getVolumeMetadata);}
+    void volumeContents(AmRequest *amReq) override      { read(amReq, &AmDataProvider::volumeContents);}
+    void startBlobTx(AmRequest *amReq) override         {write(amReq, &AmDataProvider::startBlobTx);}
+    void commitBlobTx(AmRequest *amReq) override        {write(amReq, &AmDataProvider::commitBlobTx);}
+    void statBlob(AmRequest *amReq) override            { read(amReq, &AmDataProvider::statBlob);}
+    void setBlobMetadata(AmRequest *amReq) override     {write(amReq, &AmDataProvider::setBlobMetadata);}
+    void deleteBlob(AmRequest *amReq) override          {write(amReq, &AmDataProvider::deleteBlob);}
+    void renameBlob(AmRequest *amReq) override          {write(amReq, &AmDataProvider::renameBlob);}
+    void getBlob(AmRequest *amReq) override             { read(amReq, &AmDataProvider::getBlob);}
+    void putBlob(AmRequest *amReq) override             {write(amReq, &AmDataProvider::putBlob);}
+    void putBlobOnce(AmRequest *amReq) override         {write(amReq, &AmDataProvider::putBlobOnce);}
 
-    // A volume descriptor from OM means we probably have an attach pending
-    Error processAttach(const VolumeDesc& volDesc, boost::shared_ptr<AmVolumeAccessToken> access_token);
+    // Renews volume leases
+    void renewTokens();
 
-    Error registerVolume(const VolumeDesc& volDesc);
-    volume_ptr_type removeVolume(std::string const& volName, fds_volid_t const volId);
-    volume_ptr_type removeVolume(const VolumeDesc& volDesc)
-        { return removeVolume(volDesc.name, volDesc.volUUID); }
+ protected:
 
     /**
-     * Returns NULL is volume does not exist
+     * These are the response we actually care about seeing the results of
      */
-    volume_ptr_type getVolume(fds_volid_t const vol_uuid) const;
-
-    /**
-     * Return volumes that we are currently attached to
-     */
-    std::vector<volume_ptr_type> getVolumes() const;
-
-    /**
-     * Returns the volumes max object size
-     */
-    fds_uint32_t getVolMaxObjSize(fds_volid_t const volUuid) const;
-
-    /**
-     * Returns volume uuid if found in volume map.
-     * if volume does not exist, returns 'invalid_vol_id'
-     */
-    fds_volid_t getVolumeUUID(const std::string& vol_name) const;
-
-    Error modifyVolumePolicy(fds_volid_t vol_uuid,
-                             const VolumeDesc& vdesc);
-
-    Error enqueueRequest(AmRequest* amReq);
-    Error markIODone(AmRequest* amReq);
-    bool drained();
-
-    Error updateQoS(long int const* rate,
-                    float const* throttle);
+    void openVolumeCb(AmRequest *amReq, const Error error) override;
+    void statVolumeCb(AmRequest *amReq, const Error error) override;
 
   private:
     /// volume uuid -> AmVolume map
     std::unordered_map<fds_volid_t, volume_ptr_type> volume_map;
 
-    std::unique_ptr<WaitQueue> wait_queue;
-
-    /// QoS Module
-    std::unique_ptr<AmQoSCtrl> qos_ctrl;
-
     /// Protects volume_map
     mutable fds_rwlock map_rwlock;
+
+    boost::shared_ptr<FdsTimerTask> renewal_task;
+
+    std::unique_ptr<WaitQueue> read_queue;
+    std::unique_ptr<WaitQueue> write_queue;
+
+    /// Timer for token renewal
+    boost::shared_ptr<FdsTimer> token_timer;
+
+    std::chrono::duration<fds_uint32_t> vol_tok_renewal_freq {30};
+
+    /**
+     * FEATURE TOGGLE: "VolumeGroup" support
+     * Fri Jan 15 10:25:00 2016
+     */
+    bool volume_grouping_support {false};
+
+    void lookupVolume(std::string const volume_name);
+    void lookupVolumeCb(std::string const volume_name,
+                        EPSvcRequest* svcReq,
+                        const Error& error,
+                        boost::shared_ptr<std::string> payload);
+
+    /**
+     * Returns volume if found in volume map.
+     * if volume does not exist, returns 'nullptr'
+     */
+    volume_ptr_type getVolume(const std::string& vol_name) const;
+    volume_ptr_type getVolume(fds_volid_t const vol_uuid) const;
+
+    void read(AmRequest *amReq, void (AmDataProvider::*func)(AmRequest*));
+    void write(AmRequest *amReq, void (AmDataProvider::*func)(AmRequest*));
 };
 
 }  // namespace fds

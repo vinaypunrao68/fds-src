@@ -35,12 +35,17 @@ struct DiskStat {
     fds_uint64_t dsk_tot_size;      // total size in bytes
     fds_uint64_t dsk_avail_size;    // in bytes
     fds_uint64_t dsk_reclaim_size;  // in bytes
+
+    bool operator<(const DiskStat &rhs) const {
+        return (dsk_avail_size < rhs.dsk_avail_size);
+    }
 };
 
 struct TokenStat {
     fds::fds_token_id tkn_id;
     fds_uint64_t      tkn_tot_size;      // total size of disk files in bytes
     fds_uint64_t      tkn_reclaim_size;  // total reclaimable space in bytes
+    TokenStat(): tkn_id(0), tkn_tot_size(0), tkn_reclaim_size(0) {}
 };
 
 // ---------------------------------------------------------------------------

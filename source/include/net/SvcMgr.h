@@ -7,6 +7,7 @@
 #include <vector>
 #include <unordered_map>
 #include <fds_module.h>
+#include <fds_counters.h>
 // TODO(Rao): Do forward decl here
 #include <concurrency/SynchronizedTaskExecutor.hpp>
 #include <net/PlatNetSvcHandler.h>
@@ -62,6 +63,8 @@ using OMSvcClientPtr = boost::shared_ptr<OMSvcClient>;
 }
 namespace fpi = FDS_ProtocolInterface;
 
+DECL_EXTERN_OUTPUT_FUNCS(SvcUuid);
+
 namespace fds {
 
 namespace bo  = boost;
@@ -80,6 +83,7 @@ using StringPtr = boost::shared_ptr<std::string>;
 class PlatNetSvcHandler;
 struct DLT;
 struct DLTManager;
+struct DMT;
 struct DMTManager;
 using DLTManagerPtr = boost::shared_ptr<DLTManager>;
 using DMTManagerPtr = boost::shared_ptr<DMTManager>;
@@ -123,7 +127,7 @@ using SvcHandleMap = std::unordered_map<fpi::SvcUuid, SvcHandlePtr, SvcUuidHash>
 /**
 * @brief Overall manager class for service layer
 */
-struct SvcMgr : HasModuleProvider, Module {
+struct SvcMgr : HasModuleProvider, Module, StateProvider {
     SvcMgr(CommonModuleProviderIf *moduleProvider,
            PlatNetSvcHandlerPtr handler,
            fpi::PlatNetSvcProcessorPtr processor,
@@ -222,8 +226,7 @@ struct SvcMgr : HasModuleProvider, Module {
     * @brief  Returns property for service with svcUuid
     * @throws when service or key are not found
     */
-    template<class T>
-    T getSvcProperty(const fpi::SvcUuid &svcUuid, const std::string& key) {
+    std::string getSvcProperty(const fpi::SvcUuid &svcUuid, const std::string& key) {
         fpi::SvcInfo svcInfo;
         bool found = getSvcInfo(svcUuid, svcInfo);
         if (!found) {
@@ -236,7 +239,7 @@ struct SvcMgr : HasModuleProvider, Module {
             GLOGWARN << "Unknown key: " << key;
             throw SvcKeyException(key + " not found");
         }
-        return boost::lexical_cast<T>(itr->second);
+        return itr->second;
     }
 
     /**
@@ -245,11 +248,10 @@ struct SvcMgr : HasModuleProvider, Module {
     * @param key
     * @param defaultVal
     */
-    template<class T>
-    T getSvcProperty(const fpi::SvcUuid &svcUuid,
-                     const std::string& key, const T &defaultVal) {
+    std::string getSvcProperty(const fpi::SvcUuid &svcUuid,
+                     const std::string& key, const std::string &defaultVal) {
         try {
-            return getSvcProperty<T>(svcUuid, key);
+            return getSvcProperty(svcUuid, key);
         } catch (std::exception &e) {
             return defaultVal;
         }
@@ -331,6 +333,11 @@ struct SvcMgr : HasModuleProvider, Module {
     * @brief Return current dlt
     */
     const DLT* getCurrentDLT();
+
+    /**
+    * @brief Return current dlt
+    */
+    SHPTR<DMT> getCurrentDMT();
 
     /**
     * @brief Returns dlt manager
@@ -479,6 +486,9 @@ struct SvcMgr : HasModuleProvider, Module {
     static fpi::SvcUuid mapToSvcUuid(const fpi::SvcUuid &in,
                                      const fpi::FDSP_MgrIdType& svcType);
 
+    static fpi::SvcUuid mapToSvcUuid(const NodeUuid &in,
+                                     const fpi::FDSP_MgrIdType& svcType);
+
     /**
      * @brief Method to retrieve the DMT for the service.
      * Caller will provide a Thrift interface object and the method will
@@ -525,6 +535,10 @@ struct SvcMgr : HasModuleProvider, Module {
     */
     static const int32_t MAX_CONN_RETRIES;
 
+    /* Debug query api to get state as kv pairs */
+    std::string getStateProviderId() override;
+    std::string getStateInfo() override;
+
  protected:
     /**
     * @brief For getting service handle.
@@ -566,8 +580,10 @@ struct SvcMgr : HasModuleProvider, Module {
     /* Dmt manager */
     DMTManagerPtr dmtMgr_;
 
+    std::string stateProviderId;
 
 };
+
 
 /**
 * @brief Wrapper around service information and service rpc client.
@@ -576,6 +592,9 @@ struct SvcHandle : HasModuleProvider {
     SvcHandle(CommonModuleProviderIf *moduleProvider,
               const fpi::SvcInfo &info);
     virtual ~SvcHandle();
+
+    // Making this a static so that configDB can use this intelligence too
+    static bool shouldUpdateSvcHandle(const fpi::SvcInfoPtr &current, const fpi::SvcInfoPtr &incoming);
 
     /**
     * @brief Use it for sending async request messages.  This uses asynReqt() interface for 

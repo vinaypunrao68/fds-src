@@ -82,7 +82,7 @@ namespace fds
     // dsk_label_valid
     // ---------------
     //
-    bool DiskLabel::dsk_label_valid(DiskLabelMgr *mgr)
+    bool DiskLabel::dsk_label_valid()
     {
         ResourceUUID    disk_uuid, node_uuid;
 
@@ -97,13 +97,30 @@ namespace fds
         if ((dl_disk_uuids->dl_disk_rec.dl_magic == MAGIC_DSK_UUID_REC) &&
             (disk_uuid.uuid_get_val() != 0) && (node_uuid.uuid_get_val() != 0))
         {
-            if (mgr != NULL)
-            {
-                mgr->dsk_rec_label_map(dl_owner, dl_label->dl_my_disk_index);
-            }
             return true;
         }
         return false;
+    }
+
+    // dsk_label_valid_for_node indicates whether the node uuid matches
+    // ---------------
+    //
+    bool DiskLabel::dsk_label_valid_for_node(NodeUuid node_uuid)
+    {
+        if (!m_use_new_superblock || !dsk_label_valid())
+        {
+            return true;  // only verify if new_superblock and there is a label
+        }
+        if (node_uuid.uuid_get_val() <= 0)
+        {
+            LOGWARN << "Bad node uuid, can't verify label ";
+            return true;
+        }
+        NodeUuid uuid;
+        uuid.uuid_set_from_raw(dl_label->dl_node_uuid);
+        LOGDEBUG << "Checking label node uuid " << uuid.uuid_get_val()
+                 << " against node uuid " << node_uuid.uuid_get_val();
+        return node_uuid == uuid;
     }
 
     // dsk_label_init_uuids
@@ -171,11 +188,15 @@ namespace fds
     // dsk_label_generate
     // ------------------
     //
-    void DiskLabel::dsk_label_generate(ChainList *labels, int dsk_cnt)
+    void DiskLabel::dsk_label_generate(ChainList *labels, int dsk_cnt, fds_uint16_t& largest_disk_index)
     {
         int       cnt;
         size_t    size;
 
+        if (largest_disk_index == DL_INVAL_DISK_INDEX)
+        {
+            fds_panic("Maximum disk index reached. Can't continue.");
+        }
         size = DL_PAGE_SZ;
 
         if (dl_label == NULL)
@@ -194,7 +215,7 @@ namespace fds
         cnt = dsk_fill_disk_uuids(labels);
         fds_verify(cnt == dsk_cnt);
 
-        dsk_label_fixup_header();
+        dsk_label_fixup_header(largest_disk_index);
         dsk_label_comp_checksum(dl_label);
         fds_verify(dl_label->dl_used_sect <= dl_label->dl_total_sect);
     }
@@ -204,7 +225,7 @@ namespace fds
     // Clone the label from the master.  Fix up its own header with uuid and compute all
     // checksums.
     //
-    void DiskLabel::dsk_label_clone(DiskLabel *master)
+    void DiskLabel::dsk_label_clone(DiskLabel *master, fds_uint16_t& largest_disk_index)
     {
         dlabel_hdr_t   *src;
 
@@ -216,36 +237,19 @@ namespace fds
 
         // Restore back my disk uuid and fix up the index.
         dl_owner->rs_get_uuid().uuid_set_to_raw(dl_label->dl_disk_uuid);
-        dsk_label_fixup_header();
+        dsk_label_fixup_header(largest_disk_index);
     }
 
     // dsk_label_fixup_header
     // ----------------------
     //
-    void DiskLabel::dsk_label_fixup_header()
+    void DiskLabel::dsk_label_fixup_header(fds_uint16_t& largest_disk_index)
     {
-        int              i, cnt;
-        ResourceUUID     uuid, cmp;
-        dlabel_uuid_t   *rec;
-
-        rec = dl_disk_uuids->dl_disk_uuids;
-        cnt = dl_disk_uuids->dl_disk_rec.dl_rec_cnt;
+        int cnt = dl_disk_uuids->dl_disk_rec.dl_rec_cnt;
 
         dl_label->dl_num_quorum = cnt;
         dl_label->dl_used_sect  = FDS_ROUND_UP(DL_PAGE_SZ, dl_label->dl_sect_sz);
-        uuid.uuid_set_from_raw(dl_label->dl_disk_uuid);
-
-        for (i = 0; i < cnt; i++, rec++)
-        {
-            cmp.uuid_set_from_raw(rec->dl_uuid);
-
-            if (cmp == uuid)
-            {
-                dl_label->dl_my_disk_index = i;
-                return;
-            }
-        }
-        fds_panic("Corrupted super block");
+        dl_label->dl_my_disk_index = largest_disk_index++;
     }
 
     // dsk_fill_disk_uuids
@@ -293,24 +297,31 @@ namespace fds
         dl_label      = reinterpret_cast<dlabel_hdr_t *>(buf);
         dl_disk_uuids = reinterpret_cast<dlabel_disk_uuid_t *>(dl_label + 1);
 
-        if (dsk_label_valid(NULL) == false)
+        if (dsk_label_valid() == false)
         {
             memset(buf, 0, DL_PAGE_SZ);
         }
+
+        dl_owner->dsk_set_fds_disk(m_use_new_superblock);
     }
 
     // dsk_label_write
     // ---------------
     //
-    void DiskLabel::dsk_label_write(PmDiskInventory::pointer inv, DiskLabelMgr *mgr)
+    bool DiskLabel::dsk_label_write(bool dsk_need_simulation)
     {
         int    sect_sz;
+        ssize_t ret;
 
         sect_sz = dsk_label_sect_sz();
         fds_verify(dl_label != NULL);
         fds_verify(sect_sz <= DL_PAGE_SECT_SZ);
 
-        mgr->dsk_rec_label_map(dl_owner, dl_label->dl_my_disk_index);
-        dl_owner->dsk_write(inv->dsk_need_simulation(), reinterpret_cast<void *>(dl_label), DL_SECTOR_BEGIN, sect_sz, m_use_new_superblock);
+        ret = dl_owner->dsk_write(dsk_need_simulation, reinterpret_cast<void *>(dl_label), DL_SECTOR_BEGIN, sect_sz, m_use_new_superblock);
+        if (dsk_need_simulation)
+        { // if we are in simulation mode dsk_write is not going to write a label, so ignore its return value
+            return true;
+        }
+        return ret;
     }
 }  // namespace fds

@@ -9,7 +9,6 @@
 
 #include <timeline/timelinedb.h>
 #include <timeline/journalmanager.h>
-#include <util/bloomfilter.h>
 namespace fds {
 struct DataMgr;
 namespace timeline {
@@ -21,19 +20,16 @@ struct TimelineManager {
     Error unloadSnapshot(fds_volid_t volid, fds_volid_t snapshotid);
     Error createSnapshot(VolumeDesc *vdesc);
     Error createClone(VolumeDesc *vdesc);
+    Error removeVolume(fds_volid_t volid);
+    Error getSnapshotsForVolume(fds_volid_t volId, std::vector<fds_volid_t>& vecVolIds);
     SHPTR<TimelineDB> getDB();
+    float_t getUsedCapacityAsPct();
 
-    bool isObjectInSnapshot(const ObjectID& objId, fds_volid_t volId);
   private:
     fds::DataMgr* dm;
     SHPTR<TimelineDB> timelineDB;
     SHPTR<JournalManager> journalMgr;
 
-    std::string getSnapshotBloomFile(fds_volid_t snapshotId);
-    Error markObjectsInSnapshot(fds_volid_t volId, fds_volid_t snapshotId);
-
-    // map of volid -> [map of snapshotid->bloom filter]
-    std::map<fds_volid_t , std::map<fds_volid_t,SHPTR<util::BloomFilter> > > blooms;
 };
 }  // namespace timeline
 }  // namespace fds

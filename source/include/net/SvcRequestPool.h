@@ -35,11 +35,23 @@ class SvcRequestPool : HasModuleProvider {
                    PlatNetSvcHandlerPtr handler);
     ~SvcRequestPool();
 
+    template<typename RequestT, typename ...Params>
+    SHPTR<RequestT> newSvcRequest(Params&&... params) {
+        auto reqId = getNextAsyncReqId_();
+        auto req = SHPTR<RequestT>(new RequestT(MODULEPROVIDER(), reqId, selfUuid_,
+                                                std::forward<Params>(params)...));
+        req->setRequestId(reqId);
+        asyncSvcRequestInitCommon_(req);
+        return req;
+    }
+
     EPSvcRequestPtr newEPSvcRequest(const fpi::SvcUuid &peerEpId, int minor_version);
     inline EPSvcRequestPtr newEPSvcRequest(const fpi::SvcUuid &peerEpId) {
         return newEPSvcRequest(peerEpId, 0);
     }
     FailoverSvcRequestPtr newFailoverSvcRequest(const EpIdProviderPtr epProvider, fds_uint64_t const dlt_version = DLT_VER_INVALID);
+    FailoverSvcRequestPtr newFailoverSvcRequest(const std::vector<fpi::SvcUuid> &svcUuids, 
+                                                fds_uint64_t const dlt_version = DLT_VER_INVALID);
     QuorumSvcRequestPtr newQuorumSvcRequest(const EpIdProviderPtr epProvider, fds_uint64_t const dlt_version = DLT_VER_INVALID);
     MultiPrimarySvcRequestPtr newMultiPrimarySvcRequest(
         const std::vector<fpi::SvcUuid>& primarySvcs,
@@ -53,13 +65,17 @@ class SvcRequestPool : HasModuleProvider {
                                       const fpi::FDSPMsgTypeId &msgTypeId,
                                       const fpi::SvcUuid &srcUuid,
                                       const fpi::SvcUuid &dstUuid,
-                                      const fds_uint64_t dlt_version);
+                                      const fds_uint64_t dlt_version,
+                                      const fpi::ReplicaId &replicaId,
+                                      const int32_t &replicaVersion);
     boost::shared_ptr<fpi::AsyncHdr> newSvcRequestHeaderPtr(
         const SvcRequestId& reqId,
         const fpi::FDSPMsgTypeId &msgTypeId,
         const fpi::SvcUuid &srcUuid,
         const fpi::SvcUuid &dstUuid,
-        fds_uint64_t const dlt_version = DLT_VER_INVALID);
+        fds_uint64_t const dlt_version,
+        const fpi::ReplicaId &replicaId,
+        const int32_t &replicaVersion);
 
     LFMQThreadpool* getSvcSendThreadpool();
     LFMQThreadpool* getSvcWorkerThreadpool();
@@ -71,6 +87,9 @@ class SvcRequestPool : HasModuleProvider {
     /// be used to set DLT versions on created headers.
     /// If it's not set, the version will default to invalid.
     void setDltManager(DLTManagerPtr dltManager);
+
+    /* For debug cli */
+    uint64_t getOutstandingRequestsCount();
 
     static fpi::AsyncHdr swapSvcReqHeader(const fpi::AsyncHdr &reqHdr);
     static SvcRequestId SVC_UNTRACKED_REQ_ID;

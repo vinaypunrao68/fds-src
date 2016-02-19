@@ -12,14 +12,18 @@
 #include <fds_process.h>
 #include <net/net_utils.h>
 #include <util/process.h>  // For print_stacktrace().
-
+#include <util/stringutils.h>
 #include <unistd.h>
 #include <syslog.h>
 #include <execinfo.h>
+#include <chrono>
 
 #include <sys/time.h>
 #include <sys/resource.h>
-
+extern const char * versRev;
+extern const char * versDate;
+extern const char * machineArch;
+extern const char * buildStrTmpl;
 namespace fds {
 
 /*
@@ -164,7 +168,7 @@ void FdsProcess::init(int argc, char *argv[],
 
     proc_thrp    = NULL;
     proc_id = argv[0];
-
+    
     /* Initialize process wide globals */
     g_fdsprocess = this;
     /* Set up the signal handler.  We should do this before creating any threads */
@@ -217,6 +221,23 @@ void FdsProcess::init(int argc, char *argv[],
 
         /* Process wide counters setup */
         setup_cntrs_mgr(net::get_my_hostname() + "."  + proc_id);
+        properties.set("hostname", net::get_my_hostname());
+        properties.set("build.version",util::strformat("%s-%s",versDate,versRev));
+        properties.set("build.os", machineArch);
+#ifdef DEBUG
+        properties.set("build.mode", "debug");
+#else
+        properties.set("build.mode", "release");
+#endif
+        // get the build date
+        auto pos = strstr(buildStrTmpl,"Date:");
+        if (pos) {
+            auto stpos = strstr(pos,"<");
+            auto endpos = strstr(pos,">");
+            if (stpos && endpos) {
+                properties.set("build.date", std::string(stpos+1, endpos-stpos-1));
+            }
+        }
 
         /* Process wide fault injection */
         fiu_init(0);
@@ -234,7 +255,8 @@ void FdsProcess::init(int argc, char *argv[],
             int num_thr = conf_helper_.get<int>("threadpool.num_threads", 10);
             bool use_lfthreadpool = conf_helper_.get<bool>("threadpool.use_lftp");
             proc_thrp   = new fds_threadpool("ProcessThreadpool", num_thr, use_lfthreadpool);
-            DBG(proc_thrp->enableThreadpoolCheck(timer_servicePtr_.get()));
+            proc_thrp->enableThreadpoolCheck(timer_servicePtr_.get(),
+                                             std::chrono::seconds(30));
         }
     } else {
         g_fdslog  = new fds_log(def_log_file, proc_root->dir_fds_logs());
@@ -242,6 +264,10 @@ void FdsProcess::init(int argc, char *argv[],
     /* Set the logger level */
     g_fdslog->setSeverityFilter(
         fds_log::getLevelFromName(conf_helper_.get<std::string>("log_severity","NORMAL")));
+
+    /* Adding a timer task to periodically flush all buffered log data to files */
+    timer_servicePtr_->scheduledFunctionRepeated(std::chrono::seconds(10),
+                                                 []() { g_fdslog->flush(); });
 
     const libconfig::Setting& fdsSettings = conf_helper_.get_fds_config()->getConfig().getRoot();
     LOGNORMAL << "Configurations as modified by the command line:";
@@ -325,6 +351,12 @@ int FdsProcess::main()
     return ret;
 }
 
+void FdsProcess::stop() {
+    std::call_once(mod_shutdown_invoked_,
+                   &FdsProcess::shutdown_modules,
+                   this);
+}
+
 /**
 * @brief Runs mod_init() and mod_startup() on all the modules.
 */
@@ -353,6 +385,7 @@ void FdsProcess::start_modules() {
 * @brief Runs shutdown() on all the modules
 */
 void FdsProcess::shutdown_modules() {
+    shutdownGate_.open();
     /* Do FDS shutdown sequence. */
     mod_vectors_->mod_stop_services();
     mod_vectors_->mod_shutdown_locksteps();
@@ -458,6 +491,7 @@ FdsProcess::fds_catch_signal(int sig) {
     }
 
     GLOGNOTIFY << signalNotification << sig << sigName;
+    g_fdslog->flush();
     syslog(LOG_NOTICE, "%s%d %s", signalNotification, sig, sigName.c_str());
 
     /*
@@ -475,6 +509,7 @@ FdsProcess::fds_catch_signal(int sig) {
         }
 
         GLOGNOTIFY << normalSignOff;
+        g_fdslog->flush();
         syslog(LOG_NOTICE, "%s", normalSignOff);
 
         exit(EXIT_SUCCESS);
@@ -486,6 +521,7 @@ FdsProcess::fds_catch_signal(int sig) {
              SERVICE_NAME_FROM_ID((g_fdsprocess != nullptr) ? g_fdsprocess->getProcId().c_str() : "unknown"));
 
     GLOGERROR << abnormalSignOff;
+    g_fdslog->flush();
     syslog(LOG_ALERT, "%s", abnormalSignOff);
 
     /*
@@ -689,6 +725,7 @@ void FdsProcess::setup_cntrs_mgr(const std::string &mgr_id)
     fds_verify(cntrs_mgrPtr_.get() == NULL);
     cntrs_mgrPtr_.reset(new FdsCountersMgr(mgr_id));
     g_cntrs_mgr = cntrs_mgrPtr_;
+    new ResourceUsageCounter(g_cntrs_mgr->get_default_counters());
 }
 
 void FdsProcess::setup_timer_service()

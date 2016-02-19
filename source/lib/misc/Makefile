@@ -27,7 +27,10 @@ user_cpp         :=      \
 	BitSet.cpp           \
 	disk_utils.cpp		 \
 	MigrationUtility.cpp \
-	fds_subscription.cpp
+	fds_subscription.cpp \
+	fds_ldomain.cpp      \
+	DltDmtUtil.cpp	\
+	BufferReplay.cpp
 
 user_incl_dir    := .. $(topdir)
 user_no_style    := \
@@ -44,6 +47,8 @@ user_no_style    := \
 # specific.
 #
 user_ar_libs     := fds-lib
+user_so_libs     := fds-misc
 fds-lib          := $(user_cpp)
+fds-misc         := $(user_cpp)
 
 include $(topdir)/Makefile.incl

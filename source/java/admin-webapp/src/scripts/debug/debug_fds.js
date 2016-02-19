@@ -1,11 +1,38 @@
-angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$base64', '$interval', function( $scope, $http, $base64, $interval ){
+angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$base64', '$interval', '$stats_push_helper', function( $scope, $http, $base64, $interval, $stats_push_helper ){
     
     $scope.stats = [];
     
+    $scope.durations = [{name: '1hr', value: 1, timeLabels: ['1 hour ago', 'Now']},
+                        {name: '30min', value: 0.5, timeLabels: ['30 minutes ago', 'Now']},
+                        {name: '15min', value: 0.25, timeLabels: ['15 minutes ago', 'Now']},
+                        {name: '5min', value: (1/12), timeLabels: ['5 minutes ago', 'Now']},
+                        {name: '1min', value: (1/60), timeLabels: ['1 minute ago', 'Now']}];
+    
+    $scope.durationChoice = $scope.durations[2];
+    $scope.timeLabels = $scope.durationChoice.timeLabels;
+    
+    $scope.isEnabled = true;
     $scope.colors = [ 'blue' ];
     $scope.lineColors = [ 'blue' ];
-    $scope.timeLabels = [ '15 minutes ago', 'Now' ];
-    $scope.amPutReqs = { metadata: [], series: [{ datapoints:[], type: 'AM_PUT_OBJ_REQ'}]};
+    $scope.statChoices = [{name: 'None'},
+                          {name: 'AM PUT Requests', value: 'AM_PUT_OBJ_REQ'},
+                          {name: 'AM GET Requests', value: 'AM_GET_OBJ_REQ'},
+                          {name: 'DM Transaction Latency', value: 'DM_TX_OP'},
+                          {name: 'Latency of PUT in SM', value: 'SM_PUT_IO'}];
+    
+    $scope.chartData = [ { metadata: [], series: [{ datapoints:[], type: 'AM_PUT_OBJ_REQ'}]},
+                         { metadata: [], series: [{ datapoints:[], type: 'AM_PUT_OBJ_REQ'}]},
+                         { metadata: [], series: [{ datapoints:[], type: 'AM_PUT_OBJ_REQ'}]},
+                         { metadata: [], series: [{ datapoints:[], type: 'AM_PUT_OBJ_REQ'}]}];
+    
+    $scope.min = undefined;
+    $scope.max = undefined;
+    $scope.syncRange = false;
+    
+    $scope.chartType = ['sum', 'sum', 'sum', 'sum'];
+    $scope.chartChoice = [$scope.statChoices[0], $scope.statChoices[0], $scope.statChoices[0], $scope.statChoices[0]];
+    $scope.rangeMaximum = undefined;
+    $scope.rangeMinimum = undefined;
     
     var pollId = -1;
     var myQueue = '';
@@ -14,14 +41,16 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
     var interval = 3;
     
     // duration to show in hours
-    $scope.duration = 0.25;
+    $scope.duration = $scope.durationChoice.value;
     
     var initData = function(){
         
         var points = Math.round( 60*60*$scope.duration / interval );
         
         for ( var i = 0; i < points; i++ ){
-            $scope.amPutReqs.series[0].datapoints.push( {x: (new Date()).getTime() - (1000*60*60*$scope.duration - (i*interval*1000)), y: 0} );
+            for( var j = 0; j < $scope.chartData.length; j++ ){
+                $scope.chartData[j].series[0].datapoints.push( {x: (new Date()).getTime() - (1000*60*60*$scope.duration - (i*interval*1000)), y: 0} );
+            }
         }
     };
     
@@ -84,9 +113,11 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
                     function( response ){
                         alert( 'Failed to bind to a subscription' );
                     });
+            
+            $scope.isEnabled = false;
         };
             
-        var declareExchange = function( resopnse ){
+        var declareExchange = function( response ){
             
             var route = 'api/exchanges/%2F/admin';
             var data = {
@@ -128,11 +159,60 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
         };
         
         makeBusCall( 'DELETE', 'api/queues/%2F/' + myQueue, data );
+        
+        myQueue = '';
+        $scope.isEnabled = true;
     };
     
     // take the messages and put them in the right stat arrays
     var handleStats = function( response ){
-        $scope.$broadcast( 'fds::new_stats', response.data );
+        
+        if ( $scope.syncRange === true ){
+            
+            var min = undefined;
+            var max = 0;
+            
+            // go through each data set
+            for ( var ii = 0; ii < $scope.chartData.length; ii++ ){
+                
+                var chartData = $scope.chartData[ii];
+                
+                // go through each series
+                for ( var jj = 0; jj < chartData.series.length; jj++ ){
+                    
+                    var series = chartData.series[jj];
+                    
+                    // go through each datapoint to find a min and max.
+                    for ( var kk = 0; kk < series.datapoints.length; kk++ ){
+                        
+                        var datapoint = series.datapoints[kk];
+                        
+                        if ( !angular.isDefined( min ) || datapoint.y < min ){
+                            min = datapoint.y;
+                        }
+                        
+                        if ( datapoint.x > max ){
+                            max = datapoint.x;
+                        }
+                        
+                    }// kk
+                }// jj
+            }// ii 
+            
+            $scope.rangeMinimum = min;
+            $scope.rangeMaximum = max;
+        }
+        
+        var cStats = $stats_push_helper.convertBusDataToPoints( response.data );
+        
+        for ( var dataIt = 0; dataIt < $scope.chartData.length; dataIt++ ){
+            
+            $stats_push_helper.push_stat( $scope.chartData[dataIt], 
+                                          cStats, 
+                                          [$scope.chartChoice[dataIt].value], 
+                                          $scope.durationChoice.value * 1000*60*60, 
+                                          ($scope.chartType[dataIt] === 'avg' ) );
+        }
     };
     
     $scope.getMessages = function(){
@@ -146,6 +226,11 @@ angular.module( 'debug' ).controller( 'debugController', ['$scope', '$http', '$b
         
         makeBusCall( 'POST', route, data ).then( handleStats, function(){} );
     };
+    
+    $scope.$watch( 'durationChoice', function( newVal ){
+        $scope.duration = newVal.value;
+        $scope.timeLabels = newVal.timeLabels;
+    });
     
     $scope.$on("$destroy", $scope.stop );
     

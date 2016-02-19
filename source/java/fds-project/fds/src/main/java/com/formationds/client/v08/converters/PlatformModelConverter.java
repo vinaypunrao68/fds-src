@@ -5,11 +5,15 @@ import com.formationds.client.v08.model.Node.NodeAddress;
 import com.formationds.client.v08.model.Node.NodeState;
 import com.formationds.client.v08.model.Service;
 import com.formationds.client.v08.model.ServiceType;
-import com.formationds.protocol.FDSP_MgrIdType;
-import com.formationds.protocol.FDSP_NodeState;
-import com.formationds.protocol.FDSP_Node_Info_Type;
-import com.formationds.protocol.SvcID;
-import com.formationds.protocol.SvcUuid;
+import com.formationds.client.v08.model.Size;
+import com.formationds.client.v08.model.SizeUnit;
+import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.redis.RedisSingleton;
+import com.formationds.protocol.svc.types.FDSP_MgrIdType;
+import com.formationds.protocol.svc.types.FDSP_NodeState;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
+import com.formationds.protocol.svc.types.SvcID;
+import com.formationds.protocol.svc.types.SvcUuid;
 import com.formationds.protocol.svc.types.SvcInfo;
 
 import java.net.Inet4Address;
@@ -38,51 +42,94 @@ public class PlatformModelConverter
     Long nodeId = 0L;
     NodeAddress address = null;
 
+    Map<FDSP_Node_Info_Type,Service> pms = new HashMap<>();
     for( FDSP_Node_Info_Type internalService : nodeInfoTypes )
     {
-
-      Service externalService = convertToExternalService( internalService );
-
-      // get the node info from whomever, but choose the PM if we can
-      if( address == null || externalService.getType( )
-                                            .equals( ServiceType.PM ) )
+      Optional<ServiceType> optType =
+          convertToExternalServiceType( internalService.getNode_type( ) );
+      if( optType.isPresent() )
       {
-        state = convertToExternalNodeState( internalService.getNode_state( ) );
-          nodeId = internalService.getNode_uuid( );
 
-        Inet4Address ipv4
-                = ( Inet4Address ) InetAddress.getByAddress(
-                     htonl( internalService.getIp_lo_addr( ) ) );
+        Service externalService = convertToExternalService( internalService );
+        if ( externalService.getType( )
+                            .equals( ServiceType.PM ) )
+        {
+          pms.put( internalService, externalService );
+        }
 
-        // TODO: Figure this out
-        Inet6Address ipv6 = null;
+        List<Service> likeServiceList
+            = services.get( externalService.getType( ) );
 
-        //noinspection ConstantConditions
-        address = new NodeAddress( ipv4, ipv6 );
+        if ( likeServiceList == null )
+        {
+          likeServiceList = new ArrayList<>( );
+        }
+
+        likeServiceList.add( externalService );
+
+        services.put( externalService.getType( ), likeServiceList );
       }
-
-      List<Service> likeServiceList
-              = services.get( externalService.getType( ) );
-
-      if( likeServiceList == null )
-      {
-        likeServiceList = new ArrayList<>( );
-      }
-
-      likeServiceList.add( externalService );
-
-      services.put( externalService.getType( ), likeServiceList );
-
     }
 
-    Node node = null;
-
-    if( address != null )
+    Map.Entry<FDSP_Node_Info_Type, Service> pm;
+    if ( pms.isEmpty() )
     {
-      node = new Node( nodeId, address, state, services );
+        // yikes! something is seriously screwed up if we have zero
+      throw new IllegalStateException("At least one PM is required.  Found " + pms.size());
+    }
+    else if ( pms.size() > 1 )
+    {
+        // simulation/virtualized system (dev/test)
+        // TODO: choosing the first one.  Do we need to do anything else here?
+        pm = pms.entrySet().iterator().next();
+    }
+    else
+    {
+        pm = pms.entrySet().iterator().next();
     }
 
-    return node;
+    FDSP_Node_Info_Type pmi = pm.getKey();
+    Service pme = pm.getValue();
+
+    state = convertToExternalNodeState( pmi.getNode_state( ) );
+    nodeId = pmi.getNode_uuid( );
+
+    Inet4Address ipv4 = (Inet4Address)InetAddress.getByAddress( htonl( pmi.getIp_lo_addr( ) ) );
+
+    // TODO: Figure this out
+    Inet6Address ipv6 = null;
+
+    //noinspection ConstantConditions
+    address = new NodeAddress( ipv4, ipv6 );
+
+    SvcInfo PM = loadNodeSvcInfo(nodeId);
+    Size diskCapacityInGB = Size.of( Double.valueOf( PM.getProps()
+                                                       .getOrDefault( "disk_capacity", "0" ) ),
+                                     SizeUnit.GB );
+    Size ssdCapacityInGB = Size.of( Double.valueOf( PM.getProps()
+                                                      .getOrDefault( "ssd_capacity", "0" ) ),
+                                    SizeUnit.GB );
+    Size usedCapacityInGB = RedisSingleton.INSTANCE.api().getDomainUsedCapacity();
+
+    Size diskCapacity = Size.of( diskCapacityInGB.getValue( SizeUnit.MB ), SizeUnit.MB );
+    Size ssdCapacity = Size.of( ssdCapacityInGB.getValue( SizeUnit.MB ), SizeUnit.MB );
+
+    return new Node( nodeId, address, state, diskCapacity, ssdCapacity, usedCapacityInGB, services );
+  }
+
+  /**
+   * @param nodeId
+   * @return the SvcInfo record for the specified node or null if not found
+   * @throws IllegalStateException if an error occurs loading the node
+   */
+  protected static SvcInfo loadNodeSvcInfo(long nodeId) throws IllegalStateException {
+      try {
+          // TODO: introduces dependency on om.helper package which we don't necessarily
+          // want here.  Need a ServiceLookup type pattern here...
+          return SingletonConfigAPI.instance().api().getNodeInfo( new SvcUuid(nodeId) );
+      } catch (Exception e) {
+          throw new IllegalStateException("Failed to load service info", e);
+      }
   }
 
   public static List<FDSP_Node_Info_Type> convertToInternalNode( Node node )
@@ -157,8 +204,7 @@ public class PlatformModelConverter
       extStatus = new Service.ServiceStatus( Service.ServiceState.UNREACHABLE );
     }
 
-    return new Service( extId, extType, extControlPort,
-                                           extStatus );
+    return new Service( extId, extType, extControlPort, extStatus );
   }
 
   public static FDSP_Node_Info_Type convertToInternalService( Node externalNode,
@@ -212,13 +258,16 @@ public class PlatformModelConverter
 		case NOT_RUNNING:
 		case ERROR:
 		case UNEXPECTED_EXIT:
-			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INACTIVE;
+			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INACTIVE_FAILED;
 			break;
 		case UNREACHABLE:
 			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_INVALID;
 	        break;
 		case STANDBY:
 			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_STANDBY;
+			break;
+		case DISCOVERED:
+			internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_DISCOVERED;
 			break;
 		default: //Running,Initializing,Shutting Down
 	        internalStatus = com.formationds.protocol.svc.types.ServiceStatus.SVC_STATUS_ACTIVE;
@@ -327,6 +376,8 @@ public class PlatformModelConverter
     	externalState = Optional.of( ServiceState.NOT_RUNNING );  
         break;
       case FDS_Node_Discovered:
+        externalState = Optional.of( ServiceState.DISCOVERED );
+        break;
       case FDS_Node_Up:
         externalState = Optional.of( ServiceState.RUNNING );
         break;
@@ -368,6 +419,8 @@ public class PlatformModelConverter
         break;
       case STANDBY:
     	internalState = Optional.of( FDSP_NodeState.FDS_Node_Standby);
+      case DISCOVERED:
+    	internalState = Optional.of( FDSP_NodeState.FDS_Node_Discovered);
       default:
         internalState = Optional.of( FDSP_NodeState.FDS_Node_Up );
         break;

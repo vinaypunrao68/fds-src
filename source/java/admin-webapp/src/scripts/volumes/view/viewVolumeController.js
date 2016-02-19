@@ -1,4 +1,4 @@
-angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$volume_api', '$snapshot_service', '$stats_service', '$byte_converter', '$filter', '$interval', '$rootScope', '$media_policy_helper', '$translate', '$time_converter', '$qos_policy_helper', '$timeline_policy_helper', function( $scope, $volume_api, $snapshot_service, $stats_service, $byte_converter, $filter, $interval, $rootScope, $media_policy_helper, $translate, $time_converter, $qos_policy_helper, $timeline_policy_helper ){
+angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$volume_api', '$snapshot_service', '$stats_service', '$byte_converter', '$filter', '$timeout', '$rootScope', '$media_policy_helper', '$translate', '$time_converter', '$qos_policy_helper', '$timeline_policy_helper', function( $scope, $volume_api, $snapshot_service, $stats_service, $byte_converter, $filter, $timeout, $rootScope, $media_policy_helper, $translate, $time_converter, $qos_policy_helper, $timeline_policy_helper ){
     
     var translate = function( key ){
         return $filter( 'translate' )( key );
@@ -25,9 +25,9 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     $scope.performanceStats = { series: [] };
     $scope.performanceItems = [];
     $scope.capacityItems = [];
-    $scope.capacityLineStipples = [ '2,2', 'none' ];
-    $scope.capacityLineColors = [ '#78B5FA', '#2486F8' ];
-    $scope.capacityColors = [ '#ABD3F5', '#72AEEB' ];
+    $scope.capacityLineStipples = [ '2,2'];
+    $scope.capacityLineColors = [ '#78B5FA'];
+    $scope.capacityColors = [ '#ABD3F5'];
     $scope.performanceColors = [ '#489AE1', '#4857C4', '#8784DE' ];
     $scope.performanceLine = ['#8784DE', 'white', 'white']; 
     
@@ -101,8 +101,14 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         
         var datapoints =  series.datapoints;
         
-        return $byte_converter.convertBytesToString( datapoints[ datapoints.length-1 ].y ) + ' ' +
-            $filter( 'translate' )( key );
+        var legend_text = '0 ' + $filter( 'translate' )( key );
+        
+        if ( angular.isDefined( datapoints ) && datapoints.length > 0 ){
+            legend_text = $byte_converter.convertBytesToString( datapoints[ datapoints.length-1 ].y ) + ' ' +
+                $filter( 'translate' )( key );
+        }
+        
+        return legend_text;
     };
     
     var getPerformanceLegendText = function( series, key ){
@@ -141,16 +147,34 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             return '';
         }
         
+        if ( $scope.thisVolume.settings.type == 'ISCSI' ){
+            return 'iSCSI';
+        }
+        
         var firstLetter = $scope.thisVolume.settings.type.substr( 0, 1 ).toUpperCase();
         var theRest = $scope.thisVolume.settings.type.substr( 1 ).toLowerCase();
         
         return firstLetter + theRest;
+    };
+    
+    $scope.getAllocatedSize = function(){
+        
+        if ( angular.isDefined( $scope.thisVolume.settings ) && angular.isDefined( $scope.thisVolume.settings.capacity ) ){
+            var sizeString = $byte_converter.convertBytesToString( $scope.thisVolume.settings.capacity.value, 0 );
+            return sizeString;
+        }
+        
+        return '';
     };
 
     $scope.formatDate = function( ms ){
         var d = new Date( parseInt( ms ) );
         return d.toString();
     };
+    
+    /**
+    Data return handlers
+    **/
 
     $scope.capacityReturned = function( data ){
         $scope.capacityStats = data;
@@ -170,15 +194,20 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             }
         }
         
-        $scope.physicalLabel = getCapacityLegendText( pbyteSeries, 'volumes.view.desc_dedup_suffix' );
         $scope.logicalLabel = getCapacityLegendText( lbyteSeries, 'volumes.view.desc_logical_suffix' );
+        var lbyteTotal = 0;
         
-        var parts = $byte_converter.convertBytesToString( data.calculated[1].total );
+        if ( angular.isDefined( lbyteSeries ) && angular.isDefined( lbyteSeries.datapoints ) && lbyteSeries.datapoints.length > 0 ){
+            lbyteTotal = lbyteSeries.datapoints[lbyteSeries.datapoints.length - 1].y;
+        }
+        
+        var parts = $byte_converter.convertBytesToString( lbyteTotal );
         parts = parts.split( ' ' );
         
         var num = parseFloat( parts[0] );
-        $scope.capacityItems = [{number: data.calculated[0].ratio, description: $filter( 'translate' )( 'status.desc_dedup_ratio' ), separator: ':'},
-            {number: num, description: $filter( 'translate' )( 'status.desc_capacity_used' ), suffix: parts[1]}];
+        $scope.capacityItems = [{number: num, description: $filter( 'translate' )( 'status.desc_logical_capacity_used' ), suffix: parts[1]}];
+        
+        capacityIntervalId = $timeout( pollCapacity, 60000 );
     };
     
     $scope.performanceReturned = function( data ){
@@ -191,6 +220,8 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         $scope.putLabel = getPerformanceLegendText( $scope.performanceStats.series[0], 'volumes.view.l_avg_puts' );
         $scope.getLabel = getPerformanceLegendText( $scope.performanceStats.series[1], 'volumes.view.l_avg_gets' );
         $scope.ssdGetLabel = getPerformanceLegendText( $scope.performanceStats.series[2], 'volumes.view.l_avg_ssd_gets' );
+        
+        performanceIntervalId = $timeout( pollPerformance, 60000 );
     };
     
     $scope.firebreakReturned = function( data ){
@@ -204,22 +235,34 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         }
         
         $scope.lastTwentyFour = { start: ((new Date()).getTime()/1000) - (24*60*60), end: ((new Date()).getTime()/1000 ) };
+        
+        firebreakIntervalId = $timeout( pollFirebreak, 60000 );
     };
     
+    /**
+    Polling functions
+    **/
     var pollCapacity = function(){
+        
+        $timeout.cancel( capacityIntervalId );
         
         var now = new Date();
         
         capacityQuery = StatQueryFilter.create( [$scope.thisVolume], 
-            [StatQueryFilter.PHYSICAL_CAPACITY,StatQueryFilter.LOGICAL_CAPACITY], 
+            [StatQueryFilter.LOGICAL_CAPACITY], 
             Math.round( (now.getTime() - $scope.capacityTimeChoice.value)/1000 ),
             Math.round( now.getTime() / 1000 ) );
         
-        $stats_service.getCapacitySummary( capacityQuery, $scope.capacityReturned, function(){ $interval.cancel( capacityIntervalId ); } );
+        $stats_service.getCapacitySummary( capacityQuery, $scope.capacityReturned, 
+            function(){ 
+                capacityIntervalId = $timeout( pollCapacity, 60000 ); 
+            });
     };
     
     var pollPerformance = function(){
 
+        $timeout.cancel( performanceIntervalId );
+        
         var now = new Date();
         
         performanceQuery = StatQueryFilter.create( [$scope.thisVolume],
@@ -227,10 +270,13 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             Math.round( (now.getTime() - $scope.performanceTimeChoice.value)/1000 ),
             Math.round( now.getTime() / 1000 ) );
         
-        $stats_service.getPerformanceBreakdownSummary( performanceQuery, $scope.performanceReturned, function(){ $interval.cancel( performanceIntervalId ); } );
+        $stats_service.getPerformanceBreakdownSummary( performanceQuery, $scope.performanceReturned, 
+            function(){ performanceIntervalId = $timeout( pollPerformance, 60000 ); } );
     };
     
     var pollFirebreak = function(){
+        
+        $timeout.cancel( firebreakIntervalId );
         
         var now = new Date();
         
@@ -242,9 +288,13 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             Math.round( (now.getTime() - $scope.performanceTimeChoice.value)/1000 ),
             Math.round( now.getTime() / 1000 ) );        
         
-        $stats_service.getFirebreakSummary( firebreakQuery, $scope.firebreakReturned, function(){ $interval.cancel( firebreakIntervalId ); } );
+        $stats_service.getFirebreakSummary( firebreakQuery, $scope.firebreakReturned, 
+            function(){ firebreakIntervalId = $timeout( pollFirebreak, 60000 );} );
     };
     
+    /**
+    watchers
+    **/
     $scope.$watch( 'capacityTimeChoice', function(){
         pollCapacity();
     });
@@ -288,7 +338,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         for ( var i = 0; i < $scope.snapshots.length; i++ ){
             
             var range = {
-                min: new Date( $scope.snapshots[i].creation )
+                min: new Date( $scope.snapshots[i].creationTime.seconds * 1000 )
             };
             
             $scope.ranges.push( range );
@@ -452,8 +502,6 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             initTimeline();
         });
 
-//        $scope.dataConnector = $scope.thisVolume.data_connector;
-
         $volume_api.getQosPolicyPresets( function( presets ){
             
             qosPresets = presets;
@@ -470,9 +518,6 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             initSnapshotDescriptions();
         });
 
-        capacityIntervalId = $interval( pollCapacity, 60000 );
-        performanceIntervalId = $interval( pollPerformance, 60000 );
-        firebreakIntervalId = $interval( pollFirebreak, 600000 );
         pollCapacity();
         pollPerformance();        
         pollFirebreak();
@@ -486,9 +531,9 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
             initializeVolume();   
         }
         else {
-            $interval.cancel( capacityIntervalId );
-            $interval.cancel( performanceIntervalId );
-            $interval.cancel( firebreakIntervalId );
+            $timeout.cancel( capacityIntervalId );
+            $timeout.cancel( performanceIntervalId );
+            $timeout.cancel( firebreakIntervalId );
             $scope.$broadcast( 'fds::cancel_editing' );
         }
     });

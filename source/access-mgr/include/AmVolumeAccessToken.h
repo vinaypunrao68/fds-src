@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Formation Data Systems, Inc.
+ * Copyright 2015-2016 Formation Data Systems, Inc.
  */
 
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMVOLUMEACCESSTOKEN_H_
@@ -9,50 +9,37 @@
 
 #include "fdsp/common_types.h"
 #include "shared/fds_types.h"
-#include "fds_timer.h"
 
 namespace fds
 {
 
-struct AmVolumeAccessToken :
-    public FdsTimerTask
+struct AmVolumeAccessToken
 {
     using mode_type = FDS_ProtocolInterface::VolumeAccessMode;
     using token_type = fds_int64_t;
-    using callback_type = std::function<void()>;
 
-    AmVolumeAccessToken(FdsTimer& _timer,
-                        mode_type const& _mode,
-                        token_type const _token,
-                        callback_type&& _cb);
-    AmVolumeAccessToken(AmVolumeAccessToken const&) = delete;
-    AmVolumeAccessToken& operator=(AmVolumeAccessToken const&) = delete;
-    ~AmVolumeAccessToken();
+    AmVolumeAccessToken() :
+        mode(), token(invalid_vol_token)
+    { mode.can_write = false; mode.can_cache = false; }
 
-    void runTimerTask() override;
+    AmVolumeAccessToken(mode_type const& _mode, token_type const _token) :
+        mode(_mode), token(_token)
+    { }
 
-    bool cacheAllowed()
+    ~AmVolumeAccessToken() = default;
+
+    bool cacheAllowed() const
     { return mode.can_cache; }
 
-    bool writeAllowed()
+    bool writeAllowed() const
     { return mode.can_write; }
-
-    mode_type getMode() const
-    { return mode; }
-
-    void setMode(mode_type const& _mode)
-    { mode = _mode; }
 
     token_type getToken() const
     { return token; }
 
-    void setToken(token_type const _token)
-    { token = _token; }
-
   private:
     mode_type mode;
     token_type token;
-    callback_type cb;
 };
 
 }  // namespace fds

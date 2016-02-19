@@ -35,17 +35,30 @@ class VolumeCatalogQueryIface {
     virtual void registerExpungeObjectsCb(expunge_objs_cb_t cb) = 0;
 
     /**
-     * Returns size of volume and number of blob in the volume 'volume_id'
-     * @param[out] size size of volume in bytes
+     * Returns logical size of volume and number of blob in the volume 'volume_id'
+     * @param[out] size logical size of volume in bytes
      * @param[out] blob_count number of blobs in the volume
-     * @param[out] object_count number of objects in the volume
+     * @param[out] object_count number of logical objects in the volume
      * @return ERR_OK on success; ERR_VOL_NOT_FOUND is volume is not known
      * to volume catalog
      */
-    virtual Error statVolume(fds_volid_t volume_id,
-                             fds_uint64_t* size,
-                             fds_uint64_t* blob_count,
-                             fds_uint64_t* object_count) = 0;
+    virtual Error statVolumeLogical(fds_volid_t volume_id,
+                                    fds_uint64_t* size,
+                                    fds_uint64_t* blob_count,
+                                    fds_uint64_t* object_count) = 0;
+
+    /**
+     * Returns physical size of the volume.
+     *
+     * @param[in] volId volume identifier
+     * @param[out] pbytes Volume physical size in bytes.
+     * @param[out] pobjects Number of unique Data Objects comprising the volume.
+     *
+     * @return ERR_OK on success
+     */
+    virtual Error statVolumePhysical(fds_volid_t volId,
+                                     fds_uint64_t* pbytes,
+                                     fds_uint64_t* pobjects) = 0;
 
     /**
      * Returns key-value metadata for the volume 'volume_id'
@@ -138,6 +151,11 @@ class VolumeCatalogQueryIface {
                                              fpi::FDSP_BlobObjectList& obj_list,
 
                                              Catalog::MemSnap snap) = 0;
+    virtual Error getObjectIds(fds_volid_t volId,
+                               const uint32_t &maxObjs,
+                               const Catalog::MemSnap &snap,
+                               std::unique_ptr<Catalog::catalog_iterator_t>& dbItr,
+                               std::list<ObjectID> &objects) = 0;
     /**
      * Sync snapshot of volume catalog to dm 'dm_uuid'
      */
@@ -166,7 +184,13 @@ class VolumeCatalogQueryIface {
     virtual Error freeVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &m) = 0;
     virtual Error getAllBlobsWithSequenceId(fds_volid_t volId,
                                             std::map<std::string, int64_t>& blobsSeqId,
-                                            Catalog::MemSnap m = NULL) = 0;
+                                            Catalog::MemSnap m) = 0;
+
+    virtual Error getAllBlobsWithSequenceId(fds_volid_t volId,
+                                            std::map<std::string, int64_t>& blobsSeqId,
+                                            Catalog::MemSnap m,
+                                            const fds_bool_t &abortFlag) = 0;
+
 
     virtual Error forEachObject(fds_volid_t volId, std::function<void(const ObjectID&)>) = 0;
 
@@ -176,6 +200,7 @@ class VolumeCatalogQueryIface {
     virtual Error putObject(fds_volid_t volId,
                             const std::string & blobName,
                             const BlobObjList & objs) = 0;
+    virtual Error getVersion(fds_volid_t volId, int32_t &version) = 0;
 };
 
 }  // namespace fds

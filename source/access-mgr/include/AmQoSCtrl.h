@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2015 Formation Data Systems, Inc.
+ * Copyright 2014-2016 Formation Data Systems, Inc.
  */
 
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMQOSCTRL_H_
@@ -8,34 +8,116 @@
 #include "qos_ctrl.h"
 #include "fds_qos.h"
 #include "../lib/qos_htb.h"
+#include "AmDataProvider.h"
+
 #include <util/Log.h>
 #include <concurrency/ThreadPool.h>
-#include "fds_error.h"
 #include <fds_types.h>
 #include <fds_error.h>
-#include <fds_volume.h>
 
 namespace fds {
-struct AmRequest;
 
-class AmQoSCtrl : public FDS_QoSControl {
-    using vol_callback_type = std::function<void(AmRequest*)>;
-    vol_callback_type vol_callback;
- public:
+class AmQoSCtrl :
+    public FDS_QoSControl,
+    public AmDataProvider
+{
     QoSHTBDispatcher *htb_dispatcher;
 
-    AmQoSCtrl(uint32_t max_thrds, dispatchAlgoType algo, fds_log *log);
-    virtual ~AmQoSCtrl();
-    virtual FDS_VolumeQueue* getQueue(fds_volid_t queueId);
-    Error processIO(FDS_IOType *io);
-    void runScheduler(vol_callback_type&& cb);
-    Error markIODone(AmRequest *io);
-    fds_uint32_t waitForWorkers();
-    void   setQosDispatcher(dispatchAlgoType algo_type, FDS_QoSDispatcher *qosDispatcher);
-    Error   registerVolume(fds_volid_t vol_uuid, FDS_VolumeQueue *volq);
-    Error modifyVolumeQosParams(fds_volid_t vol_uuid, fds_uint64_t iops_min, fds_uint64_t iops_max, fds_uint32_t prio);
-    Error   deregisterVolume(fds_volid_t vol_uuid);
-    Error enqueueIO(fds_volid_t volUUID, FDS_IOType *io);
+ public:
+    AmQoSCtrl(AmDataProvider* prev, uint32_t max_thrds, fds_log *log);
+    ~AmQoSCtrl() override;
+
+
+    Error processIO(FDS_IOType *io) override;
+    fds_uint32_t waitForWorkers() { return 1; }
+
+    /**
+     * These are the QoS specific DataProvider routines.
+     * Everything else is pass-thru.
+     */
+    bool done() override;
+    void start() override;
+    void stop() override;
+    Error modifyVolumePolicy(const VolumeDesc& vdesc) override;
+    void registerVolume(VolumeDesc const& volDesc) override;
+    void removeVolume(VolumeDesc const& volDesc) override;
+    Error updateQoS(int64_t const* rate, float const* throttle) override;
+    void closeVolume(AmRequest *amReq) override         { enqueueRequest(amReq); }
+    void statVolume(AmRequest *amReq) override          { enqueueRequest(amReq); }
+    void setVolumeMetadata(AmRequest *amReq) override   { enqueueRequest(amReq); }
+    void volumeContents(AmRequest *amReq) override      { enqueueRequest(amReq); }
+    void startBlobTx(AmRequest *amReq) override         { enqueueRequest(amReq); }
+    void commitBlobTx(AmRequest *amReq) override        { enqueueRequest(amReq); }
+    void statBlob(AmRequest *amReq) override            { enqueueRequest(amReq); }
+    void setBlobMetadata(AmRequest *amReq) override     { enqueueRequest(amReq); }
+    void deleteBlob(AmRequest *amReq) override          { enqueueRequest(amReq); }
+    void renameBlob(AmRequest *amReq) override          { enqueueRequest(amReq); }
+    void getBlob(AmRequest *amReq) override             { enqueueRequest(amReq); }
+    void putBlob(AmRequest *amReq) override             { enqueueRequest(amReq); }
+    void putBlobOnce(AmRequest *amReq) override         { enqueueRequest(amReq); }
+
+ protected:
+
+    /**
+     * These are the response we are interested in
+     */
+    void closeVolumeCb(AmRequest * amReq, Error const error) override
+    { completeRequest(amReq, error); }
+
+    void statVolumeCb(AmRequest * amReq, Error const error) override
+    { completeRequest(amReq, error); }
+
+    void setVolumeMetadataCb(AmRequest * amReq, Error const error) override
+    { completeRequest(amReq, error); }
+
+    void getVolumeMetadataCb(AmRequest * amReq, Error const error) override
+    { completeRequest(amReq, error); }
+
+    void volumeContentsCb(AmRequest * amReq, Error const error) override
+    { completeRequest(amReq, error); }
+
+    void startBlobTxCb(AmRequest * amReq, Error const error) override
+    { completeRequest(amReq, error); }
+
+    void commitBlobTxCb(AmRequest * amReq, Error const error) override
+    { completeRequest(amReq, error); }
+
+    void abortBlobTxCb(AmRequest * amReq, Error const error) override
+    { completeRequest(amReq, error); }
+
+    void statBlobCb(AmRequest * amReq, Error const error) override
+    { completeRequest(amReq, error); }
+
+    void setBlobMetadataCb(AmRequest * amReq, Error const error) override
+    { completeRequest(amReq, error); }
+
+    void deleteBlobCb(AmRequest * amReq, Error const error) override
+    { completeRequest(amReq, error); }
+
+    void renameBlobCb(AmRequest * amReq, Error const error) override
+    { completeRequest(amReq, error); }
+
+    void getBlobCb(AmRequest * amReq, Error const error) override
+    { completeRequest(amReq, error); }
+
+    void getOffsetsCb(AmRequest * amReq, Error const error) override
+    { completeRequest(amReq, error); }
+
+    void getObjectCb(AmRequest * amReq, Error const error) override
+    { completeRequest(amReq, error); }
+
+    void putBlobCb(AmRequest * amReq, Error const error) override
+    { completeRequest(amReq, error); }
+
+    void putBlobOnceCb(AmRequest * amReq, Error const error) override
+    { completeRequest(amReq, error); }
+
+ private:
+    mutable fds_rwlock queue_lock;
+    bool stopping {false};
+
+    void enqueueRequest(AmRequest *amReq);
+    void completeRequest(AmRequest* amReq, Error const error);
 };
 
 }  // namespace fds

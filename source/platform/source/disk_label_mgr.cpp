@@ -111,123 +111,132 @@ namespace fds
     }
 
     // dsk_reconcile_label
-    // -------------------
-    // TODO(Vy): redo this code.
-    //
-    bool DiskLabelMgr::dsk_reconcile_label(PmDiskInventory::pointer inv, bool creat)
+    void DiskLabelMgr::dsk_reconcile_label(bool dsk_need_simulation, NodeUuid node_uuid, fds_uint16_t& largest_disk_index)
     {
-        bool         ret = false;
-        int          valid_labels = 0;
+        int          valid_labels = 0, invalid_labels = 0, total_disks = 0;
+        fds_uint16_t max_disk_index = 0;
         ChainIter    iter;
-        ChainList    upgrade;
 
-        DiskLabel   *label, *master, *curr, *chk;
+        DiskLabel   *label, *master = NULL;
 
-        // If we dont' have a dl_map and create is true, open the diskmap truncating
+        // If we dont' have a dl_map, open the diskmap truncating
         // any disk-map already present
+#ifdef DEBUG
         bool fDumpDiskMap = g_fdsprocess->get_fds_config()->get<fds_bool_t>("fds.pm.dump_diskmap",false);
-        if ((dl_map == NULL) && (creat == true))
+#endif
+        if (dl_map == NULL)
         {
             const FdsRootDir   *dir = g_fdsprocess->proc_fdsroot();
             FdsRootDir::fds_mkdir(dir->dir_dev().c_str());
-            if (fDumpDiskMap) {
+
+#ifdef DEBUG
+            if (fDumpDiskMap)
+            {
                 dl_map = (std::ofstream*)(&std::cout);
-            } else {
-                dl_map = new std::ofstream(dir->dir_dev() + DISK_MAP_FILE, std::ofstream::out | std::ofstream::trunc);
             }
+            else
+            {
+#endif
+
+                dl_map = new std::ofstream(dir->dir_dev() + DISK_MAP_FILE, std::ofstream::out | std::ofstream::trunc);
+
+#ifdef DEBUG
+            }
+#endif
+
         }
 
+        dl_mtx.lock();
+        // Count the disks and disks with labels
         dl_total_disks  = 0;
         dl_valid_labels = 0;
-        master          = NULL;
 
         // Count the disks and disks with labels
-        dl_mtx.lock();
         chain_foreach(&dl_labels, iter)
         {
             dl_total_disks++;
             label = dl_labels.chain_iter_current<DiskLabel>(iter);
 
             // Simple, no quorum scheme for now.
-            if (label->dsk_label_valid(this))
+            if (label->dsk_label_valid())
             {
                 dl_valid_labels++;
                 GLOGDEBUG << label->dl_owner;
-
-                if (master == NULL)
+                if (label->dl_label->dl_my_disk_index > max_disk_index)
                 {
-                    master = label;
+                    max_disk_index = label->dl_label->dl_my_disk_index;
                 }
-            }else {
-                chk = dl_labels.chain_iter_rm_current<DiskLabel>(&iter);
-                fds_verify(chk == label);
-
-                upgrade.chain_add_back(&label->dl_link);
+            }
+            else
+            {
+                GLOGDEBUG << "Found invalid label on disk " << label->dl_owner;
             }
         }
 
         LOGNORMAL << "dl_total_disks = " << dl_total_disks << "   dl_valid_labels=" <<
-        dl_valid_labels;
+                      dl_valid_labels;
 
-        if (dl_valid_labels > 0)
+        if (largest_disk_index < max_disk_index)
         {
-            ret = (dl_valid_labels >= (dl_total_disks >> 1)) ? true : false;
+            LOGCRITICAL << "Invalid value of largest disk index: " << largest_disk_index
+                        << ". Setting to " << max_disk_index;
+            largest_disk_index = max_disk_index;
         }
 
-        if (master == NULL)
-        {
-            fds_verify(dl_valid_labels == 0);
-            fds_verify(upgrade.chain_empty_list() == false);
-            fds_verify(dl_labels.chain_empty_list() == true);
-
-            label = upgrade.chain_peek_front<DiskLabel>();
-            label->dsk_label_generate(&upgrade, dl_total_disks);
-
-            /* We need full list to generate the label.  Remove label out of the list. */
-            chk = upgrade.chain_rm_front<DiskLabel>();
-            fds_verify(chk == label);
-        }else {
-            label = master;
-        }
-        dl_mtx.unlock();
-
-        if ((master == NULL) && (creat == true))
-        {
-            fds_verify(label != NULL);
-            label->dsk_label_write(inv, this);
-
-            valid_labels++;                                 // local
-            master = label;
-        }
-
-        if (inv->dsk_need_simulation() == true)
+        if (dsk_need_simulation == true)
         {
             LOGNORMAL << "In simulation, found " << dl_valid_labels << " labels";
+            largest_disk_index = 0;
+            LOGNORMAL << "Setting largest disk index to " << largest_disk_index;
         }else {
             LOGNORMAL << "Scan HW inventory, found " << dl_valid_labels << " labels";
         }
 
-        for (; 1; valid_labels++)                          // local
+        // Now iterate over all of the disks, label if needed and write to disk-map
+        chain_foreach(&dl_labels, iter)
         {
-            curr = upgrade.chain_rm_front<DiskLabel>();
-
-            if (curr == NULL)
+            label = dl_labels.chain_iter_current<DiskLabel>(iter);
+            bool is_good_disk = true;
+            if (!label->dsk_label_valid_for_node(node_uuid))
             {
-                GLOGDEBUG << "breaking";
-                break;
+                LOGWARN << "Disk " << label->dl_owner << "has an unknown node UUID. Skipping.\n"
+                        << "(This could be a disk from a previous deployment or different node.)";
+                invalid_labels++;
+                continue;
             }
-
-            if (creat == true)
+            if (!label->dsk_label_valid())
+            {   // new disk, needs to  be labeled
+                if (master == NULL)
+                {
+                    label->dsk_label_generate(&dl_labels, dl_total_disks, largest_disk_index);
+                    master = label;
+                }
+                else
+                {
+                    label->dsk_label_clone(master, largest_disk_index);
+                }
+                is_good_disk = label->dsk_label_write(dsk_need_simulation);
+                if (is_good_disk)
+                {
+                    valid_labels++;
+                }
+                else
+                {
+                    LOGWARN << "Failed writing label to disk "
+                             << label->dl_owner << ". Skipping disk.";
+                }
+            }
+            if (is_good_disk)
             {
-                GLOGDEBUG << "writing label" ;
-                curr->dsk_label_clone(master);
-                curr->dsk_label_write(inv, this);
+                if (dsk_rec_label_map(label->dl_owner, label->dl_label->dl_my_disk_index))
+                {
+                    total_disks++;
+                }
             }
-            delete curr;
         }
 
         dl_valid_labels += valid_labels;                    // rhs:local
-
+        dl_valid_labels -= invalid_labels;
 #if 0
 
         /* It's the bug here, master is still chained to the list. */
@@ -238,37 +247,37 @@ namespace fds
         }
 #endif
 
-        // End of the function -- if dl_map and create, close what was opened previously
-        if ((dl_map != NULL) && (creat == true) && (dl_map != &std::cout)) {
+        // End of the function -- if dl_map, close what was opened previously
+        if ((dl_map != NULL) && (dl_map != &std::cout)) {
             // This isn't thread-safe but we won't need dl_map in post-alpha.
             dl_map->flush();
             dl_map->close();
             delete dl_map;
             dl_map = NULL;
 
-            LOGNORMAL << "Wrote total " << dl_valid_labels << " labels";
+            LOGNORMAL << "Found total " << dl_valid_labels << " labels. Wrote total " << total_disks << " disks";
+            if (total_disks == 0)
+            {
+                fds_panic("PM found no disks to use. Exiting.");
+            }
         }
-
-        return ret;
+        dl_mtx.unlock();
     }
 
     // dsk_rec_label_map
     // -----------------
     //
-    void DiskLabelMgr::dsk_rec_label_map(PmDiskObj::pointer disk, int idx)
+    bool DiskLabelMgr::dsk_rec_label_map(PmDiskObj::pointer disk, int idx)
     {
-        if ((dl_map != NULL) && !disk->dsk_get_mount_point().empty())
+        if ((dl_map != NULL) && !disk->dsk_get_mount_point().empty()) // OS devices will have no mount points
         {
             char const *const    name = disk->rs_get_name();
-
-            if (0 == strcmp(name, "/dev/sda"))
-            {
-                return;
-            }
 
             *dl_map << disk->rs_get_name() << " " << idx << " " << std::hex <<
             disk->rs_get_uuid().uuid_get_val() << std::dec << " " <<
             disk->dsk_get_mount_point().c_str()  << "\n";
+            return true;
         }
+        return false;
     }
 }  // namespace fds

@@ -1,4 +1,5 @@
 Build/linux-x86_64.debug/tests/sharedcache_gtest
+Build/linux-x86_64.debug/tests/configservice_gtest
 Build/linux-x86_64.debug/tests/sqlitedb
 Build/linux-x86_64.debug/tests/dm_volume_catalog_gtest --fds-root=./config/
 Build/linux-x86_64.debug/tests/dm_direct --fds-root=./config/
@@ -29,3 +30,5 @@ Build/linux-x86_64.debug/tests/bitset_gtest
 Build/linux-x86_64.debug/tests/rs_container_ut
 Build/linux-x86_64.debug/tests/dmt_calc_gtest --fds-root=./config/ --dmt-width=4 --dmt-depth=4
 Build/linux-x86_64.debug/tests/dlt_calc_gtest --fds-root=./config/ --dlt-width=8 --dlt-depth=4
+Build/linux-x86_64.debug/tests/volumegrouping_gtest
+Build/linux-x86_64.debug/tests/volume_group_omgtest

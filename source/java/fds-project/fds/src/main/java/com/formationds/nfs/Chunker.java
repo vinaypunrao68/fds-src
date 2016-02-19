@@ -5,11 +5,12 @@ import com.formationds.apis.ObjectOffset;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Optional;
 
 public class Chunker {
-    private TransactionalIo io;
+    private IoOps io;
 
-    public Chunker(TransactionalIo io) {
+    public Chunker(IoOps io) {
         this.io = io;
     }
 
@@ -25,14 +26,24 @@ public class Chunker {
 
         for (long i = startObject; remaining[0] > 0; i++) {
             int toBeWritten = Math.min(objectSize - startOffset[0], remaining[0]);
-            io.mutateObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(i), true, (ov) -> {
-                mutator.mutate(ov.getMetadata());
-                ByteBuffer buf = ov.getBuf().slice();
-                buf.position(startOffset[0]);
-                buf.put(bytes, actualLength - remaining[0], toBeWritten);
-                buf.position(0);
-                startOffset[0] = 0;
-                remaining[0] -= toBeWritten;
+            ObjectOffset objectOffset = new ObjectOffset(i);
+
+            io.readMetadata(domain, volume, blobName).orElse(new FdsMetadata()).lock(m -> {
+                mutator.mutate(m.mutableMap());
+                io.readCompleteObject(domain, volume, blobName, objectOffset, objectSize).lock(o -> {
+                    int limit = Math.max(o.limit(), startOffset[0] + toBeWritten);
+                    o.limit(limit);
+                    ByteBuffer bb = o.asByteBuffer();
+                    bb.position(startOffset[0]);
+                    bb.put(bytes, actualLength - remaining[0], toBeWritten);
+                    startOffset[0] = 0;
+                    remaining[0] -= toBeWritten;
+                    io.writeObject(domain, volume, blobName, objectOffset, o.fdsObject());
+                    return null;
+                });
+
+                io.writeMetadata(domain, volume, blobName, m.fdsMetadata());
+                return null;
             });
         }
     }
@@ -50,19 +61,24 @@ public class Chunker {
         ByteBuffer output = ByteBuffer.wrap(destination);
 
         for (long i = 0; i < totalObjects; i++) {
-            io.mapObjectAndMetadata(domain, volume, blobName, objectSize, new ObjectOffset(startObject + i), oov -> {
-                if (!oov.isPresent()) {
-                    throw new FileNotFoundException();
-                }
-                ByteBuffer buf = oov.get().getBuf();
-                int toBeRead = Math.min(buf.remaining() - startOffset[0], (objectSize - startOffset[0]));
-                toBeRead = Math.min(toBeRead, output.remaining());
-                buf.position(buf.position() + startOffset[0]);
-                buf.limit(buf.position() + toBeRead);
-                output.put(buf);
-                startOffset[0] = 0;
-                remaining[0] -= toBeRead;
-                readSoFar[0] += toBeRead;
+            Optional<FdsMetadata> fdsMetadata = io.readMetadata(domain, volume, blobName);
+            if (!fdsMetadata.isPresent()) {
+                throw new FileNotFoundException("Volume=" + volume + ", blobName=" + blobName);
+            }
+            ObjectOffset objectOffset = new ObjectOffset(startObject + i);
+            fdsMetadata.get().lock(m -> {
+                io.readCompleteObject(domain, volume, blobName, objectOffset, objectSize).lock(o -> {
+                    int toBeRead = Math.min(o.limit() - startOffset[0], (objectSize - startOffset[0]));
+                    toBeRead = Math.min(toBeRead, output.remaining());
+                    ByteBuffer buf = o.asByteBuffer();
+                    buf.position(startOffset[0]);
+                    buf.limit(startOffset[0] + toBeRead);
+                    output.put(buf);
+                    startOffset[0] = 0;
+                    remaining[0] -= toBeRead;
+                    readSoFar[0] += toBeRead;
+                    return null;
+                });
                 return null;
             });
         }

@@ -7,8 +7,6 @@
 #include <map>
 #include <string>
 #include <vector>
-#include <fds_module.h>
-#include <fdsp/AsyncXdiServiceRequest.h>
 #include <AmAsyncResponseApi.h>
 
 namespace fds {
@@ -19,12 +17,11 @@ struct AmProcessor;
  * AM's async data API that is exposed to XDI. This interface is the
  * basic data API that XDI and connectors are programmed to.
  */
-template<typename H>
 class AmAsyncDataApi {
  public:
     template <typename M> using sp = boost::shared_ptr<M>;
 
-    typedef H handle_type;
+    typedef RequestHandle handle_type;
     typedef sp<bool> shared_bool_type;
     typedef sp<int32_t> shared_int_type;
     typedef sp<int64_t> shared_size_type;
@@ -37,7 +34,7 @@ class AmAsyncDataApi {
 
  private:
     typedef std::shared_ptr<AmProcessor> processor_type;
-    typedef AmAsyncResponseApi<handle_type> response_api_type;
+    typedef AmAsyncResponseApi response_api_type;
     typedef typename boost::shared_ptr<response_api_type> response_ptr;
 
     processor_type amProcessor;
@@ -52,20 +49,20 @@ class AmAsyncDataApi {
 
     ~AmAsyncDataApi() {}
 
-    void attachVolume(handle_type& requestId,
+    void attachVolume(handle_type const& requestId,
                       shared_string_type& domainName,
                       shared_string_type& volumeName,
                       shared_vol_mode_type& mode);
 
-    void detachVolume(handle_type& requestId,
+    void detachVolume(handle_type const& requestId,
                       shared_string_type& domainName,
                       shared_string_type& volumeName);
 
-    void volumeStatus(handle_type& requestId,
+    void volumeStatus(handle_type const& requestId,
                       shared_string_type& domainName,
                       shared_string_type& volumeName);
 
-    void volumeContents(handle_type& requestId,
+    void volumeContents(handle_type const& requestId,
                         shared_string_type& domainName,
                         shared_string_type& volumeName,
                         shared_int_type& count,
@@ -76,66 +73,66 @@ class AmAsyncDataApi {
                         shared_bool_type& descending,
                         shared_string_type& delimiter);
 
-    void setVolumeMetadata(handle_type& requestId,
+    void setVolumeMetadata(handle_type const& requestId,
                            shared_string_type& domainName,
                            shared_string_type& volumeName,
                            shared_meta_type& metadata);
 
-    void getVolumeMetadata(handle_type& requestId,
+    void getVolumeMetadata(handle_type const& requestId,
                            shared_string_type& domainName,
                            shared_string_type& volumeName);
 
-    void statBlob(handle_type& requestId,
+    void statBlob(handle_type const& requestId,
                   shared_string_type& domainName,
                   shared_string_type& volumeName,
                   shared_string_type& blobName);
 
-    void startBlobTx(handle_type& requestId,
+    void startBlobTx(handle_type const& requestId,
                      shared_string_type& domainName,
                      shared_string_type& volumeName,
                      shared_string_type& blobName,
                      shared_int_type& blobMode);
 
-    void commitBlobTx(handle_type& requestId,
+    void commitBlobTx(handle_type const& requestId,
                       shared_string_type& domainName,
                       shared_string_type& volumeName,
                       shared_string_type& blobName,
                       shared_tx_ctx_type& txDesc);
 
-    void abortBlobTx(handle_type& requestId,
+    void abortBlobTx(handle_type const& requestId,
                      shared_string_type& domainName,
                      shared_string_type& volumeName,
                      shared_string_type& blobName,
                      shared_tx_ctx_type& txDesc);
 
-    void getBlob(handle_type& requestId,
+    void getBlob(handle_type const& requestId,
                  shared_string_type& domainName,
                  shared_string_type& volumeName,
                  shared_string_type& blobName,
                  shared_int_type& length,
                  shared_offset_type& objectOffset);
 
-    void getBlobWithMeta(handle_type& requestId,
+    void getBlobWithMeta(handle_type const& requestId,
                          shared_string_type& domainName,
                          shared_string_type& volumeName,
                          shared_string_type& blobName,
                          shared_int_type& length,
                          shared_offset_type& objectOffset);
 
-    void renameBlob(handle_type& requestId,
+    void renameBlob(handle_type const& requestId,
                     shared_string_type& domainName,
                     shared_string_type& volumeName,
                     shared_string_type& sourceBlobName,
                     shared_string_type& destinationBlobName);
 
-    void updateMetadata(handle_type& requestId,
+    void updateMetadata(handle_type const& requestId,
                         shared_string_type& domainName,
                         shared_string_type& volumeName,
                         shared_string_type& blobName,
                         shared_tx_ctx_type& txDesc,
                         shared_meta_type& metadata);
 
-    void updateBlobOnce(handle_type& requestId,
+    void updateBlobOnce(handle_type const& requestId,
                         shared_string_type& domainName,
                         shared_string_type& volumeName,
                         shared_string_type& blobName,
@@ -145,7 +142,7 @@ class AmAsyncDataApi {
                         shared_offset_type& objectOffset,
                         shared_meta_type& metadata);
 
-    void updateBlob(handle_type& requestId,
+    void updateBlob(handle_type const& requestId,
                     shared_string_type& domainName,
                     shared_string_type& volumeName,
                     shared_string_type& blobName,
@@ -154,7 +151,7 @@ class AmAsyncDataApi {
                     shared_int_type& length,
                     shared_offset_type& objectOffset);
 
-    void deleteBlob(handle_type& requestId,
+    void deleteBlob(handle_type const& requestId,
                     shared_string_type& domainName,
                     shared_string_type& volumeName,
                     shared_string_type& blobName,

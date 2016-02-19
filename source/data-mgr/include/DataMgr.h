@@ -29,14 +29,15 @@
 #include <string>
 #include <persistent-layer/dm_service.h>
 
-#include <fdsp/event_types_types.h>
 #include "fdsp/health_monitoring_types_types.h"
 #include "fds_types.h"
 #include <fdsp/FDSP_types.h>
 #include <lib/QoSWFQDispatcher.h>
 #include <lib/qos_min_prio.h>
-#include <DmIoReq.h>
+
+#include <net/filetransferservice.h>
 #include <dmhandler.h>
+#include <DmIoReq.h>
 #include <CatalogSync.h>
 #include <CatalogSyncRecv.h>
 #include <dm-tvc/CommitLog.h>
@@ -48,47 +49,51 @@
 #include <dm-tvc/TimeVolumeCatalog.h>
 #include <StatStreamAggregator.h>
 #include <DataMgrIf.h>
-
+#include <dmutil.h>
 #include <DmMigrationMgr.h>
-
 #include "util/ExecutionGate.h"
-#include <timeline/timelinemanager.h>
-#include <expungemanager.h>
 
+#include <timeline/timelinemanager.h>
+#include <refcount/refcountmanager.h>
 
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
  */
 #undef FDS_TEST_DM_NOOP
 
-
-
 namespace fds {
+// forward declarations
+class DmPersistVolDB;
+namespace dm {
 
+struct Handler;
+struct Counters;
+struct RequestManager;
+
+namespace refcount {struct RefCountManager;}
+namespace timeline {struct TimelineManager;}
+}
 class DMSvcHandler;
+class DmMigrationMgr;
 
-struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
+struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     static void InitMsgHdr(const fpi::FDSP_MsgHdrTypePtr& msg_hdr);
 
-    /* Common module provider */
-    CommonModuleProviderIf *modProvider_;
-    /*
-     * TODO: Move to STD shared or unique pointers. That's
-     * safer.
-     */
-    std::unordered_map<fds_volid_t, VolumeMeta*> vol_meta_map;
+    std::unordered_map<fds_volid_t, VolumeMetaPtr> vol_meta_map;
     /**
      * Catalog sync manager
      */
     CatalogSyncMgrPtr catSyncMgr;  // sending vol meta
     CatSyncReceiverPtr catSyncRecv;  // receiving vol meta
     void initHandlers();
-    VolumeMeta* getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked = false);
+    VolumeMetaPtr getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked = false);
     /**
     * Callback for DMT close
     */
     DmtCloseCb sendDmtCloseCb;
-
+    SHPTR<dm::Handler> requestHandler;
+    void addToQueue(DmRequest*);
+    void addToQueue(std::function<void()>&& func, fds_volid_t volId = FdsDmSysTaskId);
     /**
      * DmIoReqHandler method implementation
      */
@@ -100,9 +105,9 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     fds_bool_t amIPrimary(fds_volid_t volUuid);
 
     /**
-     * If this DM, given the volume, is within the Primary group.
+     * If this DM, given the volume, is within the volume group.
      */
-    fds_bool_t amIPrimaryGroup(fds_volid_t volUuid);
+    fds_bool_t amIinVolumeGroup(fds_volid_t volUuid);
 
 
     inline StatStreamAggregator::ptr statStreamAggregator() {
@@ -117,6 +122,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     virtual const VolumeDesc * getVolumeDesc(fds_volid_t volId) const;
     void getActiveVolumes(std::vector<fds_volid_t>& vecVolIds);
 
+    SHPTR<DmPersistVolDB> getPersistDB(fds_volid_t volId);
 
     ///
     /// Check if a given volume is active.
@@ -139,6 +145,13 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
 
         return ERR_OK;
     }
+    Error validateVolumeExists(fds_volid_t const volumeId) const {
+        auto volumeDesc = getVolumeDesc(volumeId);
+        if (!volumeDesc) {
+            return ERR_VOL_NOT_FOUND;
+        }
+        return ERR_OK;
+    }
 
     /**
      * Pull the volume descriptors from OM using service layer implementation.
@@ -146,7 +159,7 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
      */
     Error getAllVolumeDescriptors();
 
-    Error process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
+    Error removeVolume(fds_volid_t vol_uuid, fds_bool_t check_only);
 
     /**
     * @brief Detach in any in memory state for the volume
@@ -180,16 +193,19 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
         DEF_FEATURE(SerializeReqs, true);
         DEF_FEATURE(TestMode     , false);
         DEF_FEATURE(Expunge      , true);
+        DEF_FEATURE(Volumegrouping, false);
+        DEF_FEATURE(RealTimeStatSampling, false);
+        DEF_FEATURE(SendToNewStatsService, false);
     } features;
 
+    dm::Counters* counters;
+
     fds_uint32_t numTestVols;  /* Number of vols to use in test mode */
-    boost::shared_ptr<timeline::TimelineManager> timelineMgr;
-    boost::shared_ptr<ExpungeManager> expungeMgr;
-    fds_threadpool  lowPriorityTasks;
+    SHPTR<timeline::TimelineManager> timelineMgr;
+    dm::RequestManager* requestMgr;
     /**
      * For timing out request forwarding in DM (to send DMT close ack)
      */
-    FdsTimerPtr closedmt_timer;
     FdsTimerTaskPtr closedmt_timer_task;
 
     /**
@@ -203,7 +219,8 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
      */
     StatStreamAggregator::ptr statStreamAggr_;
 
-
+    SHPTR<net::FileTransferService> fileTransfer;
+    SHPTR<refcount::RefCountManager> refCountMgr;
     struct dmQosCtrl : FDS_QoSControl {
         DataMgr *parentDm;
 
@@ -223,161 +240,10 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
         /// executor.
         std::unique_ptr<SynchronizedTaskExecutor<size_t>> serialExecutor;
 
-        dmQosCtrl(DataMgr *_parent,
-                  uint32_t _max_thrds,
-                  dispatchAlgoType algo,
-                  fds_log *log) :
-                FDS_QoSControl(_max_thrds, algo, log, "DM") {
-            parentDm = _parent;
-            dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate,
-                    parentDm->qosOutstandingTasks, log);
-
-            serialExecutor = std::unique_ptr<SynchronizedTaskExecutor<size_t>>(
-                new SynchronizedTaskExecutor<size_t>(*threadPool));
-        }
-
-        Error processIO(FDS_IOType* _io) {
-            Error err(ERR_OK);
-
-            DmRequest *io = static_cast<DmRequest*>(_io);
-
-            // Stop the queue latency timer.
-            PerfTracer::tracePointEnd(io->opQoSWaitCtx);
-
-            // Get the key and vol type to use during serialization
-            // TODO(Andrew): Adding the sender's SvcUuid to the key
-            // would allow additional concurrency. Since we already
-            // don't ensure ordering with multiple senders we don't
-            // need to make them serialize.
-            SerialKey key(io->volId, io->blob_name);
-            fpi::FDSP_VolType volType(fpi::FDSP_VOL_S3_TYPE);
-            {
-                fds_mutex::scoped_lock l(*(parentDm->vol_map_mtx));
-                auto mapEntry = parentDm->vol_meta_map.find(io->volId);
-                if (mapEntry != parentDm->vol_meta_map.end()) {
-                    volType = mapEntry->second->vol_desc->volType;
-                }
-            }
-            GLOGDEBUG << "processing : " << io->log_string() << " volType: " << volType
-		<< " key: " << key.first << ":" << key.second;
-            switch (io->io_type){
-                /* TODO(Rao): Add the new refactored DM messages types here */
-                case FDS_DM_SNAP_VOLCAT:
-                case FDS_DM_SNAPDELTA_VOLCAT:
-                    threadPool->schedule(&DataMgr::snapVolCat, parentDm, io);
-                    break;
-                case FDS_DM_PUSH_META_DONE:
-                    threadPool->schedule(&DataMgr::handleDMTClose, parentDm, io);
-                    break;
-                case FDS_DM_PURGE_COMMIT_LOG:
-                    threadPool->schedule(io->proc, io);
-                    break;
-                case FDS_DM_META_RECVD:
-                    threadPool->schedule(&DataMgr::handleForwardComplete, parentDm, io);
-                    break;
-
-                /* End of new refactored DM message types */
-                // catalog read handlers
-                case FDS_LIST_BLOB:
-                case FDS_GET_BLOB_METADATA:
-                case FDS_CAT_QRY:
-                case FDS_STAT_VOLUME:
-                case FDS_GET_VOLUME_METADATA:
-                case FDS_DM_LIST_BLOBS_BY_PATTERN:
-                case FDS_DM_MIGRATION:
-                case FDS_DM_MIG_TX_STATE:
-                // Other (stats, etc...) handlers
-                case FDS_DM_SYS_STATS:
-                case FDS_DM_STAT_STREAM:
-                    threadPool->schedule(&dm::Handler::handleQueueItem,
-                                         parentDm->handlers.at(io->io_type),
-                                         io);
-                    break;
-                case FDS_RENAME_BLOB:
-                    // If serialization is enabled, serialize on both keys,
-                    // otherwise just schedule directly.
-                    if ((parentDm->features.isSerializeReqsEnabled())) {
-                        auto renameReq = static_cast<DmIoRenameBlob*>(io);
-                        SerialKey key2(io->volId, renameReq->message->destination_blob);
-                        serialExecutor->scheduleOnHashKeys(keyHash(key),
-                                                           keyHash(key2),
-                                                           std::bind(&dm::Handler::handleQueueItem,
-                                                                     parentDm->handlers.at(io->io_type),
-                                                                     io));
-                    } else {
-                        threadPool->schedule(&dm::Handler::handleQueueItem,
-                                         parentDm->handlers.at(io->io_type),
-                                         io);
-                    }
-
-                    break;
-                // catalog write handlers
-                case FDS_DELETE_BLOB:
-                case FDS_CAT_UPD:
-                case FDS_START_BLOB_TX:
-                case FDS_COMMIT_BLOB_TX:
-                case FDS_CAT_UPD_ONCE:
-                case FDS_SET_BLOB_METADATA:
-                case FDS_ABORT_BLOB_TX:
-                case FDS_SET_VOLUME_METADATA:
-                case FDS_OPEN_VOLUME:
-                case FDS_CLOSE_VOLUME:
-                case FDS_DM_RELOAD_VOLUME:
-                case FDS_DM_RESYNC_INIT_BLOB:
-                case FDS_DM_MIG_DELTA_BLOB:
-                case FDS_DM_MIG_DELTA_BLOBDESC:
-                case FDS_DM_MIG_FINISH_VOL_RESYNC:
-                    // If serialization in enabled, serialize on the key
-                    // otherwise just schedule directly.
-                    // Note: We avoid this serialization in the block connector
-                    // case since the connector is ensuring we won't have overlapping
-                    // concurrent requests.
-                    // TODO(Andrew): Remove this block connector special casing. Either
-                    // AM should enforce the policy for all connectors or we always leave
-                    // it up to the connector.
-                    if ((parentDm->features.isSerializeReqsEnabled()) &&
-                        (volType != fpi::FDSP_VOL_BLKDEV_TYPE)) {
-			LOGDEBUG << io->log_string()
-				<< " synchronize on hashkey: " << key.first << ":" << key.second;
-                        serialExecutor->scheduleOnHashKey(keyHash(key),
-                                                          std::bind(&dm::Handler::handleQueueItem,
-                                                                    parentDm->handlers.at(io->io_type),
-                                                                    io));
-                    } else {
-			LOGDEBUG << io->log_string() << " not synchronized"; 
-                        threadPool->schedule(&dm::Handler::handleQueueItem,
-                                         parentDm->handlers.at(io->io_type),
-                                         io);
-                    }
-                    break;
-                case FDS_DM_FWD_CAT_UPD:
-                    /* Forwarded IO during migration needs to synchronized on blob id */
-                    serialExecutor->scheduleOnHashKey(keyHash(key),
-                                                      std::bind(&dm::Handler::handleQueueItem,
-                                                                parentDm->handlers.at(io->io_type),
-                                                                io));
-                    break;
-                default:
-                    FDS_PLOG(FDS_QoSControl::qos_log) << "Unknown IO Type received";
-                    assert(0);
-                    break;
-            }
-
-            return err;
-        }
-
-        Error markIODone(const FDS_IOType& _io) {
-            Error err(ERR_OK);
-            dispatcher->markIODone(const_cast<FDS_IOType *>(&_io));
-            return err;
-        }
-
-        virtual ~dmQosCtrl() {
-             delete dispatcher;
-             if (dispatcherThread) {
-                 dispatcherThread->join();
-             }
-        }
+        dmQosCtrl(DataMgr *_parent, uint32_t _max_thrds, dispatchAlgoType algo, fds_log *log);
+        Error markIODone(const FDS_IOType& _io);
+        Error processIO(FDS_IOType* _io);
+        virtual ~dmQosCtrl();        
     };
 
     FDS_VolumeQueue*  sysTaskQueue;
@@ -413,13 +279,24 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
      * finish forwarding state -- forwarding will actually end when
      * all updates that are currently queued are processed.
      */
-    Error notifyDMTClose();
+    Error notifyDMTClose(int64_t dmtVersion);
     void finishForwarding(fds_volid_t volid);
 
     /**
      * A callback from stats collector to sample DM-specific stats
      */
     void sampleDMStats(fds_uint64_t timestamp);
+
+    /**
+     * Sample stats for a specific Volume.
+     *
+     * @param[in] volume_id ID of Volume for whome to sample stats.
+     * @param[in] timestamp Timestamp to be associated with sampled
+     *                      stats. If 0, generate a timestamp on behalf
+     *                      of caller.
+     */
+    void sampleDMStatsForVol(fds_volid_t volume_id,
+                             fds_uint64_t timestamp=0);
 
     /**
      * A callback from stats collector with stats for a given volume
@@ -444,6 +321,9 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     fds_bool_t testUturnUpdateCat;
     fds_bool_t testUturnStartTx;
     fds_bool_t testUturnSetMeta;
+
+    // DM user-repo disk fullness threshold to stop creating snapshots
+    fds_uint32_t dmFullnessThreshold = 75;
 
     /* Overrides from Module */
     virtual int  mod_init(SysParams const *const param) override;
@@ -470,7 +350,8 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
     void handleDMTClose(DmRequest *io);
     void handleForwardComplete(DmRequest *io);
     void handleStatStream(DmRequest *io);
-
+    void handleDmFunctor(DmRequest *io);
+    Error copyVolumeToOtherDMs(fds_volid_t volId);
     Error processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete);
 
     /**
@@ -519,11 +400,12 @@ struct DataMgr : Module, DmIoReqHandler, DataMgrIf {
         fds_verify(num > 0);
         _numOfPrimary = num;
     }
+    inline FDS_QoSControl* getQosCtrl() const { return qosCtrl; }
 
     /**
      * Migration mgr for managing DM migrations
      */
-    DmMigrationMgr::unique_ptr dmMigrationMgr;
+    std::unique_ptr<DmMigrationMgr> dmMigrationMgr;
 
     friend class DMSvcHandler;
     friend class dm::GetBucketHandler;
@@ -550,23 +432,6 @@ private:
     fds_uint8_t sampleCounter;
     float_t lastCapacityMessageSentAt;
 
-    /**
-     * Send event message to OM
-     */
-    void sendEventMessageToOM(fpi::EventType eventType,
-                              fpi::EventCategory eventCategory,
-                              fpi::EventSeverity eventSeverity,
-                              fpi::EventState eventState,
-                              const std::string& messageKey,
-                              std::vector<fpi::MessageArgs> messageArgs,
-                              const std::string& messageFormat);
-
-    // Send health check message
-    void sendHealthCheckMsgToOM(fpi::HealthState serviceState,
-                                fds_errno_t statusCode,
-                                const std::string& statusInfo);
-
-
 };
 
 class CloseDMTTimerTask : public FdsTimerTask {
@@ -583,27 +448,6 @@ class CloseDMTTimerTask : public FdsTimerTask {
   private:
     cbType timeout_cb;
 };
-
-namespace dmutil {
-// location of volume
-std::string getVolumeDir(fds_volid_t volId, fds_volid_t snapId = invalid_vol_id);
-
-// location of all snapshots for a volume
-std::string getSnapshotDir(fds_volid_t volId);
-std::string getVolumeMetaDir(fds_volid_t volId);
-std::string getLevelDBFile(fds_volid_t volId, fds_volid_t snapId = invalid_vol_id);
-
-/**
-* @brief Returns list of volume id in dm catalog under FdsRootDir root
-*
-* @param root
-* @param vecVolumes
-*/
-void getVolumeIds(const FdsRootDir* root, std::vector<fds_volid_t>& vecVolumes);
-
-std::string getTimelineDBPath();
-std::string getExpungeDBPath();
-}  // namespace dmutil
 
 }  // namespace fds
 

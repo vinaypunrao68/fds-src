@@ -6,6 +6,7 @@ import unittest
 import mock
 import disk_format
 import copy
+import subprocess
 
 
 ''' extendedFstab class unit tests -- these could use improvements '''
@@ -171,6 +172,12 @@ class DiskTest (unittest.TestCase):
         d.set_dm_flag()
         self.assertTrue (d.dm_flag)
 
+    def testDiskFormattedFlag (self):
+        d = disk_format.Disk (DiskTest.TEST_PATH, False, False, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
+        self.assertFalse(d.formatted)
+        d.set_formatted()
+        self.assertTrue (d.formatted)
+
     def testDiskCheckForMarkerOS (self):
         d = disk_format.Disk (DiskTest.TEST_PATH, True, True, disk_format.Disk.DISK_TYPE_HDD, 'NA', 200)
         self.assertFalse (d.check_for_fds())
@@ -270,6 +277,19 @@ class DiskTest (unittest.TestCase):
 #        assert 4 == mock_call_subproc.call_count
 
 
+
+    @mock.patch ('disk_format.Disk.call_subproc')
+    def testDiskPartitionDriveWBadPartitions (self, mock_call_subproc):
+        d = disk_format.Disk (DiskTest.TEST_PATH, False, False, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
+        partname = DiskTest.TEST_PATH + "1"
+        badpartfile = open(partname, 'w').close()
+        call_list = ['ls', partname]
+        res = subprocess.call (call_list, stdout = None)
+        assert (res == 0)
+        d.partition(1,1)
+        res = subprocess.call (call_list, stdout = None)
+        assert (res == 2)
+
     @mock.patch ('disk_format.Disk.call_subproc')
     def testDiskPartitionDMIndex (self, mock_call_subproc):
         d = disk_format.Disk (DiskTest.TEST_PATH, False, True, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
@@ -306,11 +326,6 @@ class DiskTest (unittest.TestCase):
         d = disk_format.Disk (DiskTest.TEST_PATH, False, False, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
         assert d.marker == disk_format.DISK_MARKER
 
-
-    def testDiskFormatOSDrive (self):
-        d = disk_format.Disk (DiskTest.TEST_PATH, True, True, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
-        self.assertFalse (d.format ())
-
     @mock.patch ('__builtin__.open', mock.mock_open (read_data="20480"), create=True)
     def testDiskVerifySystemDiskPartitionSizeGood (self):
         d = disk_format.Disk (DiskTest.TEST_PATH, False, False, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
@@ -323,6 +338,26 @@ class DiskTest (unittest.TestCase):
             d.verifySystemDiskPartitionSize()
         self.assertEqual (cm.exception.code, 8)
 
+    @mock.patch ('__builtin__.open', mock.mock_open (read_data=disk_format.DISK_MARKER), create=True)
+    @mock.patch ('disk_format.Disk.call_subproc')
+    @mock.patch ('disk_format.subprocess.Popen')
+    def testDiskFormatOSDrive (self, mock_popen, mock_call_subproc):
+        process_mock = mock.Mock ()
+        attrs = {'returncode': 0}
+        process_mock.stdout.read.return_value = '33333'
+        process_mock.configure (**attrs)
+
+        mock_popen.return_value = process_mock
+        mock_call_subproc.return_value = process_mock
+
+        d = disk_format.Disk (DiskTest.TEST_PATH, True, True, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
+        d.format()
+
+        expected = []
+
+        assert mock_call_subproc.call_args_list == expected
+        assert 0 == mock_call_subproc.call_count
+        self.assertFalse (d.format ())
 
     @mock.patch ('__builtin__.open', mock.mock_open (read_data=disk_format.DISK_MARKER), create=True)
     @mock.patch ('disk_format.Disk.call_subproc')
@@ -527,6 +562,28 @@ class testDiskUtils (unittest.TestCase):
 
         assert test_mount_point == mount_points[0]
 
+    def testIsMounted (self):
+        dev = self.du.is_mounted("/")
+        assert dev # the root partition must be mounted
+        dev = self.du.is_mounted("blah")
+        assert not dev # bad mount point
+
+    def my_find_fs (self, param):
+        if param == 'UUID=cazzoomar':
+            return '/dev/sda'
+        return None
+
+    def testFindDeviceByUUIDStr (self):
+        dev = self.du.find_device_by_uuid_str("blah")
+        assert not dev
+        call_list = ['blkid', '-o', 'device']
+        output = subprocess.Popen (call_list, stdout=subprocess.PIPE).stdout
+        for line in output:
+            dev = line.strip ('\r\n')
+            uuid = self.du.get_uuid(dev)
+            if uuid:
+                retdev = self.du.find_device_by_uuid_str("UUID="+uuid)
+                assert retdev == dev
 
     @mock.patch ('disk_format.DiskUtils.call_subproc')
     def testCleanUpMounted (self, mock_subproc):
@@ -603,17 +660,35 @@ class testDiskManager (unittest.TestCase):
         assert 6 == len (self.manager.disk_list)
         self.assertEqual (cm.exception.code, 8)
 
-
-    def testDiskManagerVerifyFreshDiskWithFDS (self):
+    @mock.patch ('disk_format.Disk.verifySystemDiskPartitionSize')
+    @mock.patch ('disk_format.Disk.format')
+    @mock.patch ('disk_format.Disk.partition')
+    def testDiskManagerFormatExisting (self, mock_verifySystemDiskPartitionSize, mock_format, mock_partition):
         self.manager.disk_config_file = 'test_data/disk_config'
         self.manager.load_disk_config_file()
 
         self.manager.disk_list[5].marker = disk_format.DISK_MARKER
+        self.manager.find_formatted_disks()
+        i = 0
+        for disk in self.manager.disk_list:
+            if disk.formatted == True:
+                assert i == 5
+            i = i + 1
+        assert self.manager.disk_list[5].formatted == True
 
-        with self.assertRaises (SystemExit) as cm:
-            self.manager.verify_fresh_disks()
-        self.assertEqual (cm.exception.code, 8)
+        self.manager.global_debug_on = True
+        self.manager.partition_and_format_disks()
+        assert 3 == mock_format.call_count # 6 - 2(os) -1(formatted)
 
+    def testDiskManagerBuildPartitionListsWExisting (self):
+        self.manager.disk_config_file = 'test_data/disk_config'
+        self.manager.load_disk_config_file()
+
+        self.manager.disk_list[5].marker = disk_format.DISK_MARKER
+        self.manager.find_formatted_disks()
+        self.manager.build_partition_lists()
+        num_parts = len(self.manager.umount_list)
+        assert 4 == num_parts # 4 = 3(SM) + 1(DM)
 
     def testDiskManagerCalcCapacities (self):
         self.manager.disk_config_file = 'test_data/disk_config'
@@ -788,12 +863,13 @@ class testDiskManager (unittest.TestCase):
         self.assertEqual (cm.exception.code, 8)
 
 
+    @mock.patch ('disk_format.DiskManager.partition_and_format_disks')
     @mock.patch ('disk_format.subprocess.Popen')
     @mock.patch ('disk_format.os')
     @mock.patch ('disk_format.DiskUtils.get_uuid')
 #    @mock.patch ('disk_format.RaidDevice.get_uuid')
 #    def testDiskManagerProcessFormatExisting (self, mock_uuid, mock_uuid_diskutils, mock_os, mock_popen):
-    def testDiskManagerProcessFormatExisting (self, mock_uuid_diskutils, mock_os, mock_popen):
+    def testDiskManagerProcessFormatExisting (self, mock_uuid_diskutils, mock_os, mock_popen, mock_partition_and_format_disks):
 #        mock_uuid.return_value = uuid_mock.return_value
 
 #        uuid_mock = mock.Mock (return_value = 'cazzoomar')
@@ -810,9 +886,7 @@ class testDiskManager (unittest.TestCase):
 
         self.manager.process_command_line(['--format', '--map', 'test_data/disk-config.conf'])
 
-        with self.assertRaises (SystemExit) as cm:
-            self.manager.process()
-        self.assertEqual (cm.exception.code, 8)
+        self.manager.process()
 
     @mock.patch ('disk_format.os')
 #    @mock.patch ('disk_format.RaidDevice.get_uuid')
@@ -873,11 +947,13 @@ class testDiskManager (unittest.TestCase):
     #@mock.patch ('disk_format.fstab')
     @mock.patch ('disk_format.subprocess.Popen')
     @mock.patch ('disk_format.os')
-    @mock.patch ('disk_format.DiskManager.partition_and_format_disks')
+    @mock.patch ('disk_format.Disk.verifySystemDiskPartitionSize')
+    @mock.patch ('disk_format.Disk.format')
+    @mock.patch ('disk_format.Disk.partition')
     @mock.patch ('disk_format.DiskUtils.get_uuid')
 #    @mock.patch ('disk_format.RaidDevice.get_uuid')
 #    def testDiskManagerProcessFormatReset (self, mock_uuid, mock_uuid_diskutils, mock_part_and_format, mock_os, mock_popen):
-    def testDiskManagerProcessFormatReset (self, mock_uuid_diskutils, mock_part_and_format, mock_os, mock_popen):
+    def testDiskManagerProcessFormatReset (self, mock_uuid_diskutils, mock_verifySystemDiskPartitionSize, mock_format, mock_partition, mock_os, mock_popen):
 #        uuid_mock = mock.Mock (return_value = 'cazzoomar')
 #        mock_uuid.return_value = uuid_mock.return_value
         self.uuid_mock = mock.Mock (return_value = 'cazzoomar')
@@ -897,3 +973,30 @@ class testDiskManager (unittest.TestCase):
 
         self.manager.process()
 
+    def testDiskManagerCleanupFstab(self):
+        fstab_file = 'test_data/ExtendedFstabTest.unit'
+        self.manager.fstab.read (fstab_file)
+        mount_point='/fds/sys-repo'
+        uuid='fakeuuid'
+        uuid_strs = self.manager.fstab.get_devices_by_mount_point(mount_point)
+        assert len(uuid_strs) > 0
+        self.manager.cleanup_fstab(uuid, mount_point)
+        uuid_strs = self.manager.fstab.get_devices_by_mount_point(mount_point)
+        assert len(uuid_strs) == 0
+
+    def my_is_mounted(self, param):
+        if param == 'hdd-1':
+            return '/dev/sda'
+        return None
+
+    @mock.patch ('disk_format.DiskUtils.is_mounted')
+    def testGenerateMountPointIndex(self, mock_is_mounted):
+        mock_is_mounted.side_effect = self.my_is_mounted
+        fstab_file = 'test_data/ExtendedFstabTest.unit'
+        self.manager.fstab.read (fstab_file)
+
+        index = 1
+        uuid = '1'
+        base_name="hdd-"
+        index = self.manager.generate_mount_point_index(base_name, index, uuid)
+        assert index == 2

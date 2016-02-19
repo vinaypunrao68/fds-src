@@ -27,13 +27,20 @@ namespace fds
                 auto processor = boost::make_shared <fpi::PlatNetSvcProcessor> (handler);
                 init (argc, argv, "platform.conf", "fds.pm.", "pm.log", nullptr, handler, processor);
 
+                // init above calls setupSvcInfo_, so by the time we get here, data in platform should be set
+                gl_DiskPlatMod.set_node_uuid(platform->getUUID());
+                gl_DiskPlatMod.set_largest_disk_index(platform->getLargestDiskIndex());
                 gl_DiskPlatMod.mod_startup();
+                platform->persistLargestDiskIndex(gl_DiskPlatMod.get_largest_disk_index());;
+
+#ifdef DEBUG
                 bool fDumpDiskMap = get_fds_config()->get<fds_bool_t>("fds.pm.dump_diskmap",false);
 
                 if (fDumpDiskMap) {
                     GLOGWARN << "exiting as fds.pm.dump_diskmap is true";
                     exit(0);
                 }
+#endif
 
                 platform->updateServiceInfoProperties(&svcInfo_.props);
             }

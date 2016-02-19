@@ -29,7 +29,7 @@ uint64_t DeleteDispatcher::process(const DeleteTask& task) {
 
     // for each snapshot , check which needs to be deleted
     for (const auto& snapshot : vecSnapshots) {
-        deleteTime = snapshot.retentionTimeSeconds + snapshot.creationTimestamp/1000;
+        deleteTime = snapshot.retentionTimeSeconds + snapshot.creationTimestamp;
         if (snapshot.retentionTimeSeconds <= 0) {
             LOGDEBUG << "snapshot will be retained forever : " << snapshot.snapshotName;
             continue;
@@ -59,6 +59,10 @@ uint64_t DeleteDispatcher::process(const DeleteTask& task) {
                 fNeedsTimeCheck = true;
                 fNeedsDeleteCheck= true;
                 break;
+            case fpi::ResourceState::Syncing:
+                // Fall through
+            default:
+                fds_assert(!"Not handled");
         }
 
         if (fNeedsTimeCheck && (nextTime == 0 || deleteTime < nextTime)) {

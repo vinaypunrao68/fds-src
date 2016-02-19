@@ -20,7 +20,8 @@ VolumePlacement::VolumePlacement()
           startDmtVersion(DMT_VER_INVALID + 1),
           placeAlgo(NULL),
           placementMutex("Volume Placement mutex"),
-		  numOfPrimaryDMs(1)
+		  numOfPrimaryDMs(1),
+		  numOfFailures(0)
 {
 	bRebalancing = ATOMIC_VAR_INIT(false);
 }
@@ -167,20 +168,21 @@ VolumePlacement::computeDMT(const ClusterMap* cmap)
 
     // add this DMT as target, we should not have another non-committed
     // target already
-    fds_verify(!dmtMgr->hasTargetDMT());
+//    fds_verify(!dmtMgr->hasTargetDMT());
     err = dmtMgr->add(newDmt, DMT_TARGET);
-    fds_verify(err.ok());
+    LOGDEBUG << "Adding new DMT target, result: " << err;
+    if (err.ok() && !isInTestMode()) {
+//    fds_verify(err.ok());
+//    fds_verify(configDB != NULL);
+        if (!configDB->storeDmt(*newDmt, "target")) {
+            GLOGWARN << "unable to store dmt to config db "
+                     << "[ " << newDmt->getVersion() << " ]";
+        }
 
-    // TODO(Rao): Check with Anna if a lock is required
-    // store the dmt to config db
-    fds_verify(configDB != NULL);
-    if (!configDB->storeDmt(*newDmt, "target")) {
-        GLOGWARN << "unable to store dmt to config db "
-                << "[" << newDmt->getVersion() << "]";
+        LOGNORMAL << "Version: " << newDmt->getVersion();
+        LOGDEBUG << "Computed new DMT: " << *newDmt;
     }
 
-    LOGNORMAL << "Version: " << newDmt->getVersion();
-    LOGDEBUG << "Computed new DMT: " << *newDmt;
     return err;
 }
 
@@ -260,6 +262,8 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         // also skip rebalancing volumes which are in the process of
         // deleting (passed delete check)
         if (volinfo->isDeletePending()) continue;
+        // also skip snapshot volumes
+        if ( volinfo->vol_get_properties()->fSnapshot ) continue;
 
         // Populate volume descriptor
         volinfo->vol_fmt_desc_pkt(&vol_desc);
@@ -270,11 +274,11 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
         NodeUuidSet new_dms = target_col->getNewAndNewPrimaryUuids(*cmt_col, getNumOfPrimaryDMs());
         // Now put nodes that need to undergo resync as part of the "new" Dms
         for (const auto cit : resyncNodes) {
-        	new_dms.insert(cit);
+            new_dms.insert(cit);
         }
         LOGDEBUG << "Found " << new_dms.size() << " DMs " << " (" << resyncNodes.size()
-        		<< " resyncing DM's) that need to get"
-                 << " meta for vol " << volid;
+        << " resyncing DM's) that need to get"
+        << " meta for vol " << volid;
 
         // get list of candidates to resync from
         // if number of primary DMs == 0, means can resync from anyone
@@ -304,7 +308,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
             NodeUuid nosyncDm;
             for (auto dm: intersectDMs) {
                 int index = target_col->find(dm);
-                if ((index >= 0) && (index < (int)getNumOfPrimaryDMs())) {
+                if ((index >= 0) && (index < (int) getNumOfPrimaryDMs())) {
                     if (nosyncDm.uuid_get_val() == 0) {
                         nosyncDm = dm;
                     } else {
@@ -333,7 +337,7 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
                 srcCandidates.insert(nosyncDm);
             } else {
                 LOGWARN << "Looks like the whole column for volume "
-                        << volid << " failed; no DM to sync from";
+                << volid << " failed; no DM to sync from";
                 continue;
             }
         }
@@ -344,9 +348,16 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
 
         // there must be at least one DM candidate to be a source
         // otherwise we need to revisit DMT calculation algorithm
-        LOGDEBUG << "Found " << srcCandidates.size() << " candidates for a source "
-                 << " for volume " << volid;
-        fds_verify(srcCandidates.size() > 0);
+        LOGDEBUG << "Found " << srcCandidates.size()
+                 << " candidates for a source for volume " << volid;
+
+        if (srcCandidates.size() == 0)
+        {
+            LOGERROR << "MUST BE AT LEAST ONE DM CANDIDATE TO A SOURCE."
+                     << " OTHERWISE, DMT CALCULATION ALGORITHM NEEDS CHECKING!";
+            continue;
+            // fds_verify(srcCandidates.size() > 0);
+        }
 
         for (NodeUuidSet::const_iterator cit = new_dms.cbegin();
              cit != new_dms.cend();
@@ -441,12 +452,17 @@ VolumePlacement::beginRebalance(const ClusterMap* cmap,
     // Send pull messages to the new DMs
     for (pull_msgs::iterator pmiter = pull_msg.begin();
     		pmiter != pull_msg.end(); pmiter++) {
+        if (pmiter->second.migrations.size() == 0) {
+            /* Nothing to migrate */
+            continue;
+        }
     	OM_DmAgent::pointer agent = loc_domain->om_dm_agent(NodeUuid(pmiter->first));
     	fds_verify(agent != nullptr);
 
     	// Making a copy because boost pointer will try to take ownership of the map value.
     	fpi::CtrlNotifyDMStartMigrationMsgPtr message(new fpi::CtrlNotifyDMStartMigrationMsg(pmiter->second));
     	NodeUuid node (pmiter->first);
+    	message->DMT_version = dmtMgr->getTargetVersion();
 
     	err = agent->om_send_pullmeta(message);
     	if (err.ok()) {
@@ -497,24 +513,57 @@ void VolumePlacement::commitDMT( const bool unsetTarget )
     }
 }
 
-void
+fds_bool_t
 VolumePlacement::undoTargetDmtCommit() {
+    fds_bool_t rollBackNeeded = false;
     if (dmtMgr->hasTargetDMT()) {
         if (!hasNonCommitedTarget()) {
-            // we already assigned committed DMT target, revert
-            Error err = dmtMgr->commitDMT(prevDmtVersion);
+            LOGDEBUG << "Failure occured after commit - reverting committed DMT version to " << prevDmtVersion;
+            // we already assigned committed DMT target, revert.
+            // Note: the false here is to ensure that "target_version" is not wiped... so the unsetTarget below will work.
+            Error err = dmtMgr->commitDMT(prevDmtVersion, false);
             fds_verify(err.ok());
             prevDmtVersion = DMT_VER_INVALID;
-        }
 
-        // forget about target DMT and remove it from DMT manager
-        dmtMgr->unsetTarget(true);
+            LOGDEBUG << "Clearing target DMT";
 
-        // also forget target DMT in persistent store
-        if (!configDB->setDmtType(0, "target")) {
-            LOGWARN << "unable to store target dmt type to config db";
+            // forget about target DMT and remove it from DMT manager
+            dmtMgr->unsetTarget(true);
+
+            // also forget target DMT in persistent store
+            if (!configDB->setDmtType(0, "target")) {
+                LOGWARN << "unable to store target dmt type to config db";
+            }
+            rollBackNeeded = true;
+        } else {
+
+            LOGNOTIFY << "Clearing target DMT";
+
+            // Remove it from DMT manager
+            // Unless we remove the version from the DMT map,
+            // on the next DMT computation, on doing an addDMT,
+            // could return with an ERR_DUPLICATE
+            dmtMgr->unsetTarget(true);
+
+            // clear out the targetDmt in the persistent store as well
+            if (!configDB->setDmtType(0, "target")) {
+                LOGWARN << "unable to store target dmt type to config db";
+            }
         }
     }
+    return rollBackNeeded;
+}
+
+void
+VolumePlacement::clearTargetDmt()
+{
+    LOGDEBUG << "Clearing out target DMT in configDB & dmtMgr";
+    if (!configDB->setDmtType(0, "target")) {
+        LOGWARN << "unable to store target dmt type to config db";
+    }
+
+    dmtMgr->unsetTarget(false);
+
 }
 
 /**
@@ -620,16 +669,16 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
             err = Error(ERR_PERSIST_STATE_MISMATCH);
         } else {
             // check if DMT is valid with respect to nodes
-            // i.e. only contains node uuis that are in nodes' set
-            // does not contain any zeroes, etc.
-            std::set<fds_uint64_t> uniqueNodes;
-            dmt->getUniqueNodes(&uniqueNodes);
-            for (auto dm_uuid : deployed_dm_services) {
-                fds_verify(uniqueNodes.count(dm_uuid.uuid_get_val()) == 1);
+            // i.e. only contains node uuids that are in deployed_dm_services
+            // set and does not contain any zeroes, etc.
+            err = dmt->verify(deployed_dm_services);
+            if (err.ok()) {
+                LOGNOTIFY << "Current DMT in config DB is valid!";
+                // we will set dmt because we don't know yet if
+                // the nodes in DMT will actually come up...
+                dmtMgr->add(dmt, DMT_TARGET);
+                LOGNOTIFY << "Loaded DMT version: " << committedVersion << ".  Setting as target";
             }
-            // we will set as target and distribute this dmt around
-            dmtMgr->add(dmt, DMT_TARGET);
-            LOGNOTIFY << "Loaded DMT version: " << committedVersion << ".  Setting as target";
         }
 
         if (!err.ok()) {
@@ -647,7 +696,6 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
         LOGWARN << "No current DMT even though we persisted "
                 << dm_services.size() << " DMs, "
                 << deployed_dm_services.size() << " deployed DMs";
-        fds_verify(!"No persisted dmt");
         return Error(ERR_PERSIST_STATE_MISMATCH);
     }
 
@@ -659,12 +707,14 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
     // but this is an optimization, may do later
     fds_uint64_t targetVersion = configDB->getDmtVersionForType("target");
     if (targetVersion > 0 && targetVersion != committedVersion) {
-        LOGNOTIFY << "OM went down in the middle of migration. Will thow away "
+        LOGNOTIFY << "OM went down in the middle of migration. Will throw away "
                   << "persisted  target DMT and re-compute it again if discovered "
-                  << "SMs re-register";
+                  << "DMs re-register";
         if (!configDB->setDmtType(0, "next")) {
             LOGWARN << "unable to reset target DMT version to config db ";
         }
+
+        DltDmtUtil::getInstance()->setDMAbortParams(true, targetVersion);
     } else {
         if (0 == targetVersion) {
             LOGDEBUG << "There is only commited DMT in configDB (OK)";
@@ -677,4 +727,15 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
     return err;
 }
 
+fds_bool_t VolumePlacement::canRetryMigration() {
+    fds_bool_t ret = false;
+
+    // For now, we maximize at 4. Perhaps to be made into a configurable var
+    // next time?
+    if (numOfFailures < 4) {
+        ret = true;
+    }
+
+    return ret;
+}
 }  // namespace fds

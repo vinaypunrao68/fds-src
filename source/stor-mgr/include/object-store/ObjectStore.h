@@ -14,15 +14,19 @@
 #include <object-store/ObjectStoreCommon.h>
 #include <object-store/ObjectDataStore.h>
 #include <object-store/ObjectMetadataStore.h>
+#include <object-store/LiveObjectsDB.h>
 #include <persistent-layer/dm_io.h>
 #include <utility>
 #include <SMCheckCtrl.h>
 #include <util/EventTracker.h>
+#include <util/bloomfilter.h>
+#include <util/always_call.h>
 
 namespace fds {
 
 typedef std::function <void(fds_bool_t, fds_bool_t)> StartResyncFnObj;
 typedef std::function <void(SmTokenSet&)> TokenOfflineFnObj;
+typedef std::function <nullary_always(ObjectID const&, bool)> TokenLockFn;
 
 typedef std::set<std::pair<fds_token_id, fds_uint16_t>> TokenDiskIdPairSet;
 
@@ -48,8 +52,14 @@ class ObjectStore : public Module, public boost::noncopyable {
     /// Tiering engine
     TierEngine::unique_ptr tierEngine;
 
-    /// SM Checker
+    /// Capacity tracking for READ ONLY mode
+    // Map of diskID -> capacity to track capacity usage
+    std::unordered_map<fds_uint16_t, DiskUtils::AtomicCapacityPair> capacityMap;
+
+  /// SM Checker
     SMCheckControl::unique_ptr SMCheckCtrl;
+
+    TokenLockFn tokenLockFn = { TokenLockFn() };
 
     enum ObjectStoreState {
         /**
@@ -66,13 +76,30 @@ class ObjectStore : public Module, public boost::noncopyable {
          * of token migration
          */
         OBJECT_STORE_READY       = 1,
-        /**
-         * Something bad happend (e.g., minimal data integrity check failed)
-         * so the object store is currently un-usable
-         */
+
+      /**
+       * Something bad happend (e.g., minimal data integrity check failed)
+       * so the object store is currently un-usable
+       */
         OBJECT_STORE_UNAVAILABLE = 2,
-        OBJECT_STORE_STATE_MAX
+
+      /**
+       * The object store is in a READ ONLY state. This is useful when the
+       * disks on a node have become full but otherwise nothing bad has happened.
+       */
+        OBJECT_STORE_READ_ONLY   = 3,
+
+      OBJECT_STORE_STATE_MAX
     };
+
+    /// Will the next PUT succeed?
+    fds_bool_t willPutSucceed(fds_uint16_t diskId, fds_uint64_t writeSize);
+
+    /// Trigger read only mode if the PUT will fail
+    fds_errno_t triggerReadOnlyIfPutWillfail(StorMgrVolume *vol,
+                                             const ObjectID &objId,
+                                             boost::shared_ptr<const std::string> objData,
+                                             diskio::DataTier &useTier);
 
     /// Current state of the object store
     std::atomic<ObjectStoreState> currentState;
@@ -88,6 +115,9 @@ class ObjectStore : public Module, public boost::noncopyable {
     /// Callback to request Migration Manager(via Object Store Mgr)
     /// to make given sm tokens offline.
     TokenOfflineFnObj changeTokensStateFn;
+
+    /// tokens that require cleanup of their meta dbs and token files.
+    SmTokenSet movedTokens;
 
     /// config params
     fds_bool_t conf_verify_data;
@@ -108,6 +138,9 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     void initObjectStoreMediaErrorHandlers();
 
+    // cleanup old meta dbs and token files for tokens moved to a new disk/node.
+    void movedTokensFileCleanup(SmTokenSet tokenSet=SmTokenSet());
+
     /// returns ERR_OK if Object Store is available for IO
     Error checkAvailability() const;
 
@@ -124,6 +157,7 @@ class ObjectStore : public Module, public boost::noncopyable {
     ~ObjectStore();
     typedef std::unique_ptr<ObjectStore> unique_ptr;
     typedef std::shared_ptr<ObjectStore> ptr;
+    LiveObjectsDB::unique_ptr liveObjectsTable;
 
     /**
      * Returns the highest percentage of used capacity among all disks in non-all-SSD config.
@@ -158,6 +192,15 @@ class ObjectStore : public Module, public boost::noncopyable {
      */
     Error handleDltClose(const DLT* dlt);
 
+    SmTokenSet getSmTokens();
+
+    /**
+     * Does SM want to resync tokens or not.
+     */
+    fds_bool_t doResync() const;
+    void setResync();
+    void resetResync();
+
     /**
      * Adds a new volume to the object store. Some physical
      * resources are allocated, but new volume creation is
@@ -177,7 +220,8 @@ class ObjectStore : public Module, public boost::noncopyable {
     Error putObject(fds_volid_t volId,
                     const ObjectID &objId,
                     boost::shared_ptr<const std::string> objData,
-                    fds_bool_t forwardedIO);
+                    fds_bool_t forwardedIO,
+                    diskio::DataTier &useTier);
 
     /**
      * Gets an specific object for a volume. The object's data
@@ -191,9 +235,9 @@ class ObjectStore : public Module, public boost::noncopyable {
                                                    diskio::DataTier& usedTier,
                                                    Error& err);
     boost::shared_ptr<const std::string> getObjectData(fds_volid_t volId,
-                                                   const ObjectID &objId,
-                                                   ObjMetaData::const_ptr objMetaData,
-                                                   Error& err);
+                                                       const ObjectID &objId,
+                                                       ObjMetaData::const_ptr objMetaData,
+                                                       Error& err);
 
     /**
      * Deletes a specific object. The object is marked as deleted,
@@ -285,9 +329,14 @@ class ObjectStore : public Module, public boost::noncopyable {
     /**
      * Handle disk change.
      */
-    void handleDiskChanges(const DiskId& dId,
+    void handleDiskChanges(const bool &added,
+                           const DiskId& dId,
                            const diskio::DataTier& diskType,
                            const TokenDiskIdPairSet& tokenDiskPairs);
+
+    bool duplicateDiskMap();
+
+    void handleNewDiskMap();
 
     /**
      * Handle detection of online disk failure.
@@ -310,10 +359,45 @@ class ObjectStore : public Module, public boost::noncopyable {
         return (currentState.load() == OBJECT_STORE_READY);
     }
     /**
+     * Check if object store is in READ_ONLY mode or not
+     */
+    inline fds_bool_t isReadOnly() const {
+        return (currentState.load() == OBJECT_STORE_READ_ONLY);
+  }
+    /**
      * Returns false if object store initialization failed and it is unavailable
      */
     inline fds_bool_t isUnavailable() const {
         return (currentState.load() == OBJECT_STORE_UNAVAILABLE);
+    }
+
+    bool haveAllObjectSets(util::TimeStamp after = 0) const;
+
+    void evaluateObjectSets(const fds_token_id& smToken,
+                            const diskio::DataTier& tier,
+                            diskio::TokenStat &tokStats);
+
+    void addObjectSet(const fds_token_id &smToken,
+                      const fds_volid_t &volId,
+                      const util::TimeStamp &ts,
+                      const std::string &objectSetFilePath);
+
+    void cleansertObjectSet(const fds_token_id &smToken,
+                            const fds_volid_t &volId,
+                            const util::TimeStamp &ts,
+                            const std::string &objectSetFilePath);
+
+    void removeObjectSet(const fds_token_id &smToken,
+                         const fds_volid_t &volId);
+
+    void removeObjectSet(const fds_token_id &smToken);
+
+    void removeObjectSet(const fds_volid_t &volId);
+
+    void dropLiveObjectDB();
+
+    inline void setObjectDelCnt(fds_uint32_t newCount) {
+        fds::objDelCountThresh = newCount;
     }
 
     // control methods
@@ -327,6 +411,16 @@ class ObjectStore : public Module, public boost::noncopyable {
      * Sets this ObjectStore to the UNAVAILABLE state
      */
     void setUnavailable();
+
+    /**
+     * Set this ObjectStore to the READ_ONLY state
+     */
+    void setReadOnly();
+
+    /**
+     * Sets this ObjectStore to the AVAILABLE state (if we were READ ONLY and the capacity issues have been fixed)
+     */
+    void setAvailable();
 
     // FDS module control functions
     int  mod_init(SysParams const *const param);

@@ -43,7 +43,7 @@ typedef std::function<void (fds_bool_t, fds_bool_t)> ResyncDoneOrPendingCb;
  *    6) When set of migration executors responsible for current SM token finish
  *       migration, SmTokenMigration picks another SM token and repeats steps 2-5
  */
-class MigrationMgr {
+class MigrationMgr : StateProvider{
   public:
     explicit MigrationMgr(SmIoReqHandler *dataStore);
     ~MigrationMgr();
@@ -80,6 +80,13 @@ class MigrationMgr {
         MigrationState curState = atomic_load(&migrState);
         return (curState == MIGR_IDLE);
     }
+
+    inline fds_bool_t isResync() const {
+        return resyncOnRestart;
+    }
+
+    std::string getStateProviderId() override;
+    std::string getStateInfo() override;
 
     /**
      * Handles start migration message from OM.
@@ -251,9 +258,9 @@ class MigrationMgr {
      * to resync or get data from other SMs).
      * This method must be called only when this SM is a part of DLT
      */
-    void notifyDltUpdate(const fds::DLT *dlt,
-                         fds_uint32_t bitsPerDltToken,
-                         const NodeUuid& mySvcUuid);
+    void makeTokensAvailable(const fds::DLT *dlt,
+                             fds_uint32_t bitsPerDltToken,
+                             const NodeUuid& mySvcUuid);
 
     /**
      * Coalesce all migration executor.
@@ -321,6 +328,8 @@ class MigrationMgr {
      * retry migration set.
      */
     void dltTokenMigrationFailedCb(fds_token_id &smToken);
+
+    void checkAndRetryMigration();
 
     void retryTokenMigrForFailedDltTokens();
 
@@ -498,6 +507,8 @@ class MigrationMgr {
 
     boost::shared_ptr<FdsTimerTask> retryTokenMigrationTask;
 
+    fds_bool_t retryMigrSameSrcInProg {false};
+
     /**
      * pointer to SmIoReqHandler so we can queue work to QoS queues
      * passed in constructor, does not own
@@ -590,6 +601,9 @@ class MigrationMgr {
      * in case of an election of new source SMs.
      */
      std::atomic<fds_uint32_t>  uniqRestartId;
+
+     /* Debug states for state provider */
+     std::string stateProviderId;
 };
 
 typedef MigrationMgr::MigrationType SMMigrType;

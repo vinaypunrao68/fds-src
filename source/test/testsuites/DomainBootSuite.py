@@ -44,12 +44,13 @@ def suiteConstruction(self, action="installbootactivate"):
     # just boot Redis but don't mess with it's state.
     if action.count("install") > 0:
         # Build the necessary FDS infrastructure.
-        if fdscfg.rt_obj.cfg_remote_fds_deploy is not True:
+        if fdscfg.rt_obj.cfg_remote_nodes is not True:
             suite.addTest(testcases.TestFDSEnvMgt.TestFDSInstall())
         suite.addTest(testcases.TestFDSEnvMgt.TestRestartRedisClean())
         suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
         suite.addTest(testcases.TestFDSEnvMgt.TestRestartInfluxDBClean())
         suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBUp())
+        suite.addTest(testcases.TestFDSEnvMgt.TestVerifySCSTUpIfEnabled())
 
     if action.count("boot_noverify") > 0:
         if action.count("install") == 0 and fdscfg.rt_obj.cfg_is_fds_installed is not True:
@@ -57,6 +58,7 @@ def suiteConstruction(self, action="installbootactivate"):
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
             suite.addTest(testcases.TestFDSEnvMgt.TestBootInfluxDB())
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBUp())
+            suite.addTest(testcases.TestFDSEnvMgt.TestVerifySCSTUpIfEnabled())
 
         # Start the the OM's PM.
         suite.addTest(testcases.TestFDSServiceMgt.TestPMForOMBringUp())
@@ -75,6 +77,7 @@ def suiteConstruction(self, action="installbootactivate"):
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisUp())
             suite.addTest(testcases.TestFDSEnvMgt.TestBootInfluxDB())
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBUp())
+            suite.addTest(testcases.TestFDSEnvMgt.TestVerifySCSTUpIfEnabled())
 
         # Start the the OM's PM.
         suite.addTest(testcases.TestFDSServiceMgt.TestPMForOMBringUp())
@@ -123,7 +126,7 @@ def suiteConstruction(self, action="installbootactivate"):
 if __name__ == '__main__':
 	
     # Handle FDS specific commandline arguments.
-    log_dir, failfast = testcases.TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
+    log_dir, failfast, install, reusecluster, pyUnitConfig = testcases.TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
 
     # If a test log directory was not supplied on the command line (with option "-l"),
     # then default it.

@@ -27,33 +27,33 @@ import java.util.Map;
 /**
  * @author ptinius
  */
-public class QueryMetrics
-  implements RequestHandler {
-  private static final Logger logger =
-    LoggerFactory.getLogger( QueryMetrics.class );
+public class QueryMetrics implements RequestHandler {
+    private static final Logger logger =
+            LoggerFactory.getLogger( QueryMetrics.class );
 
-  private static final Type TYPE = new TypeToken<MetricQueryCriteria>() { }.getType();
-  private final AuthenticationToken token;
-  private final Authorizer authorizer;
-  
-  public QueryMetrics( final Authorizer authorizer, AuthenticationToken token ) {
-    super();
-    
-    this.token = token;
-    this.authorizer = authorizer;
-  }
+    private static final Type TYPE = new TypeToken<MetricQueryCriteria>() { }.getType();
+    private final AuthenticationToken token;
+    private final Authorizer authorizer;
 
-  @Override
-  public Resource handle( Request request, Map<String, String> routeParameters )
-    throws Exception {
+    public QueryMetrics( final Authorizer authorizer, AuthenticationToken token ) {
+        super();
 
-    try( final Reader reader =
-           new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
-
-      final Statistics stats = new QueryHelper().execute(
-        ObjectModelHelper.toObject( reader, TYPE ), authorizer, token );
-
-      return new JsonResource( new JSONObject( stats ) );
+        this.token = token;
+        this.authorizer = authorizer;
     }
-  }
+
+    @Override
+    public Resource handle( Request request, Map<String, String> routeParameters )
+            throws Exception {
+
+        try( final Reader reader = new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
+
+            final Statistics stats = QueryHelper.instance()
+                                                .execute( ObjectModelHelper.toObject( reader,
+                                                                                      TYPE ),
+                                                          authorizer, token );
+
+            return new JsonResource( new JSONObject( stats ) );
+        }
+    }
 }

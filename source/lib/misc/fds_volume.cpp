@@ -5,6 +5,7 @@
 #include <string>
 #include <queue>
 #include <fds_typedefs.h>
+#include <net/volumegroup_extensions.h>
 
 namespace fds {
 
@@ -24,7 +25,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& volinfo,
     iops_throttle = 0;
     relativePrio = 0;
     if (volUUID == invalid_vol_id) {
-        GLOGWARN << "volume id is invalid";
+        GLOGTRACE << "volume id is invalid";
     }
     fSnapshot = volinfo.fSnapshot;
     srcVolumeId = volinfo.srcVolumeId;
@@ -32,6 +33,11 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& volinfo,
     timelineTime = volinfo.timelineTime;
     createTime   = volinfo.createTime;
     state   = volinfo.state;
+
+    iscsiSettings = volinfo.iscsi;
+    nfsSettings = volinfo.nfs;
+    
+    coordinator = volinfo.coordinator;
 }
 
 VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
@@ -54,11 +60,16 @@ VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
     contCommitlogRetention = vdesc.contCommitlogRetention;
     timelineTime = vdesc.timelineTime;
     if (volUUID == invalid_vol_id) {
-        GLOGWARN << "volume id is invalid";
+        GLOGTRACE << "volume id is invalid";
     }
+
+    iscsiSettings = vdesc.iscsiSettings;
+    nfsSettings = vdesc.nfsSettings;
+
+    coordinator = vdesc.coordinator;
 }
 
-// NOTE: counterpart of outputting to FDSP : VolumeInfo::vol_populate_fdsp_descriptor
+// NOTE: counterpart of outputting toFdspDesc
 VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     name = voldesc.vol_name;
     tennantId = voldesc.tennantId;
@@ -80,8 +91,13 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& voldesc) {
     timelineTime = voldesc.timelineTime;
     createTime  = voldesc.createTime;
     if (volUUID == invalid_vol_id) {
-        GLOGWARN << "volume id is invalid";
+        GLOGTRACE << "volume id is invalid";
     }
+
+    iscsiSettings = voldesc.iscsi;
+    nfsSettings = voldesc.nfs;
+
+    coordinator = voldesc.coordinator;
 }
 
 /*
@@ -91,7 +107,7 @@ VolumeDesc::VolumeDesc(const std::string& _name, fds_volid_t _uuid)
         : name(_name),
           volUUID(_uuid) {
     if (_uuid == invalid_vol_id) {
-        GLOGWARN << "volume id is invalid";
+        GLOGTRACE << "volume id is invalid";
     }
 
     tennantId = 0;
@@ -110,8 +126,12 @@ VolumeDesc::VolumeDesc(const std::string& _name, fds_volid_t _uuid)
     contCommitlogRetention = 0;
     timelineTime = 0;
     if (volUUID == invalid_vol_id) {
-        GLOGWARN << "volume id is invalid";
+        GLOGTRACE << "volume id is invalid";
     }
+
+    iscsiSettings = {};
+    nfsSettings = {};
+    coordinator = {};
 }
 
 VolumeDesc::VolumeDesc(const std::string& _name,
@@ -125,7 +145,7 @@ VolumeDesc::VolumeDesc(const std::string& _name,
           iops_throttle(_iops_throttle),
           relativePrio(_priority) {
     if (volUUID == invalid_vol_id) {
-        GLOGWARN << "volume id is invalid";
+        GLOGTRACE << "volume id is invalid";
     }
 
     tennantId = 0;
@@ -141,6 +161,9 @@ VolumeDesc::VolumeDesc(const std::string& _name,
     contCommitlogRetention = 0;
     timelineTime = 0;
     createTime = 0;
+    iscsiSettings = {};
+    nfsSettings = {};
+    coordinator = {};
 }
 
 VolumeDesc::~VolumeDesc() {
@@ -176,9 +199,36 @@ int VolumeDesc::getPriority() const {
 }
 
 std::string VolumeDesc::ToString() {
-    return (std::string("Vol<") + getName() +
-            std::string(":") + std::to_string(GetID().get()) +
-            std::string(">"));
+    std::stringstream sstream;
+
+    sstream << "Volume [ " << getName() << " ] UUID [ " << GetID().get() << " ]";
+    return sstream.str();
+}
+
+void VolumeDesc::toFdspDesc(FDS_ProtocolInterface::FDSP_VolumeDescType& voldesc) {
+    voldesc.vol_name = name;
+    voldesc.tennantId = tennantId;
+    voldesc.localDomainId = localDomainId;
+    voldesc.volUUID = volUUID.v;
+    voldesc.volType = volType;
+    voldesc.maxObjSizeInBytes = maxObjSizeInBytes;
+    voldesc.capacity = capacity;
+    voldesc.volPolicyId = volPolicyId;
+    voldesc.placementPolicy = placementPolicy;
+    voldesc.mediaPolicy = mediaPolicy;
+    voldesc.iops_assured = iops_assured;
+    voldesc.iops_throttle = iops_throttle;
+    voldesc.rel_prio = relativePrio;
+    voldesc.fSnapshot = fSnapshot;
+    voldesc.state = state;
+    voldesc.contCommitlogRetention = contCommitlogRetention;
+    voldesc.srcVolumeId = srcVolumeId.v;
+    voldesc.timelineTime = timelineTime;
+    voldesc.createTime = createTime;
+    voldesc.state = state;
+    voldesc.iscsi = iscsiSettings;
+    voldesc.nfs = nfsSettings;
+    voldesc.coordinator = coordinator;
 }
 
 bool VolumeDesc::operator==(const VolumeDesc &rhs) const {
@@ -190,22 +240,29 @@ bool VolumeDesc::operator!=(const VolumeDesc &rhs) const {
 }
 
 VolumeDesc& VolumeDesc::operator=(const VolumeDesc& volinfo) {
-    this->name = volinfo.name;
-    this->tennantId = volinfo.tennantId;
-    this->localDomainId = volinfo.localDomainId;
-    this->volUUID = volinfo.volUUID;
-    this->volType = volinfo.volType;
-    this->maxObjSizeInBytes = volinfo.maxObjSizeInBytes;
-    this->capacity = volinfo.capacity;
-
-    this->volPolicyId = volinfo.volPolicyId;
-    this->placementPolicy = volinfo.placementPolicy;
-    this->mediaPolicy = volinfo.mediaPolicy;
-    this->fSnapshot = volinfo.fSnapshot;
-    this->srcVolumeId = volinfo.srcVolumeId;
-    this->contCommitlogRetention = volinfo.contCommitlogRetention;
-    this->timelineTime = volinfo.timelineTime;
-    this->createTime = volinfo.createTime;
+    if (this != &volinfo) {
+        this->name = volinfo.name;
+        this->tennantId = volinfo.tennantId;
+        this->localDomainId = volinfo.localDomainId;
+        this->volUUID = volinfo.volUUID;
+        this->volType = volinfo.volType;
+        this->maxObjSizeInBytes = volinfo.maxObjSizeInBytes;
+        this->capacity = volinfo.capacity;
+        this->volPolicyId = volinfo.volPolicyId;
+        this->placementPolicy = volinfo.placementPolicy;
+        this->mediaPolicy = volinfo.mediaPolicy;
+        this->iops_assured = volinfo.iops_assured;
+        this->iops_throttle = volinfo.iops_throttle;
+        this->relativePrio = volinfo.relativePrio;
+        this->fSnapshot = volinfo.fSnapshot;
+        this->srcVolumeId = volinfo.srcVolumeId;
+        this->contCommitlogRetention = volinfo.contCommitlogRetention;
+        this->timelineTime = volinfo.timelineTime;
+        this->state = volinfo.state;
+        this->iscsiSettings = volinfo.iscsiSettings;
+        this->nfsSettings = volinfo.nfsSettings;
+        this->coordinator = volinfo.coordinator;
+    }
     return *this;
 }
 
@@ -224,32 +281,68 @@ fds_volid_t VolumeDesc::getLookupVolumeId() const {
 }
 
 bool VolumeDesc::isSystemVolume() const {
-    return 0 == name.compare(0,13,"SYSTEM_VOLUME",0,13);
+    return 0 == name.compare(0,7,"SYSTEM_",0,7);
+}
+
+void VolumeDesc::clearCoordinatorInfo() {
+    coordinator.id.svc_uuid = 0;
+    coordinator.version = fds::VolumeGroupConstants::VERSION_INVALID;
 }
 
 std::ostream& operator<<(std::ostream& os, const VolumeDesc& vol) {
-    return os << "["
-              << " uuid:" << vol.volUUID
-              << " name:" << vol.name
-              << " tenant:" << vol.tennantId
-              << " localdomain:" <<vol.localDomainId
-              << " type:" << vol.volType
-              << " max.obj.size.bytes:" << vol.maxObjSizeInBytes
-              << " capacity:" << vol.capacity
-              << " vol.policy.id:" << vol.volPolicyId
-              << " media.policy:" << vol.mediaPolicy
-              << " placement.policy:" << vol.placementPolicy
-              << " iops.assured:" << vol.iops_assured
-              << " iops.throttle:" << vol.iops_throttle
-              << " rel.prio:" << vol.relativePrio
-              << " isSnapshot:" << vol.fSnapshot
-              << " srcVolumeId:" << vol.srcVolumeId
-              << " state:" << vol.getState()
-              << " qosQueueId:" << vol.contCommitlogRetention
-              << " timelineTime:" << vol.timelineTime
-              << " createTime:" << vol.createTime
-              << " statename:" << fpi::_ResourceState_VALUES_TO_NAMES.find(vol.getState())->second
-              << " ]";
+    os << "["
+       << " uuid:" << vol.volUUID
+       << " name:" << vol.name
+       << " tenant:" << vol.tennantId
+       << " localdomain:" <<vol.localDomainId
+       << " type:" << vol.volType
+       << " max.obj.size.bytes:" << vol.maxObjSizeInBytes
+       << " capacity:" << vol.capacity
+       << " vol.policy.id:" << vol.volPolicyId
+       << " media.policy:" << vol.mediaPolicy
+       << " placement.policy:" << vol.placementPolicy
+       << " iops.assured:" << vol.iops_assured
+       << " iops.throttle:" << vol.iops_throttle
+       << " rel.prio:" << vol.relativePrio
+       << " isSnapshot:" << vol.fSnapshot
+       << " srcVolumeId:" << vol.srcVolumeId
+       << " state:" << vol.getState() << " ( " << fpi::_ResourceState_VALUES_TO_NAMES.find(vol.getState())->second << " )"
+       << " contCommitlogRetention:" << vol.contCommitlogRetention
+       << " timelineTime:" << vol.timelineTime
+       << " createTime:" << vol.createTime
+       << " coordinator:" << vol.coordinator;
+
+    if (fpi::FDSP_VOL_ISCSI_TYPE == vol.volType) {
+        os << " luns: { ";
+        for (auto const& lun : vol.iscsiSettings.luns) {
+            os << lun.name << ":" << lun.access << " ";
+        }
+        os << "}";
+
+        os << " incoming users: { ";
+        for (auto const& iuser : vol.iscsiSettings.incomingUsers) {
+            os << iuser.name << ":******* ";
+        }
+        os << "}";
+
+        os << " outgoing users: { ";
+        for (auto const& ouser : vol.iscsiSettings.outgoingUsers) {
+            // don't output password!
+            os << ouser.name << ":******* ";
+        }
+        os << "}";
+
+        os << " initiators: { ";
+        for (auto const& ini : vol.iscsiSettings.initiators) {
+            os << ini.wwn_mask << " ";
+        }
+        os << "}";
+    } else if ( fpi::FDSP_VOL_NFS_TYPE == vol.volType ) {
+        os << " clients: { " << vol.nfsSettings.client << " } ";
+        os << " options: { " << vol.nfsSettings.options << " }";
+    }
+
+    return os << " ]";
 }
 
 /************************************************************************************/
@@ -328,7 +421,9 @@ FDS_VolumeQueue::FDS_VolumeQueue(fds_uint32_t q_capacity,
 }
 
 FDS_VolumeQueue::~FDS_VolumeQueue() {
-    delete volQueue;
+    if (volQueue) {
+        delete volQueue;
+    }
 }
 
 void FDS_VolumeQueue::modifyQosParams(fds_int64_t _iops_assured,

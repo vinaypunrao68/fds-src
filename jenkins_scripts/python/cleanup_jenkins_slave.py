@@ -18,7 +18,9 @@ whitelist = [
         ['su', '-'],
         ['/usr/bin/python', 'jenkins_scripts/python/cleanup_jenkins_slave.py'],
         ['/bin/bash', '-l', 'jenkins_scripts/jenkins_build_test_coroner_cleanup.sh'],
-        ['/bin/bash', '-l', 'jenkins_scripts/jenkins_build_test_coroner_cleanup.sh', 'jenkins_build_aborted']
+        ['/bin/bash', '-l', 'jenkins_scripts/long_system_test.sh'],
+        ['/bin/bash', '-l', 'jenkins_scripts/jenkins_build_test_coroner_cleanup.sh', 'jenkins_build_aborted'],
+        ['/bin/bash', '-l', 'jenkins_scripts/jenkins_build_test_coroner_cleanup.sh', 'jenkins_build_on_master_commit']
 ]
 
 # Be very careful adding stuff here - if you add 'java' you will
@@ -57,6 +59,9 @@ for proc in psutil.process_iter():
         print "OK: {} {} {}".format(proc.name(), proc.pid, cmd)
     elif proc.name() in global_whitelist:
         print "OK: {} {} {}".format(proc.name(), proc.pid, cmd)
+    # aws_long_system_test runs with parameter as list of tests which can be changed for every run so ignore this case
+    elif proc.name().startswith('aws_long_system'):
+        print "OK: {}".format(proc.name(), proc.pid, cmd)
     else:
         print "KILL: {} {} {}".format(proc.name(), proc.pid, cmd)
         killed.append(cmd)

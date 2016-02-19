@@ -12,11 +12,13 @@ namespace fds {
 
 ObjectDataStore::ObjectDataStore(const std::string &modName,
                                  SmIoReqHandler *data_store,
-                                 UpdateMediaTrackerFnObj fn)
+                                 UpdateMediaTrackerFnObj fn,
+                                 EvaluateObjSetFn evalFn)
         : Module(modName.c_str()),
           persistData(new ObjectPersistData("SM Obj Persist Data Store",
                                             data_store,
-                                            std::move(fn))),
+                                            std::move(fn),
+                                            std::move(evalFn))),
           currentState(DATA_STORE_INITING)
 {
     dataCache = ObjectDataCache::unique_ptr(new ObjectDataCache("SM Object Data Cache"));
@@ -117,7 +119,7 @@ boost::shared_ptr<const std::string>
 ObjectDataStore::getObjectData(fds_volid_t volId,
                                const ObjectID &objId,
                                ObjMetaData::const_ptr objMetaData,
-                               Error &err) {
+                               Error &err, diskio::DataTier *usedTier) {
     // Check the cache for the object
     boost::shared_ptr<const std::string> objCachedData
             = dataCache->getObjectData(volId, objId, err);
@@ -154,6 +156,7 @@ ObjectDataStore::getObjectData(fds_volid_t volId,
                              volId);
         SCOPED_PERF_TRACEPOINT_CTX(tmp_pctx);
         err = persistData->readObjectData(objId, plReq);
+        if (usedTier) { *usedTier = tier; }
     }
     if (err.ok()) {
         LOGDEBUG << "Got " << objId << " from persistent layer "

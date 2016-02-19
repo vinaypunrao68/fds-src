@@ -82,9 +82,10 @@ struct DMTester :  SvcProcess {
         dataMgr->features.setQosEnabled(false);
         dataMgr->features.setTestModeEnabled(true);
         dataMgr->features.setCatSyncEnabled(false);
-        dataMgr->features.setTimelineEnabled(false);
+        dataMgr->features.setTimelineEnabled(true);
 
         dataMgr->initHandlers();
+        dataMgr->timelineMgr.reset(new timeline::TimelineManager(dataMgr));
         dataMgr->mod_enable_service();
     }
 
@@ -101,6 +102,7 @@ struct DMTester :  SvcProcess {
                   << ":" << volumes[num]->name
                   << ":" << dataMgr->getPrefix()
                   << std::endl;
+        volumes[num].get()->contCommitlogRetention=120;
         return dataMgr->addVolume(dataMgr->getPrefix() +
                                   std::to_string(volumes[num]->volUUID.get()),
                                   volumes[num]->volUUID, volumes[num].get());

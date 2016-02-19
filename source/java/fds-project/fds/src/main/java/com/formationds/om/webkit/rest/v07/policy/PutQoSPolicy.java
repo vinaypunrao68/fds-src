@@ -5,7 +5,7 @@
 package com.formationds.om.webkit.rest.v07.policy;
 
 import com.formationds.apis.ConfigurationService;
-import com.formationds.protocol.FDSP_PolicyInfoType;
+import com.formationds.protocol.svc.types.FDSP_PolicyInfoType;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;

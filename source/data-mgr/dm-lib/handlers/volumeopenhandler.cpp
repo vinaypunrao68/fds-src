@@ -30,8 +30,14 @@ void VolumeOpenHandler::handleRequest(
     // Handle U-turn
     HANDLE_U_TURN();
 
+    Error err;
     fds_volid_t volId(message->volume_id);
-    auto err = dataManager.validateVolumeIsActive(volId);
+
+    if (dataManager.features.isVolumegroupingEnabled()) {
+        err = dataManager.validateVolumeExists(volId);
+    } else {
+        err = dataManager.validateVolumeIsActive(volId);
+    }
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
@@ -51,11 +57,25 @@ void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
     LOGDEBUG << "Attempting to open volume: '"
              << std::hex << request->volId << std::dec << "'";
 
+    auto volMeta = dataManager.getVolumeMeta(request->volId);
+    if (dataManager.features.isVolumegroupingEnabled()) {
+        if (volMeta->isInitializerInProgress()) {
+            LOGWARN << volMeta->logString() << " Failed to open.  Sync is in progress";
+            helper.err = ERR_SYNC_INPROGRESS;
+            return;
+        }
+        volMeta->setCoordinatorId(request->client_uuid_);
+        volMeta->setState(fpi::Loading,
+                          util::strformat(" - openvolume from coordinator: %ld",
+                                          volMeta->getCoordinatorId().svc_uuid));
+    }
+
     helper.err = dataManager.timeVolCat_->openVolume(request->volId,
                                                      request->client_uuid_,
                                                      request->token,
                                                      request->access_mode,
-                                                     request->sequence_id);
+                                                     request->sequence_id,
+                                                     request->version);
 
     if (helper.err.ok()) {
         LOGDEBUG << "on opening vol: " << request->volId
@@ -67,16 +87,22 @@ void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
 void VolumeOpenHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                               boost::shared_ptr<fpi::OpenVolumeMsg>& message,
                                               Error const& e, DmRequest* dmRequest) {
-    DBG(GLOGDEBUG << logString(*asyncHdr));
     asyncHdr->msg_code = static_cast<int32_t>(e.GetErrno());
+
+    DBG(GLOGDEBUG << logString(*asyncHdr));
+
     auto response = fpi::OpenVolumeRspMsg();
     if (dmRequest) {
         DmIoVolumeOpen * request = static_cast<DmIoVolumeOpen *>(dmRequest);
         response.token = request->token;
         response.sequence_id = request->sequence_id;
+        response.replicaVersion = request->version;
     }
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::OpenVolumeRspMsg), response);
-    delete dmRequest;
+    if (dmRequest) {
+        delete dmRequest;
+        dmRequest = nullptr;
+    }
 }
 
 }  // namespace dm

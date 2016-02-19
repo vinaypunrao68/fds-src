@@ -91,15 +91,32 @@
         - libboost-timer1.54-dev
         - libboost-thread1.54-dev
         - libboost-regex1.54-dev
+        - libboost-chrono1.54-dev
         - libboost1.54
         - libboost-log1.54
         - libboost-program-options1.54
         - libboost-timer1.54
         - libboost-thread1.54
         - libboost-regex1.54
+        - libboost-chrono1.54
 
     - name: install latest fds-deps package
       apt: name=fds-deps force=yes state=latest update_cache=yes cache_valid_time=600
+
+    - name: install latest fds-stats-deps package
+      apt: name=fds-stats-deps force=yes state=latest update_cache=yes cache_valid_time=600
+   
+    - name: install latest fds-stats-service package
+      apt: name=fds-stats-service-2.0.0 force=yes state=latest update_cache=yes cache_valid_time=600
+
+    - name: install latest rabbitmq-c package
+      apt: name=rabbitmq-c-0.7.1 force=yes state=latest update_cache=yes cache_valid_time=600
+
+    - name: install latest simple amqp client package
+      apt: name=simpleamqpclient-0.7.1 force=yes state=latest update_cache=yes cache_valid_time=600
+
+    - name: install latest fds-stats-client-c package
+      apt: name=fds-stats-client-c-2.0.0 force=yes state=latest update_cache=yes cache_valid_time=600
 
     - name: install latest java package
       apt: name=oracle-java8-installer force=yes state=latest update_cache=yes cache_valid_time=600
@@ -159,8 +176,10 @@
         - libboost-program-options1.55-dev
         - libboost-timer1.55-dev
         - libboost-thread1.55-dev
+        - libboost-test1.55-dev
         - libboost-regex1.55-dev
         - libboost-filesystem1.55-dev
+        - libboost-chrono1.55-dev
         - libical-dev
         - libical1
         - libleveldb-dev
@@ -170,6 +189,7 @@
         - libcurl4-openssl-dev
         - npm
         - nodejs-legacy
+        - open-iscsi
         - ruby1.9.1-full
         - ruby-sass
         - python-concurrent.futures
@@ -184,6 +204,8 @@
         - libhiredis0.10
         - libhiredis-dev
         - libsqlite3-dev
+        - sg3-utils
+        - scsitools
         - swig3.0
         - sshpass
         - nbd-client
@@ -219,18 +241,21 @@
         - psutil
         - fstab
         - pyudev
+        - "PyInstaller==3.1"
         - "tabulate==0.7.4"
         - "urllib3==1.10.1"
         - python-iptables
         - retry
+        - humanize
+        - numpy
 
     - name: install fdscli from Artifactory
       pip: name={{item}}
         state=present
         extra_args="--extra-index-url=https://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/pypi/formation-pip/simple"
       with_items:
-        - "fdscli==0.1.10"
-        - "fdsutil==0.3.2"
+        - "fdscli==0.1.19"
+        - "fdsutil==0.3.9"
 
     - name: install perl modules
       cpanm: name={{ item }} mirror=http://cpan.mirror.vexxhost.com notest=true
@@ -283,3 +308,5 @@
         apt: deb=/opt/influxdb_{{ influxdb_version }}_amd64.deb
         register: install
 
+    -   name: set local for error messages
+        command: update-locale LC_MESSAGES=POSIX

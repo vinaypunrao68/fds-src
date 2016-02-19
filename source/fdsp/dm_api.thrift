@@ -6,6 +6,7 @@
 include "common.thrift"
 include "dm_types.thrift"
 include "svc_api.thrift"
+include "svc_types.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.dm
@@ -81,7 +82,8 @@ struct SetVolumeMetadataMsg {
   1: i64                        volumeId;
   2: dm_types.FDSP_MetaDataList metadataList;
   /** Volume update sequencing */
-  3: required i64               sequence_id;
+  3: i64                        opId;
+  4: required i64               sequence_id;
 }
 /**
  * Returns success if metadata was updated.
@@ -96,7 +98,7 @@ struct SetVolumeMetadataMsgRsp {
  * add those structures to this message?
  */
 struct CreateSnapshotMsg {
-    1:common.Snapshot snapshot
+    1:svc_types.Snapshot snapshot
 }
 /**
  * Response contains the ID of the newly created snapshot.
@@ -170,6 +172,8 @@ struct OpenVolumeRspMsg {
   1: required i64                       token;
   /** Volume update sequencing */
   2: required i64                       sequence_id;
+  /* Volume version */
+  3: i32                                replicaVersion;
 }
 
 /**
@@ -203,9 +207,10 @@ struct StartBlobTxMsg {
   3: i64                        blob_version;
   /** TODO(Andrew): The blob_mode should become a Thrift defined enum. */
   4: i32                        blob_mode;
-  5: i64                        txId;
+  5: i64                        opId;
+  6: i64                        txId;
   /** TODO(Andrew): Shouldn't need the DMT version? */
-  6: i64                       dmt_version;
+  7: i64                       dmt_version;
 }
 /**
  * If the transaction was unable to start because the given
@@ -222,10 +227,11 @@ struct CommitBlobTxMsg {
   1: i64                        volume_id;
   2: string                     blob_name;
   3: i64                        blob_version;
-  4: i64                        txId;
-  5: i64                        dmt_version;
+  4: i64                        opId;
+  5: i64                        txId;
+  6: i64                        dmt_version;
   /** Volume update sequencing */
-  6: required i64               sequence_id;
+  7: required i64               sequence_id;
 }
 /**
  * Response contains the logical size of the blob and its
@@ -250,6 +256,7 @@ struct AbortBlobTxMsg {
    2: string                    blob_name;
   /** TODO(Andrew): The blob version isn't used, should be removed. */
    3: i64                       blob_version;
+   4: i64                       opId;
    5: i64                       txId;
 }
 /**
@@ -267,13 +274,14 @@ struct AbortBlobTxRspMsg {
  * when committed.
  */
 struct UpdateCatalogMsg {
-  1: i64                        volume_id;
-  2: string                     blob_name;
+  1: i64                                volume_id;
+  2: string                             blob_name;
   /** TODO(Andrew): The blob version isn't used, should be removed. */
-  3: i64                       blob_version;
-  4: i64                        txId;
+  3: i64                                blob_version;
+  4: i64                                opId;
+  5: i64                                txId;
   /** List of object ids of the objects that this blob is being mapped to */
-  5: dm_types.FDSP_BlobObjectList       obj_list;
+  6: dm_types.FDSP_BlobObjectList       obj_list;
 }
 /**
  * If the transaction did not exist, ERR_DM_INVALID_TX_ID is
@@ -288,18 +296,19 @@ struct UpdateCatalogRspMsg {
  * The object and/or metadata list may be empty.
  */
 struct UpdateCatalogOnceMsg {
-   1: i64                       volume_id;
-   2: string                    blob_name;
+   1: i64                               volume_id;
+   2: string                            blob_name;
   /** TODO(Andrew): The blob version isn't used, should be removed. */
-   3: i64                       blob_version;
-   4: i32                       blob_mode;
-   5: i64                       dmt_version;
-   6: i64                       txId;
+   3: i64                               blob_version;
+   4: i32                               blob_mode;
+   5: i64                               dmt_version;
+   6: i64                               opId;
+   7: i64                               txId;
    /** List of object ids of the objects that this blob is being mapped to */
-   7: dm_types.FDSP_BlobObjectList      obj_list;
-   8: dm_types.FDSP_MetaDataList        meta_list;
+   8: dm_types.FDSP_BlobObjectList      obj_list;
+   9: dm_types.FDSP_MetaDataList        meta_list;
    /** Volume update sequencing */
-   9: required i64                      sequence_id;
+   10: required i64                     sequence_id;
 }
 /**
  * Response contains the logical size of the blob and its
@@ -328,8 +337,9 @@ struct RenameBlobMsg {
   5: i64        source_tx_id;
   /** Transaction for BlobCreate */
   6: i64        destination_tx_id;
+  7: i64        opId;
   /** Volume update sequencing */
-  7: i64        sequence_id;
+  8: i64        sequence_id;
 }
 
 /**
@@ -355,7 +365,8 @@ struct SetBlobMetaDataMsg {
   /** TODO(Andrew): The blob version isn't used, should be removed. */
   3: i64                        blob_version;
   4: dm_types.FDSP_MetaDataList         metaDataList;
-  5: i64                        txId;
+  6: i64                        opId;
+  7: i64                        txId;
 }
 /**
  * If the transaction did not exist, ERR_DM_INVALID_TX_ID is
@@ -371,9 +382,10 @@ struct SetBlobMetaDataRspMsg {
  */
 struct DeleteBlobMsg {
   1: i64                       txId;
-  2: i64                       volume_id;
-  3: string                    blob_name;
-  4: i64                       blob_version;
+  2: i64                       opId;
+  3: i64                       volume_id;
+  4: string                    blob_name;
+  5: i64                       blob_version;
 }
 /**
  * If the transaction did not exist, ERR_DM_INVALID_TX_ID is
@@ -441,7 +453,7 @@ struct StatStreamRegistrationMsg {
    1:i32 id,
    2:string url,
    3:string method
-   4:common.SvcUuid dest,
+   4:svc_types.SvcUuid dest,
    5:list<i64> volumes,
    6:i32 sample_freq_seconds,
    7:i32 duration_seconds,
@@ -523,6 +535,8 @@ struct CtrlNotifyDMStartMigrationMsg {
 struct CtrlNotifyDMStartMigrationRspMsg {
   /* Version of DMT associated with the migration. */
   1: i64                     DMT_version;
+  /* Version of the volume stored in volumeMeta */
+  2: i32                     version;
 }
 
 /**
@@ -530,14 +544,17 @@ struct CtrlNotifyDMStartMigrationRspMsg {
  */
 struct CtrlNotifyDeltaBlobsMsg {
   1: i64                     volume_id;
+  2: i64                     DMT_version;
+  /* Version of the volume stored in volumeMeta */
+  3: i64                     version;
   /* message sequence  id  for tracking the messages
    * between source DM and destination DM
    */
-  2: i64                     msg_seq_id;
-  3: bool                    last_msg_seq_id = false;
+  4: i64                     msg_seq_id;
+  5: bool                    last_msg_seq_id = false;
   /* list of <offset, oid> in give volume
    */
-  4: list<dm_types.DMMigrationObjListDiff> blob_obj_list;
+  6: list<dm_types.DMMigrationObjListDiff> blob_obj_list;
 }
 
 struct CtrlNotifyDeltaBlobsRspMsg {
@@ -558,15 +575,30 @@ struct CtrlNotifyDeltaBlobDescRspMsg {
  */
 struct CtrlNotifyDeltaBlobDescMsg {
   1: i64                     volume_id;
+  2: i64                     DMT_version;
+  /* Version of the volume stored in volumeMeta */
+  3: i64                     version;
   /* message sequence  id  for tracking the messages
    * between source DM and destination DM
    */
-  3: i64                     msg_seq_id;
-  4: bool                    last_msg_seq_id = false;
+  4: i64                     msg_seq_id;
+  5: bool                    last_msg_seq_id = false;
   /* list of <blob, blob descriptor> in give volume
    * empty blob descriptor  for delete operation
    */
-  5: list<dm_types.DMBlobDescListDiff>      blob_desc_list;
+  6: list<dm_types.DMBlobDescListDiff>      blob_desc_list;
+}
+
+/**
+ * Message to end static migration
+ */
+struct CtrlNotifyFinishMigrationMsg {
+  1: i64                     volume_id;
+  2: i32                     status;
+  /* Version of the volume stored in volumeMeta */
+  3: i64                     version;
+  /* For logging purposes */
+  4: svc_types.SvcUuid       srcUuid;
 }
 
 /**
@@ -574,11 +606,31 @@ struct CtrlNotifyDeltaBlobDescMsg {
  */
 struct CtrlNotifyTxStateMsg {
   1: i64                     volume_id;
-  2: list<string>            transactions;
+  2: i64                     migration_id;
+  3: i64                     version;
+  4: i64                     lowest_op_id;
+  5: i64                     highest_op_id;
+  6: list<string>            transactions;
 }
 
 struct CtrlNotifyTxStateRspMsg {
   /* empty message to acknowledge receipt */
+
+}
+
+struct CtrlNotifyRequestTxStateMsg {
+  1: i64                     volume_id;
+  2: i64                     migration_id;
+  3: i64                     version;
+}
+
+struct CtrlNotifyRequestTxStateRspMsg {
+  1: i64                     volume_id;
+  2: i64                     migration_id;
+  3: i64                     version;
+  4: i64                     lowest_op_id;
+  5: i64                     highest_op_id;
+  6: list<string>            transactions;
 }
 
 /* ------------------------------------------------------------
@@ -624,14 +676,15 @@ struct CtrlNotifyDMAbortMigration {
  */
 struct ForwardCatalogMsg {
   1: i64                          volume_id;
-  2: string                       blob_name;
+  2: i64                          DMT_version;
+  3: string                       blob_name;
   /** TODO(Andrew): The blob version isn't used, should be removed. */
-  3: i64                          blob_version;
-  4: dm_types.FDSP_BlobObjectList obj_list;
-  5: dm_types.FDSP_MetaDataList   meta_list;
-  6: i64                          sequence_id;
-  7: bool                         lastForward;
-  8: i64                          txId;
+  4: i64                          blob_version;
+  5: dm_types.FDSP_BlobObjectList obj_list;
+  6: dm_types.FDSP_MetaDataList   meta_list;
+  7: i64                          sequence_id;
+  8: bool                         lastForward;
+  9: i64                          txId;
 }
 /**
  * Forward catalog update response message
@@ -668,13 +721,47 @@ struct ReloadVolumeRspMsg {
  */
 struct CtrlNotifyInitialBlobFilterSetMsg {
   /** the volume in question */
-  1: i64                volumeId;
+  1: i64                volume_id;
+  2: i64                DMT_version;
+  3: i64                version;
   /** map of blobs IDs and sequence number.  Using map to ensure guaranteed
       order, since it uses std::map<>.
       map<blob Name, sequence number> */
-  2: map<string, i64>      blobFilterMap;
+  4: map<string, i64>   blobFilterMap;
 }
 struct CtrlNotifyInitialBlobFilterSetRspMsg {
+}
+
+struct StartRefScanMsg {
+}
+
+struct CtrlNotifyGetActiveTxMsg {
+    1: i64      volume_id;
+    2: i64      DMT_version;
+}
+
+/**
+ * A map of blobTxId -> commitLogTx details
+ */
+struct CtrlNotifyGetActiveTxRspMsg {
+    1: map<i64, dm_types.DMCommitLogTx> activeTxMap;
+}
+
+
+/* ------------------------------------------------------------
+   Debug APIs
+   ------------------------------------------------------------*/
+
+/**
+* Message to force volume initialization sequence
+*/
+struct DbgForceVolumeSyncMsg  {
+    1: i64                      volId;
+}
+
+struct LoadFromArchiveMsg {
+    1: i64                      volId;
+    2: string                   filename;
 }
 
 /* ------------------------------------------------------------
@@ -687,3 +774,4 @@ struct CtrlNotifyInitialBlobFilterSetRspMsg {
  */
 service DMSvc extends svc_api.PlatNetSvc {
 }
+

@@ -8,15 +8,17 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include <fds_process.h>
 #include <object-store/SmSuperblock.h>
+#include <fds_process.h>
 #include <net/SvcProcess.h>
+
+#include <chrono>
+#include <thread>
 
 using ::testing::AtLeast;
 using ::testing::Return;
 
 namespace fds {
-
 
 static const fds_uint32_t sbDefaultHddCount = 3;
 static const fds_uint32_t sbDefaultSsdCount = 0;
@@ -39,8 +41,9 @@ class SmSuperblockTestDriver {
   public:
     SmSuperblockTestDriver(fds_uint32_t hddCount,
                            fds_uint32_t ssdCount);
-    SmSuperblockTestDriver()
-            : SmSuperblockTestDriver(sbDefaultHddCount, sbDefaultSsdCount) {}
+
+    SmSuperblockTestDriver(): SmSuperblockTestDriver(sbDefaultHddCount, sbDefaultSsdCount) {};
+
     ~SmSuperblockTestDriver();
 
     void createDirs() {
@@ -50,6 +53,8 @@ class SmSuperblockTestDriver {
     void deleteDirs();
     void loadSuperblock();
     void syncSuperblock();
+
+    fds_uint64_t createGoodSuperblockDiscrepancy();
 
     void corruptSuperblockChecksum(std::string &path);
     void corruptSuperblockHeader(std::string& path);
@@ -63,6 +68,7 @@ class SmSuperblockTestDriver {
     std::string getDiskPath(uint16_t diskOffset);
 
     SmTokenSet getSmTokens(fds_uint16_t diskId);
+    void printSmTokens(fds_uint16_t diskId);
     bool verifyOLT();
 
     Error setDLTVersion(fds_uint64_t dltVersion, bool syncNow);
@@ -70,7 +76,11 @@ class SmSuperblockTestDriver {
 
     std::string getSmSuperblockFileName() {
         return (sblock->SmSuperblockMgrTestGetFileName());
-    };
+    }
+
+    SmSuperblock * getMasterSuperblock() {
+        return &sblock->superblockMaster;
+    }
 
   private:  // methods
     void readSuperblockToBuffer(std::string& path);
@@ -234,6 +244,32 @@ SmSuperblockTestDriver::writeSuperblockFromBuffer(std::string& path)
     fileBufferSize = 0;
 
 }
+
+fds_uint64_t SmSuperblockTestDriver::createGoodSuperblockDiscrepancy() {
+    // We'll give each disk a unique superblock with a different DLT version as a way of tracking.
+    // We'll return the last written DLT version and then use that later to verify that the last writer was the one
+    // selected as the master during reconcilliation
+
+    fds_uint64_t last_written_dlt = 0;
+    for (fds_uint16_t i = 0; i < hdds.size(); ++i) {
+        LOGDEBUG << "Modifying superblock on disk " << i + 1;
+
+        std::string path = "/tmp/hdd-" + std::to_string(i) + "/" + sblock->superblockName;
+
+        sblock->setDLTVersion(i, false);
+        fds_checksum32_t chksum = sblock->superblockMaster.computeChecksum();
+        sblock->superblockMaster.Header.setSuperblockHeaderChecksum(chksum);
+        sblock->superblockMaster.writeSuperblock(path);
+
+        // Without this all three superblocks end up with the same timestamp :(
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+
+        last_written_dlt = i;
+    }
+    LOGDEBUG << last_written_dlt << " is the last DLT version written";
+    return last_written_dlt;
+}
+
 void
 SmSuperblockTestDriver::corruptByte(off_t begOffset,
                                     off_t lenOffset)
@@ -392,6 +428,11 @@ SmSuperblockTestDriver::getSmTokens(fds_uint16_t diskId) {
     return sblock->superblockMaster.olt.getSmTokens(diskId);
 }
 
+void
+SmSuperblockTestDriver::printSmTokens(fds_uint16_t diskId) {
+    return sblock->superblockMaster.olt.printSmTokens(diskId);
+}
+
 bool
 SmSuperblockTestDriver::verifyOLT()
 {
@@ -544,6 +585,28 @@ TEST(SmSuperblockTestDriver, test4)
     /* Now the superblock should've reconciled, and both file should be same.
      */
     EXPECT_TRUE(test4->compareFiles(filePath1, filePath2));
+
+    delete test4;
+}
+
+/*
+ * Verifies the functionality that reconciles when there are multiple "good" superblocks
+ */
+TEST(SmSuperblockTestDrive, testReconcileGoodBlocks) {
+    LOGNOTIFY << "ReconcileGoodBlocks Test";
+    SmSuperblockTestDriver *testGood = new SmSuperblockTestDriver();
+
+    testGood->deleteDirs();
+    testGood->createDirs();
+    testGood->loadSuperblock();
+
+    fds_uint64_t chk = testGood->createGoodSuperblockDiscrepancy();
+
+    testGood->loadSuperblock();
+
+    EXPECT_TRUE(testGood->getDLTVersion() == chk);
+
+    delete testGood;
 }
 
 /* test 5
@@ -662,11 +725,8 @@ TEST(SmSuperblockTestDriver, test7)
     test7->createDirs(true);
     test7->loadSuperblock();
 
-    // TODO(Sean):  Since we are not currently handling adding a new disk, and
-    //              re-distributing levelDB and token files, no tokens should be
-    //              assigned to disk 4.
     SmTokenSet tmpTokens = test7->getSmTokens(4);
-    EXPECT_EQ(tmpTokens.size(), 0u);
+    EXPECT_GT(tmpTokens.size(), 0);
     test7->deleteDirs();
 }
 
@@ -708,8 +768,6 @@ TEST(SmSuperblockTestDriver, test8)
     EXPECT_EQ(test8_1->getDLTVersion(), test8_2->getDLTVersion());
 
 }
-
-
 }  // fds
 
 int

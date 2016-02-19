@@ -9,20 +9,26 @@
 namespace fds
 {
 
+static auto const max_duration = std::chrono::seconds(3);
+
+BlockTask::BlockTask(uint64_t const hdl) :
+    handle(hdl)
+{
+    bufVec.reserve(objCount);
+    offVec.reserve(objCount);
+}
+
 void
 BlockTask::handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffers,
-                                      fds_uint32_t len) {
-    static boost::shared_ptr<std::string> const empty_buffer =
-        boost::make_shared<std::string>(maxObjectSizeInBytes, '\0');
-    fds_assert(operation == READ);
-
+                              boost::shared_ptr<std::string>& empty_buffer,
+                              uint32_t len) {
     // acquire the buffers
     bufVec.swap(buffers);
 
     // Fill in any missing wholes with zero data, this is a special *block*
     // semantic for NULL objects.
     for (auto& buf: bufVec) {
-        if (!buf) {
+        if (!buf || 0 == buf->size()) {
             buf = empty_buffer;
             len += maxObjectSizeInBytes;
         }
@@ -53,14 +59,12 @@ BlockTask::handleReadResponse(std::vector<boost::shared_ptr<std::string>>& buffe
     }
 }
 
-std::pair<Error, boost::shared_ptr<std::string>>
+std::pair<fpi::ErrorCode, boost::shared_ptr<std::string>>
 BlockTask::handleRMWResponse(boost::shared_ptr<std::string> const& retBuf,
                                  uint32_t len,
-                                 uint32_t seqId,
-                                 const Error& err) {
-    fds_assert(operation == WRITE);
-    if (!err.ok() && (err != ERR_BLOB_OFFSET_INVALID) &&
-                     (err != ERR_BLOB_NOT_FOUND)) {
+                                 sequence_type seqId,
+                                 const fpi::ErrorCode& err) {
+    if (fpi::OK != err && fpi::MISSING_RESOURCE != err) {
         opError = err;
         return std::make_pair(err, boost::shared_ptr<std::string>());
     }
@@ -68,15 +72,15 @@ BlockTask::handleRMWResponse(boost::shared_ptr<std::string> const& retBuf,
     uint32_t iOff = (seqId == 0) ? offset % maxObjectSizeInBytes : 0;
     auto& writeBytes = bufVec[seqId];
     boost::shared_ptr<std::string> fauxBytes;
-    if ((err == ERR_BLOB_OFFSET_INVALID) || (err == ERR_BLOB_NOT_FOUND) ||
-        0 == len || !retBuf) {
+    if ((fpi::MISSING_RESOURCE == err)
+        || !retBuf
+        || (0 == retBuf->size())) {
         // we tried to read unwritten block, so create
         // an empty block buffer to place the data
         fauxBytes = boost::make_shared<std::string>(maxObjectSizeInBytes, '\0');
         fauxBytes->replace(iOff, writeBytes->length(),
                            writeBytes->c_str(), writeBytes->length());
     } else {
-        fds_assert(len == maxObjectSizeInBytes);
         // Need to copy retBut into a modifiable buffer since retBuf is owned
         // by AM and should not be modified here.
         // TODO(Andrew): Make retBuf a const
@@ -86,7 +90,22 @@ BlockTask::handleRMWResponse(boost::shared_ptr<std::string> const& retBuf,
     }
     // Update the resp so the next in the chain can grab the buffer
     writeBytes = fauxBytes;
-    return std::make_pair(ERR_OK, fauxBytes);
+    return std::make_pair(fpi::OK, fauxBytes);
+}
+
+void
+BlockTask::getChain(sequence_type const seqId, std::deque<BlockTask*>& chain) {
+    std::lock_guard<std::mutex> g(chain_lock);
+    auto it = chained_responses.find(seqId);
+    if (chained_responses.end() != it) {
+        chain.swap(it->second);
+    }
+}
+
+void
+BlockTask::setChain(sequence_type const seqId, std::deque<BlockTask*>&& chain) {
+    std::lock_guard<std::mutex> g(chain_lock);
+    chained_responses[seqId].swap(chain);
 }
 
 }  // namespace fds

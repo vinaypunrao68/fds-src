@@ -26,6 +26,8 @@
 #include <util/stringutils.h>
 #include <util/timeutils.h>
 #include <net/PlatNetSvcHandler.h>
+#include <kvstore/configdb.h>  // For ConfigDB::ReturnType.
+
 
 using namespace ::apache::thrift;  //NOLINT
 using namespace ::apache::thrift::protocol;  //NOLINT
@@ -71,14 +73,29 @@ static void add_vol_to_vector(std::vector<FDS_ProtocolInterface::FDSP_VolumeDesc
     vec.push_back(voldesc);
 }
 
+/**
+ * @details
+ * Templated so that dependency injection can be used to substitute
+ * a fake data store for kvstore::ConfigDB. Enables unit testing with
+ * no cross-process dependency on the data store.
+ */
+template<class DataStoreT>
 class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
+
+  private:
+
+    // The objects used here are the OM's snapshot manager and policy manager.
     OrchMgr* om;
-    kvstore::ConfigDB* configDB;
+    DataStoreT* configDB { nullptr };
+
+    /**
+     * FEATURE TOGGLE: enable subscriptions (async replication)
+     * Mon Dec 28 16:51:58 MST 2015
+     */
+    bool enable_subscriptions_ { false };
 
   public:
-    explicit ConfigurationServiceHandler(OrchMgr* om) : om(om) {
-        configDB = om->getConfigDB();
-    }
+    explicit ConfigurationServiceHandler(OrchMgr* om);
 
     void apiException(std::string message, fpi::ErrorCode code = fpi::INTERNAL_SERVER_ERROR) {
         LOGERROR << "exception: " << message;
@@ -95,15 +112,22 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         }
     }
 
+    /**
+     * Use this to detmerine whether we are the Master Domain as some commands
+     * may only be executed in the Master Domain.
+     */
+    void checkMasterDomain();
+
     // stubs to keep cpp compiler happy - BEGIN
     int64_t createLocalDomain(const std::string& domainName, const std::string& domainSite) { return 0;}
-    void listLocalDomains(std::vector<LocalDomain> & _return, const int32_t ignore) {}
+    void listLocalDomains(std::vector<LocalDomainDescriptor> & _return, const int32_t ignore) {}
+    void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07> & _return, const int32_t ignore) {}
     void updateLocalDomainName(const std::string& oldDomainName, const std::string& newDomainName) {}
     void updateLocalDomainSite(const std::string& domainName, const std::string& newSiteName) {}
     void setThrottle(const std::string& domainName, const double throttleLevel) {}
     void setScavenger(const std::string& domainName, const std::string& scavengerAction) {}
     void startupLocalDomain(const std::string& domainName) {}
-    void shutdownLocalDomain(const std::string& domainName) {}
+    int32_t shutdownLocalDomain(const std::string& domainName) { return 0; }
     void deleteLocalDomain(const std::string& domainName) {}
     void activateLocalDomainServices(const std::string& domainName, const bool sm, const bool dm, const bool am) {}
     int32_t ActivateNode(const FDSP_ActivateOneNodeType& act_node_msg) { return 0;}
@@ -152,7 +176,23 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     int64_t cloneVolume(const int64_t volumeId, const int64_t fdsp_PolicyInfoId, const std::string& clonedVolumeName, const int64_t timelineTime) { return 0;} //NOLINT
     void createSnapshot(const int64_t volumeId, const std::string& snapshotName, const int64_t retentionTime, const int64_t timelineTime) {} //NOLINT
     void deleteSnapshot(const int64_t volumeId, const int64_t snapshotId) {}
+    int64_t createSubscription(const std::string& subName, const int64_t tenantID, const int32_t primaryDomainID, const int64_t primaryVolumeID, const int32_t replicaDomainID, const  ::fds::apis::SubscriptionType subType, const  ::fds::apis::SubscriptionScheduleType schedType, const int64_t intervalSize) {return 0;};
+    void listSubscriptionsAll(std::vector< ::fds::apis::SubscriptionDescriptor> & _return, const int32_t ignore) {};
+    void listTenantSubscriptionsAll(std::vector< ::fds::apis::SubscriptionDescriptor> & _return, const int64_t tenantID) {};
+    void listSubscriptionsPrimaryDomain(std::vector< ::fds::apis::SubscriptionDescriptor> & _return, const int32_t primaryDomainID) {};
+    void listTenantSubscriptionsPrimaryDomain(std::vector< ::fds::apis::SubscriptionDescriptor> & _return, const int32_t primaryDomainID, const int64_t tenantID) {};
+    void listSubscriptionsReplicaDomain(std::vector< ::fds::apis::SubscriptionDescriptor> & _return, const int32_t replicaDomainID) {};
+    void listTenantSubscriptionsReplicaDomain(std::vector< ::fds::apis::SubscriptionDescriptor> & _return, const int32_t replicaDomainID, const int64_t tenantID) {};
+    void listSubscriptionsPrimaryVolume(std::vector< ::fds::apis::SubscriptionDescriptor> & _return, const int64_t primaryVolumeID) {};
+    void listSubscriptionsReplicaVolume(std::vector< ::fds::apis::SubscriptionDescriptor> & _return, const int64_t replicaVolumeID) {};
+    void getSubscriptionInfoName( ::fds::apis::SubscriptionDescriptor& _return, const std::string& subName, const int64_t tenantID) {};
+    void getSubscriptionInfoID( ::fds::apis::SubscriptionDescriptor& _return, const int64_t subID) {};
+    void updateSubscription(const  ::fds::apis::SubscriptionDescriptor& subMods) {};
+    void deleteSubscriptionName(const std::string& subName, const int64_t tenantID, const bool dematerialize) {};
+    void deleteSubscriptionID(const int64_t subID, const bool dematerialize) {};
 
+    virtual void getNodeInfo( ::FDS_ProtocolInterface::SvcInfo& _return, const  ::FDS_ProtocolInterface::SvcUuid& nodeUuid) {};
+    virtual int64_t getDiskCapacityNode(const  ::FDS_ProtocolInterface::SvcUuid& nodeUuid) { return 0; };
     // stubs to keep cpp compiler happy - END
 
     /**
@@ -164,7 +204,11 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     * @return int64_t - ID of the newly created Local Domain.
     */
     int64_t createLocalDomain(boost::shared_ptr<std::string>& domainName, boost::shared_ptr<std::string>& domainSite) {
-        int64_t id = configDB->createLocalDomain(*domainName, *domainSite);
+        checkMasterDomain();
+
+        LocalDomain localDomain(*domainName, *domainSite);
+
+        auto id = configDB->putLocalDomain(localDomain);
         if (id <= 0) {
             LOGERROR << "Some issue in Local Domain creation: " << *domainName;
             apiException("Error creating Local Domain.");
@@ -175,6 +219,11 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         return id;
     }
 
+    bool isLocalDomainUp() {
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+        return domain->om_local_domain_up();
+    }
+
     /**
     * List the currently defined Local Domains.
     *
@@ -182,8 +231,59 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     *
     * @return void.
     */
-    void listLocalDomains(std::vector<LocalDomain>& _return, boost::shared_ptr<int32_t>& ignore) {
-        configDB->listLocalDomains(_return);
+    void listLocalDomains(std::vector<LocalDomainDescriptor>& _return, boost::shared_ptr<int32_t>& ignore) {
+        std::vector<LocalDomain> localDomains;
+
+        checkMasterDomain();
+
+        auto ret = configDB->getLocalDomains(localDomains);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            LOGERROR << "Some issue with retrieving all local domains for the global domain.";
+            apiException("Error retrieving all local domains for the global domain.");
+        } else {
+            _return.clear();
+
+            for (std::size_t i = 0; i < localDomains.size(); i++) {
+                apis::LocalDomainDescriptor localDomainDescriptor;
+                LocalDomain::makeLocalDomainDescriptor(localDomainDescriptor, localDomains[i]);
+                _return.push_back(localDomainDescriptor);
+            }
+        }
+    }
+
+    /**
+     * Interface version V07.
+     *
+     * List the currently defined Local Domains.
+     *
+     * @param _return - Output vecotor of current Local Domains.
+     *
+     * @return void.
+     */
+    void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07>& _return, boost::shared_ptr<int32_t>& ignore) {
+        std::vector<LocalDomain> localDomains;
+
+        checkMasterDomain();
+
+        auto ret = configDB->getLocalDomains(localDomains);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            LOGERROR << "Some issue with retrieving all local domains for the global domain.";
+            apiException("Error retrieving all local domains for the global domain.");
+        } else {
+            _return.clear();
+
+            for (std::size_t i = 0; i < localDomains.size(); i++) {
+                apis::LocalDomainDescriptorV07 localDomainDescriptorV07;
+
+                localDomainDescriptorV07.id = localDomains[i].getID();
+                localDomainDescriptorV07.name = localDomains[i].getName();
+                localDomainDescriptorV07.site = localDomains[i].getSite();
+
+                _return.push_back(localDomainDescriptorV07);
+            }
+        }
     }
 
     /**
@@ -195,7 +295,26 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     * @return void.
     */
     void updateLocalDomainName(boost::shared_ptr<std::string>& oldDomainName, boost::shared_ptr<std::string>& newDomainName) {
-        apiException("updateLocalDomainName not implemented.");
+        LocalDomain localDomain;
+        checkMasterDomain();
+
+        auto ret = configDB->getLocalDomain(*oldDomainName, localDomain);
+        if (ret !=  kvstore::ConfigDB::ReturnType::SUCCESS) {
+            LOGERROR << "Some issue in retrieving Local Domain : " << *oldDomainName;
+            apiException("Error retrieving Local Domain.");
+        }
+
+        localDomain.setName(*newDomainName);
+
+        ret = configDB->updateLocalDomain(localDomain);
+
+        if (ret !=  kvstore::ConfigDB::ReturnType::SUCCESS) {
+            LOGERROR << "Some issue in Local Domain rename: " << *oldDomainName;
+            apiException("Error renaming Local Domain.");
+        } else {
+            LOGNOTIFY << "Local Domain <" << localDomain.getID() << "> renamed from <" << *oldDomainName <<
+                            "> to <" << *newDomainName << ">.";
+        }
     }
 
     /**
@@ -206,8 +325,28 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     *
     * @return void.
     */
-    void updateLocalDomainSite(boost::shared_ptr<std::string>& domainName, boost::shared_ptr<std::string>& newSiteName) {
-        apiException("updateLocalDomainSite not implemented.");
+    void updateLocalDomainSite(boost::shared_ptr<std::string>& domainName, boost::shared_ptr<std::string>&newSite) {
+        LocalDomain localDomain;
+        checkMasterDomain();
+
+        auto ret = configDB->getLocalDomain(*domainName, localDomain);
+        if (ret !=  kvstore::ConfigDB::ReturnType::SUCCESS) {
+            LOGERROR << "Some issue in retrieving Local Domain : " << *domainName;
+            apiException("Error retrieving Local Domain.");
+        }
+
+        auto oldSite = localDomain.getSite();
+        localDomain.setSite(*newSite);
+
+        ret = configDB->updateLocalDomain(localDomain);
+
+        if (ret !=  kvstore::ConfigDB::ReturnType::SUCCESS) {
+            LOGERROR << "Some issue in Local Domain site update: " << *domainName;
+            apiException("Error updating Local Domain site.");
+        } else {
+            LOGNOTIFY << "Local Domain <" << localDomain.getID() << "> site changed from <" << oldSite <<
+                      "> to <" << *newSite << ">.";
+        }
     }
 
     /**
@@ -276,8 +415,11 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     void startupLocalDomain(boost::shared_ptr<std::string>& domainName)
     {
-        int64_t domainID = configDB->getIdOfLocalDomain(*domainName);
-        if ( domainID <= 0 )
+        LocalDomain localDomain;
+        checkMasterDomain();
+
+        auto ret = configDB->getLocalDomain(*domainName, localDomain);
+        if ( ret != kvstore::ConfigDB::ReturnType::SUCCESS )
         {
             LOGERROR << "Local Domain not found: " << domainName;
 
@@ -312,14 +454,15 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     *
     * @return void.
     */
-    void shutdownLocalDomain(boost::shared_ptr<std::string>& domainName) {
-        int64_t domainID = configDB->getIdOfLocalDomain(*domainName);
+    int32_t shutdownLocalDomain(boost::shared_ptr<std::string>& domainName) {
+        LocalDomain localDomain;
+        checkMasterDomain();
+        Error err(ERR_OK);
 
-        if (domainID <= 0) {
-            LOGERROR << "Local Domain not found: " << domainName;
-            apiException( "Error shutting down Local Domain " +
-                          *domainName +
-                          ". Local Domain not found.");
+        auto ret = configDB->getLocalDomain(*domainName, localDomain);
+        if (ret !=  kvstore::ConfigDB::ReturnType::SUCCESS) {
+            LOGERROR << "Some issue in retrieving Local Domain : " << *domainName;
+            apiException("Error retrieving Local Domain.");
         }
 
         /*
@@ -333,7 +476,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         try {
             LOGNORMAL << "Received shutdown for Local Domain " << domainName;
 
-            domain->om_shutdown_domain();
+            err = domain->om_shutdown_domain();
         }
         catch(...) {
             LOGERROR << "Orch Mgr encountered exception while "
@@ -341,6 +484,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             apiException("Error shutting down Local Domain " + *domainName + " Services. Broadcast shutdown failed.");
         }
 
+        return err.GetErrno();
     }
 
     /**
@@ -351,7 +495,16 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     * @return void.
     */
     void deleteLocalDomain(boost::shared_ptr<std::string>& domainName) {
-        apiException("deleteLocalDomain not implemented.");
+        checkMasterDomain();
+
+        auto domainID = configDB->getLocalDomainId(*domainName);
+
+        if (domainID <= 0) {
+            LOGERROR << "Local Domain not found: " << domainName;
+            apiException("Error deleting Local Domain " + *domainName + ". Local Domain not found.");
+        }
+
+        configDB->deleteLocalDomain(domainID);
     }
 
     /**
@@ -373,10 +526,10 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                                      boost::shared_ptr<fds_bool_t>& sm,
                                      boost::shared_ptr<fds_bool_t>& dm,
                                      boost::shared_ptr<fds_bool_t>& am) {
-        int64_t domainID = configDB->getIdOfLocalDomain(*domainName);
+        auto domainID = configDB->getLocalDomainId(*domainName);
 
         if (domainID <= 0) {
-            LOGERROR << "Local Domain not found: " << domainName;
+            LOGERROR << "Local Domain not found: " << *domainName;
             apiException("Error activating Local Domain " + *domainName + " Services. Local Domain not found.");
         }
 
@@ -388,7 +541,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         OM_NodeContainer *localDomain = OM_NodeDomainMod::om_loc_domain_ctrl();
 
         try {
-            LOGNORMAL << "Received activate services for Local Domain " << domainName;
+            LOGNORMAL << "Received activate services for Local Domain " << *domainName;
             LOGNORMAL << "SM: " << *sm << "; DM: " << *dm << "; AM: " << *am;
 
             localDomain->om_cond_bcast_start_services(*sm, *dm, *am);
@@ -630,7 +783,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                                    boost::shared_ptr<fds_bool_t>& sm,
                                    boost::shared_ptr<fds_bool_t>& dm,
                                    boost::shared_ptr<fds_bool_t>& am) {
-        int64_t domainID = configDB->getIdOfLocalDomain(*domainName);
+        auto domainID = configDB->getLocalDomainId(*domainName);
 
         if (domainID <= 0) {
             LOGERROR << "Local Domain not found: " << domainName;
@@ -762,19 +915,45 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         checkDomainStatus();
 
+        switch ( volumeSettings->volumeType )
+        {
+            case apis::BLOCK:
+                break;
+            case apis::ISCSI:
+                LOGDEBUG << "iSCSI:: "
+                         << "LUN count [ " << volumeSettings->iscsiTarget.luns.size() << " ] "
+                         << "Initiator count [ " << volumeSettings->iscsiTarget.initiators.size() << " ] "
+                         << "Incoming Users count [ " << volumeSettings->iscsiTarget.incomingUsers.size() << " ] "
+                         << "Outgoing Users count [ " << volumeSettings->iscsiTarget.outgoingUsers.size() << " ]";
+                break;
+            case apis::NFS:
+                LOGDEBUG << "NFS:: [ " << volumeSettings->nfsOptions.client << " ] "
+                         << "[ " << volumeSettings->nfsOptions.options << " ]";
+                break;
+            case apis::OBJECT:
+                break;
+        }
+
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         VolumeInfo::pointer vol = volContainer->get_volume(*volumeName);
         Error err = volContainer->getVolumeStatus(*volumeName);
-        if (err == ERR_OK) apiException("volume already exists", fpi::RESOURCE_ALREADY_EXISTS);
+        if (err == ERR_OK)
+        {
+            apiException( "Volume ( " + *volumeName + " ) already exists", fpi::RESOURCE_ALREADY_EXISTS);
+        }
 
         fpi::FDSP_MsgHdrTypePtr header;
         FDSP_CreateVolTypePtr request;
+
         convert::getFDSPCreateVolRequest(header, request,
                                          *domainName, *volumeName, *volumeSettings);
         request->vol_info.tennantId = *tenantId;
         err = volContainer->om_create_vol(header, request);
-        if (err != ERR_OK) apiException("error creating volume");
+        if ( err != ERR_OK )
+        {
+            apiException( "Error creating volume ( " + *volumeName + " ) - " + err.GetErrstr() );
+        }
 
         // wait for the volume to be active upto 5 minutes
         int count = 600;
@@ -785,9 +964,11 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             count--;
         } while (count > 0 && vol && !vol->isStateActive());
 
-        if (!vol || !vol->isStateActive()) {
-            LOGERROR << "Timeout on waiting for volume to become ACTIVE " << *volumeName;
-            apiException("error creating volume");
+        if (!vol || !vol->isStateActive())
+        {
+            std::string emsg = "Error creating volume ( " + *volumeName + " ) - Timeout waiting for volume to become ACTIVE";
+            LOGERROR << emsg;
+            apiException( emsg );
         }
     }
 
@@ -800,7 +981,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         if (vol) {
             return vol->rs_get_uuid().uuid_get_val();
         } else {
-            LOGWARN << "unable to get volume info for vol:" << *volumeName;
+            LOGWARN << "The specified volume " << *volumeName << " was not found.";
             return 0;
         }
     }
@@ -814,7 +995,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         if (vol) {
             volumeName =  vol->vol_get_name();
         } else {
-            LOGWARN << "unable to get volume info for vol:" << *volumeId;
+            LOGWARN << "Unable to get volume info for vol:" << *volumeId;
         }
     }
 
@@ -833,16 +1014,33 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                      << ", prio " << _return.rel_prio
                      << " media policy " << _return.mediaPolicy;
         } else {
-            LOGWARN << "Volume " << vol_info_req->vol_name << " not found";
             FDSP_VolumeNotFound except;
-            except.message = std::string("Volume not found");
+            except.message = std::string("Volume " + vol_info_req->vol_name + " not found");
+            LOGWARN << except.message;
             throw except;
         }
     }
 
     int32_t ModifyVol(FDSP_ModifyVolTypePtr& mod_vol_req) {
         Error err(ERR_OK);
-        LOGNOTIFY << "Received modify volume " << (mod_vol_req->vol_desc).vol_name;
+        LOGNOTIFY << "Received modify volume [ " << (mod_vol_req->vol_desc).vol_name << " ]"
+                  << " [ " << (mod_vol_req->vol_desc).volUUID << " ]"
+                  << " [ " << (mod_vol_req->vol_desc).volType << " ]";
+
+        if ( ( mod_vol_req->vol_desc ).volType == fpi::FDSP_VOL_ISCSI_TYPE )
+        {
+            FDS_ProtocolInterface::IScsiTarget iscsi = ( mod_vol_req->vol_desc ).iscsi;
+            LOGDEBUG << "iSCSI:: LUN count [ " << iscsi.luns.size() << " ]"
+                     << " Initiator count [ " << iscsi.initiators.size() << " ]"
+                     << " Incoming Users count [ " << iscsi.incomingUsers.size() << " ]"
+                     << " Outgoing Users count [ " << iscsi.outgoingUsers.size() << " ]";
+        }
+        else if ( ( mod_vol_req->vol_desc ).volType == fpi::FDSP_VOL_NFS_TYPE )
+        {
+            FDS_ProtocolInterface::NfsOption nfs = ( mod_vol_req->vol_desc ).nfs;
+            LOGDEBUG << "NFS:: [ " << nfs.client << " ] "
+                     << "[ " << nfs.options << " ]";
+        }
 
         try {
             // no need to check if local domain is up, because volume create
@@ -867,13 +1065,13 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         Error err = volContainer->getVolumeStatus(*volumeName);
 
-        if (err != ERR_OK) apiException("volume does NOT exist", fpi::MISSING_RESOURCE);
+        if (err != ERR_OK) apiException("volume ( " + *volumeName + " ) does NOT exist", fpi::MISSING_RESOURCE);
 
         fpi::FDSP_MsgHdrTypePtr header;
         apis::FDSP_DeleteVolTypePtr request;
         convert::getFDSPDeleteVolRequest(header, request, *domainName, *volumeName);
         err = volContainer->om_delete_vol(header, request);
-        LOGDEBUG << "delete volume notification received:" << *volumeName << " " << err;
+        LOGNOTIFY << "delete volume processed for :" << *volumeName << " " << err;
     }
 
     void statVolume(VolumeDescriptor& volDescriptor,
@@ -883,7 +1081,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         Error err = volContainer->getVolumeStatus(*volumeName);
-        if (err != ERR_OK) apiException("volume NOT found", fpi::MISSING_RESOURCE);
+        if (err != ERR_OK) apiException( "volume ( " + *volumeName + " ) NOT FOUND" , fpi::MISSING_RESOURCE);
 
         VolumeInfo::pointer  vol = volContainer->get_volume(*volumeName);
 
@@ -892,30 +1090,42 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     void listVolumes(std::vector<VolumeDescriptor> & _return,
                      boost::shared_ptr<std::string>& domainName) {
-        checkDomainStatus();
 
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
 
-        LOGDEBUG << "just Active volumes";
         volContainer->vol_up_foreach<std::vector<VolumeDescriptor> &>(_return, [] (std::vector<VolumeDescriptor> &vec, VolumeInfo::pointer vol) { //NOLINT
-                LOGDEBUG << (vol->vol_get_properties()->isSnapshot()
-                            ? "snapshot" : "volume")
-                         << " - " << vol->vol_get_name()
-                         << ":" << vol->vol_get_properties()->getStateName();
+            LOGDEBUG << (vol->vol_get_properties()->isSnapshot() ? "snapshot" : "volume")
+                     << " [ " << vol->vol_get_name() << " ] type [ " << vol->vol_get_properties()->volType
+                     << " ] state [ " << vol->vol_get_properties()->getStateName() << " ] ";
 
-                if (!vol->vol_get_properties()->isSnapshot()) {
-                    if (vol->getState() == fpi::Active) {
-                        VolumeDescriptor volDescriptor;
-                        convert::getVolumeDescriptor(volDescriptor, vol);
-                        vec.push_back(volDescriptor);
+            if (!vol->vol_get_properties()->isSnapshot()) {
+                if (vol->getState() == fpi::Active) {
+                    VolumeDescriptor volDescriptor;
+                    convert::getVolumeDescriptor(volDescriptor, vol);
+                    vec.push_back(volDescriptor);
+
+                    if ( volDescriptor.policy.volumeType == apis::ISCSI )
+                    {
+                        FDS_ProtocolInterface::IScsiTarget iscsi = volDescriptor.policy.iscsiTarget;
+                        LOGDEBUG << "iSCSI:: LUN count [ " << iscsi.luns.size() << " ]"
+                                 << " Initiator count [ " << iscsi.initiators.size() << " ]"
+                                 << " Incoming Users count [ " << iscsi.incomingUsers.size() << " ]"
+                                 << " Outgoing Users count [ " << iscsi.outgoingUsers.size() << " ]";
+                    }
+                    else if (volDescriptor.policy.volumeType == apis::NFS )
+                    {
+                        FDS_ProtocolInterface::NfsOption nfs = volDescriptor.policy.nfsOptions;
+                        LOGDEBUG << "NFS:: [ " << nfs.client << " ] "
+                                 << "[ " << nfs.options << " ]";
                     }
                 }
-            });
+            }
+        });
     }
 
     void ListVolumes(std::vector<fpi::FDSP_VolumeDescType> & _return, boost::shared_ptr<int32_t>& ignore) {
-        LOGNOTIFY<< "OM received ListVolumes message";
+        LOGDEBUG<< "OM received ListVolumes message";
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer vols = local->om_vol_mgr();
         // list volumes that are not in 'delete pending' state
@@ -973,8 +1183,25 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     int64_t createSnapshotPolicy(boost::shared_ptr<fds::apis::SnapshotPolicy>& policy) {
-        if (om->enableSnapshotSchedule && configDB->createSnapshotPolicy(*policy)) {
-            om->snapshotMgr->addPolicy(*policy);
+        /*
+         * OK, if we leave this defaulted to 'false' we will never create snapshot policies
+         * which I believe isn't what we want. Because all volumes created will not have snapshot
+         * policies so if or when this feature is enabled, set to true, these volumes will fail
+         * because not snapshot policy exists.
+         *
+         * We just don't want to add it to the scheduler.
+         *
+         * P. Tinius 12/23/2015 changed:
+         *  if (om->enableTimeline && configDB->createSnapshotPolicy(*policy)) {
+         */
+        if ( configDB->createSnapshotPolicy( *policy ) )
+        {
+            LOGDEBUG << "Snapshot Schedule is " << om->enableTimeline;
+            if ( om->enableTimeline )
+            {
+                om->snapshotMgr->addPolicy( *policy );
+            }
+
             return policy->id;
         }
         return -1;
@@ -986,10 +1213,15 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     void deleteSnapshotPolicy(boost::shared_ptr<int64_t>& id) {
-        if (om->enableSnapshotSchedule) {
-            configDB->deleteSnapshotPolicy(*id);
-            om->snapshotMgr->removePolicy(*id);
-        }
+        LOGDEBUG << "Snapshot Schedule is " << om->enableTimeline ? "enabled" : "disabled";
+        /*
+         * P. Tinius 12/23/2015 changed:
+         *  if (om->enableTimeline) {
+         *
+         *  ADDED: log message below.
+         */
+        configDB->deleteSnapshotPolicy(*id);
+        om->snapshotMgr->removePolicy(*id);
     }
 
     void attachSnapshotPolicy(boost::shared_ptr<int64_t>& volumeId,
@@ -1139,6 +1371,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     void restoreClone(boost::shared_ptr<int64_t>& volumeId,
                          boost::shared_ptr<int64_t>& snapshotId) {
+        apiException("restore clone - functionality NOT IMPLEMENTED");
     }
 
     int64_t cloneVolume(boost::shared_ptr<int64_t>& volumeId,
@@ -1150,6 +1383,9 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         VolPolicyMgr      *volPolicyMgr = om->om_policy_mgr();
         VolumeInfo::pointer  parentVol, vol;
+        if (!om->enableTimeline) {
+            apiException("attempting to clone volume but feature disabled");
+        }
 
         vol = volContainer->get_volume(*clonedVolumeName);
         if (vol != NULL) {
@@ -1178,7 +1414,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         desc.fSnapshot = false;
         desc.srcVolumeId = *volumeId;
         desc.timelineTime = *timelineTime;
-        desc.createTime = util::getTimeStampMillis();
+        desc.createTime = util::getTimeStampSeconds();
+        desc.coordinator.id.svc_uuid = 0;
 
         if (parentVol->vol_get_properties()->lookupVolumeId == invalid_vol_id) {
             desc.lookupVolumeId = *volumeId;
@@ -1211,7 +1448,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             boost::shared_ptr<int64_t> sp_volId(new int64_t(vol->rs_get_uuid().uuid_get_val()));
             boost::shared_ptr<std::string> sp_snapName(new std::string(
                 util::strformat("snap0_%s_%d", clonedVolumeName->c_str(),
-                                util::getTimeStampNanos())));
+                                util::getTimeStampSeconds())));
             boost::shared_ptr<int64_t> sp_retentionTime(new int64_t(0));
             boost::shared_ptr<int64_t> sp_timelineTime(new int64_t(0));
             createSnapshot(sp_volId, sp_snapName, sp_retentionTime, sp_timelineTime);
@@ -1225,6 +1462,9 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                         boost::shared_ptr<int64_t>& retentionTime,
                         boost::shared_ptr<int64_t>& timelineTime) {
                     // create the structure
+        if (!om->enableTimeline) {
+            apiException("attempting to create snapshot but feature disabled");
+        }
         fpi::Snapshot snapshot;
         snapshot.snapshotName = util::strlower(*snapshotName);
         snapshot.volumeId = *volumeId;
@@ -1235,7 +1475,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         }
         snapshot.snapshotId = snapshotId.get();
         snapshot.snapshotPolicyId = 0;
-        snapshot.creationTimestamp = util::getTimeStampMillis();
+        snapshot.creationTimestamp = util::getTimeStampSeconds();
         snapshot.retentionTimeSeconds = *retentionTime;
         snapshot.timelineTime = *timelineTime;
 
@@ -1250,10 +1490,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             LOGWARN << "snapshot add failed : " << err;
             apiException(err.GetErrstr());
         }
-        // add this snapshot to the retention manager ...
-        if (om->enableSnapshotSchedule) {
-            om->snapshotMgr->deleteScheduler->addSnapshot(snapshot);
-        }
+        om->snapshotMgr->deleteScheduler->addSnapshot(snapshot);
     }
 
     void deleteSnapshot(boost::shared_ptr<int64_t>& volumeId, boost::shared_ptr<int64_t>& snapshotId) {
@@ -1261,19 +1498,722 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         fpi::Snapshot snapshot;
+        if (!om->enableTimeline) {
+            apiException("attempting to delete snapshot but feature disabled");
+        }
 
         snapshot.volumeId = *volumeId;
         snapshot.snapshotId = *snapshotId;
-        if (!om->getConfigDB()->getSnapshot(snapshot)) {
+        if (!configDB->getSnapshot(snapshot)) {
             apiException(util::strformat("snapshot not found for [vol:%ld] - [snap:%ld]",*volumeId, *snapshotId));
         }
         snapshot.state = fpi::ResourceState::MarkedForDeletion;
         // mark the snapshot for deletion
-        om->getConfigDB()->updateSnapshot(snapshot);
+        configDB->updateSnapshot(snapshot);
 
         volContainer->om_delete_vol(fds_volid_t(snapshot.snapshotId));
     }
+
+    /** Subscription Management **/
+    /**
+     * Create a subscription.
+     *
+     * @param name - Name of the new Subscription. Must be unique within Global Domain/Tenant.
+     * @param tenantID - ID of the Tenant owning the new Subscription.
+     * @param primaryDomainID - ID of the Local Domain where the primary copy of the replicated volume is located.
+     * @param primaryVolumeID - ID of the primary volume as defined in the primary Domain.
+     * @param replicaDomainID - ID of the Local Domain where the replica copy of the replicated volume is located.
+     * @param subType - Flag indicating the type of asynchronous repliction used with this Subscription.
+     * @param schedType - For subscription types using a content-based replication technique, this flag indicates
+     *                    the type of scheduling (time, MB, num ops, etc.) using for this subscription.
+     * @param intervalSize - For subscription types using a content-based replication technique, this value defines
+     *                       the number of units for an interval to expire. Units are implied by schedType.
+     *
+     * @return int64_t - ID of the newly created Subscription.
+     */
+    int64_t createSubscription(boost::shared_ptr<std::string>& name,
+                               boost::shared_ptr<int64_t>& tenantID,
+                               boost::shared_ptr<int32_t>& primaryDomainID,
+                               boost::shared_ptr<int64_t>& primaryVolumeID,
+                               boost::shared_ptr<int32_t>& replicaDomainID,
+                               boost::shared_ptr< ::fds::apis::SubscriptionType>& subType,
+                               boost::shared_ptr< ::fds::apis::SubscriptionScheduleType>& schedType,
+                               boost::shared_ptr<int64_t>& intervalSize) {
+        checkMasterDomain();
+
+        if (!enable_subscriptions_) {
+            LOGERROR << "Subscriptions feature disabled.";
+            apiException("Error creating subscription [" + *name + "].");
+        }
+
+        Subscription subscription(name.get()->c_str(),
+                                  *tenantID,
+                                  *primaryDomainID,
+                                  fds_volid_t(static_cast<uint64_t>(*primaryVolumeID)),
+                                  *replicaDomainID,
+                                  apis::SubscriptionType(*subType),
+                                  apis::SubscriptionScheduleType(*schedType),
+                                  *intervalSize);
+        fds_subid_t id = configDB->putSubscription(subscription);
+
+        if (id == invalid_sub_id) {
+            LOGERROR << "Some issue in subscription creation: " << *name;
+            apiException("Error creating subscription [" + *name + "].");
+        } else {
+            LOGNOTIFY << "Subscription creation succeded. " << id << ": " << *name;
+        }
+
+        return id;
+    }
+
+    /**
+     * List all subscriptions defined in the global domain.
+     *
+     * @param _return - An output parameter. A list of all subscriptions defined in the global domain and their
+     *                  details. Could be empty.
+     * @param ignore - As the name suggests, not used for anything other than to make Thrift work nice.
+     *
+     * @return Nothing.
+     */
+    void listSubscriptionsAll(std::vector< ::fds::apis::SubscriptionDescriptor> & _return,
+                              boost::shared_ptr<int32_t>& ignore) {
+        std::vector<Subscription> subscriptions;
+
+        checkMasterDomain();
+
+        kvstore::ConfigDB::ReturnType ret = configDB->getSubscriptions(subscriptions);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            LOGERROR << "Some issue with retrieving all subscriptions for the global domain.";
+            apiException("Error retrieving all subscriptions for the global domain.");
+        } else {
+            _return.clear();
+
+            for (std::size_t i = 0; i < subscriptions.size(); i++) {
+                apis::SubscriptionDescriptor subscription;
+                Subscription::makeSubscriptionDescriptor(subscription, subscriptions[i]);
+                _return.push_back(subscription);
+            }
+        }
+    };
+
+    /**
+     * List all subscriptions defined in the global domain for the given tenant.
+     *
+     * @param _return - An output parameter. A list of all subscriptions defined in the global domain and tenant and their
+     *                  details. Could be empty.
+     * @param tenantID - ID of the tenant for whom subscriptions are to be retrieved.
+     *
+     * @return Nothing.
+     */
+    void listTenantSubscriptionsAll(std::vector< ::fds::apis::SubscriptionDescriptor> & _return,
+                                    boost::shared_ptr<int64_t>& tenantID) {
+        std::vector<Subscription> subscriptions;
+
+        checkMasterDomain();
+
+        kvstore::ConfigDB::ReturnType ret = configDB->getSubscriptions(subscriptions);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            std::string tenantIDStr = std::to_string(*tenantID);
+            LOGERROR << "Some issue with retrieving all subscriptions for tenant [" << tenantIDStr << "].";
+            apiException("Error retrieving all subscriptions for tenant [" + tenantIDStr + "].");
+        } else {
+            _return.clear();
+
+            for (std::size_t i = 0; i < subscriptions.size(); i++) {
+                if (subscriptions[i].getTenantID() == *tenantID) {
+                    apis::SubscriptionDescriptor subscription;
+                    Subscription::makeSubscriptionDescriptor(subscription, subscriptions[i]);
+                    _return.push_back(subscription);
+                }
+            }
+        }
+    };
+
+    /**
+     * List all subscriptions defined with the given local domain as primary.
+     *
+     * @param _return - An output parameter. A list of all subscriptions defined with the given local domain as primary
+     *                  and their details. Could be empty.
+     * @param primaryDomainID - ID of the local domain identified as "primary" for the subscriptions to be retrieved.
+     *
+     * @return Nothing.
+     */
+    void listSubscriptionsPrimaryDomain(std::vector< ::fds::apis::SubscriptionDescriptor> & _return,
+                                        boost::shared_ptr<int32_t>& primaryDomainID) {
+        std::vector<Subscription> subscriptions;
+
+        checkMasterDomain();
+
+        kvstore::ConfigDB::ReturnType ret = configDB->getSubscriptions(subscriptions);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            std::string primaryDomainIDStr = std::to_string(*primaryDomainID);
+            LOGERROR << "Some issue with retrieving all subscriptions for the primary domain [" << primaryDomainIDStr << "].";
+            apiException("Error retrieving all subscriptions for the primary domain [" + primaryDomainIDStr + "].");
+        } else {
+            _return.clear();
+
+            for (std::size_t i = 0; i < subscriptions.size(); i++) {
+                if (subscriptions[i].getPrimaryDomainID() == *primaryDomainID) {
+                    apis::SubscriptionDescriptor subscription;
+                    Subscription::makeSubscriptionDescriptor(subscription, subscriptions[i]);
+                    _return.push_back(subscription);
+                }
+            }
+        }
+    };
+
+    /**
+     * List all subscriptions defined with the given local domain as primary and given tenant.
+     *
+     * @param _return - An output parameter. A list of all subscriptions defined with the given local domain as primary
+     *                  and given tenant and their details. Could be empty.
+     * @param primaryDomainID - ID of the local domain identified as "primary" for the subscriptions to be retrieved.
+     * @param tenantID - ID of the tenant for whom subscriptions are to be retrieved.
+     *
+     * @return Nothing.
+     */
+    void listTenantSubscriptionsPrimaryDomain(std::vector< ::fds::apis::SubscriptionDescriptor> & _return,
+                                              boost::shared_ptr<int32_t>& primaryDomainID,
+                                              boost::shared_ptr<int64_t>& tenantID) {
+        std::vector<Subscription> subscriptions;
+
+        checkMasterDomain();
+
+        kvstore::ConfigDB::ReturnType ret = configDB->getSubscriptions(subscriptions);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            std::string primaryDomainIDStr = std::to_string(*primaryDomainID);
+            std::string tenantIDStr = std::to_string(*tenantID);
+            LOGERROR << "Some issue with retrieving all subscriptions for the primary domain [" << primaryDomainIDStr <<
+                            "] and tenant [" << tenantIDStr << "].";
+            apiException("Error retrieving all subscriptions for the primary domain [" + primaryDomainIDStr +
+                                 "] and tenant [" + tenantIDStr + "].");
+        } else {
+            _return.clear();
+
+            for (std::size_t i = 0; i < subscriptions.size(); i++) {
+                if ((subscriptions[i].getPrimaryDomainID() == *primaryDomainID) &&
+                    (subscriptions[i].getTenantID() == *tenantID)) {
+                    apis::SubscriptionDescriptor subscription;
+                    Subscription::makeSubscriptionDescriptor(subscription, subscriptions[i]);
+                    _return.push_back(subscription);
+                }
+            }
+        }
+    };
+
+    /**
+     * List all subscriptions defined with the given local domain as replica.
+     *
+     * @param _return - An output parameter. A list of all subscriptions defined with the given local domain as replica
+     *                  and their details. Could be empty.
+     * @param replicaDomainID - ID of the local domain identified as "replica" for the subscriptions to be retrieved.
+     *
+     * @return Nothing.
+     */
+    void listSubscriptionsReplicaDomain(std::vector< ::fds::apis::SubscriptionDescriptor> & _return,
+                                        boost::shared_ptr<int32_t>& replicaDomainID) {
+        std::vector<Subscription> subscriptions;
+
+        checkMasterDomain();
+
+        kvstore::ConfigDB::ReturnType ret = configDB->getSubscriptions(subscriptions);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            std::string replicaDomainIDStr = std::to_string(*replicaDomainID);
+            LOGERROR << "Some issue with retrieving all subscriptions for the replica domain [" << replicaDomainIDStr << "].";
+            apiException("Error retrieving all subscriptions for the primary domain [" + replicaDomainIDStr + "].");
+        } else {
+            _return.clear();
+
+            for (std::size_t i = 0; i < subscriptions.size(); i++) {
+                if (subscriptions[i].getPrimaryDomainID() == *replicaDomainID) {
+                    apis::SubscriptionDescriptor subscription;
+                    Subscription::makeSubscriptionDescriptor(subscription, subscriptions[i]);
+                    _return.push_back(subscription);
+                }
+            }
+        }
+    };
+
+    /**
+     * List all subscriptions defined with the given local domain as replica and given tenant.
+     *
+     * @param _return - An output parameter. A list of all subscriptions defined with the given local domain as replica
+     *                  and given tenant and their details. Could be empty.
+     * @param replicaDomainID - ID of the local domain identified as "replica" for the subscriptions to be retrieved.
+     * @param tenantID - ID of the tenant for whom subscriptions are to be retrieved.
+     *
+     * @return Nothing.
+     */
+    void listTenantSubscriptionsReplicaDomain(std::vector< ::fds::apis::SubscriptionDescriptor> & _return,
+                                              boost::shared_ptr<int32_t>& replicaDomainID,
+                                              boost::shared_ptr<int64_t>& tenantID) {
+        std::vector<Subscription> subscriptions;
+
+        checkMasterDomain();
+
+        kvstore::ConfigDB::ReturnType ret = configDB->getSubscriptions(subscriptions);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            std::string replicaDomainIDStr = std::to_string(*replicaDomainID);
+            std::string tenantIDStr = std::to_string(*tenantID);
+            LOGERROR << "Some issue with retrieving all subscriptions for the replica domain [" << replicaDomainIDStr <<
+                     "] and tenant [" << tenantIDStr << "].";
+            apiException("Error retrieving all subscriptions for the replica domain [" + replicaDomainIDStr +
+                         "] and tenant [" + tenantIDStr + "].");
+        } else {
+            _return.clear();
+
+            for (std::size_t i = 0; i < subscriptions.size(); i++) {
+                if ((subscriptions[i].getPrimaryDomainID() == *replicaDomainID) &&
+                    (subscriptions[i].getTenantID() == *tenantID)) {
+                    apis::SubscriptionDescriptor subscription;
+                    Subscription::makeSubscriptionDescriptor(subscription, subscriptions[i]);
+                    _return.push_back(subscription);
+                }
+            }
+        }
+    };
+
+    /**
+     * List all subscriptions defined with the given volume as primary. Since a volume may be owned by only one
+     * tenant, tenant is implied.
+     *
+     * @param _return - An output parameter. A list of all subscriptions defined with the given volume as primary and their
+     *                  details. Could be empty.
+     * @param primaryVolumeID - ID of the volume identified as "primary" for the subscriptions to be retrieved.
+     *
+     * @return Nothing.
+     */
+    void listSubscriptionsPrimaryVolume(std::vector< ::fds::apis::SubscriptionDescriptor> & _return,
+                                        boost::shared_ptr<int64_t>& primaryVolumeID) {
+        std::vector<Subscription> subscriptions;
+
+        checkMasterDomain();
+
+        kvstore::ConfigDB::ReturnType ret = configDB->getSubscriptions(subscriptions);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            std::string primaryVolumeIDStr = std::to_string(*primaryVolumeID);
+            LOGERROR << "Some issue with retrieving all subscriptions for the primary volume [" << primaryVolumeIDStr << "].";
+            apiException("Error retrieving all subscriptions for the primary volume [" + primaryVolumeIDStr + "].");
+        } else {
+            _return.clear();
+
+            for (std::size_t i = 0; i < subscriptions.size(); i++) {
+                if (subscriptions[i].getPrimaryVolumeID() == fds_volid_t(static_cast<uint64_t>(*primaryVolumeID))) {
+                    apis::SubscriptionDescriptor subscription;
+                    Subscription::makeSubscriptionDescriptor(subscription, subscriptions[i]);
+                    _return.push_back(subscription);
+                }
+            }
+        }
+    };
+
+    /**
+     * List all subscriptions defined with the given volume as replica. Since a volume may be owned by only one
+     * tenant, tenant is implied.
+     *
+     * @param _return - An output parameter. A list of all subscriptions defined with the given volume as replica and their
+     *                  details. Could be empty.
+     * @param replicaVolumeID - ID of the volume identified as "replica" for the subscriptions to be retrieved.
+     *
+     * @return Nothing.
+     */
+    void listSubscriptionsReplicaVolume(std::vector< ::fds::apis::SubscriptionDescriptor> & _return,
+                                        boost::shared_ptr<int64_t>& replicaVolumeID) {
+        std::vector<Subscription> subscriptions;
+
+        checkMasterDomain();
+
+        kvstore::ConfigDB::ReturnType ret = configDB->getSubscriptions(subscriptions);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            std::string replicaVolumeIDStr = std::to_string(*replicaVolumeID);
+            LOGERROR << "Some issue with retrieving all subscriptions for the replica volume [" << replicaVolumeIDStr << "].";
+            apiException("Error retrieving all subscriptions for the replica volume [" + replicaVolumeIDStr + "].");
+        } else {
+            _return.clear();
+
+            /**
+             * TODO(Greg): Implement mechanism to obtain replica volume ID from subscription.
+            for (std::size_t i = 0; i < subscriptions.size(); i++) {
+                if (subscriptions[i].getReplicaVolumeID() == fds_volid_t(static_cast<uint64_t>(*replicaVolumeID))) {
+                    apis::SubscriptionDescriptor subscription;
+                    Subscription::makeSubscriptionDescriptor(subscription, subscriptions[i]);
+                    _return.push_back(subscription);
+                }
+            }
+             */
+            LOGWARN << "Listing subscirptions for a given replica volume not currently implemented.";
+        }
+    };
+
+    /**
+     * Retrieve all the details for the subscription identified by name and tenant ID. Note that it is not sufficient
+     * when referencing a subscription by name to not also provide the tenant ID since multiple tenants could have
+     * liked-named subsciptions.
+     *
+     * @param _return - An output parameter. The detail of the subscription identified by name and tenant ID.
+     * @param subName - Name of the subscription for whom details are to be retrieved.
+     * @param tenantID - ID of the tenant for whom the named subscription is to be retrieved.
+     *
+     * @return Nothing.
+     */
+    void getSubscriptionInfoName( ::fds::apis::SubscriptionDescriptor& _return,
+                                  boost::shared_ptr<std::string>& subName,
+                                  boost::shared_ptr<int64_t>& tenantID) {
+        Subscription subscription;
+
+        checkMasterDomain();
+
+        kvstore::ConfigDB::ReturnType ret = configDB->getSubscription(*subName, *tenantID, subscription);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            std::string tenantIDStr = std::to_string(*tenantID);
+            LOGERROR << "Some issue with retrieving subscription named [" << *subName << "] for tenant [" << tenantIDStr << "].";
+            apiException("Error retrieving subscription named [" + *subName + "] for tenant [" + tenantIDStr + "].");
+        } else if (ret == kvstore::ConfigDB::ReturnType::NOT_FOUND) {
+            std::string tenantIDStr = std::to_string(*tenantID);
+            LOGERROR << "Unable to locate subscription named [" << *subName << "] for tenant [" << tenantIDStr << "].";
+
+            apis::SubscriptionNotFound e;
+            e.message = "Unable to locate subscription named [" + *subName + "] for tenant [" + tenantIDStr + "].";
+            throw e;
+        } else {
+            fds_assert(ret == kvstore::ConfigDB::ReturnType::SUCCESS);
+            Subscription::makeSubscriptionDescriptor(_return, subscription);
+        }
+    };
+
+    /**
+     * Retrieve all the details for the subscription identified by unique ID.
+     *
+     * @param _return - An output parameter. The detail of the subscription identified by name and tenant ID.
+     * @param subID - ID of the subscription for whom details are to be retrieved.
+     *
+     * @return Nothing.
+     */
+    void getSubscriptionInfoID( ::fds::apis::SubscriptionDescriptor& _return,
+                                boost::shared_ptr<int64_t>& subID) {
+        Subscription subscription;
+
+        checkMasterDomain();
+
+        kvstore::ConfigDB::ReturnType ret = configDB->getSubscription(*subID, subscription);
+
+        if (ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION) {
+            std::string subIDStr = std::to_string(*subID);
+            LOGERROR << "Some issue with retrieving subscription by ID [" << subIDStr << "].";
+            apiException("Error retrieving subscription by ID [" + subIDStr + "].");
+        } else if (ret == kvstore::ConfigDB::ReturnType::NOT_FOUND) {
+            std::string subIDStr = std::to_string(*subID);
+            LOGERROR << "Unable to locate subscription ID [" << subIDStr << "].";
+
+            apis::SubscriptionNotFound e;
+            e.message = "Unable to locate subscription ID [" + subIDStr + "].";
+            throw e;
+        } else {
+            fds_assert(ret == kvstore::ConfigDB::ReturnType::SUCCESS);
+            Subscription::makeSubscriptionDescriptor(_return, subscription);
+        }
+    };
+
+    /**
+     * Update subscription attributes. The following are *not* modifiable:
+     * id, tenantID, primaryDomainID, primaryVolumeID, replicaDomainID, createTime
+     *
+     * @param subMods - All subscription attributes with modifications applied. "id" must be supplied. Changes to the
+     *                  following are rejected: tenantID, primaryDomainID, primaryVolumeID, replicaDomainID, createTime
+     *
+     * @return void.
+     */
+    void updateSubscription(boost::shared_ptr< ::fds::apis::SubscriptionDescriptor>& subMods) {
+        checkMasterDomain();
+
+        Subscription subscription("dummy", invalid_sub_id);
+
+        Subscription::makeSubscription(subscription, *subMods);
+        std::string tenantIDStr = std::to_string(subscription.getTenantID());
+
+        if (!enable_subscriptions_) {
+            LOGERROR << "Subscriptions feature disabled.";
+            apiException("Error updating subscription [" + subscription.getName() + "].");
+        }
+
+        auto ret = configDB->updateSubscription(subscription);
+
+        if (ret == kvstore::ConfigDB::ReturnType::SUCCESS) {
+            LOGNOTIFY << "Subscription update succeded. " << tenantIDStr << ": " << subscription.getName();
+        } else if (ret == kvstore::ConfigDB::ReturnType::NOT_FOUND) {
+            LOGERROR << "Unable to locate subscription named [" << subscription.getName() <<
+                            "] for tenant [" << tenantIDStr << "].";
+
+            apis::SubscriptionNotFound e;
+            e.message = "Unable to locate subscription named [" + subscription.getName() +
+                        "] for tenant [" + tenantIDStr + "].";
+            throw e;
+        } else if (ret == kvstore::ConfigDB::ReturnType::NOT_UPDATED) {
+            LOGERROR << "Unable to apply updates to subscription named [" << subscription.getName() <<
+                     "] for tenant [" << tenantIDStr << "].";
+
+            apis::SubscriptionNotModified e;
+            e.message = "Unable to apply updates to subscription named [" + subscription.getName() +
+                        "] for tenant [" + tenantIDStr + "].";
+            throw e;
+        } else {
+            fds_assert(ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION);
+            LOGERROR << "Some issue with updating subscription named [" << subscription.getName() <<
+                     "] for tenant [" << tenantIDStr << "].";
+            apiException("Error updating subscription named [" + subscription.getName() +
+                         "] for tenant [" + tenantIDStr + "].");
+        }
+    };
+
+    /**
+     * Delete the subscription identified by name and tenant ID. Optionally remove from the replica, those blobs maintained
+     * by the subscription. Note that it is not sufficient, when referencing a subscription by name to not also provide
+     * the tenant ID since multiple tenants could have liked-named subsciptions.
+     *
+     * @param subName - Name of the subscription to be deleted.
+     * @param tenantID - ID of the tenant for whom the named subscription is to be deleted.
+     * @param dematerialize - "true" if the replica volume contents resulting from the subscription are to be
+     *                        deleted. If setting "true" results in all replica volume contents being deleted, the
+     *                        volume will be deleted as well.
+     *
+     * @return Nothing.
+     */
+    void deleteSubscriptionName(boost::shared_ptr<std::string>& subName,
+                                boost::shared_ptr<int64_t>& tenantID,
+                                boost::shared_ptr<bool>& dematerialize) {
+        checkMasterDomain();
+
+        if (!enable_subscriptions_) {
+            LOGERROR << "Subscriptions feature disabled.";
+            apiException("Error deleting subscription [" + *subName + "].");
+        }
+
+        std::string tenantIDStr = std::to_string(*tenantID);
+
+        auto subID = configDB->getSubscriptionId(*subName, *tenantID);
+
+        if (subID == invalid_sub_id) {
+            LOGERROR << "Some issue with retrieving subscription ID for [" << *subName << "] and tenant [" << tenantIDStr << "].";
+            apiException("Error retrieving subscription ID for [" + *subName + "] and tenant [" + tenantIDStr + "].");
+        } else {
+            auto ret = configDB->deleteSubscription(subID);
+
+            if (ret == kvstore::ConfigDB::ReturnType::SUCCESS) {
+                LOGNOTIFY << "Subscription delete succeded for subscription named [" << *subName <<
+                             "] and tenant [" << tenantIDStr << "].";
+            } else if (ret == kvstore::ConfigDB::ReturnType::NOT_FOUND) {
+                LOGERROR << "Unable to locate subscription named [" << *subName <<
+                         "] for tenant [" << tenantIDStr << "].";
+
+                apis::SubscriptionNotFound e;
+                e.message = "Unable to locate subscription named [" + *subName +
+                            "] for tenant [" + tenantIDStr + "].";
+                throw e;
+            } else if (ret == kvstore::ConfigDB::ReturnType::NOT_UPDATED) {
+                LOGERROR << "Unable to delete subscription named [" << *subName <<
+                         "] for tenant [" << tenantIDStr << "].";
+
+                apis::SubscriptionNotModified e;
+                e.message = "Unable to delete subscription named [" + *subName +
+                            "] for tenant [" + tenantIDStr + "].";
+                throw e;
+            } else {
+                fds_assert(ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION);
+                LOGERROR << "Some issue with deleting subscription named [" << *subName <<
+                         "] for tenant [" << tenantIDStr << "].";
+                apiException("Error deleting subscription named [" + *subName +
+                             "] for tenant [" + tenantIDStr + "].");
+            }
+        }
+
+        if (dematerialize) {
+            // TODO(Greg)
+        }
+    };
+
+    /**
+     * Delete the subscription identified by unique ID.
+     *
+     * @param subID - ID of the subscription to be deleted.
+     * @param dematerialize - "true" if the replica volume contents resulting from the subscription are to be
+     *                        deleted. If setting "true" results in all replica volume contents being deleted, the
+     *                        volume will be deleted as well.
+     *
+     * @return Nothing.
+     */
+    void deleteSubscriptionID(boost::shared_ptr<int64_t>& subID,
+                              boost::shared_ptr<bool>& dematerialize) {
+        checkMasterDomain();
+
+        std::string subIDStr = std::to_string(*subID);
+
+        if (!enable_subscriptions_) {
+            LOGERROR << "Subscriptions feature disabled.";
+            apiException("Error deleting subscription ID [" + subIDStr + "].");
+        }
+
+        auto ret = configDB->deleteSubscription(*subID);
+
+        if (ret == kvstore::ConfigDB::ReturnType::SUCCESS) {
+            LOGNOTIFY << "Subscription delete succeded for subscription ID [" << subIDStr << "].";
+        } else if (ret == kvstore::ConfigDB::ReturnType::NOT_FOUND) {
+            LOGERROR << "Unable to locate subscription ID [" << subIDStr << "].";
+
+            apis::SubscriptionNotFound e;
+            e.message = "Unable to locate subscription ID [" + subIDStr + "].";
+            throw e;
+        } else if (ret == kvstore::ConfigDB::ReturnType::NOT_UPDATED) {
+            LOGERROR << "Unable to delete subscription ID [" << subIDStr << "].";
+
+            apis::SubscriptionNotModified e;
+            e.message = "Unable to delete subscription ID [" + subIDStr + "].";
+            throw e;
+        } else {
+            fds_assert(ret == kvstore::ConfigDB::ReturnType::CONFIGDB_EXCEPTION);
+            LOGERROR << "Some issue with deleting subscription ID [" << subIDStr << "].";
+            apiException("Error deleting subscription ID [" + subIDStr + "].");
+        }
+
+        if (dematerialize) {
+            // TODO(Greg)
+        }
+    };
+
+    void getAllNodeInfo(std::vector< ::FDS_ProtocolInterface::SvcInfo> & _return) {
+
+        std::vector<fpi::SvcInfo> svcInfos;
+        bool success = configDB->getSvcMap( svcInfos );
+        if (success && svcInfos.size() > 0) {
+
+            for (fpi::SvcInfo svcInfo : svcInfos) {
+                if ( svcInfo.svc_type == fpi::FDSP_PLATFORM ) {
+                    _return.push_back(svcInfo);
+                }
+            }
+        } else {
+            LOGERROR << "Failed to retrieve Service Map";
+            apiException("Failed to retrieve Service Map");
+        }
+    }
+
+    void getNodeInfo( ::FDS_ProtocolInterface::SvcInfo& _return,
+                      boost::shared_ptr< ::FDS_ProtocolInterface::SvcUuid>& nodeUuid) {
+        std::vector<fpi::SvcInfo> svcInfos;
+        getAllNodeInfo(svcInfos);
+        for (fpi::SvcInfo svcInfo : svcInfos) {
+            if ( svcInfo.svc_id.svc_uuid == *nodeUuid )
+            {
+                _return = svcInfo;
+                return;
+            }
+        }
+
+        apiException("Failed to retrieve service info for node[" + getNodeUuidString(nodeUuid.get()) + "]");
+    }
+
+    int64_t getDiskCapacityNode(boost::shared_ptr< ::FDS_ProtocolInterface::SvcUuid>& nodeUuid) {
+        fpi::SvcInfo *svcInfo = nullptr;
+        getNodeInfo(*svcInfo, nodeUuid);
+
+        if (svcInfo == nullptr) {
+            apiException("Failed to retrieve service info for node[" + getNodeUuidString(nodeUuid.get()) + "]");
+        }
+
+        return std::stol(svcInfo->props.at("disk_capacity")) + std::stol(svcInfo->props.at("ssd_capacity"));
+
+    }
+
+    std::string getNodeUuidString(fpi::SvcUuid* nodeUuid) {
+        std::stringstream nodeUuidStr;
+        nodeUuidStr << std::hex << nodeUuid->svc_uuid << std::dec;
+        return nodeUuidStr.str();
+    }
+
+    int64_t getDiskCapacityTotal() {
+        int64_t total = 0;
+        std::vector<fpi::SvcInfo> svcInfos;
+        bool success = configDB->getSvcMap( svcInfos );
+        if (success && svcInfos.size() > 0) {
+
+            for (fpi::SvcInfo svcInfo : svcInfos) {
+                if ( svcInfo.svc_type == fpi::FDSP_PLATFORM ) {
+                    total += std::stol(svcInfo.props.at("disk_capacity"));
+                    total += std::stol(svcInfo.props.at("ssd_capacity"));
+                }
+            }
+
+            return total;
+        } else {
+            LOGERROR << "Failed to retrieve Service Map";
+            apiException("Failed to retrieve Service Map");
+        }
+        return -1;
+    };
+
+    /**
+     * @brief Not for use in production code!
+     * @details
+     * In production flows, the data store is passed to the constructor.
+     * Use this to set a fake data store when testing in isolation.
+     */
+    void setConfigDB(DataStoreT* pDataStore) {
+        if (!configDB) {
+            configDB = pDataStore;
+        } else {
+            throw std::logic_error("ConfigDB is already set.");
+        }
+    };
 };
+
+template <>
+ConfigurationServiceHandler<kvstore::ConfigDB>::ConfigurationServiceHandler(OrchMgr* om)
+ : om(om) {
+
+    configDB = om->getConfigDB();
+    // The module provider might not supply the base path we want,
+    // so make our own config access. This is libConfig data, not
+    // to be confused with FDS configuration (platform.conf).
+    FdsConfigAccessor configAccess(MODULEPROVIDER()->get_fds_config(), "fds.feature_toggle.");
+    enable_subscriptions_ = configAccess.get<bool>("common.enable_subscriptions", false);
+}
+
+template <>
+void ConfigurationServiceHandler<kvstore::ConfigDB>::checkMasterDomain() {
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+    if (!domain->om_master_domain()) {
+        LOGERROR << "Exception: Local Domain not Master.";
+        fpi::NotMasterDomain e;
+        e.message = "Local Domain not Master.";
+        throw e;
+    }
+}
+
+template <class DataStoreT>
+ConfigurationServiceHandler<DataStoreT>::ConfigurationServiceHandler(OrchMgr* om)
+ : om(om) {
+    // The module provider might not supply the base path we want,
+    // so make our own config access. This is libConfig data, not
+    // to be confused with FDS configuration (platform.conf).
+    FdsConfigAccessor configAccess(MODULEPROVIDER()->get_fds_config(), "fds.feature_toggle.");
+    enable_subscriptions_ = configAccess.get<bool>("common.enable_subscriptions", false);
+}
+
+template <class DataStoreT>
+void ConfigurationServiceHandler<DataStoreT>::checkMasterDomain() {
+    return;
+}
+
+// Explicit template instantiation
+template class ConfigurationServiceHandler<kvstore::ConfigDB>;
 }  // namespace apis
 
 std::thread* runConfigService(OrchMgr* om) {
@@ -1287,8 +2227,8 @@ std::thread* runConfigService(OrchMgr* om) {
     boost::shared_ptr<TProtocolFactory> protocolFactory(
         new TBinaryProtocolFactory( ) );  //NOLINT
 
-    boost::shared_ptr<apis::ConfigurationServiceHandler> handler(
-        new apis::ConfigurationServiceHandler( om ) ); // NOLINT
+    boost::shared_ptr<apis::ConfigurationServiceHandler<kvstore::ConfigDB> > handler(
+        new apis::ConfigurationServiceHandler<kvstore::ConfigDB>( om ) ); // NOLINT
     boost::shared_ptr<TProcessor> processor(
         new apis::ConfigurationServiceProcessor( handler ) ); // NOLINT
 

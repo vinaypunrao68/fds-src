@@ -4,7 +4,6 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCKOPERATIONS_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCKOPERATIONS_H_
 
-#include <deque>
 #include <map>
 #include <string>
 #include <unordered_map>
@@ -14,11 +13,7 @@
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/lockfree/spsc_queue.hpp>
 
-#include "fds_types.h"
-#include "concurrency/RwLock.h"
-#include "fdsp/xdi_types.h"
-#include "concurrency/Mutex.h"
-#include "AmAsyncResponseApi.h"
+#include "fdsp/common_types.h"
 #include "AmAsyncDataApi.h"
 #include "connector/BlockTask.h"
 #include "connector/SectorLockMap.h"
@@ -28,11 +23,6 @@ namespace fds {
 enum class BlockError : uint8_t {
     connection_closed,
     shutdown_requested,
-};
-
-struct BlockHandle {
-    uint64_t handle;
-    uint32_t seq;
 };
 
 /**
@@ -45,10 +35,10 @@ struct BlockHandle {
  */
 class BlockOperations
     :   public boost::enable_shared_from_this<BlockOperations>,
-        public AmAsyncResponseApi<BlockHandle>
+        public AmAsyncResponseApi
 {
-    using req_api_type = AmAsyncDataApi<BlockHandle>;
-    using resp_api_type = AmAsyncResponseApi<BlockHandle>;
+    using req_api_type = AmAsyncDataApi;
+    using resp_api_type = AmAsyncResponseApi;
     using task_type = BlockTask;
 
     using handle_type = resp_api_type::handle_type;
@@ -85,25 +75,23 @@ class BlockOperations
               task_type* resp);
 
     void read(task_type* resp);
-    void read(uint32_t length, uint64_t offset, int64_t handle);
-
     void write(req_api_type::shared_buffer_type& bytes, task_type* resp);
 
     void attachVolumeResp(const error_type &error,
-                          handle_type& requestId,
+                          handle_type const& requestId,
                           resp_api_type::shared_vol_descriptor_type& volDesc,
                           resp_api_type::shared_vol_mode_type& mode) override;
 
     void detachVolumeResp(const error_type &error,
-                          handle_type& requestId) override;
+                          handle_type const& requestId) override;
 
     // The two response types we do support
     void getBlobResp(const error_type &error,
-                     handle_type& requestId,
+                     handle_type const& requestId,
                      const resp_api_type::shared_buffer_array_type& bufs,
                      size_type& length) override;
 
-    void updateBlobResp(const error_type &error, handle_type& requestId) override;
+    void updateBlobOnceResp(const error_type &error, handle_type const& requestId) override;
 
     void detachVolume();
 
@@ -114,47 +102,49 @@ class BlockOperations
 
     void drainUpdateChain(uint64_t const offset,
                           boost::shared_ptr<std::string> buf,
-                          handle_type* queued_handle_ptr,
-                          Error const error);
+                          handle_type const* queued_handle_ptr,
+                          fpi::ErrorCode const error);
 
     uint32_t getObjectCount(uint32_t length, uint64_t offset);
 
     // api we've built
     std::unique_ptr<req_api_type> amAsyncDataApi;
     boost::shared_ptr<std::string> volumeName;
+    boost::shared_ptr<std::string> empty_buffer;
     uint32_t maxObjectSizeInBytes;
 
     // interface to respond to block passed down in constructor
-    std::unique_ptr<ResponseIFace> blockResp;
+    ResponseIFace* blockResp;
     bool shutting_down {false};
 
     // for all reads/writes to AM
     boost::shared_ptr<std::string> blobName;
     boost::shared_ptr<std::string> domainName;
-    boost::shared_ptr<fds_int32_t> blobMode;
+    boost::shared_ptr<int32_t> blobMode;
     boost::shared_ptr< std::map<std::string, std::string> > emptyMeta;
 
-    // for now we are supporting <=4K requests
-    // so keep current handles for which we are waiting responses
-    fds_mutex respLock;
+    // keep current handles for which we are waiting responses
+    std::mutex respLock;
     response_map_type responses;
 
     sector_type sector_map;
 
     // AmAsyncResponseApi un-implemented responses
-    void abortBlobTxResp       (const error_type &, handle_type&) override {}
-    void commitBlobTxResp      (const error_type &, handle_type&) override {}
-    void deleteBlobResp        (const error_type &, handle_type&) override {}
-    void getBlobWithMetaResp   (const error_type &, handle_type&, const resp_api_type::shared_buffer_array_type&, size_type&, resp_api_type::shared_descriptor_type&) override {}  // NOLINT
-    void startBlobTxResp       (const error_type &, handle_type&, resp_api_type::shared_tx_ctx_type&) override {}  // NOLINT
-    void statBlobResp          (const error_type &, handle_type&, resp_api_type::shared_descriptor_type&) override {}  // NOLINT
-    void updateBlobOnceResp    (const error_type &, handle_type&) override {}
-    void updateMetadataResp    (const error_type &, handle_type&) override {}
-    void renameBlobResp        (const error_type &, handle_type&, resp_api_type::shared_descriptor_type&) override {}
-    void volumeContentsResp    (const error_type &, handle_type&, resp_api_type::shared_descriptor_vec_type&, resp_api_type::shared_string_vec_type&) override {}  // NOLINT
-    void volumeStatusResp      (const error_type &, handle_type&, resp_api_type::shared_status_type&) override {}  // NOLINT
-    void setVolumeMetadataResp (const error_type &, handle_type&) override {}  // NOLINT
-    void getVolumeMetadataResp (const error_type &, handle_type&, resp_api_type::shared_meta_type&) override {}  // NOLINT
+    void abortBlobTxResp       (const error_type &, handle_type const&) override {}
+    void commitBlobTxResp      (const error_type &, handle_type const&) override {}
+    void deleteBlobResp        (const error_type &, handle_type const&) override {}
+    void getBlobWithMetaResp   (const error_type &, handle_type const&, const resp_api_type::shared_buffer_array_type&, size_type&, resp_api_type::shared_descriptor_type&) override {}  // NOLINT
+    void startBlobTxResp       (const error_type &, handle_type const&, resp_api_type::shared_tx_ctx_type&) override {}  // NOLINT
+    void statBlobResp          (const error_type &, handle_type const&, resp_api_type::shared_descriptor_type&) override {}  // NOLINT
+    void updateBlobResp        (const error_type &, handle_type const&) override {}
+    void updateMetadataResp    (const error_type &, handle_type const&) override {}
+    void renameBlobResp        (const error_type &, handle_type const&, resp_api_type::shared_descriptor_type&) override {}
+    void volumeContentsResp    (const error_type &, handle_type const&, resp_api_type::shared_descriptor_vec_type&, resp_api_type::shared_string_vec_type&) override {}  // NOLINT
+    void volumeStatusResp      (const error_type &, handle_type const&, resp_api_type::shared_status_type&) override {}  // NOLINT
+    void setVolumeMetadataResp (const error_type &, handle_type const&) override {}  // NOLINT
+    void getVolumeMetadataResp (const error_type &, handle_type const&, resp_api_type::shared_meta_type&) override {}  // NOLINT
+
+    void retryLoop();
 };
 
 }  // namespace fds

@@ -9,6 +9,8 @@
 #include <OmResources.h>
 namespace fds { namespace convert {
 
+fpi::FDSP_MediaPolicy getMediaPolicyToFDSP_MediaPolicy( const apis::MediaPolicy mediaPolicy );
+
 void getFDSPCreateVolRequest(fpi::FDSP_MsgHdrTypePtr& header,
                              apis::FDSP_CreateVolTypePtr& request,
                              const std::string& domain,

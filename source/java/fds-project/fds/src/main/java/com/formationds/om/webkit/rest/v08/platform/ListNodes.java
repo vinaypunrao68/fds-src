@@ -9,12 +9,14 @@ import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.util.NodeUtils;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
-import com.formationds.protocol.FDSP_Node_Info_Type;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
+import com.formationds.protocol.svc.types.SvcInfo;
 import com.formationds.util.Configuration;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
+
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
@@ -44,7 +46,7 @@ public class ListNodes
 
         return new TextResource( jsonString );
     }
-    
+
     public List<Node> getNodes() throws TException{
         
     	logger.debug( "Getting a list of nodes." );
@@ -53,11 +55,6 @@ public class ListNodes
     	List<FDSP_Node_Info_Type> list = getConfigApi().ListServices(0);
 
     	logger.debug( "Size of service list: {}", list.size( ) );
-    	for ( FDSP_Node_Info_Type aNode : list )
-    	{
-    		logger.debug( "Node name: {} uuid: {} ", aNode.getNode_name(), aNode.getNode_uuid() );
-    	}
-
         Map<Long, List<FDSP_Node_Info_Type>> groupedServices =
             NodeUtils.groupNodes( list, getConfiguration().getOMNodeUuid() );
 

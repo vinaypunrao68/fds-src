@@ -16,6 +16,8 @@
 #include <dm-vol-cat/DmPersistVolFile.h>
 #include <dm-vol-cat/DmVolumeCatalog.h>
 
+#include <VolumeMeta.h>
+
 #define ENSURE_SEQUENCE_ADV(seq_a, seq_b, volId, blobName) \
         auto const seq_ev_a = (seq_a); auto const seq_ev_b = (seq_b); \
         if (seq_ev_a >= seq_ev_b) { \
@@ -50,7 +52,10 @@
 
 namespace fds {
 
-DmVolumeCatalog::DmVolumeCatalog(char const * const name) : Module(name), expungeCb_(0) {}
+DmVolumeCatalog::DmVolumeCatalog(CommonModuleProviderIf* modProvider,
+                                 char const * const name)
+    : HasModuleProvider(modProvider),
+    Module(name), expungeCb_(0) {}
 
 DmVolumeCatalog::~DmVolumeCatalog() {}
 
@@ -78,9 +83,13 @@ Error DmVolumeCatalog::addCatalog(const VolumeDesc & voldesc) {
      * TODO(umesh): commented out for beta for commit log and consistent hot snapshot features
     if (fpi::FDSP_VOL_S3_TYPE == voldesc.volType) {
     */
-        vol.reset(new DmPersistVolDB(voldesc.volUUID, voldesc.maxObjSizeInBytes,
-                    voldesc.isSnapshot(), voldesc.isSnapshot(), voldesc.isClone(),
-                    voldesc.isSnapshot() ? voldesc.srcVolumeId : invalid_vol_id));
+    fds_bool_t fArchiveLogs = CONFIG_BOOL("fds.feature_toggle.common.enable_timeline", true) &&
+            !voldesc.isSnapshot() && voldesc.contCommitlogRetention > 0;
+        vol.reset(new DmPersistVolDB(MODULEPROVIDER(),
+                    voldesc.volUUID, voldesc.maxObjSizeInBytes,
+                                     voldesc.isSnapshot(), voldesc.isSnapshot(), voldesc.isClone(),
+                                     fArchiveLogs,
+                                     voldesc.isSnapshot() ? voldesc.srcVolumeId : invalid_vol_id));
     /*
     } else {
         vol.reset(new DmPersistVolFile(voldesc.volUUID, voldesc.maxObjSizeInBytes,
@@ -110,7 +119,7 @@ Error DmVolumeCatalog::copyVolume(const VolumeDesc & voldesc) {
         volType = iter->second->getVolType();
     }
 
-    const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+    const FdsRootDir* root = MODULEPROVIDER()->proc_fdsroot();
     std::ostringstream oss;
     oss << root->dir_sys_repo_dm() << voldesc.srcVolumeId << "/" << voldesc.srcVolumeId
             << "_vcat.ldb";
@@ -141,8 +150,12 @@ Error DmVolumeCatalog::copyVolume(const VolumeDesc & voldesc) {
          * TODO(umesh): commented out for beta for commit log and consistent hot snapshot features
         if (fpi::FDSP_VOL_S3_TYPE == volType) {
         */
-            vol.reset(new DmPersistVolDB(voldesc.volUUID, objSize, voldesc.isSnapshot(),
-                    voldesc.isSnapshot(), voldesc.isClone(), voldesc.srcVolumeId));
+        fds_bool_t fArchiveLogs = CONFIG_BOOL("fds.feature_toggle.common.enable_timeline", true) &&
+                !voldesc.isSnapshot() && voldesc.contCommitlogRetention > 0;
+
+            vol.reset(new DmPersistVolDB(MODULEPROVIDER(),
+                                         voldesc.volUUID, objSize, voldesc.isSnapshot(),
+                                         voldesc.isSnapshot(), voldesc.isClone(), fArchiveLogs, voldesc.srcVolumeId));
         /*
         } else {
             vol.reset(new DmPersistVolFile(voldesc.volUUID, objSize, voldesc.isSnapshot(),
@@ -172,15 +185,35 @@ Error DmVolumeCatalog::activateCatalog(fds_volid_t volId) {
 }
 
 Error DmVolumeCatalog::reloadCatalog(const VolumeDesc & voldesc) {
-    LOGDEBUG << "Will reload catalog for volume " << std::hex << voldesc.volUUID << std::dec;
-    deleteEmptyCatalog(voldesc.volUUID, false);
+    LOGNORMAL << "Will reload catalog for volume " << voldesc.volUUID;
+    deleteCatalog(voldesc.volUUID, false);
     Error rc = addCatalog(voldesc);
     if (!rc.ok()) {
-        LOGWARN << "Failed to re-instantiate the volume '" << std::hex << voldesc.volUUID
-                << std::dec << "'";
+        LOGWARN << "Failed to re-instantiate the volume '" << voldesc.volUUID;
         return rc;
     }
-    return activateCatalog(voldesc.volUUID);
+    rc = activateCatalog(voldesc.volUUID);
+
+    if (rc.ok()) {
+        /*
+        synchronized(lockVolSummaryMap_) {
+            DmVolumeSummaryMap_t::const_iterator iter = volSummaryMap_.find(voldesc.volUUID);
+            if (volSummaryMap_.end() != iter) {
+                volSummaryMap_.erase(iter);
+            }
+        }
+        fds_uint64_t volSize=0, blobCount=0, objCount=0;
+        // statVolumeLogical(voldesc.volUUID, &volSize, &blobCount, &objCount);
+        LOGNORMAL << "reloaded vol:" << voldesc.volUUID << "["
+                  << " size:" << volSize
+                  << " blobs:" << blobCount
+                  << " objects:" << objCount << "]";
+        */
+    } else {
+        LOGWARN << "unable to activate vol:" << voldesc.volUUID
+                << "error:" << rc;
+    }
+    return rc;
 }
 
 void DmVolumeCatalog::registerExpungeObjectsCb(expunge_objs_cb_t cb) {
@@ -204,8 +237,35 @@ Error DmVolumeCatalog::markVolumeDeleted(fds_volid_t volId) {
     return rc;
 }
 
-Error DmVolumeCatalog::deleteEmptyCatalog(fds_volid_t volId, bool checkDeleted /* = true */) {
-    LOGDEBUG << "Will delete catalog for volume '" << std::hex << volId << std::dec << "'";
+Error DmVolumeCatalog::deleteCatalog(fds_volid_t volId, bool checkDeleted /* = true */) {
+    LOGDEBUG << "will delete catalog for vol:" << volId;
+    GET_VOL(volId);
+    if (!vol) return ERR_VOL_NOT_FOUND;
+
+    // wait for all mem snapshots to be released
+    if (0 != vol->getNumInMemorySnapshots()) {
+        LOGWARN << "waiting for all db mem snapshots to be released.";
+        uint count = 0;
+        uint sleeptime = 500000;  // half a second
+        uint maxwait = 10*60;  // 10 mins
+
+        do {
+            if (count && count % 40 == 0) {
+                LOGWARN << "still waiting for db snaps to be released "
+                        << " for vol:" << volId
+                        << " waittime: " << (count/2) << " seconds";
+            }
+            usleep(500000);
+            ++count;
+        } while ( count < (maxwait*2) && 0 != vol->getNumInMemorySnapshots());
+
+        if (0 != vol->getNumInMemorySnapshots()) {
+            LOGCRITICAL << "Mem snaps not released even after "
+                        << (count/2) << " seconds"
+                        << " for vol:" << volId
+                        << " .. please check";
+        }
+    }
 
     synchronized(volMapLock_) {
         std::unordered_map<fds_volid_t, DmPersistVolCat::ptr>::iterator iter =
@@ -221,10 +281,10 @@ Error DmVolumeCatalog::deleteEmptyCatalog(fds_volid_t volId, bool checkDeleted /
     return ERR_OK;
 }
 
-Error DmVolumeCatalog::statVolume(fds_volid_t volId,
-                                  fds_uint64_t* volSize,
-                                  fds_uint64_t* blobCount,
-                                  fds_uint64_t* objCount) {
+Error DmVolumeCatalog::statVolumeLogical(fds_volid_t volId,
+                                         fds_uint64_t* volSize,
+                                         fds_uint64_t* blobCount,
+                                         fds_uint64_t* objCount) {
     Error rc(ERR_OK);
     synchronized(lockVolSummaryMap_) {
         DmVolumeSummaryMap_t::const_iterator iter = volSummaryMap_.find(volId);
@@ -250,6 +310,77 @@ Error DmVolumeCatalog::statVolume(fds_volid_t volId,
     return rc;
 }
 
+Error DmVolumeCatalog::statVolumePhysical(fds_volid_t volId, fds_uint64_t *pbytes, fds_uint64_t *pObjCount) {
+    GET_VOL_N_CHECK_DELETED(volId);
+    HANDLE_VOL_NOT_ACTIVATED();
+
+    std::vector<BlobMetaDesc> blobMetaList;
+
+    *pbytes = 0;
+    *pObjCount = 0;
+
+    Error rc = vol->getAllBlobMetaDesc(blobMetaList);
+    if (!rc.ok()) {
+        LOGERROR << "Failed to retrieve volume metadata for volume: '" << std::hex
+                 << volId << std::dec << "' error: '" << rc << "'";
+        return rc;
+    }
+
+    std::unordered_set<ObjectID, ObjectHash> uniqueObjIds;
+    for (const auto & it : blobMetaList) {
+        fds_uint64_t endOffset = DmVolumeCatalog::getLastOffset(it.desc.blob_size,
+                                                                vol->getObjSize());
+        BlobObjList objList;
+        rc = vol->getObject(it.desc.blob_name, 0 /* start offset */, endOffset, objList);
+
+        /**
+         * The vol->getObject() method (which should probably really be called something like
+         * getDataObjectRange()), makes an assumption that all Data Objects in the
+         * range are written and all have the same size, the maximum size of a Data Object
+         * as defined with the Volume, here identified with a call to vol->getObjSize().
+         *
+         * This assumption is wrong on both accounts.
+         *
+         * The last Data Object in the Blob's list will be sized sufficiently to finish
+         * out the entire size of the Blob. In other words, the rest of DM assumes that the
+         * Connector wrote the Blob in chunks of vol->getObjSize() size until the last
+         * Data Object which catches the remainder of BlobSize/vol->getObjSize(). In order
+         * to get a correct PBYTE count here, we must now correct that bad assumption
+         * by vol->getObject().
+         *
+         * We could put this correction into vol->getObject() so that all callers can enjoy
+         * the benefits of a more correct Data Object list, but that would break the S3
+         * Connector's multi-part upload interface which relies upon the incorrect list
+         * produced by vol->getObject().
+         *
+         * As to the other bad assumption, that all Data Objects in the range have been
+         * written, we offer no correction for that at this time. So when a Connector
+         * writes to offsets sporadically, leaving some unwritten (as do the iSCSI and S3
+         * Connectors at least), we will continue to calculate PBYTEs as if all offsets,
+         * from 0 up to the last one based on Blob size have been written as well.
+         */
+        objList[endOffset].size = DmVolumeCatalog::getLastObjSize(it.desc.blob_size,
+                                                                  vol->getObjSize());
+
+        if (!rc.ok()) {
+            LOGERROR << "Failed to retrieve objects for blob: '" << it.desc.blob_name <<
+                     "' volume: '" << std::hex << volId << std::dec << "'";
+            return rc;
+        }
+
+        for (const auto & obj : objList) {
+            if (uniqueObjIds.find(obj.second.oid) == uniqueObjIds.end()) {
+                uniqueObjIds.insert(obj.second.oid);
+                *pbytes += obj.second.size;
+            }
+        }
+    }
+
+    *pObjCount = uniqueObjIds.size();
+
+    return rc;
+}
+
 Error DmVolumeCatalog::statVolumeInternal(fds_volid_t volId, fds_uint64_t * volSize,
             fds_uint64_t * blobCount, fds_uint64_t * objCount) {
     GET_VOL_N_CHECK_DELETED(volId);
@@ -269,6 +400,12 @@ Error DmVolumeCatalog::statVolumeInternal(fds_volid_t volId, fds_uint64_t * volS
         *volSize += it.desc.blob_size;
         *objCount += it.desc.blob_size / vol->getObjSize();
 
+        /**
+         * The last Data Object may be smaller than the max
+         * Data Object size for the volume. And above, we assumed
+         * that all the other Data Objects had size equal to
+         * the max Data Object size for the volume.
+         */
         if (it.desc.blob_size % vol->getObjSize()) {
             *objCount += 1;
         }
@@ -371,13 +508,16 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volId, const std::string& blobName,
                                  fds_uint64_t startOffset, fds_int64_t endOffset,
                                  blob_version_t* blobVersion, fpi::FDSP_MetaDataList* metaList,
                                  fpi::FDSP_BlobObjectList* objList, fds_uint64_t* blobSize) {
-    LOGDEBUG << "Will retrieve blob '" << blobName << "' offset '" << startOffset <<
-            "' volume '" << std::hex << volId << std::dec << "'";
+    LOGDEBUG << "Will retrieve blob <" << blobName
+             << "> start offset <" << startOffset
+             << "> end offset <" << endOffset
+             << "> volume '" << std::hex << volId << std::dec
+             << "'";
 
     *blobSize = 0;
     Error rc = getBlobMeta(volId, blobName, blobVersion, blobSize, metaList);
     if (!rc.ok()) {
-        LOGNOTIFY << "Failed to retrieve blob '" << blobName << "' volume '" <<
+        LOGDEBUG << "Failed to retrieve blob '" << blobName << "' volume '" <<
                 std::hex << volId << std::dec << "'";
         return rc;
     }
@@ -386,6 +526,11 @@ Error DmVolumeCatalog::getBlob(fds_volid_t volId, const std::string& blobName,
         // empty blob
         return rc;
     } else if (startOffset >= *blobSize) {
+        LOGDEBUG  << "For Blob '" << blobName
+                  << "', Volume '" << std::hex << volId << std::dec
+                  << "', start offset of <" << startOffset
+                  << "> not less than Blob size <" << *blobSize
+                  << ">.";
         return ERR_BLOB_OFFSET_INVALID;
     } else if (endOffset >= static_cast<fds_int64_t>(*blobSize)) {
         endOffset = -1;
@@ -484,6 +629,16 @@ Error DmVolumeCatalog::listBlobsWithPrefix (fds_volid_t volId,
     return rc;
 }
 
+Error DmVolumeCatalog::getObjectIds(fds_volid_t volId,
+                                    const uint32_t &maxObjs,
+                                    const Catalog::MemSnap &snap,
+                                    std::unique_ptr<Catalog::catalog_iterator_t>& dbItr,
+                                    std::list<ObjectID> &objects) {
+    GET_VOL_N_CHECK_DELETED(volId);
+    vol->getObjectIds(maxObjs, snap, dbItr, objects);
+    return ERR_OK;
+}
+
 Error DmVolumeCatalog::putBlobMeta(fds_volid_t volId, const std::string& blobName,
         const MetaDataList::const_ptr& metaList, const BlobTxId::const_ptr& txId,
         const sequence_id_t seq_id) {
@@ -556,7 +711,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         return rc;
     }
 
-    std::vector<ObjectID> expungeList;
+    // std::vector<ObjectID> expungeList;
 
     BlobObjList::const_iter firstIter = blobObjList->begin();
     fds_verify(blobObjList->end() != firstIter);
@@ -566,6 +721,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
     const fds_uint64_t oldBlobSize = blobMeta.desc.blob_size;
     const fds_uint32_t oldLastObjSize = DmVolumeCatalog::getLastObjSize(oldBlobSize,
             vol->getObjSize());
+    // oldLastOffset -> the offset that the old blob ends on prior to the new put
     const fds_uint64_t oldLastOffset = oldBlobSize ? oldBlobSize - oldLastObjSize : 0;
     BlobObjList oldBlobObjList;
 
@@ -602,7 +758,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
 
         if (NullObjectID != oldIter->second.oid) {
             // null object does not physically exist
-            expungeList.push_back(oldIter->second.oid);
+            // expungeList.push_back(oldIter->second.oid);
         }
 
         // if we are updating last offset, adjust blob size
@@ -637,7 +793,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         for (auto & i : truncateObjList) {
             if (NullObjectID != i.second.oid) {
                 delOffsetList.push_back(i.first);
-                expungeList.push_back(i.second.oid);
+                // expungeList.push_back(i.second.oid);
                 newBlobSize -= i.first == oldLastOffset ? oldLastObjSize : i.second.size;
             }
         }
@@ -649,7 +805,12 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         }
     }
 
-    mergeMetaList(blobMeta.meta_list, *metaList);
+    // Is it possible to have an empty incoming metaList but with one or more offsets?
+    // We certainly have hit a case in testing, and updateFwdCommittedBlob seems to think
+    // it's possible.
+    if (metaList != nullptr) {
+        mergeMetaList(blobMeta.meta_list, *metaList);
+    }
     blobMeta.desc.version += 1;
     blobMeta.desc.sequence_id = std::max(blobMeta.desc.sequence_id, seq_id);
     blobMeta.desc.blob_size = newBlobSize;
@@ -683,8 +844,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
 
     // actually expunge objects that were dereferenced by the blob
     // TODO(xxx): later that should become part of GC and done in background
-    fds_verify(expungeCb_);
-    return expungeCb_(volId, expungeList, false);
+    return ERR_OK;
 }
 
 // NOTE: used by the Batch ifdef, not currently called by compiled code
@@ -722,7 +882,12 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         newObjCount += 1;
     }
 
-    mergeMetaList(blobMeta.meta_list, *metaList);
+    // Is it possible to have an empty incoming metaList but with one or more offsets?
+    // We certainly have hit a case in testing, and updateFwdCommittedBlob seems to think
+    // it's possible.
+    if (metaList != nullptr) {
+        mergeMetaList(blobMeta.meta_list, *metaList);
+    }
     blobMeta.desc.version += 1;
     blobMeta.desc.sequence_id = seq_id;
     blobMeta.desc.blob_size = newBlobSize;
@@ -825,13 +990,6 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volId, const std::string& blobName
                 iter->second->objectCount.fetch_sub(expungeList.size());
             }
         }
-
-        // actually expunge objects that were dereferenced by the blob
-        // TODO(xxx): later that should become part of GC and done in background
-        fds_assert(expungeCb_);
-        if (expunge_data) {
-            return expungeCb_(volId, expungeList, fIsSnapshot);
-        }
     }
 
     return rc;
@@ -844,7 +1002,8 @@ Error DmVolumeCatalog::syncCatalog(fds_volid_t volId, const NodeUuid& dmUuid) {
 
 Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
                                          const std::string& blobName,
-                                         const std::string& blobData){
+                                         const std::string& blobData,
+                                         VolumeMeta& volMeta){
     GET_VOL_N_CHECK_DELETED(volId);
     Error err;
     bool fTruncate = true;
@@ -901,6 +1060,8 @@ Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
     BlobMetaDesc newBlob;
     err = newBlob.loadSerialized(blobData);
 
+    volMeta.setSequenceId(newBlob.desc.sequence_id);
+
     if (!err.ok()) {
         LOGERROR << "Failed to deserialize migrated blob: " << blobName
                  << " from catalog for volume: " << volId << " error: " << err;
@@ -921,9 +1082,13 @@ Error DmVolumeCatalog::migrateDescriptor(fds_volid_t volId,
         const fds_uint64_t newLastOffset = DmVolumeCatalog::getLastOffset(newBlob.desc.blob_size,
                                                                           vol->getObjSize());
 
-        if ((newLastOffset+1) < oldLastOffset) {
-            // delete starting at the ofset after the new last offset
-            err = vol->deleteObject(blobName, newLastOffset +1, oldLastOffset);
+        // if the new lastOffset is less than the olf lastOfffset, we need to truncate
+        if (newLastOffset < oldLastOffset) {
+            LOGDEBUG << "deleteObject start " << blobName << " newLastOffset: " << newLastOffset << " oldLastOffset: " << oldLastOffset;
+
+            // delete starting at the offset AFTER the new last offset
+            err = vol->deleteObject(blobName, newLastOffset + vol->getObjSize(), oldLastOffset);
+            LOGDEBUG << "deleteObject end " << blobName << " newLastOffset: " << newLastOffset << " oldLastOffset: " << oldLastOffset;
 
             if (!err.ok()) {
                 LOGERROR << "During migration, failed to truncate blob: "
@@ -955,9 +1120,18 @@ Error DmVolumeCatalog::getVolumeSequenceId(fds_volid_t volId, sequence_id_t& seq
 }
 
 Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId,
-                                                 Catalog::MemSnap snap) {
+                                                 Catalog::MemSnap snap,
+                                                 const fds_bool_t &abortFlag) {
+
     GET_VOL_N_CHECK_DELETED(volId);
     return vol->getAllBlobsWithSequenceId(blobsSeqId, snap);
+
+}
+
+Error DmVolumeCatalog::getAllBlobsWithSequenceId(fds_volid_t volId, std::map<std::string, int64_t>& blobsSeqId,
+                                                 Catalog::MemSnap snap) {
+    fds_bool_t dummyFlag = false;
+    return (getAllBlobsWithSequenceId(volId, blobsSeqId, snap, dummyFlag));
 }
 
 Error DmVolumeCatalog::putObject(fds_volid_t volId,
@@ -969,18 +1143,25 @@ Error DmVolumeCatalog::putObject(fds_volid_t volId,
 }
 
 Error DmVolumeCatalog::getVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &snap) {
-	GET_VOL_N_CHECK_DELETED(volId);
-	return vol->getInMemorySnapshot(snap);
+    GET_VOL_N_CHECK_DELETED(volId);
+    return vol->getInMemorySnapshot(snap);
 }
 
 Error DmVolumeCatalog::freeVolumeSnapshot(fds_volid_t volId, Catalog::MemSnap &snap) {
-	GET_VOL_N_CHECK_DELETED(volId);
-	return vol->freeInMemorySnapshot(snap);
+    GET_VOL(volId);
+    return vol->freeInMemorySnapshot(snap);
 }
 
 Error DmVolumeCatalog::forEachObject(fds_volid_t volId, std::function<void(const ObjectID&)> func) {
     GET_VOL_N_CHECK_DELETED(volId);
     vol->forEachObject(func);
+    return ERR_OK;
+}
+
+Error DmVolumeCatalog::getVersion(fds_volid_t volId, int32_t &version)
+{
+    GET_VOL_N_CHECK_DELETED(volId);
+    version = vol->getVersion();
     return ERR_OK;
 }
 

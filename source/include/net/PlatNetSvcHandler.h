@@ -20,11 +20,17 @@
         boost::shared_ptr<std::string>& payloadBuf) \
     { \
         DBG(fiu_do_on("svc.dropincoming."#FDSPMsgT, return;)); \
+        PlatNetSvcHandler::threadLocalPayloadBuf = payloadBuf; \
         boost::shared_ptr<FDSPMsgT> payload; \
         fds::deserializeFdspMsg(payloadBuf, payload); \
-        SVCPERF(header->rqHndlrTs = util::getTimeStampNanos()); \
         func(header, payload); \
+        PlatNetSvcHandler::threadLocalPayloadBuf = nullptr; \
     }
+
+// get the global service request handler
+#define SVC_REQUEST_HANDLER(...) \
+    MODULEPROVIDER()->getSvcMgr()->getSvcRequestHandler()
+
 /*
  * Use this macro for registering FDSP message handlers
  * @param FDSPMsgT - fdsp message type
@@ -33,6 +39,12 @@
 #define REGISTER_FDSP_MSG_HANDLER(FDSPMsgT, func) \
     REGISTER_FDSP_MSG_HANDLER_GENERIC(this, FDSPMsgT, func)
 
+// This will register the function with the global svc handler
+#define REGISTER_GLOBAL_MSG_HANDLER(FDSPMsgT, func) \
+    REGISTER_FDSP_MSG_HANDLER_GENERIC(SVC_REQUEST_HANDLER(), FDSPMsgT, func)
+
+#define SEND_ASYNC_RESP(...) \
+    SVC_REQUEST_HANDLER()->sendAsyncResp(__VA_ARGS__)
 
 // note : CALLBACK & CALLBACK2 are same
 #define BIND_MSG_CALLBACK(func, header , ...) \
@@ -46,6 +58,9 @@
 #define BIND_MSG_CALLBACK3(func, header , ...) \
     std::bind(&func, this, header, ##__VA_ARGS__ , std::placeholders::_1, \
               std::placeholders::_2, std::placeholders::_3);
+
+#define ASYNC_HANDLER_PARAMS(msgType) SHPTR<fpi::AsyncHdr>& hdr, SHPTR<fpi::msgType>& msg
+#define DECL_ASYNC_HANDLER(func, msgType) void func(ASYNC_HANDLER_PARAMS(msgType));
 
 namespace fpi = FDS_ProtocolInterface;
 
@@ -82,16 +97,27 @@ struct PlatNetSvcHandler : HasModuleProvider,
 
     void setTaskExecutor(SynchronizedTaskExecutor<uint64_t>  * taskExecutor);
 
+    void updateHandler(const fpi::FDSPMsgTypeId msgId, const FdspMsgHandler &handler);
+
     void asyncReqt(const FDS_ProtocolInterface::AsyncHdr& header,
                    const std::string& payload) override;
     void asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                    boost::shared_ptr<std::string>& payload) override;
-    virtual void getSvcMap(std::vector<fpi::SvcInfo> & _return,
+    void getSvcMap(std::vector<fpi::SvcInfo> & _return,
                            const int64_t nullarg) override;
-    virtual void getSvcMap(std::vector<fpi::SvcInfo> & _return,
+    void getSvcMap(std::vector<fpi::SvcInfo> & _return,
                            boost::shared_ptr<int64_t>& nullarg) override;
-    virtual void getSvcMap(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+    void getSvcMap(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                            boost::shared_ptr<fpi::GetSvcMapMsg> &msg);
+    void getDLT( fpi::CtrlNotifyDLTUpdate& _return, const int64_t nullarg) override {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+    }
+    void getDMT( fpi::CtrlNotifyDMTUpdate& _return, const int64_t nullarg) override {
+        // Don't do anything here. This stub is just to keep cpp compiler happy
+        return;
+    }
+    void getDLT(fpi::CtrlNotifyDLTUpdate& _return, SHPTR<int64_t>& nullarg) override;
+    void getDMT(fpi::CtrlNotifyDMTUpdate& _return, SHPTR<int64_t>& nullarg) override;
 
     // void asyncResp2(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                     // boost::shared_ptr<std::string>& payload);
@@ -134,18 +160,6 @@ struct PlatNetSvcHandler : HasModuleProvider,
         this->sendAsyncResp_(reqHdr, msgTypeId, respBuf);
     }
 
-    // protected:
-    /* Typically whether registration with OM is complete or not.  When
-     * registration isn't complete all incoming async requests get queued up
-     */
-    using AsyncReqPair = std::pair<fpi::AsyncHdrPtr, StringPtr>;
-    std::atomic<State> handlerState_;
-    std::list<AsyncReqPair> deferredReqs_; 
-
-    /* Request handlers */
-    std::unordered_map<fpi::FDSPMsgTypeId, FdspMsgHandler, std::hash<int>> asyncReqHandlers_;
-    SynchronizedTaskExecutor<uint64_t>  * taskExecutor_;
-
 
     virtual void allUuidBinding(const fpi::UuidBindMsg& mine);
     virtual void allUuidBinding(boost::shared_ptr<fpi::UuidBindMsg>& mine);  // NOLINT
@@ -172,9 +186,14 @@ struct PlatNetSvcHandler : HasModuleProvider,
     virtual void resetCounters(const std::string& id) override;
     virtual void resetCounters(boost::shared_ptr<std::string>& id) override;
 
-    virtual void setConfigVal(const std::string& id, const int64_t val) override;
-    virtual void setConfigVal(boost::shared_ptr<std::string>& id,  // NOLINT
-                              boost::shared_ptr<int64_t>& val) override;
+    void getStateInfo(std::string & _return,
+                      const std::string& id) override;
+    void getStateInfo(std::string & _return,
+                      boost::shared_ptr<std::string>& id) override;
+
+    virtual void setConfigVal(const std::string& name, const std::string& value) override;
+    virtual void setConfigVal(boost::shared_ptr<std::string>& name,  // NOLINT
+                              boost::shared_ptr<std::string>& value) override;
 
     virtual void setFlag(const std::string& id, const int64_t value) override;
     virtual void setFlag(boost::shared_ptr<std::string>& id,
@@ -191,6 +210,8 @@ struct PlatNetSvcHandler : HasModuleProvider,
     virtual void getProperties(std::map<std::string, std::string> & _return, const int32_t nullarg);  // NOLINT
     virtual void getProperties(std::map<std::string, std::string> & _return, boost::shared_ptr<int32_t>& nullarg);   // NOLINT
 
+    virtual void getConfig(std::map<std::string, std::string> & _return, const int32_t nullarg);  // NOLINT
+    virtual void getConfig(std::map<std::string, std::string> & _return, boost::shared_ptr<int32_t>& nullarg);   // NOLINT
 
     virtual bool setFault(const std::string& command) override;
     virtual bool setFault(boost::shared_ptr<std::string>& command) override;  // NOLINT
@@ -198,6 +219,21 @@ struct PlatNetSvcHandler : HasModuleProvider,
                    fpi::GetSvcStatusMsgPtr &statusMsg);
     virtual void updateSvcMap(fpi::AsyncHdrPtr &header,
                               fpi::UpdateSvcMapMsgPtr &svcMapMsg);
+
+    // protected:
+    /* Typically whether registration with OM is complete or not.  When
+     * registration isn't complete all incoming async requests get queued up
+     */
+    using AsyncReqPair = std::pair<fpi::AsyncHdrPtr, StringPtr>;
+    std::atomic<State> handlerState_;
+    std::list<AsyncReqPair> deferredReqs_; 
+
+    /* Request handlers */
+    std::unordered_map<fpi::FDSPMsgTypeId, FdspMsgHandler, std::hash<int>> asyncReqHandlers_;
+    SynchronizedTaskExecutor<uint64_t>  * taskExecutor_;
+
+    /* Incoming request message payload buffer */
+    static thread_local StringPtr threadLocalPayloadBuf;
 };
 
 using PlatNetSvcHandlerPtr = boost::shared_ptr<PlatNetSvcHandler>;

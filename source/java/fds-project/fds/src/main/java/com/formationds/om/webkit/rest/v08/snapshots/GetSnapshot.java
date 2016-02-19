@@ -71,16 +71,16 @@ public class GetSnapshot implements RequestHandler {
 
 		String domain = ""; // not yet implemented
 		List<VolumeDescriptor> volumes = getConfigApi().listVolumes(domain);
-		com.formationds.protocol.Snapshot snapshot = null;
+		com.formationds.protocol.svc.types.Snapshot snapshot = null;
 
 		for (VolumeDescriptor volume : volumes) {
 
 			try {
 
-				List<com.formationds.protocol.Snapshot> snapshots = 
+				List<com.formationds.protocol.svc.types.Snapshot> snapshots = 
 						getConfigApi().listSnapshots(volume.getVolId());
 
-				Optional<com.formationds.protocol.Snapshot> snapshotMatch = snapshots
+				Optional<com.formationds.protocol.svc.types.Snapshot> snapshotMatch = snapshots
 						.stream().filter(s -> {
 							return (s.getSnapshotId() == snapshotId);
 						}).findFirst();

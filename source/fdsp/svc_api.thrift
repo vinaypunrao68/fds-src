@@ -5,7 +5,6 @@
 
 include "svc_types.thrift"
 
-include "FDSP.thrift"
 include "common.thrift"
 
 namespace cpp FDS_ProtocolInterface
@@ -37,9 +36,9 @@ struct CtrlNotifyDMTUpdate {
  */
 struct CtrlNotifyVolAdd {
   /** Volume settings and attributes. */
-  1: common.FDSP_VolumeDescType vol_desc;
+  1: svc_types.FDSP_VolumeDescType vol_desc;
   /**  */
-  2: FDSP.FDSP_NotifyVolFlag    vol_flag;
+  2: svc_types.FDSP_NotifyVolFlag    vol_flag;
 }
 
 /**
@@ -47,8 +46,8 @@ struct CtrlNotifyVolAdd {
  */
 struct CtrlNotifyVolRemove {
   /** Volume settings and attributes. */
-  1: common.FDSP_VolumeDescType vol_desc;
-  2: FDSP.FDSP_NotifyVolFlag    vol_flag;
+  1: svc_types.FDSP_VolumeDescType vol_desc;
+  2: svc_types.FDSP_NotifyVolFlag    vol_flag;
 }
 
 /**
@@ -56,8 +55,8 @@ struct CtrlNotifyVolRemove {
  */
 struct CtrlNotifyVolMod {
   /** Volume settings and attributes. */
-  1: common.FDSP_VolumeDescType vol_desc;
-  2: FDSP.FDSP_NotifyVolFlag    vol_flag;
+  1: svc_types.FDSP_VolumeDescType vol_desc;
+  2: svc_types.FDSP_NotifyVolFlag    vol_flag;
 }
 
 /**
@@ -65,8 +64,8 @@ struct CtrlNotifyVolMod {
  */
 struct CtrlNotifySnapVol {
   /** Volume settings and attributes. */
-  1: common.FDSP_VolumeDescType vol_desc;
-  2: FDSP.FDSP_NotifyVolFlag    vol_flag;
+  1: svc_types.FDSP_VolumeDescType vol_desc;
+  2: svc_types.FDSP_NotifyVolFlag  vol_flag;
 }
 
 /**
@@ -134,6 +133,16 @@ struct UpdateSvcMapMsg {
   1: required list<svc_types.SvcInfo>       updates;
 }
 
+struct GenericCommandMsg {
+  1: string command;
+  2: string arg;
+}
+
+struct GenericCommandRespMsg {
+  1: string data;
+}
+
+
 /* ------------------------------------------------------------
    Common Services
    ------------------------------------------------------------*/
@@ -149,7 +158,22 @@ service PlatNetSvc {
      * @return
      */
     list<svc_types.SvcInfo> getSvcMap(1: i64 nullarg);
-    oneway void notifyNodeActive(1: FDSP.FDSP_ActivateNodeType info);
+
+    /**
+    * @brief Called by other managers to pull the DMT
+    *
+    * @param NULL
+    */
+    CtrlNotifyDMTUpdate getDMT(1: i64 nullarg) throws (1: common.ApiException e);
+
+    /**
+    * @brief Called by other managers to pull the DLT
+    *
+    * @param NULL
+    */
+    CtrlNotifyDLTUpdate getDLT(1: i64 nullarg) throws (1: common.ApiException e);
+
+    oneway void notifyNodeActive(1: svc_types.FDSP_ActivateNodeType info);
 
     list<svc_types.NodeInfoMsg> notifyNodeInfo(1: svc_types.NodeInfoMsg info, 2: bool bcast);
     svc_types.DomainNodes getDomainNodes(1: svc_types.DomainNodes dom);
@@ -157,10 +181,19 @@ service PlatNetSvc {
     svc_types.ServiceStatus getStatus(1: i32 nullarg);
     map<string, i64> getCounters(1: string id);
     void resetCounters(1: string id);
-    void setConfigVal(1:string id, 2:i64 value);
+    /**
+    * @brief Returns state information as json string for resource with matching id
+    * @param id
+    * @return 
+    */
+    string getStateInfo(1: string id);
+    void setConfigVal(1:string key, 2:string value);
     void setFlag(1:string id, 2:i64 value);
     i64 getFlag(1:string id);
     map<string, i64> getFlags(1: i32 nullarg);
+    map<string, string> getConfig(1: i32 nullarg);
+    map<string, string> getProperties(1: i32 nullarg);
+    string getProperty(1: string name);
     /* For setting fault injection.
      * @param cmdline format based on libfiu
      */

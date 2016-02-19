@@ -21,10 +21,22 @@ fds: {
     /* Feature toggles, use "common:" for features that propogate across components */
     feature_toggle: {
         common: {
-
+            enable_timeline = {{ ft_enable_timeline }}
+            periodic_expunge = {{ ft_periodic_expunge }}
             enable_multi_om_support = {{ ft_common_enable_multi_om_support }}
+            enable_subscriptions = {{ ft_common_enable_subscriptions }}
             all_ssd = {{ all_ssd_support }}
             volume_open_support = {{ ft_common_enable_volume_open_support }}
+
+    	    /* Volume grouping allows IO to volumes to driven by a coordinator at AM */
+    	    enable_volumegrouping = {{ ft_enable_volumegrouping }}
+            /* If volume grouping mode is on, calculate 1 DMT version once # of DMs have matched */
+	    volumegrouping_dm_cluster_size = {{ ft_dm_cluster_size }}
+
+    	    /* applies to OM and XDI web toolkit */
+            enable_web_logging_request_wrapper = {{ ft_enable_web_logging_request_wrapper }}
+
+            send_to_new_stats_service = {{ ft_send_to_new_stats_service }}
         }
         pm: {
 
@@ -44,13 +56,32 @@ fds: {
             scst_connector = {{ ft_am_scst_enabled }}
             nbd_connector = {{ ft_am_nbd_enabled }}
             serialization = "{{ am_req_serialization }}"
-            safe_atomic_write = {{ am_safe_atomic_write }}
+            all_atomic_ops = {{ am_all_atomic_ops }}
+            cache_missing_cat_entries = {{ am_cache_missing_cat }}
         }
         om: {
            allow_service_reregistration = {{ ft_allow_service_reregistration }}
            enable_java_om_svc_proxy = {{ ft_enable_java_om_svc_proxy }}
            rest_07_feature = {{ ft_fds_rest_07_feature }}
            fs_2660_metric_firebreak_event_query = {{ ft_fs_2660_metric_firebreak_event_query }}
+           enable_influxdb_write_batch = {{ ft_enable_influxdb_write_batch }}
+           enable_influxdb_chunked_query_response = {{ ft_enable_influxdb_chunked_query_response }}
+
+           /* If both are enabled, then metrics are written to both and queries depend on
+              the enable_influxdb_query_series_per_volume flag */
+
+           /* default original implementation using a single series containing all volume metrics */
+           enable_influxdb_one_series = {{ ft_enable_influxdb_one_series }}
+
+           /* new implementation that uses a series per volume */
+           enable_influxdb_series_per_volume = {{ ft_enable_influxdb_series_per_volume }}
+
+           /** if enabled, query from new series per volume implementation */
+           enable_influxdb_query_series_per_volume = {{ ft_enable_influxdb_query_series_per_volume }}
+
+           ignore_failed_svcs = {{ ft_ignore_failed_svcs }}
+
+           use_shared_queryhelper = {{ ft_use_shared_queryhelper }}
         }
     }
 
@@ -71,6 +102,8 @@ fds: {
         om_port = 7004
         om_uuid = 1028
 
+        stats_port = 11011
+
        {# TODO: FDSCONFIG Make it so that services search for configs in common
            as well as in their own config block. A uniform order of precedence
            for all values and all services would be preferred #}
@@ -85,6 +118,7 @@ fds: {
 
         /* Options when running under valgrind */
         valgrind: {
+           enabled = {{ ft_common_enable_valgrind }}
            app_name = "valgrind"
            /* All paths relative to fds_root */
            base_dir = "memcheck/"
@@ -123,30 +157,19 @@ fds: {
         redis_host = "{{ om_ip }}"
         redis_port = {{ redis_port }}
 
-        /* Don't spawn any service daemon */
-        auto_start_services = true
-
-        /* Disk types, hints file.  Relative to fds-root */
-        disk_hints_path_file = "dev/disk-hints.conf"
+        service_management: {
+            /* If a service restarts flap_count times in flap_timeout seconds, PM will stop restarting the service and notify the OM */
+            flap_count   = 5
+            flap_timeout = 300  /* in seconds */
+        }
 
         /* Force disk simulation_mode (enable Feature Toggle first) */
         /* true=simuation mode, false=auto detection */
         force_disk_simulation = {{ force_disk_simulation }}
 
-        /* Graphite is enabled or not */
-        enable_graphite = {{ metrics_enabled }}
-
         disk_sim: {
-            ssd_count = 4
-            hdd_count = 4
-        }
-
-        graphite: {
-            /* Graphite server ip */
-            ip = "{{ metricsdb_ip }}"
-            /* Graphite server port */
-            port = 2003
-            period = 5
+            ssd_count = 2
+            hdd_count = 10
         }
 
         capabilities: {
@@ -160,15 +183,18 @@ fds: {
                     iops_max = 1000
                 }
                 /* GC..etc disk reservation */
-                reserved_space = 0.20
+                # reserved_space = 0.20
+                reserved_space = 0.00
             }
         }
+
         threadpool: {
             num_threads = 10
 
             /* Use lock free threadpool  */
             use_lftp = true
         }
+
         /* Internal testing related info */
         testing: {
             standalone = false
@@ -177,6 +203,7 @@ fds: {
             node_iops_max  = 100000
             node_iops_min  = 60000
         }
+
         /* Service layer stanza */
         svc: {
             lftp: {
@@ -189,6 +216,17 @@ fds: {
             timeout: {
                 thrift_message = {{ svc_plat_thrift_message_timeout }}
             }
+        }
+
+        /* Graphite is enabled or not */
+        enable_graphite = {{ metrics_enabled }}
+
+        graphite: {
+            /* Graphite server ip */
+            ip = "{{ metricsdb_ip }}"
+            /* Graphite server port */
+            port = 2003
+            period = 5
         }
     }
 
@@ -218,6 +256,8 @@ fds: {
         catalog_log_max_files = 5
         number_of_primary = 2
         req_serialization = {{ dm_req_serialization }}
+        realtime_stats_sampling = {{ dm_realtime_stats_sampling }}
+	disk_fullness_threshold = {{ dm_disk_fullness_threshold }}
 
         /* process id */
         id      = "dm"
@@ -283,9 +323,6 @@ fds: {
             use_lftp = true
         }
 
-        /* Timeline feature toggle */
-        enable_timeline = {{ dm_enable_timeline }}
-        enable_expunge = {{ dm_enable_expunge }}
         upload_to_cloud = false
 
         /* Internal testing related info */
@@ -427,22 +464,22 @@ fds: {
         /* Migration related info */
         migration: {
             /* size of the delta set from source SM to destination SM */
-            max_delta_set_size=16
+            max_delta_set_size = {{ sm_max_delta_set_size }}
 
             /* verify the integrity of the metadata and data  on destination SM */
-            verify_migration_data=false
+            verify_migration_data = {{ sm_verify_migration_data }}
 
             /* boolean to enable/disable SM token migration feature */
-            enable_feature = true
+            enable_feature = {{ sm_enable_feature }}
 
             /* boolean to enable/disable SM resync feature */
-            enable_resync = true
+            enable_resync = {{ sm_enable_resync }}
 
             /* timeout duration in sec */
-            migration_timeout=300
+            migration_timeout = {{ sm_migration_timeout }}
 
             /* number of parallel sm migrations at a time */
-            parallel_migration=8
+            parallel_migration = {{ sm_parallel_migration }}
         }
         tiering: {
             hybrid: {
@@ -459,6 +496,7 @@ fds: {
              max_disks_compact = {{ sm_scavenger_max_disks_compact }}
              /* Time interval where GC periodically checks whether to GC or not */
              interval_seconds = {{ sm_scavenger_interval_seconds }}
+             expunge_threshold = {{ sm_scavenger_expunge_threshold }}
         }
 
         /* Graphite is enabled or not */
@@ -484,6 +522,7 @@ fds: {
             }
             timeout: {
                 io_message = {{ am_svc_io_message_timeout }}
+                open_message = {{ am_svc_open_message_timeout }}
                 thrift_message = {{ svc_plat_thrift_message_timeout }}
             }
         }
@@ -513,7 +552,6 @@ fds: {
         s3_https_port_offset=1443
         swift_port_offset=2999
         am_base_response_port_offset=2876
-        am_service_port_offset=2988
         xdi_service_port_offset=1899
         streaming_port_offset=1911
         memory_backend=false
@@ -533,9 +571,6 @@ fds: {
                 }
             }
             scst: {
-		/* Volumes in this CSV list will be automatically presented on load */
-		auto_volumes="{{ am_scst_auto_volumes }}"
-
 		/* Smallest IO transfer size allowed */
                 default_block_size={{ am_scst_default_block_size }}
 
@@ -654,6 +689,8 @@ fds: {
            service */
         java_svc_proxy_port_offset=1900
 
+        xdi_response_port_offset=2988
+
         token_factor=8
         replica_factor=3
         placement_algo="ConsistHash"
@@ -670,6 +707,18 @@ fds: {
         influxdb: {
             url="{{ om_influxdb_url }}"
             enable_query_backtrace = false
+            serialize_writes={{ om_influxdb_serialize_writes }}
+            write_batch_size = {{ om_influxdb_write_batch_size }}
+        }
+
+        task_scheduler_pool: {
+            min = {{ om_task_scheduler_pool_min }}
+        }
+
+        stats: {
+            frequency={{ om_stats_frequency }}
+            duration={{ om_stats_duration }}
+            method="{{ om_stats_method }}"
         }
 
         test_mode=false
@@ -679,8 +728,6 @@ fds: {
             /* Use lock free threadpool  */
             use_lftp = true
         }
-
-        enable_snapshot_schedule = true
 
         snmp: {
             targetip = "{{ snmp_targetip }}"
@@ -707,11 +754,12 @@ fds: {
     xdi: {
         am_host = "{{ am_host }}"
     	nfs_thread_pool_size = {{ nfs_thread_pool_size }}
-    	nfs_thread_pool_queue_size = {{ nfs_thread_pool_queue_size }}
-    	nfs_incoming_request_timeout_seconds = {{ nfs_incoming_request_timeout_seconds }}
 	nfs_stats = true
 	nfs_defer_metatada_updates = {{ nfs_defer_metadata_updates }}
 	nfs_max_live_nfs_cookies = {{ nfs_max_live_nfs_cookies }}
+	am_timeout_seconds = {{ xdi_am_timeout_seconds }}
+	am_retry_attempts = {{ xdi_am_retry_attempts }}
+	am_retry_interval_seconds = {{ xdi_am_retry_interval_seconds }}
     }
 
     test: {

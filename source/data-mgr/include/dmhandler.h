@@ -19,11 +19,11 @@
     static_cast<CLASS*>(dataMgr->handlers.at(IOTYPE))
 
 #define REGISTER_DM_MSG_HANDLER(FDSPMsgT, func) \
-    REGISTER_FDSP_MSG_HANDLER_GENERIC(MODULEPROVIDER()->getSvcMgr()->getSvcRequestHandler(), \
+    REGISTER_FDSP_MSG_HANDLER_GENERIC(dataManager.getModuleProvider()->getSvcMgr()->getSvcRequestHandler(), \
             FDSPMsgT, func)
 
 #define DM_SEND_ASYNC_RESP(...) \
-    MODULEPROVIDER()->getSvcMgr()->getSvcRequestHandler()->sendAsyncResp(__VA_ARGS__)
+    dataManager.getModuleProvider()->getSvcMgr()->getSvcRequestHandler()->sendAsyncResp(__VA_ARGS__)
 
 #define HANDLE_INVALID_TX_ID_VAL(val) \
     if (BlobTxId::txIdInvalid == (val)) { \
@@ -34,12 +34,46 @@
 
 #define HANDLE_INVALID_TX_ID() HANDLE_INVALID_TX_ID_VAL(message->txId)
 
+#define HANDLE_FILTER_OLD_DMT_DURING_RESYNC_VAL(__vol,__dmt)
+/*    if (dataManager.dmMigrationMgr->shouldFilterDmt(__vol, __dmt)) {  \
+        LOGDEBUG << "Disregarding message " << logString(*message) << " for DMT: " << __dmt; \
+        handleResponse(asyncHdr, message, ERR_IO_DMT_MISMATCH, nullptr); \
+        return; \
+        }*/
+
+#define HANDLE_FILTER_OLD_DMT_DURING_RESYNC() HANDLE_FILTER_OLD_DMT_DURING_RESYNC_VAL(volId, asyncHdr->dlt_version)
+
 #define HANDLE_U_TURN() \
     if (dataManager.testUturnAll) { \
         LOGNOTIFY << "Uturn testing" << logString(*message); \
         handleResponse(asyncHdr, message, ERR_OK, nullptr); \
         return; \
     }
+
+#define VOLUME_IO_VERSION_CHECK(io, helper)
+
+/* Ensure IO is ordered */
+#define ENSURE_IO_ORDER(io, helper) \
+do { \
+    if (!dataManager.features.isVolumegroupingEnabled()) { \
+        break; \
+    } \
+    auto volMeta = dataManager.getVolumeMeta(io->getVolId()); \
+    if (io->opId != volMeta->getOpId()+1) { \
+        LOGWARN << "volid: " << io->getVolId() << ". OpId mismatch.  Current opId: " \
+            << volMeta->getOpId() << " incoming opId: " << io->opId; \
+        fds_assert(!"opid mismatch"); \
+        helper.err = ERR_IO_OPID_MISMATCH; \
+        return; \
+    } \
+    /* Ideally we should increment this op id after write makes it to commit log \
+     * In the current code base commit log is modified for non-coordinator issued \
+     * io as well.  This makes it difficult do it there.  Since OpId is only \
+     * in memory state and during resync/restarts is discarded, incrementing here \
+     * should be ok \
+     */ \
+    volMeta->incrementOpId(); \
+} while (false)
 
 namespace fds {
 
@@ -79,6 +113,11 @@ struct Handler: HasLogger {
     // do not need queuing
     virtual void handleQueueItem(DmRequest *dmRequest);
     virtual void addToQueue(DmRequest *dmRequest);
+    Error preEnqueueWriteOpHandling(const fds_volid_t &volId,
+                                    const int64_t &opId,
+                                    const fpi::AsyncHdrPtr &hdr,
+                                    const SHPTR<std::string> &payload);
+
     virtual ~Handler();
 protected:
     DataMgr& dataManager;
@@ -281,6 +320,18 @@ struct VolumeOpenHandler : Handler {
 };
 
 /**
+ * Message from coordinator notifying the active state of the group
+ */
+struct VolumegroupUpdateHandler : Handler {
+    explicit VolumegroupUpdateHandler(DataMgr& dataManager);
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::VolumeGroupInfoUpdateCtrlMsg>& message);
+    void handleQueueItem(DmRequest* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        Error const& e, DmRequest* dmRequest);
+};
+
+/**
  * Close an existing access token for the given volume
  */
 struct VolumeCloseHandler : Handler {
@@ -305,6 +356,17 @@ struct ReloadVolumeHandler : Handler {
                         boost::shared_ptr<fpi::ReloadVolumeMsg>& message,
                         Error const& e, DmRequest* dmRequest);
 };
+
+struct LoadFromArchiveHandler : Handler {
+    explicit LoadFromArchiveHandler(DataMgr& dataManager);
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::LoadFromArchiveMsg>& message);
+    void handleQueueItem(DmRequest* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::LoadFromArchiveMsg>& message,
+                        Error const& e, DmRequest* dmRequest);
+};
+
 
 /**
  * DmMigration starting point handler from OM
@@ -333,6 +395,7 @@ struct DmMigrationBlobFilterHandler : Handler {
     void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                         boost::shared_ptr<fpi::CtrlNotifyInitialBlobFilterSetMsg>& message,
                         Error const& e, DmRequest* dmRequest);
+    void handleResponseCleanUp(Error const& e, DmRequest* dmRequest);
 };
 
 /**
@@ -376,6 +439,22 @@ struct DmMigrationTxStateHandler : Handler {
                         boost::shared_ptr<fpi::CtrlNotifyTxStateMsg>& message,
                         Error const& e, DmRequest* dmRequest);
 };
+
+struct DmMigrationRequestTxStateHandler : Handler {
+    explicit DmMigrationRequestTxStateHandler(DataMgr& dataManager);
+    void handleRequest(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                       boost::shared_ptr<fpi::CtrlNotifyRequestTxStateMsg>& message);
+    void handleQueueItem(DmRequest* dmRequest);
+    void handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                        boost::shared_ptr<fpi::CtrlNotifyRequestTxStateMsg>& message,
+                        Error const& e, DmRequest* dmRequest);
+};
+
+struct SimpleHandler : Handler {
+    explicit SimpleHandler(DataMgr& dataManager);
+    DECL_ASYNC_HANDLER(handleStartRefScanRequest, StartRefScanMsg);
+};
+
 
 }  // namespace dm
 }  // namespace fds

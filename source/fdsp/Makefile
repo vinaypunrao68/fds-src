@@ -9,6 +9,7 @@ user_thrift      := \
 	common.thrift \
 	svc_types.thrift \
 	node_svc_api.thrift \
+	volumegroup.thrift \
 	am_types.thrift \
 	dm_types.thrift \
 	om_types.thrift \
@@ -29,6 +30,7 @@ user_thrift      := \
     health_monitoring_api.thrift \
 	event_api.thrift \
 	event_types.thrift \
+	filetransfer_api.thrift \
 	svc_test.thrift
 
 user_thrift_loc  := $(topdir)/include/fdsp

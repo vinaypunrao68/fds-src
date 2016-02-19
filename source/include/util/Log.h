@@ -28,6 +28,8 @@
 #include <boost/log/sources/record_ostream.hpp>
 #include <boost/lockfree/detail/branch_hints.hpp>
 
+#include <fds_defines.h>
+
 #define FDS_LOG(lg) BOOST_LOG_SEV(lg.get_slog(), fds::fds_log::debug)
 #define FDS_LOG_SEV(lg, sev) BOOST_LOG_SEV(lg.get_slog(), sev)
 #define FDS_PLOG(lg_ptr) BOOST_LOG_SEV(lg_ptr->get_slog(), fds::fds_log::debug)
@@ -43,13 +45,6 @@
 #define GLOGGERPTR  fds::GetLog()
 // incase your current logger is different fom GetLog(),
 // redefine macro [LOGGERPTR] at the top of your cpp file
-#ifndef DONTLOGLINE
-#define _ATLINE_ << "[" __FILE__ << ":" << std::dec << __LINE__ << ":" << __FUNCTION__ << "] - "
-#else
-#define _ATLINE_
-#endif
-
-#define __CLASS_NAME__ fds::classNameFromPrettyFunc(__PRETTY_FUNCTION__)
 
 #define LEVELCHECK(sev) if (LOGGERPTR->getSeverityLevel()<= fds::fds_log::sev)
 #define GLEVELCHECK(sev) if (GLOGGERPTR->getSeverityLevel()<= fds::fds_log::sev)
@@ -149,6 +144,7 @@ class fds_log {
     boost::log::sources::severity_logger_mt<severity_level>& get_slog() { return slg; }
 
     void flush() { sink->flush(); }
+    void rotate();
 
   private :
     severity_level severityLevel = normal;

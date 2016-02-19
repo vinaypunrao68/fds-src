@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+#include <orchMgr.h>
 #include <snapshot/deletescheduler.h>
 #include <util/timeutils.h>
 namespace atc = apache::thrift::concurrency;
@@ -29,7 +30,7 @@ bool DeleteScheduler::addSnapshot(const fpi::Snapshot& snapshot) {
     atc::Synchronized s(monitor);
     // check if the volume is already here
     bool fModified = false;
-    uint64_t deleteTime  = snapshot.creationTimestamp/1000 + snapshot.retentionTimeSeconds;
+    uint64_t deleteTime  = snapshot.creationTimestamp + snapshot.retentionTimeSeconds;
     auto snapVolId = fds_volid_t(snapshot.volumeId);
     auto handleptr = handleMap.find(snapVolId);
     if (handleptr != handleMap.end()) {
@@ -74,7 +75,7 @@ bool DeleteScheduler::removeVolume(fds_volid_t volumeId) {
 }
 
 void DeleteScheduler::dump() {
-    LOGDEBUG << " --- delete scheduler queue ---";
+    LOGDEBUG << " --- snapshot delete scheduler queue ---";
     for (PriorityQueue::ordered_iterator it = pq.ordered_begin(); it != pq.ordered_end(); ++it) {
         LOGDEBUG << *(*it) << ' ';
     }
@@ -93,12 +94,14 @@ void DeleteScheduler::run() {
     atc::Synchronized s(monitor);
     LOGNORMAL << "snapshot delete scheduler started";
     while (!fShutdown) {
+        om->counters->numSnapshotsInDeleteQueue.set(pq.size());
         while (!fShutdown && pq.empty()) {
             LOGDEBUG << "delete q empty .. waiting.";
             monitor.waitForever();
         }
 
         while (!fShutdown && !pq.empty()) {
+            om->counters->numSnapshotsInDeleteQueue.set(pq.size());
             DeleteTask* task;
             uint64_t currentTime = fds::util::getTimeStampSeconds();
             task = pq.top();
@@ -123,7 +126,7 @@ void DeleteScheduler::run() {
                              << task->volumeId;
                 }
 
-                if (nextTime > currentTime) {
+                if (nextTime != 0) {
                     task->runAtTime = nextTime;
                     LOGDEBUG << "rescheduling volume:" << task->volumeId
                              << " @ " << fds::util::getLocalTimeString(task->runAtTime);

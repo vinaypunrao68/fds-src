@@ -5,26 +5,26 @@ import com.formationds.commons.Fds;
 import com.formationds.hadoop.FdsFileSystem;
 import com.formationds.nfs.*;
 import com.formationds.protocol.*;
+import com.formationds.sc.SvcState;
+import com.formationds.sc.api.SvcAsyncAm;
 import com.formationds.util.ByteBufferUtility;
-import com.formationds.xdi.AsyncStreamer;
-import com.formationds.xdi.RealAsyncAm;
-import com.formationds.xdi.XdiClientFactory;
-import com.formationds.xdi.XdiConfigurationApi;
+import com.formationds.util.ConsumerWithException;
+import com.formationds.xdi.*;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.net.HostAndPort;
 import org.dcache.nfs.vfs.DirectoryEntry;
 import org.dcache.nfs.vfs.Stat;
 import org.eclipse.jetty.io.ArrayByteBufferPool;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.joda.time.Duration;
+import org.junit.*;
 
 import javax.security.auth.Subject;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import static org.junit.Assert.*;
@@ -32,17 +32,45 @@ import static org.junit.Assert.*;
 
 @Ignore
 public class AsyncAmTest extends BaseAmTest {
-
+    private static final boolean USE_SVC_IMPL = false;
     public static final int NFS_EXPORT_ID = 42;
+    private static SvcState svc;
     private Counters counters;
+
+
+    @Test
+    public void testChunker() throws Exception {
+        AmOps amOps = new AmOps(asyncAm, counters);
+        Chunker chunker = new Chunker(amOps);
+        int length = (int) Math.round(OBJECT_SIZE * 10.5);
+        byte[] bytes = new byte[length];
+        new Random().nextBytes(bytes);
+        chunker.write(domainName, volumeName, blobName, OBJECT_SIZE, bytes, 0, length, m -> m.put("foo", "bar"));
+        byte[] read = new byte[length];
+        chunker.read(domainName, volumeName, blobName, OBJECT_SIZE, read, 0, length);
+        assertArrayEquals(bytes, read);
+    }
+
+    @Test
+    public void testDmSupportsSmallObjects() throws Exception {
+        AmOps amOps = new AmOps(asyncAm, counters);
+        amOps.writeObject(domainName, volumeName, blobName, new ObjectOffset(0), FdsObject.allocate(10, OBJECT_SIZE));
+        amOps.commitObject(domainName, volumeName, blobName, new ObjectOffset(0));
+        FdsObject fdsObject = amOps.readCompleteObject(domainName, volumeName, blobName, new ObjectOffset(0), OBJECT_SIZE);
+        fdsObject.lock(o -> {
+            assertEquals(10, o.limit());
+            assertEquals(OBJECT_SIZE, o.maxObjectSize());
+            return null;
+        });
+    }
 
     @Test
     public void testUpdate() throws Exception {
-        DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
-        TransactionalIo txs = new TransactionalIo(io);
-        InodeIndex index = new SimpleInodeIndex(txs, new MyExportResolver());
-        InodeMetadata dir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3, NFS_EXPORT_ID);
-        InodeMetadata child = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4, NFS_EXPORT_ID)
+        AmOps amOps = new AmOps(asyncAm, counters);
+        DeferredIoOps io = new DeferredIoOps(amOps, counters);
+        InodeIndex index = new SimpleInodeIndex(io, new MyExportResolver());
+        InodeMetadata dir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3);
+        InodeMetadata child = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4)
                 .withLink(dir.getFileId(), "panda");
 
         index.index(NFS_EXPORT_ID, false, dir);
@@ -56,12 +84,11 @@ public class AsyncAmTest extends BaseAmTest {
     @Test
     public void testLookup() throws Exception {
         DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
-        TransactionalIo txs = new TransactionalIo(io);
-        InodeIndex index = new SimpleInodeIndex(txs, new MyExportResolver());
-        InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2, NFS_EXPORT_ID);
-        InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3, NFS_EXPORT_ID);
+        InodeIndex index = new SimpleInodeIndex(io, new MyExportResolver());
+        InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2);
+        InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3);
 
-        InodeMetadata child = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4, NFS_EXPORT_ID)
+        InodeMetadata child = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4)
                 .withLink(fooDir.getFileId(), "panda")
                 .withLink(barDir.getFileId(), "lemur");
 
@@ -79,28 +106,32 @@ public class AsyncAmTest extends BaseAmTest {
     @Test
     public void testListDirectory() throws Exception {
         DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
-        TransactionalIo txs = new TransactionalIo(io);
-        InodeIndex index = new SimpleInodeIndex(txs, new MyExportResolver());
-        InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 1, NFS_EXPORT_ID);
-        InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2, NFS_EXPORT_ID);
+        InodeIndex index = new SimpleInodeIndex(io, new MyExportResolver());
+        InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 1);
+        InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2);
 
-        InodeMetadata blue = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 3, NFS_EXPORT_ID)
+        InodeMetadata blue = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 3)
                 .withLink(fooDir.getFileId(), "blue")
                 .withLink(barDir.getFileId(), "blue");
 
-        InodeMetadata red = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4, NFS_EXPORT_ID)
+        InodeMetadata red = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4)
                 .withLink(fooDir.getFileId(), "red");
 
-        index.index(NFS_EXPORT_ID, false, fooDir);
-        index.index(NFS_EXPORT_ID, false, barDir);
+        index.index(NFS_EXPORT_ID, true, fooDir);
+        index.index(NFS_EXPORT_ID, true, barDir);
         index.index(NFS_EXPORT_ID, false, blue);
-        index.index(NFS_EXPORT_ID, false, red);
+        index.index(NFS_EXPORT_ID, true, red);
         assertEquals(2, index.list(fooDir, NFS_EXPORT_ID).size());
         assertEquals(1, index.list(barDir, NFS_EXPORT_ID).size());
         assertEquals(0, index.list(blue, NFS_EXPORT_ID).size());
     }
 
     private class MyExportResolver implements ExportResolver {
+        @Override
+        public Collection<String> exportNames() {
+            return Lists.newArrayList(volumeName);
+        }
+
         @Override
         public int exportId(String volumeName) {
             return NFS_EXPORT_ID;
@@ -119,6 +150,16 @@ public class AsyncAmTest extends BaseAmTest {
         @Override
         public int objectSize(String volume) {
             return OBJECT_SIZE;
+        }
+
+        @Override
+        public long maxVolumeCapacityInBytes(String volume) throws IOException {
+            return 0;
+        }
+
+        @Override
+        public void addVolumeDeleteEventHandler(ConsumerWithException<String> consumer) {
+
         }
     }
 
@@ -362,7 +403,7 @@ public class AsyncAmTest extends BaseAmTest {
 
         // The old one should be gone
         try {
-            asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get();
+            BlobDescriptor descriptor = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get();
             fail("Should have gotten an ExecutionException");
         } catch (ExecutionException e) {
             ApiException apiException = (ApiException) e.getCause();
@@ -507,7 +548,7 @@ public class AsyncAmTest extends BaseAmTest {
     private static final int OBJECT_SIZE = 1024 * 1024 * 2;
     private static final int MY_AM_RESPONSE_PORT = 9881;
     private static XdiClientFactory xdiCf;
-    private static RealAsyncAm asyncAm;
+    private static AsyncAm asyncAm;
 
     private String domainName;
     private String blobName;
@@ -519,8 +560,25 @@ public class AsyncAmTest extends BaseAmTest {
     public static void setUpOnce() throws Exception {
         xdiCf = new XdiClientFactory();
         configService = xdiCf.remoteOmService(Fds.getFdsHost(), 9090);
-        asyncAm = new RealAsyncAm(Fds.getFdsHost(), 8899, MY_AM_RESPONSE_PORT, 10, TimeUnit.MINUTES);
-        asyncAm.start();
+
+        if(USE_SVC_IMPL) {
+            HostAndPort self = HostAndPort.fromParts(Fds.getFdsHost(), 10293);
+            HostAndPort om = HostAndPort.fromParts(Fds.getFdsHost(), 7004);
+            svc = new SvcState(self, om, 18923L);
+            svc.openAndRegister();
+            asyncAm = new SvcAsyncAm(svc);
+        } else {
+            asyncAm = new RealAsyncAm(Fds.getFdsHost(), 8899, MY_AM_RESPONSE_PORT, Duration.standardSeconds(30));
+            asyncAm.start();
+        }
+
+    }
+
+    @AfterClass
+    public static void tearDownOnce() throws Exception {
+        if(svc != null) {
+            svc.close();
+        }
     }
 
     @Before

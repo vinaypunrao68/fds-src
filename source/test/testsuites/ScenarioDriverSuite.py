@@ -22,7 +22,8 @@ import testcases.TestFDSSysVerify
 import testcases.TestFDSVolMgt
 import testcases.TestMgt
 import logging
-
+import testcases.TestS3IntFace
+import testcases.TestFDSSnapshotMgt
 log_dir = None
 
 def suiteConstruction(self, install):
@@ -59,7 +60,7 @@ def suiteConstruction(self, install):
 if __name__ == '__main__':
 
     # Handle FDS specific commandline arguments.
-    log_dir, failfast, install = testcases.TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
+    log_dir, failfast, install, reusecluster, config = testcases.TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
     # If a test log directory was not supplied on the command line (with option "-l"),
     # then default it.
     if log_dir is None:
@@ -67,6 +68,9 @@ if __name__ == '__main__':
 
     test_suite = suiteConstruction(self=None, install= install)
 
+    #For remote nodes, if reusecluster is false then tear down the domain
+    if install is True and reusecluster is False:
+        test_suite.addTest(testcases.TestFDSEnvMgt.TestFDSTeardownDomain())
     # Get a test runner that will output an xUnit XML report for Jenkins
     # TODO(Greg) I've tried everything I can think of, but stop-on-fail/failfast does not
     # stop the suite upon first test case failure. So I've implemented our own
@@ -77,5 +81,8 @@ if __name__ == '__main__':
     #runner = xmlrunner.XMLTestRunner(output=log_dir, verbosity=0)
     runner = testcases.TestMgt.FDSTestRunner(output=log_dir, verbosity=0,
                                              fds_logger=logging.getLogger())
-    runner.run(test_suite)
-
+    testResult = runner.run(test_suite)
+    log = logging.getLogger()
+    if not testResult.wasSuccessful():
+        log.error("%s test FAILED " %config.strip(".ini"))
+        sys.exit(1)

@@ -1,13 +1,23 @@
 package com.formationds.client.v08.converters;
 
-import com.formationds.apis.FDSP_GetVolInfoReqType;
-import com.formationds.apis.LocalDomain;
-import com.formationds.apis.VolumeDescriptor;
+import com.formationds.apis.*;
 import com.formationds.apis.VolumeType;
 import com.formationds.client.ical.RecurrenceRule;
 import com.formationds.client.v08.model.*;
 import com.formationds.client.v08.model.Domain.DomainState;
+import com.formationds.client.v08.model.MediaPolicy;
+import com.formationds.client.v08.model.SnapshotPolicy;
 import com.formationds.client.v08.model.SnapshotPolicy.SnapshotPolicyType;
+import com.formationds.client.v08.model.Tenant;
+import com.formationds.client.v08.model.User;
+import com.formationds.client.v08.model.VolumeSettings;
+import com.formationds.client.v08.model.VolumeStatus;
+import com.formationds.client.v08.model.iscsi.Credentials;
+import com.formationds.client.v08.model.iscsi.Initiator;
+import com.formationds.client.v08.model.iscsi.LUN;
+import com.formationds.client.v08.model.iscsi.Target;
+import com.formationds.client.v08.model.nfs.NfsClients;
+import com.formationds.client.v08.model.nfs.NfsOptions;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.entity.Event;
@@ -15,44 +25,61 @@ import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
+import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.helper.SingletonConfiguration;
+import com.formationds.om.redis.RedisSingleton;
+import com.formationds.om.redis.VolumeDesc;
 import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair;
 import com.formationds.om.repository.query.MetricQueryCriteria;
-import com.formationds.protocol.FDSP_MediaPolicy;
-import com.formationds.protocol.FDSP_VolType;
-import com.formationds.protocol.FDSP_VolumeDescType;
-import com.formationds.protocol.ResourceState;
+import com.formationds.om.repository.query.QueryCriteria.QueryType;
+import com.formationds.om.util.AsyncAmClientFactory;
+import com.formationds.protocol.IScsiTarget;
+import com.formationds.protocol.LogicalUnitNumber;
+import com.formationds.protocol.NfsOption;
+import com.formationds.protocol.svc.types.FDSP_MediaPolicy;
+import com.formationds.protocol.svc.types.FDSP_VolType;
+import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
+import com.formationds.protocol.svc.types.ResourceState;
+import com.formationds.protocol.svc.types.VolumeGroupCoordinatorInfo;
 import com.formationds.util.thrift.ConfigurationApi;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.net.UnknownHostException;
 import java.text.ParseException;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.EnumMap;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 @SuppressWarnings("unused")
 public class ExternalModelConverter {
+
+    private static final String OBJECT_SIZE_NOT_SET =
+        "Maximum object size was either not set, or outside the bounds of 4KB-8MB so it is being " +
+        "set to the default of 2MB";
+    private static final String BLOCK_SIZE_NOT_SET =
+        "Block size was either not set, or outside the bounds of 4KB-8MB so it is being set to " +
+        "the default of 128KB";
 
     private static ConfigurationApi configApi;
     private static final Integer DEF_BLOCK_SIZE  = (1024 * 128);
     private static final Integer DEF_OBJECT_SIZE = ((1024 * 1024) * 2);
     private static final Logger  logger          = LoggerFactory.getLogger( ExternalModelConverter.class );
 
-    public static Domain convertToExternalDomain( LocalDomain internalDomain ) {
+    public static Domain convertToExternalDomain( LocalDomainDescriptor internalDomain ) {
 
         String extName = internalDomain.getName();
-        Long extId = internalDomain.getId();
+        Integer extId = internalDomain.getId();
         String site = internalDomain.getSite();
 
         Domain externalDomain = new Domain( extId, extName, site, DomainState.UP );
@@ -60,9 +87,9 @@ public class ExternalModelConverter {
         return externalDomain;
     }
 
-    public static LocalDomain convertToInternalDomain( Domain externalDomain ) {
+    public static LocalDomainDescriptor convertToInternalDomain( Domain externalDomain ) {
 
-        LocalDomain internalDomain = new LocalDomain();
+        LocalDomainDescriptor internalDomain = new LocalDomainDescriptor();
 
         internalDomain.setId( externalDomain.getId() );
         internalDomain.setName( externalDomain.getName() );
@@ -76,7 +103,7 @@ public class ExternalModelConverter {
         Long extId = internalUser.getId();
         String extName = internalUser.getIdentifier();
         Long roleId = 1L;
-        
+
         logger.info( "Converting user ID: " + extId + " Name: " + extName );
 
         if ( internalUser.isIsFdsAdmin() ) {
@@ -248,22 +275,89 @@ public class ExternalModelConverter {
                                                                  EnumMap<FirebreakType, ?> fbResults ) {
         VolumeState volumeState = convertToExternalVolumeState( internalVolume.getState() );
 
-        final Optional<com.formationds.apis.VolumeStatus> optionalStatus =
-            SingletonRepositoryManager.instance()
-                                      .getMetricsRepository().getLatestVolumeStatus( internalVolume.getName() );
+        Optional<Size> extUsage = Optional.empty();
 
-        Size extUsage = Size.of( 0L, SizeUnit.B );
+//        FDSP_VolumeDescType volDescType = null;
+//        try
+//        {
+//            volDescType = getConfigApi().GetVolInfo( new FDSP_GetVolInfoReqType( internalVolume.getName( ),
+//                                                                                 0 /* Local Domain Id */ ) );
+//        }
+//        catch ( Exception e )
+//        {
+//            logger.warn( "The specified volume {}:{} encountered an error, reason {}.",
+//                         internalVolume.getName(),
+//                         internalVolume.getVolId(),
+//                         e.getMessage() != null ? e.getMessage() : "none reported" );
+//            logger.debug( "", e );
+//        }
 
-        if ( optionalStatus.isPresent() ) {
-            com.formationds.apis.VolumeStatus internalStatus = optionalStatus.get();
+//        if( volDescType != null )
+//        {
+//            final Optional<VolumeGroupCoordinatorInfo> coordinatorInfo =
+//                Optional.ofNullable( volDescType.getCoordinator( ) );
+//            if( coordinatorInfo.isPresent( ) && ( coordinatorInfo.get( )
+//                                                                 .getId( )
+//                                                                 .getSvc_uuid( ) != 0 ) )
+//            {
+//                final AsyncAmClientFactory factory =
+//                    new AsyncAmClientFactory( SingletonConfiguration.getConfig( ) );
+//
+//                try
+//                {
+//                    CompletableFuture<com.formationds.apis.VolumeStatus> volumeStatus =
+//                        factory.newClient( coordinatorInfo.get()
+//                                                          .getId() )
+//                               .volumeStatus( "" /* Local Domain Name */,
+//                                              internalVolume.getName() );
+//                    final com.formationds.apis.VolumeStatus vstatus = volumeStatus.get();
+//                    if( vstatus != null )
+//                    {
+//                        extUsage =
+//                            Optional.of( Size.of( vstatus.getCurrentUsageInBytes( ), SizeUnit.B ) );
+//                    }
+//                }
+//                catch ( IOException | InterruptedException | ExecutionException e )
+//                {
+//                    logger.warn( "Failed to retrieve volume description for {}:{} - reason: {}.",
+//                                 internalVolume.getVolId(),
+//                                 internalVolume.getName(),
+//                                 e.getMessage() != null ? e.getMessage() : "none reported" );
+//                    logger.debug( "", e );
+//                }
+//            }
+//            else
+//            {
+//                logger.trace( "Volume Coordinator isn't set, will attempt retrieving usage from stats" );
+//            }
+//        }
 
-            extUsage = Size.of( internalStatus.getCurrentUsageInBytes(), SizeUnit.B );
+        if( !extUsage.isPresent() )
+        {
+            final Optional<com.formationds.apis.VolumeStatus> optionalStatus =
+                SingletonRepositoryManager.instance()
+                                          .getMetricsRepository()
+                                          .getLatestVolumeStatus( internalVolume.getName() );
+            if( optionalStatus.isPresent() )
+            {
+                extUsage =
+                    Optional.of( Size.of( optionalStatus.get().getCurrentUsageInBytes(),
+                                          SizeUnit.B ) );
+            }
         }
+
+        if( !extUsage.isPresent() )
+        {
+            extUsage = Optional.of( Size.of( 0L, SizeUnit.B ) );
+        }
+
+        logger.trace( "Determined extUsage for " + internalVolume.getName() +
+                      " to be " + extUsage + "." );
 
         Instant[] instants = {Instant.EPOCH, Instant.EPOCH};
         extractTimestamps( fbResults, instants );
 
-        return new VolumeStatus( volumeState, extUsage, instants[0], instants[1] );
+        return new VolumeStatus( volumeState, extUsage.get(), instants[0], instants[1] );
     }
 
     /**
@@ -314,9 +408,9 @@ public class ExternalModelConverter {
     //			return externalSnapshot;
     //		}
 
-    public static com.formationds.protocol.Snapshot convertToInternalSnapshot( Snapshot snapshot ) {
+    public static com.formationds.protocol.svc.types.Snapshot convertToInternalSnapshot( Snapshot snapshot ) {
 
-        com.formationds.protocol.Snapshot internalSnapshot = new com.formationds.protocol.Snapshot();
+        com.formationds.protocol.svc.types.Snapshot internalSnapshot = new com.formationds.protocol.svc.types.Snapshot();
 
         internalSnapshot.setCreationTimestamp( snapshot.getCreationTime().toEpochMilli() );
         internalSnapshot.setRetentionTimeSeconds( snapshot.getRetention().getSeconds() );
@@ -327,7 +421,7 @@ public class ExternalModelConverter {
         return internalSnapshot;
     }
 
-    public static Snapshot convertToExternalSnapshot( com.formationds.protocol.Snapshot protoSnapshot ) {
+    public static Snapshot convertToExternalSnapshot( com.formationds.protocol.svc.types.Snapshot protoSnapshot ) {
 
         long creation = protoSnapshot.getCreationTimestamp();
         long retentionInSeconds = protoSnapshot.getRetentionTimeSeconds();
@@ -339,7 +433,7 @@ public class ExternalModelConverter {
                              snapshotName,
                              volumeId,
                              Duration.ofSeconds( retentionInSeconds ),
-                             Instant.ofEpochMilli( creation ) );
+                             Instant.ofEpochSecond( creation ) );
     }
 
     public static SnapshotPolicy convertToExternalSnapshotPolicy( com.formationds.apis.SnapshotPolicy internalPolicy ) {
@@ -434,19 +528,20 @@ public class ExternalModelConverter {
 
         // this is the naive way we are trying to get rid of
         internalVolumes.stream().forEach( descriptor -> {
-
-            logger.trace( "Converting volume " + descriptor.getName() + " to external format." );
-            Volume externalVolume = ExternalModelConverter.convertToExternalVolume( descriptor,
-                                                                                    volumeStatus
-                                                                                        .get( descriptor.getVolId() ) );
-            ext.add( externalVolume );
+            if( descriptor != null )
+            {
+                logger.trace(
+                    "Converting volume " + descriptor.getName( ) + " to external format." );
+                ext.add( ExternalModelConverter.convertToExternalVolume(
+                    descriptor,
+                    volumeStatus.get( descriptor.getVolId( ) ) ) );
+            }
         } );
 
         return ext;
     }
 
     private static Volume convertToExternalVolume( VolumeDescriptor internalVolume, VolumeStatus extStatus ) {
-
         String extName = internalVolume.getName();
         Long volumeId = internalVolume.getVolId();
 
@@ -461,6 +556,105 @@ public class ExternalModelConverter {
             Size blockSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
 
             extSettings = new VolumeSettingsBlock( capacity, blockSize );
+        } else if ( settings.getVolumeType().equals( VolumeType.ISCSI ) ) {
+            IScsiTarget iscsi = null;
+            if( internalVolume.getPolicy().getIscsiTarget() == null ||
+                internalVolume.getPolicy().getIscsiTarget().isSetLuns() )
+            {
+                final Optional<VolumeDesc> optional = RedisSingleton.INSTANCE.api( ).getVolume( volumeId );
+                if( optional.isPresent( ) )
+                {
+                    final VolumeDesc desc = optional.get( );
+                    if( desc.settings( ).getIscsiTarget() != null &&
+                        desc.settings( ).getIscsiTarget().isSetLuns( ) )
+                    {
+                        iscsi = desc.settings().getIscsiTarget();
+                    }
+                }
+            }
+            else
+            {
+                iscsi = internalVolume.getPolicy( ).getIscsiTarget();
+            }
+
+            if( iscsi != null )
+            {
+                Size capacity = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.B );
+                Size blockSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
+
+                extSettings = new VolumeSettingsISCSI.Builder( )
+                    .withCapacity( capacity )
+                    .withBlockSize( blockSize )
+                    .withUnit( SizeUnit.B )
+                    .withTarget(
+                        new Target.Builder( )
+                            .withLuns( convertToExternalLUN( iscsi.getLuns( ) ) )
+                            .withInitiators( convertToExternalInitiators( iscsi.getInitiators() ) )
+                            .withIncomingUsers( convertToExternalIncomingUser( iscsi.getIncomingUsers( ) ) )
+                            .withOutgoingUsers( convertToExternalOutgoingUser( iscsi.getOutgoingUsers( ) ) )
+                            .build( ) )
+                    .build( );
+            }
+            else
+            {
+                logger.warn( "The iSCSI volume is missing mandatory attributes, skipping volume {}:{}",
+                             extName,
+                             volumeId );
+            }
+
+        }
+        else if ( settings.getVolumeType().equals( VolumeType.NFS ) )
+        {
+            logger.trace( "NFS::SETTINGS::{}", internalVolume.getPolicy( ) );
+            NfsOption nfsOptions = null;
+            if ( !internalVolume.getPolicy( )
+                                .isSetNfsOptions( ) )
+            {
+                final Optional<VolumeDesc> optional = RedisSingleton.INSTANCE.api( ).getVolume( volumeId );
+                if( optional.isPresent( ) )
+                {
+                    final VolumeDesc desc = optional.get( );
+                    if( desc.settings( ).getNfsOptions() != null )
+                    {
+                        nfsOptions = desc.settings().getNfsOptions( );
+                    }
+                }
+            }
+            else
+            {
+                nfsOptions = internalVolume.getPolicy( )
+                                           .getNfsOptions( );
+            }
+
+            if( nfsOptions != null )
+            {
+                final Size maxObjectSize = Size.of( settings.getMaxObjectSizeInBytes( ), SizeUnit.B );
+                final Size capacity = Size.of( settings.getBlockDeviceSizeInBytes(), SizeUnit.B );
+
+                try
+                {
+                    extSettings = new VolumeSettingsNfs.Builder()
+                        .withOptions( convertToExternalNfsOptions( nfsOptions ) )
+                        .withClient( convertToExternalNfsClients( nfsOptions ) )
+                        .withMaxObjectSize( Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B ) )
+                        .withCapacity( capacity )
+                        .build();
+                }
+                catch ( UnknownHostException e )
+                {
+                    logger.warn( "The NFS volume conversion failed {}, skipping volume {}:{}",
+                                 e.getMessage(),
+                                 extName,
+                                 volumeId );
+                    logger.debug( e.getMessage(), e );
+                }
+            }
+            else
+            {
+                logger.warn( "The NFS volume is missing mandatory attributes, skipping volume {}:{}",
+                             extName,
+                             volumeId );
+            }
         } else if ( settings.getVolumeType().equals( VolumeType.OBJECT ) ) {
             Size maxObjectSize = Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B );
 
@@ -522,6 +716,189 @@ public class ExternalModelConverter {
                            null );
     }
 
+    public static NfsOption convertToInternalNfsOptions( final String nfs, final String client )
+    {
+        if( nfs == null )
+        {
+            return new NfsOption( );
+        }
+
+        final NfsOption options = new NfsOption( );
+        options.setOptions( nfs );
+        options.setClient( client );
+
+        return options;
+    }
+
+    public static NfsOptions convertToExternalNfsOptions( final NfsOption options )
+    {
+        final List<String> listOfOptions =
+            Arrays.asList( StringUtils.split( options.getOptions(), "," ) );
+
+        NfsOptions.Builder builder = new NfsOptions.Builder( );
+        for( final String option : listOfOptions )
+        {
+            final String lowerCaseVersion = option.toLowerCase();
+            logger.trace( "NFS Option [ '{}' ]", lowerCaseVersion );
+            switch( lowerCaseVersion )
+            {
+                case "ro":
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
+                    builder = builder.ro( );
+                    break;
+                case "rw":
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
+                    builder = builder.rw( );
+                    break;
+                case "acl":
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
+                    builder = builder.withAcl( );
+                    break;
+                case "async":
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
+                    builder = builder.async( );
+                    break;
+                case "root_squash":
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
+                    builder = builder.withRootSquash( );
+                case "all_squash":
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
+                    builder = builder.allSquash( );
+                    break;
+                default:
+                    logger.trace( "NFS Option Builder {}", lowerCaseVersion );
+                    break;
+            }
+        }
+        final NfsOptions nfsOptions = builder.build();
+        logger.trace( "Internal NFS Options::{} External NFS Options::{}", options, nfsOptions );
+        return nfsOptions;
+    }
+
+    public static NfsClients convertToExternalNfsClients( final NfsOption options )
+        throws UnknownHostException
+    {
+        return new NfsClients( options.getClient() );
+    }
+
+    public static List<LogicalUnitNumber> convertToInternalLogicalUnitNumber( final List<LUN> luns )
+    {
+        if( luns == null )
+        {
+            return new ArrayList<>( );
+        }
+
+        final List<LogicalUnitNumber> intLuns = new ArrayList<>( );
+        for ( final LUN lun : luns )
+        {
+            intLuns.add( new LogicalUnitNumber( lun.getLunName( ),
+                                                lun.getAccessType( )
+                                                   .name( ) ) );
+        }
+
+        return intLuns;
+    }
+
+    public static List<LUN> convertToExternalLUN( final List<LogicalUnitNumber> logicalUnitNumbers )
+    {
+        if( logicalUnitNumbers == null )
+        {
+            return new ArrayList<>( );
+        }
+
+        return logicalUnitNumbers.stream( )
+                                 .map( logicalUnitNumber -> new LUN.Builder( )
+                                     .withLun( logicalUnitNumber.getName( ) )
+                                     .withAccessType( LUN.AccessType
+                                                         .valueOf( logicalUnitNumber.getAccess( ) ) )
+                                     .build( ) )
+                                 .collect( Collectors.toList( ) );
+    }
+
+    public static List<com.formationds.protocol.Initiator> convertToInternalInitiators(
+        final List<Initiator> initiators )
+    {
+        if( initiators == null )
+        {
+            return new ArrayList<>( );
+        }
+
+        return initiators.stream( )
+                         .map( initiator -> new com.formationds.protocol.Initiator( initiator.getWWNMask( ) ) )
+                         .collect( Collectors.toList( ) );
+    }
+
+    public static List<Initiator> convertToExternalInitiators( final List<com.formationds.protocol.Initiator> initiators )
+    {
+        if( initiators == null )
+        {
+            return new ArrayList<>( );
+        }
+
+        return initiators.stream( )
+                                 .map( initiator -> new Initiator( initiator.getWwn_mask() ) )
+                                 .collect( Collectors.toList( ) );
+    }
+
+    public static List<com.formationds.protocol.Credentials> convertToInternalIncomingUsers(
+        final List<Credentials> incomingUsers )
+    {
+        if( incomingUsers == null )
+        {
+            return new ArrayList<>( );
+        }
+        return incomingUsers.stream( )
+                            .filter( ( user ) -> user.getUsername() != null && user.getUsername().length() > 0 )
+                            .filter( ( user ) -> user.getPassword() != null && user.getPassword().length() > 0 )
+                         .map( user -> new com.formationds.protocol.Credentials( user.getUsername(),
+                                                                                 user.getPassword() ) )
+                         .collect( Collectors.toList( ) );
+    }
+
+    public static List<Credentials> convertToExternalIncomingUser( final List<com.formationds.protocol.Credentials> incomingUsers )
+    {
+        if( incomingUsers == null )
+        {
+            return new ArrayList<>( );
+        }
+
+        return incomingUsers.stream( )
+                            .filter( ( user ) -> user.getName() != null && user.getName().length() > 0 )
+                            .filter( ( user ) -> user.getPasswd() != null && user.getPasswd().length() > 0 )
+                         .map( user -> new Credentials( user.getName(), user.getPasswd() ) )
+                         .collect( Collectors.toList( ) );
+    }
+
+    public static List<com.formationds.protocol.Credentials> convertToInternalOutgoingUsers(
+        final List<Credentials> outgoingUsers )
+    {
+        if( outgoingUsers == null )
+        {
+            return new ArrayList<>( );
+        }
+
+        return outgoingUsers.stream( )
+                            .filter( ( user ) -> user.getUsername() != null && user.getUsername().length() > 0 )
+                            .filter( ( user ) -> user.getPassword() != null && user.getPassword().length() > 0 )
+                            .map( user -> new com.formationds.protocol.Credentials( user.getUsername(),
+                                                                                    user.getPassword() ) )
+                            .collect( Collectors.toList( ) );
+    }
+
+    public static List<Credentials> convertToExternalOutgoingUser( final List<com.formationds.protocol.Credentials> outgoingUsers )
+    {
+        if( outgoingUsers == null )
+        {
+            return new ArrayList<>( );
+        }
+
+        return outgoingUsers.stream( )
+                            .filter( ( user ) -> user.getName() != null && user.getName().length() > 0 )
+                            .filter( ( user ) -> user.getPasswd() != null && user.getPasswd().length() > 0 )
+                            .map( user -> new Credentials( user.getName(), user.getPasswd() ) )
+                            .collect( Collectors.toList( ) );
+    }
+
     public static VolumeDescriptor convertToInternalVolumeDescriptor( Volume externalVolume ) {
 
         VolumeDescriptor internalDescriptor = new VolumeDescriptor();
@@ -545,47 +922,176 @@ public class ExternalModelConverter {
         }
 
         com.formationds.apis.VolumeSettings internalSettings = new com.formationds.apis.VolumeSettings();
+        if ( externalVolume.getSettings() instanceof VolumeSettingsISCSI )
+        { // iSCSI volume
+            VolumeSettingsISCSI iscsiSettings = ( VolumeSettingsISCSI ) externalVolume.getSettings( );
 
-        // block volume
-        if ( externalVolume.getSettings() instanceof VolumeSettingsBlock ) {
+            if( iscsiSettings.getCapacity() == null )
+            {
+                throw new IllegalArgumentException( "iSCSI capacity must be provided" );
+            }
 
-            VolumeSettingsBlock blockSettings = (VolumeSettingsBlock) externalVolume.getSettings();
+            internalSettings.setBlockDeviceSizeInBytes( iscsiSettings.getCapacity( )
+                                                                     .getValue( SizeUnit.B )
+                                                                     .longValue( ) );
+
+            Size blockSize = iscsiSettings.getBlockSize( );
+            if ( blockSize != null &&
+                blockSize.getValue( SizeUnit.B ).longValue( ) >= Size.of( 4, SizeUnit.KB )
+                                                                     .getValue( SizeUnit.B )
+                                                                     .longValue( ) &&
+                blockSize.getValue( SizeUnit.B ).longValue( ) <= Size.of( 8, SizeUnit.MB )
+                                                                     .getValue( SizeUnit.B )
+                                                                     .longValue( ) )
+            {
+                internalSettings.setMaxObjectSizeInBytes( blockSize.getValue( SizeUnit.B )
+                                                                   .intValue( ) );
+            }
+            else
+            {
+                logger.warn( BLOCK_SIZE_NOT_SET );
+                internalSettings.setMaxObjectSizeInBytes( DEF_BLOCK_SIZE );
+            }
+
+            internalSettings.setVolumeType( VolumeType.ISCSI );
+            if( iscsiSettings.getTarget() == null )
+            {
+                throw new IllegalArgumentException(
+                    String.format( "The iSCSI volume is missing mandatory target, skipping volume %s:%s",
+                                   externalVolume.getName(),
+                                   externalVolume.getId() ) );
+            }
+            else
+            {
+                if( iscsiSettings.getTarget().getLuns().isEmpty() )
+                {
+                    iscsiSettings.getTarget()
+                                 .getLuns()
+                                 .add( new LUN.Builder()
+                                              .withLun( externalVolume.getName() )
+                                              .withAccessType( LUN.AccessType.RW )
+                                              .build() );
+                }
+
+                final IScsiTarget iscsiTarget =
+                    new IScsiTarget( ).setLuns(
+                        convertToInternalLogicalUnitNumber(
+                            iscsiSettings.getTarget( )
+                                         .getLuns( ) ) )
+                                      .setInitiators(
+                                          convertToInternalInitiators(
+                                              iscsiSettings.getTarget().getInitiators() ) )
+                                      .setIncomingUsers(
+                                          convertToInternalIncomingUsers(
+                                              iscsiSettings.getTarget( ).getIncomingUsers( ) ) )
+                                      .setOutgoingUsers(
+                                          convertToInternalOutgoingUsers(
+                                              iscsiSettings.getTarget( ).getOutgoingUsers( ) ) );
+
+                internalSettings.setIscsiTarget( iscsiTarget );
+            }
+        }
+        else if ( externalVolume.getSettings() instanceof VolumeSettingsBlock ) {        // block volume
+
+            VolumeSettingsBlock blockSettings = ( VolumeSettingsBlock ) externalVolume.getSettings( );
 
             internalSettings
-                .setBlockDeviceSizeInBytes( blockSettings.getCapacity().getValue( SizeUnit.B ).longValue() );
+                .setBlockDeviceSizeInBytes( blockSettings.getCapacity( )
+                                                         .getValue( SizeUnit.B )
+                                                         .longValue( ) );
 
-            Size blockSize = blockSettings.getBlockSize();
+            Size blockSize = blockSettings.getBlockSize( );
 
             if ( blockSize != null &&
-                 blockSize.getValue( SizeUnit.B ).longValue() >=
-                 Size.of( 4, SizeUnit.KB ).getValue( SizeUnit.B ).longValue() &&
-                 blockSize.getValue( SizeUnit.B ).longValue() <=
-                 Size.of( 8, SizeUnit.MB ).getValue( SizeUnit.B ).longValue() ) {
+                blockSize.getValue( SizeUnit.B )
+                         .longValue( ) >= Size.of( 4, SizeUnit.KB )
+                                              .getValue( SizeUnit.B )
+                                              .longValue( ) &&
+                blockSize.getValue( SizeUnit.B )
+                         .longValue( ) <= Size.of( 8, SizeUnit.MB )
+                                              .getValue( SizeUnit.B )
+                                              .longValue( ) )
+            {
                 internalSettings.setMaxObjectSizeInBytes( blockSize.getValue( SizeUnit.B )
-                                                                   .intValue() );
-            } else {
-                logger
-                    .warn( "Block size was either not set, or outside the bounds of 4KB-8MB so it is being set to the default of 128KB" );
+                                                                   .intValue( ) );
+            } else
+            {
+                logger.warn( BLOCK_SIZE_NOT_SET );
                 internalSettings.setMaxObjectSizeInBytes( DEF_BLOCK_SIZE );
             }
 
             internalSettings.setVolumeType( VolumeType.BLOCK );
+        }
+        else if ( externalVolume.getSettings() instanceof VolumeSettingsNfs )
+        {   // NFS volume
+            VolumeSettingsNfs nfsSettings = ( VolumeSettingsNfs ) externalVolume.getSettings( );
 
-            // object volume
-        } else {
-            VolumeSettingsObject objectSettings = (VolumeSettingsObject) externalVolume.getSettings();
+            Size maxObjSize = nfsSettings.getMaxObjectSize();
+
+            internalSettings
+                .setBlockDeviceSizeInBytes( nfsSettings.getCapacity( )
+                                                         .getValue( SizeUnit.B )
+                                                         .longValue( ) );
+
+            if ( maxObjSize != null &&
+                 maxObjSize.getValue( SizeUnit.B ).longValue() >= Size.of( 4, SizeUnit.KB )
+                                                                      .getValue( SizeUnit.B )
+                                                                      .longValue() &&
+                 maxObjSize.getValue( SizeUnit.B ).longValue() <= Size.of( 8, SizeUnit.MB )
+                                                                      .getValue( SizeUnit.B )
+                                                                      .longValue() )
+            {
+                internalSettings.setMaxObjectSizeInBytes( maxObjSize.getValue( SizeUnit.B )
+                                                                    .intValue() );
+            }
+            else
+            {
+                logger.warn( OBJECT_SIZE_NOT_SET );
+                internalSettings.setMaxObjectSizeInBytes( DEF_OBJECT_SIZE );
+            }
+
+            final NfsOption options = new NfsOption( );
+            if( nfsSettings.getOptions() == null || nfsSettings.getOptions().isEmpty() )
+            {
+                options.setOptions( "rw,sync,no_acl,no_all_squash,no_root_squash" );
+            }
+            else
+            {
+                options.setOptions( nfsSettings.getOptions() );
+            }
+
+            if( nfsSettings.getClients() == null || nfsSettings.getClients().isEmpty() )
+            {
+                options.setClient( "*" );
+            }
+            else
+            {
+                options.setClient( nfsSettings.getClients() );
+            }
+
+            internalSettings.setNfsOptions( options );
+            internalSettings.setVolumeType( VolumeType.NFS );
+        }
+        else // Object Volume
+        {
+            VolumeSettingsObject objectSettings = ( VolumeSettingsObject ) externalVolume.getSettings();
 
             Size maxObjSize = objectSettings.getMaxObjectSize();
 
             if ( maxObjSize != null &&
-                 maxObjSize.getValue( SizeUnit.B ).longValue() >=
-                 Size.of( 4, SizeUnit.KB ).getValue( SizeUnit.B ).longValue() &&
-                 maxObjSize.getValue( SizeUnit.B ).longValue() <=
-                 Size.of( 8, SizeUnit.MB ).getValue( SizeUnit.B ).longValue() ) {
-                internalSettings.setMaxObjectSizeInBytes( maxObjSize.getValue( SizeUnit.B ).intValue() );
-            } else {
-                logger
-                    .warn( "Maximum object size was either not set, or outside the bounds of 4KB-8MB so it is being set to the default of 2MB" );
+                 maxObjSize.getValue( SizeUnit.B ).longValue() >= Size.of( 4, SizeUnit.KB )
+                                                                      .getValue( SizeUnit.B )
+                                                                      .longValue() &&
+                 maxObjSize.getValue( SizeUnit.B ).longValue() <= Size.of( 8, SizeUnit.MB )
+                                                                      .getValue( SizeUnit.B )
+                                                                      .longValue() )
+            {
+                internalSettings.setMaxObjectSizeInBytes( maxObjSize.getValue( SizeUnit.B )
+                                                                    .intValue() );
+            }
+            else
+            {
+                logger.warn( OBJECT_SIZE_NOT_SET );
                 internalSettings.setMaxObjectSizeInBytes( DEF_OBJECT_SIZE );
             }
 
@@ -605,7 +1111,13 @@ public class ExternalModelConverter {
 
         FDSP_VolumeDescType volumeType = new FDSP_VolumeDescType();
 
-        volumeType.setContCommitlogRetention( externalVolume.getDataProtectionPolicy().getCommitLogRetention()
+        /*
+         * FS-4354: allow continue commit log retention to be 0;
+         *
+         * but really we should allow it to be set to any valid value
+         */
+        volumeType.setContCommitlogRetention( externalVolume.getDataProtectionPolicy()
+                                                            .getCommitLogRetention()
                                                             .getSeconds() );
 
         if ( externalVolume.getCreated() != null ) {
@@ -635,20 +1147,79 @@ public class ExternalModelConverter {
         volumeType.setRel_prio( externalVolume.getQosPolicy().getPriority() );
         volumeType.setVolUUID( externalVolume.getId() );
         volumeType.setVol_name( externalVolume.getName() );
-
         VolumeSettings settings = externalVolume.getSettings();
 
-        if ( settings instanceof VolumeSettingsBlock ) {
-            VolumeSettingsBlock blockSettings = (VolumeSettingsBlock) settings;
+        if( settings instanceof VolumeSettingsISCSI )
+        {
+            VolumeSettingsISCSI iscsi = ( VolumeSettingsISCSI ) settings;
 
-            if ( blockSettings.getBlockSize() != null ) {
-                volumeType.setMaxObjSizeInBytes( blockSettings.getBlockSize().getValue( SizeUnit.B ).intValue() );
-            } else {
+            if ( iscsi.getBlockSize( ) != null )
+            {
+                volumeType.setMaxObjSizeInBytes( iscsi.getBlockSize( )
+                                                      .getValue( SizeUnit.B )
+                                                      .intValue( ) );
+            }
+            else
+            {
                 volumeType.setMaxObjSizeInBytes( DEF_BLOCK_SIZE );
             }
 
-            volumeType.setCapacity( blockSettings.getCapacity().getValue( SizeUnit.B ).longValue() );
+            volumeType.setCapacity( iscsi.getCapacity( )
+                                         .getValue( SizeUnit.B )
+                                         .longValue( ) );
+            volumeType.setVolType( FDSP_VolType.FDSP_VOL_ISCSI_TYPE );
+
+            final IScsiTarget target =
+                new IScsiTarget(
+                    convertToInternalLogicalUnitNumber( iscsi.getTarget().getLuns() ) );
+
+            target.setInitiators( convertToInternalInitiators( iscsi.getTarget().getInitiators() ) );
+            target.setIncomingUsers( convertToInternalIncomingUsers( iscsi.getTarget().getIncomingUsers() ) );
+            target.setOutgoingUsers( convertToInternalOutgoingUsers( iscsi.getTarget().getOutgoingUsers() ) );
+
+            volumeType.setIscsi( target );
+            volumeType.setVolType( FDSP_VolType.FDSP_VOL_ISCSI_TYPE );
+
+        } else if ( settings instanceof VolumeSettingsBlock ) {
+            VolumeSettingsBlock blockSettings = ( VolumeSettingsBlock ) settings;
+
+            if ( blockSettings.getBlockSize( ) != null )
+            {
+                volumeType.setMaxObjSizeInBytes( blockSettings.getBlockSize( )
+                                                              .getValue( SizeUnit.B )
+                                                              .intValue( ) );
+            }
+            else
+            {
+                volumeType.setMaxObjSizeInBytes( DEF_BLOCK_SIZE );
+            }
+
+            volumeType.setCapacity( blockSettings.getCapacity( )
+                                                 .getValue( SizeUnit.B )
+                                                 .longValue( ) );
             volumeType.setVolType( FDSP_VolType.FDSP_VOL_BLKDEV_TYPE );
+        } else if( settings instanceof VolumeSettingsNfs ) {
+            VolumeSettingsNfs nfs = ( VolumeSettingsNfs ) settings;
+
+            final String options = nfs.getOptions();
+            final String clients = nfs.getClients();
+
+            if ( options != null && clients == null )
+            {
+                volumeType.setNfs( convertToInternalNfsOptions( options, "*" ) );
+            }
+            else if ( options != null )
+            {
+                volumeType.setNfs( convertToInternalNfsOptions( options, clients ) );
+            }
+
+            if ( nfs.getMaxObjectSize() != null ) {
+                volumeType.setMaxObjSizeInBytes( nfs.getMaxObjectSize().getValue( SizeUnit.B ).intValue() );
+            } else {
+                volumeType.setMaxObjSizeInBytes( DEF_OBJECT_SIZE );
+            }
+
+            volumeType.setVolType( FDSP_VolType.FDSP_VOL_NFS_TYPE );
         } else {
             VolumeSettingsObject objectSettings = (VolumeSettingsObject) settings;
 
@@ -710,7 +1281,7 @@ public class ExternalModelConverter {
                           EnumMap<FirebreakType,
                                      VolumeDatapointPair>> getFirebreakEventsMetrics( List<Volume> volumes ) {
 
-        MetricQueryCriteria query = new MetricQueryCriteria();
+        MetricQueryCriteria query = new MetricQueryCriteria(QueryType.FIREBREAK_METRIC);
         DateRange range = DateRange.last24Hours();
 
         query.setSeriesType( new ArrayList<>( Metrics.FIREBREAK ) );

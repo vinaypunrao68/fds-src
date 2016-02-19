@@ -8,16 +8,22 @@ import com.formationds.apis.*;
 import com.formationds.apis.ConfigurationService.Iface;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
-import com.formationds.protocol.FDSP_Node_Info_Type;
-import com.formationds.protocol.FDSP_PolicyInfoType;
-import com.formationds.protocol.FDSP_VolumeDescType;
+import com.formationds.om.helper.EndUserMessages;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
+import com.formationds.protocol.svc.types.FDSP_PolicyInfoType;
+import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
+import com.formationds.protocol.svc.types.SvcInfo;
+import com.formationds.protocol.svc.types.SvcUuid;
 import com.formationds.protocol.pm.NotifyAddServiceMsg;
 import com.formationds.protocol.pm.NotifyRemoveServiceMsg;
 import com.formationds.protocol.pm.NotifyStartServiceMsg;
 import com.formationds.protocol.pm.NotifyStopServiceMsg;
+import com.formationds.util.Configuration;
 import com.formationds.util.thrift.CachedConfiguration;
 import com.formationds.util.thrift.ThriftClientFactory;
 import com.google.common.collect.Lists;
+
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
@@ -41,9 +47,11 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     }
 
     void createStatStreamRegistrationHandler( final String urlHostname,
-                                              final int urlPortNo ) {
+                                              final int urlPortNo,
+                                              final Configuration platformDotConf ) {
         this.statStreamRegistrationHandler =
-            new StatStreamRegistrationHandler( this, urlHostname, urlPortNo );
+            new StatStreamRegistrationHandler( this, platformDotConf, urlHostname, urlPortNo );
+        this.statStreamRegistrationHandler.manageOmStreamRegistrations();
     }
 
     void startConfigurationUpdater( long intervalMS ) {
@@ -86,6 +94,14 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         return id;
     }
 
+    /* (non-Javadoc)
+     * @see com.formationds.apis.ConfigurationService.Iface#isLocalDomainUp()
+     */
+    @Override
+    public boolean isLocalDomainUp() throws TException {
+        return getConfig().isLocalDomainUp();
+    }
+
     /**
      * List all currently defined Local Domains (within the context of the understood Global Domain).
      *
@@ -94,8 +110,22 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      * @throws TException
      */
     @Override
-    public List<LocalDomain> listLocalDomains( int ignore ) throws TException {
+    public List<LocalDomainDescriptor> listLocalDomains( int ignore ) throws TException {
         return getConfig().listLocalDomains( ignore );
+    }
+
+    /**
+     * Interface version V07.
+     *
+     * List all currently defined Local Domains (within the context of the understood Global Domain).
+     *
+     * @return List<com.formationds.apis.LocalDomainV07>: A list of the currently defined Local Domains and associated information.
+     *
+     * @throws TException
+     */
+    @Override
+    public List<LocalDomainDescriptorV07> listLocalDomainsV07( int ignore ) throws TException {
+        return getConfig().listLocalDomainsV07( ignore );
     }
 
     /**
@@ -164,8 +194,8 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      * @throws TException
      */
     @Override
-    public void shutdownLocalDomain( String domainName ) throws TException {
-        getConfig().shutdownLocalDomain( domainName );
+    public int shutdownLocalDomain( String domainName ) throws TException {
+        return getConfig().shutdownLocalDomain( domainName );
     }
 
     /**
@@ -568,25 +598,33 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         long maxSize = (VolumeType.BLOCK.equals( vt ) ?
                         volumeSettings.getBlockDeviceSizeInBytes() :
                         volumeSettings.getMaxObjectSizeInBytes());
-        EventManager.notifyEvent( OmEvents.CREATE_VOLUME, domainName, volumeName, tenantId,
-                                  vt.name(),
-                                  maxSize );
 
-        statStreamRegistrationHandler.notifyVolumeCreated( domainName, volumeName );
+        getCache().loadVolume( domainName, volumeName );
 
         // load the new volume into the cache
         getCache().loadVolume( domainName, volumeName );
 
+        EventManager.notifyEvent( OmEvents.CREATE_VOLUME, domainName, volumeName, tenantId,
+                                  vt.name(),
+                                  maxSize );
     }
 
     @Override
     public long getVolumeId( String volumeName ) throws TException {
-        return getConfig().getVolumeId( volumeName );
+        VolumeDescriptor vd = statVolume( "unused", volumeName );
+        if (vd != null) {
+            return vd.getVolId();
+        }
+        return 0;
     }
 
     @Override
     public String getVolumeName( long volumeId ) throws TException {
-        return getConfig().getVolumeName( volumeId );
+        VolumeDescriptor v = getCache().getVolume( volumeId );
+        if (v == null) {
+            v = refreshCacheMaybe().getVolume( volumeId );
+        }
+        return v.getName();
     }
 
     @Override
@@ -596,6 +634,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public int ModifyVol( FDSP_ModifyVolType mod_vol_req ) throws TException {
+        LOG.trace( "ModifyVol::" + mod_vol_req.toString() );
         return getConfig().ModifyVol( mod_vol_req );
     }
 
@@ -603,8 +642,6 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     public void deleteVolume( String domainName, String volumeName ) throws TException {
         getConfig().deleteVolume( domainName, volumeName );
         EventManager.notifyEvent( OmEvents.DELETE_VOLUME, domainName, volumeName );
-        statStreamRegistrationHandler.notifyVolumeDeleted( domainName, volumeName );
-
         getCache().removeVolume( domainName, volumeName );
     }
 
@@ -619,10 +656,12 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public List<VolumeDescriptor> listVolumes( String domainName ) throws TException {
-        // todo: may want to always do version check in refresh here.
-        List<VolumeDescriptor> v = getCache().getVolumes();
-        if ( v == null || v.isEmpty() ) {
-            v = refreshCacheMaybe().getVolumes();
+        // always check the config version and refresh if changed.
+        // the add/delete volume calls handle cache updates, but add/delete requests
+        // are not guaranteed to come through this instance.
+        List<VolumeDescriptor> v = refreshCacheMaybe().getVolumes();
+        if ( v == null ) {
+            v = new ArrayList<>();
         }
         return v;
     }
@@ -713,7 +752,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     }
 
     @Override
-    public List<com.formationds.protocol.Snapshot> listSnapshots( long volumeId ) throws TException {
+    public List<com.formationds.protocol.svc.types.Snapshot> listSnapshots( long volumeId ) throws TException {
         return getConfig().listSnapshots( volumeId );
     }
 
@@ -744,6 +783,281 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         return clonedVolumeId;
     }
 
+    /* Subscription Management */
+    /**
+     * Create a subscription.
+     *
+     * @param subName: Subscription name. Unique within the global domain for the given tenant.
+     * @param tenantID: ID of the tenant owning the subscription.
+     * @param primaryDomainID: ID of the local domain in which the primary copy of the replicated volume resides.
+     * @param primaryVolumeID: ID of the volume which is the source of replication.
+     * @param replicaDomainID: ID of the local domain in which the replica copy of the replicated volume resides.
+     * @param subType: Indicates whether the replication mechanism for this subscription is content-based or
+     *                 transaction-based.
+     * @param schedType: For content-based replication, specifies what kind of scheduling mechanism is to be used.
+     * @param intervalSize: For content-based replication, specifies the quantity upon which the scheduling mechanism
+     *                      is based. 5 might be every 5 minutes or every 5 MB of change depending upon schedType,
+     *                      for example.
+     * @return ID of the created subscription. 0 if creation failed.
+     * @throws TException
+     */
+    @Override
+    public long createSubscription(String subName,
+                                   long tenantID,
+                                   int primaryDomainID,
+                                   long primaryVolumeID,
+                                   int replicaDomainID,
+                                   com.formationds.apis.SubscriptionType subType,
+                                   com.formationds.apis.SubscriptionScheduleType schedType,
+                                   long intervalSize)
+            throws TException {
+        long id = getConfig().createSubscription(subName,
+                                              tenantID,
+                                              primaryDomainID,
+                                              primaryVolumeID,
+                                              replicaDomainID,
+                                              subType,
+                                              schedType,
+                                              intervalSize);
+
+        EventManager.notifyEvent(OmEvents.CREATE_SUBSCRIPTION,
+                                 subName,
+                                 tenantID,
+                                 primaryDomainID,
+                                 primaryVolumeID,
+                                 replicaDomainID);
+
+        return id;
+    }
+
+    /**
+     * List all subscriptions defined in the global domain.
+     *
+     * @param ignore: Crutch for Thrift when no parameters required.
+     * @return List of subscriptions and their detail. May be empty if no subscriptions defined in the global domain.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listSubscriptionsAll(int ignore)
+            throws TException {
+        return getConfig().listSubscriptionsAll(ignore);
+    }
+
+    /**
+     * List all subscriptions defined in the global domain for the identified tenant.
+     *
+     * @param tenantID: ID of the tenant owning the subscriptions to be listed.
+     * @return List of subscriptions owned by the tenant and their detail. May be empty if no subscriptions defined
+     *         in the global domain for the identified tenant.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listTenantSubscriptionsAll(long tenantID)
+            throws TException {
+        return getConfig().listTenantSubscriptionsAll(tenantID);
+    }
+
+    /**
+     * List all subscriptions defined for the identified primary domain.
+     *
+     * @param primaryDomainID: ID of the local domain that is to be identified as "primary" for the subscriptions listed.
+     * @return List of subscriptions with the identified primary domain and their detail. May be empty if no
+     *         subscriptions are defined for the identified primary domain.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listSubscriptionsPrimaryDomain(int primaryDomainID)
+            throws TException {
+        return getConfig().listSubscriptionsPrimaryDomain(primaryDomainID);
+    }
+
+    /**
+     * List all subscriptions defined for the identified primary domain and tenant.
+     *
+     * @param primaryDomainID: ID of the local domain that is to be identified as "primary" for the subscriptions listed.
+     * @param tenantID: ID of the tenant owning the subscriptions to be listed.
+     * @return List of subscriptions with the identified primary domain and tenant and their detail. May be empty if no
+     *         subscriptions defined for the identified primary domain and tenant.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listTenantSubscriptionsPrimaryDomain(int primaryDomainID, long tenantID)
+            throws TException {
+        return getConfig().listTenantSubscriptionsPrimaryDomain(primaryDomainID, tenantID);
+    }
+
+    /**
+     * List all subscriptions defined for the identified replica domain.
+     *
+     * @param replicaDomainID: ID of the local domain that is to be identified as "replica" for the subscriptions listed.
+     * @return List of subscriptions with the identified replica domain and their detail. May be empty if no
+     *         subscriptions are defined for the identified replica domain.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listSubscriptionsReplicaDomain(int replicaDomainID)
+            throws TException {
+        return getConfig().listSubscriptionsReplicaDomain(replicaDomainID);
+    }
+
+    /**
+     * List all subscriptions defined for the identified replica domain and tenant.
+     *
+     * @param replicaDomainID: ID of the local domain that is to be identified as "replica" for the subscriptions listed.
+     * @param tenantID: ID of the tenant owning the subscriptions to be listed.
+     * @return List of subscriptions with the identified replica domain and tenant and their detail. May be empty if no
+     *         subscriptions defined for the identified replica domain and tenant.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listTenantSubscriptionsReplicaDomain(int replicaDomainID, long tenantID)
+            throws TException {
+        return getConfig().listTenantSubscriptionsReplicaDomain(replicaDomainID, tenantID);
+    }
+
+    /**
+     * List all subscriptions defined with the identified volume as primary. Note that tenant is implied since
+     * a volume is owned by exactly one tenant.
+     *
+     * @param primaryVolumeID: ID of the volume which is named as "primary" for the subscription.
+     * @return List of subscriptions with the identified primary volume and their detail. May be empty if no
+     *         subscriptions defined for the identified primary volume.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listSubscriptionsPrimaryVolume(long primaryVolumeID)
+            throws TException {
+        return getConfig().listSubscriptionsPrimaryVolume(primaryVolumeID);
+    }
+
+    /**
+     * List all subscriptions defined with the identified volume as replica. Note that tenant is implied since
+     * a volume is owned by exactly one tenant.
+     *
+     * @param replicaVolumeID: ID of the volume which is named as "replica" for the subscription.
+     * @return List of subscriptions with the identified replica volume and their detail. May be empty if no
+     *         subscriptions defined for the identified replica volume.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listSubscriptionsReplicaVolume(long replicaVolumeID)
+            throws TException {
+        return getConfig().listSubscriptionsReplicaVolume(replicaVolumeID);
+    }
+
+    /**
+     * Retrieve the subscription details for the subscription identified by name and tenant (which combined is a unique
+     * identifier for a subscription).
+     *
+     * @param subName: Subscription name. Unique within the global domain for the given tenant.
+     * @param tenantID: ID of the tenant owning the subscription named.
+     * @return Details of subscription for the identified tenant and with the given name.
+     * @throws TException
+     */
+    @Override
+    public SubscriptionDescriptor getSubscriptionInfoName(String subName, long tenantID)
+            throws TException {
+        return getConfig().getSubscriptionInfoName(subName, tenantID);
+    }
+
+    /**
+     * Retrieve the subscription details for the subscription identified by the globally unique ID.
+     *
+     * @param subID: ID of the subscription whose details are to be retrieved.
+     * @return Details of subscription identified.
+     * @throws TException
+     */
+    @Override
+    public SubscriptionDescriptor getSubscriptionInfoID(long subID)
+            throws TException {
+        return getConfig().getSubscriptionInfoID(subID);
+    }
+
+    /**
+     * Update the indicated subscription.
+     *
+     * @param subMods: Using the ID included in the subMods object, replace the current subscription contents with
+     *                 the contents provided here. subMods content that cannot be modified includes tenantID, primaryDomainID,
+     *                 primaryVolumeID, and replicaDomainID.
+     * @return Nothing.
+     * @throws TException
+     */
+    @Override
+    public void updateSubscription(com.formationds.apis.SubscriptionDescriptor subMods)
+            throws TException {
+        getConfig().updateSubscription(subMods);
+
+        EventManager.notifyEvent(OmEvents.UPDATE_SUBSCRIPTION,
+                                 subMods.name,
+                                 subMods.tenantID,
+                                 subMods.primaryDomainID,
+                                 subMods.primaryVolumeID,
+                                 subMods.replicaDomainID);
+    }
+
+    /**
+     * Delete the subscription identified by name and tenant (which combined is a unique
+     * identifier for a subscription).
+     *
+     * @param subName: Subscription name. Unique within the global domain for the given tenant.
+     * @param tenantID: ID of the tenant owning the subscription named.
+     * @param dematerialize: "true" if the replica data associated with this subscription is to be deleted as well.
+     * @return Nothing.
+     * @throws TException
+     */
+    @Override
+    public void deleteSubscriptionName(String subName, long tenantID, boolean dematerialize)
+            throws TException {
+        getConfig().deleteSubscriptionName(subName, tenantID, dematerialize);
+
+        String doDemat = (dematerialize) ? "with" : "without";
+
+        EventManager.notifyEvent(OmEvents.DELETE_SUBSCRIPTION_NAME,
+                                 subName,
+                                 tenantID,
+                                 doDemat);
+    }
+
+    /**
+     * Delete the subscription identified by its globally unique ID.
+     *
+     * @param subID: ID of the subscription to be deleted.
+     * @param dematerialize: "true" if the replica data associated with this subscription is to be deleted as well.
+     * @return Nothing.
+     * @throws TException
+     */
+    @Override
+    public void deleteSubscriptionID(long subID, boolean dematerialize)
+            throws TException {
+        getConfig().deleteSubscriptionID(subID, dematerialize);
+
+        String doDemat = (dematerialize) ? "with" : "without";
+
+        EventManager.notifyEvent(OmEvents.DELETE_SUBSCRIPTION_ID,
+                subID,
+                doDemat);
+    }
+
+    @Override
+    public List<SvcInfo> getAllNodeInfo() throws TException {
+        return getConfig().getAllNodeInfo();
+    }
+
+    @Override
+    public SvcInfo getNodeInfo( SvcUuid nodeUuid ) throws ApiException, TException {
+        return getConfig().getNodeInfo( nodeUuid );
+    }
+
+    @Override
+    public long getDiskCapacityNode( SvcUuid nodeUuid ) throws ApiException, TException {
+        return getConfig().getDiskCapacityNode( nodeUuid );
+    }
+
+    @Override
+    public long getDiskCapacityTotal() throws ApiException, TException {
+        return getConfig().getDiskCapacityTotal();
+    }
+
     private synchronized CachedConfiguration getCache() {
         return cache;
     }
@@ -764,7 +1078,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
             }
             return cache;
         } catch ( TException te ) {
-            throw new IllegalStateException( "Failed to access configuration service.", te );
+            throw new IllegalStateException( EndUserMessages.CS_ACCESS_DENIED, te );
         }
     }
 

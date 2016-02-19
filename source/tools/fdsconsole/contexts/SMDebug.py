@@ -3,8 +3,9 @@ from svc_api.ttypes import *
 from common.ttypes import *
 from platformservice import *
 import FdspUtils
-import pdb
-
+import argparse
+import itertools
+import json
 
 class SMDebugContext(Context):
     def __init__(self, *args):
@@ -13,10 +14,11 @@ class SMDebugContext(Context):
     def smClient(self):
         return self.config.getPlatform()
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('svcid', help= "-Uuid of the SM/DM/AM to send the command to", type=long)
     @arg('svcname', help= "service name",  choices=['sm','dm','am'])
     def shutdown(self, svcid, svcname):
+        'shutdown a service'
         try:
             shutdownMsg = FdspUtils.newShutdownMODMsg()
             self.smClient().sendAsyncSvcReq(svcid, shutdownMsg, None)
@@ -43,28 +45,27 @@ class SMDebugContext(Context):
     #--------------------------------------------------------------------------------------
     @clidebugcmd
     @arg('sm', help="-Uuid of the SM to send the command to", type=long)
-    @arg('--targetTokens', help="-List of tokens to check", type=str)
-    def startSmchk(self, sm, targetTokens=None):
+    @arg('tokens', help="-List of tokens to check", nargs=argparse.REMAINDER)
+    def startSmchk(self, sm, tokens):
         """
         Start the online smchk for the specified sm node
         """
         try:
-            if targetTokens is not None:
-                targetTokens = targetTokens.split(',')
-                targetTokens = map(int, targetTokens)
-
-            startSmchk = FdspUtils.newStartSmchkMsg(targetTokens)
-            self.smClient().sendAsyncSvcReq(sm, startSmchk, None)
+            if len(tokens) :
+                l=[n for n in map(helpers.expandIntRange,tokens)]
+                tokens = list(itertools.chain.from_iterable(l))
+            checkMsg = FdspUtils.newStartSmchkMsg(tokens)
+            self.smClient().sendAsyncSvcReq(sm, checkMsg, None)
         except Exception as e:
             log.exception(e)
             print e.message
-            print "msg = {}".format(startSmchk)
             return 'Start online smchk failed'
 
     #--------------------------------------------------------------------------------------
-    @clicmd
+    @clidebugcmd
     @arg('svcid', help= "Service Uuid",  type=long)
-    def listtierstats(self, svcid):
+    def showtierstats(self, svcid):
+        'display tiering stats'
         try:
             cntrs = ServiceMap.client(svcid).getCounters('*')
             data = [('hdd-reads', cntrs['hdd_reads:volume=0']),
@@ -77,3 +78,34 @@ class SMDebugContext(Context):
         except Exception, e:
             log.exception(e)
             return 'unable to get tier stats'
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('sm', help= "-Uuid of the SM to send the command to", type=long)
+    def diskmapchange(self, sm):
+        """
+        Debug message for sending disk map change notification to SM.
+        """
+        try:
+            dskmpmsg = FdspUtils.newNotifyDiskMapChangeMsg()
+            self.smClient().sendAsyncSvcReq(sm, dskmpmsg, None)
+        except Exception, e:
+            log.exception(e)
+            return 'send disk map change message failed'
+
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('sm', help= "Uuid of the SM to send the command to", type=long)
+    def MigrationTokenCheck(self, sm):
+        """
+        Check the state of SM tokens (Available or Unavailable) in migration manager
+        """
+        try:
+            state = ServiceMap.client(sm).getStateInfo('migrationmgr')
+            state = json.loads(state)
+            print (json.dumps(state, indent=2, sort_keys=True)) 
+        except Exception, e:
+            log.exception(e)
+            print e.message
+            return 'SM migration token state check failed'
+

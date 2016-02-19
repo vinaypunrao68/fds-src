@@ -4,9 +4,12 @@
 
 #include <vector>
 #include <map>
+#include <fiu-local.h>
+#include <fiu-control.h>
+#include <object-store/ObjectStore.h>
 #include <object-store/ObjectPersistData.h>
 #include <object-store/TokenCompactor.h>
-
+#include <StorMgr.h>
 namespace fds {
 
 // TODO(Sean):
@@ -61,9 +64,11 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
 
     // TODO(anna) do not do compaction if sync is in progress, return 'not ready'
 
-    LOGNORMAL << "Start Compaction of token " << tok_id
-              << " disk_id " << disk_id << " tier " << tier
-              << " verify data?" << verify;
+    LOGNORMAL << "started compaction of token:" << tok_id
+              << " disk:" << disk_id
+              << " tier:" << tier
+              << " verify:" << verify;
+    OBJECTSTOREMGR(data_store)->counters->compactorRunning.incr();
 
     // remember the token we are goint to work on and object id range for this
     // token -- to safeguard later that we are copying right objects
@@ -81,8 +86,9 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
     // start garbage collection for this token -- tell persistent layer
     // to start routing requests to shadow (new) file to which we will
     // copy non-garbage objects
-    persistGcHandler->notifyStartGc(token_id, cur_tier);
+    persistGcHandler->notifyStartGc(cur_disk_id, token_id, cur_tier);
 
+    /*
     // we may have writes currently in flight that are writing to old file.
     // If we take db snapshot before these in flight write finish and
     // metadata is updated, then we will miss data that needs to be copied
@@ -98,6 +104,8 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
         std::atomic_exchange(&state, TCSTATE_IDLE);
         return Error(ERR_NOT_READY);
     }
+    */
+    handleTimerEvent();
 
     return err;
 }
@@ -118,7 +126,7 @@ void TokenCompactor::enqSnapDbWork()
     tcStateType expect = TCSTATE_PREPARE_WORK;
     if (!std::atomic_compare_exchange_strong(&state, &expect, TCSTATE_IN_PROGRESS)) {
         LOGERROR << "enqSnapDbWork is called in wrong state!";
-        fds_verify(false);
+        return;
     }
 
     // send request to do object db snapshot that we will work with
@@ -149,6 +157,12 @@ Error TokenCompactor::enqCopyWork(std::vector<ObjectID>* obj_list)
 
     // enqueue to qos queue, copy_req will be delete after it's dequeued
     // and processed
+    tcStateType cur_state = std::atomic_load(&state);
+    if (cur_state != TCSTATE_IN_PROGRESS) {
+        LOGERROR << "Failed to enqueue copy objs request. TC not in valid state.";
+        err = ERR_SM_TC_INVALID_STATE;
+        return err;
+    }
     err = data_store->enqueueMsg(FdsSysTaskQueueId, copy_req);
     if (!err.ok()) {
         LOGERROR << "Failed to enqueue copy objs request, error " << err;
@@ -169,17 +183,18 @@ void TokenCompactor::snapDoneCb(const Error& error,
     ObjMetaData omd;
     fds_uint32_t offset = 0;
 
-    LOGNORMAL << "Index DB snapshot for token " << token_id
-              << " received with result " << error;
-    fds_verify(total_objs == 0);  // smth went wrong, we set work only once
+    LOGDEBUG << "snapshot done for token:" << token_id
+             << " received with result:" << error;
+    fds_assert(total_objs == 0);  // smth went wrong, we set work only once
 
     // we must be in IN_PROGRESS state
     tcStateType cur_state = std::atomic_load(&state);
-    fds_verify(cur_state == TCSTATE_IN_PROGRESS);
+    fds_assert(cur_state == TCSTATE_IN_PROGRESS);
 
-    if (!error.ok()) {
-        LOGERROR << "Failed to get snapshot of index db, cannot continue"
-                 << " with token GC copy, completing with error";
+    if (!error.ok() || cur_state != TCSTATE_IN_PROGRESS || total_objs != 0) {
+        LOGERROR << "Failed get snapshot for token " << token_id
+                 << " with error " << error
+                 << " current TC state " << cur_state;
         handleCompactionDone(error);
         return;
     }
@@ -196,15 +211,15 @@ void TokenCompactor::snapDoneCb(const Error& error,
         // functions (e.g., is_shadow) handle a const variable
         obj_phy_loc_t* loc = const_cast<obj_phy_loc_t *>(omd.getObjPhyLoc(cur_tier));
         // we only care about the tier this compactor is working on
-        fds_verify(loc != NULL);
-        if (loc->obj_tier != cur_tier) {
+        fds_assert(loc != nullptr);
+        if (loc == nullptr || loc->obj_tier != cur_tier) {
             continue;
         }
 
         // filter out objects that are already in shadow file --
         // this could happen between times we started writing objs
         // to shadow file and we took this db snapshot
-        if (persistGcHandler->isShadowLocation(loc, token_id)) {
+        if (persistGcHandler->isShadowLocation(cur_disk_id, loc, token_id)) {
             LOGDEBUG << id << " already in shadow file (disk_id "
                      << loc->obj_stor_loc_id << " file_id "
                      << loc->obj_file_id << " tok " << token_id
@@ -222,8 +237,12 @@ void TokenCompactor::snapDoneCb(const Error& error,
                  << " tier " << (fds_int16_t)loc->obj_tier
                  << " tok " << token_id;
 
-        fds_verify(!(loc_oid_map.count(loc_fid)
+        fds_assert(!(loc_oid_map.count(loc_fid)
                      && loc_oid_map[loc_fid].count(loc->obj_stor_offset)));
+        if (loc_oid_map.count(loc_fid)
+                     && loc_oid_map[loc_fid].count(loc->obj_stor_offset)) {
+            LOGWARN << "Entry for object " << id << " already exists in the shadow file.";
+        }
 
         (loc_oid_map[loc_fid])[loc->obj_stor_offset] = id;
     }
@@ -252,7 +271,12 @@ void TokenCompactor::snapDoneCb(const Error& error,
                 if (!err.ok()) {
                     // TODO(anna): most likely queue is full, we need to save the
                     // work and try again later
-                    fds_verify(false);  // IMPLEMENT THIS
+
+                    // cleanup
+                    delete it;
+                    db->ReleaseSnapshot(options.snapshot);
+                    handleCompactionDone(err);
+                    return;
                 }
                 obj_list.clear();
             }
@@ -266,7 +290,12 @@ void TokenCompactor::snapDoneCb(const Error& error,
         if (!err.ok()) {
             // TODO(anna): most likely queue is full, we need to save the
             // work and try again later
-            fds_verify(false);  // IMPLEMENT THIS
+
+            // cleanup
+            delete it;
+            db->ReleaseSnapshot(options.snapshot);
+            handleCompactionDone(err);
+            return;
         }
     }
 
@@ -288,26 +317,40 @@ void TokenCompactor::snapDoneCb(const Error& error,
 void TokenCompactor::objsCompactedCb(const Error& error,
                                      SmIoCompactObjects* req)
 {
-    fds_verify(req != NULL);
+    fds_assert(req != nullptr);
     fds_uint32_t done_before, total_done;
-    fds_uint32_t work_objs_done = (req->oid_list).size();
 
     // we must be in IN_PROGRESS state
     tcStateType cur_state = std::atomic_load(&state);
-    fds_verify(cur_state == TCSTATE_IN_PROGRESS);
 
-    if (!error.ok()) {
-        LOGERROR << "Failed to compact a set of objects, cannot continue"
-                 << " with token GC copy, completing with error " << error;
-        handleCompactionDone(error);
+    if (!error.ok() ||
+        cur_state != TCSTATE_IN_PROGRESS ||
+        req == nullptr) {
+        LOGERROR << "Failed TC for token " << token_id
+                 << " tier " << (fds_uint16_t)cur_tier
+                 << " disk_id " << cur_disk_id
+                 << " with error " << error;
         delete req;
+        handleCompactionDone(error);
         return;
     }
+
+    fds_uint32_t work_objs_done = (req->oid_list).size();
 
     // account for progress and see if token compaction is done
     done_before = std::atomic_fetch_add(&objs_done, work_objs_done);
     total_done = done_before + work_objs_done;
-    fds_verify(total_done <= total_objs);
+    fds_assert(total_done <= total_objs);
+    if (!(total_done <= total_objs)) {
+        LOGERROR << "Failed TC for token " << token_id
+                 << " tier " << (fds_uint16_t)cur_tier
+                 << " disk_id " << cur_disk_id
+                 << " with error " << ERR_INVALID_ARG
+                 << " done " << total_done << " total " << total_objs;
+        delete req;
+        handleCompactionDone(ERR_INVALID_ARG);
+        return;
+    }
 
     LOGDEBUG << "Finished compaction of " << work_objs_done << " objects"
              << ", done so far " << total_done << " out of " << total_objs
@@ -318,10 +361,13 @@ void TokenCompactor::objsCompactedCb(const Error& error,
         // we are done!
         // NOTE: we are currently doing completion on timer only! when no error
         // otherwise need to make sure to remember the error
+        /*
         if (!tc_timer->schedule(tc_timer_task, std::chrono::seconds(2))) {
             LOGNOTIFY << "Failed to schedule completion timer, completing now..";
             handleCompactionDone(error);
         }
+        */
+        handleTimerEvent();
     }
 
     delete req;
@@ -330,37 +376,31 @@ void TokenCompactor::objsCompactedCb(const Error& error,
 Error TokenCompactor::handleCompactionDone(const Error& tc_error)
 {
     Error err(ERR_OK);
+    err = tc_error;
+    fiu_do_on("sm.tc.fail.compaction",\
+              LOGDEBUG << "sm.tc.fail.compaction fault point enabled";\
+              if (err.ok()) { err = ERR_NOT_FOUND; }\
+              fiu_disable("sm.tc.fail.compaction"));
 
     tcStateType expect = TCSTATE_IN_PROGRESS;
-    tcStateType new_state = tc_error.ok() ? TCSTATE_DONE : TCSTATE_ERROR;
-    if (!std::atomic_compare_exchange_strong(&state, &expect, new_state)) {
-        // must not happen
-        fds_verify(false);
+    tcStateType new_state = TCSTATE_IDLE;
+    if (std::atomic_compare_exchange_strong(&state, &expect, new_state)) {
+        LOGNORMAL << "Finished compaction for token:" << token_id
+                  << " disk:" << cur_disk_id
+                  << " tier:" << cur_tier
+                  << " verify:" << verifyData
+                  << " tc state:" << state
+                  << " error:" << err;
+        if (err.ok()) {
+            // tell persistent layer we are done copying -- remove the old file
+            persistGcHandler->notifyEndGc(cur_disk_id, token_id, cur_tier);
+        }
+
+        // notify the requester about the completion
+        if (done_evt_handler) {
+            done_evt_handler(token_id, err);
+        }
     }
-
-    LOGNORMAL << "Compaction finished for token " << token_id
-              << " disk_id " << cur_disk_id << " tier " << cur_tier
-              << " verify data? " << verifyData << ", result " << tc_error;
-
-    // check error happened in the middle of compaction
-    if (!tc_error.ok()) {
-        // TODO(anna) need to recover from error because we may have already wrote
-        // new objects to the shadow file!
-        fds_verify(false);  // IMPLEMENT THIS
-    }
-
-    // tell persistent layer we are done copying -- remove the old file
-    persistGcHandler->notifyEndGc(token_id, cur_tier);
-
-    // set token compactor state to idle -- scavenger can use this TokenCompactor
-    // for a new compaction job
-    std::atomic_exchange(&state, TCSTATE_IDLE);
-
-    // notify the requester about the completion
-    if (done_evt_handler) {
-        done_evt_handler(token_id, Error(ERR_OK));
-    }
-
     return err;
 }
 
@@ -370,7 +410,14 @@ Error TokenCompactor::handleCompactionDone(const Error& tc_error)
 fds_uint32_t TokenCompactor::getProgress() const
 {
     fds_uint32_t done = std::atomic_load(&objs_done);
-    fds_verify(done <= total_objs);
+    fds_assert(done <= total_objs);
+    if (!(done <= total_objs)) {
+        LOGERROR << "Failed to get TC progress for token " << token_id
+                 << " tier " << (fds_uint16_t)cur_tier
+                 << " disk_id " << cur_disk_id
+                 << " with error " << ERR_INVALID_ARG
+                 << " total done " << done << " total objects " << total_objs;
+    }
 
     if (total_objs == 0) {
         return 100;
@@ -389,10 +436,8 @@ fds_bool_t TokenCompactor::isIdle() const
 //
 fds_bool_t TokenCompactor::isGarbage(const ObjMetaData& md)
 {
-    // TODO(anna or Vinay) add other policies for checking GC
-    // The first version of this method just decides based on
-    // refcount -- if < 1 then garbage collect
-    if (md.getRefCnt() < 1L) {
+    auto deleteThresh = fds::objDelCountThresh;
+    if (md.getDeleteCount() >= deleteThresh) {
         return true;
     }
 
@@ -428,8 +473,8 @@ fds_bool_t TokenCompactor::isDataGarbage(const ObjMetaData& md,
 
 void CompactorTimerTask::runTimerTask()
 {
-    fds_verify(tok_compactor);
-    tok_compactor->handleTimerEvent();
+    fds_assert(tok_compactor);
+    if (tok_compactor) { tok_compactor->handleTimerEvent(); }
 }
 
 }  // namespace fds

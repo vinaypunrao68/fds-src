@@ -98,7 +98,7 @@ void ConfigDBTool::cmdInfo(std::vector <std::string>& args) {
 
     LINE << "global.domain   : " << db->getGlobalDomain() << "\n";
 
-    std::vector<fds::apis::LocalDomain> localDomains;
+    std::vector<LocalDomain> localDomains;
     db->listLocalDomains(localDomains);
     LINE << "localdomains    : " << localDomains.size() << "\n";
 

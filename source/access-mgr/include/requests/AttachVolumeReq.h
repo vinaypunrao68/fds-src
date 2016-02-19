@@ -23,6 +23,8 @@ struct AttachVolumeReq : public AmRequest {
     fpi::VolumeAccessMode mode;
     fds_int64_t token {invalid_vol_token};
 
+    boost::shared_ptr<VolumeDesc> volDesc;
+
     /**
      * Request constructor. Some of the fields
      * are not actually needed...the base blob

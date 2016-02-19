@@ -32,6 +32,7 @@ Socket::Socket(std::string host, int port) : att::TSocket(host, port),
                                              monitor(&mutex),
                                              connChecker(&Socket::checkConnection, this) { // NOLINT
     setLinger(false, 0);
+    setSendTimeout(5000);       // 5 seconds
 }
 
 void Socket::setEventHandler(SocketEventHandler* evtHandler) {
@@ -114,7 +115,7 @@ bool Socket::connect(int retryCount, int backoff) {
     uint maxWaitTime = 30 * 1000 * 1000; // 30 seconds
     if (isOpen()) return true;
 
-    LOGDEBUG << "Connecting to [" << TSocket::getHost() << ":" << TSocket::getPort() <<
+    LOGTRACE << "Connecting to [" << TSocket::getHost() << ":" << TSocket::getPort() <<
             "] with max retries [" << retryCount << "] and backoff of [" << backoff << "ms]";
 
     while (!isOpen() && numAttempts < retryCount) {
@@ -143,7 +144,7 @@ bool Socket::connect(int retryCount, int backoff) {
     }
 
     if (isOpen()) {
-        LOGDEBUG << "Successfully connected to [" << TSocket::getHost() << ":" << TSocket::getPort() <<
+        LOGTRACE << "Successfully connected to [" << TSocket::getHost() << ":" << TSocket::getPort() <<
                         "] after [" << numAttempts << "] attempts.";
     } else {
         LOGWARN << "Failed to connect to [" << TSocket::getHost() << ":" << TSocket::getPort() <<

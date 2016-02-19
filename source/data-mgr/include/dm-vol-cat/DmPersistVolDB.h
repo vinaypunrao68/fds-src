@@ -8,7 +8,7 @@
 #include <map>
 #include <string>
 #include <vector>
-
+#include <atomic>
 // Internal includes.
 #include "catalogKeys/CatalogKeyComparator.h"
 #include "concurrency/RwLock.h"
@@ -31,22 +31,25 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     static const std::string ENABLE_TIMELINE_STR;
 
     // ctor & dtor
-    DmPersistVolDB(fds_volid_t volId,
+    DmPersistVolDB(CommonModuleProviderIf *modProvider,
+                   fds_volid_t volId,
                    fds_uint32_t objSize,
                    fds_bool_t snapshot,
                    fds_bool_t readOnly,
                    fds_bool_t clone,
+                   fds_bool_t archiveLogs,
                    fds_volid_t srcVolId = invalid_vol_id)
-            : DmPersistVolCat(volId,
+            : DmPersistVolCat(modProvider,
+                              volId,
                               objSize,
                               snapshot,
                               readOnly,
                               clone,
                               fpi::FDSP_VOL_S3_TYPE,
                               srcVolId),
-              configHelper_(g_fdsprocess->get_conf_helper())
+        configHelper_(modProvider->get_conf_helper()), snapshotCount(0), archiveLogs_(archiveLogs)
     {
-        const FdsRootDir* root = g_fdsprocess->proc_fdsroot();
+        const FdsRootDir* root = modProvider->proc_fdsroot();
         timelineDir_ = root->dir_timeline_dm() + getVolIdStr() + "/";
     }
     virtual ~DmPersistVolDB();
@@ -55,7 +58,8 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     virtual Error activate() override;
 
     virtual Error copyVolDir(const std::string & destName) override;
-
+    
+    Error archive(const std::string& destDir, const std::string& filename);
     // gets
     virtual Error getVolumeMetaDesc(VolumeMetaDesc & volDesc) override;
 
@@ -86,7 +90,16 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     virtual Error getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsSeqId,
 														Catalog::MemSnap snap) override;
 
+    virtual Error getAllBlobsWithSequenceId(std::map<std::string, int64_t>& blobsSeqId,
+														Catalog::MemSnap snap,
+														const fds_bool_t &abortFlag) override;
+
     virtual Error getInMemorySnapshot(Catalog::MemSnap &snap) override;
+
+    virtual void getObjectIds(const uint32_t &maxObjs,
+                              const Catalog::MemSnap &snap,
+                              std::unique_ptr<Catalog::catalog_iterator_t>& dbItr,
+                              std::list<ObjectID> &objects) override;
 
     // puts
     virtual Error putVolumeMetaDesc(const VolumeMetaDesc & volDesc) override;
@@ -114,17 +127,39 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     virtual Error deleteBlobMetaDesc(const std::string & blobName) override;
     virtual void forEachObject(std::function<void(const ObjectID&)>) override;
 
-    virtual Error freeInMemorySnapshot(Catalog::MemSnap snap) override;
+    virtual Error freeInMemorySnapshot(Catalog::MemSnap& snap) override;
+    virtual uint64_t getNumInMemorySnapshots() override;
 
     Catalog* getCatalog() {
         return catalog_.get();
     }
 
+    void setArchiveLogs(fds_bool_t fArchive) {
+        archiveLogs_ = fArchive;
+        if (catalog_.get()) {
+            catalog_.get()->archiveLogs() = archiveLogs_;
+        }
+    }
+
+    fds_bool_t getArchiveLogs() const {
+        return archiveLogs_;
+    }
+
+    /**
+    * @brief  Reads the version from file and returns it.  Making it file based 
+    * because for now when we copy leveldb no additional work is required
+    * to not copy version.
+    */
+    int32_t getVersion() override;
+    void setVersion(int32_t version) override;
+    int32_t updateVersion();
+
   private:
+    std::string getVersionFile_();
     // methods
 
     // vars
-
+    std::atomic<uint64_t> snapshotCount;
     // Catalog that stores volume's objects
     std::unique_ptr<Catalog> catalog_;
     CatalogKeyComparator cmp_;
@@ -133,6 +168,7 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     FdsConfigAccessor configHelper_;
 
     std::string timelineDir_;
+    fds_bool_t archiveLogs_;
 };
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMPERSISTVOLDB_H_

@@ -8,9 +8,9 @@
 #include <set>
 #include <map>
 
-#include <SmTypes.h>
+#include <SmUtils.h>
 #include <persistent-layer/dm_io.h>
-
+#include <persistent-layer/persistentdata.h>
 namespace fds {
 
 /**
@@ -28,9 +28,8 @@ namespace fds {
  */
 #define OBJ_LOCATION_TABLE_SECTOR_SIZE    (512)
 
-struct ObjectLocationTable {
+struct __attribute__((__packed__)) ObjectLocationTable {
     ObjectLocationTable();
-    ~ObjectLocationTable();
 
     /**
      * Sets disk id for a given sm token id and tier
@@ -38,8 +37,17 @@ struct ObjectLocationTable {
     void setDiskId(fds_token_id smToken,
                    diskio::DataTier tier,
                    fds_uint16_t diskId);
+    /**
+     * Add disk to existing list of disks where
+     * data is stored for this sm token.
+     */
+    void addDiskId(fds_token_id smToken,
+                   diskio::DataTier tier,
+                   fds_uint16_t diskId);
     fds_uint16_t getDiskId(fds_token_id smToken,
                            diskio::DataTier tier) const;
+    std::set<DiskId> getDiskIds(fds_token_id smToken,
+                                diskio::DataTier tier) const;
     static fds_bool_t isDiskIdValid(fds_uint16_t diskId);
 
     /* Get disk topology information from a specified tier.
@@ -51,7 +59,10 @@ struct ObjectLocationTable {
      * @param[out] tokenSet is populated with SM tokens
      */
     SmTokenSet getSmTokens(fds_uint16_t diskId) const;
+    SmTokenSet getOwnedSmTokens(fds_uint16_t diskId) const;
+    void printSmTokens(fds_uint16_t diskId) const;
 
+    fds_uint16_t getNumSmTokens(fds_uint16_t diskId) const;
     /**
      * Validates Object Location Table for a given set of
      * disk IDs that belong to a given tier
@@ -68,7 +79,7 @@ struct ObjectLocationTable {
     fds_bool_t operator ==(const ObjectLocationTable& rhs) const;
 
     /// POD data
-    fds_uint16_t table[SM_TIER_COUNT][SMTOKEN_COUNT];
+    fds_uint16_t table[SM_TIER_COUNT][SMTOKEN_COUNT][MAX_HOST_DISKS];
 } __attribute__((aligned(OBJ_LOCATION_TABLE_SECTOR_SIZE)));
 
 static_assert((sizeof(struct ObjectLocationTable) %  OBJ_LOCATION_TABLE_SECTOR_SIZE) == 0,
@@ -88,7 +99,7 @@ std::ostream& operator<< (std::ostream &out,
  */
 class SmTokenPlacement {
   public:
-    static void compute(const std::set<fds_uint16_t>& hdds,
+    static bool compute(const std::set<fds_uint16_t>& hdds,
                         const std::set<fds_uint16_t>& ssds,
                         ObjectLocationTable* olt);
 
@@ -96,9 +107,16 @@ class SmTokenPlacement {
                           const std::set<fds_uint16_t>& addedStorage,
                           const std::set<fds_uint16_t>& removedStorage,
                           diskio::DataTier storageTier,
-                          ObjectLocationTable* olt,
-                          Error& error);
+                          ObjectLocationTable *olt,
+                          DiskLocMap &diskMap,
+                          Error &error);
 
+  private:
+    static std::set<fds_token_id> getTokensForNewDisks(const std::set<DiskId> &allDisks,
+                                                       const std::set<DiskId> &newDisks,
+                                                       const ObjectLocationTable *olt,
+                                                       DiskLocMap &diskLocMap,
+                                                       const fds_uint32_t &tokensPerDisk);
 };
 
 }  // namespace fds

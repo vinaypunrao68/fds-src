@@ -1,8 +1,11 @@
 #!/usr/bin/env python
-import sys
-import cmd
-import types
+try:
+    import readline
+except ImportError:
+    pass;
+
 import shlex
+import cmd
 import shelve
 import os
 import traceback
@@ -12,13 +15,16 @@ import pipes
 import time
 from helpers import *
 from tabulate import tabulate
-
+import sys
 from contexts.svchelper import ServiceMap
 # import needed contexts
+
+from contexts import root
 from contexts import domain
 from contexts import volume
 from contexts import snapshot
 from contexts import snapshotpolicy
+from contexts import volumegroup
 from contexts import QoSPolicy
 from contexts import service
 from contexts import user
@@ -27,9 +33,16 @@ from contexts import scavenger
 from contexts import ScavengerPolicy
 from contexts import SMDebug
 from contexts import DMDebug
+from contexts import timeline
+from contexts import configdb
+
+import warnings
+# this is soooo bad
+warnings.simplefilter('ignore')
+
 
 """
-Console exit exception. This is needed to exit cleanly as 
+Console exit exception. This is needed to exit cleanly as
 external libraries (argh) are throwing SystemExit Exception on errors.
 """
 class ConsoleExit(Exception):
@@ -37,10 +50,13 @@ class ConsoleExit(Exception):
 
 class FDSConsole(cmd.Cmd):
 
-    def __init__(self,fInit, *args):
+    def __init__(self,fInit, debugTool, *args):
         cmd.Cmd.__init__(self, *args)
-        setupHistoryFile()
-        datafile = os.path.join(os.path.expanduser("~"), ".fdsconsole_data")
+        setupHistoryFile(debugTool)
+        if debugTool:
+            datafile = os.path.join(os.path.expanduser("~"), ".debugtool_data")
+        else:
+            datafile = os.path.join(os.path.expanduser("~"), ".fdsconsole_data")
         self.data = {}
         self.root = None
         self.recordFile = None
@@ -48,22 +64,28 @@ class FDSConsole(cmd.Cmd):
             self.data = shelve.open(datafile,writeback=True)
         except:
             pass
-
+        self.data['debugTool'] = debugTool
+        self.debugTool = debugTool
         self.config = ConfigData(self.data)
         self.myprompt = 'fds'
-        self.setprompt('fds')
+        if self.debugTool:
+            self.myprompt = 'fds.debug'
+        self.setprompt(self.myprompt)
         self.context = None
         self.previouscontext = None
         ServiceMap.config = self.config
         if fInit:
             self.config.init()
-            self.set_root_context(context.RootContext(self.config))
+            self.set_root_context(root.RootContext(self.config))
 
     def get_access_level(self):
-        return self.config.getSystem(KEY_ACCESSLEVEL)
+        if self.debugTool:
+            return AccessLevel.DEBUG
+        else:
+            return AccessLevel.ADMIN
 
     def set_root_context(self, ctx):
-        if isinstance(ctx, context.Context):
+        if not isinstance(ctx, context.ContextInfo):
             ctx = context.ContextInfo(ctx)
         self.root = ctx
         self.set_context(ctx)
@@ -88,7 +110,7 @@ class FDSConsole(cmd.Cmd):
         while ctx != None:
             promptlist.append(ctx.context.get_context_name())
             ctx = ctx.parent
-        
+
         promptlist.reverse()
         self.setprompt(':'.join(promptlist))
 
@@ -106,12 +128,12 @@ class FDSConsole(cmd.Cmd):
     def precmd(self, line):
         '''
         before a line is processed, , cleanup the line...
-        eg : 
+        eg :
           ?cmd -> ? cmd
           cmd? -> cmd ?
           cmd -h -> help cmd
           ..  -> cc ..
-          -   -> cc -        
+          -   -> cc -
         '''
 
         if self.recordFile:
@@ -149,6 +171,11 @@ class FDSConsole(cmd.Cmd):
                 del argv[-1]
                 argv.insert(0,'help')
 
+        ctx, pos, isctx = self.get_context_for_command(argv)
+        if pos == len(argv)-1 and isctx and len(argv) > 0:
+            argv.insert(0,'help')
+
+        #print ' '.join (map(pipes.quote, argv))
         return ' '.join (map(pipes.quote, argv))
 
     def do_refresh(self, line):
@@ -162,35 +189,6 @@ class FDSConsole(cmd.Cmd):
     def complete_refresh(self, *args):
         return []
 
-    def do_accesslevel(self, line):
-        argv = shlex.split(line)
-
-        if len(argv) == 0:
-            print 'current access level : %s' % (AccessLevel.getName(self.config.getSystem(KEY_ACCESSLEVEL)))
-            return
-
-        level = AccessLevel.getLevel(argv[0])
-
-        if level == 0:
-            print 'invalid access level : %s' % (argv[0])
-            return
-        elif level == self.config.getSystem(KEY_ACCESSLEVEL):
-            print 'access level is already @ %s' % (AccessLevel.getName(self.config.getSystem(KEY_ACCESSLEVEL))) 
-        else:            
-            print 'switching access level from [%s] to [%s]' % (AccessLevel.getName(self.config.getSystem(KEY_ACCESSLEVEL)), AccessLevel.getName(level))
-            self.config.setSystem(KEY_ACCESSLEVEL, level)
-
-    def help_accesslevel(self, *args):
-        print 'usage   : accesslevel [level]'
-        print '    -- prints or sets the current access level'
-        print '[level] : %s' % (AccessLevel.getLevels())
-
-    def complete_accesslevel(self, text, line, *ignored):
-        argv = shlex.split(line)
-        if len(argv) > 1 and text != argv[1]:
-            return []
-        return [c for c in AccessLevel.getLevels() if c.startswith(text)]
-
     def do_help(self, line):
         argv = shlex.split(line)
         ctx, pos, isctxmatch = self.get_context_for_command(argv)
@@ -199,11 +197,15 @@ class FDSConsole(cmd.Cmd):
             argv = []
         else:
             ctx = self.context
-            
+        #print self.get_access_level()
+        #print AccessLevel.getName(self.get_access_level())
         if len(argv) == 0 or argv[0] in ['help']:
-            self.print_topics("commands in context" , sorted(ctx.get_method_names(self.config.getSystem(KEY_ACCESSLEVEL))),   15,80)
-            self.print_topics("subcontexts : [use \'cc <context>\' to switch]",ctx.get_subcontext_names(), 15, 80)
-            self.print_topics("globals",self.get_global_commands(), 15, 80)
+
+            helplist=sorted(ctx.get_help(self.get_access_level()), key=lambda h: h[0])
+            print tabulate(helplist,headers= ['command', 'description'],
+                            tablefmt=self.config.getTableFormat())
+            if ctx == self.root:
+                self.print_topics("\nother commands" , sorted(self.get_global_commands()),   15,80)
         else:
             if line in self.get_global_commands():
                 if hasattr(self,'help_' + line):
@@ -219,7 +221,7 @@ class FDSConsole(cmd.Cmd):
         argv = shlex.split(line)
         if len(argv) > 0 and argv[0] in ['?', 'help']:
             del argv[0]
-        
+
         if len(argv) == 0 or len(argv) == 1 and argv[0] == text:
             return self.completenames(text, line, *args)
         else:
@@ -231,7 +233,7 @@ class FDSConsole(cmd.Cmd):
         if len(argv) != 1:
             print 'filename needed..'
             return
-          
+
         filename = os.path.expandvars(os.path.expanduser(argv[0]))
         if not os.path.isfile(filename):
             print 'unable to locate file :', filename
@@ -291,14 +293,14 @@ class FDSConsole(cmd.Cmd):
             return [item for item in ['stop'] if item.startswith(argv[1])]
         return [item for item in ['stop'] if item.startswith(text)]
 
-    def do_cc(self, line):
+    def _do_cc(self, line):
         ctxName = line
         if len(ctxName) == 0:
             return self.help_cc()
-        
+
         if ctxName == "..":
             if self.context.parent:
-                self.set_context(self.context.parent)                
+                self.set_context(self.context.parent)
                 return
             else:
                 print 'no higher context'
@@ -333,25 +335,29 @@ class FDSConsole(cmd.Cmd):
             print tabulate(data, headers=['name', 'value'], tablefmt=self.config.getTableFormat())
 
             return
-        
+
         argv[0] = argv[0].lower()
         if len(argv) == 1:
             # print the value of this key
             print '%10s   =  %5s' % (argv[0], self.config.getSystem(argv[0]))
             return
 
-        if argv[0] in helpers.PROTECTED_KEYS:
-            print 'cannot modify a protected system key : %s' % (argv[0])
+        modifiablekeys=['username','gridoutput','password','port','redis.port']
+        if not self.debugTool:
+            modifiablekeys.append('host')
+
+        if argv[0] not in modifiablekeys:
+            print 'can set only these : {}'.format(modifiablekeys)
             return
 
         self.config.setSystem(argv[0], argv[1])
-        
+
     def help_set(self,*args) :
         print 'usage: set [key] [value]'
         print '-- sets a value to a key'
         print '-- to see current values, just type set'
         print '-- to see current value of key, type set <key>'
-        
+
     def complete_set(self, text, line, *args):
         argv = shlex.split(line)
         cmd = ''
@@ -363,16 +369,16 @@ class FDSConsole(cmd.Cmd):
                 returnList.append(key)
 
         return returnList
-        
+
     def do_exit(self, *args):
-        return True
+        raise ConsoleExit()
 
     def help_exit(self, *args):
-        print 'exit the fds console'
+        print 'exit'
 
     def get_names(self):
-        names = [key for key,value in self.context.methods.items() if value <= self.config.getSystem(KEY_ACCESSLEVEL)]
-        names.extend(self.context.subcontexts.keys()) 
+        names = [key for key,value in self.context.methods.items() if value <= self.get_access_level()]
+        names.extend(self.context.subcontexts.keys())
         return names
 
     def completenames(self, text, *ignored):
@@ -384,36 +390,39 @@ class FDSConsole(cmd.Cmd):
             argv = line
         else:
             argv=shlex.split(line)
-        
+
         ctx = self.context
         #print "[%s] -- %s : %s : %d, %d" %(inspect.stack()[0][3], text, line, begidx, endidx)
         for name in argv:
-            if name in ctx.subcontexts:                
+            if name in ctx.subcontexts:
                 ctx = ctx.subcontexts[name]
             elif name in ctx.methods:
                 return []
                 #return [item for item, level in ctx.methods.items() if level <= self.config.getSystem(KEY_ACCESSLEVEL) and item.startswith(name)]
             else:
                 break
-         
-        # hack 
+
+        # hack
         #if len(argv)>0 and argv[-1].find('-') != -1 and not line.endswith(' '):
         #    text = argv[-1]
 
         #print 'search text is %s' %(text)
-        
-        l = [item for item in  ctx.subcontexts.keys() if item.startswith(text)] 
-        l.extend([item for item, level in ctx.methods.items() if level <= self.config.getSystem(KEY_ACCESSLEVEL) and item.startswith(text)])
+
+        l = [item for item in  ctx.subcontexts.keys() if item.startswith(text)]
+        l.extend([item for item, level in ctx.methods.items() if level <= self.get_access_level() and item.startswith(text)])
         return l
 
 
     def get_global_commands(self):
         return [a[3:] for a in cmd.Cmd.get_names(self) if a.startswith('do_')]
-        
+
     def get_context_for_command(self, argv):
         'returns the correct ctx & the pos of match & the type of match'
         ctx = self.context
         pos = -1
+        if ctx == None:
+            return (None, -1, None)
+
         for name in argv:
             pos += 1
             # check the current functions
@@ -432,14 +441,14 @@ class FDSConsole(cmd.Cmd):
         'check if the current access level allows this function'
         ctx, pos, m = self.get_context_for_command(argv)
         if ctx:
-            return True if ctx.methods[argv[pos]] <= self.config.getSystem(KEY_ACCESSLEVEL) else False
+            return True if ctx.methods[argv[pos]] <= self.get_access_level() else False
         else:
             return None
 
     def default(self, line):
         try:
             argv=shlex.split(line)
-            
+
             if len(argv) == 1:
                 # ^-D : Ctrl-D
                 if line == 'EOF':
@@ -448,16 +457,28 @@ class FDSConsole(cmd.Cmd):
                 if argv[-1] == '?':
                     argv[-1] = '-h'
 
-            # We ignore accesslevel check now that this tool will not be customer-facing.
-            #if self.has_access(argv) == False:
-            #    print 'oops!!!! you do not have privileges to run this command'
-            #else:
-            ctx, pos, m = self.get_context_for_command(argv)
+            if self.has_access(argv) == False:
+                print 'command not available'
+                return None
+            ctx, pos, isctx = self.get_context_for_command(argv)
             if ctx == None:
-                print 'unable to determine correct context or function!!!'
-                ctx = self.context
-                pos = 0
-            #print 'dispatching : %s' % (argv[pos:])
+                #print pos,isctx,argv
+                print 'command NOT found [{}]'.format(line)
+                cmdlist=[cmd[0] for cmd in sorted(self.root.get_help(self.get_access_level()), key=lambda h: h[0])]
+                count = len(argv)
+                #cmdlist=list(set([' '.join(cmd.split()[:count]) for cmd in cmdlist]))
+                options=helpers.didyoumean(line, cmdlist)
+                print
+                if len(options) > 0:
+                    print 'Did you mean one of these?' if len(options)>1 else 'Did you mean?'
+                    for option in options:
+                        print '{} -> {}'.format(' '*5,option)
+                else:
+                    print 'May be you can try [help/?]'
+
+                return None
+
+            #print 'dispatching:{}:{}:{}'.format(argv[pos:], isctx, ctx)
             ctx.parser.dispatch(argv[pos:])
         except ConsoleExit:
             raise
@@ -465,7 +486,8 @@ class FDSConsole(cmd.Cmd):
             pass
         except:
             #traceback.print_exc()
-            print 'cmd: {} exception: {}'.format(line, sys.exc_info()[0])
+            #print sys.exc_info()
+            print 'cmd: {} exception: {}'.format(line, sys.exc_info()[1])
         return None
 
     def emptyline(self):
@@ -473,9 +495,12 @@ class FDSConsole(cmd.Cmd):
 
     def init(self):
         self.root.add_sub_context(domain.DomainContext(self.config,'domain'))
+        self.root.add_sub_context(timeline.TimelineContext(self.config,'timeline'))
+        self.root.add_sub_context(configdb.ConfigDBContext(self.config,'configdb'))
         vol = self.root.add_sub_context(volume.VolumeContext(self.config,'volume'))
         snap = vol.add_sub_context(snapshot.SnapshotContext(self.config,'snapshot'))
         snap.add_sub_context(snapshotpolicy.SnapshotPolicyContext(self.config,'policy'))
+        group = vol.add_sub_context(volumegroup.VolumeGroupContext(self.config,'group'))
         self.root.add_sub_context(QoSPolicy.QoSPolicyContext(self.config,'qospolicy'))
 
         self.root.add_sub_context(service.ServiceContext(self.config,'service'))
@@ -483,29 +508,36 @@ class FDSConsole(cmd.Cmd):
         self.root.add_sub_context(user.UserContext(self.config,'user'))
         self.root.add_sub_context(SMDebug.SMDebugContext(self.config, 'smdebug'))
         self.root.add_sub_context(DMDebug.DMDebugContext(self.config, 'dmdebug'))
-        scav = self.root.add_sub_context(scavenger.ScavengerContext(self.config,'scavenger'))
+        scav = self.root.add_sub_context(scavenger.ScavengerContext(self.config,'gc'))
         scav.add_sub_context(ScavengerPolicy.ScavengerPolicyContext(self.config, 'policy'))
         scav.add_sub_context(scavenger.ScrubberContext(self.config, 'scrubber'))
 
     def run(self, argv = None):
         l =  []
         l += ['============================================']
-        l += ['Formation Data Systems Console ...']
         l += ['Copyright 2014 Formation Data Systems, Inc.']
-        l += ['NOTE: Access level : %s' % (AccessLevel.getName(self.config.getSystem(KEY_ACCESSLEVEL)))]
+        if self.debugTool:
+            l+= ['>>> DebugTool - Works only on fds nodes !!']
         l += ['NOTE: Ctrl-D , Ctrl-C to exit']
         l += ['============================================']
         l += ['']
+
+        if self.debugTool and not helpers.isFDSNode():
+            print 'Debug Tool should be used only on fds nodes. This node does NOT seem to be one!!'
+            sys.exit(1)
+
         try:
-            if argv == None or len(argv) == 0 : 
-                l += ['---- interactive mode ----\n']
+            if argv == None or len(argv) == 0 :
+                #l += ['---- interactive mode ----\n']
                 self.cmdloop('\n'.join(l))
             else:
                 #l += ['---- Single command mode ----\n']
-                print '\n'.join(l)
                 self.onecmd(self.precmd(' '.join(argv)))
         except (KeyboardInterrupt, ConsoleExit):
             print ''
+
+        if self.config.hasPlatformClient():
+            self.config.getPlatform().stop_server()
 
         if self.recordFile:
             self.recordFile.close()
@@ -515,9 +547,7 @@ class FDSConsole(cmd.Cmd):
 if __name__ == '__main__':
     cmdargs=sys.argv[1:]
     fInit = not (len(cmdargs) > 0 and cmdargs[0] == 'set')
-    fdsconsole = FDSConsole(fInit)
+    fdsconsole = FDSConsole(fInit, True)
     if fInit:
         fdsconsole.init()
     fdsconsole.run(cmdargs)
-    
-    

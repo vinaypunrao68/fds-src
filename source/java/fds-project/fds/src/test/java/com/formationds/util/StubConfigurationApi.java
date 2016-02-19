@@ -1,9 +1,13 @@
 package com.formationds.util;
 
 import com.formationds.apis.*;
-import com.formationds.apis.FDSP_ModifyVolType;
+import com.formationds.protocol.svc.types.FDSP_PolicyInfoType;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
+import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
+import com.formationds.protocol.svc.types.ResourceState;
+import com.formationds.protocol.svc.types.SvcInfo;
+import com.formationds.protocol.svc.types.SvcUuid;
 import com.formationds.protocol.*;
-import com.formationds.protocol.ApiException;
 import com.formationds.util.thrift.ConfigurationApi;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
@@ -28,8 +32,9 @@ public class StubConfigurationApi implements ConfigurationApi {
     // StreamingRegistrationMsg
     // SnapshotPolicy
     // Clones?
-    private List<LocalDomain> localDomains;
-    private AtomicLong localDomainId;
+    private List<LocalDomainDescriptor> localDomains;
+    private List<LocalDomainDescriptorV07> localDomainsV07;
+    private AtomicInteger localDomainId;
 
     private List<SnapshotPolicy> snapshotPolicies;
     private AtomicLong snapshotPolicyId;
@@ -48,13 +53,15 @@ public class StubConfigurationApi implements ConfigurationApi {
     private List<VolumeDescriptor> volumes;
     private AtomicLong volumeId;
 
+    private List<SvcInfo> services;
+
     private AtomicLong configurationVersion;
 
     public StubConfigurationApi() {
         configurationVersion = new AtomicLong(0);
 
         localDomains = new CopyOnWriteArrayList<>();
-        localDomainId = new AtomicLong(0);
+        localDomainId = new AtomicInteger(0);
         snapshotPolicies = new CopyOnWriteArrayList<>();
         snapshotPolicyId = new AtomicLong(0);
         qosPolicies = new CopyOnWriteArrayList<>();
@@ -71,31 +78,46 @@ public class StubConfigurationApi implements ConfigurationApi {
     @Override
     public long createLocalDomain(String domainName, String domainSite) throws ApiException, TException {
         configurationVersion.incrementAndGet();
-        LocalDomain domain = new LocalDomain(localDomainId.incrementAndGet(), domainName, domainSite);
+        LocalDomainDescriptor domain = new LocalDomainDescriptor(localDomainId.incrementAndGet(),
+                                                                 domainName,
+                                                                 domainSite,
+                                                                 0,
+                                                                 false,
+                                                                 null);
         localDomains.add(domain);
         return domain.getId();
     }
 
     @Override
-    public List<LocalDomain> listLocalDomains(int ignore) throws TException {
+    public boolean isLocalDomainUp() throws TException {
+        return true;
+    }
+
+    @Override
+    public List<LocalDomainDescriptor> listLocalDomains(int ignore) throws TException {
         return localDomains;
     }
-    
+
+    @Override
+    public List<LocalDomainDescriptorV07> listLocalDomainsV07(int ignore) throws TException {
+        return localDomainsV07;
+    }
+
     @Override
     public void updateLocalDomainName(String oldDomainName, String newDomainName) throws TException {
         return;
     }
-    
+
     @Override
     public void updateLocalDomainSite(String domainName, String newSiteName) throws TException {
         return;
     }
-    
+
     @Override
     public void setThrottle(String domainName, double throttleLevel) throws TException {
         return;
     }
-    
+
     @Override
     public void setScavenger(String domainName, String scavengerAction) throws TException {
         return;
@@ -109,11 +131,11 @@ public class StubConfigurationApi implements ConfigurationApi {
   }
 
   @Override
-    public void shutdownLocalDomain(String domainName)
+    public int shutdownLocalDomain(String domainName)
             throws TException {
-        return;
+        return 0;
     }
-    
+
     @Override
     public void deleteLocalDomain(String domainName) throws TException {
         return;
@@ -130,25 +152,25 @@ public class StubConfigurationApi implements ConfigurationApi {
             throws TException {
         return 0;
     }
-    
+
     @Override
     public int AddService(com.formationds.protocol.pm.NotifyAddServiceMsg add_svc_req)
             throws TException {
         return 0;
     }
-    
+
     @Override
     public int StartService(com.formationds.protocol.pm.NotifyStartServiceMsg start_svc_req)
             throws TException {
         return 0;
     }
-    
+
     @Override
     public int StopService(com.formationds.protocol.pm.NotifyStopServiceMsg stop_svc_req)
             throws TException {
         return 0;
     }
-    
+
     @Override
     public int RemoveService(com.formationds.protocol.pm.NotifyRemoveServiceMsg rm_svc_req)
             throws TException {
@@ -431,7 +453,7 @@ public class StubConfigurationApi implements ConfigurationApi {
     }
 
     @Override
-    public List<com.formationds.protocol.Snapshot> listSnapshots(long volumeId) throws ApiException, TException {
+    public List<com.formationds.protocol.svc.types.Snapshot> listSnapshots(long volumeId) throws ApiException, TException {
         return null;
     }
 
@@ -470,5 +492,293 @@ public class StubConfigurationApi implements ConfigurationApi {
 
     @Override
     public void deleteQoSPolicy(String policyName) throws TException {
+    }
+
+    /* Subscription Management */
+    /**
+     * Create a subscription.
+     *
+     * @param subName: Subscription name. Unique within the global domain for the given tenant.
+     * @param tenantID: ID of the tenant owning the subscription.
+     * @param primaryDomainID: ID of the local domain in which the primary copy of the replicated volume resides.
+     * @param primaryVolumeID: ID of the volume which is the source of replication.
+     * @param replicaDomainID: ID of the local domain in which the replica copy of the replicated volume resides.
+     * @param subType: Indicates whether the replication mechanism for this subscription is content-based or
+     *                 transaction-based.
+     * @param schedType: For content-based replication, specifies what kind of scheduling mechanism is to be used.
+     * @param intervalSize: For content-based replication, specifies the quantity upon which the scheduling mechanism
+     *                      is based. 5 might be every 5 minutes or every 5 MB of change depending upon schedType,
+     *                      for example.
+     * @return ID of the created subscription. 0 if creation failed.
+     * @throws ApiException
+     * @throws NotMasterDomain: This API may only be executed in the Master Domain.
+     * @throws TException
+     */
+    @Override
+    public long createSubscription(String subName,
+                                   long tenantID,
+                                   int primaryDomainID,
+                                   long primaryVolumeID,
+                                   int replicaDomainID,
+                                   com.formationds.apis.SubscriptionType subType,
+                                   com.formationds.apis.SubscriptionScheduleType schedType,
+                                   long intervalSize)
+            throws ApiException, NotMasterDomain, TException {
+        return 0;
+    }
+
+    /**
+     * List all subscriptions defined in the global domain.
+     *
+     * @param ignore: Crutch for Thrift when no parameters required.
+     * @return List of subscriptions and their detail. May be empty if no subscriptions defined in the global domain.
+     * @throws ApiException
+     * @throws NotMasterDomain: This API may only be executed in the Master Domain.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listSubscriptionsAll(int ignore)
+            throws ApiException, NotMasterDomain, TException {
+        return null;
+    }
+
+    /**
+     * List all subscriptions defined in the global domain for the identified tenant.
+     *
+     * @param tenantID: ID of the tenant owning the subscriptions to be listed.
+     * @return List of subscriptions owned by the tenant and their detail. May be empty if no subscriptions defined
+     *         in the global domain for the identified tenant.
+     * @throws ApiException
+     * @throws NotMasterDomain: This API may only be executed in the Master Domain.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listTenantSubscriptionsAll(long tenantID)
+            throws ApiException, NotMasterDomain, TException {
+        return null;
+    }
+
+    /**
+     * List all subscriptions defined for the identified primary domain.
+     *
+     * @param primaryDomainID: ID of the local domain that is to be identified as "primary" for the subscriptions listed.
+     * @return List of subscriptions with the identified primary domain and their detail. May be empty if no
+     *         subscriptions are defined for the identified primary domain.
+     * @throws ApiException
+     * @throws NotMasterDomain: This API may only be executed in the Master Domain.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listSubscriptionsPrimaryDomain(int primaryDomainID)
+            throws ApiException, NotMasterDomain, TException {
+        return null;
+    }
+
+    /**
+     * List all subscriptions defined for the identified primary domain and tenant.
+     *
+     * @param primaryDomainID: ID of the local domain that is to be identified as "primary" for the subscriptions listed.
+     * @param tenantID: ID of the tenant owning the subscriptions to be listed.
+     * @return List of subscriptions with the identified primary domain and tenant and their detail. May be empty if no
+     *         subscriptions defined for the identified primary domain and tenant.
+     * @throws ApiException
+     * @throws NotMasterDomain: This API may only be executed in the Master Domain.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listTenantSubscriptionsPrimaryDomain(int primaryDomainID, long tenantID)
+            throws ApiException, NotMasterDomain, TException {
+        return null;
+    }
+
+    /**
+     * List all subscriptions defined for the identified replica domain.
+     *
+     * @param replicaDomainID: ID of the local domain that is to be identified as "replica" for the subscriptions listed.
+     * @return List of subscriptions with the identified replica domain and their detail. May be empty if no
+     *         subscriptions are defined for the identified replica domain.
+     * @throws ApiException
+     * @throws NotMasterDomain: This API may only be executed in the Master Domain.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listSubscriptionsReplicaDomain(int replicaDomainID)
+            throws ApiException, NotMasterDomain, TException {
+        return null;
+    }
+
+    /**
+     * List all subscriptions defined for the identified replica domain and tenant.
+     *
+     * @param replicaDomainID: ID of the local domain that is to be identified as "replica" for the subscriptions listed.
+     * @param tenantID: ID of the tenant owning the subscriptions to be listed.
+     * @return List of subscriptions with the identified replica domain and tenant and their detail. May be empty if no
+     *         subscriptions defined for the identified replica domain and tenant.
+     * @throws ApiException
+     * @throws NotMasterDomain: This API may only be executed in the Master Domain.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listTenantSubscriptionsReplicaDomain(int replicaDomainID, long tenantID)
+            throws ApiException, NotMasterDomain, TException {
+        return null;
+    }
+
+    /**
+     * List all subscriptions defined with the identified volume as primary. Note that tenant is implied since
+     * a volume is owned by exactly one tenant.
+     *
+     * @param primaryVolumeID: ID of the volume which is named as "primary" for the subscription.
+     * @return List of subscriptions with the identified primary volume and their detail. May be empty if no
+     *         subscriptions defined for the identified primary volume.
+     * @throws ApiException
+     * @throws NotMasterDomain: This API may only be executed in the Master Domain.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listSubscriptionsPrimaryVolume(long primaryVolumeID)
+            throws ApiException, NotMasterDomain, TException {
+        return null;
+    }
+
+    /**
+     * List all subscriptions defined with the identified volume as replica. Note that tenant is implied since
+     * a volume is owned by exactly one tenant.
+     *
+     * @param replicaVolumeID: ID of the volume which is named as "replica" for the subscription.
+     * @return List of subscriptions with the identified replica volume and their detail. May be empty if no
+     *         subscriptions defined for the identified replica volume.
+     * @throws ApiException
+     * @throws NotMasterDomain: This API may only be executed in the Master Domain.
+     * @throws TException
+     */
+    @Override
+    public List<SubscriptionDescriptor> listSubscriptionsReplicaVolume(long replicaVolumeID)
+            throws ApiException, NotMasterDomain, TException {
+        return null;
+    }
+
+    /**
+     * Retrieve the subscription details for the subscription identified by name and tenant (which combined is a unique
+     * identifier for a subscription).
+     *
+     * @param subName: Subscription name. Unique within the global domain for the given tenant.
+     * @param tenantID: ID of the tenant owning the subscription named.
+     * @return Details of subscription for the identified tenant and with the given name.
+     * @throws ApiException
+     * @throws NotMasterDomain: This API may only be executed in the Master Domain.
+     * @throws SubscriptionNotFound: The subscription identified to be deleted can not be found.
+     * @throws TException
+     */
+    @Override
+    public SubscriptionDescriptor getSubscriptionInfoName(String subName, long tenantID)
+            throws ApiException, NotMasterDomain, SubscriptionNotFound, TException {
+        return null;
+    }
+
+    /**
+     * Retrieve the subscription details for the subscription identified by the globally unique ID.
+     *
+     * @param subID: ID of the subscription whose details are to be retrieved.
+     * @return Details of subscription identified.
+     * @throws ApiException
+     * @throws NotMasterDomain: This API may only be executed in the Master Domain.
+     * @throws SubscriptionNotFound: The subscription identified to be deleted can not be found.
+     * @throws TException
+     */
+    @Override
+    public SubscriptionDescriptor getSubscriptionInfoID(long subID)
+            throws ApiException, NotMasterDomain, SubscriptionNotFound, TException {
+        return null;
+    }
+
+    /**
+     * Update the indicated subscription.
+     *
+     * @param subMods: Using the ID included in the subMods object, replace the current subscription contents with
+     *                 the contents provided here. subMods content that cannot be modified includes tenantID, primaryDomainID,
+     *                 primaryVolumeID, and replicaDomainID.
+     * @return Nothing.
+     * @throws ApiException
+     * @throws NotMasterDomain: This API may only be executed in the Master Domain.
+     * @throws SubscriptionNotFound: The subscription identified to be deleted can not be found.
+     * @throws SubscriptionNotModified: The changed attribute cannot be modified.
+     * @throws TException
+     */
+    @Override
+    public void updateSubscription(com.formationds.apis.SubscriptionDescriptor subMods)
+            throws ApiException, NotMasterDomain, SubscriptionNotFound, SubscriptionNotModified, TException {
+    }
+
+    /**
+     * Delete the subscription identified by name and tenant (which combined is a unique
+     * identifier for a subscription).
+     *
+     * @param subName: Subscription name. Unique within the global domain for the given tenant.
+     * @param tenantID: ID of the tenant owning the subscription named.
+     * @param dematerialize: "true" if the replica data associated with this subscription is to be deleted as well.
+     * @return Nothing.
+     * @throws ApiException
+     * @throws NotMasterDomain: This API may only be executed in the Master Domain.
+     * @throws SubscriptionNotFound: The subscription identified to be deleted can not be found.
+     * @throws SubscriptionNotModified: The subscription was not deleted.
+     * @throws TException
+     */
+    @Override
+    public void deleteSubscriptionName(String subName, long tenantID, boolean dematerialize)
+            throws ApiException, NotMasterDomain, SubscriptionNotFound, SubscriptionNotModified, TException {
+    }
+
+    /**
+     * Delete the subscription identified by its globally unique ID.
+     *
+     * @param subID: ID of the subscription to be deleted.
+     * @param dematerialize: "true" if the replica data associated with this subscription is to be deleted as well.
+     * @return Nothing.
+     * @throws ApiException
+     * @throws NotMasterDomain: This API may only be executed in the Master Domain.
+     * @throws SubscriptionNotFound: The subscription identified to be deleted can not be found.
+     * @throws SubscriptionNotModified: The subscription was not deleted.
+     * @throws TException
+     */
+    @Override
+    public void deleteSubscriptionID(long subID, boolean dematerialize)
+            throws ApiException, NotMasterDomain, SubscriptionNotFound, SubscriptionNotModified, TException {
+    }
+
+    @Override
+    public List<SvcInfo> getAllNodeInfo() throws TException {
+        return services;
+    }
+
+    @Override
+    public SvcInfo getNodeInfo( SvcUuid nodeUuid ) throws ApiException, TException {
+        for ( SvcInfo svc : services ) {
+            if ( nodeUuid.equals( svc.getSvc_id() ) ) {
+                return svc;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public long getDiskCapacityNode( SvcUuid nodeUuid ) throws ApiException, TException {
+        SvcInfo svc = getNodeInfo( nodeUuid );
+        if ( svc != null ) {
+            return Long.valueOf( svc.getProps().getOrDefault( "disk_capacity", "0" ) ) +
+                   Long.valueOf( svc.getProps().getOrDefault( "ssd_capacity", "0" ) );
+        }
+        throw new ApiException( "Failed to retrieve service info for node with [" + nodeUuid + "]",
+                                ErrorCode.MISSING_RESOURCE );
+    }
+
+    @Override
+    public long getDiskCapacityTotal() throws ApiException, TException {
+        long total = 0;
+        for ( SvcInfo svc : services ) {
+            total += Long.valueOf( svc.getProps().getOrDefault( "disk_capacity", "0" ) );
+            total += Long.valueOf( svc.getProps().getOrDefault( "ssd_capacity", "0" ) );
+        }
+        return total;
     }
 }

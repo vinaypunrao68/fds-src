@@ -195,6 +195,14 @@ class ClusterMap : public Module {
     void resetPendingAddedService(fpi::FDSP_MgrIdType svc_type,
                                   const NodeUuid& svc_uuid);
 
+   /**
+     * Ongoing DM Migration set so we GRD_ReRegister will know if
+     * it should fire.
+     */
+    std::set<NodeUuid> ongoingMigrationDMs;
+
+
+
     /**
      * Module methods.
      */
@@ -202,8 +210,6 @@ class ClusterMap : public Module {
     virtual void mod_startup();
     virtual void mod_shutdown();
 };
-
-extern ClusterMap gl_OMClusMapMod;
 }  // namespace fds
 
 #endif  // SOURCE_ORCH_MGR_INCLUDE_OMCLUSTERMAP_H_

@@ -27,8 +27,6 @@
 
 namespace fds {
 #define DLT_VER_INVALID 0UL  /**< Defines 0 as invalid DLT version */
-    const fds_uint8_t sm1PIdx = 0;  /* DLT slot identifying SM1. */
-    const fds_uint8_t sm2PIdx = 1;  /* DLT slot identifying SM2. */
 
     typedef TableColumn DltTokenGroup;
     typedef boost::shared_ptr<DltTokenGroup> DltTokenGroupPtr;
@@ -69,6 +67,9 @@ namespace fds {
         // Deep copy . Safe modifiable copy.
         DLT* clone() const;
 
+        /** get all the nodes in this DLT */
+        std::vector<NodeUuid> getAllNodes() const;
+
         /** get all the Nodes for a token/objid */
         DltTokenGroupPtr getNodes(fds_token_id token) const;
         DltTokenGroupPtr getNodes(const ObjectID& objId) const;
@@ -87,7 +88,6 @@ namespace fds {
         /** get the Tokens for a given Node */
         const TokenList& getTokens(const NodeUuid &uid) const;
         void getTokens(TokenList* tokenList, const NodeUuid &uid, uint index) const;
-
         typedef std::map<NodeUuid, std::vector<fds_int32_t>> SourceNodeMap;
 
         /**
@@ -165,7 +165,7 @@ namespace fds {
          * Checks if DLT is valid
          * Invalid cases:
          *    -- A column has repeating node uuids (non-unique)
-         *    -- A cell in a DMT has an invalid Service UUID
+         *    -- A cell in a DLT has an invalid Service UUID
          *    -- DLT must not contain any uuids that are not in 'expectedUuidSet'
          * @param expectedUuidSet a set of UUIDs that are expected to be
          *        in this DLT; one or more UUIDs may be missing from the DLT,

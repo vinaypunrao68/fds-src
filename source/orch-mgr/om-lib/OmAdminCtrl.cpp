@@ -176,7 +176,7 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
         // We expect the max object size to be at least some min size
         // and a multiple of that size
         LOGERROR << "Invalid maximum object size of " << pVolDesc->maxObjSizeInBytes
-                 << ", the minimum size is " << minVolObjSize;
+                 << ". The maximum size must be at least and evenly divisible by " << minVolObjSize;
         return Error(ERR_VOL_ADMISSION_FAILED);
     }
 
@@ -187,12 +187,16 @@ Error FdsAdminCtrl::volAdminControl(VolumeDesc  *pVolDesc)
         return Error(ERR_VOL_ADMISSION_FAILED);
     }
 
-    if ((total_vol_disk_cap_GB + vol_capacity_GB) > avail_disk_capacity) {
-        LOGERROR << " Cluster is running out of disk capacity \n"
-                 << " Volume's capacity (GB) " << vol_capacity_GB
-                 << "total volume disk  capacity (GB):" << total_vol_disk_cap_GB;
-        return Error(ERR_VOL_ADMISSION_FAILED);
-    }
+    /**
+     * Allow thin provisioning, the commented out code below doesn't allow thin provisioning.
+     *
+     * if ((total_vol_disk_cap_GB + vol_capacity_GB) > avail_disk_capacity) {
+     *    LOGERROR << " Cluster is running out of disk capacity \n"
+     *             << " Volume's capacity (GB) " << vol_capacity_GB
+     *             << "total volume disk  capacity (GB):" << total_vol_disk_cap_GB;
+     *    return Error(ERR_VOL_ADMISSION_FAILED);
+     * }
+     */
 
     LOGNORMAL << *pVolDesc;
     LOGNORMAL << " iopc_subcluster: " << iopc_subcluster

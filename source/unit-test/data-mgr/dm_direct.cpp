@@ -5,6 +5,7 @@
 #include "./dm_mocks.h"
 #include "./dm_gtest.h"
 #include "./dm_utils.h"
+#include <refcount/objectrefscanner.h>
 
 #include <testlib/SvcMsgFactory.h>
 #include <vector>
@@ -12,6 +13,7 @@
 #include <thread>
 #include <google/profiler.h>
 #include <iostream>
+#include <util/path.h>
 fds::DMTester* dmTester = NULL;
 fds::concurrency::TaskStatus taskCount(0);
 
@@ -39,7 +41,11 @@ void startTxn(fds_volid_t volId, std::string blobName, int txnNum = 1, int blobM
                                            startBlbTx->blob_name,
                                            startBlbTx->blob_version,
                                            startBlbTx->blob_mode,
-                                           startBlbTx->dmt_version);
+                                           startBlbTx->dmt_version,
+                                           /* TODO(Rao): Pass in proper opid.  This test will
+                                            * fail when volumegrouping is enabled
+                                            */
+                                           0);
     dmBlobTxReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(startBlbTx->txId));
     dmBlobTxReq->cb = BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
     TIMEDBLOCK("start") {
@@ -62,7 +68,11 @@ void commitTxn(fds_volid_t volId, std::string blobName, int txnNum = 1) {
                                              commitBlbTx->blob_name,
                                              commitBlbTx->blob_version,
                                              commitBlbTx->dmt_version,
-                                             ++seq_id);
+                                             ++seq_id,
+                                             /* TODO(Rao): Pass in proper opid.  This test will
+                                              * fail when volumegrouping is enabled
+                                              */
+                                              0);
     dmBlobTxReq1->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(commitBlbTx->txId));
     dmBlobTxReq1->cb =
             BIND_OBJ_CALLBACK(cb, DMCallback::handler, asyncHdr);
@@ -74,13 +84,6 @@ void commitTxn(fds_volid_t volId, std::string blobName, int txnNum = 1) {
     EXPECT_EQ(ERR_OK, cb.e);
 }
 
-TEST_F(DmUnitTest, AddVolume) {
-    for (fds_uint32_t i = 1; i < dmTester->volumes.size(); i++) {
-        EXPECT_EQ(ERR_OK, dmTester->addVolume(i));
-    }
-    printStats();
-}
-
 static void testPutBlobOnce(boost::shared_ptr<DMCallback> & cb, DmIoUpdateCatOnce * dmUpdCatReq) {
     TIMEDBLOCK("process") {
         dataMgr->handlers[FDS_CAT_UPD_ONCE]->handleQueueItem(dmUpdCatReq);
@@ -88,6 +91,32 @@ static void testPutBlobOnce(boost::shared_ptr<DMCallback> & cb, DmIoUpdateCatOnc
     }
     EXPECT_EQ(ERR_OK, cb->e);
     taskCount.done();
+}
+
+static void testQueryCatalog(boost::shared_ptr<DMCallback> & cb, DmIoQueryCat * dmQryReq) {
+    TIMEDBLOCK("process") {
+        dataMgr->handlers[FDS_CAT_QRY]->handleQueueItem(dmQryReq);
+        cb->wait();
+    }
+    EXPECT_EQ(ERR_OK, cb->e);
+    taskCount.done();
+}
+
+static void testQueryInvalidOffset(boost::shared_ptr<DMCallback> & cb, DmIoQueryCat * dmQryReq) {
+    TIMEDBLOCK("process") {
+        dataMgr->handlers[FDS_CAT_QRY]->handleQueueItem(dmQryReq);
+        cb->wait();
+    }
+    EXPECT_EQ(ERR_BLOB_OFFSET_INVALID, cb->e);
+    taskCount.done();
+}
+
+
+TEST_F(DmUnitTest, AddVolume) {
+    for (fds_uint32_t i = 1; i < dmTester->volumes.size(); i++) {
+        EXPECT_EQ(ERR_OK, dmTester->addVolume(i));
+    }
+    printStats();
 }
 
 TEST_F(DmUnitTest, PutBlobOnce) {
@@ -116,10 +145,14 @@ TEST_F(DmUnitTest, PutBlobOnce) {
 
 
             auto dmCommitBlobOnceReq = new DmIoCommitBlobOnce<DmIoUpdateCatOnce>(dmTester->TESTVOLID,
-                                                              putBlobOnce->blob_name,
-                                                              putBlobOnce->blob_version,
-                                                              putBlobOnce->dmt_version,
-                                                              ++seq_id);
+                                        putBlobOnce->blob_name,
+                                        putBlobOnce->blob_version,
+                                        putBlobOnce->dmt_version,
+                                        ++seq_id,
+                                        /* TODO(Rao): Pass in proper opid.  This test will
+                                         * fail when volumegrouping is enabled
+                                         */
+                                        0);
             dmCommitBlobOnceReq->ioBlobTxDesc = BlobTxId::ptr(new BlobTxId(putBlobOnce->txId));
             dmCommitBlobOnceReq->cb =
                     BIND_OBJ_CALLBACK(*cb.get(), DMCallback::handler, asyncHdr);
@@ -170,15 +203,6 @@ TEST_F(DmUnitTest, PutBlob) {
     printStats();
 }
 
-static void testQueryCatalog(boost::shared_ptr<DMCallback> & cb, DmIoQueryCat * dmQryReq) {
-    TIMEDBLOCK("process") {
-        dataMgr->handlers[FDS_CAT_QRY]->handleQueueItem(dmQryReq);
-        cb->wait();
-    }
-    EXPECT_EQ(ERR_OK, cb->e);
-    taskCount.done();
-}
-
 TEST_F(DmUnitTest, QueryCatalog) {
     DEFINE_SHARED_PTR(AsyncHdr, asyncHdr);
 
@@ -203,15 +227,6 @@ TEST_F(DmUnitTest, QueryCatalog) {
     if (profile)
         ProfilerStop();
     printStats();
-}
-
-static void testQueryInvalidOffset(boost::shared_ptr<DMCallback> & cb, DmIoQueryCat * dmQryReq) {
-    TIMEDBLOCK("process") {
-        dataMgr->handlers[FDS_CAT_QRY]->handleQueueItem(dmQryReq);
-        cb->wait();
-    }
-    EXPECT_EQ(ERR_BLOB_OFFSET_INVALID, cb->e);
-    taskCount.done();
 }
 
 TEST_F(DmUnitTest, QueryInvalidOffset) {
@@ -414,19 +429,20 @@ int main(int argc, char** argv) {
     // The following line must be executed to initialize Google Mock
     // (and Google Test) before running the tests.
     ::testing::InitGoogleMock(&argc, argv);
-
+    std::string strMaxObjSize = std::to_string(MAX_OBJECT_SIZE);
+    std::string strBlobSize = std::to_string(BLOB_SIZE);
+    std::string strNumBlobs = std::to_string(NUM_BLOBS);
     // process command line options
     po::options_description desc("\nDM test Command line options");
     desc.add_options()
             ("help,h"       , "help/ usage message")  // NOLINT
             ("num-volumes,v", po::value<fds_uint32_t>(&NUM_VOLUMES)->default_value(NUM_VOLUMES)        , "number of volumes")  // NOLINT
-            ("obj-size,o"   , po::value<fds_uint32_t>(&MAX_OBJECT_SIZE)->default_value(MAX_OBJECT_SIZE), "max object size in bytes")  // NOLINT
-            ("blob-size,b"  , po::value<fds_uint64_t>(&BLOB_SIZE)->default_value(BLOB_SIZE)            , "blob size in bytes")  // NOLINT
-            ("num-blobs,n"  , po::value<fds_uint32_t>(&NUM_BLOBS)->default_value(NUM_BLOBS)            , "number of blobs")  // NOLINT
+            ("obj-size,o"   , po::value<std::string>(&strMaxObjSize)->default_value(strMaxObjSize)     , "max object size in bytes")  // NOLINT
+            ("blob-size,b"  , po::value<std::string>(&strBlobSize)->default_value(strBlobSize)        , "blob size in bytes")  // NOLINT
+            ("num-blobs,n"  , po::value<std::string>(&strNumBlobs)->default_value(strNumBlobs)        , "number of blobs")  // NOLINT
             ("profile,p"    , po::value<bool>(&profile)->default_value(profile)                        , "enable profile ")  // NOLINT
             ("puts-only"    , "do put operations only")
             ("no-delete"    , "do put & get operations only");
-            ("num-blobs,n"  , po::value<fds_uint32_t>(&NUM_BLOBS)->default_value(NUM_BLOBS)            , "number of blobs");  // NOLINT
 
     po::variables_map vm;
     po::store(po::command_line_parser(argc, argv).options(desc).allow_unregistered().run(), vm);
@@ -436,6 +452,10 @@ int main(int argc, char** argv) {
         std::cout << desc << std::endl;
         return 1;
     }
+
+    MAX_OBJECT_SIZE = fds::util::getBytesFromHumanSize(strMaxObjSize);
+    BLOB_SIZE = fds::util::getBytesFromHumanSize(strBlobSize);
+    NUM_BLOBS = fds::util::getBytesFromHumanSize(strNumBlobs);
 
     dmTester = new fds::DMTester(argc, argv);
     dmTester->start();

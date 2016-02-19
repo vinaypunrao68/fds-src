@@ -124,6 +124,16 @@ class ObjMetaData : public serialize::Serializable {
 
     void getVolsRefcnt(std::map<fds_volid_t, fds_uint64_t>& vol_refcnt) const;
 
+    fds_uint8_t getDeleteCount() const;
+
+    fds_uint8_t incrementDeleteCount();
+
+    void resetDeleteCount();
+
+    util::TimeStamp getTimeStamp() const;
+
+    void updateTimestamp();
+
     // Tiering/Physical Location update routines
     fds_bool_t onFlashTier() const;
     fds_bool_t onTier(diskio::DataTier tier) const;
@@ -153,6 +163,7 @@ class ObjMetaData : public serialize::Serializable {
 
     /* Volume association entries */
     std::vector<obj_assoc_entry_t> assoc_entry;
+
 };
 
 inline std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMd) {
@@ -167,7 +178,8 @@ inline std::ostream& operator<<(std::ostream& out, const ObjMetaData& objMd) {
         << "  num_assoc_entry " << objMd.obj_map.obj_num_assoc_entry
         << "  create_time " << objMd.obj_map.obj_create_time
         << "  del_time " << objMd.obj_map.obj_del_time
-        << "  mod_time " << objMd.obj_map.assoc_mod_time
+        << "  updt_time " << objMd.obj_map.obj_access_time
+        << "  delete_count " << (fds_uint16_t)objMd.obj_map.delete_count
         << "  flags " << std::hex << objMd.obj_map.obj_flags << std::dec
         << "  obj_migration_dlt_version " << objMd.obj_map.obj_migration_reconcile_dlt_ver
         << "  obj_migration_reconcile_refcnt " << objMd.obj_map.obj_migration_reconcile_ref_cnt

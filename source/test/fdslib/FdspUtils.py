@@ -6,7 +6,7 @@ import logging
 import sys
 import time
 import hashlib
-
+import types
 from FDS_ProtocolInterface.ttypes import *
 
 from thrift.transport import TTransport
@@ -21,7 +21,10 @@ from dm_api.ttypes import *
 from dm_api.constants import *
 import sm_api as smapi
 import sm_types as smtypes
-
+from sm_api.ttypes import *
+from sm_api.constants import *
+from pm_service.ttypes import *
+from config_types.ttypes import *
 
 log = logging.getLogger(__name__)
 
@@ -32,11 +35,22 @@ log = logging.getLogger(__name__)
 #
 # @return Service message object 
 def newSvcMsgByTypeId(typeId):
-    typeStr = FDSPMsgTypeId._VALUES_TO_NAMES[typeId]
+    if type(typeId) == types.StringType:
+        typeStr=typeId
+    else:
+        typeStr = FDSPMsgTypeId._VALUES_TO_NAMES[typeId]
     thType = typeStr.replace('TypeId','')
-    log.info('th typestr: {}, typeid: {}'.format(typeStr, thType))
+    #log.info('th typestr: {}, typeid: {}'.format(typeStr, thType))
     thismodule = sys.modules[__name__]
-    thObj = getattr(thismodule, thType)()
+    thObj = None
+    if hasattr(thismodule, thType):
+        thObj = getattr(thismodule, thType)()
+    else:
+        thType = thType.replace('RspMsg','MsgRsp')
+        thObj = getattr(thismodule, thType)()
+
+    if thObj is None:
+        log.error('unable to find thrift object : {}'.format(thType))
     return thObj
 
 def getMsgTypeId(msg):
@@ -52,6 +66,13 @@ def getMsgTypeId(msg):
 # @return 
 def deserializeSvcMsg(asyncHdr, payload):
     svcMsg = newSvcMsgByTypeId(asyncHdr.msg_type_id)
+    transportIn = TTransport.TMemoryBuffer(payload)
+    protocolIn = TBinaryProtocol.TBinaryProtocol(transportIn)
+    svcMsg.read(protocolIn)
+    return svcMsg
+
+def deserialize(name, payload):
+    svcMsg = newSvcMsgByTypeId(name)
     transportIn = TTransport.TMemoryBuffer(payload)
     protocolIn = TBinaryProtocol.TBinaryProtocol(transportIn)
     svcMsg.read(protocolIn)
@@ -179,8 +200,8 @@ def newGetObjectMsg(volId, objectId):
 #
 # @return 
 def newGetVolumeMetaDataMsg(volId):
-    msg = GetVolumeMetaDataMsg()
-    msg.volume_id = volId
+    msg = GetVolumeMetadataMsg()
+    msg.volumeId = volId
     return msg
 
 ##
@@ -279,6 +300,10 @@ def newShutdownMODMsg():
 
 def newCtrlStartHybridTierCtrlrMsg():
     msg = CtrlStartHybridTierCtrlrMsg()
+    return msg
+
+def newNotifyDiskMapChangeMsg():
+    msg = NotifyDiskMapChange()
     return msg
 
 def newStartSmchkMsg(targetTokens):

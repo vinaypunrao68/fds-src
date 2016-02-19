@@ -89,7 +89,6 @@ NbdConnection::NbdConnection(NbdConnector* server,
           volume_size{0},
           object_size{0},
           nbd_state(NbdProtoState::PREINIT),
-          resp_needed(0u),
           handshake({ { 0x01u },  0x00ull, 0x00ull, nullptr }),
           response(nullptr),
           total_blocks(0ull),
@@ -124,7 +123,7 @@ NbdConnection::~NbdConnection() {
 
 void
 NbdConnection::terminate() {
-    state_ = ConnectionState::STOPPING;
+    state_ = ConnectionState::STOPPED;
     asyncWatcher->send();
 }
 
@@ -317,8 +316,7 @@ bool NbdConnection::io_request(ev::io &watcher) {
     LOGIO << " op " << io_to_string[request.header.opType]
           << " handle 0x" << std::hex << request.header.handle
           << " offset 0x" << request.header.offset
-          << " length 0x" << request.header.length << std::dec
-          << " ahead of you: " <<  resp_needed++;
+          << " length 0x" << request.header.length << std::dec;
 
     Error err = dispatchOp();
     request.data.reset();
@@ -355,7 +353,7 @@ NbdConnection::io_reply(ev::io &watcher) {
         response[2].iov_base = &current_response->handle;
         response[2].iov_len = sizeof(current_response->handle);
         response[1].iov_base = to_iovec(&error_ok);
-        if (!current_response->getError().ok()) {
+        if (fpi::OK != current_response->getError()) {
             err = current_response->getError();
             response[1].iov_base = to_iovec(&error_bad);
             LOGERROR << "Returning error: " << err;
@@ -381,10 +379,6 @@ NbdConnection::io_reply(ev::io &watcher) {
     if (!write_response()) {
         return false;
     }
-    LOGIO << " handle 0x" << std::hex << current_response->handle << std::dec
-          << " done (" << err << ") "
-          << --resp_needed << " requests behind you";
-
     response[2].iov_base = nullptr;
     current_response.reset();
 
@@ -427,13 +421,17 @@ NbdConnection::dispatchOp() {
 void
 NbdConnection::wakeupCb(ev::async &watcher, int revents) {
     if (processing_) return;
-    if (ConnectionState::STOPPED == state_ || ConnectionState::STOPPING == state_) {
-        nbdOps->shutdown();
-        if (ConnectionState::STOPPED == state_) {
-            asyncWatcher->stop();
+    if (ConnectionState::RUNNING != state_) {
+        nbdOps->shutdown();                             // We are shutting down
+        if (ConnectionState::STOPPED == state_ ||
+            ConnectionState::DRAINED == state_) {
+            asyncWatcher->stop();                       // We are not responding
             ioWatcher->stop();
-            nbdOps.reset();
-            return;
+            if (ConnectionState::STOPPED == state_) {
+                nbdOps.reset();
+                nbd_server->deviceDone(clientSocket);   // We are FIN!
+                return;
+            }
         }
     }
 
@@ -505,10 +503,10 @@ NbdConnection::ioEvent(ev::io &watcher, int revents) {
         }
     }
     } catch(BlockError const& e) {
-        state_ = ConnectionState::STOPPING;
+        state_ = ConnectionState::DRAINING;
         if (e == BlockError::connection_closed) {
             // If we had an error, stop the event loop too
-            state_ = ConnectionState::STOPPED;
+            state_ = ConnectionState::DRAINED;
         }
     }
     // Unblocks the ev loop to handle events again on this connection
@@ -519,9 +517,6 @@ NbdConnection::ioEvent(ev::io &watcher, int revents) {
 
 void
 NbdConnection::respondTask(BlockTask* response) {
-    LOGDEBUG << " response from BlockOperations handle: 0x" << std::hex << response->getHandle()
-             << " " << response->getError();
-
     // add to quueue
     if (response->isRead() || response->isWrite()) {
         readyResponses.push(response);

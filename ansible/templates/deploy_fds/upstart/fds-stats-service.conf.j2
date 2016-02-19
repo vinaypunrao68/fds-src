@@ -1,0 +1,29 @@
+{% extends 'fds_upstart_defaults.j2' %}
+{% block content %}
+# fds-stats-service upstart conf file
+#
+# Copyright (c) 2015, Formation Data Systems, Inc. All Rights Reserved.
+
+description "Stats Service"
+
+start on started fds-rabbitmq 
+stop on stopped fds-rabbitmq 
+
+env fds_root={{ fds_root }}
+env ENABLED=false
+
+respawn
+respawn limit 5 60
+
+script
+  echo '==========================================================' > ${fds_root}/bin/stats.out
+  echo 'UPTIME:\t'`date` >> ${fds_root}/bin/stats.out
+  echo 'Loading '${fds_root}/etc/formation_env >> ${fds_root}/bin/stats.out
+  [ -f ${fds_root}/etc/formation_env ] || exit 1
+  # Sourcing formation_env here
+  . ${fds_root}/etc/formation_env
+  echo 'Loaded '${fds_root}/etc/formation_env >> ${fds_root}/bin/stats.out
+  echo "\n ***** Starting Stats service *****\n" >> ${fds_root}/bin/stats.out
+  exec  /opt/fds/formation_one/packages/fds-stats-service-1.0.0/bin/fds-stats-service >> ${fds_root}/bin/stats.out 2>&1
+end script
+{% endblock %}

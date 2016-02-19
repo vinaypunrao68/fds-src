@@ -1,37 +1,39 @@
 /*
- * Copyright 2013-2015 Formation Data Systems, Inc.
+ * Copyright 2013-2016 Formation Data Systems, Inc.
  */
 
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMVOLUME_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AMVOLUME_H_
 
-#include <memory>
 #include "fds_volume.h"
+#include "AmVolumeAccessToken.h"
 
 namespace fds
 {
 
-struct AmVolumeAccessToken;
-struct FDS_VolumeQueue;
-
 struct AmVolume : public FDS_Volume {
-    AmVolume(VolumeDesc const& vol_desc, FDS_VolumeQueue* queue, boost::shared_ptr<AmVolumeAccessToken> _access_token);
+    explicit AmVolume(VolumeDesc const& vol_desc);
 
     AmVolume(AmVolume const& rhs) = delete;
     AmVolume& operator=(AmVolume const& rhs) = delete;
 
-    ~AmVolume();
+    ~AmVolume() override;
 
-    std::pair<bool, bool> getMode() const;
+    bool cacheable() const;
+    bool writable() const;
+
+    bool startOpen() { if (opening) { return false; } return opening = true; }
+    void stopOpen() { opening = false; }
 
     fds_int64_t getToken() const;
-    void setToken(fds_int64_t const _token);
+    void setToken(AmVolumeAccessToken const& token);
 
-    /** per volume queue */
-    std::unique_ptr<FDS_VolumeQueue> volQueue;
+ private:
 
     /** access token */
-    boost::shared_ptr<AmVolumeAccessToken> access_token;
+    AmVolumeAccessToken access_token;
+
+    bool opening {false};
 };
 
 }  // namespace fds

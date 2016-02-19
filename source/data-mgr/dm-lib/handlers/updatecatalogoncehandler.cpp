@@ -34,12 +34,15 @@ void UpdateCatalogOnceHandler::handleRequest(
     DBG(GLOGDEBUG << logString(*asyncHdr) << logString(*message));
 
     fds_volid_t volId(message->volume_id);
-    auto err = dataManager.validateVolumeIsActive(volId);
+    auto err = preEnqueueWriteOpHandling(volId, message->opId,
+                                         asyncHdr, PlatNetSvcHandler::threadLocalPayloadBuf);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
         return;
     }
+
+    HANDLE_FILTER_OLD_DMT_DURING_RESYNC();
 
     // Allocate a commit request structure because it is needed by the
     // commit call that will be executed during update processing.
@@ -47,7 +50,8 @@ void UpdateCatalogOnceHandler::handleRequest(
                                                                          message->blob_name,
                                                                          message->blob_version,
                                                                          message->dmt_version,
-                                                                         message->sequence_id);
+                                                                         message->sequence_id,
+                                                                         message->opId);
     dmCommitBlobOnceReq->cb =
             BIND_MSG_CALLBACK(UpdateCatalogOnceHandler::handleCommitBlobOnceResponse, asyncHdr);
 
@@ -73,6 +77,8 @@ void UpdateCatalogOnceHandler::handleRequest(
 void UpdateCatalogOnceHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, static_cast<DmIoUpdateCatOnce*>(dmRequest)->commitBlobReq);
     DmIoUpdateCatOnce* typedRequest = static_cast<DmIoUpdateCatOnce*>(dmRequest);
+
+    ENSURE_IO_ORDER(typedRequest, helper);
 
     // Start the transaction
     helper.err = dataManager.timeVolCat_->startBlobTx(typedRequest->volId,
@@ -159,9 +165,9 @@ void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& 
 
     // Build response
     fpi::UpdateCatalogOnceRspMsg updcatRspMsg;
-    if (dmRequest) {
+    if (e.ok() && dmRequest) {
         auto commitOnceReq = static_cast<DmIoCommitBlobOnce<DmIoUpdateCatOnce>*>(dmRequest);
-        // Potential meta list corruption here... debug later :)
+        // Potential meta list corruption here... reopen FS-3355
         // commitOnceReq->dump_meta();
         updcatRspMsg.byteCount = commitOnceReq->rspMsg.byteCount;
         updcatRspMsg.meta_list.swap(commitOnceReq->rspMsg.meta_list);
@@ -181,7 +187,19 @@ void UpdateCatalogOnceHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& 
 void UpdateCatalogOnceHandler::handleResponseCleanUp(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                                      boost::shared_ptr<fpi::UpdateCatalogOnceMsg>& message,
                                                      Error const& e, DmRequest* dmRequest) {
-    delete dmRequest;
+    DmIoCommitBlobTx* commitBlobReq = static_cast<DmIoCommitBlobTx*>(dmRequest);
+    bool delete_req;
+
+    {
+        std::lock_guard<std::mutex> lock(commitBlobReq->migrClientCntMtx);
+        fds_assert(commitBlobReq->migrClientCnt);
+        commitBlobReq->migrClientCnt--;
+        delete_req = commitBlobReq->migrClientCnt ? false : true; // delete if commitBlobReq == 0
+    }
+
+    if (delete_req) {
+        delete dmRequest;
+    }
 }
 
 }  // namespace dm

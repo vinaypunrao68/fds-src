@@ -48,6 +48,7 @@ class FDS_QoSControl {
    
    FDS_QoSControl();
    ~FDS_QoSControl();
+   void stop();
 
    FDS_QoSControl(fds_uint32_t _max_thrds, dispatchAlgoType algo, fds_log *log, const std::string& prefix);
    
@@ -62,9 +63,11 @@ class FDS_QoSControl {
    void    setQosDispatcher(dispatchAlgoType algo_type, FDS_QoSDispatcher *qosDispatcher);
    void    runScheduler(); // Calls in the QosDispatcher's main dispatch routine
    virtual Error   processIO(FDS_IOType* io); // Schedule an IO on a thread from thrd pool
+   virtual Error markIODone(FDS_IOType* io);
    fds_uint32_t     waitForWorkers(); // Blocks until there is a threshold num of workers in threadpool
    virtual Error   enqueueIO(fds_volid_t volUUID, FDS_IOType *io);
    void quieseceIOs(fds_volid_t volUUID);
+   void quieseceIOs();
    void stopDequeue(fds_volid_t volUUID);
    void resumeIOs(fds_volid_t volUUID);
 

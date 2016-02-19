@@ -1,4 +1,4 @@
-
+#!/usr/bin/env python
 ATTR_CLICMD='clicmd'
 KEY_SYSTEM = '__system__'
 KEY_ACCESSLEVEL = '__accesslevel__'
@@ -7,6 +7,8 @@ KEY_PORT = 'port'
 KEY_USER = 'username'
 KEY_PASS = 'password'
 KEY_GRIDOUTPUT = 'gridoutput'
+KEY_FDSROOT = 'fdsroot'
+KEY_REDISPORT = 'redis.port'
 PROTECTED_KEYS = [KEY_SYSTEM, KEY_ACCESSLEVEL]
 
 from fdslib import restendpoint
@@ -15,34 +17,96 @@ import random
 import boto
 from boto.s3 import connection
 from fdslib import platformservice
+import re
+import humanize
+import itertools
+import time
+import autocorrect
+import os
+
+def isFDSNode():
+    if os.path.isfile('/fds/etc/platform.conf'): return True
+
+def get_om_ip_from_conf():
+    filename='/fds/etc/platform.conf'
+    om_pattern=re.compile('om_ip_list *= *"(.*)"')
+    with open(filename,'r') as f:
+        for line in f:
+            if 'om_ip_list' in line:
+                ips=om_pattern.findall(line)
+                if len(ips) > 0:
+                    return ips[0].split(',')[0]
+
+    return None
+
+def get_simple_re(pattern, flags=re.IGNORECASE):
+    if pattern == None:
+        return None
+    pattern=pattern.replace('.','\.')
+    pattern=pattern.replace('*','.*')
+    if '*' not in pattern and '?' not in pattern:
+        pattern = '.*(' + pattern + ').*'
+    pattern= '^' + pattern + '$'
+    return re.compile(pattern, flags)
+
+'''
+expands integer range and returns a list or generator
+    : '1-3' -> [1,2,3]
+    : '1,4,5' -> [1,4,5]
+    : '1-3,5' -> [1,2,3,5]
+'''
+def expandIntRange(data, generator=False):
+    try:
+        parts = (piece.partition('-')[::2] for piece in data.split(','))
+        ranges = (xrange(int(s), int(e) + 1 if e else int(s) + 1) for s, e in parts)
+        if generator:
+            return itertools.chain.from_iterable(ranges)
+        else:
+            return [n for n in itertools.chain.from_iterable(ranges)]
+    except Exception as e:
+        raise Exception('unable to expand range [{}] - {}'.format(data,e))
+
+def addHumanInfo(datamap, nozero = False):
+    for key in datamap.keys():
+        if nozero and int(datamap[key]) == 0:
+            continue
+        if key.endswith('.timestamp'):
+            value='{} ago'.format(humanize.naturaldelta(time.time()-int(datamap[key]))) if datamap[key] > 0 else 'not yet'
+            datamap[key + ".human"] = value
+        elif key.endswith('.totaltime'):
+            value = '{}'.format(humanize.naturaldelta(datamap[key]))
+            datamap[key + ".human"] = value
+        elif key.endswith('.bytes'):
+            value = '{}'.format(humanize.naturalsize(datamap[key]))
+            datamap[key + ".human"] = value
+
+def printHeader(data):
+    print ('\n{}\n{}'.format(data, '-'*60))
 
 class AccessLevel:
     '''
     Defines different access levels for users
     '''
-    USER  = 1
+    DEBUG = 1
     ADMIN = 2
-    DEBUG = 3
 
     @staticmethod
     def getName(level):
         level = int(level)
-        if 1 == level: return 'USER'
+        if 1 == level: return 'DEBUG'
         if 2 == level: return 'ADMIN'
-        if 3 == level: return 'DEBUG'
-        return None
+        return 'ADMIN'
 
     @staticmethod
     def getLevel(name):
         name = name.upper()
-        if name == 'USER': return 1
+        if name == 'DEBUG' : return 1
         if name == 'ADMIN' : return 2
-        if name == 'DEBUG' : return 3
         return 0
 
     @staticmethod
     def getLevels():
-        return ['ADMIN', 'DEBUG', 'USER']
+        return ['ADMIN', 'DEBUG']
 
 class ConfigData:
     '''
@@ -55,21 +119,30 @@ class ConfigData:
         self.__s3rest = None
         self.__platform = None
         self.__token = None
+        self.__services = None
+        self.__volumes = None
         self.checkDefaults()
+
+    def isDebugTool(self):
+        return self.__data['debugTool']
 
     def checkDefaults(self):
         defaults = {
-            KEY_ACCESSLEVEL: AccessLevel.USER,
             KEY_HOST : '127.0.0.1',
             KEY_PORT : 7020,
             KEY_USER : 'admin',
             KEY_PASS : 'admin',
+            KEY_FDSROOT : '/fds',
+            KEY_REDISPORT : 6379,
             KEY_GRIDOUTPUT : False
         }
 
         for key in defaults.keys():
             if None == self.getSystem(key):
                 self.setSystem(key, defaults[key])
+
+        if self.isDebugTool():
+            self.setSystem(KEY_HOST, get_om_ip_from_conf())
 
     def getRestApi(self):
         if self.__rest == None:
@@ -92,9 +165,25 @@ class ConfigData:
                                                 calling_format=boto.s3.connection.OrdinaryCallingFormat())
         return self.__s3rest
 
+    def setServiceApi(self, api):
+        self.__services = api
+
+    def getServiceApi(self):
+        return self.__services
+
+    def setVolumeApi(self, api):
+        self.__volumes = api
+
+    def getVolumeApi(self):
+        return self.__volumes
+
+
+    def hasPlatformClient(self):
+        return self.__platform != None
+
     def getPlatform(self):
         if self.__platform == None:
-            self.__platform = platformservice.PlatSvc(1690, self.getHost(), self.getPort())
+            self.__platform = platformservice.PlatSvc(1690, self.getHost(), 7004)
         return self.__platform
 
     def init(self):
@@ -137,6 +226,12 @@ class ConfigData:
     def setHost(self, host):
         self.setSystem(KEY_HOST, host)
 
+    def setFdsRoot(self, fdsroot):
+        self.setSystem(KEY_FDSROOT, fdsroot)
+
+    def getFdsRoot(self):
+        return self.getSystem(KEY_FDSROOT)
+
     def getPort(self):
         return int(self.get(KEY_PORT, KEY_SYSTEM))
 
@@ -152,13 +247,23 @@ class ConfigData:
         else:
             return 'simple'
 
-def setupHistoryFile():
+def didyoumean(usercmd, cmdlist, count=5):
+    suggest = autocorrect.AutoCorrect()
+    return suggest.suggestions(usercmd, cmdlist, count)
+
+def setupHistoryFile(debugTool = False):
     '''
     stores and retrieves the command history specific to the user
     '''
     import os
-    import readline
-    histfile = os.path.join(os.path.expanduser("~"), ".fdsconsole_history")
+    try:
+        import readline
+    except ImportError:
+        return
+
+    histfile = os.path.join(os.path.expanduser("~"), ".fdsconsole_history.{}".format(os.geteuid()))
+    if debugTool:
+        histfile = os.path.join(os.path.expanduser("~"), ".fdsdebugtool_history.{}".format(os.geteuid()))
     try:
         readline.read_history_file(histfile)
     except IOError:

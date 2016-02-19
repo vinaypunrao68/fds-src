@@ -5,20 +5,26 @@
 #define SOURCE_DATA_MGR_INCLUDE_STATSTREAMAGGREGATOR_H_
 
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
-#include <util/Log.h>
-#include <fds_error.h>
-#include <concurrency/RwLock.h>
-#include <fds_module.h>
-#include <PerfHistory.h>
-#include <fdsp/fds_stream_types.h>
+#include "StatDataPoint.h"
+
+#include "concurrency/RwLock.h"
+#include "fdsp/fds_stream_types.h"
+#include "util/Log.h"
+#include "fds_error.h"
+#include "fds_module.h"
+#include "PerfHistory.h"
 
 namespace fds {
 
 class StatStreamAggregator;
 
+/**
+ * Invokes the stats stream process after the expiration of a
+ * specified interval repeatedly.
+ */
 class StatStreamTimerTask : public FdsTimerTask {
   public:
     typedef boost::shared_ptr<StatStreamTimerTask> ptr;
@@ -38,7 +44,37 @@ class StatStreamTimerTask : public FdsTimerTask {
     DataMgr& dataManager_;
     fpi::StatStreamRegistrationMsgPtr reg_;
     StatStreamAggregator & statStreamAggr_;
-    std::unordered_map<fds_volid_t, fds_uint64_t> vol_last_ts_;
+    std::unordered_map<fds_volid_t, fds_uint64_t> vol_last_rel_sec_;
+
+    static StatDataPoint newStatDataPoint (int64_t timestamp,
+                                           std::string const& name,
+                                           double value,
+                                           int64_t slotSeconds,
+                                           int64_t volumeId,
+                                           AggregationType aggregation);
+};
+
+/**
+ * Cancels the StatStreamTimerTask after the expiration of
+ * a given duration.
+ */
+class StatStreamCancelTimerTask : public FdsTimerTask {
+    public:
+        typedef boost::shared_ptr<StatStreamCancelTimerTask> ptr;
+
+        StatStreamCancelTimerTask(FdsTimer& cancelTimer,
+                                  FdsTimer& streamTimer,
+                                  std::int32_t reg_id,
+                                  FdsTimerTaskPtr statStreamTask);
+
+        virtual ~StatStreamCancelTimerTask() {}
+
+        virtual void runTimerTask() override;
+
+    private:
+        FdsTimer& streamTimer;
+        std::int32_t reg_id;
+        FdsTimerTaskPtr statStreamTask;
 };
 
 struct StatHistoryConfig {
@@ -68,7 +104,6 @@ class VolumeStats {
     /**
      * Fine-grain (cached) volume's history of stats
      * that are streamed out (we will log these)
-     * This will be set per-minute for now
      */
     VolumePerfHistory::ptr finegrain_hist_;
 
@@ -142,28 +177,47 @@ class VolumeStats {
     double perf_recent_stdev_;
     double perf_long_stdev_;
     double perf_recent_wma_;
-    fds_uint64_t long_stdev_update_ts_;
-    fds_uint64_t recent_stdev_update_ts_;
 
     /**
-     * For processing finegrain stats
+     * For processing finegrain stats. Initialization value indicates first time.
      */
-    fds_uint64_t last_print_ts_;
+    fds_uint64_t last_process_rel_secs_ = std::numeric_limits<fds_uint64_t>::max();
 };
 
 class StatHelper {
   public:
-    static fds_uint64_t getTotalPuts(const StatSlot& slot);
-    static fds_uint64_t getTotalGets(const StatSlot& slot);
+    static fds_uint64_t getCountObjPuts(const StatSlot &slot);
+    static fds_uint64_t getCountExplicitTxBlobPuts(const StatSlot &slot);  // Multi-Data Object
+    static fds_uint64_t getCountImplicitTxBlobPuts(const StatSlot &slot);  // Single Data Object
+    static fds_uint64_t getCountObjGets(const StatSlot &slot);
+    static fds_uint64_t getCountCachedObjGets(const StatSlot& slot);
+    static fds_uint64_t getCountSSDObjGets(const StatSlot& slot);  // The "real" SSD Data Object GETs.
+    static fds_uint64_t getCountBlobGets(const StatSlot& slot);
     static fds_bool_t getQueueFull(const StatSlot& slot);
+    static fds_uint64_t getQueueBacklog(const StatSlot& slot);
+    static fds_uint64_t getQueueWaitTime(const StatSlot& slot);
     static fds_uint64_t getTotalLogicalBytes(const StatSlot& slot);
+    static fds_uint64_t getTotalPhysicalBytes(const StatSlot& slot);
+    static fds_uint64_t getTotalDomainDedupBytesFrac(const StatSlot &slot);
+    static fds_uint64_t getTotalDedupBytes(const StatSlot &slot);
     static fds_uint64_t getTotalBlobs(const StatSlot& slot);
-    static fds_uint64_t getTotalObjects(const StatSlot& slot);
+    static fds_uint64_t getTotalLogicalObjects(const StatSlot &slot);
+    static fds_uint64_t getTotalPhysicalObjects(const StatSlot &slot);
     static fds_uint64_t getTotalMetadataBytes(const StatSlot& slot);
     static double getAverageBytesInBlob(const StatSlot& slot);
     static double getAverageObjectsInBlob(const StatSlot& slot);
     static fds_uint64_t getTotalSsdGets(const StatSlot& slot);
-    static fds_uint64_t getTotalPhysicalBytes(const StatSlot& slot);
+    static fds_uint64_t getCountAttachVol(const StatSlot& slot);
+    static fds_uint64_t getCountDetachVol(const StatSlot& slot);
+    static fds_uint64_t getCountVolStat(const StatSlot &slot);
+    static fds_uint64_t getCountPutVolMeta(const StatSlot& slot);
+    static fds_uint64_t getCountGetVolMeta(const StatSlot& slot);
+    static fds_uint64_t getCountGetVolContents(const StatSlot& slot);
+    static fds_uint64_t getCountStartBlobTx(const StatSlot& slot);
+    static fds_uint64_t getCountCommitBlobTx(const StatSlot& slot);
+    static fds_uint64_t getCountAbortBlobTx(const StatSlot& slot);
+    static fds_uint64_t getCountDeleteBlob(const StatSlot& slot);
+    static fds_uint64_t getCountRenameBlob(const StatSlot& slot);
 };
 
 /**
@@ -180,12 +234,13 @@ class StatHelper {
  * There is a separate registration for volume or set of volumes to start
  * pushing them to requester AM.
  */
-class StatStreamAggregator : public Module {
+class StatStreamAggregator : public HasModuleProvider, Module {
   public:
     typedef std::unordered_map<fds_uint32_t, fpi::StatStreamRegistrationMsgPtr>
             StatStreamRegistrationMap_t;
 
-    StatStreamAggregator(char const* const name,
+    StatStreamAggregator(CommonModuleProviderIf *modProvider,
+                         char const* const name,
                          boost::shared_ptr<FdsConfig> fds_config,
                          DataMgr& dataManager);
     ~StatStreamAggregator();
@@ -272,10 +327,9 @@ class StatStreamAggregator : public Module {
      */
     StatHistoryConfig hist_config;
 
-    // timer to update coarse grain and long term slots
-    FdsTimerPtr process_tm_;
-    FdsTimerTaskPtr process_tm_task_;
-    fds_uint32_t tmperiod_sec_;
+    // timer to aggregate fine-grained slots into coarse-grained and long term slots
+    FdsTimerPtr aggregate_stats_;
+    FdsTimerTaskPtr aggregate_stats_task_;
 
     /**
      * Volume id to VolumeStats struct map; VolumeStats struct contains all
@@ -287,11 +341,14 @@ class StatStreamAggregator : public Module {
 
     fds_uint64_t start_time_;  // timestamps in histories are relative to this time
 
-    FdsTimer timer_;
+    FdsTimer streamTimer_;  // For repeated stream task at each interval.
+    FdsTimer cancelTimer_;  // To cancel the repeated stream task after duration.
 
     StatStreamRegistrationMap_t statStreamRegistrations_;
     std::unordered_map<fds_uint32_t, FdsTimerTaskPtr> statStreamTaskMap_;
     fds_rwlock lockStatStreamRegsMap;
+
+    int new_stats_service_port_;
 
     friend StatStreamTimerTask;
 };

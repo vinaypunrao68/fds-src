@@ -190,15 +190,12 @@ class VolumeInfo : public Resource, public HasState
     inline std::string &vol_get_name() {
         return vol_properties->name;
     }
+    inline fds_volid_t vol_get_id() {
+        return volUUID;
+    }
     inline VolumeDesc *vol_get_properties() {
         return vol_properties;
     }
-
-    /**
-     * Convert and populate the FDSP version of volume descriptors from
-     * the internal VolumeDesc type
-     */
-    void vol_populate_fdsp_descriptor(fpi::CtrlNotifyVolAdd &fdsp_voladd);
 
     fpi::ResourceState getState() const {
         if (vol_properties) return vol_properties->getState();
@@ -248,6 +245,15 @@ class VolumeContainer : public RsContainer
 
     static inline VolumeInfo::pointer vol_from_iter(RsContainer::const_iterator it) {
         return static_cast<VolumeInfo *>(get_pointer(*it));
+    }
+    void vol_foreach(void (*fn)(VolumeInfo::pointer elm)) {
+        VolumeInfo::pointer vol;
+        for (fds_uint32_t i = 0; i < rs_cur_idx; i++) {
+            vol = VolumeInfo::vol_cast_ptr(rs_array[i]);
+            if (vol != NULL) {
+                (*fn)(vol);
+            }
+        }
     }
     template <typename T>
     void vol_foreach(T arg, void (*fn)(T arg, VolumeInfo::pointer elm)) {
@@ -319,6 +325,7 @@ class VolumeContainer : public RsContainer
      * Volume functions.
      */
     virtual VolumeInfo::pointer get_volume(const std::string& vol_name);
+    virtual VolumeInfo::pointer get_volume(const fds_volid_t volId);
     virtual Error om_create_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
                                 const FdspCrtVolPtr           &creat_msg);
     virtual Error om_snap_vol(const fpi::FDSP_MsgHdrTypePtr &hdr,
@@ -327,8 +334,9 @@ class VolumeContainer : public RsContainer
                                 const FdspDelVolPtr           &del_msg);
     Error om_delete_vol(fds_volid_t volId);
     virtual Error om_modify_vol(const FdspModVolPtr &mod_msg);
-    virtual void om_get_volume_descriptor(const boost::shared_ptr<fpi::AsyncHdr>     &hdr,
-                                          const std::string& vol_name);
+    virtual Error om_get_volume_descriptor(const boost::shared_ptr<fpi::AsyncHdr>     &hdr,
+                                           const std::string& vol_name,
+                                           VolumeDesc& desc);
     void om_vol_cmd_resp(VolumeInfo::pointer vol,
         fpi::FDSPMsgTypeId cmd_type, const Error & error, NodeUuid from_svc);
 
@@ -364,9 +372,14 @@ class VolumeContainer : public RsContainer
 
     bool addVolume(const VolumeDesc& volumeDesc);
     bool createSystemVolume(int32_t tenantID = -1);
+    void addToDeleteVols(const VolumeDesc volumeDesc);
+    
+    std::vector<VolumeDesc> getVolumesToDelete();
+    
 
   protected:
     OmDiscoveryMod           *vol_disc_mgr;
+    std::vector<VolumeDesc>   volumesToBeDeleted;
 
     virtual Resource *rs_new(const ResourceUUID &uuid) {
         return new VolumeInfo(uuid);

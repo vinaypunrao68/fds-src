@@ -22,7 +22,8 @@ user_build_dir :=                       \
     tools                               \
     testlib                             \
     unit-test                           \
-    java
+    java                                \
+		packages
 
 ifdef ONLYMAIN
     user_build_dir := $(filter-out unit-test tools java, $(user_build_dir))
@@ -58,7 +59,7 @@ coverage: src_coverage
 
 src_coverage: coverage/source.xml coverage/source.html
 
-coverage/source.xml:
+coverage/source.html:
 	mkdir -p ../coverage
 	../gcovr/gcovr-3.2.build/scripts/gcovr --root="$(shell pwd)" \
 	                                       --verbose \
@@ -69,7 +70,7 @@ coverage/source.xml:
 	                                       --html-details \
 	                                       --output=../coverage/source.html
 
-coverage/source.html:
+coverage/source.xml:
 	mkdir -p ../coverage
 	../gcovr/gcovr-3.2.build/scripts/gcovr --root="$(shell pwd)" \
 	                                       --verbose \

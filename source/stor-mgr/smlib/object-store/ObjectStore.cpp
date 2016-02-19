@@ -11,14 +11,18 @@
 #include <ObjectId.h>
 #include <fds_process.h>
 #include <PerfTrace.h>
+#include <StorMgr.h>
 #include <object-store/TokenCompactor.h>
 #include <object-store/ObjectStore.h>
 #include <sys/statvfs.h>
 #include <utility>
 #include <object-store/TieringConfig.h>
 #include <include/util/disk_utils.h>
+#include <util/bloomfilter.h>
 
 namespace fds {
+using util::BloomFilter;
+fds_uint32_t objDelCountThresh = 3;
 
 template <typename T, typename Cb>
 static std::unique_ptr<TrackerBase<fds_uint16_t>>
@@ -53,6 +57,11 @@ ObjectStore::ObjectStore(const std::string &modName,
                                                   this,
                                                   std::placeholders::_1,
                                                   std::placeholders::_2,
+                                                  std::placeholders::_3),
+                                        std::bind(&ObjectStore::evaluateObjectSets,
+                                                  this,
+                                                  std::placeholders::_1,
+                                                  std::placeholders::_2,
                                                   std::placeholders::_3))),
           metaStore(new ObjectMetadataStore("SM Object Metadata Storage Module",
                                             std::bind(&ObjectStore::updateMediaTrackers,
@@ -65,9 +74,23 @@ ObjectStore::ObjectStore(const std::string &modName,
                                     diskMap, data_store)),
           SMCheckCtrl(new SMCheckControl("SM Checker",
                                          diskMap, data_store)),
+          liveObjectsTable(new LiveObjectsDB(g_fdsprocess->proc_fdsroot()->dir_user_repo() + "liveobj.db")),
           currentState(OBJECT_STORE_INIT),
           lastCapacityMessageSentAt(0)
 {
+    liveObjectsTable->createLiveObjectsTblAndIdx();
+    nullary_always (ObjectStorMgr::*Lock)(ObjectID const&, bool) = &ObjectStorMgr::getTokenLock;
+    if (data_store) {
+        tokenLockFn = std::bind(Lock,
+                                dynamic_cast<ObjectStorMgr*>(data_store),
+                                std::placeholders::_1,
+                                std::placeholders::_2);
+    } else {
+        LOGWARN << "setting a dummy token func";
+        tokenLockFn = [](ObjectID const&, bool) {
+            return nullary_always([]{});
+        };
+    }
 }
 
 ObjectStore::~ObjectStore() {
@@ -77,8 +100,23 @@ ObjectStore::~ObjectStore() {
 
 
 void ObjectStore::setUnavailable() {
-    GLOGDEBUG << "Setting ObjectStore state to OBJECT_STORE_UNAVAILABLE. This should block future IOs";
+    LOGNOTIFY << "Setting ObjectStore state to OBJECT_STORE_UNAVAILABLE. This should block future IOs";
     currentState = OBJECT_STORE_UNAVAILABLE;
+}
+
+void ObjectStore::setReadOnly() {
+    LOGNOTIFY << "Setting ObjectStore state to OBJECT_STORE_READ_ONLY. This should block write IOs but allow reads.";
+
+    // If we're already unavailabe we should *not* set this state as it is more permissive than UNAVAILABLE
+    // However if we're in NORMAL state this is okay; if we're already READ ONLY this is idempotent
+    if (currentState != OBJECT_STORE_UNAVAILABLE) {
+        currentState = OBJECT_STORE_READ_ONLY;
+    }
+}
+
+void ObjectStore::setAvailable() {
+    LOGNOTIFY << "Setting ObjectStore state to OBJECT_STORE_READY. This should allow reads and writes again.";
+    currentState = OBJECT_STORE_READY;
 }
 
 float_t ObjectStore::getUsedCapacityAsPct() {
@@ -112,37 +150,45 @@ float_t ObjectStore::getUsedCapacityAsPct() {
     // For disks
     for (auto diskId : diskMap->getDiskIds()) {
         // Get the (used, total) pair
-        DiskUtils::capacity_tuple capacity = diskMap->getDiskConsumedSize(diskId);
+        DiskUtils::CapacityPair capacity = diskMap->getDiskConsumedSize(diskId);
 
         // Check to make sure we've got good data from the stat call
-        if (capacity.first == 0 || capacity.second == 0) {
+        if (capacity.usedCapacity == 0 || capacity.totalCapacity == 0) {
             // If we don't just return 0
             LOGDEBUG << "Found disk used capacity of zero, possible error. DiskID = " << diskId
                         << ". Disk path = " << diskMap->getDiskPath(diskId) << ". If this is an SSD drive"
                         << " and you have not yet written data to the system, this message is OK.";
             break;
         }
-        float_t pct_used = ((capacity.first * 1.) / capacity.second) * 100;
+
+        // We're going to piggyback on this to refresh stats in our capacity map. We still want to do periodic checking
+        // at the SM level though to inform OM when we're reaching a disk full event.
+        capacityMap[diskId].usedCapacity = capacity.usedCapacity;
+
+        float_t pct_used = ((capacity.usedCapacity * 1.) / capacity.totalCapacity) * 100;
 
         // We want to log which disk is too full here
         if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
                 lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
             LOGERROR << "ERROR: Disk at path " << diskMap->getDiskPath(diskId)
-                     << " is consuming " << pct_used << "Space, which is more than the error threshold of "
-                     << DISK_CAPACITY_ERROR_THRESHOLD;
+                     << " is consuming " << pct_used << " space, which is more than the error threshold of "
+                     << DISK_CAPACITY_ERROR_THRESHOLD << "Consumed/Total (" << capacity.usedCapacity
+                     << "/" << capacity.totalCapacity << ")";
             lastCapacityMessageSentAt = DISK_CAPACITY_ERROR_THRESHOLD;
-        } else if (pct_used > DISK_CAPACITY_WARNING_THRESHOLD &&
-            lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
+        } else if (pct_used > DISK_CAPACITY_ALERT_THRESHOLD &&
+            lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
             LOGWARN << "WARNING: Disk at path " << diskMap->getDiskPath(diskId)
                     << " is consuming " << pct_used << " space, which is more than the warning threshold of "
-                    << DISK_CAPACITY_WARNING_THRESHOLD;
-            lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
-        } else if (pct_used > DISK_CAPACITY_ALERT_THRESHOLD &&
-                   lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
+                    << DISK_CAPACITY_ALERT_THRESHOLD << "Consumed/Total (" << capacity.usedCapacity
+                    << "/" << capacity.totalCapacity << ")";
+            lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
+        } else if (pct_used > DISK_CAPACITY_WARNING_THRESHOLD &&
+                   lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
             LOGNORMAL << "ALERT: Disk at path " << diskMap->getDiskPath(diskId)
                       << " is consuming " << pct_used << " space, which is more than the alert threshold of "
-                      << DISK_CAPACITY_ALERT_THRESHOLD;
-            lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
+                      << DISK_CAPACITY_WARNING_THRESHOLD << "Consumed/Total (" << capacity.usedCapacity
+                      << "/" << capacity.totalCapacity << ")";
+            lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
         } else {
             // If the used pct drops below alert levels reset so we resend the message when
             // we re-hit this condition
@@ -174,8 +220,8 @@ ObjectStore::initObjectStoreMediaErrorHandlers() {
         OnlineDiskFailureFnObj fnObj;
         void operator()(fds_uint16_t diskId,
                         size_t events) const {
-            LOGERROR << "Disk " << diskId << " on tier " << tier
-                     << " saw too many errors; declaring disk failed";
+            LOGWARN  << "Disk " << diskId << " on tier " << tier
+                     << " saw too many IO errors; will check for disk state";
             /**
              * This callback will be called when the timer expires and
              * the number of events fed is greater than a given threshhold.
@@ -227,9 +273,14 @@ ObjectStore::initObjectStoreMediaErrorHandlers() {
  */
 Error
 ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& tier) {
-    LOGDEBUG << "Handling disk failure for disk=" << diskId << " tier=" << tier;
+    LOGNOTIFY << "Handling disk failure for disk=" << diskId << " tier=" << tier;
     if (diskMap->isDiskOffline(diskId)) {
-        LOGDEBUG << "Disk " << diskId << " failure is already handled";
+        LOGNORMAL << "Disk " << diskId << " failure is already handled";
+        return ERR_OK;
+    }
+
+    if (diskMap->isDiskAlive(diskId)) {
+        LOGDEBUG << "Disk: " << diskId << " accessible. Ignoring IO failure event.";
         return ERR_OK;
     }
     diskMap->makeDiskOffline(diskId);
@@ -244,14 +295,30 @@ ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& ti
     }
     if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.useSsdForMeta")) {
         if (diskMap->getTotalDisks(tier) > 1) {
+            // Remove token files and meta dbs for the lost disk.
+            movedTokensFileCleanup(lostTokens);
+            // Remove lost disk references from disk map and superblock.
+            // Recompute and reassign tokens to other disks on this SM.
+            diskMap->eraseLostDiskReferences(diskId, tier);
             diskMap->removeDiskAndRecompute(diskId, tier);
+            for (auto& token : lostTokens) {
+                movedTokens.erase(token);
+            }
         } else {
             LOGCRITICAL << "Disk Failure. Node is out of disks!";
             return ERR_SM_NO_DISK;
         }
     } else {
         if (diskMap->getTotalDisks() > 1) {
+            // Remove token files and meta dbs for the lost disk.
+            movedTokensFileCleanup(lostTokens);
+            // Remove lost disk references from disk map and superblock.
+            // Recompute and reassign tokens to other disks on this SM.
+            diskMap->eraseLostDiskReferences(diskId, tier);
             diskMap->removeDiskAndRecompute(diskId, tier);
+            for (auto& token : lostTokens) {
+                movedTokens.erase(token);
+            }
         } else {
             LOGCRITICAL << "Disk Failure. Node is out of disks!";
             return ERR_SM_NO_DISK;
@@ -259,7 +326,7 @@ ObjectStore::handleOnlineDiskFailures(DiskId& diskId, const diskio::DataTier& ti
     }
     Error err = openStore(lostTokens);
     if (!err.ok()) {
-        LOGDEBUG << "Error opening metadata and data stores for redistributed tokens." << err;
+        LOGERROR << "Error opening metadata and data stores for redistributed tokens." << err;
     }
 
     if (requestResyncFn) {
@@ -288,6 +355,11 @@ ObjectStore::openStore(const SmTokenSet& smTokens) {
         LOGERROR << "Failed to open Data Store " << err;
     }
     return err;
+}
+
+SmTokenSet
+ObjectStore::getSmTokens() {
+    return diskMap->getSmTokens();
 }
 
 Error
@@ -376,6 +448,38 @@ ObjectStore::handleDltClose(const DLT* dlt) {
     return err;
 }
 
+fds_bool_t
+ObjectStore::doResync() const {
+    // if some tokens of this sm has been redistributed
+    // due to disk failure or ownership change wrt
+    // disk and token, override peristed resync
+    // instruction.
+    if (movedTokens.size() > 0) {
+        return true;
+    }
+    if (diskMap) {
+        return diskMap->doResync();
+    } else {
+        return false;
+    }
+}
+
+void
+ObjectStore::setResync() {
+    if (diskMap) {
+        LOGNOTIFY << "Persist that resync is required";
+        return diskMap->setResync();
+    }
+}
+
+void
+ObjectStore::resetResync() {
+    if (diskMap) {
+        LOGNOTIFY << "Persist that no resync is required";
+        return diskMap->resetResync();
+    }
+}
+
 Error
 ObjectStore::addVolume(const VolumeDesc& volDesc) {
     Error err(ERR_OK);
@@ -399,6 +503,9 @@ ObjectStore::checkAvailability() const {
     } else if (curState == OBJECT_STORE_INIT) {
         LOGERROR << "Object Store is coming up, but not ready to accept IO";
         return ERR_NOT_READY;
+    } else if (curState == OBJECT_STORE_READ_ONLY) {
+        LOGWARN << "Object store is in read only mode.";
+        return ERR_SM_READ_ONLY;
     }
     return ERR_OK;
 }
@@ -407,7 +514,8 @@ Error
 ObjectStore::putObject(fds_volid_t volId,
                        const ObjectID &objId,
                        boost::shared_ptr<const std::string> objData,
-                       fds_bool_t forwardedIO) {
+                       fds_bool_t forwardedIO,
+                       diskio::DataTier &useTier) {
     Error err = checkAvailability();
     if (!err.ok()) {
         return err;
@@ -421,7 +529,7 @@ ObjectStore::putObject(fds_volid_t volId,
     ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     PerfTracer::tracePointEnd(objWaitCtx);
 
-    diskio::DataTier useTier = diskio::maxTier;
+    useTier = diskio::maxTier;
     LOGTRACE << "Putting object " << objId << " volume " << std::hex << volId
              << std::dec;
 
@@ -454,7 +562,7 @@ ObjectStore::putObject(fds_volid_t volId,
     //
 
     // Get metadata from metadata store
-    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err);
+    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err, &useTier);
     if (err == ERR_OK) {
         bool isDataPhysicallyExist = objMeta->dataPhysicallyExists();
 
@@ -475,7 +583,7 @@ ObjectStore::putObject(fds_volid_t volId,
         if (isDataPhysicallyExist && (conf_verify_data == true)) {
             // verify data -- read object from object data store
             boost::shared_ptr<const std::string> existObjData
-                    = dataStore->getObjectData(volId, objId, objMeta, err);
+                    = dataStore->getObjectData(volId, objId, objMeta, err, &useTier);
             if (!err.ok()) {
                 return err;
             }
@@ -515,7 +623,10 @@ ObjectStore::putObject(fds_volid_t volId,
             return err;
         }
     }
-    fds_verify(err.ok() || (err == ERR_DUPLICATE));
+    if (!(err.ok() || (err == ERR_DUPLICATE))) {
+        LOGERROR << "Put failed for " << objId.ToHex().c_str() << "with error: " << err;
+        return err;
+    }
 
     // If the TokenMigration reconcile is still required, then treat the object as not valid.
     if (!updatedMeta->isObjReconcileRequired()) {
@@ -537,7 +648,7 @@ ObjectStore::putObject(fds_volid_t volId,
     // We expect the data put to be atomic.
     // If we crash after the writing the data but before writing
     // the metadata, the orphaned object data will get cleaned up
-    // on a subsequent scavenger pass.
+    // on a subsequent GC run.
     if (err.ok() ||
         ((err == ERR_DUPLICATE) && !objMeta->dataPhysicallyExists())) {
         // object not duplicate
@@ -553,6 +664,8 @@ ObjectStore::putObject(fds_volid_t volId,
             useTier = diskio::diskTier;
         }
 
+        // TODO(brian): Talk to Mark about this one... if we can just prevent people from picking tiering choices
+        // that their system can't support we can remove this from the write path which will improve performance.
         // Adjust the tier depending on the system disk topology.
         if (diskMap->getTotalDisks(useTier) == 0) {
             // there is no requested tier, use existing tier
@@ -564,19 +677,13 @@ ObjectStore::putObject(fds_volid_t volId,
             }
         }
 
-        if (useTier == diskio::flashTier) {
-            fds_bool_t ssdSuccess = diskMap->ssdTrackCapacityAdd(objId,
-                    objData->size(), tierEngine->getFlashFullThreshold());
-
-            if (!ssdSuccess) {
-                LOGTRACE << "Exceeded SSD capacity, use disk tier";
-                useTier = diskio::diskTier;
-            }
-        }
-
-        if (diskMap->getTotalDisks(useTier) == 0) {
-            LOGCRITICAL << "No disk capacity";
-            return ERR_SM_EXCEEDED_DISK_CAPACITY;
+        /** TODO(brian): Clean up how we handle writing to different tiers
+         * - Use more robust tracking
+         * - Allow for separate tracking for hybrid volumes that may have migration policies
+         */
+        err = triggerReadOnlyIfPutWillfail(vol, objId, objData, useTier);
+        if (!err.ok()) {
+            return err;
         }
 
         // put object to datastore
@@ -585,11 +692,18 @@ ObjectStore::putObject(fds_volid_t volId,
         if (!err.ok()) {
             LOGERROR << "Failed to write " << objId << " to obj data store "
                      << err;
+
             if (useTier == diskio::flashTier) {
                 diskMap->ssdTrackCapacityDelete(objId, objData->size());
             }
             return err;
         }
+
+        // Get the disk ID so we can figure out the consumed space.
+        fds_uint16_t diskId = diskMap->getDiskId(objId, useTier);
+
+        // Now track capacity change
+        capacityMap[diskId].usedCapacity += objData->size();
 
         // Notify tier engine of recent IO
         tierEngine->notifyIO(objId, FDS_SM_PUT_OBJECT, *vol->voldesc, useTier);
@@ -598,9 +712,11 @@ ObjectStore::putObject(fds_volid_t volId,
         updatedMeta->updatePhysLocation(&objPhyLoc);
     }
 
+    updatedMeta->updateTimestamp();
+    updatedMeta->resetDeleteCount();
     // write metadata to metadata store
-    err = metaStore->putObjectMetadata(volId, objId, updatedMeta);
-
+    err = metaStore->putObjectMetadata(volId, objId, updatedMeta, &useTier);
+    useTier = metaStore->getMetadataTier();
     return err;
 }
 
@@ -610,7 +726,7 @@ ObjectStore::getObject(fds_volid_t volId,
                        diskio::DataTier& usedTier,
                        Error& err) {
     err = checkAvailability();
-    if (!err.ok()) {
+    if (!err.ok() && err != ERR_SM_READ_ONLY) {
         return nullptr;
     }
 
@@ -639,7 +755,29 @@ ObjectStore::getObject(fds_volid_t volId,
     // 3) If DISK(RECONCILE) flag is set, then return an error.
 
     // Get metadata from metadata store
-    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err);
+    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(volId, objId, err, &usedTier);
+
+    /**
+     * Additional handling for error type: not found.
+     * If metadata not found in db, do a small disk test to make sure metadata
+     * indeed is not present in the db and it's not because of failure to read
+     * from the presistent media.
+     */
+    if (err == ERR_NOT_FOUND) {
+        fds_token_id smToken = diskMap->smTokenId(objId);
+        diskio::DataTier metaTier = metaStore->getMetadataTier();
+        DiskId diskId = diskMap->getDiskId(objId, metaTier);
+        std::string path = diskMap->getDiskPath(diskId) + "/.tempFlush";
+
+        bool diskDown = DiskUtils::diskFileTest(path);
+        if (diskDown) {
+            updateMediaTrackers(smToken, metaTier, ERR_DISK_READ_FAILED);
+        }
+        LOGERROR << "Failed to get object metadata" << objId << " volume "
+                 << std::hex << volId << std::dec << " " << err;
+        return nullptr;
+    }
+
     if (!err.ok()) {
         LOGERROR << "Failed to get object metadata" << objId << " volume "
                  << std::hex << volId << std::dec << " " << err;
@@ -663,31 +801,13 @@ ObjectStore::getObject(fds_volid_t volId,
         return nullptr;
     }
 
-    /*
-     * TODO(umesh): uncomment this when reference counting is used.
-     *
-    // If this Volume never put this object, then it should not access the object
-    if (!objMeta->isVolumeAssociated(volId)) {
-        err = ERR_NOT_FOUND;
-        LOGWARN << "Volume " << std::hex << volId << std::dec << " aunauth access "
-                << " to object " << objId << " returning " << err;
-        return nullptr;
-    }
-    */
-
     // get object data
     boost::shared_ptr<const std::string> objData
-            = dataStore->getObjectData(volId, objId, objMeta, err);
+            = dataStore->getObjectData(volId, objId, objMeta, err, &usedTier);
     if (!err.ok()) {
         LOGERROR << "Failed to get object data " << objId << " volume "
                  << std::hex << volId << std::dec << " " << err;
         return objData;
-    }
-
-    // return tier we read from
-    usedTier = diskio::diskTier;
-    if (objMeta->onFlashTier()) {
-        usedTier = diskio::flashTier;
     }
 
     // verify data
@@ -716,7 +836,7 @@ ObjectStore::getObjectData(fds_volid_t volId,
                        Error& err)
 {
     err = checkAvailability();
-    if (!err.ok()) {
+    if (!err.ok() && err != ERR_SM_READ_ONLY) {
         return nullptr;
     }
 
@@ -739,7 +859,7 @@ ObjectStore::deleteObject(fds_volid_t volId,
                           const ObjectID &objId,
                           fds_bool_t forwardedIO) {
     Error err = checkAvailability();
-    if (!err.ok()) {
+    if (!err.ok() && err != ERR_SM_READ_ONLY) {
         return err;
     }
 
@@ -1107,6 +1227,8 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
             return err;
         }
 
+        OBJECTSTOREMGR(objStorMgr)->counters->dataCopied.incr(objMeta->getObjSize());
+
         // update physical location that we got from data store
         updatedMeta->updatePhysLocation(&objPhyLoc);
         // write metadata to metadata store
@@ -1121,6 +1243,7 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         if (TokenCompactor::isGarbage(*objMeta) || !objOwned) {
             LOGDEBUG << "Removing metadata for " << objId
                       << " object owned? " << objOwned;
+            OBJECTSTOREMGR(objStorMgr)->counters->dataRemoved.incr(objMeta->getObjSize());
             err = metaStore->removeObjectMetadata(unknownVolId, objId);
         }
     }
@@ -1313,10 +1436,6 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
                 // we didn't find ssd-only volume yet, so potential candidate
                 // but we may see ssd-only volumes, so continue search
                 selectVol = vol;
-            } else if (vol->voldesc->mediaPolicy == fpi::FDSP_MEDIA_POLICY_HYBRID_PREFCAP) {
-                if (selectVol->voldesc->mediaPolicy != fpi::FDSP_MEDIA_POLICY_HYBRID) {
-                    selectVol = vol;
-                }
             } else if (!selectVol) {
                 selectVol = vol;
             }
@@ -1333,7 +1452,7 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
             useTier = diskio::diskTier;
         }
 
-        // Adjust the tier depending on the system disk topolgy
+        // Adjust the tier depending on the system disk topology.
         if (diskMap->getTotalDisks(useTier) == 0) {
             // there is no requested tier, use existing tier
             LOGDEBUG << "There is no " << useTier << " tier, will use existing tier";
@@ -1344,18 +1463,9 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
             }
         }
 
-        if (useTier == diskio::flashTier) {
-            fds_bool_t ssdSuccess = diskMap->ssdTrackCapacityAdd(objId,
-                    objData->size(), tierEngine->getFlashFullThreshold());
-
-            if (!ssdSuccess) {
-                useTier = diskio::diskTier;
-            }
-        }
-
-        if (diskMap->getTotalDisks(useTier) == 0) {
-            LOGCRITICAL << "No disk capacity";
-            return ERR_SM_EXCEEDED_DISK_CAPACITY;
+        err = triggerReadOnlyIfPutWillfail(selectVol, objId, objData, useTier);
+        if (!err.ok()) {
+            return err;
         }
 
         // put object to datastore
@@ -1509,6 +1619,72 @@ ObjectStore::updateMediaTrackers(fds_token_id smTokId,
     }
 }
 
+bool
+ObjectStore::duplicateDiskMap() {
+    SmDiskMap tempDiskMap("Temp disk map");
+    tempDiskMap.loadDiskMap();
+
+    auto addHDDs = DiskUtils::diffDiskSet(tempDiskMap.getDiskIds(diskio::diskTier),
+                                          diskMap->getDiskIds(diskio::diskTier));
+
+    auto rmHDDs = DiskUtils::diffDiskSet(diskMap->getDiskIds(diskio::diskTier),
+                                         tempDiskMap.getDiskIds(diskio::diskTier));
+
+    auto addSSDs = DiskUtils::diffDiskSet(tempDiskMap.getDiskIds(diskio::flashTier),
+                                          diskMap->getDiskIds(diskio::flashTier));
+
+    auto rmSSDs = DiskUtils::diffDiskSet(diskMap->getDiskIds(diskio::flashTier),
+                                         tempDiskMap.getDiskIds(diskio::flashTier));
+
+    if (addHDDs.size() == 0 &&
+        rmHDDs.size() == 0 &&
+        addSSDs.size() == 0 &&
+        rmHDDs.size() == 0) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+void
+ObjectStore::handleNewDiskMap() {
+
+    if (duplicateDiskMap()) {
+        LOGNOTIFY << "Duplicate disk map. Ignoring disk map change notification";
+        return;
+    }
+
+    auto badDisks = diskMap->initAndValidateDiskMap();
+    for (auto &disk : badDisks) {
+        movedTokensFileCleanup(diskMap->getSmTokens(disk));
+    }
+
+    auto err = diskMap->handleNewDiskMap();
+    movedTokensFileCleanup();
+    auto resyncRequired = (movedTokens.size() > 0);
+
+    if (err.ok()) {
+        // open metadata store for tokens owned by this SM
+        Error openErr = metaStore->openMetadataStore(diskMap);
+        if (!openErr.ok()) {
+            LOGERROR << "Failed to open Metadata Store " << openErr;
+            return;
+        } else {
+            // open data store for tokens owned by this SM
+            openErr = dataStore->openDataStore(diskMap,
+                                               (err == ERR_SM_NOERR_PRISTINE_STATE));
+        }
+    } else {
+        LOGCRITICAL << "Failure during processing of new disk map. Error: " << err;
+    }
+
+    // Only do resync if a disk was removed and token data was lost due to that.
+    if (requestResyncFn && resyncRequired) {
+        requestResyncFn(true, false);
+    }
+}
+
+
 /**
  * Handle disk removal from the system.
  * For Hybrid Storage System(2SSD - 10HDD default config):
@@ -1526,32 +1702,227 @@ ObjectStore::updateMediaTrackers(fds_token_id smTokId,
  *                    done.
  */
 void
-ObjectStore::handleDiskChanges(const DiskId& removedDiskId,
+ObjectStore::handleDiskChanges(const bool &added,
+                               const DiskId& diskId,
                                const diskio::DataTier& tierType,
                                const TokenDiskIdPairSet& tokenDiskPairs) {
-    SmTokenSet lostTokens;
-    LOGNOTIFY << "Tokens to be redistributed";
+    LOGNOTIFY << "Handle disk changes for disk: " << diskId;
 
-    diskMap->makeDiskOffline(removedDiskId);
+    if (added) {
+        // Add new capacity tracking
+        auto newCap = diskMap->getDiskConsumedSize(diskId);
+        capacityMap[diskId].usedCapacity = newCap.usedCapacity;
+        capacityMap[diskId].totalCapacity = newCap.totalCapacity;
+        LOGNOTIFY << "Adding disk capacity tracking for " << diskId << " with capacity info "
+                    << capacityMap[diskId].usedCapacity << "/" << capacityMap[diskId].totalCapacity;
 
-    for (auto& tokenPair: tokenDiskPairs) {
-        LOGNOTIFY << tokenPair.first;
-        lostTokens.insert(tokenPair.first);
+        auto cmdType = SmScavengerCmd::SCAV_ENABLE_DISK;
+        auto initiator = SmCommandInitiator::SM_CMD_INITIATOR_DISK_CHANGE;
+
+        SmScavengerCmd *scavCmd = new SmScavengerCmd(cmdType, initiator, diskId);
+        scavengerControlCmd(scavCmd);
+    } else {
+        diskMap->makeDiskOffline(diskId);
+
+        // Remove disk from capacity tracking
+        capacityMap.erase(diskId);
+        LOGNOTIFY << "Removing disk capacity tracking for " << diskId;
+
+        for (auto& tokenPair: tokenDiskPairs) {
+            LOGNOTIFY << tokenPair.first;
+            movedTokens.insert(tokenPair.first);
+        }
+
+        auto cmdType = SmScavengerCmd::SCAV_DISABLE_DISK;
+        auto initiator = SmCommandInitiator::SM_CMD_INITIATOR_DISK_CHANGE;
+
+        SmScavengerCmd *scavCmd = new SmScavengerCmd(cmdType, initiator, diskId);
+        scavengerControlCmd(scavCmd);
     }
-
+}
+void
+ObjectStore::movedTokensFileCleanup(SmTokenSet lostTokens) {
+    auto tokenSet = lostTokens;
+    if (lostTokens.size() == 0) {
+        tokenSet = movedTokens;
+    }
     if (metaStore->isUp()) {
         /**
          * Delete in-memory and persisted levelDB files(if exists)
          * for given SM Tokens.
          */
         LOGNOTIFY << "Close and delete metadata DBs for smTokens ";
-        metaStore->closeAndDeleteMetadataDbs(lostTokens);
+        metaStore->closeAndDeleteMetadataDbs(tokenSet);
     }
 
     if (dataStore->isUp()) {
         LOGNOTIFY << "Close and delete token files for smTokens ";
-        dataStore->closeAndDeleteSmTokensStore(lostTokens, true);
+        dataStore->closeAndDeleteSmTokensStore(tokenSet, true);
     }
+    if (lostTokens.size() == 0) {
+        movedTokens.clear();
+    }
+}
+
+/**
+ * Check if SM has object sets for all the volumes in the domain.
+ * (Including all system volumes).
+ */
+bool
+ObjectStore::haveAllObjectSets(TimeStamp after) const {
+    auto volList = volumeTbl->getVolList(true);
+    std::set<fds_volid_t> volumes(volList.begin(), volList.end());
+
+    for (auto i = 0 ; i < 256 ; i++) {
+        if (liveObjectsTable->haveAllObjectSets(i, volumes, after)) return true;
+    }
+    LOGDEBUG << "all objects not found for any token";
+    return false;
+}
+
+/**
+ * Add a new object set(bloom filter) received from a DM
+ * to the liveObjects Table
+ */
+void
+ObjectStore::addObjectSet(const fds_token_id &smToken,
+                          const fds_volid_t &volId,
+                          const util::TimeStamp &timeStamp,
+                          const std::string &objectSetFilePath) {
+    liveObjectsTable->addObjectSet(smToken, volId, timeStamp, objectSetFilePath);
+}
+
+/**
+ * Clean existing entries based on smtoken and dm src uuid
+ * and insert new entries to the liveObjects Table
+ */
+void
+ObjectStore::cleansertObjectSet(const fds_token_id &smToken,
+                                const fds_volid_t &volId,
+                                const util::TimeStamp &timeStamp,
+                                const std::string &objectSetFilePath) {
+    liveObjectsTable->cleansertObjectSet(smToken, volId, timeStamp,
+                                         objectSetFilePath);
+}
+
+/**
+ * Remove an existing object set from live object table
+ * based on sm token and volume id.
+ */
+void
+ObjectStore::removeObjectSet(const fds_token_id &smToken,
+                             const fds_volid_t &volId) {
+    liveObjectsTable->removeObjectSet(smToken, volId);
+}
+
+/**
+ * Remove an existing object set from live object table
+ * based on sm token and dm svc uuid.
+ */
+void
+ObjectStore::removeObjectSet(const fds_token_id &smToken) {
+    liveObjectsTable->removeObjectSet(smToken);
+}
+
+/**
+ * Remove an existing object set from live object table
+ * based on volume id.
+ */
+void
+ObjectStore::removeObjectSet(const fds_volid_t &volId) {
+    liveObjectsTable->removeObjectSet(volId);
+}
+
+/**
+ * Check all the objects beloging to a given SM token
+ * for delete object criteria and let Scavenger know of it.
+ *
+ *
+ * TODO Optimizations (Gurpreet):
+ * 1) Check and merge all same sized bloom filters.
+ */
+void
+ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
+                                const diskio::DataTier& tier,
+                                diskio::TokenStat &tokStats) {
+
+    std::set<std::string> objectSetFileNames;
+    liveObjectsTable->findObjectSetsPerToken(smToken, objectSetFileNames);
+    std::vector<BloomFilter> objectSets;
+    typedef std::vector<BloomFilter>::const_iterator ObjSetIter;
+
+    for (auto eachFile : objectSetFileNames) {
+        serialize::Deserializer* d = serialize::getFileDeserializer(eachFile);
+        BloomFilter bf;
+        bf.read(d);
+        objectSets.push_back(bf);
+        delete d;
+    }
+
+    TimeStamp ts;
+    liveObjectsTable->findMinTimeStamp(smToken, ts);
+
+    std::function<void (const ObjectID&)> checkAndModifyMeta =
+            [this, &objectSets, &ts, &tokStats, &smToken] (const ObjectID& oid) {
+        ++tokStats.tkn_tot_size;
+        ObjSetIter iter = objectSets.begin();
+        for (iter; iter != objectSets.end(); ++iter) {
+            if (iter->lookup(oid)) {
+                LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid
+                         << " found in object set(s) ";
+                break;
+            }
+        }
+        if (iter == objectSets.end()) {
+            if (this->tokenLockFn) {
+                LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid
+                         << " not found in object set(s) ";
+                auto tokenLock = this->tokenLockFn(oid, true);
+                Error err(ERR_OK);
+                ObjMetaData::const_ptr objMeta =
+                        metaStore->getObjectMetadata(invalid_vol_id, oid, err);
+                /**
+                 * Check if the object got updated recently(via a PUT).
+                 * If so, then these object sets will have stale information
+                 * regarding the state of the object. Ignore processing this
+                 * object and leave it's metadata as it is. Otherwise update
+                 * metadata information.
+                 */
+                auto objDelCnt = objMeta->getDeleteCount();
+                auto objTS = objMeta->getTimeStamp();
+                if (!ts || (objTS < ts)) {
+                    ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
+                    updatedMeta->updateTimestamp();
+                    LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid
+                             << " current timestamp " << updatedMeta->getTimeStamp()
+                             << " current delCount " << std::dec
+                             << (fds_uint16_t)updatedMeta->getDeleteCount();
+                    /**
+                     * If the delete count for this object has reached the threshold
+                     * then let the Scavenger know about it.
+                     */
+                    if (updatedMeta->incrementDeleteCount() >= fds::objDelCountThresh) {
+                        ++tokStats.tkn_reclaim_size;
+                    }
+                    metaStore->putObjectMetadata(invalid_vol_id, oid, updatedMeta);
+                } else if (objDelCnt >= fds::objDelCountThresh && objTS > ts) {
+                    LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid
+                             << " current timestamp " << objTS
+                             << " current delCount " << std::dec
+                             << (fds_uint16_t)objDelCnt;
+                    ++tokStats.tkn_reclaim_size;
+                }
+            }
+        }
+    };
+
+    metaStore->forEachObject(smToken, checkAndModifyMeta);
+    tokStats.tkn_id = smToken;
+}
+
+void
+ObjectStore::dropLiveObjectDB() {
+    liveObjectsTable->dropDB();
 }
 
 /**
@@ -1570,6 +1941,7 @@ ObjectStore::mod_init(SysParams const *const p) {
     Module::mod_init(p);
 
     initObjectStoreMediaErrorHandlers();
+    setObjectDelCnt(g_fdsprocess->get_fds_config()->get<fds_uint32_t>("fds.sm.scavenger.expunge_threshold",3));
     // Conditionally enable write faults at the given rate
     float write_failure_rate = g_fdsprocess->get_fds_config()->get<float>("fds.sm.objectstore.faults.fail_writes", 0.0f);
     if (write_failure_rate != 0.0f) {
@@ -1592,6 +1964,10 @@ ObjectStore::mod_init(SysParams const *const p) {
 
     // do initial validation of SM persistent state
     Error err = diskMap->loadPersistentState();
+
+    // Delete old token files/meta dbs for any tokens that has moved to new location.
+    movedTokensFileCleanup();
+
     fiu_do_on("sm.objectstore.faults.init.firstphase", err = ERR_SM_SUPERBLOCK_NO_RECONCILE; );
     if (err.ok() || (err == ERR_SM_NOERR_PRISTINE_STATE)) {
         // open metadata store for tokens owned by this SM
@@ -1606,14 +1982,24 @@ ObjectStore::mod_init(SysParams const *const p) {
         }
         LOGDEBUG << "First phase of object store init done";
 
-        // if object store comes up in pristine state, then we are done
-        // initializing it -- set state to ready
+        // If we're above the error threshold we need to go into read only mode instead.
         if (err == ERR_SM_NOERR_PRISTINE_STATE) {
+            // If we hit this then the object store came up in pristine state and we're done initializing
+            // set the ready state
             currentState = OBJECT_STORE_READY;
         }
+
     } else {
         LOGCRITICAL << "Object Store failed to initialize! " << err;
         currentState = OBJECT_STORE_UNAVAILABLE;
+    }
+
+    // Create the disk capacity map to track full disks.
+    DiskIdSet diskIds = diskMap->getDiskIds();
+    for (fds_uint16_t disk_id : diskIds) {
+        auto diskStats = diskMap->getDiskConsumedSize(disk_id);
+        capacityMap[disk_id].usedCapacity = diskStats.usedCapacity;
+        capacityMap[disk_id].totalCapacity = diskStats.totalCapacity;
     }
 
     return 0;
@@ -1634,5 +2020,78 @@ void
 ObjectStore::mod_shutdown() {
     Module::mod_shutdown();
 }
+fds_bool_t ObjectStore::willPutSucceed(fds_uint16_t diskId, fds_uint64_t writeSize) {
 
+    if (capacityMap[diskId].totalCapacity == 0) {
+        // If we hit this we may not yet know about the disk. If this is the case we should stat it.
+        // Add new capacity tracking
+        auto newCap = diskMap->getDiskConsumedSize(diskId);
+        capacityMap[diskId].usedCapacity = newCap.usedCapacity;
+        capacityMap[diskId].totalCapacity = newCap.totalCapacity;
+    }
+
+    double_t newCap = (((capacityMap[diskId].usedCapacity + writeSize) /
+        (capacityMap[diskId].totalCapacity * 1.)) * 100);
+
+    fiu_do_on("sm.objetstore.diskfull", newCap = DISK_CAPACITY_ERROR_THRESHOLD + 1; );
+
+    LOGDEBUG << "Will put succeed? newCap: " << newCap;
+    return newCap < DISK_CAPACITY_ERROR_THRESHOLD;
+}
+
+fds_errno_t ObjectStore::triggerReadOnlyIfPutWillfail(StorMgrVolume *vol,
+                                                      const ObjectID &objId,
+                                                      boost::shared_ptr<const std::string> objData,
+                                                      diskio::DataTier &useTier) {
+
+    // Get the disk ID so we can figure out the consumed space.
+    fds_uint16_t diskId = diskMap->getDiskId(objId, useTier);
+
+    // If there was no volume information just assume HDD
+    // TODO(brian): Revisit this because it isn't necessarily a safe assumption
+    if (!vol) {
+        useTier = diskio::diskTier;
+    }
+
+    if (useTier == diskio::flashTier) {
+        fds_bool_t ssdSuccess = willPutSucceed(diskId, objData->size());
+
+        if (!ssdSuccess) {
+            if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_SSD) {
+                // If we can't write put the node in READ ONLY mode and return an error
+                setReadOnly();
+                LOGERROR << "IO bound for disk " << diskMap->getDiskPath(diskId)
+                            << " was rejected because the write would cause it to exceed the FULL threshold of "
+                            << DISK_CAPACITY_ERROR_THRESHOLD << ". Capacity: "
+                            << capacityMap[diskId].usedCapacity + objData->size()
+                            << " / " << capacityMap[diskId].totalCapacity;
+                return ERR_SM_READ_ONLY;
+            } else if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_HYBRID) {
+                // If we can't write, backoff to HDD since this is hybrid
+                LOGNOTIFY << "Write bound for SSD but SSD capacity exceeded. Using HDD instead.";
+                useTier = diskio::diskTier;
+            }
+        }
+    }
+
+    // Since we may have potentially changed the tier we need to update which diskId we're working with
+    diskId = diskMap->getDiskId(objId, useTier);
+
+    if (diskMap->getTotalDisks(useTier) == 0) {
+        LOGCRITICAL << "No disk capacity";
+        return ERR_SM_NO_DISK;
+    }
+
+    if (useTier == diskio::diskTier) {
+        if (!willPutSucceed(diskId, objData->size())) {
+            setReadOnly();
+            LOGERROR << "IO bound for disk " << diskMap->getDiskPath(diskId) << " was rejected because the write "
+                        << "would cause it to exceed the FULL threshold of " << DISK_CAPACITY_ERROR_THRESHOLD
+                        << ". Capacity: " << capacityMap[diskId].usedCapacity + objData->size()
+                        << " / " << capacityMap[diskId].totalCapacity;
+            return ERR_SM_READ_ONLY;
+        }
+    }
+    return ERR_OK;
+}
 }  // namespace fds

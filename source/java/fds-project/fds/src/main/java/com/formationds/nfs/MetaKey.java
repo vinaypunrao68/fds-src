@@ -1,14 +1,22 @@
 package com.formationds.nfs;
 
-class MetaKey {
+import java.util.Arrays;
+
+public class MetaKey extends SortableKey<MetaKey> {
     String domain;
     String volume;
     String blobName;
 
-    MetaKey(String domain, String volume, String blobName) {
+    public MetaKey(String domain, String volume, String blobName) {
+        super(domain, volume, blobName);
         this.domain = domain;
         this.volume = volume;
         this.blobName = blobName;
+    }
+
+    public MetaKey(String domain, String volume) {
+        super(domain, volume);
+        this.blobName = "";
     }
 
     @Override
@@ -18,27 +26,20 @@ class MetaKey {
 
         MetaKey metaKey = (MetaKey) o;
 
-        if (!blobName.equals(metaKey.blobName)) return false;
-        if (!domain.equals(metaKey.domain)) return false;
-        if (!volume.equals(metaKey.volume)) return false;
+        if (!Arrays.equals(bytes, metaKey.bytes)) return false;
 
         return true;
     }
 
     @Override
     public int hashCode() {
-        int result = domain.hashCode();
-        result = 31 * result + volume.hashCode();
-        result = 31 * result + blobName.hashCode();
-        return result;
+        return Arrays.hashCode(bytes);
     }
+
 
     @Override
     public String toString() {
-        return "MetaKey{" +
-                "domain='" + domain + '\'' +
-                ", volume='" + volume + '\'' +
-                ", blobName='" + blobName + '\'' +
-                '}';
+        return String.format("[MetaKey domain=%s, volume=%s, blobName=%s]", domain, volume, blobName);
+
     }
 }

@@ -111,6 +111,12 @@ class fds_threadpool : boost::noncopyable
 
   public:
     ~fds_threadpool();
+
+    /**
+    * @brief Stops all the threads in the threadpool.  Only implmented for LFThreadpool
+    */
+    void stop();
+
     /*
      * Create the threadpool with specified id, number of thread.
      */
@@ -128,6 +134,13 @@ class fds_threadpool : boost::noncopyable
     template <class F, class... Args>
     void scheduleWithAffinity(uint64_t affinity, F&& f, Args&&... args);
 
+    /**
+    * @brief Returns thread id responsible for tasks with provided affinity.
+    * Only valid if underneath threadpool is lftp
+    * @param affinity
+    */
+    std::thread::id getThreadId(uint64_t affinity) const;
+
     void scheduleTask(thpool_req *task);
 
     /* Worker notifies the pool owner when its thread exits. */
@@ -136,7 +149,7 @@ class fds_threadpool : boost::noncopyable
     /* Use this function in debug builds to catch cases where long running/blocking
      * task is blocking thread in the threadpool.
      */
-    void enableThreadpoolCheck(FdsTimer *timer);
+    void enableThreadpoolCheck(FdsTimer *timer, const std::chrono::seconds &frequencySec);
   protected:
     /* NOTE: Don't run this function on this threadpool, it's better to run on a
      * separate thread.

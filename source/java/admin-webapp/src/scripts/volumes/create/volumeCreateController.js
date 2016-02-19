@@ -5,6 +5,9 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     $scope.volumeName = '';
     $scope.mediaPolicy = 1;
     $scope.enableDc = false;
+    $scope.volumeNameRequired = true;
+    $scope.enableType = false;
+    $scope.enableSize = false;
     
     $scope.timelinePolicies = {};
 
@@ -83,6 +86,7 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
         
         volume.mediaPolicy = $scope.mediaPolicy.value;
         
+        // make sure a name is present
         if ( !angular.isDefined( volume.name ) || volume.name === '' ){
             
             var $event = {
@@ -90,6 +94,48 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
                 type: 'ERROR'
             };
             
+            $rootScope.$emit( 'fds::alert', $event );
+            return;
+        }
+        
+        // make sure a name has no spaces
+        if ( volume.name.indexOf( ' ' ) !== -1 ){
+            
+            var $event = {
+                text: 'Volume names must not contain spaces.',
+                type: 'ERROR'
+            };
+            
+            $rootScope.$emit( 'fds::alert', $event );
+            return;
+        }
+        
+        // make sure for iSCSI the password has correct length
+        if ( volume.settings.type == 'ISCSI' && volume.settings.target.incomingUsers.length > 0 ){
+            
+            if ( volume.settings.target.incomingUsers[0].password.length > 0 &&
+                (volume.settings.target.incomingUsers[0].password.length < 12 ||
+                 volume.settings.target.incomingUsers[0].password.length > 16 ) ){
+            
+                var $event = {
+                    text: 'iSCSI password must be between 12 and 16 characters.',
+                    type: 'ERROR'
+                };
+
+                $rootScope.$emit( 'fds::alert', $event );
+                return;
+            }
+        }
+        
+        // make sure if it's NFS that an IP filter is set.
+        if ( volume.settings.type == 'NFS' && volume.settings.clients.length == 0 ){
+            
+            var $event = {
+                text: 'The \'Allowed IP Filters\' field must not be empty.  It will be reset to \'*\'.',
+                type: 'ERROR'
+            };
+            
+            $scope.dataSettings.clients = '*';
             $rootScope.$emit( 'fds::alert', $event );
             return;
         }
@@ -112,7 +158,8 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     
     var syncWithClone = function( volume ){
         
-        $scope.enableDc = false;
+        $scope.enableType = false;
+        $scope.enableSize = true;
         
         $scope.newQos = {
             iopsMin: volume.qosPolicy.iopsMin,
@@ -132,12 +179,14 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     $scope.$watch( 'volumeVars.cloneFromVolume', function( newVal, oldVal ){
         
         if ( !angular.isDefined( $scope.volumeVars.toClone) || $scope.volumeVars.toClone.value === 'new' ){
-            $scope.enableDc = true;
+            $scope.enableType = true;
+            $scope.enableSize = true;
             return;
         }
         
         if ( !angular.isDefined( newVal ) ){
-            $scope.enableDc = true;
+            $scope.enableType = true;
+            $scope.enableSize = true;
             return;
         }
     
@@ -147,12 +196,14 @@ angular.module( 'volumes' ).controller( 'volumeCreateController', ['$scope', '$r
     $scope.$watch( 'volumeVars.toClone', function( newVal ){
         
         if ( !angular.isDefined( newVal ) || newVal.value === 'new' ){
-            $scope.enableDc = true;
+            $scope.enableType = true;
+            $scope.enableSize = true;
             return;
         }
         
         if ( !angular.isDefined( $scope.volumeVars.cloneFromVolume ) ){
-            $scope.enableDc = true;
+            $scope.enableType = true;
+            $scope.enableSize = true;
             return;
         }
         

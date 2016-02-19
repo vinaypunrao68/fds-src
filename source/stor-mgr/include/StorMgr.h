@@ -20,6 +20,7 @@
 #include "StorMgrVolumes.h"
 #include "persistent-layer/dm_io.h"
 #include "hash/md5.h"
+#include <net/filetransferservice.h>
 
 #include "fds_qos.h"
 #include "qos_ctrl.h"
@@ -44,7 +45,7 @@
 #include <MigrationMgr.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>
 #include <fdsp/event_types_types.h>
-
+#include "counters.h"
 
 #define FDS_STOR_MGR_LISTEN_PORT FDS_CLUSTER_TCP_PORT_SM
 #define FDS_STOR_MGR_DGRAM_PORT FDS_CLUSTER_UDP_PORT_SM
@@ -61,7 +62,7 @@ extern ObjectStorMgr *objStorMgr;
  */
 const std::string DLTFileName = "/currentDLT";
 const std::string UUIDFileName = "/uuidDLT";
-
+#define OBJECTSTOREMGR(obj) if (NULL != dynamic_cast<ObjectStorMgr*>(obj)) dynamic_cast<ObjectStorMgr*>(obj)
 class ObjectStorMgr : public Module, public SmIoReqHandler {
     protected:
      typedef enum {
@@ -77,8 +78,6 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      std::atomic<fds_uint64_t> dedupeByteCnt;
 
-     /// Manager of persistent object storage
-     ObjectStore::unique_ptr objectStore;
      /// Manager of token migration
      MigrationMgr::unique_ptr migrationMgr;
 
@@ -130,14 +129,19 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
                    fds_log *log) :
              FDS_QoSControl(_max_thrds, algo, log, "SM") {
                  parentSm = _parent;
+                 threadPool->enableThreadpoolCheck(
+                     _parent->getModuleProvider()->getTimer().get(),
+                     std::chrono::seconds(30));
                  LOGNOTIFY << "Qos totalRate " << parentSm->totalRate
                            << ", num outstanding io " << parentSm->qosOutNum
                            << ", qos threads " << _max_thrds;
 
                  // dispatcher = new QoSMinPrioDispatcher(this, log, 3000);
+                 // TODO(Rao): Make bypass_dispatcher configurable
                  dispatcher = new QoSWFQDispatcher(this,
                                                    parentSm->totalRate,
                                                    parentSm->qosOutNum,
+                                                   false,
                                                    log);
                  // dispatcher = new QoSHTBDispatcher(this, log, 150);
 
@@ -202,6 +206,11 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
   public:
     SmQosCtrl  *qosCtrl;
+    net::FileTransferService::ptr fileTransfer;
+    SHPTR<sm::Counters> counters;
+    /// Manager of persistent object storage
+     ObjectStore::unique_ptr objectStore;
+
     explicit ObjectStorMgr(CommonModuleProviderIf *modProvider);
      /* This constructor is exposed for mock testing */
      ObjectStorMgr()
@@ -276,6 +285,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
          return volTbl;
      }
 
+     bool haveAllObjectSets() const;
+
      /**
       * A callback from stats collector to sample SM specific stats
       * @param timestamp is timestamp to path to every recordEvent()
@@ -308,9 +319,11 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void handleResyncDoneOrPending(fds_bool_t startResync, fds_bool_t resyncDone);
 
      void changeTokensState(const std::set<fds_token_id>& dltTokens);
-     void handleDiskChanges(const DiskId& dId,
-                            const diskio::DataTier& tierType,
-                            const TokenDiskIdPairSet& tokenDiskPairs);
+     void handleDiskChanges(const bool &added,
+                            const DiskId &diskId,
+                            const diskio::DataTier &tierType,
+                            const TokenDiskIdPairSet &tokenDiskPairs);
+     void handleNewDiskMap();
      Error handleDltUpdate();
 
      void storeCurrentDLT();
@@ -329,6 +342,10 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      NodeUuid getUuid() const;
      fds_bool_t amIPrimary(const ObjectID& objId);
 
+     /*
+      * Check disk capacities and take appropriate action if beyond thresholds
+      */
+     void checkDiskCapacities();
 
      virtual std::string log_string() {
          std::stringstream ret;
@@ -352,6 +369,10 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
                                const std::string& messageKey,
                                std::vector<fpi::MessageArgs> messageArgs,
                                const std::string& messageFormat);
+
+     void sendObjectStoreCtrlMsg(fpi::ObjectStoreState type);
+     void sendReadOnlyModeCmd();
+     void sendReadWriteModeCmd();
 
 
      static Error registerVolume(fds::fds_volid_t volume_id,

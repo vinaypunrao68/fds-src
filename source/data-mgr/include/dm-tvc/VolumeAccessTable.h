@@ -15,6 +15,7 @@
 
 #include "shared/fds_types.h"
 #include "fds_volume.h"
+#include "fds_module_provider.h"
 
 namespace fpi = FDS_ProtocolInterface;
 
@@ -40,7 +41,7 @@ struct DmVolumeAccessEntry {
  * Structure used by the TvC to prevent multi-access to a volume.
  */
 struct DmVolumeAccessTable {
-    explicit DmVolumeAccessTable(fds_volid_t const vol_uuid);
+    DmVolumeAccessTable(fds_volid_t const vol_uuid, const FdsTimerPtr &timer);
     DmVolumeAccessTable(DmVolumeAccessTable const&) = delete;
     DmVolumeAccessTable& operator=(DmVolumeAccessTable const&) = delete;
     ~DmVolumeAccessTable() = default;
@@ -65,12 +66,7 @@ struct DmVolumeAccessTable {
     bool cached { false };
     std::mutex lock;
 
-    /**
-     * A timer to expire tokens
-     */
-    static std::shared_ptr<FdsTimer> getTimer();
-
-    std::shared_ptr<FdsTimer> timer;
+    boost::shared_ptr<FdsTimer> timer;
 };
 }  // namespace fds
 

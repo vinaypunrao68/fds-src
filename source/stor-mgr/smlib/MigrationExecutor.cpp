@@ -49,6 +49,9 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
 {
     state = ATOMIC_VAR_INIT(ME_INIT);
     abortPending = false;
+    dltTokens.clear();
+    retryDltTokens.clear();
+    dltTokRetryCount.clear();
 }
 
 MigrationExecutor::~MigrationExecutor()
@@ -65,7 +68,6 @@ void
 MigrationExecutor::addDltToken(fds_token_id dltTok) {
     MigrationExecutorState curState = atomic_load(&state);
     fds_verify(curState == ME_INIT);
-    fds_verify(dltTokens.count(dltTok) == 0);
     dltTokens.insert(dltTok);
 }
 
@@ -200,10 +202,10 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
         omd.syncObjectMetaData(omdFilter);
 
         if (omdFilter.objRefCnt > 0) {
-            LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
-                       << " FilterSet add ObjId=" << id << ", dltToken=" << dltTokId
-                       << " refcnt=" << omdFilter.objRefCnt << " to thrift msg to source SM "
-                       << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+            LOGTRACE << "Executor " << std::hex << executorId << std::dec
+                     << " FilterSet add ObjId=" << id << ", dltToken=" << dltTokId
+                     << " refcnt=" << omdFilter.objRefCnt << " to thrift msg to source SM "
+                     << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
             perTokenMsgs[dltTokId]->objectsToFilter.push_back(omdFilter);
             objAddedToFilterSet = true;
         }
@@ -355,10 +357,10 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         omd.syncObjectMetaData(omdFilter);
 
         if (omdFilter.objRefCnt > 0) {
-            LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
-                       << " FilterSet add ObjId=" << id << ", dltToken=" << dltTokId
-                       << " refcnt=" << omdFilter.objRefCnt << " to thrift msg to source SM "
-                       << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+            LOGTRACE << "Executor " << std::hex << executorId << std::dec
+                     << " FilterSet add ObjId=" << id << ", dltToken=" << dltTokId
+                     << " refcnt=" << omdFilter.objRefCnt << " to thrift msg to source SM "
+                     << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
             perTokenMsgs[dltTokId]->objectsToFilter.push_back(omdFilter);
             objAddedToFilterSet = true;
         }
@@ -450,13 +452,14 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
               LOGDEBUG << "fault sm.all.filterset.resp.network.error"; \
               error = ERR_SVC_REQUEST_INVOCATION;);
 
+    fiu_do_on("sm.all.filterset.resp.migration.abort",
+              LOGDEBUG << "fault sm.all.filterset.resp.migration.abort"; \
+              error = ERR_SM_TOK_MIGRATION_ABORTED;);
+
     LOGDEBUG << "Received CtrlObjectRebalanceFilterSet response for executor "
              << std::hex << executorId << std::dec << " DLT token " << dltToken
              << " SM token " << smTokenId
              << " " << error;
-
-    // Completed this IO request.  Stop tracking this IO.
-    trackIOReqs.finishTrackIOReqs();
 
     /**
      * If abort is pending for this Executor. Exit.
@@ -467,9 +470,11 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
                    << " for SM token " << smTokenId << " target DLT version "
                    << targetDltVersion;
         abortMigrationCb(executorId, smTokenId);
+        trackIOReqs.finishTrackIOReqs();
         return;
     }
 
+    trackIOReqs.finishTrackIOReqs();
     if (inErrorState() || filterRespAndStateMismatch()) {
         LOGDEBUG << "Ignoring CtrlObjectRebalanceFilterSet response for executor "
                  << std::hex << executorId << std::dec << " DLT token " << dltToken
@@ -686,14 +691,12 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
     MigrationExecutorState curState = atomic_load(&state);
     if (inErrorState() || isAbortPending()) {
         LOGNORMAL << "MigrationExecutor in error state, ignoring the callback";
-
-        // Stop tracking this IO.
+        abortMigrationCb(executorId, smTokenId);
         trackIOReqs.finishTrackIOReqs();
         seqNumDeltaSet.setDoubleSeqNum(req->seqNum,
                                        req->lastSet,
                                        req->qosSeqNum,
                                        req->qosLastSet);
-        abortMigrationCb(executorId, smTokenId);
         return;
     }
 
@@ -819,9 +822,6 @@ MigrationExecutor::getSecondRebalanceDeltaResp(EPSvcRequest* req,
              << std::hex << executorId << std::dec
              << " SM token " << smTokenId << " " << error;
 
-    // Stop tracking request.
-    trackIOReqs.finishTrackIOReqs();
-
     /**
      * If abort is pending for this Executor. Exit.
      */
@@ -831,8 +831,10 @@ MigrationExecutor::getSecondRebalanceDeltaResp(EPSvcRequest* req,
                    << " for SM token " << smTokenId << " target DLT version "
                    << targetDltVersion;
         abortMigrationCb(executorId, smTokenId);
+        trackIOReqs.finishTrackIOReqs();
         return;
     }
+    trackIOReqs.finishTrackIOReqs();
 
     if (inErrorState()) {
         LOGDEBUG << "Ignoring CtrlGetSecondRebalanceDeltaSet response for executor "

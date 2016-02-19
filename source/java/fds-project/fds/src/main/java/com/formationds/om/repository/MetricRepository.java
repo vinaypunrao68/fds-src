@@ -9,6 +9,7 @@ import com.formationds.commons.crud.EntityPersistListener;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
+import com.formationds.om.helper.EndUserMessages;
 import com.formationds.om.helper.SingletonConfigAPI;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
@@ -26,24 +27,6 @@ public interface MetricRepository extends CRUDRepository<IVolumeDatapoint, Long>
      * @return the name of the timestamp column
      */
     default public String getTimestampColumnName() { return "timestamp"; }
-
-    /**
-     *
-     * @return the volume name column name
-     */
-    default public Optional<String> getVolumeNameColumnName() { return Optional.of( "volumeName" ); }
-
-    /**
-    *
-    * @return the volume name column name
-    */
-   default public Optional<String> getVolumeDomainColumnName() { return Optional.of( "volumeDomain" ); }
-    
-    /**
-     *
-     * @return the volume id column name
-     */
-    default public Optional<String> getVolumeIdColumnName() { return Optional.of( "volumeId" ); }
 
     /**
      * Listener implementing prePersist to ensure that the volume id is set on each datapoint before
@@ -93,6 +76,12 @@ public interface MetricRepository extends CRUDRepository<IVolumeDatapoint, Long>
 
     /**
      *
+     * @return the total number of used bytes gathered via vfstat looking at mount points.
+     */
+    Double sumUsedBytes();
+
+    /**
+     *
      * @param volumeName the volume to query
      * @param metrics the list of metrics to query.  If null or empty, all metrics are returned.
      *
@@ -109,7 +98,7 @@ public interface MetricRepository extends CRUDRepository<IVolumeDatapoint, Long>
 
         } catch (TException te ) {
 
-            throw new IllegalStateException( "Failed to access configuration service.", te );
+            throw new IllegalStateException( EndUserMessages.CS_ACCESS_DENIED, te );
 
         }
     }
@@ -148,14 +137,14 @@ public interface MetricRepository extends CRUDRepository<IVolumeDatapoint, Long>
 
         List<IVolumeDatapoint> datapoints = mostRecentOccurrenceBasedOnTimestamp( volumeId,
                                                                                  Metrics.BLOBS,
-                                                                                 Metrics.PBYTES );
+                                                                                 Metrics.LBYTES );
 
         IVolumeDatapoint blobs = null;
         IVolumeDatapoint usage = null;
         for (IVolumeDatapoint vdp : datapoints) {
             if (Metrics.BLOBS.matches(vdp.getKey()) ) {
                 blobs = vdp;
-            } else if (Metrics.PBYTES.matches( vdp.getKey() )) {
+            } else if (Metrics.LBYTES.matches( vdp.getKey() )) {
                 usage = vdp;
             }
         }
@@ -179,7 +168,7 @@ public interface MetricRepository extends CRUDRepository<IVolumeDatapoint, Long>
 
         } catch (TException te ) {
 
-            throw new IllegalStateException( "Failed to access configuration service.", te );
+            throw new IllegalStateException( EndUserMessages.CS_ACCESS_DENIED, te );
 
         }
     }

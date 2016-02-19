@@ -22,14 +22,14 @@
             
             <div class="volume-settings-panel">
                 <div class="volume-option">
-                    <fui-input type="text" class="volume-name-input skinny" size="32" placeholder="Enter Volume Name" ng-model="volumeName"></fui-input>
+                    <fui-input type="text" name="volume-name" regexp="^[^\s]+$" class="volume-name-input skinny" size="32" placeholder="Enter Volume Name" ng-model="volumeName" error-text="{{ 'volumes.err_name' | translate }}" required="volumeNameRequired"></fui-input>
                 </div>
             </div>
         </section>
         
         <section class="side-by-side">
             <label class="right-align" style="width: 150px;" translate>volumes.l_data_connector</label>
-            <connector-panel ng-model="dataSettings" enable="enableDc"></connector-panel>
+            <connector-panel ng-model="dataSettings" enable-type="enableType" enable-size="enableSize"></connector-panel>
         </section>
         <section class="side-by-side">
             <label class="right-align" style="width: 150px;" translate>volumes.l_qos</label>

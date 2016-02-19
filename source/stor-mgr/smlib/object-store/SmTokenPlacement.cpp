@@ -9,14 +9,18 @@
 namespace fds {
 
 const fds_uint8_t ObjLocationTablePoison = 0xff;
+/**
+ * Below consts are tightly coupled to tier enum
+ * Any changes to one should be made to other as well.
+ * TODO(Gurpreet): Cleanup. Remove fds_hdd_* consts
+ * from the code and use tier enum instead.
+ */
 const fds_uint16_t fds_hdd_row = 0;
 const fds_uint16_t fds_ssd_row = 1;
+const DiskId DEFAULT_DISKIDX = 0;
 
 ObjectLocationTable::ObjectLocationTable() {
     memset(this, ObjLocationTablePoison, sizeof(*this));
-}
-
-ObjectLocationTable::~ObjectLocationTable() {
 }
 
 void
@@ -27,12 +31,45 @@ ObjectLocationTable::setDiskId(fds_token_id smToken,
     // here we are explicit with translation of tier to row number
     // if tier enum changes ....
     if (tier == diskio::diskTier) {
-        table[fds_hdd_row][smToken] = diskId;
+        table[fds_hdd_row][smToken][DEFAULT_DISKIDX] = diskId;
     } else if (tier == diskio::flashTier) {
-        table[fds_ssd_row][smToken] = diskId;
+        table[fds_ssd_row][smToken][DEFAULT_DISKIDX] = diskId;
     } else {
         fds_panic("Unknown tier set to object location table\n");
     }
+}
+
+void
+ObjectLocationTable::addDiskId(fds_token_id smToken,
+                               diskio::DataTier tier,
+                               fds_uint16_t diskId) {
+    fds_verify(smToken < SMTOKEN_COUNT);
+    auto idx = DEFAULT_DISKIDX;
+    while (table[tier][smToken][idx] != SM_INVALID_DISK_ID &&
+           idx < MAX_HOST_DISKS) {
+        idx++;
+    }
+    if (idx >= MAX_HOST_DISKS) {
+        LOGERROR << "Failed to add new disk: " << diskId
+                 << " for token: " << smToken
+                 << " in tier: " << tier
+                 << ".Reached disk fanout quota for SM Token.";
+        //TODO(Gurpreet): Gracefully handle the error here.
+        return;
+    }
+
+    while (idx > 0) {
+        table[fds_hdd_row][smToken][idx] = table[fds_hdd_row][smToken][idx-1];
+        --idx;
+    }
+    if (tier == diskio::diskTier) {
+        table[fds_hdd_row][smToken][idx] = diskId;
+    } else if (tier == diskio::flashTier) {
+        table[fds_ssd_row][smToken][idx] = diskId;
+    } else {
+        fds_panic("Unknown tier set to object location table\n");
+    }
+
 }
 
 fds_uint16_t
@@ -42,12 +79,34 @@ ObjectLocationTable::getDiskId(fds_token_id smToken,
     // here we are explicit with translation of tier to row number
     // if tier enum changes ....
     if (tier == diskio::diskTier) {
-        return table[fds_hdd_row][smToken];
+        return table[fds_hdd_row][smToken][DEFAULT_DISKIDX];
     } else if (tier == diskio::flashTier) {
-        return table[fds_ssd_row][smToken];
+        return table[fds_ssd_row][smToken][DEFAULT_DISKIDX];
     }
     fds_panic("Unknown tier request from object location table\n");
     return 0;
+}
+
+std::set<DiskId>
+ObjectLocationTable::getDiskIds(fds_token_id smToken,
+                                diskio::DataTier tier) const {
+    std::set<DiskId> disks;
+    if (tier == diskio::diskTier) {
+        auto idx = DEFAULT_DISKIDX;
+        while (table[fds_hdd_row][smToken][idx] != SM_INVALID_DISK_ID &&
+               idx < MAX_HOST_DISKS) {
+            disks.insert(table[fds_hdd_row][smToken][idx]);
+            idx++;
+        }
+    } else if (tier == diskio::flashTier) {
+        auto idx = DEFAULT_DISKIDX;
+        while (table[fds_ssd_row][smToken][idx] != SM_INVALID_DISK_ID &&
+               idx < MAX_HOST_DISKS) {
+            disks.insert(table[fds_ssd_row][smToken][idx]);
+            idx++;
+        }
+    }
+    return disks;
 }
 
 fds_bool_t
@@ -58,10 +117,30 @@ ObjectLocationTable::isDiskIdValid(fds_uint16_t diskId) {
 SmTokenSet
 ObjectLocationTable::getSmTokens(fds_uint16_t diskId) const {
     SmTokenSet tokens;
-    fds_verify(diskId != SM_INVALID_DISK_ID);
+    if (diskId == SM_INVALID_DISK_ID) {
+        return tokens;
+    }
     for (fds_uint32_t i = 0; i < SM_TIER_COUNT; ++i) {
         for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; ++tokId) {
-            if (table[i][tokId] == diskId) {
+            for (DiskId idx = DEFAULT_DISKIDX; idx < MAX_HOST_DISKS; idx++) {
+                if (table[i][tokId][idx] == diskId) {
+                    tokens.insert(tokId);
+                }
+            }
+        }
+    }
+    return tokens;
+}
+
+SmTokenSet
+ObjectLocationTable::getOwnedSmTokens(fds_uint16_t diskId) const {
+    SmTokenSet tokens;
+    if (diskId == SM_INVALID_DISK_ID) {
+        return tokens;
+    }
+    for (fds_uint32_t i = 0; i < SM_TIER_COUNT; ++i) {
+        for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; ++tokId) {
+            if (table[i][tokId][DEFAULT_DISKIDX] == diskId) {
                 tokens.insert(tokId);
             }
         }
@@ -69,10 +148,40 @@ ObjectLocationTable::getSmTokens(fds_uint16_t diskId) const {
     return tokens;
 }
 
+void
+ObjectLocationTable::printSmTokens(fds_uint16_t diskId) const {
+    auto tokenSet = getOwnedSmTokens(diskId);
+    std::string tokenList;
+    for (auto &token : tokenSet) {
+        tokenList.append(std::to_string(token).c_str());
+        tokenList.append(" ");
+    }
+    LOGDEBUG << "Disk: "<< diskId << " owns " << tokenSet.size()
+             << " tokens. Token List: " << tokenList;
+}
+
+fds_uint16_t
+ObjectLocationTable::getNumSmTokens(fds_uint16_t diskId) const {
+    fds_uint16_t tokens = 0;
+    if (diskId == SM_INVALID_DISK_ID) {
+        return tokens;
+    }
+    for (fds_uint32_t i = 0; i < SM_TIER_COUNT; ++i) {
+        for (fds_token_id tokId = 0; tokId < SMTOKEN_COUNT; ++tokId) {
+            for (DiskId idx = DEFAULT_DISKIDX; idx < MAX_HOST_DISKS; idx++) {
+                if (table[i][tokId][idx] == diskId) {
+                    ++tokens;
+                }
+            }
+        }
+    }
+    return tokens;
+}
 Error
 ObjectLocationTable::validate(const std::set<fds_uint16_t>& diskIdSet,
                               diskio::DataTier tier) const {
     Error err(ERR_OK);
+ 
     // build set of disks IDs that are currently in OLT for a given tier
     // and check if OLT contains disks that are not in diskIdSet
     std::set<fds_uint16_t> oltDisks;
@@ -99,6 +208,7 @@ ObjectLocationTable::validate(const std::set<fds_uint16_t>& diskIdSet,
             return ERR_SM_OLT_DISKS_INCONSISTENT;
         }
     }
+
     return err;
 }
 
@@ -133,8 +243,10 @@ ObjectLocationTable::getDiskSet(diskio::DataTier tier)
     }
 
     for (fds_token_id tok = 0; tok < SMTOKEN_COUNT; ++tok) {
-        if (SM_INVALID_DISK_ID != table[rowOffset][tok]) {
-            diskSet.insert(table[rowOffset][tok]);
+        for (DiskId idx = DEFAULT_DISKIDX; idx < MAX_HOST_DISKS; idx++) {
+            if (SM_INVALID_DISK_ID != table[rowOffset][tok][idx]) {
+                diskSet.insert(table[rowOffset][tok][idx]);
+            }
         }
     }
 
@@ -184,12 +296,16 @@ std::ostream& operator<< (std::ostream &out,
  * 1) Uniform storage capacity: since round-robin distribution, disks are of same or similiar
  *    capacity.
  */
-void
+bool
 SmTokenPlacement::compute(const std::set<fds_uint16_t>& hdds,
                           const std::set<fds_uint16_t>& ssds,
                           ObjectLocationTable* olt)
 {
-    fds_verify(olt);
+    fds_assert(olt);
+    if (!olt) {
+        LOGCRITICAL << "Invalid OLT. Failing SM initialization";
+        return false;
+    }
 
     // use round-robin placement of tokens over disks
     // first assign placement on HDDs
@@ -215,6 +331,7 @@ SmTokenPlacement::compute(const std::set<fds_uint16_t>& hdds,
             }
         }
     }
+    return true;
 }
 
 
@@ -245,33 +362,32 @@ SmTokenPlacement::recompute(const std::set<fds_uint16_t>& baseStorage,
                             const std::set<fds_uint16_t>& addedStorage,
                             const std::set<fds_uint16_t>& removedStorage,
                             diskio::DataTier storageTier,
-                            ObjectLocationTable* olt,
-                            Error& err)
+                            ObjectLocationTable *olt,
+                            DiskLocMap &diskLocMap,
+                            Error &err)
 {
-    fds_verify(olt);
+    fds_assert(olt);
+    if (!olt) {
+        LOGCRITICAL << "Invalid OLT. Failing SM initialization";
+        err = ERR_SM_SUPERBLOCK_INCONSISTENT;
+        return false;
+    }
     // there should be at least disk in the base storage.
     fds_verify(baseStorage.size() > 0);
     // should be called only if the topology has changed.
-    fds_verify(addedStorage.size() > 0 || removedStorage.size() > 0);
+    if (!(addedStorage.size() > 0 || removedStorage.size() > 0)) {
+        LOGDEBUG << "Disk topology unchanged. Ignoring recompute request.";
+        err = ERR_OK;
+        return true;
+    }
 
     LOGNOTIFY << "Recomputing token placment";
-
-    // We just handle the case if the disk is removed from the storage.
-    // If the disks are added without losing any disk, for now we do nothing.
-    //
-    // TODO(Sean):  handle the case when the disks are added to the storage.
-    if (removedStorage.size() == 0) {
-        LOGNOTIFY << "Storage was added, but no missing storage.  Skipping token re-placement.";
-        return false;
-    }
 
     // Contains set for all storage for specified storage tier.
     std::set<fds_uint16_t> totalStorage;
 
-    // totalStorage contains the full topological view of the disks on the system
-    // contains ((baseStorage + addedStorage) - removedStorage).
-    // Tokens are distributed based on this
     totalStorage.insert(baseStorage.begin(), baseStorage.end());
+    std::set<fds_uint16_t> curStorage = totalStorage;
 
     // If storage is added, add to the totalStorage.
     if (addedStorage.size() > 0) {
@@ -280,23 +396,25 @@ SmTokenPlacement::recompute(const std::set<fds_uint16_t>& baseStorage,
         }
     }
 
-    // We have the check to see if the removedStorage size > 0.  This assert should
-    // be removed if the system can handle adding new storage to the sm services.
-    fds_assert(removedStorage.size() > 0);
     // If storage is removed, remove from totalStorage.
     if (removedStorage.size() > 0) {
         for (auto diskId : removedStorage) {
             totalStorage.erase(diskId);
+            curStorage.erase(diskId);
         }
     }
 
-    LOGNOTIFY << "Tier=" << storageTier << ", "
-              << "baseStorage size=" << baseStorage.size() << ", "
-              << "addedStorage size=" << addedStorage.size() << ", "
-              << "removedStorage size=" << removedStorage.size() << ", "
-              << "totalStorage size=" << totalStorage.size()
+    LOGNOTIFY << "Tier: " << storageTier << ", "
+              << "current disks: " << baseStorage.size() << ", "
+              << "added disks: " << addedStorage.size() << ", "
+              << "removed disks: " << removedStorage.size() << ", "
+              << "total disks: " << totalStorage.size()
               << std::endl;
 
+    /**
+     * totalStorage contains the full topological view of the disks on the node. 
+     * totalStorage = ((baseStorage + addedStorage) - removedStorage).
+     */
     if (totalStorage.size() == 0) {
         LOGCRITICAL << "No disks left in the node.";
         err = ERR_SM_NO_DISK;
@@ -314,17 +432,18 @@ SmTokenPlacement::recompute(const std::set<fds_uint16_t>& baseStorage,
     SmTokenSet removedTokens;
 
     for (auto diskId : removedStorage) {
-        SmTokenSet tmpRemovedTokens = olt->getSmTokens(diskId);
+        SmTokenSet tmpRemovedTokens = olt->getOwnedSmTokens(diskId);
         if (tmpRemovedTokens.size() > 0) {
             removedTokens.insert(tmpRemovedTokens.begin(), tmpRemovedTokens.end());
         }
     }
-
+    typedef std::set<fds_uint16_t>::const_iterator setcIter;
+    LOGDEBUG << "Removed tokens: " << removedTokens.size();
     // Here, we want to distribute the tokens to added storage first
     if (addedStorage.size() > 0) {
-        std::set<fds_uint16_t>::const_iterator addedStoreCit = addedStorage.cbegin();
+        setcIter addedStoreCit = addedStorage.cbegin();
 
-        uint32_t tokDistCnt = 0;
+        uint32_t tokDiskCnt = 0;
 
         std::set<fds_token_id>::iterator tokenIt;
         while (!removedTokens.empty()) {
@@ -334,15 +453,19 @@ SmTokenPlacement::recompute(const std::set<fds_uint16_t>& baseStorage,
             ++addedStoreCit;
             if (addedStorage.cend() == addedStoreCit) {
                 addedStoreCit = addedStorage.cbegin();
-                if (++tokDistCnt > tokensPerDisk) {
+                if (++tokDiskCnt > tokensPerDisk) {
                     break;
                 }
             }
         }
     }
 
+    LOGDEBUG << "Distributed removed disk tokens";
+    for (auto cit = addedStorage.cbegin(); cit != addedStorage.cend(); ++cit) {
+        olt->printSmTokens(*cit);
+    }
     // Now, any leftover tokens should be distributed to all disks.
-    std::set<fds_uint16_t>::const_iterator totalStoreCit = totalStorage.cbegin();
+    setcIter totalStoreCit = totalStorage.cbegin();
     std::set<fds_token_id>::iterator tokenIt;
     while (!removedTokens.empty()) {
         tokenIt = removedTokens.begin();
@@ -354,7 +477,86 @@ SmTokenPlacement::recompute(const std::set<fds_uint16_t>& baseStorage,
         }
     }
 
+    /**
+     * Handle re-distribution of tokens from existing disks to newly
+     * added disks.
+     */
+    std::set<fds_token_id> candidateTokens = getTokensForNewDisks(curStorage,
+                                                                  addedStorage,
+                                                                  olt,
+                                                                  diskLocMap,
+                                                                  tokensPerDisk);
+    if (addedStorage.size() > 0) {
+        fds_uint32_t disksLoaded = 0;
+        setcIter addedStoreCit = addedStorage.cbegin();
+        std::set<fds_token_id>::iterator tokenIt;
+        while (!candidateTokens.empty()) {
+            tokenIt = candidateTokens.begin();
+            if (olt->getNumSmTokens(*addedStoreCit) < tokensPerDisk) {
+                olt->addDiskId(*tokenIt, storageTier, *addedStoreCit);
+                candidateTokens.erase(tokenIt);
+            } else {
+                ++disksLoaded;
+                if (disksLoaded == addedStorage.size()) {
+                    break;
+                }
+            }
+            ++addedStoreCit;
+            if (addedStorage.cend() == addedStoreCit) {
+                addedStoreCit = addedStorage.cbegin();
+            }
+        }
+
+        /**
+         * Now print the tokens that moved to the new disk(s)
+         */
+        addedStoreCit = addedStorage.cbegin();
+        while (addedStoreCit !=  addedStorage.cend()) {
+            olt->printSmTokens(*addedStoreCit);
+            addedStoreCit++;
+        }
+
+    }
+
     return true;
+}
+
+std::set<fds_token_id>
+SmTokenPlacement::getTokensForNewDisks(const std::set<fds_uint16_t> &curStorage,
+                                       const std::set<fds_uint16_t> &addedStorage,
+                                       const ObjectLocationTable *olt,
+                                       DiskLocMap &diskLocMap,
+                                       const fds_uint32_t &tokensPerDisk) {
+
+    typedef std::pair<diskio::DiskStat,DiskId> DiskInfo;
+    std::set<DiskInfo> diskInfo;
+    SmTokenSet tokensToMove;
+    for (auto &diskId : curStorage) {
+        diskio::DiskStat diskStat;
+        getDiskUsageInfo(diskLocMap, diskId, diskStat);
+        diskInfo.insert(DiskInfo(diskStat, diskId));
+    }
+
+    auto totalTokens = tokensPerDisk * addedStorage.size();
+
+    std::set<DiskInfo>::const_iterator infoIter = diskInfo.begin();
+    while (totalTokens > 0) {
+        auto tokenSet = olt->getOwnedSmTokens(infoIter->second);
+        SmTokenSet::iterator tokIter = tokenSet.begin();
+
+        auto seed = std::chrono::system_clock::now().time_since_epoch().count();
+        std::default_random_engine randEngine(seed);
+        std::uniform_int_distribution<uint32_t> randToken(0, tokenSet.size() - 1);
+        std::advance(tokIter, randToken(randEngine));
+        tokensToMove.insert(*tokIter);
+        --totalTokens;
+
+        infoIter++;
+        if (infoIter == diskInfo.end()) {
+            infoIter = diskInfo.begin();
+        }
+    }
+    return tokensToMove;
 }
 
 }  // namespace fds

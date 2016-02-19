@@ -26,9 +26,10 @@ import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.QueryHelper;
 import com.formationds.om.repository.helper.SeriesHelper;
 import com.formationds.om.repository.query.MetricQueryCriteria;
+import com.formationds.om.repository.query.QueryCriteria.QueryType;
 import com.formationds.om.repository.query.builder.MetricQueryCriteriaBuilder;
-import com.formationds.protocol.FDSP_NodeState;
-import com.formationds.protocol.FDSP_Node_Info_Type;
+import com.formationds.protocol.svc.types.FDSP_NodeState;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.util.SizeUnit;
@@ -120,7 +121,7 @@ public class SystemHealthStatus implements RequestHandler {
 
         // now that the immediate status are done, the rest is determined
         // by how many areas are in certain conditions.  We'll do it
-        // by points.  okay = 1pt, bad = 2pts.  
+        // by points.  okay = 1pt, bad = 2pts.
         //
         // good is <= 1pts.  accetable <=3 marginal > 3
         int points = 0;
@@ -188,7 +189,7 @@ public class SystemHealthStatus implements RequestHandler {
         } else {
 
             // query that stats to get raw capacity data
-            MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder();
+            MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder(QueryType.SYSHEALTH_FIREBREAK);
 
             List<Metrics> metrics = Arrays.asList( Metrics.STC_SIGMA,
                                                    Metrics.LTC_SIGMA,
@@ -256,12 +257,12 @@ public class SystemHealthStatus implements RequestHandler {
         status.setCategory(SystemHealth.CATEGORY.CAPACITY);
 
         // query that stats to get raw capacity data
-        MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder();
+        MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder(QueryType.SYSHEALTH_CAPACITY);
 
         DateRange range = DateRange.last24Hours();
 
         MetricQueryCriteria query = queryBuilder.withContexts(volumes)
-                .withSeriesType(Metrics.PBYTES)
+                .withSeriesType(Metrics.UBYTES)
                 .withRange(range)
                 .build();
 
@@ -271,7 +272,7 @@ public class SystemHealthStatus implements RequestHandler {
                                                                                         .query( query );
 
         // has some helper functions we can use for calculations
-        QueryHelper qh = new QueryHelper();
+        QueryHelper qh = QueryHelper.instance();
 
         // TODO:  Replace this with the correct call to get real capacity
         final Double systemCapacity = Long.valueOf(SizeUnit.TB.totalBytes(1))
@@ -282,7 +283,7 @@ public class SystemHealthStatus implements RequestHandler {
                 .getMetricsRepository()
                 .sumPhysicalBytes());
 
-        List<Series> series = new SeriesHelper().getRollupSeries( queryResults,
+        List<Series> series = SeriesHelper.getRollupSeries( queryResults,
                                                                   query.getRange(),
                                                                   query.getSeriesType(),
                                                                   StatOperation.SUM );
@@ -293,6 +294,7 @@ public class SystemHealthStatus implements RequestHandler {
 
         Long daysToFull = TimeUnit.SECONDS.toDays(timeToFull.getToFull());
 
+        //noinspection Duplicates
         if (daysToFull <= 7) {
             status.setState(HealthState.BAD);
             status.setMessage(CAPACITY_BAD_RATE);
@@ -325,12 +327,12 @@ public class SystemHealthStatus implements RequestHandler {
         status.setCategory(SystemHealth.CATEGORY.SERVICES);
 
         List<Service> services = new ArrayList<Service>();
-        
+
         /**
-         * We need to remove all services that are in the discovered state before we continue 
+         * We need to remove all services that are in the discovered state before we continue
          * because they do not inform the state of the system health.
-         * 
-         * We are creating a new list here because we need the size to reflect the 
+         *
+         * We are creating a new list here because we need the size to reflect the
          * reduced version of this list.
          */
         final List<FDSP_Node_Info_Type> filteredList = rawServices.stream()
@@ -343,13 +345,13 @@ public class SystemHealthStatus implements RequestHandler {
                 return true;
 	        })
 	        .collect( Collectors.toList() );
-        
+
         // converting from the thrift type to our type
         filteredList.stream()
         	.forEach( service -> {
         		services.add( ServiceType.find( service ).get() );
         	});
-        
+
         // first, if all the services are up, we're good.
         long servicesUp = services.stream()
                 .filter((s) -> {
@@ -371,7 +373,7 @@ public class SystemHealthStatus implements RequestHandler {
         // first we do 2 groupings.  One into nodes, one into services
         Map<ManagerType, List<Service>> byService = services.stream()
                 .collect(Collectors.groupingBy(Service::getType));
-        
+
         int nodes = rawServices.stream()
                 .collect(Collectors.groupingBy(FDSP_Node_Info_Type::getNode_uuid))
                 .keySet()

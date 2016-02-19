@@ -24,6 +24,7 @@
 #include <fds_dmt.h>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
+#include <json/json.h>
 
 namespace fds {
 
@@ -155,6 +156,7 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
 
     dltMgr_.reset(new DLTManager());
     dmtMgr_.reset(new DMTManager());
+
 }
 
 fpi::FDSP_MgrIdType SvcMgr::mapToSvcType(const std::string &svcName)
@@ -224,6 +226,15 @@ fpi::SvcUuid SvcMgr::mapToSvcUuid(const fpi::SvcUuid &in,
     return resIn.toSvcUuid();
 }
 
+fpi::SvcUuid SvcMgr::mapToSvcUuid(const NodeUuid &in,
+                                  const fpi::FDSP_MgrIdType& svcType)
+{
+    ResourceUUID resIn(in);
+    resIn.uuid_set_type(in.uuid_get_val(), svcType);
+    return resIn.toSvcUuid();
+}
+
+
 SvcMgr::~SvcMgr()
 {
     svcServer_->stop();
@@ -238,6 +249,12 @@ int SvcMgr::mod_init(SysParams const *const p)
 
     svcRequestHandler_->setTaskExecutor(taskExecutor_);
     Error e = startServer();
+
+    if (MODULEPROVIDER()->get_cntrs_mgr() != nullptr) {
+        stateProviderId = "svcmgr";
+        MODULEPROVIDER()->get_cntrs_mgr()->add_for_export(this);
+    }
+
     return e.getFdspErr();
 }
 
@@ -253,6 +270,9 @@ void SvcMgr::mod_enable_service()
 
 void SvcMgr::mod_shutdown()
 {
+    if (MODULEPROVIDER()->get_cntrs_mgr() != nullptr) {
+        MODULEPROVIDER()->get_cntrs_mgr()->remove_from_export(this);
+    }
     GLOGNOTIFY;
 }
 
@@ -285,8 +305,6 @@ void SvcMgr::stopServer()
 
 void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries)
 {
-    GLOGDEBUG << "Updating service map. Incoming entries size: " << entries.size();
-
     fds_scoped_lock lock(svcHandleMapLock_);
     for (auto &e : entries) {
         auto svcHandleItr = svcHandleMap_.find(e.svc_id.svc_uuid);
@@ -303,7 +321,6 @@ void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries)
             svcHandleItr->second->updateSvcHandle(e);
         }
     }
-    GLOGDEBUG << "After update. Service map size: " << svcHandleMap_.size();
 }
 
 void SvcMgr::getSvcMap(std::vector<fpi::SvcInfo> &entries)
@@ -333,6 +350,12 @@ void SvcMgr::sendAsyncSvcReqMessage(fpi::AsyncHdrPtr &header,
     SvcHandlePtr svcHandle;
     fpi::SvcUuid &svcUuid = header->msg_dst_uuid;
 
+    if (svcUuid == getSelfSvcUuid()) {
+        /* Routing local requests */
+        svcRequestHandler_->asyncReqt(header, payload);
+        return;
+    }
+
     do {
         fds_scoped_lock lock(svcHandleMapLock_);
         if (!getSvcHandle_(svcUuid, svcHandle)) {
@@ -353,6 +376,12 @@ void SvcMgr::sendAsyncSvcRespMessage(fpi::AsyncHdrPtr &header,
 {
     SvcHandlePtr svcHandle;
     fpi::SvcUuid &svcUuid = header->msg_dst_uuid;
+
+    if (svcUuid == getSelfSvcUuid()) {
+        /* Routing local responses */
+        svcRequestHandler_->asyncResp(header, payload);
+        return;
+    }
 
     do {
         fds_scoped_lock lock(svcHandleMapLock_);
@@ -457,7 +486,7 @@ fpi::OMSvcClientPtr SvcMgr::getNewOMSvcClient() const
     int omRetries = std::numeric_limits<int32_t>::max();
     while (true) {
         try {
-            LOGNOTIFY << "Connecting to OM[" << omIp_ << ":" << omPort_ <<
+            LOGTRACE << "Connecting to OM[" << omIp_ << ":" << omPort_ <<
                     "] with max retries of [" << omRetries << "]";
             omClient = allocRpcClient<fpi::OMSvcClient>(omIp_, omPort_, omRetries);
             break;
@@ -586,6 +615,11 @@ const DLT* SvcMgr::getCurrentDLT() {
     return dltMgr_->getDLT();
 }
 
+DMTPtr SvcMgr::getCurrentDMT()
+{
+    return dmtMgr_->hasCommittedDMT() ? dmtMgr_->getDMT(DMT_COMMITTED) : nullptr;
+}
+
 bool SvcMgr::hasCommittedDMT() const {
     return dmtMgr_->hasCommittedDMT();
 }
@@ -612,6 +646,18 @@ Error SvcMgr::updateDlt(bool dlt_type, std::string& dlt_data, OmUpdateRespCbType
 Error SvcMgr::updateDmt(bool dmt_type, std::string& dmt_data, OmUpdateRespCbType const& cb) {
     Error err(ERR_OK);
     LOGNOTIFY << "Received new DMT version  " << dmt_type;
+
+    /* Check to ensure we only have one DMT when volumegrouping is enabled */
+    auto volgroupingEnabled = MODULEPROVIDER()->get_fds_config()->get<bool>(
+            "fds.feature_toggle.common.enable_volumegrouping", false);
+    if (volgroupingEnabled && dmtMgr_->hasCommittedDMT()) {
+        auto committed = dmtMgr_->getDMT(DMT_COMMITTED);
+        if (committed) {
+            auto serializer = serialize::getMemSerializer();
+            committed->write(serializer);
+            fds_verify(serializer->getBufferAsString() == dmt_data);
+        }
+    }
 
     err = dmtMgr_->addSerializedDMT(dmt_data, cb, DMT_COMMITTED);
     if (!err.ok()) {
@@ -668,6 +714,20 @@ void SvcMgr::setUnreachableInjection(float frequency) {
     // for a bit before eventually hitting it.
     fiu_enable_random("svc.fault.unreachable", 1, NULL, 0, frequency);
     LOGNOTIFY << "Enabling unreachable fault injections at a probability of " << frequency;
+}
+
+std::string SvcMgr::getStateProviderId() {
+    return stateProviderId;
+}
+
+std::string SvcMgr::getStateInfo() {
+
+    Json::Value state;
+    state["outstandingRequestsCount"] = static_cast<Json::Value::UInt64>(svcRequestMgr_->getOutstandingRequestsCount());
+
+    std::stringstream ss;
+    ss << state;
+    return ss.str();
 }
 
 SvcHandle::SvcHandle(CommonModuleProviderIf *moduleProvider,
@@ -736,6 +796,8 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
 
     if (isSvcDown_()) {
         /* No point trying to send when service is down */
+        GLOGDEBUG << "No point in sending when service is down! ( "
+                  << fds::logString(svcInfo_) << ")";
         return false;
     }
     try {
@@ -746,42 +808,87 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
                                                                SvcMgr::MIN_CONN_RETRIES);
         }
         if (isAsyncReqt) {
+            /**
+             * fault injection, if 'svc.fault.unreachable' is set the following lambda will execute
+             */
             fiu_do_on("svc.fault.unreachable",
                       LOGNOTIFY << "Triggering unreachable fault"; throw "Fault injection unreachable";);
+
             svcClient_->asyncReqt(*header, *payload);
         } else {
             svcClient_->asyncResp(*header, *payload);
         }
         return true;
     } catch (std::exception &e) {
-        GLOGWARN << "allocRpcClient failed.  Exception: " << e.what() << ".  "  << header;
+        GLOGWARN << "allocRpcClient failed.  Exception: " << e.what() << ".  "  << header
+                 << " SvcInfo ( " << fds::logString(svcInfo_) << " )";
         markSvcDown_();
     } catch (...) {
-        GLOGWARN << "allocRpcClient failed.  Unknown exception. " << header;
+        GLOGWARN << "allocRpcClient failed.  Unknown exception. " << header
+                 << " SvcInfo ( " << fds::logString(svcInfo_) << " )";
         markSvcDown_();
     }
     return false;
 }
 
+bool
+SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr &current, const fpi::SvcInfoPtr &incoming)
+{
+    fds_bool_t ret(false);
+
+    if ( current->incarnationNo < incoming->incarnationNo ) {
+        ret = true;
+    } else if ( (current->incarnationNo == incoming->incarnationNo) &&
+                (current->svc_status != incoming->svc_status) ) {
+        /**
+         * Once a process is declared INACTIVE_FAILED, it is possible that a service
+         * can transition to multiple other states.
+         * A svc gets set to failed is because svc layer for some reason cannot reach the service.
+         * However, periodic heartbeat checks can revive the svcLayer connection in which case an
+         * update can come in for the incarnation number for a change from FAILED -> ACTIVE
+         *
+         * We can also have scenarios where non-PM services in INACTIVE_FAILED state are being
+         * re-started through activate_known_services call in which case a FAILED->STARTED update can
+         * come in for the same incarnation number
+         *
+         * The other allowable use case is if a dead service were to restart, in which
+         * it would then come with a newer incarnation number.
+         *
+         * TODO(Neil): make this check more detailed and centralize the conditionals...
+         * Will happen in another PR.
+         */
+        ret = true;
+    } else if (incoming->incarnationNo == 0) {
+        /**
+         * TODO
+         * This is a workaround to handle when no incarnation number is given...
+         * we have to assume that this is newer than the old incarnation number in the
+         * configDB. Until all areas of PM and OM are sending incarnation number,
+         * this has to be here... and bugs may be coming in.
+         */
+        LOGWARN << "Allowing update with zero incarnatioNo!";
+        LOGDEBUG << "THIS NEEDS TO BE FIXED. Should be passing in with complete info.";
+        ret = true;
+    } else {
+        LOGDEBUG << "Criteria not met, will not allow update of svcMap";
+    }
+
+    return (ret);
+}
+
 void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
 {
     fds_scoped_lock lock(lock_);
-    if (svcInfo_.incarnationNo < newInfo.incarnationNo) {
-        /* Update to new incaration information.  Invalidate the old rpc client */
+    auto currentPtr = boost::make_shared<fpi::SvcInfo>(svcInfo_);
+    auto newPtr = boost::make_shared<fpi::SvcInfo>(newInfo);
+    GLOGDEBUG << "Incoming update: " << fds::logString(*newPtr) << " vs current status: "
+            << fds::logString(*currentPtr);
+    if (shouldUpdateSvcHandle(currentPtr, newPtr)) {
         svcInfo_ = newInfo;
         svcClient_.reset();
-        GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
-            << " Operation: update to new incarnation. After update " << logString();
-    } else if (svcInfo_.incarnationNo == newInfo.incarnationNo &&
-               newInfo.svc_status == fpi::SVC_STATUS_INACTIVE) {
-        /* Mark current incaration inactivnewInfo.  Invalidate the rpc client */
-        svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE; 
-        svcClient_.reset();
-        GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
-            << " Operation: set current incarnation as down.  After update" << logString();
+        GLOGDEBUG << "Operation Applied.";
     } else {
-        GLOGDEBUG << "Incoming update: " << fds::logString(newInfo)
-            << " Operation: not applied.  After update" << logString();
+        GLOGDEBUG << "Operation not Applied.";
     }
 }
 
@@ -800,13 +907,13 @@ std::string SvcHandle::logString() const
 bool SvcHandle::isSvcDown_() const
 {
     /* NOTE: Assumes this function is invoked under lock */
-    return svcInfo_.svc_status == fpi::SVC_STATUS_INACTIVE;
+    return svcInfo_.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED;
 }
 
 void SvcHandle::markSvcDown_()
 {
     /* NOTE: Assumes this function is invoked under lock */
-    svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE;
+    svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE_FAILED;
     svcClient_.reset();
     GLOGDEBUG << logString();
 
@@ -816,6 +923,5 @@ void SvcHandle::markSvcDown_()
         svcMgr->notifyOMSvcIsDown(svcInfo_);
     }
 }
-
 
 }  // namespace fds

@@ -5,6 +5,9 @@
 #ifndef SOURCE_ACCESSMGR_INCLUDE_CONNECTOR_SECTORLOCKMAP_H_
 #define SOURCE_ACCESSMGR_INCLUDE_CONNECTOR_SECTORLOCKMAP_H_
 
+#include <mutex>
+#include <boost/lockfree/spsc_queue.hpp>
+
 namespace fds
 {
 
@@ -37,7 +40,6 @@ struct SectorLockMap {
         } else {
             auto r = sector_map.insert(
                 std::make_pair(k, std::move(std::unique_ptr<queue_type>(new queue_type()))));
-            fds_assert(r.second);
             result = QueueResult::FirstEntry;
         }
         return result;
@@ -58,8 +60,6 @@ struct SectorLockMap {
                     sector_map.erase(it);
                 }
             }
-        } else {
-            fds_assert(false);  // This shouldn't happen, let's know in debug
         }
         return no;
     }

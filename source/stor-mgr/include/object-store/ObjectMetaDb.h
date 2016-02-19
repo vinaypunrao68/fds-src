@@ -133,6 +133,16 @@ class ObjectMetadataDb {
      */
     static std::string getObjectMetaFilename(const std::string& diskPath, fds_token_id smTokId);
 
+    void forEachObject(const fds_token_id& smToken,
+                       std::function<void (const ObjectID&)> &func);
+
+    /**
+     * Get info about where SM metadata is residing. Disk or flash.
+     */
+    inline diskio::DataTier getMetaTierInfo() const {
+        return metaTier;
+    }
+
   private:  // methods
     /**
      * Open object metadata DB for a given SM token

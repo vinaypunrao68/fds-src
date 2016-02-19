@@ -8,15 +8,23 @@
 - include: clean_data.yml
   when: clean_fds is defined and clean_fds == "yes"
 
+- include: clean_logs_and_cores.yml
+  when: clean_logs is defined and clean_logs == "yes"
+
 - include: uninstall_fds.yml
   when: skip_uninstall is not defined or (skip_uninstall is defined and skip_uninstall == False)
 
 - include: install_deps.yml
 
+- include: install_packages.yml
+
 - include: ../deploy_scst/deploy_scst.yml
   when: fds_ft_am_scst_enabled is defined and fds_ft_am_scst_enabled == "true"
 
 - include: install_fds.yml
+
+- include: install_fdsconsole.yml
+  when: install_fdsconsole is defined and install_fdsconsole == "yes"
 
 - include: set_node_num.yml
 

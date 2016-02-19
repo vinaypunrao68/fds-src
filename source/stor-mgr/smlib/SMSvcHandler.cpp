@@ -16,6 +16,9 @@
 #include <net/SvcMgr.h>
 #include <net/MockSvcHandler.h>
 #include <fds_timestamp.h>
+#include <util/path.h>
+
+DECL_EXTERN_OUTPUT_FUNCS(GenericCommandMsg);
 
 namespace fds {
 
@@ -33,6 +36,9 @@ SMSvcHandler::SMSvcHandler(CommonModuleProviderIf *provider)
     REGISTER_FDSP_MSG_HANDLER(fpi::PutObjectMsg, putObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::DeleteObjectMsg, deleteObject);
     REGISTER_FDSP_MSG_HANDLER(fpi::AddObjectRefMsg, addObjectRef);
+
+    /* Object Store Ctrl */
+    REGISTER_FDSP_MSG_HANDLER(fpi::ObjectStoreCtrlMsg, objectStoreCtrl);
 
     /* Service map messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::NodeSvcInfo, notifySvcChange);
@@ -77,6 +83,14 @@ SMSvcHandler::SMSvcHandler(CommonModuleProviderIf *provider)
 
     /* DMT update messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
+
+    /* Active Object Messages */
+    REGISTER_FDSP_MSG_HANDLER(fpi::ActiveObjectsMsg, activeObjects);
+
+    REGISTER_FDSP_MSG_HANDLER(fpi::GenericCommandMsg, genericCommand);
+
+    /* disk-map update message */
+    REGISTER_FDSP_MSG_HANDLER(fpi::NotifyDiskMapChange, diskMapChange);
 }
 
 int
@@ -107,6 +121,22 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     LOGDEBUG << "Received Start Migration for target DLT "
              << migrationMsg->DLT_version;
 
+/* (Gurpreet: Fix for ignoring multiple start migration messages from OM. UNTESTED!!)
+
+    const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getDltManager()->getDLT();
+    fds_uint64_t reqMigrTgtDlt = migrationMsg->DLT_version;
+    auto ongoingMigrTgtDlt = objStorMgr->migrationMgr->getTargetDltVersion();
+    if (!objStorMgr->migrationMgr->isMigrationIdle() ||
+        ((curDlt->getVersion() != DLT_VER_INVALID)  && !curDlt->isClosed())) {
+        LOGWARN << "Received start migration for dlt version: " << reqMigrTgtDlt
+                << " during ongoing migration for version: " << ongoingMigrTgtDlt
+                << ". Ignoring message.";
+        if (ongoingMigrTgtDlt != reqMigrTgtDlt) {
+            startMigrationCb(asyncHdr, migrationMsg->DLT_version, ERR_SM_TOK_MIGRATION_INPROGRESS);
+        }
+        return;
+    }
+*/
     // first disable GC and Tier Migration
     // Note that after disabling GC, GC work in QoS queue will still
     // finish... however, there is no correctness issue if we are running
@@ -182,7 +212,7 @@ SMSvcHandler::migrationAbort(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                              CtrlNotifySMAbortMigrationPtr& abortMsg)
 {
     Error err(ERR_OK);
-    LOGDEBUG << "Received Abort Migration, will revert to previously "
+    LOGNOTIFY << "Received Abort Migration, will revert to previously "
              << " commited DLT version " << abortMsg->DLT_version;
 
     auto abortMigrationReq = new SmIoAbortMigration(abortMsg);
@@ -200,7 +230,6 @@ SMSvcHandler::migrationAbort(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // TODO(Sean):
     // For now, assert that enqueueMsg() does not fail.  Need to think about what
     // error to reply to the OM.
-    fds_verify(err.ok());
 }
 
 void
@@ -218,6 +247,26 @@ SMSvcHandler::migrationAbortCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     sendAsyncResp(*asyncHdr,
                   FDSP_MSG_TYPEID(fpi::CtrlNotifySMAbortMigration),
                   *(abortMigrationReq->abortMigrationReqMsg));
+    /**
+     * Enable scavenger and tiering, which was disabled before
+     * starting the migration.
+     * Eventually we should just remove this inter-dependency
+     * between migration and gc.
+     *
+     * (Gurpreet): Revisit this fix. Make complete fix keeping in
+     * mind combinations of
+     * (
+     *  Add node migration,
+     *  Resync Migration,
+     *  SM being a source,
+     *  SM being a destination of a migration.
+     * )
+     */
+    SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_ENABLE,
+                                 SM_CMD_INITIATOR_TOKEN_MIGRATION);
+    objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
+    SmTieringCmd tierCmd(SmTieringCmd::TIERING_ENABLE);
+    objStorMgr->objectStore->tieringControlCmd(&tierCmd);
 }
 
 /**
@@ -230,20 +279,10 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 {
     Error err(ERR_OK);
     bool fault_enabled = false;
-    LOGDEBUG << "Initiate Object Sync";
-
-    // first disable GC and Tier Migration. If this SM is also a destination and
-    // we already disabled GC and Tier Migration, disabling them again is a noop
-    // Note that after disabling GC, GC work in QoS queue will still
-    // finish... however, there is no correctness issue if we are running
-    // GC job along with token migration, we just want to reduce the amount
-    // of system work we do at the same time (for now, we should be able
-    // to make it work running fully in parallel in the future).
-    SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_DISABLE,
-                                 SM_CMD_INITIATOR_TOKEN_MIGRATION);
-    err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
-    SmTieringCmd tierCmd(SmTieringCmd::TIERING_DISABLE);
-    err = objStorMgr->objectStore->tieringControlCmd(&tierCmd);
+    LOGNORMAL << "Migration source request for token: " << filterObjSet->tokenId
+              << " executor Id: " << std::hex << filterObjSet->executorID
+              << " migration dest: " << asyncHdr->msg_src_uuid.svc_uuid
+              << std::dec << " target dlt version: " << filterObjSet->targetDltVersion;
 
     // tell migration mgr to start object rebalance
     const DLT* dlt = MODULEPROVIDER()->getSvcMgr()->getDltManager()->getDLT();
@@ -258,10 +297,10 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                     << objStorMgr->getUuid() << std::dec;
     } else if (fault_enabled || !(objStorMgr->objectStore->isReady())) {
         err = ERR_SM_NOT_READY_AS_MIGR_SRC;
-        LOGDEBUG << "SM not ready as Migration source " << std::hex
-                 << objStorMgr->getUuid() << std::dec
-                 << " for dlt token: " << filterObjSet->tokenId << std::hex
-                 << " executor: " << filterObjSet->executorID;
+        LOGNOTIFY << "SM not ready as Migration source " << std::hex
+                  << objStorMgr->getUuid() << std::dec
+                  << " for token: " << filterObjSet->tokenId << std::hex
+                  << " executor: " << filterObjSet->executorID;
         fiu_disable("resend.dlt.token.filter.set");
     } else {
         fds_verify(dlt != NULL);
@@ -329,8 +368,9 @@ SMSvcHandler::finishClientTokenResync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
 void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                               boost::shared_ptr<fpi::PrepareForShutdownMsg>& shutdownMsg)
 {
-    LOGDEBUG << "Received shutdown message... shutting down...";
+    LOGNOTIFY << "Received shutdown message... shutting down...";
     if (!objStorMgr->isShuttingDown()) {
+        objStorMgr->objectStore->resetResync();
         objStorMgr->mod_disable_service();
         objStorMgr->mod_shutdown();
     }
@@ -467,14 +507,6 @@ void SMSvcHandler::getObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // start measuring E2E latency
     PerfTracer::tracePointBegin(getReq->opReqLatencyCtx);
 
-    // check if DLT token ready -- we are doing it after creating
-    // get request, because callback needs it
-    if (!objStorMgr->migrationMgr->isDltTokenReady(objId)) {
-        LOGDEBUG << "DLT token not ready, not going to do GET for " << objId;
-        getObjectCb(asyncHdr, ERR_TOKEN_NOT_READY, getReq);
-        return;
-    }
-
     err = objStorMgr->enqueueMsg(getReq->getVolId(), getReq);
     if (err != fds::ERR_OK) {
         LOGERROR << "Failed to enqueue to SmIoGetObjectReq to StorMgr.  Error: "
@@ -530,12 +562,20 @@ void SMSvcHandler::getObjectCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                              boost::shared_ptr<fpi::PutObjectMsg>& putObjMsg)  // NOLINT
 {
+    Error err(ERR_OK);
+    fds_volid_t volId(putObjMsg->volume_id);
+    ObjectID objId(putObjMsg->data_obj_id.digest);
+
     if ((objStorMgr->testUturnAll == true) ||
         (objStorMgr->testUturnPutObj == true)) {
         LOGDEBUG << "Uturn testing put object "
                  << fds::logString(*asyncHdr) << fds::logString(*putObjMsg);
         putObjectCb(asyncHdr, ERR_OK, NULL);
         return;
+    }
+
+    if (!(objStorMgr->getVol(volId))) {
+        putObjectCb(asyncHdr, ERR_VOL_NOT_FOUND, NULL);
     }
 
     DBG(GLOGDEBUG << fds::logString(*asyncHdr) << fds::logString(*putObjMsg));
@@ -550,9 +590,6 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
               return;);
 #endif
 
-    Error err(ERR_OK);
-    fds_volid_t volId(putObjMsg->volume_id);
-    ObjectID objId(putObjMsg->data_obj_id.digest);
     auto putReq = new SmIoPutObjectReq(putObjMsg);
     putReq->io_type = FDS_SM_PUT_OBJECT;
     putReq->setVolId(volId);
@@ -585,7 +622,7 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // put request, because callback needs it
     if (!putObjMsg->forwardedReq && !objStorMgr->migrationMgr->isDltTokenReady(objId)) {
         LOGDEBUG << "DLT token not ready, not going to do PUT for " << objId;
-        putObjectCb(asyncHdr, ERR_TOKEN_NOT_READY, putReq);
+        putObjectCb(asyncHdr, ERR_NOT_READY, putReq);
         return;
     }
 
@@ -891,6 +928,7 @@ SMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
         objStorMgr->quieseceIOsQos(volumeId);
         objStorMgr->deregVolQos(volumeId);
         objStorMgr->deregVol(volumeId);
+        objStorMgr->objectStore->removeObjectSet(volumeId);
     }
     hdr->msg_code = 0;
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolRemove), *vol_msg);
@@ -1055,7 +1093,8 @@ SMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
              << dlt->dlt_version;
     err = MODULEPROVIDER()->getSvcMgr()->updateDlt(dlt->dlt_data.dlt_type,
                                                    dlt->dlt_data.dlt_data, nullptr);
-    if (err.ok()) {
+    const DLT *curDlt = objStorMgr->getDLT();
+    if (err.ok() || curDlt->getVersion() < (fds_uint64_t)(dlt->dlt_version)) {
         err = objStorMgr->handleDltUpdate();
     } else if (err == ERR_DUPLICATE) {
         LOGWARN << "Received duplicate DLT, ignoring";
@@ -1092,7 +1131,7 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &asyncHdr,
         LOGNOTIFY << "SM received DLT close for the version " << (dlt->dlt_close).DLT_version
                   << ", but the current DLT version is " << curDlt->getVersion()
                   << ". SM will ignore this DLT close";
-        fds_verify((fds_uint64_t)((dlt->dlt_close).DLT_version) < curDlt->getVersion());
+        fds_assert((fds_uint64_t)((dlt->dlt_close).DLT_version) < curDlt->getVersion());
         // otherwise OK to OM
         sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
         return;
@@ -1110,6 +1149,7 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &asyncHdr,
     }
 
     auto DLTCloseReq = new SmIoNotifyDLTClose(dlt);
+    DLTCloseReq->setVolId(FdsSysTaskQueueId);
     DLTCloseReq->io_type = FDS_SM_NOTIFY_DLT_CLOSE;
     DLTCloseReq->closeDLTVersion = (dlt->dlt_close).DLT_version;
 
@@ -1122,7 +1162,6 @@ SMSvcHandler::NotifyDLTClose(boost::shared_ptr<fpi::AsyncHdr> &asyncHdr,
     // TODO(Sean):
     // For now, assert that enqueueMsg() does not fail.  Need to think about what
     // error to reply to the OM.
-    fds_verify(err.ok());
 }
 
 void
@@ -1178,8 +1217,9 @@ SMSvcHandler::NotifySMCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     }
     SmCheckActionCmd actionCmd(msg->SmCheckCmd, tgtTokens);
     err = objStorMgr->objectStore->SmCheckControlCmd(&actionCmd);
-    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMCheck), *msg);
+    // (Phillip) NotifySMCheck should not have a response - should be fire and forget
+    //hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    //sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMCheck), *msg);
 }
 
 void
@@ -1197,5 +1237,89 @@ SMSvcHandler::querySMCheckStatus(boost::shared_ptr<fpi::AsyncHdr> &hdr,
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifySMCheckStatusResp), *resp);
 }
 
+void SMSvcHandler::objectStoreCtrl(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                                   boost::shared_ptr<fpi::ObjectStoreCtrlMsg>& msg) {
+
+    LOGNORMAL << "Received objectStorCtrlMsg from " << hdr->msg_src_id
+                << " telling us to set object store to " << msg->state << " state";
+
+    // We just received a message from another SM that it had to enter read only mode, or that it is no longer
+    // in read only mode. We need to just blindly follow right now. Down the road we should add more robust handling.
+    /** NOTE: This is commented out for safety at the current time.
+    if (msg->state == OBJECTSTORE_READ_ONLY) {
+        objStorMgr->objectStore->setReadOnly();
+    } else if (msg->state == OBJECTSTORE_NORMAL) {
+        objStorMgr->objectStore->setAvailable();
+    }
+     **/
+}
+
+void
+SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                            boost::shared_ptr<fpi::ActiveObjectsMsg> &msg) {
+    Error err(ERR_OK);
+
+    LOGDEBUG << hdr;
+
+    /**
+        msg->filename
+        msg->checksum
+        msg->volumeIds
+        msg->token
+    */
+    std::string filename;
+    // verify the file checksum
+    if (msg->filename.empty() && msg->checksum.empty()) {
+        LOGDEBUG << "no active objects for token:" << msg->token
+                    << " for [" << msg->volumeIds.size() << "]";
+    } else {
+        filename = objStorMgr->fileTransfer->getFullPath(msg->filename);
+        if (!util::fileExists(filename)) {
+            err = ERR_FILE_DOES_NOT_EXIST;
+            LOGERROR << "active object file ["
+                        << filename
+                        << "] does not exist";
+        } else {
+            std::string chksum = util::getFileChecksum(filename);
+            if (chksum != msg->checksum) {
+                LOGERROR << "file checksum mismatch [orig:" << msg->checksum
+                            << " new:" << chksum << "]"
+                            << " file:" << filename;
+                err = ERR_CHECKSUM_MISMATCH;
+            }
+        }
+    }
+
+    TimeStamp ts = msg->scantimestamp * 1000 * 1000 * 1000;
+    for (auto volId : msg->volumeIds) {
+        objStorMgr->objectStore->addObjectSet(msg->token, fds_volid_t(volId),
+                                              ts, filename);
+    }
+
+    fpi::ActiveObjectsRespMsgPtr resp(new fpi::ActiveObjectsRespMsg());
+    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::ActiveObjectsRspMsg), *resp);
+}
+
+void SMSvcHandler::diskMapChange(ASYNC_HANDLER_PARAMS(NotifyDiskMapChange)) {
+    LOGNOTIFY << "Received disk map change notification";
+    objStorMgr->handleNewDiskMap();
+}
+
+void SMSvcHandler::genericCommand(ASYNC_HANDLER_PARAMS(GenericCommandMsg)) {
+    if (msg->command == "refscan.done") {
+        // start the scavenger if we have enough data.
+        if (objStorMgr->objectStore->haveAllObjectSets()) {
+            LOGNORMAL << "auto starting scavenger due to enough data to process";
+            SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_START, SM_CMD_INITIATOR_NOT_SET);
+            Error err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
+        }
+    } else if (msg->command == "force.expunge") {
+        LOGCRITICAL << "force expunge command received";
+        objStorMgr->objectStore->setObjectDelCnt(1);
+    } else {
+        LOGCRITICAL << "unexpected command received : " << msg;
+    }
+}
 
 }  // namespace fds

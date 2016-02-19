@@ -71,8 +71,12 @@ namespace fds {
     }
 
     ObjectID::ObjectID(const std::string& oid) {
-        fds_verify(oid.size() == sizeof(digest));
-        memcpy(digest, oid.c_str(), sizeof(digest));
+        fds_assert(oid.size() == sizeof(digest));
+        if (oid.size() != sizeof(digest)) {
+            GLOGERROR << "Invalid object id size " << oid.size();
+        } else {
+            memcpy(digest, oid.c_str(), sizeof(digest));
+        }
     }
 
     ObjectID::~ObjectID() { }
@@ -166,8 +170,12 @@ namespace fds {
      * Verifies the hex string and its format
      */
     ObjectID& ObjectID::operator=(const std::string& hexStr) {
-        fds_verify(hexStr.compare(0, 2, "0x") == 0);  // Require 0x prefix
-        fds_verify(hexStr.size() == (40 + 2));  // Account for 0x
+        fds_assert(hexStr.compare(0, 2, "0x") == 0);  // Require 0x prefix
+        fds_assert(hexStr.size() == (40 + 2));  // Account for 0x
+        if ((hexStr.compare(0, 2, "0x") != 0) || hexStr.size() != (40 + 2)) {
+            GLOGERROR << "Object ID creation failed. Invalid input string";
+            return *this;
+        }
         char a, b;
         uint j = 0;
         // Start the offset at 2 to account of 0x
@@ -293,27 +301,35 @@ std::ostream& operator<<(std::ostream& os, const fds_io_op_t& opType) {
         ENUMCASEOS(FDS_IO_REDIR_READ             , os);
         ENUMCASEOS(FDS_IO_OFFSET_WRITE           , os);
         ENUMCASEOS(FDS_CAT_UPD                   , os);
+        ENUMCASEOS(FDS_CAT_UPD_ONCE              , os);
+        ENUMCASEOS(FDS_CAT_UPD_SVC               , os);
         ENUMCASEOS(FDS_CAT_QRY                   , os);
         ENUMCASEOS(FDS_CAT_QRY_SVC               , os);
-        // ENUMCASEOS(FDS_START_BLOB_TX             , os);
+        ENUMCASEOS(FDS_START_BLOB_TX             , os);
         ENUMCASEOS(FDS_START_BLOB_TX_SVC         , os);
-        ENUMCASEOS(FDS_ABORT_BLOB_TX, os);
-        ENUMCASEOS(FDS_COMMIT_BLOB_TX, os);
-        ENUMCASEOS(FDS_ATTACH_VOL, os);
+        ENUMCASEOS(FDS_ABORT_BLOB_TX             , os);
+        ENUMCASEOS(FDS_COMMIT_BLOB_TX            , os);
+        ENUMCASEOS(FDS_ATTACH_VOL                , os);
+        ENUMCASEOS(FDS_DETACH_VOL                , os);
         ENUMCASEOS(FDS_LIST_BLOB                 , os);
         ENUMCASEOS(FDS_PUT_BLOB                  , os);
         ENUMCASEOS(FDS_PUT_BLOB_ONCE             , os);
         ENUMCASEOS(FDS_GET_BLOB                  , os);
         ENUMCASEOS(FDS_STAT_BLOB                 , os);
-        ENUMCASEOS(FDS_GET_BLOB_METADATA, os);
-        ENUMCASEOS(FDS_SET_BLOB_METADATA, os);
-        ENUMCASEOS(FDS_STAT_VOLUME, os);
+        ENUMCASEOS(FDS_RENAME_BLOB               , os);
+        ENUMCASEOS(FDS_GET_BLOB_METADATA         , os);
+        ENUMCASEOS(FDS_SET_BLOB_METADATA         , os);
+        ENUMCASEOS(FDS_STAT_VOLUME               , os);
+        ENUMCASEOS(FDS_GET_VOLUME_METADATA       , os);
+        ENUMCASEOS(FDS_SET_VOLUME_METADATA       , os);
         ENUMCASEOS(FDS_DELETE_BLOB               , os);
+        ENUMCASEOS(FDS_DELETE_BLOB_SVC           , os);
         ENUMCASEOS(FDS_VOLUME_CONTENTS           , os);
         ENUMCASEOS(FDS_BUCKET_STATS              , os);
+        ENUMCASEOS(FDS_SM_GET_OBJECT             , os);
+        ENUMCASEOS(FDS_SM_PUT_OBJECT             , os);
         ENUMCASEOS(FDS_SM_SNAPSHOT_TOKEN         , os);
         ENUMCASEOS(FDS_OP_INVALID                , os);
-        ENUMCASEOS(FDS_RENAME_BLOB               , os);
         default:
             os << "unknown op:"<< static_cast<int>(opType);
     }

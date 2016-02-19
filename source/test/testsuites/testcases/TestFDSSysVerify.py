@@ -19,6 +19,9 @@ import time
 import re
 from fabric.contrib.files import *
 from fabric.context_managers import cd
+from fdslib.TestUtils import disconnect_fabric
+from fdslib.TestUtils import connect_fabric
+
 
 def fileSearch(searchFile, searchString, occurrences, sftp=None):
     """
@@ -34,7 +37,7 @@ def fileSearch(searchFile, searchString, occurrences, sftp=None):
             log.error("File %s is not found." % (searchFile))
             return False
     else:
-        lstatout=str(sftp.lstat(searchFile)).split()[0]
+        lstatout = str(sftp.lstat(searchFile)).split()[0]
         if 'd' in lstatout:
             log.error("%s is a directory." % (searchFile))
             return False
@@ -43,9 +46,9 @@ def fileSearch(searchFile, searchString, occurrences, sftp=None):
         f = open(searchFile, "r")
         searchLines = f.readlines()
         log.debug("Read {} lines from {}. Found {} as first line and {} as last line.".format(len(searchLines),
-                                                                                                  searchFile,
-                                                                                                  searchLines[0],
-                                                                                                  searchLines[-1]))
+                                                                                              searchFile,
+                                                                                              searchLines[0],
+                                                                                              searchLines[-1]))
         f.close()
     else:
         f = sftp.file(searchFile, "r", -1)
@@ -133,11 +136,15 @@ def are_dir_trees_equal(dir1, dir2, logDiff=False):
     return True
 
 
-def canonMatch(canon, fileToCheck):
+def canonMatch(canon, fileToCheck, adjustLines = False, moreVersions=False):
     """
     Test whether the fileToCheck file matches the canon file.
     This is a regular expression check where the canon file may
     contain regular expression patterns to aid in custom compares.
+
+    If adjustLines is set True, then the number of lines in
+    the canon determines the first number f line in the file we
+    check.
     """
     log = logging.getLogger('TestFDSSysVerify' + '.' + 'canonMatch')
 
@@ -161,19 +168,21 @@ def canonMatch(canon, fileToCheck):
     f.close()
 
     if len(canonLines) != len(linesToCheck):
-        log.error("Canon mis-match on line count: %s line count: %s. %s line count: %s." %
-                  (canon, len(canonLines), fileToCheck, len(fileToCheck)))
-        return False
+        if (adjustLines) and (len(canonLines) > len(linesToCheck)):
+            log.warn("Canon mis-match on line count: %s line count: %s. %s line count: %s." %
+                      (canon, len(canonLines), fileToCheck, len(fileToCheck)))
+            return False
 
     idx = 0
     for canonLine in canonLines:
         if re.match(canonLine.encode('string-escape'), linesToCheck[idx]) is None:
-            log.error("File %s, differs from canon file, %s, at line %d." %
-                      (fileToCheck, canon, idx+1))
-            log.error("File line:")
-            log.error(linesToCheck[idx])
-            log.error("Canon line:")
-            log.error(canonLine)
+            log.warn("File %s, differs from canon file, %s, at line %d." %
+                      (fileToCheck, canon, idx + 1))
+            log.warn("File line:")
+            log.warn(linesToCheck[idx])
+            log.warn("Canon line:")
+            log.warn(canonLine)
+
             return False
         else:
             idx += 1
@@ -181,41 +190,35 @@ def canonMatch(canon, fileToCheck):
     return True
 
 
-def areTokenFilesUpdated_AWS(node_ip, dev_dir, media_type):
-    env.user='root'
-    env.password='passwd'
-    env.host_string = node_ip
-    internal_ip = run("hostname")
-
-    # When we run command using fabric it is unable to resolve internal ip, so add IP in /etc/hosts
-    print("internal_ip[%s]" % internal_ip)
-    result = sudo("echo '' >> /etc/hosts")
-    result = sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
-    result = sudo("echo '' >> /etc/hosts")
+def areTokenFilesUpdated_AWS(self, node_ip, dev_dir, media_type):
+    connect_fabric(self,node_ip)
 
     with cd(dev_dir):
         drives_string = run('ls')
         drives = drives_string.split()
         for drive in drives:
             if fnmatch.fnmatch(drive, media_type + "-*"):
-                with cd(dev_dir+ drive):
+                with cd(dev_dir + drive):
                     drive_files_str = run('ls')
                     drive_files = drive_files_str.split()
                     for drive_file in drive_files:
                         if fnmatch.fnmatch(drive_file, "tokenFile_*_*"):
-                            with cd (dev_dir+ drive):
-                                cmd = "du -b %s | cut -f1"%(drive_file)
+                            with cd(dev_dir + drive):
+                                cmd = "du -b %s | cut -f1" % (drive_file)
                                 token_file_size = sudo(cmd)
                                 token_file_size = int(token_file_size)
                                 if token_file_size > 0:
+                                    disconnect_fabric()
                                     return True
+    disconnect_fabric()
     return False
+
 
 def areTokenFilesUpdated(self, dev_dir, media_type):
     fdscfg = self.parameters["fdscfg"]
     nodes = fdscfg.rt_obj.cfg_nodes
     for node in nodes:
-        if node.nd_conf_dict['node-name']== self.passedNode:
+        if node.nd_conf_dict['node-name'] == self.passedNode:
             node_ip = node.nd_conf_dict['ip']
             break
     if node_ip is None:
@@ -231,8 +234,9 @@ def areTokenFilesUpdated(self, dev_dir, media_type):
                         if token_file_size > 0:
                             return True
     else:
-        return areTokenFilesUpdated_AWS(node_ip,dev_dir,media_type)
+        return areTokenFilesUpdated_AWS(self, node_ip, dev_dir, media_type)
     return False
+
 
 # This class contains the attributes and methods to test
 # whether there occurred successful DM Static migration
@@ -309,24 +313,27 @@ class TestVerifyDMStaticMigration_byFileCompare(TestCase.FDSTestCase):
             self.log.error("Unequal DM Names directories %s and %s." % (dm_names_dir1, dm_names_dir2))
             return False
 
+
 class TestDMChecker(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_DMChecker,
                                              "DM Static migration verification")
+
     def test_DMChecker(self):
         fdscfg = self.parameters["fdscfg"]
         bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
         nodes = fdscfg.rt_obj.cfg_nodes
         n1 = nodes[0]
         status, stdout = n1.nd_agent.exec_wait('bash -c \"(nohup %s/DmChecker) \"' %
-                                                (bin_dir), return_stdin=True)
+                                               (bin_dir), return_stdin=True)
 
         if status != 0:
-            self.log.error("DM Static Migration failed") 
+            self.log.error("DM Static Migration failed")
             return False
         return True
+
 
 # This class contains the attributes and methods to test
 # whether there occurred successful SM Static migration
@@ -416,6 +423,7 @@ class TestVerifySMStaticMigration(TestCase.FDSTestCase):
             self.log.info("Both nodes show: \n%s" % stdout1)
 
         return True
+
 
 # This class contains the attributes and methods to test
 # whether SM migration successfully migrated object metadata
@@ -513,7 +521,8 @@ class TestVerifySMMetaMigration(TestCase.FDSTestCase):
 # whether the specified log entry can be located the sepcified number of times
 # in the specified log before expiration of the specified time.
 class TestWaitForLog(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None, service=None, logentry=None, occurrences=None, maxwait=None, atleastone=None):
+    def __init__(self, parameters=None, node=None, service=None, logentry=None, occurrences=None, maxwait=None,
+                 atleastcount=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_WaitForLog,
@@ -524,7 +533,7 @@ class TestWaitForLog(TestCase.FDSTestCase):
         self.passedLogentry = logentry
         self.passedOccurrences = occurrences
         self.passedMaxwait = maxwait
-        self.atleastone = atleastone
+        self.atleastcount = atleastcount
 
     def test_WaitForLog(self):
         """
@@ -543,14 +552,15 @@ class TestWaitForLog(TestCase.FDSTestCase):
 
         fds_dir = self.passedNode.nd_conf_dict['fds_root']
 
-        if self.atleastone is not None:
-            self.log.info("Looking in node %s's %s logs for entry '%s' to occur at least once. Waiting for up to %s seconds." %
-                           (self.passedNode.nd_conf_dict['node-name'], self.passedService,
-                            self.passedLogentry, self.passedMaxwait))
+        if self.atleastcount is not None:
+            self.log.info("Looking in %s's %s logs for entry '%s' to occur at least %s. Waiting for up to %s seconds." %
+                          (self.passedNode.nd_conf_dict['node-name'], self.passedService,
+                           self.passedLogentry, self.atleastcount, self.passedMaxwait))
         else:
-            self.log.info("Looking in node %s's %s logs for entry '%s' to occur %s times. Waiting for up to %s seconds." %
-                           (self.passedNode.nd_conf_dict['node-name'], self.passedService,
-                            self.passedLogentry, self.passedOccurrences, self.passedMaxwait))
+            self.log.info(
+                "Looking in node %s's %s logs for entry '%s' to occur %s times. Waiting for up to %s seconds." %
+                (self.passedNode.nd_conf_dict['node-name'], self.passedService,
+                 self.passedLogentry, self.passedOccurrences, self.passedMaxwait))
 
         # We'll check for the specified log entry every 10 seconds until we
         # either find what we're looking for or timeout while looking.
@@ -573,10 +583,10 @@ class TestWaitForLog(TestCase.FDSTestCase):
                     found, occurrences = fileSearch(fds_dir + "/var/logs/" + log_file, self.passedLogentry,
                                                     self.passedOccurrences, sftp)
                     occurrencesFound += occurrences
-                    if self.atleastone is not None and occurrencesFound > 0:
-                        # At least once, we're good to go
+                    if self.atleastcount is not None and occurrencesFound > self.atleastcount:
+                        # Found minimum count of log entries, we're good to go
                         break
-                        
+
                 if occurrencesFound > self.passedOccurrences:
                     # Found too many.
                     break
@@ -584,7 +594,7 @@ class TestWaitForLog(TestCase.FDSTestCase):
             if sftp is not None:
                 sftp.close()
 
-            if ((self.atleastone is not None) and (occurrencesFound > 0)):
+            if ((self.atleastcount is not None) and (occurrencesFound > self.atleastcount)):
                 break
             elif occurrencesFound >= self.passedOccurrences:
                 # Saw what we were looking for or found too many.
@@ -593,8 +603,8 @@ class TestWaitForLog(TestCase.FDSTestCase):
                 time.sleep(10)
                 self.log.info("Looking ...")
 
-        if ((self.atleastone is not None) and (occurrencesFound > 0)):
-            self.log.info("Log entry found at least once")
+        if ((self.atleastcount is not None) and (occurrencesFound > self.atleastcount)):
+            self.log.info("Log entry found at least %s." % self.atleastcount)
             return True
         else:
             self.log.info("Log entry found %s times." % occurrencesFound)
@@ -605,7 +615,8 @@ class TestWaitForLog(TestCase.FDSTestCase):
         else:
             return True
 
-#This class checks for updates in the token files of ssd drives attached to the cluster
+
+# This class checks for updates in the token files of ssd drives attached to the cluster
 class TestCheckSSDTokenFiles(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         super(self.__class__, self).__init__(parameters,
@@ -628,15 +639,15 @@ class TestCheckSSDTokenFiles(TestCase.FDSTestCase):
 
         fds_dir = "/fds"
         if self.parameters['install'] is not True:
-           fds_dir = fds_dir +'/'+ self.passedNode
+            fds_dir = fds_dir + '/' + self.passedNode
 
         self.log.info("Looking in ssd devices of node %s for token files. And fds_dir is %s"
-                       % (self.passedNode, fds_dir))
+                      % (self.passedNode, fds_dir))
         dev_dir = fds_dir + "/dev/"
-        return areTokenFilesUpdated(self,dev_dir, "ssd")
+        return areTokenFilesUpdated(self, dev_dir, "ssd")
 
 
-#This class checks for updates in the token files of hard disk drives attached to the cluster
+# This class checks for updates in the token files of hard disk drives attached to the cluster
 class TestCheckHDDTokenFiles(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         super(self.__class__, self).__init__(parameters,
@@ -659,15 +670,15 @@ class TestCheckHDDTokenFiles(TestCase.FDSTestCase):
 
         fds_dir = "/fds"
         if self.parameters['install'] is not True:
-           fds_dir = fds_dir +'/'+ self.passedNode
+            fds_dir = fds_dir + '/' + self.passedNode
 
         self.log.info("Looking in hdd devices of node %s for token files. And fds_dir is %s"
-                       % (self.passedNode, fds_dir))
+                      % (self.passedNode, fds_dir))
         dev_dir = fds_dir + "/dev/"
         return areTokenFilesUpdated(self, dev_dir, "hdd")
 
 
-#This class checks for updates in the token files of both ssd and hard disk drives attached to the cluster
+# This class checks for updates in the token files of both ssd and hard disk drives attached to the cluster
 class TestCheckHybridTokenFiles(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         super(self.__class__, self).__init__(parameters,
@@ -690,15 +701,15 @@ class TestCheckHybridTokenFiles(TestCase.FDSTestCase):
 
         fds_dir = "/fds"
         if self.parameters['install'] is not True:
-           fds_dir = fds_dir +'/'+ self.passedNode
+            fds_dir = fds_dir + '/' + self.passedNode
 
         self.log.info("Looking in ssd and hdd devices of node %s for token files. And fds_dir is %s"
-                       % (self.passedNode, fds_dir))
+                      % (self.passedNode, fds_dir))
         dev_dir = fds_dir + "/dev/"
-        return (areTokenFilesUpdated(self,dev_dir, "ssd") and areTokenFilesUpdated(self,dev_dir, "hdd"))
+        return (areTokenFilesUpdated(self, dev_dir, "ssd") and areTokenFilesUpdated(self, dev_dir, "hdd"))
 
 
-#This class enables and runs the garbage collector on all the SMs in the cluster
+# This class enables and runs the garbage collector on all the SMs in the cluster
 class TestRunScavenger(TestCase.FDSTestCase):
     def __init__(self, parameters=None, node=None):
         super(self.__class__, self).__init__(parameters,
@@ -716,8 +727,10 @@ class TestRunScavenger(TestCase.FDSTestCase):
         om_node = fdscfg.rt_om_node
 
         self.log.info("Enabling garbage collector")
-        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain setScavenger local enable) \"', fds_tools=True)
-        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain setScavenger local start) \"', fds_tools=True)
+        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain setScavenger local enable) \"',
+                                            fds_tools=True)
+        status = om_node.nd_agent.exec_wait('bash -c \"(./fdsconsole.py domain setScavenger local start) \"',
+                                            fds_tools=True)
         if status != 0:
             self.log.error("Starting garbage collector failed")
             return False
@@ -727,10 +740,10 @@ class TestRunScavenger(TestCase.FDSTestCase):
 
 
 # This class contains the attributes and methods to test
-# whether he specified file matches the specified canon file
+# whether the specified file matches the specified canon file
 # in a regular expression compare.
 class TestCanonMatch(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, canon=None, fileToCheck=None):
+    def __init__(self, parameters=None, canon=None, fileToCheck=None, adjustLines=False):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_CanonMatch,
@@ -738,6 +751,7 @@ class TestCanonMatch(TestCase.FDSTestCase):
 
         self.passedCanon = canon
         self.passedFileToCheck = fileToCheck
+        self.passedAdjustLines = adjustLines
 
     def test_CanonMatch(self):
         """
@@ -746,7 +760,7 @@ class TestCanonMatch(TestCase.FDSTestCase):
         the canon file and the file to be checked.
         """
 
-        # We must have all our parameters supplied.
+        # We must have our canon and fileToCheck parameters supplied.
         if (self.passedCanon is None) or \
                 (self.passedFileToCheck is None):
             self.log.error("Some parameters missing values.")
@@ -755,14 +769,55 @@ class TestCanonMatch(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
         canonDir = fdscfg.rt_env.get_fds_source() + "test/testsuites/canons/"
 
-        self.log.info("Comparing file %s to canon %s." %
-                      (self.passedFileToCheck, canonDir + self.passedCanon))
+        # If we don't see the canon file, it may be that there are multiple
+        # versions that we need to check. Different versions of a canon will
+        # all have the same file name except that they will have a final
+        # LLQ starting with "v" and followed by a number. For example:
+        # 3.stat_min_log.v1
+        # 3.stat_min_log.v2
+        # are two different versions of canon "3.stat_min_log".
+        #
+        # If we have different version, we'll check each in turn until we
+        # either find a match (success!) or find that none match (fail!).
+        if not os.path.isfile(canonDir + self.passedCanon):
+            canonFileDir, canonFilePrefix = os.path.split(canonDir + self.passedCanon)
+            listOfCanonDirFiles = os.listdir(canonFileDir)
 
-        if canonMatch(canonDir + self.passedCanon, self.passedFileToCheck):
-            return True
-        else:
-            self.log.error("Canon match failed.")
+            found = False
+            listOfCanons = []
+            i = 0
+            for file in listOfCanonDirFiles:
+                if (re.search(canonFilePrefix + '[.]v[0-9]', file)):
+                    found = True
+                    i += 1
+                    listOfCanons.append(file)
+
+            if not found:
+                self.log.error("Canon file %s is not found." % (self.passedCanon))
+                return False
+
+            self.log.info("{0} versions for canon {1}.".format(i, self.passedCanon))
+
+            for file in listOfCanons:
+                i -= 1
+
+                self.log.info("Comparing file %s to canon %s." %
+                              (self.passedFileToCheck, canonFileDir + os.path.sep + file))
+
+                if canonMatch(canonFileDir + os.path.sep + file, self.passedFileToCheck, adjustLines=self.passedAdjustLines, moreVersions=(i > 0)):
+                    return True
+
             return False
+        else:
+            # Just check the one file.
+            self.log.info("Comparing file %s to canon %s." %
+                          (self.passedFileToCheck, canonDir + self.passedCanon))
+
+            if canonMatch(canonDir + self.passedCanon, self.passedFileToCheck, adjustLines=self.passedAdjustLines):
+                return True
+            else:
+                self.log.error("Canon match failed.")
+                return False
 
 
 if __name__ == '__main__':

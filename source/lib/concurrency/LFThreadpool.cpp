@@ -6,16 +6,18 @@
 
 namespace fds {
 
-LockfreeWorker::LockfreeWorker(const std::string &threadpoolId, bool steal,
+LockfreeWorker::LockfreeWorker(LFMQThreadpool *parent,
+                               const std::string &threadpoolId, bool steal,
                                std::vector<LockfreeWorker*> &peers)
 :  queueCnt(0),
+parent_(parent),
 id_(threadpoolId),
 steal_(steal),
 peers_(peers),
 state_(INIT),
 tasks(1500),
 completedCntr(0),
-lastTaskTimestampMs(0)
+threadCheckCntr(0)
 {
 }
 
@@ -26,6 +28,9 @@ void LockfreeWorker::start() {
 
 void LockfreeWorker::finish()
 {
+    if (worker == nullptr) {
+        return;
+    }
     state_ = ABORTING;
     while (state_ == ABORTING) {
         /* We loop here because it's possible in workLoop() to miss a wake up.
@@ -38,6 +43,7 @@ void LockfreeWorker::finish()
     fds_assert(state_ == ABORTED);
     worker->join();
     delete worker;
+    worker = nullptr;
 }
 
 void LockfreeWorker::enqueue(LockFreeTask *t)
@@ -187,16 +193,31 @@ void LockfreeWorker::workLoop() {
             // If something is dequeued, then call the function.
             if (dequeued) {
                 fds_verify(NULL != task);
+                fds_verify(task);
                 try {
-                    DBG(lastTaskTimestampMs = util::getTimeStampMillis());
+                    DBG(auto preTaskTimeMs = util::getTimeStampMillis());
+                    threadCheckCntr = parent_->threadCheckCntr;
+
                     task->operator()();
+
+#ifdef DEBUG
+                    auto postTaskTimeMs = util::getTimeStampMillis();
+                    if (postTaskTimeMs - preTaskTimeMs > 5000) { \
+                        GLOGWARN << logString() <<  " last task execution took: "
+                            << postTaskTimeMs - preTaskTimeMs
+                            << "ms. Consider breaking up the task";
+                    }
+#endif
                 } catch (std::bad_alloc const& e) {
-                    fds_panic("Failed allocation of memory: %s\n", e.what());
+                    fds_panic("Failed allocation of memory: %s : calling %s\n", e.what(), task->target_type().name());
+                } catch (std::invalid_argument const& e) {
+                    fds_panic("invalid_argument exception : %s : calling %s\n", e.what(), task->target_type().name());
                 } catch (std::exception const& e) {
-                    fds_panic("std::exception : %s\n", e.what());
+                    fds_panic("std::exception : %s : calling %s\n", e.what(), task->target_type().name());
                 } catch (...) {
-                    fds_panic("unknown exception!");
+                    fds_panic("unknown exception : calling %s !\n", task->target_type().name());
                 }
+                threadCheckCntr = 0;
                 delete task;
             } else {
                 fds_assert(NULL == task);
@@ -208,12 +229,18 @@ void LockfreeWorker::workLoop() {
     }  // for (;;)
 }
 
+std::string LockfreeWorker::logString() const
+{
+    return id_;
+}
+
 LFMQThreadpool::LFMQThreadpool(const std::string &id, uint32_t sz, bool steal)
 : workers(sz),
-    idx(0)
+    idx(0),
+    threadCheckCntr(0)
 {
     for (uint32_t i = 0; i < workers.size(); i++) {
-        workers[i] = new LockfreeWorker(id, steal, workers);
+        workers[i] = new LockfreeWorker(this, id, steal, workers);
     }
     for (uint32_t i = 0; i < workers.size(); i++) {
         workers[i]->start();
@@ -234,19 +261,21 @@ LFMQThreadpool::~LFMQThreadpool()
 }
 
 void LFMQThreadpool::threadpoolCheck() {
-    static const util::TimeStamp MAX_TASK_TIME_MS = 10 * 1000;        // 10s     
-    auto nowMs = util::getTimeStampMillis();
     for (const auto& worker : workers) {
-        if (worker->queueCnt > 0) {
-            auto lastRanTimestampMS = worker->lastTaskTimestampMs;
-            if (lastRanTimestampMS > 0 && nowMs > lastRanTimestampMS &&
-                (nowMs - lastRanTimestampMS) > MAX_TASK_TIME_MS) {
-                GLOGERROR << "LFThread with worker id: "
-                    << worker->id_ << " seems blocked on a task for :"
-                    << (nowMs - lastRanTimestampMS) << "ms";
-                fds_panic("Worker thread seems blocked.  Don't schedule long running task on threadpool");
-            }
+        if (worker->threadCheckCntr > 0 &&
+            threadCheckCntr - worker->threadCheckCntr > 1) {
+            GLOGWARN << worker->logString()
+                <<  " thread seems blocked for thread check cycles: "
+                << (threadCheckCntr - worker->threadCheckCntr);
         }
+        threadCheckCntr++;
+    }
+}
+
+void LFMQThreadpool::stop()
+{
+    for (auto &w : workers) {
+        w->finish();
     }
 }
 

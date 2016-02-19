@@ -1,0 +1,104 @@
+buildscript {
+	repositories {
+		jcenter()
+		mavenLocal()
+	}
+
+	dependencies {
+		classpath 'com.netflix.nebula:gradle-ospackage-plugin:3.2.0'
+	}
+}
+
+apply plugin: 'nebula.deb'
+
+task buildDeb(type: Deb) {
+
+	def build_num = "$System.env.BUILD_NUMBER"
+
+	if ( null == build_num || '' == build_num || 'null' == build_num ) {
+		build_num = 'dev'
+	}
+
+	version = '1.0.0'
+	ext.packagePrefix = 'fds-access-manager'
+	release = build_num
+	packageName = packagePrefix + '-' + version
+	arch = "amd64"
+
+	def baseDir = main_dir_build
+
+	into '/opt/fds/formation_one/packages/' + packagePrefix + '-' + version + '-' + release
+
+	from(baseDir + '/bin/bare_am') {
+		into 'bin'
+		fileMode 755
+	}
+
+	from(baseDir + '/lib/libfds-am-connectors.a') {
+		into 'lib'
+		fileMode 644
+	}
+
+	from(baseDir + '/lib/libfds-am-engine.a') {
+		into 'lib'
+		fileMode 644
+	}
+
+	from( '../../cinder' ){
+		include 'nbdadm.py'
+		into 'bin'
+		fileMode 755
+	}
+}
+
+task deployDeb( dependsOn: 'buildDeb' ) << {
+	if ( !project.hasProperty( 'username' ) || !project.hasProperty( 'password' ) ){
+		println 'You must specify both a -Pusername and -Ppassword value. Skipping deployDeb task.'
+		return
+	}
+
+	def debName = 'NONE'
+	new File( projectDir.getName() + '/build/distributions' ).eachFile( { f ->
+
+		if ( f.name.startsWith( buildDeb.packagePrefix ) && f.name.endsWith( 'deb' ) ) {
+			debName = f.name
+		}
+
+	})
+
+	if ( debName == 'NONE' ) {
+		println 'Nothing to deploy'
+		return
+	}
+
+	println debName
+
+	def fullName = debName
+
+	def deploy_artifactoryonline = 'curl -v -X PUT http://' + username + ':' + password + '@artifacts.artifactoryonline.com/artifacts/formation-apt/pool/nightly/' + fullName + ';deb.distribution=platform;deb.component=nightly;deb.architecture=amd64 -T ' + projectDir.getName() + '/build/distributions/' + fullName
+
+	println deploy_artifactoryonline
+
+	def proc_online = deploy_artifactoryonline.execute()
+
+	proc_online.text.eachLine { line -> println line }
+
+	if ( proc_online.exitValue() ) {
+		throw new GradleException( 'Artifact upload to artifactoryonline failed.' )
+	}
+
+
+  def deploy_artifactory_local = 'curl -v -X PUT http://' + username + ':' + password + '@bld-artifactory:8081/artifactory/formation-apt/pool/nightly/' + fullName + ';deb.distribution=platform;deb.component=nightly;deb.architecture=amd64 -T ' + projectDir.getName() + '/build/distributions/' + fullName
+
+	println deploy_artifactory_local
+
+	def proc_local = deploy_artifactory_local.execute()
+
+	proc_local.text.eachLine { line -> println line }
+
+	if ( proc_local.exitValue() ) {
+		println 'Artifact upload to local artifactory failed.'
+	}
+
+
+}

@@ -1,7 +1,7 @@
 topdir            := ../..
 user_target       := lib
 user_rtime_env    := user
-user_build_dir    := handlers
+user_build_dir    :=
 
 # TODO: remove this once we have correct placement of header API.
 #

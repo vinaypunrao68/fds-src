@@ -16,14 +16,38 @@ toolchain_bin        := $(topdir)/../Build/$(osdep_target)/bin
 
 # Thrift settings.
 #
-tool_thrift          := $(toolchain_bin)/thrift
-toolchain_thrf       := $(topdir)/../thrift-0.9.0
-toolchain_thrf_incl  := -I$(toolchain_thrf)/lib/cpp/src
+tool_thrift_version  := 0.9.3
+toolchain_thrf       := $(topdir)/../Build/fds-thrift-$(tool_thrift_version)
+tool_thrift          := $(toolchain_thrf)/bin/thrift
+toolchain_thrf_incl  := -I$(toolchain_thrf)/include
+toolchain_thrf_lib   := -L${toolchain_thrf}/lib
 toolchain_thrf_opts  := $(user_thrift_flag)
 
 ifdef user_thrift_loc
 toolchain_thrf_opts  += -out $(user_thrift_loc)
 endif
+
+formation_one_path        := /opt/fds/formation_one
+packages_path             := $(formation_one_path)/packages
+rabbitmq_path             := $(packages_path)/rabbitmq-c-0.7.1
+simpleamqpclient_path     := $(packages_path)/simpleamqpclient-0.7.1
+statscpp_path             := $(packages_path)/fds-stats-client-c-2.0.0
+rabbitmq_lib_path         := $(rabbitmq_path)/lib
+simpleamqpclient_lib_path := $(simpleamqpclient_path)/lib
+statscpp_lib_path         := $(statscpp_path)/lib
+
+# Stats CPP settings.
+#
+toolchain_rabbitmq-c_lib  := -L$(rabbitmq_lib_path) -Wl,-rpath=$(rabbitmq_lib_path)
+toolchain_rabbitmq-c_incl := -I$(rabbitmq_path)/include
+toolchain_simpleamqpclient_lib  := -L$(simpleamqpclient_lib_path) -Wl,-rpath=$(simpleamqpclient_lib_path)
+toolchain_simpleamqpclient_incl := -I$(simpleamqpclient_path)/include
+toolchain_statscpp_lib  := -L$(statscpp_lib_path) -Wl,-rpath=$(statscpp_lib_path)
+toolchain_statscpp_incl := -I$(statscpp_path)/include
+toolchain_statscpp_lib  += $(toolchain_simpleamqpclient_lib)
+toolchain_statscpp_lib  += $(toolchain_rabbitmq-c_lib)
+toolchain_statscpp_incl += $(toolchain_simpleamqpclient_incl)
+toolchain_statscpp_incl += $(toolchain_rabbitmq-c_incl)
 
 # Boost settings.
 #
@@ -56,6 +80,7 @@ toolchain_cmdconsole_incl := -I$(toolchain_cmdconsole)/
 toolchain_gmock        := $(topdir)/../gmock-1.7.0
 toolchain_gmock_incl   := -I$(toolchain_gmock)/gtest/include -I$(toolchain_gmock)/include
 toolchain_gmock_lib    := -L$(toolchain_gmock)
+toolchain_gmock_flags  := -DGTEST_USE_OWN_TR1_TUPLE=0
 
 ## Python binding settings
 #
@@ -78,22 +103,25 @@ toolchain_incl_flags += $(toolchain_hiredis_incl)
 toolchain_incl_flags += $(toolchain_cmdconsole_incl)
 toolchain_incl_flags += $(toolchain_python_bind_incl)
 toolchain_incl_flags += $(toolchain_gmock_incl)
+toolchain_incl_flags += $(toolchain_statscpp_incl)
 
 ifdef COVERAGE
-coverage_cc_flags  := --coverage
+coverage_cc_flags  := --coverage -pg
 coverage_cpp_flags := $(coverage_cc_flags)
 coverage_ld_flags  := $(coverage_cc_flags)
 main_ld_flags      += $(coverage_cc_flags)
 endif
 
 toolchain_cc_flags   := $(toolchain_incl_flags) $(coverage_cc_flags)
-toolchain_cpp_flags  := $(toolchain_incl_flags) $(coverage_cpp_flags)
+toolchain_cpp_flags  := $(toolchain_incl_flags) $(coverage_cpp_flags) ${toolchain_gmock_flags}
 
 toolchain_ld_flags   := -L$(toolchain_boost_lib)
 toolchain_ld_flags   += -L$(toolchain_ldb_lib) -L$(toolchain_lib)
+toolchain_ld_flags   += $(toolchain_thrf_lib)
 toolchain_ld_flags   += $(toolchain_python_bind_lib)
 toolchain_ld_flags   += $(toolchain_gmock_lib)
 toolchain_ld_flags   += $(coverage_ld_flags)
+toolchain_ld_flags   += $(toolchain_statscpp_lib)
 
 toolchain_so_flags   :=
 toolchain_ar_flags   :=

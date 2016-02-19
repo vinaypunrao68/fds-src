@@ -40,10 +40,10 @@
                         <div class="legend-box dotted" ng-style="{ 'border-color': capacityLineColors[0], 'background-color': capacityColors[0] }"></div>
                         <div class="legend-data">{{ logicalLabel }}</div>
                     </div>
-                    <div class="flex">
+                    <!--<div class="flex">
                         <div class="legend-box" ng-style="{ 'border-color': capacityLineColors[1], 'background-color': capacityColors[1] }"></div>
                         <div class="legend-data">{{ physicalLabel }}</div>
-                    </div>
+                    </div>-->
                 </div>
             </div>
         </div>
@@ -134,7 +134,16 @@
         <div class="sub-header" translate>volumes.l_data_connector</div>
         <div>
             <span>{{ getDataTypeLabel() }}</span>
-            <span ng-show="dataConnector.attributes">, {{ dataConnector.attributes.size }} {{ dataConnector.attributes.unit }}</span>
+            <span ng-show="thisVolume.settings.capacity" style="position: relative; left: -3px;">, {{ getAllocatedSize() }} {{ 'volumes.l_virtual_capacity' | translate }}</span>
+        </div>
+        <div ng-show="thisVolume.settings.target.initiators">
+            <div  class="sub-header" translate>volumes.l_iscsi_initiators</div>
+            <div class="flex">
+                <div ng-repeat="initiator in thisVolume.settings.target.initiators">
+                    <span>{{ initiator.wwn_mask }}</span>
+                    <span ng-show="!$last" style="position: relative;left: -3px;">,&nbsp;</span>
+                </div>
+            </div>
         </div>
     </section>
 

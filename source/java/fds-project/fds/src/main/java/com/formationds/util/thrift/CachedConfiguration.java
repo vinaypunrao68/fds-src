@@ -7,8 +7,14 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.Tenant;
 import com.formationds.apis.User;
 import com.formationds.apis.VolumeDescriptor;
+import com.formationds.apis.VolumeType;
+import com.formationds.om.redis.RedisSingleton;
+import com.formationds.om.redis.VolumeDesc;
+import com.formationds.protocol.IScsiTarget;
+import com.formationds.protocol.NfsOption;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
 
 import java.util.ArrayList;
@@ -24,6 +30,8 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 public class CachedConfiguration {
+
+    private static final Logger LOG = Logger.getLogger(CachedConfiguration.class);
 
     private final ConfigurationService.Iface config;
 
@@ -81,6 +89,88 @@ public class CachedConfiguration {
             volumeDescriptors.forEach( v -> {
                 volumesByName.put( v.getName(), v );
                 volumesById.put( v.getVolId(), v );
+
+                if( v.getPolicy().getVolumeType().equals( VolumeType.ISCSI ) )
+                {
+                    IScsiTarget iscsi = null;
+                    if( v.getPolicy().getIscsiTarget() == null ||
+                        v.getPolicy().getIscsiTarget().isSetLuns() )
+                    {
+                        final Optional<VolumeDesc> optional =
+                            RedisSingleton.INSTANCE
+                                          .api( )
+                                          .getVolume( v.getVolId() );
+                        if( optional.isPresent( ) )
+                        {
+                            final VolumeDesc desc = optional.get( );
+                            if( desc.settings( ).getIscsiTarget() != null &&
+                                desc.settings( ).getIscsiTarget().isSetLuns( ) )
+                            {
+                                iscsi = desc.settings().getIscsiTarget();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        iscsi = v.getPolicy( ).getIscsiTarget();
+                    }
+
+                    if( iscsi != null )
+                    {
+                        LOG.trace( "iSCSI:: [ LUNS: " + iscsi.getLuns( ).size( ) +
+                                   " ] [ INITIATORS: " + iscsi.getInitiators( ).size( ) +
+                                   " ] [ IUSERS: " + iscsi.getIncomingUsers( ).size( ) +
+                                   " ] [ OUSERS: " + iscsi.getOutgoingUsers( ).size( ) + " ]" );
+                        v.getPolicy().setIscsiTarget( iscsi );
+                    }
+                    else
+                    {
+                        LOG.warn( "iSCSI volume found [ name: " +
+                                  v.getName() + "] [ type: " +
+                                  v.getPolicy().getVolumeType() + " ] [ id: " +
+                                  v.getVolId() + " ] but attributes are null." );
+                    }
+                }
+                else if( v.getPolicy().getVolumeType().equals( VolumeType.NFS ) )
+                {
+                    NfsOption nfsOptions = null;
+                    if ( !v.getPolicy( ).isSetNfsOptions( ) ||
+                         !v.getPolicy( ).getNfsOptions( ).isSetOptions( ) ||
+                         !v.getPolicy( ).getNfsOptions( ).isSetClient( ) )
+                    {
+                        final Optional<VolumeDesc> optional =
+                            RedisSingleton.INSTANCE
+                                          .api( )
+                                          .getVolume( v.getVolId() );
+
+                        if( optional.isPresent( ) )
+                        {
+                            final VolumeDesc desc = optional.get( );
+                            if( desc.settings( ).getNfsOptions() != null )
+                            {
+                                nfsOptions = desc.settings().getNfsOptions( );
+                            }
+                        }
+                    }
+                    else
+                    {
+                        nfsOptions = v.getPolicy( ).getNfsOptions( );
+                    }
+
+                    if( nfsOptions != null )
+                    {
+                        LOG.trace( "NFS:: [ " + nfsOptions.getClient() +
+                                   " ] [ " + nfsOptions.getOptions() + " ]" );
+                        v.getPolicy().setNfsOptions( nfsOptions );
+                    }
+                    else
+                    {
+                        LOG.warn( "NFS volume found [ name: " +
+                                  v.getName() + "] [ type: " +
+                                  v.getPolicy().getVolumeType() + " ] [ id: " +
+                                  v.getVolId() + " ] but attributes are null." );
+                    }
+                }
             } );
         } finally {
             volumeLock.unlock();

@@ -1,6 +1,19 @@
+{% set java_log_severity = 'INFO' if fds_log_severity is not defined
+       			   	   else 'TRACE' if fds_log_severity == 'trace'
+       			   	   else 'DEBUG' if fds_log_severity == 'debug'
+       			   	   else 'DEBUG' if fds_log_severity == 'io'
+       			   	   else 'INFO' if fds_log_severity == 'normal'
+       			   	   else 'INFO' if fds_log_severity == 'notification'
+       			   	   else 'WARN' if fds_log_severity == 'warning'
+       			   	   else 'ERROR' if fds_log_severity == 'error'
+       			   	   else 'FATAL' if fds_log_severity == 'critical'
+				   else 'INFO'
+%}
+{% block content %}
 <?xml version="1.0" encoding="UTF-8"?>
-<Configuration>
+<Configuration monitorInterval="30">
     <Properties>
+        <!-- {{ ansible_managed }} -->
         <!-- must match environment variable name -->
         <property name ="fds_root">/fds</property>
         <property name="fds.service.name">default</property>
@@ -19,7 +32,7 @@
     </Properties>
     <Appenders>
 
-        <!-- log4j2 docs show filePattern using variables like 
+        <!-- log4j2 docs show filePattern using variables like
             "filePattern="logs/$${date:yyyy-MM}/app-%d{yyyy-MM-dd}-%i.log.gz"
             to archive files.  The $${date:yyyy-MM} portion of that is supposed to create
             a directory based on the month, but is instead creating a directory named "${date:yyyy-MM}".
@@ -46,37 +59,61 @@
             <PatternLayout pattern="${fds.pattern}"/>
         </RollingRandomAccessFile>
 
-        <RollingRandomAccessFile name="jsvclayer"
-                                 fileName="${fds.logs}/jsvclayer.log"
-                                 filePattern="${fds.logs}/archive/jsvclayer-%i.log.gz"
-                                 immediateFlush="true">
-
-            <Policies>
-                <!-- start a new file at startup regardless of time or size -->
-                <OnStartupTriggeringPolicy/>
-
-                <!-- rollover when file size reaches 100 MB -->
-                <SizeBasedTriggeringPolicy size="100 MB"/>
-            </Policies>
-            <DefaultRolloverStrategy max="100"/>
-            <PatternLayout pattern="${fds.pattern}"/>
-        </RollingRandomAccessFile>
-
         <Console name="console" target="SYSTEM_OUT">
             <PatternLayout pattern="%d %-5p [%t] %c{2} (%F:%L) - %m%n"/>
         </Console>
     </Appenders>
 
+    <!-- Filters/Markers appear to be required at the configuration.  They can
+         possibly applied at the logger level to override the config setting.
+          https://issues.apache.org/jira/browse/LOG4J2-601
+    -->
+    <Filters>
+        <!-- HttpRequest Log Filters used in the com.formationds.web.toolkitRequestLog.
+            Note that when enabled these produce a lot of output extra log output and will
+            cause logs to rollover frequently.
+        -->
+        <MarkerFilter marker="REQUEST" onMatch="ACCEPT" onMismatch="NEUTRAL" />
+        <MarkerFilter marker="REQUEST_QUERY" onMatch="ACCEPT" onMismatch="NEUTRAL" />
+        <MarkerFilter marker="REQUEST_HEADERS" onMatch="DENY" onMismatch="NEUTRAL" />
+        <MarkerFilter marker="REQUEST_PAYLOAD" onMatch="ACCEPT" onMismatch="NEUTRAL" />
+        <MarkerFilter marker="REQUEST_PAYLOAD_INGEST_STATS" onMatch="DENY" onMismatch="NEUTRAL" />
+    </Filters>
+
     <Loggers>
-        <Root level="FATAL">
-            <AppenderRef ref="console"/>
+        <Root level="WARN">
+            <AppenderRef ref="fds-${sys:fds.service.name}"/>
         </Root>
-        <Logger name="com.formationds" level="trace" additivity="false">
+        <Logger name="com.formationds" level="{{ java_log_severity }}" additivity="false">
             <AppenderRef ref="fds-${sys:fds.service.name}"/>
         </Logger>
-        <Logger name="com.formationds.platform" level="trace" additivity="false">
-            <AppenderRef ref="jsvclayer"/>
+
+        <Logger name="com.formationds.om.repository.influxdb.InfluxDBConnection$LoggingInfluxDBReader" level="{{ java_log_severity }}" additivity="false">
+            <AppenderRef ref="fds-${sys:fds.service.name}"/>
+        </Logger>
+        <Logger name="com.formationds.om.repository.influxdb.InfluxDBConnection$LoggingInfluxDBWriter" level="{{ java_log_severity }}" additivity="false">
+            <AppenderRef ref="fds-${sys:fds.service.name}"/>
+        </Logger>
+
+        <Logger name="com.formationds.platform" level="{{ java_log_severity }}" additivity="false">
+            <AppenderRef ref="fds-${sys:fds.service.name}"/>
+        </Logger>
+
+        <!-- The RequestLog logs detailed information about each request optionally including headers and
+             payload.  Enable by setting the level to TRACE and setting the markers onMatch for the fields
+             you want logged to ACCEPT.  Although every attempt is made to prevent logging sensitive information
+             there is a possibility that some information logged may be considered sensitive.  Be sure to
+             secure your logs.
+         -->
+        <Logger name="com.formationds.web.toolkit.RequestLog" level="{{ java_log_severity }}" additivity="false">
+            <AppenderRef ref="fds-${sys:fds.service.name}"/>
+        </Logger>
+
+        <!-- StatisticPublisher TRACE level will dump every statistic value received by the AM (XDI)
+          to the log file. -->
+        <Logger name="com.formationds.am.StatisticsPublisher" level="{{ java_log_severity }}" additivity="false">
+            <AppenderRef ref="fds-${sys:fds.service.name}"/>
         </Logger>
     </Loggers>
 </Configuration>
-
+{% endblock %}

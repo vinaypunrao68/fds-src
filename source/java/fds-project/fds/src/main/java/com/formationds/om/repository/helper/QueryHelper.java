@@ -1,12 +1,14 @@
 /*
- * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
+ * Copyright (c) 2014-2016, Formation Data Systems, Inc. All Rights Reserved.
  */
-
 package com.formationds.om.repository.helper;
 
+import com.formationds.client.v08.model.Size;
+import com.formationds.client.v08.model.SizeUnit;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.calculation.Calculation;
 import com.formationds.commons.model.Datapoint;
+import com.formationds.commons.model.DateRange;
 import com.formationds.commons.model.Series;
 import com.formationds.commons.model.Statistics;
 import com.formationds.commons.model.abs.Calculated;
@@ -26,29 +28,39 @@ import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.StatOperation;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.commons.util.DateTimeUtil;
+import com.formationds.commons.util.Memoizer;
+import com.formationds.commons.util.Tuples;
+import com.formationds.commons.util.Tuples.Pair;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.redis.RedisSingleton;
 import com.formationds.om.repository.EventRepository;
 import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria;
+import com.formationds.om.repository.query.builder.MetricQueryCriteriaBuilder;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
-import com.formationds.util.SizeUnit;
+
 import org.apache.commons.math3.stat.regression.SimpleRegression;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
 
@@ -59,15 +71,30 @@ public class QueryHelper {
     private static final Logger logger =
         LoggerFactory.getLogger( QueryHelper.class );
 
-    private final MetricRepository repo;
+    /**
+     * A shared instance, used only if the USE_SHARED_QUERY_HELPER feature toggle is enabled.
+     */
+    private static final QueryHelper SHARED = new QueryHelper();
+
+    /**
+     * If the {@link #USE_SHARED_QUERY_HELPER} configuration/toggle is set, the use
+     * a shared instance that may perform query caching.  Otherwise, use a new instance that
+     * will not cache values.
+     *
+     * @return a QueryHelper instance
+     */
+    public static QueryHelper instance() {
+        if (FdsFeatureToggles.USE_SHARED_QUERY_HELPER.isActive()) {
+            return SHARED;
+        } else {
+            return new QueryHelper();
+        }
+    }
 
     /**
      * default constructor
      */
-    public QueryHelper() {
-        this.repo =
-            SingletonRepositoryManager.instance()
-                                      .getMetricsRepository();
+    protected QueryHelper() {
     }
 
     /**
@@ -113,7 +140,7 @@ public class QueryHelper {
             final List<Calculated> calculatedList = new ArrayList<>();
 
             MetricRepository repo = SingletonRepositoryManager.instance().getMetricsRepository();
-            
+
             query.setContexts( validateContextList( query, authorizer, token ) );
 
             final List<IVolumeDatapoint> queryResults = (List<IVolumeDatapoint>) repo.query( query );
@@ -124,7 +151,7 @@ public class QueryHelper {
             if ( isPerformanceQuery( query.getSeriesType() ) ) {
 
                 series.addAll(
-                    new SeriesHelper().getRollupSeries( queryResults,
+                    SeriesHelper.getRollupSeries( queryResults,
                                                         query.getRange(),
                                                         query.getSeriesType(),
                                                         StatOperation.SUM ) );
@@ -133,9 +160,9 @@ public class QueryHelper {
                 calculatedList.add( ioPsConsumed );
 
             } else if( isCapacityQuery( query.getSeriesType() ) ) {
-            	
+
                 series.addAll(
-                    new SeriesHelper().getRollupSeries( queryResults,
+                    SeriesHelper.getRollupSeries( queryResults,
                                                         query.getRange(),
                                                         query.getSeriesType(),
                                                         StatOperation.MAX_X) );
@@ -143,39 +170,43 @@ public class QueryHelper {
                 calculatedList.add( deDupRatio() );
 
                 // let's get the physical bytes consumed.
-            	Series physicalBytes = series.stream()
-	            		.filter( ( s ) -> { 
-	            			return s.getType().equals( Metrics.PBYTES.name() );
-	            		})
-		            	.findFirst().orElse( null );
-            	
-            	Double bytesConsumed = 0.0;
-            	
-            	if ( physicalBytes != null ) {
-            		bytesConsumed = physicalBytes.getDatapoints()
-            								     .get( physicalBytes.getDatapoints().size()-1 )
-            								     .getY();
-            	}
-                
-                final CapacityConsumed consumed = new CapacityConsumed();
-                consumed.setTotal( bytesConsumed );
-                calculatedList.add( consumed );
+                Series physicalBytes = series.stream()
+                                             .filter( ( s ) -> Metrics.UBYTES.matches( s.getType( ) ) )
+                                             .findFirst()
+                                             .orElse( null );
 
                 // only the FDS admin is allowed to get data about the capacity limit
                 // of the system
-                if ( authorizer.userFor( token ).isIsFdsAdmin() ){
-                	
+                if ( authorizer.userFor( token ).isIsFdsAdmin() ) {
+
 	                // TODO finish implementing -- once the platform has total system capacity
-	                final Double systemCapacity = Long.valueOf( SizeUnit.TB.totalBytes( 1 ) )
-	                                                  .doubleValue();
-//		                calculatedList.add( percentageFull( consumed, systemCapacity ) );
-	                
+                	Long capacity = SingletonConfigAPI.instance().api().getDiskCapacityTotal();
+                    logger.trace( "Disk Capacity Total::{}", capacity );
+                    final Size systemCapacity;
+                    if( FdsFeatureToggles.NEW_SUPERBLOCK.isActive( ) )
+                    {
+                        // normalize to bytes
+                        systemCapacity =
+                            Size.of( Size.gb( capacity ).getValue( SizeUnit.B ),
+                                     SizeUnit.B );
+                    }
+                    else
+                    {
+                        // normalize to bytes
+                        systemCapacity =
+                            Size.of( Size.mb( capacity ).getValue( SizeUnit.B ),
+                                     SizeUnit.B );
+                    }
+
+                    final Double systemCapacityInBytes = systemCapacity.getValue( SizeUnit.B ).doubleValue();
 	                TotalCapacity totalCap = new TotalCapacity();
-	                totalCap.setTotalCapacity( systemCapacity );
+	                totalCap.setTotalCapacity( systemCapacityInBytes );
 	                calculatedList.add( totalCap );
-	            	
+
 	            	if ( physicalBytes != null ){
-	            		calculatedList.add( toFull( physicalBytes, systemCapacity ) );
+	            		calculatedList.add( secondsToFullThirtyDays( query.getContexts(),
+                                                                     Size.of( systemCapacityInBytes,
+                                                                              SizeUnit.B ) ) );
 
 	            	}
 	            	else {
@@ -183,31 +214,42 @@ public class QueryHelper {
 	            	}
                 }
 
+                Double bytesConsumed = RedisSingleton.INSTANCE
+                                                     .api()
+                                                     .getDomainUsedCapacity()
+                                                     .getValue( )
+                                                     .doubleValue();
+                final CapacityConsumed consumed = new CapacityConsumed();
+                consumed.setTotal( bytesConsumed );
+                calculatedList.add( consumed );
+
             } else if ( isPerformanceBreakdownQuery( query.getSeriesType() ) ) {
-            	
+
             	series.addAll(
-            		new SeriesHelper().getRollupSeries( queryResults,
+            		SeriesHelper.getRollupSeries( queryResults,
                                                         query.getRange(),
                                                         query.getSeriesType(),
                                                         StatOperation.RATE) );
-            	
+
             	calculatedList.add( getAverageIOPs( series ) );
             	calculatedList.addAll( getTieringPercentage( series ) );
-            	
+
             } else {
-            	
+
                 // individual stats
+
                 query.getSeriesType()
                      .stream()
                      .forEach( ( m ) ->
                          series.addAll( otherQueries( originated,
+                        		 					  query.getRange(),
                                                       m ) ) );
             }
 
             if( !series.isEmpty() ) {
-            	
+
                 series.forEach( ( s ) -> {
-                	
+
                 	// if the datapoints set is null, don't try to sort it.  Leave it alone
                 	if ( s.getDatapoints() != null && !s.getDatapoints().isEmpty() ) {
                 		new DatapointHelper().sortByX( s.getDatapoints() );
@@ -312,6 +354,7 @@ public class QueryHelper {
      */
     protected List<Series> otherQueries(
         final Map<String, List<IVolumeDatapoint>> organized,
+        final DateRange dateRange,
         final Metrics metrics ) {
         final List<Series> series = new ArrayList<>();
 
@@ -326,8 +369,7 @@ public class QueryHelper {
             s.setType( metrics.name() );
             volumeDatapoints.stream()
                             .distinct()
-                            .filter( ( p ) -> metrics.key()
-                                                     .equalsIgnoreCase( p.getKey() ) )
+                            .filter( ( p ) -> metrics.matches( p.getKey() ) )
                             .forEach( ( p ) -> {
                                 final Datapoint dp =
                                     new DatapointBuilder().withX( (double)p.getTimestamp() )
@@ -336,6 +378,33 @@ public class QueryHelper {
                                 s.setDatapoint( dp );
                                 s.setContext( new Volume( Long.parseLong( p.getVolumeId() ), p.getVolumeName() ) );
                             } );
+
+            // get earliest data point
+            OptionalLong oLong = volumeDatapoints.stream()
+            		.filter( ( p ) -> metrics.matches( p.getKey() ) )
+            		.mapToLong( IVolumeDatapoint::getTimestamp )
+            		.min();
+
+            if ( oLong.isPresent() && oLong.getAsLong() > dateRange.getStart() && volumeDatapoints.size() > 0 ){
+
+            	String volumeId = volumeDatapoints.get( 0 ).getVolumeId();
+            	String volumeName = volumeDatapoints.get( 0 ).getVolumeName();
+            	String metricKey = volumeDatapoints.get( 0 ).getKey();
+
+	            // a point just earlier than the first real point. ... let's do one second
+            	VolumeDatapoint justBefore = new VolumeDatapoint( oLong.getAsLong() - 1, volumeId, volumeName, metricKey, 0.0 );
+            	VolumeDatapoint theStart = new VolumeDatapoint( dateRange.getStart(), volumeId, volumeName, metricKey, 0.0 );
+
+            	s.setDatapoint( new DatapointBuilder().withX( (double)justBefore.getTimestamp() )
+            										  .withY( justBefore.getValue() )
+            										  .build());
+
+	        	// at start time
+	        	s.setDatapoint( new DatapointBuilder().withX( (double)theStart.getTimestamp() )
+	        										  .withY( theStart.getValue() )
+	        										  .build() );
+            }
+
             series.add( s );
         } );
 
@@ -368,21 +437,21 @@ public class QueryHelper {
 	    		contexts = api.listVolumes("")
 	    			.stream()
                         .filter(vd -> authorizer.ownsVolume(token, vd.getName()))
-                        
+
 /*
  * HACK
  * .filter( v -> isSystemVolume() != true )
- * 
+ *
  * THIS IS ALSO IN ListVolumes.java
- */                        
-                        .filter( v-> !v.getName().startsWith( "SYSTEM_VOLUME" )  )
+ */
+                        .filter( v-> !v.getName().startsWith( "SYSTEM_" )  )
                         .map(vd -> {
 
                             String volumeId = "";
 
                             try {
                                 volumeId = String.valueOf(api.getVolumeId(vd.getName()));
-                            } catch (TException e) {
+                            } catch (TException ignored ) {
 
                             }
 
@@ -402,7 +471,7 @@ public class QueryHelper {
     		contexts = contexts.stream().filter( c -> {
                 boolean hasAccess = authorizer.ownsVolume(token, ((Volume) c).getName());
 
-                if ( hasAccess == false ){
+                if ( !hasAccess ){
     				// TODO: Add an audit event here because someone may be trying an attack
     				logger.warn( "User does not have access to query for volume: " + ((Volume)c).getName() +
     					".  It will be removed from the query context." );
@@ -415,10 +484,6 @@ public class QueryHelper {
     	}
 
     	return contexts;
-    }
-
-    protected MetricRepository getRepo(){
-    	return this.repo;
     }
 
     /**
@@ -457,10 +522,15 @@ public class QueryHelper {
      */
     protected List<PercentageConsumed> getTieringPercentage( List<Series> series ){
 
-    	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.HDD_GETS.name() ) )
-        	.findFirst().get();
+//    	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.HDD_GETS.name() ) )
+//        	.findFirst().get();
+//    	Double getsHdd = gets.getDatapoints().stream().mapToDouble( Datapoint::getY ).sum();
 
-    	Double getsHdd = gets.getDatapoints().stream().mapToDouble( Datapoint::getY ).sum();
+    	Double getsHdd = RedisSingleton.INSTANCE
+                                       .api()
+                                       .getDomainUsedCapacity()
+                                       .getValue( SizeUnit.B )
+                                       .doubleValue();
 
     	Series getsssd = series.stream().filter( s -> s.getType().equals( Metrics.SSD_GETS.name() ) )
         		.findFirst().get();
@@ -469,8 +539,16 @@ public class QueryHelper {
 
     	Double sum = getsHdd + getsSsd;
 
-    	long ssdPerc = Math.round( (getsSsd / sum) * 100.0 );
-    	long hddPerc = Math.round( (getsHdd / sum) * 100.0 );
+    	long ssdPerc = 0L;
+    	long hddPerc = 0L;
+
+    	if ( sum > 0 ){
+    		ssdPerc = Math.round( (getsSsd / sum) * 100.0 );
+    		hddPerc = Math.round( (getsHdd / sum) * 100.0 );
+    	}
+
+        logger.trace( "Tiering Percentage::HDD Capacity: {} ({}%)::SDD Capacity: {} ({}%)::Sum: {}",
+                      getsHdd, hddPerc, getsSsd, ssdPerc, sum );
 
     	PercentageConsumed ssd = new PercentageConsumed();
     	ssd.setPercentage( (double)ssdPerc );
@@ -478,7 +556,7 @@ public class QueryHelper {
     	PercentageConsumed hdd = new PercentageConsumed();
     	hdd.setPercentage( (double)hddPerc );
 
-    	List<PercentageConsumed> percentages = new ArrayList<PercentageConsumed>();
+    	List<PercentageConsumed> percentages = new ArrayList<>( );
     	percentages.add( ssd );
     	percentages.add( hdd );
 
@@ -499,10 +577,10 @@ public class QueryHelper {
                                       .getMetricsRepository()
                                       .sumPhysicalBytes();
         final CapacityDeDupRatio dedup = new CapacityDeDupRatio();
-        dedup.setRatio( Calculation.ratio( lbytes, pbytes ) );
+        final Double d = Calculation.ratio( lbytes, pbytes );
+        dedup.setRatio( d < 1.0 ? 1.0 : d );
         return dedup;
     }
-
 
     /**
      * @param consumed       the {@link CapacityConsumed} representing bytes
@@ -513,11 +591,71 @@ public class QueryHelper {
      * @return Returns {@link CapacityFull}
      */
     public CapacityFull percentageFull( final CapacityConsumed consumed,
-                                           final Double systemCapacity ) {
+                                        final Double systemCapacity ) {
         final CapacityFull full = new CapacityFull();
         full.setPercentage( ( int ) Calculation.percentage( consumed.getTotal(),
                                                             systemCapacity ) );
         return full;
+    }
+
+    // So here we are using Memoization to store the computed results.  As the system capacity
+    // or volume list changes, this will automatically be recalculated (because the Pair tuple
+    // representing the arguments to the function and stored as the memoized key will change)
+    private final Function<Pair<List<Volume>, Size>,
+                           CapacityToFull> ctfTask = Memoizer.memoize( Optional.of( Duration.ofHours( 12 ) ),
+                                                                       (p) -> {
+        List<Volume> volumes = p.getLeft();
+        Size systemCapacity = p.getRight();
+
+        return doCalculateTimeToFull( volumes, systemCapacity );
+
+    } );
+
+    /**
+     * @param volumes
+     * @param systemCapacity
+     * @return
+     */
+    protected CapacityToFull doCalculateTimeToFull( List<Volume> volumes, Size systemCapacity ) {
+        MetricQueryCriteriaBuilder queryBuilder =
+                new MetricQueryCriteriaBuilder( QueryCriteria.QueryType.SYSHEALTH_CAPACITY );
+
+        //REVIEWERS: IS UBYTES correct now or should this be PBYTES now????
+
+        // For capacity time-to-full we need enough history to calculate the regression.  Using 30 days
+        DateRange range = DateRange.last( 30L, com.formationds.client.v08.model.TimeUnit.DAYS );
+        MetricQueryCriteria query = queryBuilder.withContexts( volumes )
+                                                .withSeriesType( Metrics.UBYTES )
+                                                .withRange( range )
+                                                .build();
+
+        final MetricRepository metricsRepository =
+            SingletonRepositoryManager.instance( )
+                                      .getMetricsRepository( );
+
+        @SuppressWarnings("unchecked")
+        final List<IVolumeDatapoint> queryResults =
+            ( List<IVolumeDatapoint> ) metricsRepository.query( query );
+
+        List<Series> series = SeriesHelper.getRollupSeries( queryResults,
+                                                            query.getRange( ),
+                                                            query.getSeriesType( ),
+                                                            StatOperation.SUM );
+
+        return toFull( series.get( 0 ), systemCapacity.getValue( SizeUnit.B )
+                       .doubleValue() );
+    }
+
+    /**
+     *
+     * @param volumes
+     * @param systemCapacity
+     * @return the seconds to full calculation based on a regression over up to the last thirty days.
+     */
+    public CapacityToFull secondsToFullThirtyDays( final List<Volume> volumes,
+                                                   final Size systemCapacity )
+    {
+        return ctfTask.apply( Tuples.tupleOf( volumes, systemCapacity ) );
     }
 
     /**
@@ -527,18 +665,28 @@ public class QueryHelper {
         /*
          * TODO finish implementation
          * Add a non-linear regression for potentially better matching
-         * 
+         *
          */
     	final SimpleRegression linearRegression = new SimpleRegression();
 
-    	pSeries.getDatapoints().stream().forEach( ( point ) -> {
-    		linearRegression.addData( point.getX(), point.getY() );
-    	});
+    	pSeries.getDatapoints()
+               .stream()
+               .forEach( ( point ) -> linearRegression.addData( point.getX( ), point.getY( ) ) );
 
     	Double secondsToFull = systemCapacity / linearRegression.getSlope();
+        if( secondsToFull < 0.0 )
+        {
+            secondsToFull = Double.MAX_VALUE;
+        }
 
         final CapacityToFull to = new CapacityToFull();
         to.setToFull( secondsToFull.longValue() );
+
+        logger.trace( "To Full {} seconds; {} hours; {} days",
+                      secondsToFull.longValue(),
+                      TimeUnit.SECONDS.toHours( secondsToFull.longValue() ),
+                      TimeUnit.SECONDS.toDays( secondsToFull.longValue() ) );
+
         return to;
     }
 

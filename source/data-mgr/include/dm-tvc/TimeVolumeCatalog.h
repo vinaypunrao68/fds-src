@@ -28,7 +28,8 @@ struct DmVolumeAccessTable;
  * to happen in a transactional context and provides interfaces
  * for historical information to be queried.
  */
-class DmTimeVolCatalog : public Module, boost::noncopyable {
+class DmTimeVolCatalog : public HasModuleProvider,
+                         Module, boost::noncopyable {
   private:
     DataMgr& dataManager_;
 
@@ -110,7 +111,10 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
     /**
      * Constructs the TVC object but does not init
      */
-    DmTimeVolCatalog(const std::string &modName, fds_threadpool &tp, DataMgr& dataManager);
+    DmTimeVolCatalog(CommonModuleProviderIf *modProvider,
+                     const std::string &modName,
+                     fds_threadpool &tp,
+                     DataMgr& dataManager);
     ~DmTimeVolCatalog();
 
     typedef boost::shared_ptr<DmTimeVolCatalog> ptr;
@@ -150,7 +154,8 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
                      fpi::SvcUuid const& client_uuid,
                      fds_int64_t& token,
                      fpi::VolumeAccessMode const& mode,
-                     sequence_id_t& sequence_id);
+                     sequence_id_t& sequence_id,
+                     int32_t &version);
 
     /**
      * Attempt to "close" this volume from a previous open
@@ -190,7 +195,7 @@ class DmTimeVolCatalog : public Module, boost::noncopyable {
      * @return ERR_OK if volume is deleted; ERR_NOT_READY if volume not marked
      * as deleted
      */
-    Error deleteEmptyVolume(fds_volid_t volId);
+    Error deleteVolume(fds_volid_t volId);
 
     /**
      * Sets the key-value metadata pairs for the volume. Any keys that already

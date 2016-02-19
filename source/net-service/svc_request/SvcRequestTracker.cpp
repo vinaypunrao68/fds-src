@@ -25,8 +25,6 @@ bool SvcRequestTracker::addForTracking(const SvcRequestId& id,
 {
     DBG(GLOGDEBUG << req->logString());
 
-    SVCPERF(req->ts.rqStartTs = util::getTimeStampNanos());
-
     fds_scoped_lock l(svcReqMaplock_);
     auto pair = std::make_pair(id, req);
     auto ret = svcReqMap_.insert(pair);
@@ -67,4 +65,13 @@ SvcRequestTracker::getSvcRequest(const SvcRequestId& id)
     }
     return nullptr;
 }
+
+/**
+ * Return number of outstanding requests for cli debug
+ */
+uint64_t
+SvcRequestTracker::getOutstandingSvcReqsCount() {
+    return svcReqMap_.size();
+}
+
 }  // namespace fds

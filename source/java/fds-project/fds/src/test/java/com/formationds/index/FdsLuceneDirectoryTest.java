@@ -20,6 +20,7 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.search.*;
 import org.apache.lucene.store.Directory;
 import org.joda.time.DateTime;
+import org.joda.time.Duration;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -29,7 +30,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 @Ignore
 public class FdsLuceneDirectoryTest {
@@ -71,11 +71,15 @@ public class FdsLuceneDirectoryTest {
 
     @Test
     public void testIndex() throws Exception {
-        Directory directory = new FdsLuceneDirectory(new DeferredIoOps(io, new Counters()), volumeName, OBJECT_SIZE);
+        Directory directory = new FdsLuceneDirectory(new DeferredIoOps(io, new Counters()), "domain", volumeName, OBJECT_SIZE);
+        String[] resources = directory.listAll();
+        for (String resource : resources) {
+            directory.deleteFile(resource);
+        }
         IndexWriterConfig conf = new IndexWriterConfig(new StandardAnalyzer());
         conf.setMaxBufferedDocs(1024 * 1024);
         IndexWriter indexWriter = new IndexWriter(directory, conf);
-        int docs = 100000;
+        int docs = 1000000;
         long then = System.currentTimeMillis();
         for (int i = 0; i < docs; i++) {
             indexWriter.addDocument(randomDocument(i));
@@ -83,7 +87,7 @@ public class FdsLuceneDirectoryTest {
         indexWriter.commit();
         indexWriter.close();
         long elapsed = System.currentTimeMillis() - then;
-        System.out.println("Indexed " + docs + " in " + elapsed + "ms");
+        System.out.println("Indexed " + docs + " datapoints in " + elapsed + "ms");
         IndexSearcher indexSearcher = new IndexSearcher(DirectoryReader.open(directory));
 
         BooleanQuery q = new BooleanQuery();
@@ -141,8 +145,9 @@ public class FdsLuceneDirectoryTest {
     @Before
     public void setUp() throws Exception {
         volumeName = UUID.randomUUID().toString();
-        config.createVolume(BlockyVfs.DOMAIN, volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY), 0);
+        config.createVolume(XdiVfs.DOMAIN, volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY), 0);
         io = new AmOps(asyncAm, new Counters());
+//        io = new DeferredIoOps(new MemoryIoOps(), new Counters());
     }
 
     @BeforeClass
@@ -150,7 +155,7 @@ public class FdsLuceneDirectoryTest {
         XdiClientFactory xdiCf = new XdiClientFactory();
         config = new XdiConfigurationApi(xdiCf.remoteOmService(Fds.getFdsHost(), 9090));
         int serverPort = new ServerPortFinder().findPort("LuceneTest", 10000);
-        asyncAm = new RealAsyncAm(Fds.getFdsHost(), 8899, serverPort, 10, TimeUnit.MINUTES);
+        asyncAm = new RealAsyncAm(Fds.getFdsHost(), 8899, serverPort, Duration.standardSeconds(30));
         asyncAm.start();
     }
 }

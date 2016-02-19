@@ -3,6 +3,7 @@
  */
 
 #include <string>
+#include <thread>
 
 #include "fds_process.h"
 
@@ -48,6 +49,8 @@ AccessMgr::mod_startup() {
 
 void
 AccessMgr::mod_shutdown() {
+    LOGNOTIFY << "Stopping processing layer ";
+    amProcessor->stop();
     std::unique_lock<std::mutex> lk {stop_lock};
     shutting_down = true;
     stop_signal.notify_one();
@@ -60,7 +63,12 @@ void AccessMgr::mod_enable_service()
      * and DLT information. At this time, we've already done the registration
      * with the OM so anything here is post-registration.
      */
-    if (!asyncServer && amProcessor->haveTables()) {
+    if (!asyncServer) {
+        // Pretty useless till we have the tables, just keep retrying I guess.
+        while (!amProcessor->haveTables()) {
+            LOGWARN << "Failed to get the distribution tables...will try again.";
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+        }
         LOGNOTIFY << "Enabling services ";
         initilizeConnectors();
     }
@@ -97,22 +105,13 @@ void AccessMgr::initilizeConnectors() {
         /**
          * Initialize the Scst connector
          */
-        ScstConnector::start(weakProcessor);
+        auto t = std::thread(&ScstConnector::start, weakProcessor);
+        t.detach();
     }
 }
 
 void AccessMgr::mod_disable_service() {
-    amProcessor->stop();
-}
-
-void
-AccessMgr::run() {
-    std::unique_lock<std::mutex> lk {stop_lock};
-    stop_signal.wait(lk, [this]() { return this->shutting_down; });
-
-    amProcessor->prepareForShutdownMsgRespCallCb();
-
-    LOGDEBUG << "Processing layer has shutdown, stop external services.";
+    LOGNOTIFY << "Stopping connectors";
     asyncServer->stop();
     if (nbd_enabled) {
         NbdConnector::stop();
@@ -123,6 +122,33 @@ AccessMgr::run() {
      */
     if (scst_enabled) {
         ScstConnector::stop();
+    }
+}
+
+void
+AccessMgr::run() {
+    std::unique_lock<std::mutex> lk {stop_lock};
+    stop_signal.wait(lk, [this]() { return this->shutting_down; });
+    LOGNORMAL << "Processing layer has shutdown, stop external services.";
+}
+
+void
+AccessMgr::volumeAdded(VolumeDesc const& volDesc) {
+    if (nbd_enabled) {
+        NbdConnector::volumeAdded(volDesc);
+    }
+    if (scst_enabled) {
+        ScstConnector::volumeAdded(volDesc);
+    }
+}
+
+void
+AccessMgr::volumeRemoved(VolumeDesc const& volDesc) {
+    if (nbd_enabled) {
+        NbdConnector::volumeRemoved(volDesc);
+    }
+    if (scst_enabled) {
+        ScstConnector::volumeRemoved(volDesc);
     }
 }
 

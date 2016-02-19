@@ -3,11 +3,215 @@
  * vim: noai:ts=8:sw=2:tw=100:syntax=cpp:et
  */
 
-include "FDSP.thrift"
 include "common.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.svc.types
+
+/*
+ * Service/domain identifiers.
+ */
+struct SvcUuid {
+    1: required i64           svc_uuid,
+}
+
+struct DomainID {
+    1: required SvcUuid       domain_id,
+    2: required string        domain_name,
+}
+
+/*
+ * Node storage capability message format.
+ */
+struct SvcID {
+    1: required SvcUuid       svc_uuid,
+    2: required string        svc_name,
+}
+
+enum NodeSvcMask {
+    NODE_SVC_SM       = 0x0001,
+    NODE_SVC_DM       = 0x0002,
+    NODE_SVC_AM       = 0x0004,
+    NODE_SVC_OM       = 0x0008,
+    NODE_SVC_GENERAL  = 0x1000
+}
+
+struct SvcVer {
+    1: required i16           ver_major,
+    2: required i16           ver_minor,
+}
+
+/**
+ * Describes an object id.
+ * TODO(Andrew): Should this just be a typedef?
+ */
+struct FDS_ObjectIdType {
+  1: binary  digest
+}
+
+enum FDSP_NotifyVolFlag {
+  FDSP_NOTIFY_VOL_NO_FLAG,
+  FDSP_NOTIFY_VOL_CHECK_ONLY  // for delete vol -- only check if objects in volume
+}
+
+enum FDSP_NodeState {
+     FDS_Node_Up,
+     FDS_Node_Down,
+     FDS_Node_Rmvd,
+     FDS_Node_Discovered,
+     FDS_Start_Migration,
+     FDS_Node_Standby
+}
+
+enum FDSP_MgrIdType {
+    FDSP_PLATFORM       = 0x0,
+    FDSP_STOR_MGR       = 0x1,
+    FDSP_DATA_MGR       = 0x2,
+    FDSP_ACCESS_MGR     = 0x3,
+    FDSP_ORCH_MGR       = 0x4,
+    FDSP_CLI_MGR        = 0x5,
+    FDSP_OMCLIENT_MGR   = 0x6,
+    FDSP_MIGRATION_MGR  = 0x7,
+    FDSP_PLATFORM_SVC   = 0x8,
+    FDSP_METASYNC_MGR   = 0x9,
+    FDSP_TEST_APP       = 0xa,
+    FDSP_CONSOLE        = 0xb,
+    FDSP_INVALID_SVC    = 0xc
+}
+
+/**
+ * Despite its name, this structure captures information about Services,
+ * which, of course, includes a good bit of Node information as well.
+ */
+struct FDSP_Node_Info_Type {
+  1: i32            node_id,
+  2: FDSP_NodeState node_state,
+  3: FDSP_MgrIdType node_type, /* Actually, type of Service - SM/DM/AM */
+  4: string         node_name, /* node identifier - string */
+  5: i64            ip_hi_addr, /* IP V6 high address */
+  6: i64            ip_lo_addr, /* IP V4 address of V6 low address of the node */
+  7: i32            control_port, /* Port number to contact for control messages */
+  8: i32            data_port, /* Port number to send datapath requests */
+  9: i32            migration_port, /* Migration service port */
+  10: i64           node_uuid, /* UUID of the node */
+  11: i64           service_uuid, /* UUID of the service */
+  12: string        node_root, /* node root - string */
+  13: i32           metasync_port, /* Migration service port */
+}
+
+typedef list<FDSP_Node_Info_Type> Node_Info_List_Type
+
+struct FDSP_Uuid {
+  1: i64          uuid,
+}
+
+/**
+ *    A throttle level of X.Y (e.g, 5.6) means we should
+ *    1. throttle all traffic for priorities greater than X (priorities 6,7,8,9
+ *       for a 5.6 throttle level) to their guaranteed min rate,
+ *    2. allow all traffic for priorities less than X (priorities 0,1,2,3,4 for
+ *       a 5.6 throttle level) to go up till their max rate limit,
+ *    3. traffic for priority X to a rate = min_rate + Y/10 * (max_rate - min_rate).
+ *       (A volume that has a min rate of 300 IOPS and max rate of 600 IOPS will
+ *       be allowed to pump at 480 IOPS when throttle level is 5.6).
+ *
+ *    A throttle level of 0 indicates all volumes should be limited at their min_iops rating.
+ *    A negative throttle level of -X means all volumes should be throttled at (10-X)/10 of their min iops.
+ */
+struct FDSP_ThrottleMsgType {
+  /** Domain Identifier. */
+  1: i32    domain_id, /* Domain this throttle message is meant for */
+  /** Throttle level. */
+  2: double throttle_level, /* a real number between -10 and 10 */
+}
+
+enum FDSP_MediaPolicy {
+  FDSP_MEDIA_POLICY_UNSET,                /* only used by cli or other client on modify to not change existing policy */
+  FDSP_MEDIA_POLICY_HDD,                  /* always on hdd */
+  FDSP_MEDIA_POLICY_SSD,                  /* always on ssd */
+  FDSP_MEDIA_POLICY_HYBRID,               /* either hdd or ssd, but prefer ssd */
+  FDSP_MEDIA_POLICY_HYBRID_PREFCAP        /* either on hdd or ssd, but prefer hdd */
+}
+
+enum FDSP_VolType {
+  FDSP_VOL_S3_TYPE,
+  FDSP_VOL_BLKDEV_TYPE
+  FDSP_VOL_ISCSI_TYPE
+  FDSP_VOL_NFS_TYPE
+}
+
+enum ResourceState {
+  Unknown,
+  Loading, /* resource is loading or in the middle of creation */
+  Created, /* resource has been created */
+  Syncing, /* resource is being synced */
+  Active,  /* resource activated - ready to use */
+  Offline, /* resource is offline - will come back later */
+  MarkedForDeletion, /* resource will be deleted soon. */
+  Deleted, /* resource is gone now and will not come back*/
+  InError,  /*in known erroneous state*/
+}
+
+/* Volumegroup coordinator information */
+struct VolumeGroupCoordinatorInfo {
+    1: required SvcUuid		                id;
+    2: i32				        version;
+}
+
+struct FDSP_VolumeDescType {
+  1: required string            vol_name,  /* Name of the volume */
+  2: i32                        tennantId,  // Tennant id that owns the volume
+  3: i32                        localDomainId,  // Local domain id that owns vol
+  4: required i64               volUUID,
+
+  // Basic operational properties
+  5: required FDSP_VolType      volType,
+  6: i32                        maxObjSizeInBytes,
+  7: required double            capacity,
+
+  // Other policies
+  8: i32                        volPolicyId,
+  9: i32                        placementPolicy,  // Can change placement policy
+
+  // volume policy details
+  10: i64                       iops_assured, /* minimum (guaranteed) iops */
+  11: i64                       iops_throttle, /* maximum iops */
+  12: i32                       rel_prio, /* relative priority */
+  13: required FDSP_MediaPolicy mediaPolicy   /* media policy */
+
+  14: bool                      fSnapshot,
+  15: ResourceState             state,
+  16: i64                       contCommitlogRetention,
+  17: i64                       srcVolumeId,
+  18: i64                       timelineTime,
+  19: i64                       createTime,
+  20: common.IScsiTarget        iscsi,
+  21: common.NfsOption          nfs
+  22: VolumeGroupCoordinatorInfo coordinator;
+}
+
+struct FDSP_PolicyInfoType {
+  1: string                 policy_name,    /* Name of the policy */
+  2: i32                    policy_id,      /* policy id */
+  3: double                 iops_assured,   /* minimum (guaranteed) iops */
+  4: double                 iops_throttle,  /* maximum iops */
+  5: i32                    rel_prio,       /* relative priority */
+}
+
+/**
+ * Descriptor for a snapshot. Describes it name and
+ * policy information.
+ */
+struct Snapshot {
+    1:i64 snapshotId,
+    2:string snapshotName,
+    3:i64 volumeId,
+    4:i64 snapshotPolicyId,
+    5:i64 creationTimestamp,
+    6:i64 retentionTimeSeconds,
+    7:ResourceState state,
+    8:i64 timelineTime,
+}
 
 /* ------------------------------------------------------------
    List of all FDSP message types that passed between fds services.  Typically all these
@@ -28,6 +232,14 @@ enum  FDSPMsgTypeId {
   NullMsgTypeId                             = 10;
   EmptyMsgTypeId                            = 11;
   StatStreamMsgTypeId                       = 12;
+  GenericCommandMsgTypeId                   = 13;
+  GenericCommandRespMsgTypeId               = 14;
+
+  /** File Transfer **/
+  FileTransferMsgTypeId                     = 900;
+  FileTransferRespMsgTypeId                 = 901;
+  FileTransferVerifyMsgTypeId               = 902;
+  FileTransferVerifyRespMsgTypeId           = 903;
 
   /** Node/service event messages. */
   NodeSvcInfoTypeId                         = 1000;
@@ -101,6 +313,8 @@ enum  FDSPMsgTypeId {
   CtrlGetSecondRebalanceDeltaSetRspTypeId   = 2067;
   CtrlFinishClientTokenResyncMsgTypeId      = 2068;
   CtrlFinishClientTokenResyncRspMsgTypeId   = 2069;
+  ObjectStoreCtrlMsgTypeId                  = 2070;
+  RequestObjectStoreStateMsgTypeId          = 2071;
 
   /** DM messages. */
   CtrlNotifyDMTCloseTypeId                  = 2081;
@@ -115,10 +329,12 @@ enum  FDSPMsgTypeId {
   /** AM-> OM */
   GetVolumeDescriptorTypeId                 = 3000;
   CtrlGetBucketStatsTypeId                  = 3001;
+  GetVolumeDescriptorRespTypeId             = 3002;
 
   /** Svc -> OM */
   CtrlSvcEventTypeId                        = 9000;
   CtrlTokenMigrationAbortTypeId             = 9001;
+  SvcStateChangeRespTypeId                  = 9002;
 
   /** SM Type Ids*/
   GetObjectMsgTypeId                        = 10000;
@@ -130,102 +346,133 @@ enum  FDSPMsgTypeId {
   AddObjectRefMsgTypeId                     = 10006;
   AddObjectRefRspMsgTypeId                  = 10007;
   PrepareForShutdownMsgTypeId               = 10008;
+  ActiveObjectsMsgTypeId                    = 10009;
+  ActiveObjectsRspMsgTypeId                 = 10010;
 
   /** DM Type Ids */
   QueryCatalogMsgTypeId                     = 20000;
-  QueryCatalogRspMsgTypeId;
-  StartBlobTxMsgTypeId;
-  StartBlobTxRspMsgTypeId;
-  UpdateCatalogMsgTypeId;
-  UpdateCatalogRspMsgTypeId;
-  UpdateCatalogOnceMsgTypeId;
-  UpdateCatalogOnceRspMsgTypeId;
-  SetBlobMetaDataMsgTypeId;
-  SetBlobMetaDataRspMsgTypeId;
-  GetBlobMetaDataMsgTypeId;
-  GetBlobMetaDataRspMsgTypeId;
-  StatVolumeMsgTypeId;
-  StatVolumeRspMsgTypeId;
-  SetVolumeMetadataMsgTypeId;
-  SetVolumeMetadataRspMsgTypeId;
-  GetVolumeMetadataMsgTypeId;
-  GetVolumeMetadataRspMsgTypeId;
-  CommitBlobTxMsgTypeId;
-  CommitBlobTxRspMsgTypeId;
-  AbortBlobTxMsgTypeId;
-  AbortBlobTxRspMsgTypeId;
-  GetBucketMsgTypeId;
-  GetBucketRspMsgTypeId;
-  DeleteBlobMsgTypeId;
-  DeleteBlobRspMsgTypeId;
-  ForwardCatalogMsgTypeId;
-  ForwardCatalogRspMsgTypeId;
-  VolSyncStateMsgTypeId;
-  VolSyncStateRspMsgTypeId;
-  StatStreamRegistrationMsgTypeId;
-  StatStreamRegistrationRspMsgTypeId;
-  StatStreamDeregistrationMsgTypeId;
-  StatStreamDeregistrationRspMsgTypeId;
-  CreateSnapshotMsgTypeId;
-  CreateSnapshotRespMsgTypeId;
-  DeleteSnapshotMsgTypeId;
-  DeleteSnapshotRespMsgTypeId;
-  CreateVolumeCloneMsgTypeId;
-  CreateVolumeCloneRespMsgTypeId;
-  GetDmStatsMsgTypeId;
-  GetDmStatsMsgRespTypeId;
-  ListBlobsByPatternMsgTypeId;
-  ListBlobsByPatternRspMsgTypeId;
-  OpenVolumeMsgTypeId;
-  OpenVolumeRspMsgTypeId;
-  CloseVolumeMsgTypeId;
-  CloseVolumeRspMsgTypeId;
-  ReloadVolumeMsgTypeId;
-  ReloadVolumeRspMsgTypeId;
-  CtrlNotifyDMStartMigrationMsgTypeId;
-  CtrlNotifyDMStartMigrationRspMsgTypeId;
-  CtrlNotifyInitialBlobFilterSetMsgTypeId;
-  CtrlNotifyInitialBlobFilterSetRspMsgTypeId;
-  CtrlNotifyDeltaBlobDescMsgTypeId;
-  CtrlNotifyDeltaBlobDescRspMsgTypeId;
-  CtrlNotifyDeltaBlobsMsgTypeId;
-  CtrlNotifyDeltaBlobsRspMsgTypeId;
-  RenameBlobMsgTypeId;
-  RenameBlobRespMsgTypeId;
-  CtrlNotifyTxStateMsgTypeId;
-  CtrlNotifyTxStateRspMsgTypeId;
+  QueryCatalogRspMsgTypeId		    = 20001;
+  StartBlobTxMsgTypeId			    = 20002;
+  StartBlobTxRspMsgTypeId		    = 20003;
+  UpdateCatalogMsgTypeId		    = 20004;
+  UpdateCatalogRspMsgTypeId		    = 20005;
+  UpdateCatalogOnceMsgTypeId		    = 20006;
+  UpdateCatalogOnceRspMsgTypeId		    = 20007;
+  SetBlobMetaDataMsgTypeId		    = 20008;
+  SetBlobMetaDataRspMsgTypeId		    = 20009;
+  GetBlobMetaDataMsgTypeId		    = 20010;
+  GetBlobMetaDataRspMsgTypeId		    = 20011;
+  StatVolumeMsgTypeId			    = 20012;
+  StatVolumeRspMsgTypeId		    = 20013;
+  SetVolumeMetadataMsgTypeId		    = 20014;
+  SetVolumeMetadataRspMsgTypeId		    = 20015;
+  GetVolumeMetadataMsgTypeId		    = 20016;
+  GetVolumeMetadataRspMsgTypeId		    = 20017;
+  CommitBlobTxMsgTypeId			    = 20018;
+  CommitBlobTxRspMsgTypeId		    = 20019;
+  AbortBlobTxMsgTypeId			    = 20020;
+  AbortBlobTxRspMsgTypeId		    = 20021;
+  GetBucketMsgTypeId			    = 20022;
+  GetBucketRspMsgTypeId			    = 20023;
+  DeleteBlobMsgTypeId			    = 20024;
+  DeleteBlobRspMsgTypeId		    = 20025;
+  ForwardCatalogMsgTypeId		    = 20026;
+  ForwardCatalogRspMsgTypeId		    = 20027;
+  VolSyncStateMsgTypeId			    = 20028;
+  VolSyncStateRspMsgTypeId		    = 20029;
+  StatStreamRegistrationMsgTypeId	    = 20030;
+  StatStreamRegistrationRspMsgTypeId	    = 20031;
+  StatStreamDeregistrationMsgTypeId	    = 20032;
+  StatStreamDeregistrationRspMsgTypeId	    = 20033;
+  CreateSnapshotMsgTypeId		    = 20034;
+  CreateSnapshotRespMsgTypeId		    = 20035;
+  DeleteSnapshotMsgTypeId		    = 20036;
+  DeleteSnapshotRespMsgTypeId		    = 20037;
+  CreateVolumeCloneMsgTypeId		    = 20038;
+  CreateVolumeCloneRespMsgTypeId	    = 20039;
+  GetDmStatsMsgTypeId			    = 20040;
+  GetDmStatsMsgRespTypeId		    = 20041;
+  ListBlobsByPatternMsgTypeId		    = 20042;
+  ListBlobsByPatternRspMsgTypeId	    = 20043;
+  OpenVolumeMsgTypeId			    = 20044;
+  OpenVolumeRspMsgTypeId		    = 20045;
+  CloseVolumeMsgTypeId			    = 20046;
+  CloseVolumeRspMsgTypeId		    = 20047;
+  ReloadVolumeMsgTypeId			    = 20048;
+  ReloadVolumeRspMsgTypeId		    = 20049;
+  CtrlNotifyDMStartMigrationMsgTypeId	    = 20050;
+  CtrlNotifyDMStartMigrationRspMsgTypeId	= 20051;
+  CtrlNotifyInitialBlobFilterSetMsgTypeId	= 20052;
+  CtrlNotifyInitialBlobFilterSetRspMsgTypeId	= 20053;
+  CtrlNotifyDeltaBlobDescMsgTypeId		= 20054;
+  CtrlNotifyDeltaBlobDescRspMsgTypeId		= 20055;
+  CtrlNotifyDeltaBlobsMsgTypeId		    = 20056;
+  CtrlNotifyDeltaBlobsRspMsgTypeId	    = 20057;
+  RenameBlobMsgTypeId			    = 20058;
+  RenameBlobRespMsgTypeId		    = 20059;
+  CtrlNotifyTxStateMsgTypeId		    = 20060;
+  CtrlNotifyTxStateRspMsgTypeId		    = 20061;
+  StartRefScanMsgTypeId			    = 20062;
+  CtrlNotifyRequestTxStateMsgTypeId	    = 20063;
+  CtrlNotifyRequestTxStateRspMsgTypeId	    = 20064;
+  LoadFromArchiveMsgTypeId		    = 20065;
+  CtrlNotifyFinishMigrationMsgTypeId	    = 20066;
+
+  /* DM Debug Messages */
+  DbgForceVolumeSyncMsgTypeId               = 21000; 
+
+  /* VolumeGroup messages */
+  VolumeGroupInfoUpdateCtrlMsgTypeId        = 30000;
+  SetVolumeGroupCoordinatorMsgTypeId        = 30002;
+  AddToVolumeGroupCtrlMsgTypeId             = 30003;
+  AddToVolumeGroupRespCtrlMsgTypeId         = 30004;
+  VolumeStateUpdateInfoCtrlMsgTypeId        = 30005;
 
   /** Health Status */
   NotifyHealthReportTypeId                  = 100000;
   HeartbeatMessageTypeId                    = 100001;
-  EventMessageTypeId;
+  EventMessageTypeId                        = 100002;
+
+  /** disk-map change (sent by PM to SM and DM) */
+  NotifyDiskMapChangeTypeId                 = 100003;
 }
 
 /**
  * Service status.
  */
 enum ServiceStatus {
-    SVC_STATUS_INVALID      = 0x0000;
-    SVC_STATUS_ACTIVE       = 0x0001;
-    SVC_STATUS_INACTIVE     = 0x0002;
-/*
- * We really need some way to determine that a "PM service" is in a
- * "discovered" state to allow us to add it on first registration
- */
-    SVC_STATUS_DISCOVERED   = 0x0003;
-/*
- * When we shutdown or remove a node, we need a state to reflect
- * that while the PM is not in inactive state, it is not active either
- */
-    SVC_STATUS_STANDBY      = 0x0004;
-    SVC_STATUS_ADDED        = 0x0005;
-    SVC_STATUS_STARTED      = 0x0006;
-    SVC_STATUS_STOPPED      = 0x0007;
+    SVC_STATUS_INVALID          = 0x0000;
+    SVC_STATUS_ACTIVE           = 0x0001;
+    
+    /*
+    * Inactive because of an intentional action (svc stop/remove, node stop/remove, domain shutdown)
+    */
+    SVC_STATUS_INACTIVE_STOPPED = 0x0002;
+   /*
+   * We really need some way to determine that a "PM service" is in a
+   * "discovered" state to allow us to add it on first registration
+   */
+    SVC_STATUS_DISCOVERED       = 0x0003;
+   /*
+   * When we shutdown or remove a node, we need a state to reflect
+   * that while the PM is not in inactive state, it is not active either
+   */
+    SVC_STATUS_STANDBY          = 0x0004;
+    SVC_STATUS_ADDED            = 0x0005;
+    SVC_STATUS_STARTED          = 0x0006;
+    SVC_STATUS_STOPPED          = 0x0007;
+    SVC_STATUS_REMOVED          = 0x0008;
+    /*
+    * Indicates a svc is inactive because OM received a unreachable event from svcLayer
+    */
+    SVC_STATUS_INACTIVE_FAILED  = 0x0009;
 }
 
 /* ------------------------------------------------------------
    SvcLayer Types
    ------------------------------------------------------------*/
+
+typedef i64 ReplicaId
 
 /*
  * This message header is owned, controlled and set by the net service layer.
@@ -239,27 +486,19 @@ struct AsyncHdr {
   /**  */
   3: required i64               msg_src_id;
   /** Sender's Uuid */
-  4: required common.SvcUuid    msg_src_uuid;
+  4: required SvcUuid           msg_src_uuid;
   /** Destination Uuid */
-  5: required common.SvcUuid    msg_dst_uuid;
+  5: required SvcUuid           msg_dst_uuid;
   /**  */
   6: required i32               msg_code;
   /**  */
   7: optional i64               dlt_version = 0;
-  /**  */
-  8: i64                        rqSendStartTs;
-  /**  */
-  9: i64                        rqSendEndTs;
-  /**  */
-  10:i64                        rqRcvdTs;
-  /**  */
-  11:i64                        rqHndlrTs;
-  /**  */
-  12:i64                        rspSerStartTs;
-  /**  */
-  13:i64                        rspSendStartTs;
-  /**  */
-  14:i64                        rspRcvdTs;
+  /* Replica id.  Made part of AsyncHdr for convenience */
+  8: optional ReplicaId         replicaId = 0;
+  /* Replica version.  Made part of AsyncHdr for convenience */
+  9: optional i32               replicaVersion = 0;
+  /* Header specific for payload */
+  10: optional binary           payloadHdr;
 }
 
 
@@ -281,11 +520,11 @@ struct FDSP_DMT_Data_Type {
  * Service map info
  */
 struct SvcInfo {
-  1: required common.SvcID          svc_id;
-  2: required i32                   svc_port;
-  3: required common.FDSP_MgrIdType   svc_type;
-  4: required ServiceStatus         svc_status;
-  5: required string                svc_auto_name;
+  1: required SvcID             svc_id;
+  2: required i32               svc_port;
+  3: required FDSP_MgrIdType    svc_type;
+  4: required ServiceStatus     svc_status;
+  5: required string            svc_auto_name;
   // TODO(Rao): We should make these required.  They aren't made required as of this writing
   // because it can break existing code.
   6: string                         ip;
@@ -301,42 +540,54 @@ struct SvcInfo {
  * --------------------------------------------------------------------------------
  */
 
+/*
+ * @deprecated 06/09/2015
+ */
+struct FDSP_ActivateNodeType {
+  1: FDSP_Uuid  node_uuid,
+  2: string     node_name,          /* autogenerated name */
+  3: bool       has_sm_service,     /* true if node runs sm service */
+  4: bool       has_dm_service,     /* true if node runs dm service */
+  5: bool       has_om_service,     /* true if node runs om service */
+  6: bool       has_am_service      /* true if node runs am service */
+}
+
 /**
  * Activate Service
  * @deprecated 06/09/2015
  */
 struct ActivateServicesMsg {
-  1: FDSP.FDSP_ActivateNodeType info;
+  1: FDSP_ActivateNodeType info;
 }
 
 /**
  * Bind service to Uuid.
  */
 struct UuidBindMsg {
-    1: required common.SvcID          svc_id;
-    2: required string                svc_addr;
-    3: required i32                   svc_port;
-    4: required common.SvcID          svc_node;
-    5: required string                svc_auto_name;
-    6: required common.FDSP_MgrIdType   svc_type;
+    1: required SvcID           svc_id;
+    2: required string          svc_addr;
+    3: required i32             svc_port;
+    4: required SvcID           svc_node;
+    5: required string          svc_auto_name;
+    6: required FDSP_MgrIdType  svc_type;
 }
 
 /**
  * This becomes a control path message
  */
 struct NodeSvcInfo {
-    1: required common.SvcUuid           node_base_uuid,
-    2: i32                               node_base_port,
-    3: string                            node_addr,
-    4: string                            node_auto_name,
-    5: common.FDSP_NodeState               node_state;
-    6: i32                               node_svc_mask,
-    7: list<SvcInfo>                     node_svc_list,
+    1: required SvcUuid         node_base_uuid,
+    2: i32                      node_base_port,
+    3: string                   node_addr,
+    4: string                   node_auto_name,
+    5: FDSP_NodeState           node_state;
+    6: i32                      node_svc_mask,
+    7: list<SvcInfo>            node_svc_list,
 }
 
 struct DomainNodes {
-    1: required common.DomainID          dom_id,
-    2: list<NodeSvcInfo>                 dom_nodes,
+    1: required DomainID        dom_id,
+    2: list<NodeSvcInfo>        dom_nodes,
 }
 
 struct StorCapMsg {
@@ -352,35 +603,35 @@ struct StorCapMsg {
  */
 struct NodeWorkItem {
     1: required i32                      nd_work_code,
-    2: required common.DomainID          nd_dom_id,
-    3: required common.SvcUuid           nd_from_svc,
-    4: required common.SvcUuid           nd_to_svc,
+    2: required DomainID          nd_dom_id,
+    3: required SvcUuid           nd_from_svc,
+    4: required SvcUuid           nd_to_svc,
 }
 
 struct NodeDeploy {
-    1: required common.DomainID          nd_dom_id,
-    2: required common.SvcUuid           nd_uuid,
+    1: required DomainID          nd_dom_id,
+    2: required SvcUuid           nd_uuid,
     3: list<NodeWorkItem>                nd_work_item,
 }
 
 struct NodeDown {
-    1: required common.DomainID          nd_dom_id,
-    2: required common.SvcUuid           nd_uuid,
+    1: required DomainID          nd_dom_id,
+    2: required SvcUuid           nd_uuid,
 }
 
 /**
  * Events emit from a node.
  */
 struct NodeEvent {
-    1: required common.DomainID          nd_dom_id,
-    2: required common.SvcUuid           nd_uuid,
+    1: required DomainID          nd_dom_id,
+    2: required SvcUuid           nd_uuid,
     3: required string                   nd_evt,
     4: string                            nd_evt_text,
 }
 
 struct NodeFunctional {
-    1: required common.DomainID                 nd_dom_id,
-    2: required common.SvcUuid                  nd_uuid,
+    1: required DomainID                 nd_dom_id,
+    2: required SvcUuid                  nd_uuid,
     3: required FDSPMsgTypeId                   nd_op_code,
     4: list<NodeWorkItem>                       nd_work_item,
 }
@@ -390,7 +641,7 @@ struct NodeFunctional {
  */
 struct NodeInfoMsg {
     1: required UuidBindMsg node_loc,
-    2: required common.DomainID         node_domain,
+    2: required DomainID         node_domain,
     3: StorCapMsg                       node_stor,
     4: required i32                     nd_base_port,
     5: required i32                     nd_svc_mask,
@@ -398,8 +649,8 @@ struct NodeInfoMsg {
 }
 
 struct NodeIntegrate {
-    1: required common.DomainID          nd_dom_id,
-    2: required common.SvcUuid           nd_uuid,
+    1: required DomainID          nd_dom_id,
+    2: required SvcUuid           nd_uuid,
     3: bool                              nd_start_am,
     4: bool                              nd_start_dm,
     5: bool                              nd_start_sm,
@@ -432,8 +683,8 @@ struct NodeQualify {
  * Notify node to upgrade/rollback SW version.
  */
 struct NodeUpgrade {
-    1: required common.DomainID                 nd_dom_id,
-    2: required common.SvcUuid                  nd_uuid,
+    1: required DomainID                 nd_dom_id,
+    2: required SvcUuid                  nd_uuid,
     3: NodeVersion                              nd_sw_ver,
     4: required FDSPMsgTypeId   nd_op_code,
     5: required string                          nd_md5_chksum,

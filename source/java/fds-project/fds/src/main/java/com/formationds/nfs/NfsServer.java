@@ -11,10 +11,9 @@ import com.formationds.xdi.XdiConfigurationApi;
 import org.apache.log4j.Logger;
 import org.dcache.nfs.ExportFile;
 import org.dcache.nfs.v3.MountServer;
+import org.dcache.nfs.v4.CustomNfsv4OperationFactory;
 import org.dcache.nfs.v4.DeviceManager;
-import org.dcache.nfs.v4.MDSOperationFactory;
 import org.dcache.nfs.v4.NFSServerV41;
-import org.dcache.nfs.vfs.VirtualFileSystem;
 import org.dcache.xdr.OncRpcProgram;
 import org.dcache.xdr.OncRpcSvc;
 import org.dcache.xdr.OncRpcSvcBuilder;
@@ -36,38 +35,43 @@ public class NfsServer {
         }
         String omHost = args[0];
         String amHost = args[1];
-        Configuration platformConfig = new Configuration("NFS", new String[]{"--console"});
-        NfsConfiguration nfsConfiguration = platformConfig.getNfsConfig();
+        Configuration platformConfig = new Configuration( "NFS", "--console" );
+        XdiStaticConfiguration xdiStaticConfiguration = platformConfig.getXdiStaticConfig( 7000 );
         XdiClientFactory clientFactory = new XdiClientFactory();
         XdiConfigurationApi config = new XdiConfigurationApi(clientFactory.remoteOmService(omHost, 9090));
         config.startCacheUpdaterThread(1000);
 
-        AsyncAm asyncAm = new RealAsyncAm(amHost, 8899, new ServerPortFinder().findPort("NFS", 10000));
+        AsyncAm asyncAm = new RealAsyncAm(amHost, 8899, new ServerPortFinder().findPort("NFS", 10000), xdiStaticConfiguration.getAmTimeout());
         asyncAm.start();
-        new NfsServer().start(nfsConfiguration, config, asyncAm, 2049);
+        new NfsServer().start(xdiStaticConfiguration, config, asyncAm, 2049);
         System.in.read();
     }
 
-    public void start(NfsConfiguration nfsConfiguration, XdiConfigurationApi config, AsyncAm asyncAm, int serverPort) throws IOException {
+    public void start(XdiStaticConfiguration xdiStaticConfiguration, XdiConfigurationApi config, AsyncAm asyncAm, int serverPort) throws IOException {
         Counters counters = new Counters();
-        if (nfsConfiguration.activateStats()) {
-            Thread t = new Thread(() -> new DebugWebapp().start(5555, asyncAm, config, counters));
+        if (xdiStaticConfiguration.activateStats()) {
+            Thread t = new Thread(() -> new DebugWebapp().start(xdiStaticConfiguration.getStatsPort(), asyncAm, config, counters));
             t.setName("NFS statistics webapp");
             t.start();
         }
-        LOG.info("Starting NFS server - " + nfsConfiguration.toString());
+        LOG.info("Starting NFS server - " + xdiStaticConfiguration.toString());
         DynamicExports dynamicExports = new DynamicExports(config);
         dynamicExports.start();
         ExportFile exportFile = dynamicExports.exportFile();
 
 //        VirtualFileSystem vfs = new MemoryVirtualFileSystem();
-//        VirtualFileSystem vfs = new AmVfs(asyncAm, config, dynamicExports);
-        VirtualFileSystem vfs = new BlockyVfs(asyncAm, dynamicExports, counters, nfsConfiguration.deferMetadataUpdates());
+        XdiVfs vfs = new XdiVfs(
+                asyncAm,
+                dynamicExports,
+                counters,
+                xdiStaticConfiguration.deferMetadataUpdates(),
+                xdiStaticConfiguration.getAmRetryAttempts(),
+                xdiStaticConfiguration.getAmRetryInterval());
 
         // create the RPC service which will handle NFS requests
         ThreadFactory factory = ThreadFactories.newThreadFactory("nfs-rpcsvc", true);
-        ThreadPoolExecutor executor = new ThreadPoolExecutor(nfsConfiguration.getThreadPoolSize(),
-                nfsConfiguration.getThreadPoolSize(),
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(xdiStaticConfiguration.getThreadPoolSize(),
+                xdiStaticConfiguration.getThreadPoolSize(),
                 10, TimeUnit.MINUTES,
                 //new LinkedBlockingQueue<>(nfsConfiguration.getWorkQueueSize()),
                 new SynchronousQueue<>(),
@@ -77,6 +81,7 @@ public class NfsServer {
         OncRpcSvc nfsSvc = new OncRpcSvcBuilder()
                 .withPort(serverPort)
                 .withTCP()
+                .withUDP()
                 .withAutoPublish()
                 .withWorkerThreadIoStrategy()
                 .withWorkerThreadExecutionService(executor)
@@ -84,13 +89,13 @@ public class NfsServer {
 
         // create NFS v4.1 server
         NFSServerV41 nfs4 = new NFSServerV41(
-                new MDSOperationFactory(),
+                new CustomNfsv4OperationFactory(),
                 new DeviceManager(),
                 vfs,
                 exportFile);
 
         // create NFS v3 and mountd servers
-        CustomNfsV3Server nfs3 = new CustomNfsV3Server(exportFile, vfs, nfsConfiguration.getMaxLiveNfsCookies());
+        CustomNfsV3Server nfs3 = new CustomNfsV3Server(exportFile, vfs, xdiStaticConfiguration.getMaxLiveNfsCookies());
         MountServer mountd = new MountServer(exportFile, vfs);
 
         // register NFS servers at portmap service

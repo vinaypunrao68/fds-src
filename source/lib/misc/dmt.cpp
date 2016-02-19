@@ -1,6 +1,7 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+#include <DltDmtUtil.h>
 #include <ostream>
 #include <sstream>
 #include <iostream>
@@ -10,6 +11,7 @@
 #include <string>
 
 #include <fds_dmt.h>
+#include <include/net/SvcMgr.h>
 
 namespace fds {
 
@@ -69,6 +71,15 @@ DmtColumnPtr DMT::getNodeGroup(fds_volid_t volume_id) const {
     fds_uint32_t col_index = volume_id.get() % columns;
     return dmt_table->at(col_index);
 }
+
+std::vector<fpi::SvcUuid>
+DMT::getSvcUuids(fds_volid_t volume_id) const
+{
+    auto column = getNodeGroup(volume_id);
+    return column->toSvcUuids();
+}
+        
+
 
 /**
  * returns column index for given 'volume_id' for a given number of
@@ -193,6 +204,48 @@ std::ostream& operator<< (std::ostream &oss, const DMT& dmt) {
     return oss;
 }
 
+Error DMT::verify(const NodeUuidSet& expectedUuidSet) const {
+    Error err(ERR_OK);
+
+    // we should not have more rows than nodes
+    if (getDepth() >  (expectedUuidSet.size() + DltDmtUtil::getInstance()->getPendingNodeRemoves(fpi::FDSP_DATA_MGR))){
+        LOGERROR << "DMT has more rows (" << depth
+                 << ") than nodes (" << expectedUuidSet.size() << ")";
+        return ERR_INVALID_DLT;
+    }
+
+    // check each column in DMT
+    NodeUuidSet colSet;
+    for (fds_token_id i = 0; i < getNumColumns(); ++i) {
+        colSet.clear();
+        DmtColumnPtr column = getNodeGroup(i);
+        for (fds_uint32_t j = 0; j < getDepth() ; ++j) {
+            NodeUuid uuid = column->get(j);
+            if ((uuid.uuid_get_val() == 0) ||
+                (expectedUuidSet.count(uuid) == 0)) {
+                if (!DltDmtUtil::getInstance()->isMarkedForRemoval(uuid.uuid_get_val())) {
+                    // unexpected uuid in this DMT cell
+                    LOGERROR << "DMT contains unexpected uuid " << std::hex
+                             << uuid.uuid_get_val() << std::dec;
+                    return ERR_INVALID_DMT;
+                } else {
+                    LOGDEBUG <<"Node:" << std::hex << uuid.uuid_get_val()
+                             << std::dec << " pending removal present in DMT,"
+                             << " will process in next update";
+                }
+            }
+            colSet.insert(uuid);
+        }
+
+        // make sure that column contains all unique uuids
+        if (colSet.size() < depth) {
+            LOGERROR << "Found non-unique uuids in DMT column " << i;
+            return ERR_INVALID_DMT;
+        }
+    }
+
+    return err;
+}
 Error DMT::verify() const {
     Error err(ERR_OK);
     std::vector<DmtColumnPtr>::const_iterator it;
@@ -257,6 +310,17 @@ bool DMT::isVolumeOwnedBySvc(const fds_volid_t &volId, const fpi::SvcUuid &svcUu
     return (nodeGroup->find(NodeUuid(svcUuid)) != -1);
 }
 
+DMTPtr DMT::newDMT(const std::vector<fpi::SvcUuid> &column)
+{
+    auto dmt = MAKE_SHARED<DMT>(1, column.size(), 1);
+    TableColumn tc(column.size());
+    for (uint32_t i = 0; i < column.size(); i++) {
+        tc.set(i, column[i].svc_uuid);
+    }
+    dmt->setNodeGroup(0, tc);
+    return dmt;
+}
+
 /***** DMTManager implementation ****/
 
 DMTManager::DMTManager(fds_uint32_t history_dmts)
@@ -268,7 +332,9 @@ DMTManager::DMTManager(fds_uint32_t history_dmts)
 DMTManager::~DMTManager() {
 }
 
-Error DMTManager::add(DMT* dmt, DMTType dmt_type, FDS_Table::callback_type const& cb) {
+Error DMTManager::add(DMT* dmt,
+                      DMTType dmt_type,
+                      FDS_Table::callback_type const& cb) {
 
     Error err(ERR_OK);
 
@@ -347,13 +413,15 @@ Error DMTManager::commitDMT(fds_bool_t rmTarget) {
     return err;
 }
 
-Error DMTManager::commitDMT(fds_uint64_t version) {
+Error DMTManager::commitDMT(fds_uint64_t version, fds_bool_t rmTarget) {
     Error err(ERR_OK);
     dmt_lock.write_lock();
     if (version != DMT_VER_INVALID) {
         if (dmt_map.count(version) > 0) {
             committed_version = version;
-            target_version = DMT_VER_INVALID;
+            if (rmTarget) {
+                target_version = DMT_VER_INVALID;
+            }
         } else {
             fds_verify(dmt_map.size() == 0);
             committed_version = DMT_VER_INVALID;
@@ -372,6 +440,7 @@ Error DMTManager::unsetTarget(fds_bool_t rmTarget) {
     Error err(ERR_OK);
     dmt_lock.write_lock();
     if (target_version != DMT_VER_INVALID) {
+        LOGDEBUG << "Unsetting target DMT version " << target_version << " remove? " << rmTarget;
         fds_verify(dmt_map.count(target_version) > 0);
         if (rmTarget) {
             // remove target DMT from the map 
@@ -379,6 +448,7 @@ Error DMTManager::unsetTarget(fds_bool_t rmTarget) {
         }
         target_version = DMT_VER_INVALID;
     } else {
+        LOGDEBUG << "Unsetting target DMT version not found";
         err = ERR_NOT_FOUND;
     }
     dmt_lock.write_unlock();

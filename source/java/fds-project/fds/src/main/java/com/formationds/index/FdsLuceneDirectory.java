@@ -2,92 +2,127 @@ package com.formationds.index;
 
 import com.formationds.hadoop.OwnerGroupInfo;
 import com.formationds.nfs.*;
+import com.formationds.nfs.deferred.CacheEntry;
+import com.formationds.nfs.deferred.EvictingCache;
+import com.formationds.util.ServerPortFinder;
 import com.formationds.xdi.AsyncAm;
+import com.formationds.xdi.RealAsyncAm;
 import org.apache.log4j.Logger;
 import org.apache.lucene.store.*;
+import org.joda.time.Duration;
 import org.junit.Ignore;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 @Ignore
 public class FdsLuceneDirectory extends Directory {
     private static final Logger LOG = Logger.getLogger(FdsLuceneDirectory.class);
-    public static final String INDEX_FILE_PREFIX = "index-";
+    public static final String INDEX_FILE_PREFIX = "index/";
     public static final OwnerGroupInfo OWNER = new OwnerGroupInfo("fds", "fds");
     public static final String SIZE = "SIZE";
-    public static final String NAME = "NAME";
-    private final String volume;
-    private final int objectSize;
-    private final ConcurrentHashMap<String, Lock> locks;
-    private final TransactionalIo io;
-    private final Chunker chunker;
+    public static final String LUCENE_RESOURCE_NAME = "NAME";
+    private String domain;
+    private String volume;
+    private int objectSize;
+    private EvictingCache<SimpleKey, MemoryLock> locks;
+    private IoOps io;
 
-    public FdsLuceneDirectory(AsyncAm asyncAm, String volume, int objectSize) throws IOException {
-        this(new AmOps(asyncAm, new Counters()), volume, objectSize);
+
+    public FdsLuceneDirectory(IoOps ops, String domain, String volume, int objectSize) {
+        init(domain, volume, objectSize);
+        io = ops;
     }
 
-    public FdsLuceneDirectory(IoOps ops, String volume, int objectSize) {
+    private void init(String domain, String volume, int objectSize) {
+        this.domain = domain;
         this.volume = volume;
         this.objectSize = objectSize;
-        locks = new ConcurrentHashMap<>();
-        io = new TransactionalIo(ops);
-        chunker = new Chunker(io);
+        locks = new EvictingCache<>(
+                (key, cacheEntry) -> cacheEntry.value.invalidate(),
+                "Lucene-FDS locks",
+                1000000, 1, TimeUnit.HOURS);
+        locks.start();
+    }
+
+    public FdsLuceneDirectory(String domain, String volume, int objectSize, String amHost, int amPort) throws IOException {
+        init(domain, volume, objectSize);
+        int serverPort = new ServerPortFinder().findPort("FdsLuceneDirectory AM client", 10000);
+        AsyncAm asyncAm = new RealAsyncAm(amHost, amPort, serverPort, Duration.standardSeconds(30));
+        asyncAm.start();
+        Counters counters = new Counters();
+        AmOps amOps = new AmOps(asyncAm, counters);
+        DeferredIoOps deferredIo = new DeferredIoOps(amOps, counters);
+        deferredIo.start();
+        io = deferredIo;
     }
 
     @Override
     public String[] listAll() throws IOException {
-        return io.scan(BlockyVfs.DOMAIN, volume, INDEX_FILE_PREFIX,
-                metadata -> metadata.get().get(NAME)).toArray(new String[0]);
+        Collection<BlobMetadata> bms = io.scan(domain, volume, INDEX_FILE_PREFIX);
+        List<String> result = new ArrayList<>(bms.size());
+        for (BlobMetadata bm : bms) {
+            result.add(bm.getMetadata().lock(m -> m.mutableMap().get(LUCENE_RESOURCE_NAME)));
+        }
+        return result.toArray(new String[0]);
     }
 
     @Override
     public void deleteFile(String s) throws IOException {
-        io.deleteBlob(BlockyVfs.DOMAIN, volume, blobName(s));
+        io.deleteBlob(domain, volume, blobName(s));
     }
 
     @Override
     public long fileLength(String s) throws IOException {
         String indexFile = blobName(s);
-        return io.mapMetadata(BlockyVfs.DOMAIN, volume, indexFile, metadata -> {
-            if (!metadata.isPresent()) {
-                return 0l;
-            }
-
-            return Long.parseLong(metadata.get().get(SIZE));
-        });
+        Optional<FdsMetadata> ofm = io.readMetadata(domain, volume, indexFile);
+        if (!ofm.isPresent()) {
+            return 0;
+        } else {
+            return ofm.get().lock(m -> Long.parseLong(m.mutableMap().get(SIZE)));
+        }
     }
 
     @Override
     public IndexOutput createOutput(String fileName, IOContext ioContext) throws IOException {
         String blobName = blobName(fileName);
-        boolean exists = io.mapMetadata(BlockyVfs.DOMAIN, volume, blobName, metadata -> metadata.isPresent());
+        boolean exists = io.readMetadata(domain, volume, blobName).isPresent();
         if (exists) {
-            io.deleteBlob(BlockyVfs.DOMAIN, volume, blobName);
+            io.deleteBlob(domain, volume, blobName);
         }
 
-        OutputStream out = new ChunkedOutputStream(io, BlockyVfs.DOMAIN, volume, blobName, objectSize);
+        OutputStream out = new ChunkedOutputStream(io, fileName, domain, volume, blobName, objectSize);
         return new OutputStreamIndexOutput(fileName, out, objectSize);
     }
 
     @Override
     public void sync(Collection<String> collection) throws IOException {
+        io.commitAll();
     }
 
     @Override
     public void renameFile(String from, String to) throws IOException {
         LOG.debug("Rename file " + from + " " + to);
-        io.mutateMetadata(BlockyVfs.DOMAIN, volume, blobName(from), false, new MetadataMutator<Void>() {
-            @Override
-            public Void mutate(Map<String, String> metadata) throws IOException {
-                metadata.put(NAME, to);
-                return null;
-            }
+        String blobName = blobName(from);
+
+        Optional<FdsMetadata> ofm = io.readMetadata(domain, volume, blobName);
+        if (!ofm.isPresent()) {
+            throw new FileNotFoundException("Volume=" + volume + ", blobName=" + blobName);
+        }
+
+        ofm.get().lock(m -> {
+            m.mutableMap().put(LUCENE_RESOURCE_NAME, to);
+            io.writeMetadata(domain, volume, blobName, m.fdsMetadata());
+            io.commitMetadata(domain, volume, blobName);
+            io.renameBlob(domain, volume, blobName(from), blobName(to));
+            return null;
         });
-        io.renameBlob(BlockyVfs.DOMAIN, volume, blobName(from), blobName(to));
     }
 
     private String blobName(String indexFile) {
@@ -97,109 +132,18 @@ public class FdsLuceneDirectory extends Directory {
     @Override
     public IndexInput openInput(String indexFile, IOContext ioContext) throws IOException {
         LOG.debug("open input " + indexFile);
-        return new FdsIndexInput(io, indexFile, BlockyVfs.DOMAIN, volume, blobName(indexFile), objectSize);
+        return new FdsIndexInput(io, indexFile, domain, volume, blobName(indexFile), objectSize);
     }
 
     @Override
-    public Lock makeLock(String s) {
-        return locks.compute(s, (k, v) -> {
-            if (v == null) {
-                v = new MemoryLock();
-            }
-
-            return v;
-        });
+    public Lock obtainLock(String name) throws IOException {
+        SimpleKey key = new SimpleKey(name);
+        return locks.lock(key, c -> c.computeIfAbsent(key, k -> new CacheEntry<>(new MemoryLock(), true, false))).value;
     }
 
     @Override
     public void close() throws IOException {
-    }
-
-    public static class FdsIndexInput extends IndexInput {
-        private String resourceName;
-        private Chunker chunker;
-        private final long length;
-        private final long offset;
-        private long position;
-        private String domain;
-        private String volume;
-        private String blobName;
-        private int objectSize;
-        private TransactionalIo io;
-
-        public FdsIndexInput(TransactionalIo io, String resourceName, String domain, String volume, String blobName, int objectSize) throws IOException {
-            super(resourceName);
-            this.io = io;
-            this.resourceName = resourceName;
-            chunker = new Chunker(io);
-            this.domain = domain;
-            this.volume = volume;
-            this.blobName = blobName;
-            this.objectSize = objectSize;
-            this.offset = 0;
-            this.position = 0;
-            this.length = io.mapMetadata(BlockyVfs.DOMAIN, volume, blobName, om -> Long.parseLong(om.get().get(SIZE)));
-        }
-
-        private FdsIndexInput(TransactionalIo io, String resourceName, String domain, String volume, String blobName, int objectSize, long offset, long length) {
-            super(resourceName);
-            this.io = io;
-            this.resourceName = resourceName;
-            chunker = new Chunker(io);
-            this.domain = domain;
-            this.volume = volume;
-            this.blobName = blobName;
-            this.objectSize = objectSize;
-            this.offset = offset;
-            this.position = offset;
-            this.length = length;
-        }
-
-        @Override
-        public IndexInput clone() {
-            FdsIndexInput indexInput = new FdsIndexInput(io, toString(), domain, volume, blobName, objectSize, offset, length);
-            indexInput.position = this.position;
-            return indexInput;
-        }
-
-        @Override
-        public void close() throws IOException {
-        }
-
-        @Override
-        public long getFilePointer() {
-            return position - offset;
-        }
-
-        @Override
-        public void seek(long l) throws IOException {
-            position = l + offset;
-        }
-
-        @Override
-        public long length() {
-            return length;
-        }
-
-        @Override
-        public IndexInput slice(String name, long offset, long length) throws IOException {
-            return new FdsIndexInput(io, name, domain, volume, blobName, objectSize, offset + this.offset, length);
-        }
-
-        @Override
-        public byte readByte() throws IOException {
-            byte[] buf = new byte[1];
-            readBytes(buf, 0, 1);
-            return buf[0];
-        }
-
-        @Override
-        public void readBytes(byte[] bytes, int offset, int length) throws IOException {
-            byte[] buf = new byte[length];
-            chunker.read(BlockyVfs.DOMAIN, volume, blobName, objectSize, buf, position, length);
-            position += length;
-            System.arraycopy(buf, 0, bytes, offset, length);
-        }
+        io.commitAll();
     }
 
 }

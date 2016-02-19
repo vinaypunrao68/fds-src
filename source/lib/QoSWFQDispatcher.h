@@ -83,6 +83,9 @@ namespace fds {
 
     }
 
+    unsigned getNextQueueCount() {
+        return queue_desc_map.size();
+    }
     fds_qid_t getNextQueueInPriorityWFQList(fds_qid_t queue_id) {
       if (queue_desc_map.empty()) {
 	return 0;
@@ -108,7 +111,9 @@ namespace fds {
   public:
 
     QoSWFQDispatcher(FDS_QoSControl *ctrlr, fds_int64_t total_server_iops,
-		     fds_uint32_t maximum_outstanding_ios, fds_log *parent_log);
+		     fds_uint32_t maximum_outstanding_ios,
+             bool bypass_dispatcher,
+             fds_log *parent_log);
     ~QoSWFQDispatcher() {}
     Error registerQueue(fds_qid_t queue_id, FDS_VolumeQueue *queue);
     Error deregisterQueue(fds_qid_t queue_id);

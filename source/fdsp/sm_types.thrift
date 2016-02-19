@@ -2,7 +2,7 @@
  * Copyright 2014 by Formation Data Systems, Inc.
  */
 
-include "common.thrift"
+include "svc_types.thrift"
 
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.sm.types
@@ -71,6 +71,15 @@ enum SMCheckStatusType {
     SMCHECK_STATUS_ACTIVE;
 }
 
+/**
+ * Object store states
+ */
+enum ObjectStoreState {
+  OBJECTSTORE_NORMAL;
+  OBJECTSTORE_READ_ONLY;
+  OBJECTSTORE_UNAVAILABLE;
+}
+
 /* ------------------------------------------------------------
    StorMgr Types
    ------------------------------------------------------------*/
@@ -90,7 +99,7 @@ struct MetaDataVolumeAssoc {
  */
 struct SMTokenMigrationGroup {
   /** Token source */
-  1: common.SvcUuid source;
+  1: svc_types.SvcUuid source;
   /** Tokens */
   2: list<i32>      tokens;
 }
@@ -101,7 +110,7 @@ struct SMTokenMigrationGroup {
 struct CtrlObjectMetaDataPropagate
 {
   /** Object ID */
-  1: common.FDS_ObjectIdType        objectID;
+  1: svc_types.FDS_ObjectIdType        objectID;
   /** Reconcile action */
   2: ObjectMetaDataReconcileFlags   objectReconcileFlag;
   /** User data */
@@ -131,7 +140,7 @@ struct CtrlObjectMetaDataPropagate
 struct CtrlObjectMetaDataSync 
 {
   /** Object ID */
-  1: common.FDS_ObjectIdType      objectID;
+  1: svc_types.FDS_ObjectIdType      objectID;
   /* RefCount of the object */
   2: i64                        objRefCnt;
   /* volume information */

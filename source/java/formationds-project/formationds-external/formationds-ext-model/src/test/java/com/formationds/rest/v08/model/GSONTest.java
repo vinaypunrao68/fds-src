@@ -9,6 +9,9 @@ import com.formationds.client.ical.WeekDays;
 import com.formationds.client.ical.iCalWeekDays;
 import com.formationds.client.v08.model.*;
 import com.formationds.client.v08.model.SnapshotPolicy.SnapshotPolicyType;
+import com.formationds.client.v08.model.iscsi.Credentials;
+import com.formationds.client.v08.model.iscsi.LUN;
+import com.formationds.client.v08.model.iscsi.Target;
 import com.google.gson.*;
 import com.google.gson.reflect.TypeToken;
 import org.junit.Assert;
@@ -67,7 +70,8 @@ public class GSONTest {
                                                         .setPrettyPrinting()
                                                         .registerTypeAdapter( VolumeSettings.class,
                                                                               new VolumeSettingsAdapter() )
-                                                        .setLongSerializationPolicy( LongSerializationPolicy.STRING ).create(); }
+                                                        .setLongSerializationPolicy(
+                                                                LongSerializationPolicy.STRING ).create(); }
 
     @BeforeClass
     public static void setUpCLass() {
@@ -208,6 +212,51 @@ public class GSONTest {
         Assert.assertNotNull( j );
 
         v2 = gson.fromJson( j, VolumeSettingsObject.class );
+        Assert.assertNotNull( v2 );
+        Assert.assertEquals( v, v2 );
+    }
+
+    @Test
+    public void testVolumeSettingNfs() {
+//        VolumeSettings v = new VolumeSettingsNfs.Builder()
+//                                                .withOptions( new NfsOptions.Builder()
+//                                                                            .ro()
+//                                                                            .withAcl()
+//                                                                            .withRootSquash()
+//                                                                            .build() )
+//                                                .build( );
+//        String j = gson.toJson( v );
+//        System.out.println( j );
+//        Assert.assertNotNull( j );
+//
+//        VolumeSettings v2 = gson.fromJson( j, VolumeSettingsNfs.class );
+//        Assert.assertNotNull( v2 );
+//        Assert.assertEquals( v, v2 );
+    }
+
+    @Test
+    public void testVolumeSettingISCSI() {
+        final Target target = new Target.Builder( )
+                                        .withLun(
+                                            new LUN.Builder( ).withLun( "volume_1" )
+                                                              .withAccessType( LUN.AccessType.RW )
+                                                              .build() )
+                                        .withIncomingUser( new Credentials( "brian",
+                                                                             "secret" ) )
+                                        .withIncomingUser( new Credentials( "eric",
+                                                                             "disco" ) )
+                                        .withOutgoingUser( new Credentials( "fds", "fds_secret" ) )
+                                        .build( );
+        target.setId( 1L );
+        target.setName( "Target #" + target.getId() );
+        VolumeSettings v =
+                new VolumeSettingsISCSI.Builder()
+                        .withTarget( target )
+                        .build( );
+        String j = gson.toJson( v );
+        Assert.assertNotNull( j );
+
+        VolumeSettings v2 = gson.fromJson( j, VolumeSettingsISCSI.class );
         Assert.assertNotNull( v2 );
         Assert.assertEquals( v, v2 );
     }

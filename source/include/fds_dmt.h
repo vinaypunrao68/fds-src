@@ -22,9 +22,11 @@ namespace fds {
 
 #define DMT_VER_INVALID 0  /**< Defines 0 as invalid DMT version */
 
+    class DMT;
     typedef TableColumn DmtColumn;
     typedef boost::shared_ptr<DmtColumn> DmtColumnPtr;
     typedef boost::shared_ptr<std::vector<DmtColumnPtr>> DmtTablePtr;
+    typedef boost::shared_ptr<DMT> DMTPtr;
 
     class DMT: public FDS_Table {
   public:
@@ -50,6 +52,8 @@ namespace fds {
          */
         DmtColumnPtr getNodeGroup(fds_uint32_t col_index) const;
         DmtColumnPtr getNodeGroup(fds_volid_t volume_id) const;
+        std::vector<fpi::SvcUuid> getSvcUuids(fds_volid_t volume_id) const;
+
         /**
          * Returns column index in the DMT that is responsivle for
          * given volume id 'volume_id'.
@@ -94,17 +98,32 @@ namespace fds {
         Error verify() const;
 
         /**
+         * Checks if DMT is valid
+         * Invalid cases:
+         *    -- A column has repeating node uuids (non-unique)
+         *    -- A cell in a DMT has an invalid Service UUID
+         *    -- DMT must not contain any uuids that are not in 'expectedUuidSet'
+         * @param expectedUuidSet a set of UUIDs that are expected to be
+         *        in this DMT; one or more UUIDs may be missing from the DMT,
+         *        but DMT must not contain any UUID that is not in the set
+         * @return ERR_OK or ERR_DLT_INVALID
+         */
+        Error verify(const NodeUuidSet& expectedUuidSet) const;
+
+        /**
          * Returns a set of nodes in DMT
          */
         void getUniqueNodes(std::set<fds_uint64_t>* ret_nodes) const;
 
         bool isVolumeOwnedBySvc(const fds_volid_t &volId, const fpi::SvcUuid &svcUuid) const;
 
+        /* Utility functions */
+        static DMTPtr newDMT(const std::vector<fpi::SvcUuid> &column);
+
   private:
         DmtTablePtr dmt_table;  /**< DMT table */
     };
 
-    typedef boost::shared_ptr<DMT> DMTPtr;
     typedef enum {
         DMT_COMMITTED,
         DMT_TARGET,
@@ -125,7 +144,8 @@ namespace fds {
         explicit DMTManager(fds_uint32_t history_dmts = 0);
         virtual ~DMTManager();
 
-        Error add(DMT* dmt, DMTType dmt_type, FDS_Table::callback_type const& cb = nullptr);
+        Error add(DMT* dmt, DMTType dmt_type,
+                  FDS_Table::callback_type const& cb = nullptr);
         Error addSerializedDMT(std::string& data,
                                FDS_Table::callback_type const& cb,
                                DMTType dmt_type);
@@ -143,7 +163,7 @@ namespace fds {
          * If version is DMT_VER_INVALID, unsets commited DMT, and subsequent
          * calls to hasCommittedDMT() will return false.
          */
-        Error commitDMT(fds_uint64_t version);
+        Error commitDMT(fds_uint64_t version, fds_bool_t rmTarget = true);
         /**
          * Sets target DMT version as invalid
          * @return ERR_NOT_FOUND if target version does not exist

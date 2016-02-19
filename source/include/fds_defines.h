@@ -26,4 +26,19 @@
 
 #define TYPE_SHAREDPTR(T) typedef boost::shared_ptr<T> ptr
 #define SHPTR boost::shared_ptr
+#define SHPTR_CAST(T, ptr_) boost::static_pointer_cast<T>(ptr_)
+#define MAKE_SHARED boost::make_shared
+
+#ifndef DONTLOGLINE
+#define _ATLINE_ << "[" __FILE__ << ":" << std::dec << __LINE__ << ":" << __FUNCTION__ << "] - "
+#else
+#define _ATLINE_
+#endif
+
+#define __CLASS_NAME__ fds::classNameFromPrettyFunc(__PRETTY_FUNCTION__)
+#define LOGCONSOLE std::cerr _ATLINE_
+#define PH_ARG1 std::placeholders::_1
+#define PH_ARG2 std::placeholders::_2
+#define PH_ARG3 std::placeholders::_3
+
 #endif  // SOURCE_INCLUDE_FDS_DEFINES_H_

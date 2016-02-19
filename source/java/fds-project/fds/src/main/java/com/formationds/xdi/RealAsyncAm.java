@@ -8,7 +8,6 @@ import com.formationds.protocol.VolumeAccessMode;
 import com.formationds.security.FastUUID;
 import com.formationds.util.ConsumerWithException;
 import com.formationds.util.Retry;
-import com.formationds.util.async.AsyncRequestStatistics;
 import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.util.thrift.ThriftClientFactory;
 import org.apache.log4j.Logger;
@@ -17,11 +16,11 @@ import org.apache.thrift.server.TNonblockingServer;
 import org.apache.thrift.transport.TNonblockingServerSocket;
 import org.joda.time.Duration;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 public class RealAsyncAm implements AsyncAm {
     private static final Logger LOG = Logger.getLogger(RealAsyncAm.class);
@@ -30,22 +29,16 @@ public class RealAsyncAm implements AsyncAm {
     private String amHost;
     private int amPort;
     private int responsePort;
-    private AsyncRequestStatistics statistics;
 
-    public RealAsyncAm(String amHost, int amPort, int responseServerPort) throws Exception {
-        this(amHost, amPort, responseServerPort, 10, TimeUnit.SECONDS);
-    }
-
-    public RealAsyncAm(String amHost, int amPort, int responsePort, int timeoutDuration, TimeUnit timeoutDurationUnit) throws Exception {
+    public RealAsyncAm(String amHost, int amPort, int responsePort, Duration timeout) throws IOException {
         this.amHost = amHost;
         this.amPort = amPort;
         this.responsePort = responsePort;
-        statistics = new AsyncRequestStatistics();
-        responseListener = new AsyncAmResponseListener(timeoutDuration, timeoutDurationUnit);
+        responseListener = new AsyncAmResponseListener(timeout);
     }
 
     @Override
-    public void start() throws Exception {
+    public void start() throws IOException {
         try {
             AsyncXdiServiceResponse.Processor<AsyncAmResponseListener> processor = new AsyncXdiServiceResponse.Processor<>(responseListener);
 
@@ -88,7 +81,8 @@ public class RealAsyncAm implements AsyncAm {
 
         } catch (Exception e) {
             LOG.error("Error starting async AM", e);
-            throw e;
+            throw new IOException(e);
+
         }
     }
 

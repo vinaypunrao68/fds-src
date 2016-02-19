@@ -7,6 +7,7 @@ user_cpp         :=      \
 user_cpp_flags   := -Wall -Werror -Wno-reorder
 user_incl_dir    := $(topdir) $(topdir)/lib
 user_ar_libs     := fds-qos-lib
+user_so_libs     := fds-qos-lib
 fds-qos-lib          := $(user_cpp)
 
 

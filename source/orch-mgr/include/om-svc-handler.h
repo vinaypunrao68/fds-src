@@ -45,8 +45,8 @@ namespace fds {
       }
 
       virtual void getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return, const int64_t nullarg) override {
-    	  // Don't do anything here. This stub is just to keep cpp compiler happy
-    	  return;
+          // Don't do anything here. This stub is just to keep cpp compiler happy
+          return;
       }
 
       void getSvcInfo(fpi::SvcInfo &_return,
@@ -91,12 +91,28 @@ namespace fds {
 
       void heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& hdr,
                           boost::shared_ptr<fpi::HeartbeatMessage>& msg);
+
+      void svcStateChangeResp(boost::shared_ptr<fpi::AsyncHdr>& hdr,
+                              boost::shared_ptr<fpi::SvcStateChangeResp>& msg);
+
+      void setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                                     boost::shared_ptr<fpi::SetVolumeGroupCoordinatorMsg> &msg);
+
+      DECL_ASYNC_HANDLER(genericCommand         , GenericCommandMsg);
+      template <typename T, typename Cb>
+      std::unique_ptr<TrackerBase<NodeUuid>>
+      create_tracker(Cb&& cb, std::string event, fds_uint32_t d_w = 0, fds_uint32_t d_t = 0);
+
     protected:
       OM_NodeDomainMod         *om_mod;
       EventTracker<NodeUuid, Error, UuidHash, ErrorHash> event_tracker;
 
+      std::pair<int64_t, int32_t> lastHeardResp;
+
     private:
       void init_svc_event_handlers();
+      void healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
+                                    boost::shared_ptr<fpi::NotifyHealthReport> &msg);
       void healthReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
           boost::shared_ptr<fpi::NotifyHealthReport> &msg);
       void healthReportRunning( boost::shared_ptr<fpi::NotifyHealthReport> &msg );

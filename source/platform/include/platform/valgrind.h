@@ -23,9 +23,6 @@ namespace fds
         /** Returns a vector of all the options */
         std::vector<std::string const*> operator()();
 
-        /** Returns true if running under valgrind */
-        bool runningOnUnnestedValgrind() const;
-
      private:
         void initialize();
         bool suppFileExists(std::string const& path) const;

@@ -56,7 +56,7 @@ Status CopyEnv::NewWritableFile(const std::string& fname, WritableFile** result)
         s = target()->RenameFile(prefix, newName);
         fds_verify(s.ok());
 
-        if (timelineEnable_) {
+        if (archiveLogs_) {
            std::string archiveFile = logDirName() + archivePrefix() + "." +
                 std::to_string(util::getTimeStampMicros());
            fds_verify(0 == link(newName.c_str(), archiveFile.c_str()));
@@ -96,7 +96,7 @@ Status CopyEnv::DeleteDir(const std::string & dir) {
     s = GetChildren(dir, &files);
     if (!s.ok()) {
         mtx_.unlock();
-        GLOGERROR << "GetChildren failed with status " << s.ToString();
+        GLOGNOTIFY << "Not found. status " << s.ToString();
         return s;
     }
 

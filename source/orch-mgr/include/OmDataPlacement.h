@@ -476,6 +476,13 @@ namespace fds {
          */
         fds_uint32_t numOfPrimarySMs;
 
+       /**
+        * How many times has DLT deploy failed.
+        * Resets to 0 on success
+        */
+
+       fds_uint32_t numOfFailures;
+
   public:
         DataPlacement();
         ~DataPlacement();
@@ -539,18 +546,18 @@ namespace fds {
          * Commits the current DLT as an 'official' copy
          */
         void commitDlt();
-        void commitDlt( const bool unsetTarget );
+        bool commitDlt( const bool unsetTarget );
 
         /**
          * Stores commited DLT to the permanent DLT history
          */
         void persistCommitedTargetDlt();
-
         /**
          * Restores cached commited DLT from persistent store
          * and resets target DLT in persistent store
          */
         void undoTargetDltCommit();
+        void clearTargetDlt();
 
         /**
          * Returns the current commited version of the DLT.
@@ -580,6 +587,7 @@ namespace fds {
          */
         NodeUuidSet getRebalanceNodes() const;
 
+        void generateNodeTokenMapOnRestart();
         /**
          * Both commited DLT and target DLT must be NULL when
          * this method is called (should be called only during init)
@@ -607,6 +615,32 @@ namespace fds {
 
         inline fds_uint32_t getNumOfPrimarySMs() const {
             return numOfPrimarySMs;
+        }
+
+        /**
+         * If a SM migration fails, track it here
+         */
+        inline void markFailure() {
+            ++numOfFailures;
+        }
+
+        /**
+         * If a migration succeeds, this gets called
+         */
+        inline void markSuccess() {
+            numOfFailures = 0;
+        }
+
+        /**
+         * Check to see if we can retry another migration
+         */
+        fds_bool_t canRetryMigration();
+
+        /**
+         * Getter for number of failed migrations
+         */
+        inline fds_uint32_t failedAttempts() {
+            return numOfFailures;
         }
 
   private:  // methods

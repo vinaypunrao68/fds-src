@@ -22,6 +22,8 @@
 #include <fds_dmt.h>
 #include <kvstore/configdb.h>
 #include <concurrency/RwLock.h>
+#include <DltDmtUtil.h>
+#include <fds_timer.h>
 
 namespace FDS_ProtocolInterface {
     struct CtrlNotifyDMAbortMigration;
@@ -190,6 +192,8 @@ class OM_NodeAgent : public NodeAgent
     fpi::FDSP_MgrIdType     ndMyServId;
     NodeUuid                parentUuid;  // Uuid of the node running the service
 
+    uint32_t                dm_migration_abort_timeout;
+
     virtual int node_calc_stor_weight();
 };
 
@@ -248,6 +252,8 @@ class OM_PmAgent : public OM_NodeAgent
      */
     Error send_start_service(const fpi::SvcUuid svc_uuid, std::vector<fpi::SvcInfo> svcInfos,
                              bool domainRestart, bool startNode);
+
+    void send_start_service_resp(fpi::SvcUuid pmSvcUuid, fpi::SvcChangeInfoList changeList);
     /**
      * Send 'stop service' message to Platform
      */
@@ -610,9 +616,10 @@ class OM_NodeContainer : public DomainContainer
     inline Error om_modify_vol(const FdspModVolPtr &mod_msg) {
         return om_volumes->om_modify_vol(mod_msg);
     }
-    inline void om_get_volume_descriptor(const boost::shared_ptr<fpi::AsyncHdr>    &hdr,
-                                         const std::string& vol_name) {
-        return om_volumes->om_get_volume_descriptor(hdr, vol_name);
+    inline Error om_get_volume_descriptor(const boost::shared_ptr<fpi::AsyncHdr>    &hdr,
+                                          const std::string& vol_name,
+                                          VolumeDesc& desc) {
+        return om_volumes->om_get_volume_descriptor(hdr, vol_name, desc);
     }
 
     inline bool addVolume(const VolumeDesc& desc) {
@@ -639,6 +646,9 @@ class OM_NodeContainer : public DomainContainer
                                                      fds_uint64_t tgt_dlt_version);
     virtual fds_uint32_t om_bcast_shutdown_msg(fpi::FDSP_MgrIdType svc_type);
     virtual fds_uint32_t om_bcast_dm_migration_abort(fds_uint64_t cur_dmt_version);
+
+    // Clears all volumes' coordinator info from every volume descriptor
+    void clearVolumesCoordinatorInfo();
 
     /**
      * Sends scavenger command (e.g. enable, disable, start, stop) to SMs
@@ -722,6 +732,13 @@ class OM_NodeContainer : public DomainContainer
         return tmp;
     }
 
+    void setLocalDomain(const LocalDomain localDomain) {
+        om_local_domain = std::unique_ptr<LocalDomain>(new LocalDomain(localDomain));
+    }
+    LocalDomain* getLocalDomain() const {
+        return om_local_domain.get();
+    }
+
   private:
     friend class OM_NodeDomainMod;
 
@@ -730,6 +747,7 @@ class OM_NodeContainer : public DomainContainer
     FdsAdminCtrl             *om_admin_ctrl;
     VolumeContainer::pointer  om_volumes;
     float                     om_cur_throttle_level;
+    std::unique_ptr<LocalDomain> om_local_domain{nullptr};
 
     void om_init_domain();
 
@@ -883,6 +901,11 @@ class OM_NodeDomainMod : public Module
     static fds_bool_t om_local_domain_down();
 
     /**
+     * "true" if this is called within the Master Domain and hence, the Master OM.
+     */
+    static fds_bool_t om_master_domain();
+
+    /**
      * Accessors methods to retreive the local node domain.  Retyping it here to avoid
      * using multiple inheritance for this class.
      */
@@ -949,7 +972,7 @@ class OM_NodeDomainMod : public Module
     /**
      * Activate well known service on an node
      */
-    void om_activate_known_services(bool domainRestart, const NodeUuid& node_uuid);
+    bool om_activate_known_services(bool domainRestart, const NodeUuid& node_uuid);
 
     /**
     * @brief Registers the service
@@ -960,7 +983,14 @@ class OM_NodeDomainMod : public Module
     */
     virtual Error om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo);
 
-
+    /**
+     * Changes the state of a service and broadcasts its service map
+     */
+    virtual void
+    om_change_svc_state_and_bcast_svcmap(boost::shared_ptr<fpi::SvcInfo> svcInfo,
+                                         fpi::FDSP_MgrIdType svcType,
+                                         const fpi::ServiceStatus status);
+    
     /**
      * Notification that service is down to DLT and DMT state machines
      * @param error timeout error or other error returned by the service
@@ -970,6 +1000,14 @@ class OM_NodeDomainMod : public Module
     om_service_down(const Error& error,
                     const NodeUuid& svcUuid,
                     fpi::FDSP_MgrIdType svcType);
+
+    /**
+     * Notification that service is up to DLT and DMT state machines
+     * @param svcUuid service that is up
+     */
+    virtual void
+    om_service_up(const NodeUuid& svcUuid,
+                  fpi::FDSP_MgrIdType svcType);
 
     /**
      * Unregister the node matching uuid from the domain manager.
@@ -1075,9 +1113,32 @@ class OM_NodeDomainMod : public Module
      * Methods related to tracking registering services
      * for svcMap updates
      */
-    void addRegisteringSvc(SvcInfoPtr infoPtr);
+    void  addRegisteringSvc(SvcInfoPtr infoPtr);
     Error getRegisteringSvc(SvcInfoPtr& infoPtr, int64_t uuid);
-    void removeRegisteredSvc(int64_t uuid);
+    void  removeRegisteredSvc(int64_t uuid);
+
+    void raiseAbortSmMigrationEvt(NodeUuid uuid);
+    void raiseAbortDmMigrationEvt(NodeUuid uuid);
+
+    void setDomainShuttingDown(bool domainDown);
+    bool isDomainShuttingDown();
+    void addToShutdownList(int64_t uuid);
+    void clearFromShutdownList(int64_t uuid);
+    void clearShutdownList();
+    bool isNodeShuttingDown(int64_t uuid);
+
+    void removeNodeComplete(NodeUuid uuid);
+
+    fds_bool_t dmClusterPresent();
+
+    // used for unit test
+    inline void setDmClusterSize(uint32_t size) {
+        dmClusterSize = size;
+    }
+    fds_bool_t checkDmtModVGMode();
+    bool isScheduled(FdsTimerTaskPtr&, int64_t id);
+    void addToTaskMap(FdsTimerTaskPtr task, int64_t id);
+    void removeFromTaskMap(int64_t id);
 
   protected:
     bool isPlatformSvc(fpi::SvcInfo svcInfo);
@@ -1097,23 +1158,33 @@ class OM_NodeDomainMod : public Module
                                      std::vector<fpi::SvcInfo>* smSvcs,
                                      std::vector<fpi::SvcInfo>* dmSvcs );
     void spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs );
+    void isAnySvcPendingRemoval( std::vector<fpi::SvcInfo>* removedSvcs );
+    void handlePendingSvcRemoval( std::vector<fpi::SvcInfo> removedSvcs );
     
 
-    fds_bool_t                       om_test_mode;
-    OM_NodeContainer                *om_locDomain;
-    kvstore::ConfigDB               *configDB;
+    fds_bool_t                    om_test_mode;
+    OM_NodeContainer              *om_locDomain;
+    kvstore::ConfigDB             *configDB;
 
-    FSM_NodeDomain                  *domain_fsm;
+    FSM_NodeDomain                *domain_fsm;
     // to protect access to msm process_event
-    fds_mutex                       fsm_lock;
+    fds_mutex                     fsm_lock;
 
     // Vector to track registering services and
     // locks to protect accesses
-    fds_rwlock svcRegVecLock;
-    std::vector<SvcInfoPtr> registeringSvcs;
-};
+    fds_rwlock                    svcRegMapLock;
+    std::map<int64_t, SvcInfoPtr> registeringSvcs;
 
-extern OM_NodeDomainMod      gl_OMNodeDomainMod;
+    bool                          domainDown;
+    std::vector<int64_t>          shuttingDownNodes;
+    uint32_t                      dmClusterSize;
+
+    std::mutex                    taskMapMutex;
+    std::unordered_map<int64_t, FdsTimerTaskPtr> setupNewNodeTaskMap;
+    fds_mutex                     dbLock;
+
+    fds_bool_t                    dmClusterPresent_;
+};
 
 }  // namespace fds
 #endif  // SOURCE_ORCH_MGR_INCLUDE_OMRESOURCES_H_

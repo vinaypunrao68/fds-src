@@ -26,16 +26,21 @@ void SetVolumeMetadataHandler::handleRequest(
     boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     boost::shared_ptr<fpi::SetVolumeMetadataMsg>& message) {
 
+    LOGDEBUG << logString(*asyncHdr) << logString(*message);
+
     fds_volid_t volId(message->volumeId);
     LOGTRACE << "Received a set volume metadata request for volume "
              << volId;
 
-    auto err = dataManager.validateVolumeIsActive(volId);
+    auto err = preEnqueueWriteOpHandling(volId, message->opId,
+                                         asyncHdr, PlatNetSvcHandler::threadLocalPayloadBuf);
     if (!err.OK())
     {
         handleResponse(asyncHdr, message, err, nullptr);
         return;
     }
+
+    HANDLE_FILTER_OLD_DMT_DURING_RESYNC();
 
     auto dmReq = new DmIoSetVolumeMetaData(message);
     dmReq->cb = BIND_MSG_CALLBACK(SetVolumeMetadataHandler::handleResponse, asyncHdr, message);
@@ -46,6 +51,8 @@ void SetVolumeMetadataHandler::handleRequest(
 void SetVolumeMetadataHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoSetVolumeMetaData* typedRequest = static_cast<DmIoSetVolumeMetaData*>(dmRequest);
+    
+    ENSURE_IO_ORDER(typedRequest, helper);
 
     helper.err = dataManager.timeVolCat_->setVolumeMetadata(typedRequest->getVolId(),
                                                             typedRequest->msg->metadataList, typedRequest->msg->sequence_id);

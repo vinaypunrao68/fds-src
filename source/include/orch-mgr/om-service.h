@@ -46,6 +46,9 @@ class OM_Module : public Module
     inline VolumePlacement *om_volplace_mod() {
         return om_volume_place;
     }
+
+    void setOMTestMode(fds_bool_t value);
+
     /**
      * Module methods.
      */
@@ -60,6 +63,7 @@ class OM_Module : public Module
     OM_DMTMod               *om_dmt;
     DataPlacement           *om_data_place;
     VolumePlacement         *om_volume_place;
+
 };
 
 }  // namespace fds

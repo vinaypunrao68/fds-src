@@ -30,10 +30,11 @@
 #include "platform/node_agent.h"
 #include <net/SvcMgr.h>
 #include <net/net_utils.h>
-
+#include <counters.h>
 #define MAX_OM_NODES            (512)
 #define DEFAULT_LOC_DOMAIN_ID   (1)
 #define DEFAULT_GLB_DOMAIN_ID   (1)
+#define DOMAINRESTART_MASK      (1)
 
 namespace fpi = FDS_ProtocolInterface;
 
@@ -59,6 +60,8 @@ typedef netServerSessionEx<fpi::FDSP_ConfigPathReqProcessor,
 
 namespace fds {
 
+typedef std::pair<int64_t, int32_t> PmMsg;
+
 class OM_Module;
 
 class OrchMgr: public SvcProcess {
@@ -69,6 +72,9 @@ class OrchMgr: public SvcProcess {
     std::string                      my_node_name;
     /* config path server is run on this thread */
     boost::shared_ptr<std::thread>   cfgserver_thread;
+    /* svc start message monitoring done on these threads */
+    boost::shared_ptr<std::thread>   svcStartThread;
+    boost::shared_ptr<std::thread>   svcStartRetryThread;
     fds_mutex                        *om_mutex;
     std::string                      node_id_to_name[MAX_OM_NODES];
 
@@ -81,16 +87,39 @@ class OrchMgr: public SvcProcess {
     fds_bool_t  test_mode;
 
     /* policy manager */
-    VolPolicyMgr                           *policy_mgr;
-    kvstore::ConfigDB                      *configDB;
+    VolPolicyMgr                    *policy_mgr;
+    /**
+     * @details
+     * Must always point to the same address after initial assignment!
+     * Other objects, such as service handlers, will refer to this address.
+     * TODO: Would prefer to declare the address as const, can not do so
+     * without refactoring of SvcProcess::setupConfigDb_().
+     */
+    kvstore::ConfigDB               *configDB;
+
+
+    /* Monitoring start messages sent to the PM */
+    std::mutex                      toSendQMutex; // protect both toSendQ and retryMap
+    std::vector<PmMsg>              toSendMsgQueue;
+    std::condition_variable         toSendQCondition;
+    std::map<int64_t, int32_t>      retryMap;
+
+    std::mutex                      sentQMutex; // protect sentQ
+    std::vector<PmMsg>              sentMsgQueue;
+    std::condition_variable         sentQCondition;
 
 
   protected:
     virtual void setupSvcInfo_() override;
+    /**
+     * @details
+     * Call once only. External service handler objects are known to
+     * cache the configDB address.
+     */
     virtual void setupConfigDb_() override;
 
   public:
-    OrchMgr(int argc, char *argv[], OM_Module *omModule);
+    OrchMgr(int argc, char *argv[], OM_Module *omModule, bool initAsModule = false, bool testMode = false);
     ~OrchMgr();
     void start_cfgpath_server();
 
@@ -105,19 +134,31 @@ class OrchMgr: public SvcProcess {
     virtual void interrupt_cb(int signum) override;
     virtual void registerSvcProcess() override;
 
-    bool               loadFromConfigDB();
+    bool                     loadFromConfigDB();
     // default  policy  desc  for s3 bucket
-    void               defaultS3BucketPolicy();
-    DmtColumnPtr       getDMTNodesForVolume(fds_volid_t volId);
-    kvstore::ConfigDB* getConfigDB();
+    void                     defaultS3BucketPolicy();
+    DmtColumnPtr             getDMTNodesForVolume(fds_volid_t volId);
+    kvstore::ConfigDB*       getConfigDB();
 
     static VolPolicyMgr      *om_policy_mgr();
     static const std::string &om_stor_prefix();
 
+    // Methods related to monitoring/retrying start messages sent to the PM
+    void                     svcStartMonitor();
+    void                     svcStartRetryMonitor();
+    void                     constructMsgParams(int64_t uuid,
+                                                NodeUuid& node_uuid,
+                                                bool& flag);
+    void                     addToSendQ(PmMsg msg, bool retry);
+    void                     addToSentQ(PmMsg msg);
+    bool                     isInSentQ(int64_t uuid);
+    void                     removeFromSentQ(PmMsg msg);
+
     std::unique_ptr<OMMonitorWellKnownPMs> omMonitor;
     DeleteScheduler deleteScheduler;
-    fds_bool_t      enableSnapshotSchedule;
-    boost::shared_ptr<fds::snapshot::Manager> snapshotMgr;
+    fds_bool_t      enableTimeline;
+    SHPTR<fds::snapshot::Manager> snapshotMgr;
+    SHPTR<fds::om::Counters> counters;
 };
 
 std::thread* runConfigService(OrchMgr* om);

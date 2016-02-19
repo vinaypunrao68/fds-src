@@ -25,7 +25,7 @@ class UserContext(Context):
             return 'unable to get user list'
 
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('name', help= "user name")
     @arg('password', help= "password for this user")
     def create(self, name, password):
@@ -37,10 +37,11 @@ class UserContext(Context):
             return 'unable to create user: {}'.format(name)
     
     #--------------------------------------------------------------------------------------
-    @cliadmincmd
+    @clicmd
     @arg('name', help= "name of the user")
     @arg('password', help= "password")
     def update_password(self, name, password):
+        'set the password for a user'
         try:
             return self.restApi().updatePassword(name, password)
         except Exception, e:

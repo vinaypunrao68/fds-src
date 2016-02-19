@@ -1,3 +1,4 @@
+Build/*
 **/am-urls.cpp
 *.DS_Store
 *.a
@@ -16,6 +17,7 @@
 *.slo
 *.so
 *.sw?
+*.chk
 *~
 .DS_Store
 .classpath
@@ -31,7 +33,7 @@
 ansible/.devsetup-is-*
 ansible/resources/*
 app/bower_components
-build.*
+build.linux*
 chef/nodes
 chef/vagrant/*/.vagrant/*
 core

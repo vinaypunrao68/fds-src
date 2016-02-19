@@ -21,7 +21,6 @@ SmDiskMap::SmDiskMap(const std::string& modName, DiskChangeFnObj diskChangeFn)
         : Module(modName.c_str()),
           bitsPerToken_(0),
           superblock(new SmSuperblockMgr(std::move(diskChangeFn))),
-          ssdIdxMap(nullptr),
           test_mode(false) {
     for (int i = 0; i < 60; ++i) {
         maxSSDCapacity[i] = ATOMIC_VAR_INIT(0ull);
@@ -35,12 +34,29 @@ SmDiskMap::~SmDiskMap() {
 int SmDiskMap::mod_init(SysParams const *const param) {
     Module::mod_init(param);
     test_mode = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.testing.standalone");
+    diskMapInitialize();
+    return 0;
+}
 
+void SmDiskMap::reset() {
+    LOGDEBUG << "Clearing current disk map";
+    ssd_ids.clear();
+    hdd_ids.clear();
+    disk_map.clear();
+    diskDevMap.clear();
+    diskState.clear();
+    ssdIdxMap.clear();
+    for (int i = 0; i < 60; ++i) {
+        maxSSDCapacity[i] = ATOMIC_VAR_INIT(0ull);
+        consumedSSDCapacity[i] = ATOMIC_VAR_INIT(0ull);
+    }
+}
+
+void SmDiskMap::diskMapInitialize() {
     // get list of HDD and SSD devices
     getDiskMap();
 
     // Create mapping from ssd idx # to array idx #
-    ssdIdxMap = new std::unordered_map<fds_uint16_t, fds_uint8_t>();
     fds_uint8_t arrIdx = 0;
     for (auto disk_id : ssd_ids) {
         struct statvfs statbuf;
@@ -49,7 +65,7 @@ int SmDiskMap::mod_init(SysParams const *const param) {
             LOGERROR << "Could not read disk " << diskPath;
         }
         // Add the mapping
-        ssdIdxMap->emplace(disk_id, arrIdx);
+        ssdIdxMap.emplace(disk_id, arrIdx);
 
         // Populate the capacityMap for this diskID
         fds_uint64_t totalSize = statbuf.f_blocks * statbuf.f_frsize;
@@ -60,15 +76,45 @@ int SmDiskMap::mod_init(SysParams const *const param) {
         ++arrIdx;
     }
 
-    return 0;
+    return;
+}
+
+DiskIdSet
+SmDiskMap::initAndValidateDiskMap() {
+    diskMapInitialize();
+
+    DiskIdSet badDisks;
+    for (auto& diskId : ssd_ids) {
+        if (!isDiskAlive(diskId)) {
+            badDisks.insert(diskId);
+        }
+    }
+
+    for (auto& diskId : hdd_ids) {
+        if (!isDiskAlive(diskId)) {
+            badDisks.insert(diskId);
+        }
+    }
+    return badDisks;
+}
+
+Error
+SmDiskMap::handleNewDiskMap() {
+    return superblock->redistributeTokens(hdd_ids,ssd_ids, disk_map, diskDevMap);
+}
+
+bool
+SmDiskMap::isDiskAlive(const DiskId& diskId) {
+    return superblock->isDiskAlive(diskId);
 }
 
 void
 SmDiskMap::removeDiskAndRecompute(DiskId& diskId, const diskio::DataTier& tier) {
-    /**
-     * TODO(Gurpreet) Make access to maps concurrency-safe.
-     */
     superblock->recomputeTokensForLostDisk(diskId, hdd_ids, ssd_ids);
+}
+
+void
+SmDiskMap::eraseLostDiskReferences(DiskId& diskId, const diskio::DataTier& tier) {
     disk_map.erase(diskId);
     diskDevMap.erase(diskId);
     switch (tier) {
@@ -96,16 +142,20 @@ SmDiskMap::loadPersistentState() {
     // it will handle changes in diskmap (vs. its persisted state)
     Error err = superblock->loadSuperblock(hdd_ids, ssd_ids, disk_map, diskDevMap);
     if (err.ok()) {
-        LOGDEBUG << "Loaded superblock " << *superblock;
+        LOGNOTIFY << "SM ON-DISK state: Non Pristine";
+        LOGNORMAL << "Loaded superblock: " << *superblock;
     } else if (err == ERR_SM_NOERR_PRISTINE_STATE) {
-        LOGNOTIFY << "SM is coming up from CLEAN state";
+        LOGNOTIFY << "SM ON-DISK state: Pristine ";
     } else {
         LOGERROR << "Failed to load superblock " << err;
     }
     return err;
 }
 
-DiskUtils::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
+/**
+ * Determines how much of the disk is currently being consumed.
+ */
+DiskUtils::CapacityPair SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
 {
 
     // Cause method to return capacity
@@ -114,7 +164,7 @@ DiskUtils::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
               fiu_disable("sm.diskmap.cause_used_capacity_warn"); \
               LOGDEBUG << "Err injection: (" << DISK_CAPACITY_ERROR_THRESHOLD
                        << ", 100). This should cause an alert."; \
-              DiskUtils::capacity_tuple retVals(DISK_CAPACITY_ERROR_THRESHOLD, 100); \
+              DiskUtils::CapacityPair retVals(DISK_CAPACITY_ERROR_THRESHOLD, 100); \
               return retVals; \
     );
 
@@ -123,7 +173,7 @@ DiskUtils::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
               fiu_disable("sm.diskmap.cause_used_capacity_warn"); \
               LOGDEBUG << "Err injection: (" << DISK_CAPACITY_ALERT_THRESHOLD + 1
                        << ", 100). This should cause an alert."; \
-              DiskUtils::capacity_tuple retVals(DISK_CAPACITY_ALERT_THRESHOLD + 1, 100); \
+              DiskUtils::CapacityPair retVals(DISK_CAPACITY_ALERT_THRESHOLD + 1, 100); \
               return retVals; \
     );
 
@@ -132,7 +182,7 @@ DiskUtils::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
               fiu_disable("sm.diskmap.cause_used_capacity_alert"); \
               LOGDEBUG << "Err injection: (" << DISK_CAPACITY_WARNING_THRESHOLD + 1
                        << ", 100). This should cause a warning."; \
-              DiskUtils::capacity_tuple retVals(DISK_CAPACITY_WARNING_THRESHOLD + 1, 100); \
+              DiskUtils::CapacityPair retVals(DISK_CAPACITY_WARNING_THRESHOLD + 1, 100); \
               return retVals; \
     );
 
@@ -141,7 +191,7 @@ DiskUtils::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
     // Get the total size info for the disk regardless of type
     std::string diskPath = getDiskPath(disk_id);
 
-    DiskUtils::capacity_tuple out = DiskUtils::getDiskConsumedSize(diskPath);
+    DiskUtils::CapacityPair out = DiskUtils::getDiskConsumedSize(diskPath);
 
     // If we got an SSD disk id and have HDDs we still need to check metadata size
     if ((ssd_ids.find(disk_id) != ssd_ids.end()) && (hdd_ids.size() != 0)) {
@@ -159,12 +209,12 @@ DiskUtils::capacity_tuple SmDiskMap::getDiskConsumedSize(fds_uint16_t disk_id)
                  ++cit) {
                 // Calculate a consumedSize based on the size of the level DBs
                 std::string filename = ObjectMetadataDb::getObjectMetaFilename(diskPath, *cit);
-                DiskUtils::capacity_tuple tmp = DiskUtils::getDiskConsumedSize(filename, true);
+                DiskUtils::CapacityPair tmp = DiskUtils::getDiskConsumedSize(filename, true);
 
-                acc += tmp.first;
+                acc += tmp.usedCapacity;
             }
-            LOGDEBUG << "Returning " << acc << "/" << out.second << " after calculating SSD metadata size.";
-            return DiskUtils::capacity_tuple(acc, out.second);
+            LOGDEBUG << "Returning " << acc << "/" << out.totalCapacity << " after calculating SSD metadata size.";
+            return DiskUtils::CapacityPair(acc, out.totalCapacity);
         }
     }
 
@@ -181,7 +231,7 @@ fds_bool_t SmDiskMap::ssdTrackCapacityAdd(ObjectID oid,
     }
 
     // Get the capacity information for this disk
-    fds_uint8_t arrId = ssdIdxMap->at(diskId);
+    fds_uint8_t arrId = ssdIdxMap.at(diskId);
     // Check if we're over threshold now
     fds_uint64_t newConsumed = consumedSSDCapacity[arrId] + writeSize;
     fds_uint64_t capThresh = maxSSDCapacity[arrId] * (fullThreshold / 100.);
@@ -205,7 +255,7 @@ fds_bool_t SmDiskMap::ssdTrackCapacityAdd(ObjectID oid,
 
 void SmDiskMap::ssdTrackCapacityDelete(ObjectID oid, fds_uint64_t writeSize) {
     fds_uint16_t diskId = getDiskId(oid, diskio::flashTier);
-    fds_uint8_t arrId = ssdIdxMap->at(diskId);
+    fds_uint8_t arrId = ssdIdxMap.at(diskId);
     // Get the capacity information for this disk
     consumedSSDCapacity[arrId] -= writeSize;
 }
@@ -215,23 +265,32 @@ void SmDiskMap::mod_startup() {
 }
 
 void SmDiskMap::mod_shutdown() {
-    if (ssdIdxMap) {
-        delete ssdIdxMap;
-        ssdIdxMap = nullptr;
-    }
-
     Module::mod_shutdown();
 }
 
-void SmDiskMap::getDiskMap() {
+bool SmDiskMap::loadDiskMap() {
+    return getDiskMap();
+}
+
+bool SmDiskMap::getDiskMap() {
     int           idx;
     fds_uint64_t  uuid;
     std::string   path, dev;
 
     const FdsRootDir *dir = g_fdsprocess->proc_fdsroot();
     std::ifstream map(dir->dir_dev() + DISK_MAP_FILE, std::ifstream::in);
+    
+    if (map.fail() == true) {
+        LOGERROR << "DiskMap read failed. Check " << dir->dir_dev() 
+                  << " for a valid disk map";
+        return false;
+    }
 
     fds_verify(map.fail() == false);
+
+    // Reset the disk map.
+    reset();
+
     while (!map.eof()) {
         map >> dev >> idx >> std::hex >> uuid >> std::dec >> path;
         if (map.fail()) {
@@ -239,16 +298,20 @@ void SmDiskMap::getDiskMap() {
         }
         LOGNORMAL << "dev " << dev << ", path " << path << ", uuid " << uuid
                   << ", idx " << idx;
+        if (disk_map.count(idx) != 0) {
+            LOGCRITICAL << "Disk Id: " << idx << " is mapped to fds drive: "
+                        << disk_map[idx] << ". Ignoring disk map entry.";
+            continue;
+        }
+ 
         if (strstr(path.c_str(), "hdd") != NULL) {
-            fds_verify(hdd_ids.count(idx) == 0);
             hdd_ids.insert(idx);
         } else if (strstr(path.c_str(), "ssd") != NULL) {
-            fds_verify(ssd_ids.count(idx) == 0);
             ssd_ids.insert(idx);
         } else {
             fds_panic("Unknown path: %s\n", path.c_str());
         }
-        fds_verify(disk_map.count(idx) == 0);
+
         disk_map[idx] = path;
         diskDevMap[idx] = dev;
         diskState[idx] = DISK_ONLINE;
@@ -256,6 +319,8 @@ void SmDiskMap::getDiskMap() {
     if (disk_map.size() == 0) {
         LOGCRITICAL << "Can't find any devices!";
     }
+
+    return true;
 }
 
 Error SmDiskMap::handleNewDlt(const DLT* dlt)
@@ -365,9 +430,23 @@ SmTokenSet SmDiskMap::handleDltClose(const DLT* dlt, NodeUuid& mySvcUuid)
 }
 
 fds_uint64_t
-SmDiskMap::getDLTVersion()
-{
+SmDiskMap::getDLTVersion() {
     return superblock->getDLTVersion();
+}
+
+fds_bool_t
+SmDiskMap::doResync() const {
+    return superblock->doResync();
+}
+
+void
+SmDiskMap::setResync() {
+    return superblock->setResync();
+}
+
+void
+SmDiskMap::resetResync() {
+    return superblock->resetResync();
 }
 
 fds_token_id
@@ -409,6 +488,12 @@ fds_uint16_t
 SmDiskMap::getDiskId(fds_token_id smTokId,
                      diskio::DataTier tier) const {
     return superblock->getDiskId(smTokId, tier);
+}
+
+DiskIdSet
+SmDiskMap::getDiskIds(fds_token_id smTokId,
+                     diskio::DataTier tier) const {
+    return superblock->getDiskIds(smTokId, tier);
 }
 
 std::string

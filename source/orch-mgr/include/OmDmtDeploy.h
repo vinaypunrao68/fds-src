@@ -24,10 +24,29 @@ class DmtDeployEvt
   public:
     explicit DmtDeployEvt(fds_bool_t _inReSync) : dmResync(_inReSync) {}
     std::string logString() const {
-        return "DmtDeployEvt";
+    	if (dmResync) {
+    		return "DmtDeployEvt with DmResync";
+    	} else {
+    		return "DmtDeployEvt";
+    	}
     }
 
     fds_bool_t dmResync;  // if true, DMT computation will be for DM Resync
+};
+
+/**
+ * Event deployed to check to see if there's ongoing migrations, to see if we need
+ * to error out
+ */
+class DmtUpEvt
+{
+    public:
+        explicit DmtUpEvt(const NodeUuid& _uuid) : uuid(_uuid) {}
+        std::string logString() const {
+            return "DmtUpEvt with node: " + std::to_string(uuid.uuid_get_val());
+        }
+
+        NodeUuid uuid;
 };
 
 class DmtRecoveryEvt
@@ -147,6 +166,45 @@ class OM_DMTMod : public Module
     ~OM_DMTMod();
 
     /**
+     * The following are used for volume group mode, where we will
+     * only calculate a DMT if a minimal DM cluster count is met.
+     * Since these methods are called only by the timer in a sequential
+     * fashion, we shouldn't run into race condition.
+     * NOTE: If these are to be used outside of the timer schedule context, then
+     * locks/atomics may be needed.
+     */
+    inline bool volumeGrpMode() {
+        return volume_grp_mode;
+    }
+
+    /**
+     * If a DM cluster is already present, then this is a no-op.
+     * Behavior will change once we support multiple DM clusters.
+     * If DM cluster isn't present, then this will increment the counter
+     * that counts the DMs awaiting to form a DM cluster.
+     */
+    void addWaitingDMs();
+
+    inline void removeWaitingDMs() {
+        if (waitingDMs > 0) {
+            --waitingDMs;
+        }
+    }
+
+    inline uint32_t getWaitingDMs() {
+        return waitingDMs;
+    }
+
+    inline void clearWaitingDMs() {
+        waitingDMs = 0;
+    }
+
+    // used for unit test
+    inline void setVolumeGrpMode(fds_bool_t value) {
+        volume_grp_mode = value;
+    }
+
+    /**
      * Return the current state of the DMT deployment FSM.
      */
     char const *const dmt_deploy_curr_state();
@@ -163,6 +221,7 @@ class OM_DMTMod : public Module
     void dmt_deploy_event(DmtTimeoutEvt const &evt);
     void dmt_deploy_event(DmtErrorFoundEvt const &evt);
     void dmt_deploy_event(DmtRecoveryEvt const &evt);
+    void dmt_deploy_event(DmtUpEvt const &evt);
 
     /**
      * Module methods
@@ -175,10 +234,11 @@ class OM_DMTMod : public Module
     FSM_DplyDMT     *dmt_dply_fsm;
     // to protect access to msm process_event
     fds_mutex       fsm_lock;
+    // Toggles for service replica mode
+    bool            volume_grp_mode;
+    // Batch add for dm cluster
+    uint32_t        waitingDMs;
 };
-
-extern OM_DMTMod             gl_OMDmtMod;
-
 }  // namespace fds
 
 #endif  // SOURCE_ORCH_MGR_INCLUDE_OMDMTDEPLOY_H_

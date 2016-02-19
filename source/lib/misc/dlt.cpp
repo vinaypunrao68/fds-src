@@ -7,6 +7,7 @@
 #include <map>
 #include <algorithm>
 #include <dlt.h>
+#include <DltDmtUtil.h>
 #include <iostream>
 #include <string>
 #include <util/Log.h>
@@ -198,7 +199,6 @@ void DLT::setNodes(fds_token_id token, const DltTokenGroup& nodes) {
 }
 
 void DLT::generateNodeTokenMap() const {
-    LOGDEBUG << "generating node-token map";
     std::vector<DltTokenGroupPtr>::const_iterator iter;
     mapNodeTokens->clear();
     uint i;
@@ -247,15 +247,18 @@ NodeUuid DLT::getSourceNodeForToken(const NodeUuid &destNodeUuid,
                                     const fds_token_id &tokenId) const {
     NodeUuid srcNodeUuid(INVALID_RESOURCE_UUID);
     DltTokenGroupPtr tokenNodeGroup = getNodes(tokenId);
+    fds_uint32_t numReplicas = tokenNodeGroup->getLength();
 
-    if (destNodeUuid != tokenNodeGroup->get(sm1PIdx)) {
-        srcNodeUuid = tokenNodeGroup->get(sm1PIdx);
-    } else if (tokenNodeGroup->getLength() > sm2PIdx) {
-        srcNodeUuid = tokenNodeGroup->get(sm2PIdx);
+    for (fds_uint32_t replica = 0; replica < numReplicas; ++replica) {
+        if (destNodeUuid != tokenNodeGroup->get(replica)) {
+            srcNodeUuid = tokenNodeGroup->get(replica);
+            break;
+        }
     }
 
     return srcNodeUuid;
 }
+
 // get source nodes for all the tokens of a given destination node
 void DLT::getSourceForAllNodeTokens(const NodeUuid &nodeUuid,
                                     SourceNodeMap &srcNodeTokenMap) const {
@@ -343,7 +346,7 @@ Error DLT::verify(const NodeUuidSet& expectedUuidSet) const {
     Error err(ERR_OK);
 
     // we should not have more rows than nodes
-    if (depth > expectedUuidSet.size()) {
+    if (depth > (expectedUuidSet.size() + DltDmtUtil::getInstance()->getPendingNodeRemoves(fpi::FDSP_STOR_MGR) )) {
         LOGERROR << "DLT has more rows (" << depth
                  << ") than nodes (" << expectedUuidSet.size() << ")";
         return ERR_INVALID_DLT;
@@ -358,12 +361,18 @@ Error DLT::verify(const NodeUuidSet& expectedUuidSet) const {
             NodeUuid uuid = column->get(j);
             if ((uuid.uuid_get_val() == 0) ||
                 (expectedUuidSet.count(uuid) == 0)) {
-                // unexpected uuid in this DLT cell
-                LOGERROR << "DLT contains unexpected uuid " << std::hex
-                         << uuid.uuid_get_val() << std::dec;
-                return ERR_INVALID_DLT;
+                if (!DltDmtUtil::getInstance()->isMarkedForRemoval(uuid.uuid_get_val())) {
+                    // unexpected uuid in this DLT cell
+                    LOGERROR << "DLT contains unexpected uuid " << std::hex
+                             << uuid.uuid_get_val() << std::dec;
+                    return ERR_INVALID_DLT;
+                } else {
+                    LOGDEBUG <<"Node:" << std::hex << uuid.uuid_get_val()
+                             << std::dec << " pending removal present in DLT,"
+                             << " will process in next update";
+                }
             }
-            colSet.insert(uuid);
+                colSet.insert(uuid);
         }
 
         // make sure that column contains all unique uuids
@@ -1030,4 +1039,15 @@ void DLTManager::dump() const {
     }
 }
 
+/**
+ * Returns a vector of all NodeUuids for all nodes in this DLT.
+ */
+std::vector<NodeUuid> DLT::getAllNodes() const {
+    std::vector<NodeUuid> result {};
+
+    for (auto node = mapNodeTokens->begin(); node != mapNodeTokens->end(); node++) {
+        result.push_back(node->first);
+    }
+    return result;
+}
 }  // namespace fds

@@ -75,7 +75,8 @@ struct NbdConnection : public BlockOperations::ResponseIFace {
     bool standalone_mode { false };
 
     enum class ConnectionState { RUNNING,
-                                 STOPPING,
+                                 DRAINING,
+                                 DRAINED,
                                  STOPPED };
 
      ConnectionState state_ { ConnectionState::RUNNING };
@@ -87,8 +88,6 @@ struct NbdConnection : public BlockOperations::ResponseIFace {
     std::shared_ptr<AmProcessor> amProcessor;
     NbdConnector* nbd_server;
     BlockOperations::shared_ptr nbdOps;
-
-    size_t resp_needed;
 
     message<attach_header, std::array<char, 1024>> attach;
     message<handshake_header, std::nullptr_t> handshake;

@@ -21,7 +21,7 @@
 
     -   name: copy FDS deploy key locally
         include: ../tasks/deploy_fds/copy_fds_deploy_key.yml
-        when: action == "deploy" or action == "clean"
+        when: action == "deploy" or action == "clean" or action == "cleanstart"
 
     -   name: spin up a node in the private subnet with an auto-assigned IP
         ec2:
@@ -148,6 +148,13 @@
         when: action == "deploy"
 
     tasks:
+    -   name: DUMPING EC2 IP ADDRESS AT -- /tmp/yourinventoryfilename_ips.txt
+        local_action: template src=../templates/deploy_fds/ec2_ips.txt.j2
+            dest=/tmp/{{fds_cluster_name}}_ips.txt
+            mode=0400
+        sudo: false
+        ignore_errors: true
+        when: action == "deploy" or action == "clean" or action == "cleanstart"
 
     -   include: ../tasks/deploy_fds/deploy_fds.yml
-        when: action == "deploy" or action == "clean"
+        when: action == "deploy" or action == "clean" or action == "cleanstart"

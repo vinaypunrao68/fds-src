@@ -316,6 +316,14 @@ fds::Error ObjectDB::Get(const ObjectID& obj_id,
     return err;
 }
 
+void ObjectDB::forEachObject(std::function<void (const ObjectID&)> &func) {
+    leveldb::Iterator* it = db->NewIterator(read_options);
+    for (it->SeekToFirst(); it->Valid(); it->Next()) {
+        func(ObjectID(it->key().ToString()));
+    }
+    delete it;
+}
+
 /** Takes a persistent snapshot of the leveldb in ObjectDB
  *
  * @param fileName (i) Directory where the snapshot of leveldb is stored.
@@ -335,7 +343,12 @@ fds::Error ObjectDB::PersistentSnap(const std::string& fileName,
 
     env = static_cast<leveldb::CopyEnv*>(options.env);
     fds_assert(env);
-
+    if (!env) {
+        GLOGCRITICAL << "Take persistent snapshot failed " << fileName;
+        err = ERR_INVALID_ARG;
+        return err;
+    }
+    env->DeleteDir(fileName);
     leveldb::Status status = env->CreateDir(fileName);
     if (!status.ok()) {
         GLOGNORMAL << " CreateDir failed for " << fileName << "status " << status.ToString() ;

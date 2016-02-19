@@ -10,7 +10,7 @@ public class DomainTest {
 	@Test
 	public void testDomainConversion(){
 		
-		Domain domain = new Domain( 9L, "FDS", "Boulder", DomainState.UP );
+		Domain domain = new Domain( 9, "FDS", "Boulder", DomainState.UP );
 		
 		String jsonString = ObjectModelHelper.toJSON( domain );
 		

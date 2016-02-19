@@ -25,8 +25,11 @@
 #include <boost/io/ios_state.hpp>
 #include <serialize.h>
 #include <shared/fds-constants.h>
+#include <fdsp/volumegroup_types.h>
 #define FdsSysTaskQueueId fds_volid_t(0xefffffff)
 #define FdsSysTaskPri 5
+
+namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
 
@@ -46,11 +49,11 @@ static constexpr fds_int64_t invalid_vol_token = -1;
  */
 class VolumeDesc : public HasState {
   public:
-	/**
-	 * NOTE: prior to adding new fields here,
-	 * any of these that are needed for thrift interface should be updated
-	 * in VolumeInfo::vol_populate_fdsp_descriptor
-	 */
+   /**
+    * NOTE: prior to adding new fields here,
+    * any of these that are needed for thrift interface should be updated
+    * in toFdspDesc as well as the constructor that takes the thrift type
+    */
     // Basic ID information.
     std::string            name;
     int                    tennantId;  // Tennant id that owns the volume
@@ -68,8 +71,7 @@ class VolumeDesc : public HasState {
     // Advanced settings
     int                    writeQuorum;  // Quorum number of writes for success
     int                    readQuorum;  // This will be 1 for now
-    FDS_ProtocolInterface::FDSP_ConsisProtoType
-    consisProtocol;  // Read-Write consistency protocol
+    FDS_ProtocolInterface::FDSP_ConsisProtoType consisProtocol;  // Read-Write consistency protocol
     // Other policies
     int                    volPolicyId;
     int                    archivePolicyId;
@@ -101,7 +103,12 @@ class VolumeDesc : public HasState {
     bool primary {false}; // "true" if transactions against this volume are to be asynchronously replicated.
     bool replica {false}; // "true" if this volume is maintained with asynchronously replicated transactions.
 
+    FDS_ProtocolInterface::IScsiTarget iscsiSettings;
+    FDS_ProtocolInterface::NfsOption nfsSettings;
+
     FDS_ProtocolInterface::ResourceState     state;
+
+    FDS_ProtocolInterface::VolumeGroupCoordinatorInfo   coordinator;
 
     /* Output from block device */
     char                   vol_blkdev[FDS_MAX_VOL_NAME];
@@ -133,6 +140,7 @@ class VolumeDesc : public HasState {
     int getPriority() const;
 
     std::string ToString();
+    void toFdspDesc(FDS_ProtocolInterface::FDSP_VolumeDescType& voldesc);
 
     bool operator==(const VolumeDesc &rhs) const;
 
@@ -153,46 +161,26 @@ class VolumeDesc : public HasState {
     void setState(FDS_ProtocolInterface::ResourceState state) {
         this->state = state;
     }
-};
 
-/**
- * Possible types of volumes.
- * TODO(Andrew): Disconnect volume layout type from
- * connector type and tiering policy.
- * We should only need blk and object types.
- */
-enum FDS_VolType {
-    FDS_VOL_S3_TYPE,
-    FDS_VOL_BLKDEV_TYPE,
-    FDS_VOL_BLKDEV_SSD_TYPE,
-    FDS_VOL_BLKDEV_DISK_TYPE,
-    FDS_VOL_BLKDEV_HYBRID_TYPE,
-    FDS_VOL_BLKDEV_HYBRID_PREFCAP_TYPE
-};
-
-/**
- * Preconfigured application settings.
- * Defines app types that correspond to known settings
- * that are optimized for that application
- */
-enum FDS_AppWorkload {
-    FDS_APP_WKLD_TRANSACTION,
-    FDS_APP_WKLD_NOSQL,
-    FDS_APP_WKLD_HDFS,
-    FDS_APP_WKLD_JOURNAL_FILESYS,  // Ext3/ext4
-    FDS_APP_WKLD_FILESYS,  // XFS, other
-    FDS_APP_NATIVE_OBJS,  // Native object aka not going over http/rest apis
-    FDS_APP_S3_OBJS,  // Amazon S3 style objects workload
-    FDS_APP_AZURE_OBJS,  // Azure style objects workload
-};
-
-/**
- * Update consistency settings.
- */
-enum FDS_ConsisProtoType {
-    FDS_CONS_PROTO_STRONG,
-    FDS_CONS_PROTO_WEAK,
-    FDS_CONS_PROTO_EVENTUAL
+    inline fpi::VolumeGroupCoordinatorInfo getCoordinatorInfo() const {
+        return coordinator;
+    }
+    inline fpi::SvcUuid getCoordinatorId() const {
+        return coordinator.id;
+    }
+    inline int32_t getCoordinatorVersion() const {
+        return coordinator.version;
+    }
+    inline void setCoordinatorId(fpi::SvcUuid id) {
+        coordinator.id = id;
+    }
+    inline void setCoordinatorVersion(int32_t version) {
+        coordinator.version = version;
+    }
+    inline bool isCoordinatorSet() const {
+        return coordinator.id.svc_uuid != 0;
+    }
+    void clearCoordinatorInfo();
 };
 
 /**
@@ -208,7 +196,13 @@ class FDS_Volume {
 
     FDS_Volume();
     explicit FDS_Volume(const VolumeDesc& vol_desc);
-    ~FDS_Volume();
+    inline bool isSystemVolume() {
+        if (voldesc)
+            return voldesc->isSystemVolume();
+        else
+            return false;
+    }
+    virtual ~FDS_Volume();
 };
 
 /**

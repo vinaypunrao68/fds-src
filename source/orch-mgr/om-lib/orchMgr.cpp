@@ -22,15 +22,16 @@ namespace fds {
 
 OrchMgr *orchMgr;
 
-OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
+OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule, bool initAsModule, bool testMode)
     : conf_port_num(0),
       ctrl_port_num(0),
-      test_mode(false),
+      test_mode(testMode),
       deleteScheduler(this),
-      enableSnapshotSchedule(true)
+      enableTimeline(true)
 {
     om_mutex = new fds_mutex("OrchMgrMutex");
     fds::gl_orch_mgr = this;
+    orchMgr = this;
 
     static fds::Module *omVec[] = {
         omModule,
@@ -45,19 +46,29 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule)
         node_id_to_name[i] = "";
     }
 
-    init<fds::OmSvcHandler, fpi::OMSvcProcessor>(argc, argv, "platform.conf",
+    init<fds::OmSvcHandler, fpi::OMSvcProcessor>(argc, argv, initAsModule, "platform.conf",
                                                  "fds.om.", "om.log", omVec);
 
-    enableSnapshotSchedule = MODULEPROVIDER()->get_fds_config()->get<bool>(
-            "fds.om.enable_snapshot_schedule", true);
-    if (enableSnapshotSchedule) {
+    enableTimeline = get_fds_config()->get<bool>(
+            "fds.feature_toggle.common.enable_timeline", true);
+    counters.reset(new fds::om::Counters(get_cntrs_mgr().get()));
+
+    if (!test_mode && enableTimeline) {
         snapshotMgr.reset(new fds::snapshot::Manager(this));
     }
 
     /*
      * Start the PM monitoring thread
      */
-    omMonitor.reset(new OMMonitorWellKnownPMs());
+    if (!test_mode) {
+        omMonitor.reset(new OMMonitorWellKnownPMs());
+        svcStartThread.reset(new std::thread(&OrchMgr::svcStartMonitor, this));
+        svcStartThread->detach();
+        svcStartRetryThread.reset(new std::thread(&OrchMgr::svcStartRetryMonitor, this));
+        svcStartRetryThread->detach();
+    } else {
+        enableTimeline = false;
+    }
     /*
      * Testing code for loading test info from disk.
      */
@@ -68,7 +79,9 @@ OrchMgr::~OrchMgr()
 {
     LOGDEBUG << "Destructor for Orchestration Manager ( called )";
 
-    cfgserver_thread->join();
+    if (!test_mode) {
+        cfgserver_thread->join();
+    }
 
     if (policy_mgr) {
         delete policy_mgr;
@@ -134,7 +147,7 @@ void OrchMgr::proc_pre_startup()
 
 void OrchMgr::proc_pre_service()
 {
-    if ( enableSnapshotSchedule ) 
+    if ( !test_mode && enableTimeline )
     {
         snapshotMgr->init();
     }
@@ -174,7 +187,10 @@ void OrchMgr::setupSvcInfo_()
 
 void OrchMgr::registerSvcProcess()
 {
-    LOGDEBUG << "Registering OM service: " << fds::logString(svcInfo_);
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+    LOGDEBUG << "Registering OM service: " << fds::logString( svcInfo_ )
+             << " LOCAL DOMAIN UP " << domain->om_local_domain_up()
+             << " DOWN " << domain->om_local_domain_down();
 
     /* Add om information to service map */
     svcMgr_->updateSvcMap({svcInfo_});
@@ -182,13 +198,255 @@ void OrchMgr::registerSvcProcess()
 
 int OrchMgr::run()
 {
+    // At this point, all module has init and started. So signal the waiters.
+    readyWaiter.done();
     // run server to listen for OMControl messages from
     // SM, DM and SH
-    deleteScheduler.start();
-    runConfigService(this);
+    if (!test_mode) {
+        deleteScheduler.start();
+        runConfigService(this);
+    } else {
+        // just sleep for the duration of the test
+        while (true) {
+            sleep(60);
+        }
+    }
     return 0;
 }
 
+void OrchMgr::svcStartMonitor()
+{
+    while (true) {
+
+        std::unique_lock<std::mutex> toSendQLock(toSendQMutex);
+        toSendQCondition.wait(toSendQLock, [this] { return !toSendMsgQueue.empty(); });
+
+        LOGDEBUG << "Services start monitor is running...";
+
+        NodeUuid node_uuid;
+        bool domainRestart       = false;
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
+
+        PmMsg msg    = toSendMsgQueue.back();
+        int64_t uuid = msg.first;
+
+        constructMsgParams(uuid, node_uuid, domainRestart);
+
+        bool issuedStart = domain->om_activate_known_services(domainRestart, node_uuid );
+
+        // Remove from the toSend queue
+        toSendMsgQueue.pop_back();
+
+        if ( issuedStart )
+        {
+            // Unlock here since we will acquire sentQ lock further
+            // down, best to avoid holding a lock within a lock
+            // When we loop back, the wait will reacquire toSendQLock
+            // if needed
+            toSendQLock.unlock();
+            // Update the timestamp on the message
+            msg.second = util::getTimeStampSeconds();
+
+            // Add to the sentQueue
+            addToSentQ(msg);
+        } else {
+            LOGWARN << "PM:" << std::hex << uuid << std::dec
+                    << " removed from all start queues, no eligible svcs to start";
+        }
+    }
+}
+
+void OrchMgr::svcStartRetryMonitor()
+{
+    while (true) {
+
+        std::unique_lock<std::mutex> sentQLock(sentQMutex);
+        sentQCondition.wait(sentQLock, [this] { return !sentMsgQueue.empty(); });
+
+        LOGDEBUG << "Services start retry monitor is running...";
+        int32_t current = util::getTimeStampSeconds();
+        bool foundRetry = false;
+        PmMsg retryMsg;
+        int32_t timeElapsed = 0;
+
+        // SECTION: Calculate if a retry is required
+        for (auto item : sentMsgQueue) {
+
+            timeElapsed = current - item.second;
+
+            LOGDEBUG << "Service start msg sent to PM uuid:"
+                     << std::hex << item.first << std::dec
+                     << "  " << timeElapsed << "seconds ago";
+
+            if ( timeElapsed >= 3 ) {
+                foundRetry = true;
+                retryMsg = item;
+                break;
+            }
+        }
+
+        // We perform actions further down
+        // which may need the sentQ lock, so unlock it here.
+        // If another thread enters, all the variables are local
+        // the globals are protected so we should still be ok
+        sentQLock.unlock();
+
+        // SECTION: Process retry
+        if (foundRetry) {
+
+            fpi::SvcUuid svcUuid;
+            svcUuid.svc_uuid = retryMsg.first & ~DOMAINRESTART_MASK;
+
+            fpi::SvcInfo svcInfo;
+
+            if (getSvcMgr()->getSvcInfo(svcUuid, svcInfo)) {
+                if ( svcInfo.svc_status == fpi::SVC_STATUS_INACTIVE_STOPPED ||
+                     svcInfo.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED ) {
+
+                    LOGWARN <<"PM:" << std::hex << svcUuid.svc_uuid << std::dec
+                             << " appears to be unreachable, will not retry services"
+                             << " start request";
+                    removeFromSentQ(retryMsg);
+
+                } else {
+                    // Go ahead and retry the message
+                    if (retryMsg.first != 0) {
+
+                        LOGNORMAL << "Message to PM:"
+                                 << std::hex << svcUuid.svc_uuid << std::dec
+                                 << " has not received response for "
+                                 << timeElapsed << "seconds. Will re-send";
+
+                        // Erase from sentQueue
+                        removeFromSentQ(retryMsg);
+
+                        // Add message to the toSendQueue
+                        addToSendQ(retryMsg, true);
+                    } else {
+                        LOGERROR <<"Evaluated retry msg has bad PM UUID!";
+                    }
+                }
+            } else {
+                LOGDEBUG << "Failed to find PM:" << std::hex << svcUuid.svc_uuid
+                         << std::dec << "in svcLayer map, will erase from retryQ";
+
+                removeFromSentQ(retryMsg);
+            }
+        } // end of ifFoundRetry
+
+        std::this_thread::sleep_for( std::chrono::seconds( 3 ) );
+    } // end of while
+}
+
+void OrchMgr::constructMsgParams(int64_t uuid, NodeUuid& node_uuid, bool& flag) {
+
+    if ( (uuid & DOMAINRESTART_MASK) == DOMAINRESTART_MASK ) {
+        flag = true;
+    } else {
+        flag = false;
+    }
+
+    // Clear out the restart flag
+    uuid &= ~DOMAINRESTART_MASK;
+
+    node_uuid.uuid_set_val(uuid);
+
+    LOGDEBUG <<"Constructed msgParams, uuid:" << std::hex << uuid << std::dec
+             << " , domainRestart:" << flag;
+}
+
+void OrchMgr::addToSendQ(PmMsg msg, bool retry)
+{
+    {
+        std::lock_guard<std::mutex> toSendQLock(toSendQMutex);
+        // Clear out the last bit for use in the log
+        // keep the actual mask(if bit is on) in the msg as is
+        int64_t uuid = msg.first;
+        uuid &= ~DOMAINRESTART_MASK;
+
+        if (retry) {
+            retryMap[uuid] += 1;
+
+            if (retryMap[uuid] > 3) {
+                LOGWARN << "Exceeded retry threshold for message to PM:"
+                        << std::hex << uuid << std::dec
+                        << " , will not re-send start message";
+                return;
+            }
+        }
+
+        LOGDEBUG << "Adding message for PM:"
+                    << std::hex << uuid << std::dec
+                    << " to the toSendQ";
+
+        toSendMsgQueue.push_back(msg);
+    } // release the mutex
+
+    toSendQCondition.notify_one();
+}
+
+void OrchMgr::addToSentQ(PmMsg msg) {
+    {
+        std::lock_guard<std::mutex> sentQLock(sentQMutex);
+
+        int64_t uuid = msg.first & ~DOMAINRESTART_MASK;
+        LOGDEBUG << "Adding msg for PM:"
+                 << std::hex << uuid << std::dec
+                 << " to the sentQ";
+
+        sentMsgQueue.push_back(msg);
+
+    } // release mutex before notifying
+
+    sentQCondition.notify_one();
+}
+
+bool OrchMgr::isInSentQ(int64_t uuid) {
+
+    uuid &= ~DOMAINRESTART_MASK;
+
+    bool present = false;
+    std::vector<PmMsg>::iterator iter;
+    iter = std::find_if (sentMsgQueue.begin(), sentMsgQueue.end(),
+                        [uuid](PmMsg msg)->bool
+                        {
+                        msg.first &= ~DOMAINRESTART_MASK;
+                        return uuid == msg.first;
+                        });
+
+    if (iter != sentMsgQueue.end()) {
+        present = true;
+    }
+
+    return present;
+
+}
+void OrchMgr::removeFromSentQ(PmMsg sentMsg)
+{
+    std::lock_guard<std::mutex> sentQLock(sentQMutex);
+
+    int64_t uuid = sentMsg.first & ~DOMAINRESTART_MASK;
+    LOGDEBUG << "Removing message to PM:"
+             << std::hex << uuid << std::dec
+             << " from the sentQ";
+
+    std::vector<PmMsg>::iterator iter;
+    iter = std::find_if (sentMsgQueue.begin(), sentMsgQueue.end(),
+                        [uuid](PmMsg msg)->bool
+                        {
+                        msg.first &= ~DOMAINRESTART_MASK;
+                        return uuid == msg.first;
+                        });
+
+    if (iter != sentMsgQueue.end()) {
+        sentMsgQueue.erase(iter);
+    } else {
+        LOGWARN << "Failed to remove msg to PM:"
+                << std::hex << sentMsg.first << std::dec
+                << " from sentQ, either msg has already been removed"
+                << " or this PM is not well-known";
+    }
+}
 void OrchMgr::start_cfgpath_server()
 {
 }
@@ -246,24 +504,63 @@ bool OrchMgr::loadFromConfigDB() {
     // get global domain info
     std::string globalDomain = getConfigDB()->getGlobalDomain();
     if (globalDomain.empty()) {
-        LOGWARN << "global.domain not configured.. setting a default [fds]";
+        /**
+         * We assume here that the ConfigDB is being newly constructed and so, set the version.
+         */
+        getConfigDB()->setConfigVersion();
+
+        std::string version = getConfigDB()->getConfigVersion();
+        if (version.empty()) {
+            LOGCRITICAL << "Unable to set the initial ConfigDB version. See log for details.";
+            return false;
+        } else {
+            LOGNOTIFY << "Initial creation of ConfigDB at version <" << version << ">.";
+        }
+
+        LOGNOTIFY << "Global domain not configured. Setting a default, [fds]";
         getConfigDB()->setGlobalDomain("fds");
+
+    } else {
+        /**
+         * Existing ConfigDB. We'll take the opportunity to upgrade it if necessary.
+         */
+        std::string version = getConfigDB()->getConfigVersion();
+        if (version.empty()) {
+            LOGCRITICAL << "Unable to obtain the ConfigDB version. See log for details.";
+            return false;
+        } else if (!getConfigDB()->isLatestConfigDBVersion(version)) {
+            /**
+             * Need to upgrade ConfigDB from current version to latest.
+             */
+            if (getConfigDB()->upgradeConfigDBVersionLatest(version) != kvstore::ConfigDB::ReturnType::SUCCESS) {
+                LOGCRITICAL << "Unable to upgrade the ConfigDB version. See log for details.";
+                return false;
+            }
+
+        }
     }
 
     // get local domains
-    std::vector<fds::apis::LocalDomain> localDomains;
+    std::vector<LocalDomain> localDomains;
     getConfigDB()->listLocalDomains(localDomains);
 
     if (localDomains.empty())  {
         LOGWARN << "No Local Domains stored in the system. "
                 << "Setting a default Local Domain.";
-        int64_t id = getConfigDB()->createLocalDomain();
+        LocalDomain localDomain;
+
+        /**
+         * Set this one as the current local domain.
+         */
+        localDomain.setCurrent(true);
+        auto id = getConfigDB()->putLocalDomain(localDomain);
         if (id <= 0) {
             LOGERROR << "Some issue in Local Domain creation. ";
             return false;
         } else {
             LOGNOTIFY << "Default Local Domain creation succeeded. ID: " << id;
         }
+
         getConfigDB()->listLocalDomains(localDomains);
     }
 
@@ -273,8 +570,27 @@ bool OrchMgr::loadFromConfigDB() {
         return false;
     }
 
-    // load/create system volumes
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+
+    // Load current Local Domain.
+    for (auto localDomain : localDomains) {
+        if (localDomain.getCurrent()) {
+            local->setLocalDomain(localDomain);
+        }
+    }
+
+    if (local->getLocalDomain() == nullptr) {
+        LOGCRITICAL << "Unable to set current local domain.";
+        return false;
+    } else {
+        LOGNOTIFY << "Current Local Domain is <" << local->getLocalDomain()->getName()
+                  << ":" << local->getLocalDomain()->getID() << ">.";
+        if (local->getLocalDomain()->isMaster()) {
+            LOGNOTIFY << "Current Local Domain is the Master Local Domain for the Global Domain.";
+        }
+    }
+
+    // load/create system volumes
     VolumeContainer::pointer volContainer = local->om_vol_mgr();
     volContainer->createSystemVolume();
     volContainer->createSystemVolume(0);
@@ -286,7 +602,7 @@ bool OrchMgr::loadFromConfigDB() {
     OM_Module::om_singleton()->om_volplace_mod()->setConfigDB(getConfigDB());
 
     // load the snapshot policies
-    if (enableSnapshotSchedule) {
+    if (!test_mode && enableTimeline) {
         snapshotMgr->loadFromConfigDB();
     }
 

@@ -1,16 +1,22 @@
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
+#include <fds_defines.h>
 #include <fds_config.hpp>
 #include <util/stringutils.h>
+
 namespace fds {
 using libconfig::Setting;
 // helper funcs
 Setting& getHierarchialValue(const libconfig::Config& config, const std::string& key) {
-    if (!config.exists(key)) throw fds::Exception(key + " not found");
+    if (!config.exists(key)) {
+        LOGCONSOLE << "config key [" << key << "] not found" << std::endl;
+        throw fds::Exception(key + " not found");
+    }
     // TODO(prem) : fill in the function properly
     return config.lookup(key);
 }
@@ -51,6 +57,33 @@ void remove(libconfig::Config& config, const std::string& key) {
     s->remove(keyname);
 }
 
+void fillMap(const libconfig::Setting& setting, std::map<std::string,std::string>& configMap) {
+    LOGCONSOLE << setting.getPath() << ":" << setting.getType() << std::endl;
+    switch (setting.getType()) {
+        case libconfig::Setting::TypeString:
+            configMap[setting.getPath()] = (const char*)(setting); 
+            break;
+        case libconfig::Setting::TypeBoolean:
+            configMap[setting.getPath()] = (bool)(setting)? "true" : "false";
+                break;
+        case libconfig::Setting::TypeFloat:
+            configMap[setting.getPath()] = std::to_string((float)setting);
+            break;
+        case libconfig::Setting::TypeInt:
+            configMap[setting.getPath()] = std::to_string((int)setting);
+            break;
+        case libconfig::Setting::TypeInt64:
+            configMap[setting.getPath()] = std::to_string((long long)setting);
+            break;
+        case libconfig::Setting::TypeGroup:
+            for (auto i = 0; i < setting.getLength(); ++i) {
+            fillMap(setting[i], configMap);
+        }
+        default:
+            break;
+    }
+}
+
 
 FdsConfig::FdsConfig() {
 }
@@ -82,7 +115,16 @@ void FdsConfig::init(const std::string &default_config_file, int argc, char* arg
         			<< std::endl;
         exit(ERR_DISK_READ_FAILED);
     }
-    config_.readFile(config_file.c_str());
+
+    try {
+        config_.readFile(config_file.c_str());
+    } catch(const libconfig::ParseException& e) {
+        LOGCONSOLE << "error in config file [" << config_file << ":" << e.getLine() << " ] - " << e.getError() << std::endl;
+        throw e;
+    } catch (const libconfig::SettingException& e) {
+        LOGCONSOLE << "error in config file [" << config_file << "] : " << e.getPath() << " : " << e.what() << std::endl;
+        throw e;
+    }
 
     /* Override config read from with command line params */
     for (auto o : parsed.options) {
@@ -104,6 +146,10 @@ void FdsConfig::init(const std::string &default_config_file, int argc, char* arg
 bool FdsConfig::exists(const std::string &key) {
     fds_mutex::scoped_lock l(lock_);
     return config_.exists(key);
+}
+
+void FdsConfig::getConfigMap(std::map<std::string,std::string>& configMap) {
+    fillMap(config_.getRoot(), configMap);
 }
 
 template<> 
@@ -225,7 +271,6 @@ void FdsConfig::set(const std::string &key, const std::string& value) {
                 try {
                     s = std::stoi(value, NULL);
                 } catch(std::out_of_range& e) {
-                    std::cout << "int cast failed.. trying int64 : " << key <<std::endl;
                     remove(config_, key);
                     Setting& s1 = add(config_, key, Setting::TypeInt64);
                     s1 = std::stoll(value, NULL);
@@ -248,7 +293,7 @@ void FdsConfig::set(const std::string &key, const std::string& value) {
 }
 
 #define SETDATA(OP,TYPE)                                 \
-    fds_mutex::scoped_lock l(lock_);                  \
+    fds_mutex::scoped_lock l(lock_);                     \
     if (config_.exists(key)) {                           \
         Setting& s = config_.lookup(key);                \
         s = (OP) value;                                  \

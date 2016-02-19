@@ -85,10 +85,24 @@ namespace fds {
     ADD(ERR_SERVICE_CAPACITY_DANGEROUS,= 65,"Service is at dangerous used disk capacity level"), \
     ADD(ERR_DM_UNRECOGNIZED_PATTERN_SEMANTICS,= 66,"Pattern semantics not recognized"), \
     ADD(ERR_TIMER_TASK_NOT_SCHEDULED,= 67,"Timer task was not scheduled"), \
+    ADD(ERR_FEATURE_DISABLED,= 68,"Feature disabled"), \
+    ADD(ERR_DM_INTERRUPTED,=69,"Process interrupted"), \
+    ADD(ERR_INVALID_VOLUME_VERSION,= 70,"Invalid volume version"), \
+    ADD(ERR_VOLUMEGROUP_DOWN,= 71,"Volume group is down"), \
+    ADD(ERR_QUICKSYNC_NOT_POSSIBLE,= 72,"Quick sync is not possible"), \
+    ADD(ERR_WRITE_OP_BUFFERED,= 73,"Write operation buffered"), \
+    ADD(ERR_UNAVAILABLE, = 74, "Resource is unavialable"),\
+    ADD(ERR_ABORTED, = 75, "Service/module aborted"),\
+    ADD(ERR_SYNC_INPROGRESS, = 76, "Sync is in progress"),\
+    ADD(ERR_VOLMETA_NOT_FOUND, = 77, "Volume Metadata not found"),\
+    ADD(ERR_SYNCPEER_UNAVAILABLE, = 78, "Sync peer is unavailable"),\
+    ADD(ERR_DM_NOT_IN_VG, = 79, "DM does not belong in existing Volume Group"),\
+    ADD(ERR_DM_DISK_CAPACITY_ERROR_THRESHOLD, = 80, "DM disk capacity exceeded 95%"),\
     \
     /* I/O error range */            \
     ADD(ERR_IO_DLT_MISMATCH,= 100," "), \
     ADD(ERR_IO_DMT_MISMATCH,= 101," "), \
+    ADD(ERR_IO_OPID_MISMATCH,= 102," "), \
     \
     /* Metadata error range */          \
     ADD(ERR_BLOB_OFFSET_INVALID,= 500," "), \
@@ -140,7 +154,6 @@ namespace fds {
     ADD(ERR_SM_TOK_MIGRATION_SRC_SVC_REQUEST, ,"  "), \
     ADD(ERR_SM_TIER_WRITEBACK_NOT_DONE, ,"  "), \
     ADD(ERR_SM_TIER_HYBRIDMOVE_ON_FLASH_VOLUME, ,"  "), \
-    ADD(ERR_SM_EXCEEDED_DISK_CAPACITY, ,"  "), \
     ADD(ERR_SM_NOERR_GAINED_SM_TOKENS, ,"  "), \
     ADD(ERR_SM_NOERR_LOST_SM_TOKENS, ,"  "), \
     ADD(ERR_SM_NOERR_NEED_RESYNC, ,"  "), \
@@ -148,11 +161,18 @@ namespace fds {
     ADD(ERR_SM_RESYNC_SOURCE_DECLINE, ,"  "), \
     ADD(ERR_SM_NOT_READY_AS_MIGR_SRC, ,"  "), \
     ADD(ERR_SM_NO_DISK, ,"  "), \
+    ADD(ERR_SM_READ_ONLY, ,"SM is currently in read-only mode."), \
+    ADD(ERR_SM_DISK_FULL, , "IO failure due to FULL disk."), \
+    ADD(ERR_SM_TC_INVALID_STATE, ,"Token compactor in invalid state. "), \
     \
     /* Network errors */    \
     ADD(ERR_NETWORK_TRANSPORT,= 3000," "), \
     /* Endpoint doesn't exist */    \
-    ADD(ERR_EP_NON_EXISTANT, ,"  "), \
+    ADD(ERR_EP_NON_EXISTANT, ,"  "),        \
+    \
+    /* File Errors */ \
+    ADD(ERR_FILE_DOES_NOT_EXIST,= 3100 ,"  "),      \
+    ADD(ERR_CHECKSUM_MISMATCH, ,"  "),      \
     \
     /* SVC Request realted */   \
     ADD(ERR_SVC_REQUEST_FAILED,= 4000," "), \
@@ -347,6 +367,8 @@ struct Exception : std::exception {
     Error err;
     std::string message;
 };
+
+using StatusCb = std::function<void(const Error&)>;
 
 }  // namespace fds
 

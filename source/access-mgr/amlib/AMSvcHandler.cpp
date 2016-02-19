@@ -7,6 +7,7 @@
 #include <fdsp/dm_api_types.h>
 #include "net/SvcRequest.h"
 #include "AmProcessor.h"
+#include "fds_process.h"
 
 namespace fds {
 
@@ -27,6 +28,7 @@ AMSvcHandler::AMSvcHandler(CommonModuleProviderIf *provider,
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDLTUpdate, NotifyDLTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::PrepareForShutdownMsg, shutdownAM);
+    REGISTER_FDSP_MSG_HANDLER(fpi::AddToVolumeGroupCtrlMsg, addToVolumeGroup);
 }
 
 // notifySvcChange
@@ -107,9 +109,9 @@ AMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
     Error err(ERR_OK);
 
     fds_volid_t vol_uuid (vol_msg->vol_desc.volUUID);
-    VolumeDesc vdesc(vol_msg->vol_desc), * vdb = &vdesc;
+    VolumeDesc vdesc(vol_msg->vol_desc);
     GLOGNOTIFY << "Received volume modify  event from OM"
-               << " for volume " << vdb->name << ":" << vol_uuid;
+               << " for volume " << vdesc;
 
     if (amProcessor->isShuttingDown())
     {
@@ -122,7 +124,7 @@ AMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
         // If this channel has threadpool on this we do not block though.
         // A real nonblocking could install callback upon read-lock acquiring...
         // and continue on next step...
-        err = amProcessor->modifyVolumePolicy(vol_uuid, vdesc);
+        err = amProcessor->modifyVolumePolicy(vdesc);
     }
 
     hdr->msg_code = err.GetErrno();
@@ -160,14 +162,6 @@ AMSvcHandler::AddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                 err = e.getError();
                 GLOGWARN << err;
             }
-        } else {
-            err = ERR_VOL_NOT_FOUND;
-        }
-
-        if (!err.ok()) {
-            /* complete all requests that are waiting on bucket to attach with error */
-            GLOGNOTIFY << "Unable to register volume: " << vdesc.name << ":" << err;
-            amProcessor->removeVolume(vdesc);
         }
     }
 
@@ -196,7 +190,7 @@ AMSvcHandler::RemoveVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     }
     else
     {
-        err = amProcessor->removeVolume(vol_msg->vol_desc);
+        amProcessor->removeVolume(vol_msg->vol_desc);
     }
 
     hdr->msg_code = err.GetErrno();
@@ -335,12 +329,27 @@ AMSvcHandler::shutdownAM(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
       * Block any more requests.
       * Drain queues and allow outstanding requests to complete.
       */
-     amProcessor->stop();
+     g_fdsprocess->stop();
 
      /*
       * It's an async shutdown as we cleanup. So acknowledge the message now.
       */
      hdr->msg_code = err.GetErrno();
+}
+
+void
+AMSvcHandler::addToVolumeGroup(fpi::AsyncHdrPtr& asyncHdr,
+                               fpi::AddToVolumeGroupCtrlMsgPtr& addMsg)
+{
+    amProcessor->addToVolumeGroup(
+        addMsg,
+        [this, asyncHdr](const Error& e,
+                         const fpi::AddToVolumeGroupRespCtrlMsgPtr &payload) {
+        asyncHdr->msg_code = e.GetErrno();
+        sendAsyncResp(*asyncHdr,
+                      FDSP_MSG_TYPEID(fpi::AddToVolumeGroupRespCtrlMsg),
+                      *payload);
+        });
 }
 
 }  // namespace fds

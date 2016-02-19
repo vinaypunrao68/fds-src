@@ -18,12 +18,11 @@
 
 namespace fds {
 
-typedef std::unordered_map<fds_uint16_t, std::string> DiskLocMap;
 typedef std::unordered_map<fds_uint16_t, bool> DiskHealthMap;
-
 typedef uint32_t fds_checksum32_t;
 
-typedef std::function<void (const DiskId& removedDiskId,
+typedef std::function<void (const bool &added,
+                            const DiskId& diskId,
                             const diskio::DataTier&,
                             const std::set<std::pair<fds_token_id, fds_uint16_t>>&
                             )> DiskChangeFnObj;
@@ -101,12 +100,11 @@ const uint16_t SmSuperblockMinorVer = 0;
  * We are saving persistent data on a disk, and we can't have any garbage
  * from the class definitions, which may have run-time data.
  */
-struct SmSuperblockHeader {
+struct __attribute__((__packed__)) SmSuperblockHeader {
   public:
     /* Constructor and destructor
      */
     SmSuperblockHeader();
-    ~SmSuperblockHeader();
 
     void initSuperblockHeader();
     Error validateSuperblockHeader();
@@ -191,10 +189,9 @@ static_assert((sizeof(struct SmSuperblockHeader) == SM_SUPERBLOCK_SECTOR_SIZE),
  *
  *      - Additional data (POD) should be added to the end of the
  */
-struct SmSuperblock {
+struct __attribute__((__packed__)) SmSuperblock {
   public:
     SmSuperblock();
-    ~SmSuperblock();
 
     /* Interfaces for loading and storing superblock
      */
@@ -220,6 +217,12 @@ struct SmSuperblock {
      */
     Error validateSuperblock();
 
+    /**
+     * Do token resync or not?
+     */
+    fds_bool_t doResync() const;
+    void setResync();
+    void resetResync();
 
     /* Initializes mainly the header of the superblock.
      */
@@ -233,6 +236,8 @@ struct SmSuperblock {
      */
     SmSuperblockHeader Header;
     fds_uint64_t DLTVersion;
+    fds_bool_t resync;
+    char SmSuperblockReserved[503]; // To be backwards compat with pre 2015-11-30 blocks
     ObjectLocationTable olt;
     TokenDescTable tokTbl;
 
@@ -281,13 +286,18 @@ class SmSuperblockMgr {
                          DiskIdSet& ssdIds,
                          const DiskLocMap & latestDiskMap,
                          const DiskLocMap & latestDiskDevMap = DiskLocMap());
+    void removeDisksFromSuperblock(DiskIdSet &removedHDDs,
+                                   DiskIdSet &removedSSDs);
     Error syncSuperblock();
     Error syncSuperblock(const std::set<uint16_t>& badSuperblock);
+
+    Error redistributeTokens(DiskIdSet &hddIds, DiskIdSet &ssdIds,
+                             const DiskLocMap &latestDiskMap,
+                             const DiskLocMap &latestDiskDevMap);
 
     void recomputeTokensForLostDisk(const DiskId& diskId,
                                     DiskIdSet& hddIds,
                                     DiskIdSet& ssdIds);
-
     /**
      * Reconcile superblocks, if there is inconsistency.
      */
@@ -322,19 +332,25 @@ class SmSuperblockMgr {
     fds_uint16_t getDiskId(fds_token_id smTokId,
                            diskio::DataTier tier);
 
+    DiskIdSet getDiskIds(fds_token_id smTokId,
+                         diskio::DataTier tier);
     /**
      * Returns a set of SM tokens that this SM currently owns
      * Will revisit this method when we have more SM token states
      */
     SmTokenSet getSmOwnedTokens();
     SmTokenSet getSmOwnedTokens(fds_uint16_t diskId);
-    fds_uint16_t getWriteFileId(fds_token_id smToken,
+    fds_uint16_t getWriteFileId(DiskId diskId,
+                                fds_token_id smToken,
                                 diskio::DataTier tier);
-    fds_bool_t compactionInProgress(fds_token_id smToken,
+    fds_bool_t compactionInProgress(DiskId diskId,
+                                    fds_token_id smToken,
                                     diskio::DataTier tier);
-    fds_bool_t compactionInProgressNoLock(fds_token_id smToken,
+    fds_bool_t compactionInProgressNoLock(DiskId diskId,
+                                          fds_token_id smToken,
                                           diskio::DataTier tier);
-    Error changeCompactionState(fds_token_id smToken,
+    Error changeCompactionState(DiskId diskId,
+                                fds_token_id smToken,
                                 diskio::DataTier tier,
                                 fds_bool_t inProg,
                                 fds_uint16_t newFileId);
@@ -347,6 +363,12 @@ class SmSuperblockMgr {
      */
     fds_uint64_t getDLTVersion();
 
+    // check for disk state.
+    bool isDiskAlive(const DiskId& diskId);
+    fds_bool_t doResync();
+    void setResync();
+    void resetResync();
+
     // So we can print class members for logging
     friend std::ostream& operator<< (std::ostream &out,
                                      const SmSuperblockMgr& sbMgr);
@@ -357,10 +379,14 @@ class SmSuperblockMgr {
     std::string
     getSuperblockPath(const std::string& dir_path);
 
+    void initMaps(const DiskLocMap& latestDiskMap,
+                  const DiskLocMap& latestDiskDevMap);
+
     bool
     checkPristineState(DiskIdSet& newHDDs, DiskIdSet& newSSDs);
 
-    Error changeTokenCompactionState(fds_token_id smToken,
+    Error changeTokenCompactionState(DiskId diskId,
+                                     fds_token_id smToken,
                                      diskio::DataTier tier,
                                      fds_bool_t inProg,
                                      fds_uint16_t newFileId);
@@ -368,14 +394,11 @@ class SmSuperblockMgr {
     size_t
     countUniqChecksum(const std::multimap<fds_checksum32_t, uint16_t>& checksumMap);
 
-    void
+    Error 
     checkDiskTopology(DiskIdSet& newHDDs, DiskIdSet& newSSDs);
 
     void
     checkDisksAlive(DiskIdSet& newHDDs, DiskIdSet& newSSDs);
-
-    DiskIdSet
-    diffDiskSet(const DiskIdSet& diskSet1, const DiskIdSet& diskSet2);
 
     SmTokenSet getTokensOfThisSM(fds_uint16_t diskId);
 
@@ -419,6 +442,9 @@ class SmSuperblockMgr {
     const std::string superblockName = "SmSuperblock";
 
     fds::DiskChangeFnObj diskChangeFn;
+
+    /// Find the most recent superblock written to disk
+    fds_checksum32_t findMostRecentSuperblock(std::multimap<fds_checksum32_t, fds_uint16_t> checkMap);
 };
 
 std::ostream& operator<< (std::ostream &out,

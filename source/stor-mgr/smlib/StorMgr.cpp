@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
@@ -42,16 +41,16 @@ ObjectStorMgr *objStorMgr;
  * list below.
  */
 ObjectStorMgr::ObjectStorMgr(CommonModuleProviderIf *modProvider)
-    : Module("sm"),
-      modProvider_(modProvider),
-      totalRate(6000),  // will be over-written using node capability
-      qosThrds(100),  // will be over-written from config
-      qosOutNum(10),
-      volTbl(nullptr),
-      qosCtrl(nullptr),
-      shuttingDown(false),
-      sampleCounter(0),
-      lastCapacityMessageSentAt(0)
+        : Module("sm"),
+          modProvider_(modProvider),
+          totalRate(6000),  // will be over-written using node capability
+          qosThrds(100),  // will be over-written from config
+          qosOutNum(10),
+          volTbl(nullptr),
+          qosCtrl(nullptr),
+          shuttingDown(false),
+          sampleCounter(0),
+          lastCapacityMessageSentAt(0)
 {
     // NOTE: Don't put much stuff in the constuctor.  Move any construction
     // into mod_init()
@@ -91,9 +90,10 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
         "fds.sm.req_serialization", false);
 
     modProvider_->proc_fdsroot()->\
-        fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
+            fds_mkdir(modProvider_->proc_fdsroot()->dir_user_repo_objs().c_str());
     std::string obj_dir = modProvider_->proc_fdsroot()->dir_user_repo_objs();
-
+    fileTransfer.reset(new net::FileTransferService(modProvider_->proc_fdsroot()->dir_filetransfer(), modProvider_->getSvcMgr()));
+    counters.reset(new sm::Counters(MODULEPROVIDER()->get_cntrs_mgr().get()));
     /*
      * Create local volume table.
      */
@@ -116,7 +116,8 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
                                                           std::bind(&ObjectStorMgr::handleDiskChanges, this,
                                                                     std::placeholders::_1,
                                                                     std::placeholders::_2,
-                                                                    std::placeholders::_3),
+                                                                    std::placeholders::_3,
+                                                                    std::placeholders::_4),
                                                           std::bind(&ObjectStorMgr::changeTokensState, this,
                                                                     std::placeholders::_1)));
 
@@ -135,14 +136,23 @@ void ObjectStorMgr::changeTokensState(const std::set<fds_token_id>& dltTokens) {
     }
 }
 
-void ObjectStorMgr::handleDiskChanges(const DiskId& removedDiskId,
+void ObjectStorMgr::handleNewDiskMap() {
+
+    auto tokens = objectStore->getSmTokens();
+    std::vector<nullary_always> token_locks;
+    for (auto& token: tokens) {
+        token_locks.push_back(getTokenLock(token, true));
+    }
+
+    objStorMgr->objectStore->handleNewDiskMap();
+}
+
+void ObjectStorMgr::handleDiskChanges(const bool &added,
+                                      const DiskId& diskId,
                                       const diskio::DataTier& tierType,
                                       const TokenDiskIdPairSet& tokenDiskPairs) {
-    std::vector<nullary_always> token_locks;
-    for (auto& tokenDiskPair: tokenDiskPairs) {
-        token_locks.push_back(getTokenLock(tokenDiskPair.first, true));
-    }
-    objStorMgr->objectStore->handleDiskChanges(removedDiskId, tierType, tokenDiskPairs);
+    objStorMgr->objectStore->handleDiskChanges(added, diskId,
+                                               tierType, tokenDiskPairs);
 }
 
 void ObjectStorMgr::handleResyncDoneOrPending(fds_bool_t startResync, fds_bool_t resyncDone) {
@@ -150,8 +160,7 @@ void ObjectStorMgr::handleResyncDoneOrPending(fds_bool_t startResync, fds_bool_t
 
     if (resyncDone) {
         if (objStorMgr->migrationMgr->primaryTokensReady(curDlt, getUuid())) {
-            LOGNOTIFY << "Resync on restart completed SUCCESSFULLY! All DLT tokens for which "
-                      << " this SM is primary synced successfully";
+            LOGNOTIFY << "Resync completed SUCCESSFULLY!";
         } else {
             LOGWARN << "At least one DLT token for which this SM is primary did not sync "
                     << " successfully; Since we don't have fine-grained handling of this in OM,"
@@ -163,11 +172,15 @@ void ObjectStorMgr::handleResyncDoneOrPending(fds_bool_t startResync, fds_bool_t
     }
 
     if (startResync && g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
-        objStorMgr->migrationMgr->startResync(curDlt,
-                                              getUuid(),
-                                              curDlt->getNumBitsForToken(),
-                                              std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
-                                                        std::placeholders::_1, std::placeholders::_2));
+        if (objectStore->doResync()) {
+            objStorMgr->migrationMgr->startResync(curDlt,
+                                                  getUuid(),
+                                                  curDlt->getNumBitsForToken(),
+                                                  std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
+                                                            std::placeholders::_1, std::placeholders::_2));
+        } else {
+            objectStore->setResync();
+        }
     }
 }
 
@@ -214,8 +227,10 @@ void ObjectStorMgr::mod_enable_service()
         // servicing more IO if there is more capacity (eg.. because we have
         // cache and SSDs)
         auto svcmgr = MODULEPROVIDER()->getSvcMgr();
-        totalRate = svcmgr->getSvcProperty<fds_uint32_t>(
-                modProvider_->getSvcMgr()->getMappedSelfPlatformUuid(), "node_iops_min");
+        totalRate = static_cast<uint32_t>(atoi(
+                svcmgr->getSvcProperty(modProvider_->getSvcMgr()->getMappedSelfPlatformUuid(),
+                                       "node_iops_min").c_str()));
+        fds_assert(totalRate > 0);
     }
 
     /*
@@ -280,7 +295,7 @@ void ObjectStorMgr::mod_enable_service()
                 // by offline smcheck.
                 objStorMgr->storeCurrentDLT();
 
-                // if second phase of start up failes, object store will set the state
+                // if second phase of start up fails, object store will set the state
                 // during validating token ownership in the superblock
                 handleDltUpdate();
             }
@@ -306,7 +321,7 @@ void ObjectStorMgr::mod_enable_service()
         VolumeDesc*  testVdb;
         std::string testVolName;
         int numTestVols = modProvider_->get_fds_config()->\
-                          get<int>("fds.sm.testing.test_volume_cnt");
+                get<int>("fds.sm.testing.test_volume_cnt");
         for (fds_int32_t testVolId = 1; testVolId < numTestVols + 1; testVolId++) {
             testVolName = "testVol" + std::to_string(testVolId);
             /*
@@ -342,6 +357,11 @@ void ObjectStorMgr::mod_enable_service()
 
     if (modProvider_->get_fds_config()->get<bool>("fds.sm.testing.standalone") == false) {
         gSvcRequestPool->setDltManager(MODULEPROVIDER()->getSvcMgr()->getDltManager());
+    }
+
+    // If the object store is in the READ ONLY state we need to send the read only command to other SMs
+    if (objectStore->isReadOnly()) {
+        sendReadOnlyModeCmd();
     }
 
     Module::mod_enable_service();
@@ -427,9 +447,9 @@ fds_bool_t ObjectStorMgr::amIPrimary(const ObjectID& objId) {
 Error ObjectStorMgr::handleDltUpdate() {
 
     if (true == MODULEPROVIDER()->get_fds_config()->\
-                    get<bool>("fds.sm.testing.enable_sleep_before_migration", false)) {
+        get<bool>("fds.sm.testing.enable_sleep_before_migration", false)) {
         auto sleep_time = MODULEPROVIDER()->get_fds_config()->\
-                            get<int>("fds.sm.testing.sleep_duration_before_migration");
+                get<int>("fds.sm.testing.sleep_duration_before_migration");
         LOGNOTIFY << "Sleep for " << sleep_time
                   << " before sending NotifyDLTUpdate response to OM";
         sleep(sleep_time);
@@ -452,30 +472,37 @@ Error ObjectStorMgr::handleDltUpdate() {
     const DLT* curDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
     Error err = objStorMgr->objectStore->handleNewDlt(curDlt);
     if (err == ERR_SM_NOERR_NEED_RESYNC) {
-        LOGNORMAL << "SM received first DLT after restart, which matched "
-                  << "its persistent state, will start full resync of DLT tokens";
-
-        // Start the resync process
-        if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync")) {
-            err = objStorMgr->migrationMgr->startResync(curDlt,
-                                                        getUuid(),
-                                                        curDlt->getNumBitsForToken(),
-                                                        std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
-                                                                  std::placeholders::_1, std::placeholders::_2));
-        } else {
-            // not doing resync, making all DLT tokens ready
-            migrationMgr->notifyDltUpdate(curDlt,
+        migrationMgr->makeTokensAvailable(curDlt,
                                           curDlt->getNumBitsForToken(),
                                           getUuid());
+
+        // Start the resync process
+        if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync", true)) {
+            if (objectStore->doResync()) {
+                LOGNOTIFY << "SM " << std::hex << getUuid() << " going to do"
+                          << " token diff resync";
+                err = objStorMgr->migrationMgr->startResync(curDlt,
+                                                            getUuid(),
+                                                            curDlt->getNumBitsForToken(),
+                                                            std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
+                                                                      std::placeholders::_1, std::placeholders::_2));
+            } else {
+                objectStore->setResync();
+            }
+        } else {
+            // not doing resync, making all DLT tokens ready
+            migrationMgr->makeTokensAvailable(curDlt,
+                                              curDlt->getNumBitsForToken(),
+                                              getUuid());
             // pretend we successfully started resync, return success
             err = ERR_OK;
         }
     } else if (err.ok()) {
         if (!curDlt->getTokens(objStorMgr->getUuid()).empty()) {
             // we only care about DLT which contains this SM
-            migrationMgr->notifyDltUpdate(curDlt,
-                                          curDlt->getNumBitsForToken(),
-                                          getUuid());
+            migrationMgr->makeTokensAvailable(curDlt,
+                                              curDlt->getNumBitsForToken(),
+                                              getUuid());
         }
     }
 
@@ -506,8 +533,8 @@ ObjectStorMgr::registerVolume(fds_volid_t  volumeId,
         vol = objStorMgr->getVol(volumeId);
         fds_assert(vol != NULL);
         err = objStorMgr->regVolQos(vdb->isSnapshot() ?
-                vdb->qosQueueId : vol->getVolId(),
-                static_cast<FDS_VolumeQueue*>(vol->getQueue().get()));
+                                    vdb->qosQueueId : vol->getVolId(),
+                                    static_cast<FDS_VolumeQueue*>(vol->getQueue().get()));
         if (!err.ok()) {
             // most likely axceeded min iops
             objStorMgr->deregVol(volumeId);
@@ -534,71 +561,122 @@ void ObjectStorMgr::sampleSMStats(fds_uint64_t timestamp) {
         if (volTbl->isSnapshot(*vit)) {
             continue;
         }
-        fds_uint64_t dedup_bytes = volTbl->getDedupBytes(*vit);
+        std::pair<double, double> dedup_bytes = volTbl->getDedupBytes(*vit);
         LOGDEBUG << "Volume " << std::hex << *vit << std::dec
-                 << " deduped bytes " << dedup_bytes;
+                 << " deduped bytes " << dedup_bytes.first
+                 << " domain deduped bytes fraction " << dedup_bytes.second;
         StatsCollector::singleton()->recordEvent(*vit,
                                                  timestamp,
                                                  STAT_SM_CUR_DEDUP_BYTES,
-                                                 dedup_bytes);
+                                                 dedup_bytes.first);
+        StatsCollector::singleton()->recordEvent(*vit,
+                                                 timestamp,
+                                                 STAT_SM_CUR_DOMAIN_DEDUP_BYTES_FRAC,
+                                                 dedup_bytes.second);
     }
 
     // Piggyback on the timer that runs this to check disk capacity
-    if (sampleCounter % 5 == 0) {
+    if (sampleCounter % 3 == 0) {
         LOGDEBUG << "Checking disk utilization!";
-        float_t pct_used = objectStore->getUsedCapacityAsPct();
-
-        // We want to log which disk is too full here
-        if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
-            lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
-            LOGERROR << "ERROR: SM is utilizing " << pct_used << "% of available storage space!";
-
-            objectStore->setUnavailable();
-
-            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SERVICE_CAPACITY_FULL, "SM capacity is FULL! ");
-
-            lastCapacityMessageSentAt = pct_used;
-        } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
-            lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
-            LOGWARN << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
-            lastCapacityMessageSentAt = pct_used;
-
-            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SERVICE_CAPACITY_DANGEROUS,
-                                   "SM is reaching dangerous capacity levels!");
-        } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
-                   lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
-            LOGNORMAL << "SM is utilizing " << pct_used << " of available storage space!";
-
-            sendEventMessageToOM(fpi::SYSTEM_EVENT, fpi::EVENT_CATEGORY_STORAGE,
-                                 fpi::EVENT_SEVERITY_WARNING,
-                                 fpi::EVENT_STATE_SOFT,
-                                 "sm.capacity.warn",
-                                 std::vector<fpi::MessageArgs>(), "");
-
-            lastCapacityMessageSentAt = pct_used;
-        } else {
-            // If the used pct drops below alert levels reset so we resend the message when
-            // we re-hit this condition
-
-            if (pct_used < DISK_CAPACITY_WARNING_THRESHOLD) {
-                if (lastCapacityMessageSentAt > DISK_CAPACITY_ALERT_THRESHOLD) {
-                    sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
-                                           "SM utilization no longer at dangerous levels.");
-                }
-                lastCapacityMessageSentAt = 0;
-            } else if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
-                lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
-                sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
-                                       "SM utilization no longer at dangerous levels.");
-            } else if (pct_used < DISK_CAPACITY_ERROR_THRESHOLD) {
-                lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
-                sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SERVICE_CAPACITY_DANGEROUS,
-                                       "SM is reaching dangerous capacity levels!");
-            }
-        }
+        checkDiskCapacities();
         sampleCounter = 0;
     }
     sampleCounter++;
+}
+
+/**
+ * Checks available disk capacities and takes appropriate action based on thresholds.
+ */
+void ObjectStorMgr::checkDiskCapacities() {
+
+    float_t pct_used = objectStore->getUsedCapacityAsPct();
+
+    if (pct_used >= DISK_CAPACITY_ERROR_THRESHOLD &&
+        lastCapacityMessageSentAt < DISK_CAPACITY_ERROR_THRESHOLD) {
+        LOGERROR << "ERROR: SM is utilizing " << pct_used << "% of available storage space!";
+        sendHealthCheckMsgToOM(fpi::HEALTH_STATE_ERROR, ERR_SERVICE_CAPACITY_FULL, "SM capacity is FULL! ");
+        lastCapacityMessageSentAt = pct_used;
+
+    } else if (pct_used >= DISK_CAPACITY_ALERT_THRESHOLD &&
+        lastCapacityMessageSentAt < DISK_CAPACITY_ALERT_THRESHOLD) {
+        LOGWARN << "ATTENTION: SM is utilizing " << pct_used << " of available storage space!";
+        lastCapacityMessageSentAt = pct_used;
+
+        sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SERVICE_CAPACITY_DANGEROUS,
+                               "SM is reaching dangerous capacity levels!");
+    } else if (pct_used >= DISK_CAPACITY_WARNING_THRESHOLD &&
+        lastCapacityMessageSentAt < DISK_CAPACITY_WARNING_THRESHOLD) {
+        LOGNORMAL << "SM is utilizing " << pct_used << " of available storage space!";
+
+        sendEventMessageToOM(fpi::SYSTEM_EVENT, fpi::EVENT_CATEGORY_STORAGE,
+                             fpi::EVENT_SEVERITY_WARNING,
+                             fpi::EVENT_STATE_SOFT,
+                             "sm.capacity.warn",
+                             std::vector<fpi::MessageArgs>(), "");
+
+        lastCapacityMessageSentAt = pct_used;
+    } else {
+        // If the used pct drops below alert levels reset so we resend the message when
+        // we re-hit this condition
+        if (pct_used < DISK_CAPACITY_WARNING_THRESHOLD) {
+            if (objectStore->isReadOnly()) {
+                objectStore->setAvailable();
+            }
+            if (lastCapacityMessageSentAt > DISK_CAPACITY_ALERT_THRESHOLD) {
+                sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
+                                       "SM utilization no longer at dangerous levels.");
+            }
+            lastCapacityMessageSentAt = 0;
+        } else if (pct_used < DISK_CAPACITY_ALERT_THRESHOLD) {
+            if (objectStore->isReadOnly()) {
+                objectStore->setAvailable();
+            }
+            lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_RUNNING, ERR_OK,
+                                   "SM utilization no longer at dangerous levels.");
+        } else if (pct_used < DISK_CAPACITY_ERROR_THRESHOLD) {
+            if (objectStore->isReadOnly()) {
+                objectStore->setAvailable();
+            }
+            lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
+            sendHealthCheckMsgToOM(fpi::HEALTH_STATE_LIMITED, ERR_SERVICE_CAPACITY_DANGEROUS,
+                                   "SM is reaching dangerous capacity levels!");
+        }
+    }
+}
+
+/**
+ * Sends an object store control message
+ */
+void ObjectStorMgr::sendObjectStoreCtrlMsg(fpi::ObjectStoreState type) {
+    SvcInfo info = MODULEPROVIDER()->getSvcMgr()->getSelfSvcInfo();
+
+    fpi::ObjectStoreCtrlMsgPtr msg(new fpi::ObjectStoreCtrlMsg());
+    msg->state = type;
+
+    auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+
+    // For each SM in the DLT we send the read-only message. Right now this has to be a domain wide thing. Perhaps
+    // in the future we can make it volume specific?
+    const DLT *curDlt = getDLT();
+    for (auto node: curDlt->getAllNodes()) {
+        auto request = svcMgr->newEPSvcRequest(node.toSvcUuid());
+        request->setPayload(FDSP_MSG_TYPEID(fpi::ObjectStoreCtrlMsg), msg);
+        request->invoke();
+    }
+}
+
+/**
+ * Send the read only message to other SMs to put them in read only mode as well.
+ */
+void ObjectStorMgr::sendReadOnlyModeCmd() {
+    sendObjectStoreCtrlMsg(fpi::OBJECTSTORE_READ_ONLY);
+}
+/**
+ * Send the command to re-enable writes if we were previously in read only mode
+ */
+void ObjectStorMgr::sendReadWriteModeCmd() {
+    sendObjectStoreCtrlMsg(fpi::OBJECTSTORE_NORMAL);
 }
 
 /**
@@ -685,7 +763,7 @@ ObjectStorMgr::getTokenLock(fds_token_id const& id, bool exclusive) {
                        token_locks.resize(0x01<<b_p_t);
                        token_locks.shrink_to_fit();
                        for (auto& p : token_locks)
-                           { p = new fds_rwlock(); }
+                       { p = new fds_rwlock(); }
                    });
 
 
@@ -705,6 +783,7 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
     Error err(ERR_OK);
     const ObjectID&  objId    = putReq->getObjId();
     fds_volid_t volId         = putReq->getVolId();
+    diskio::DataTier useTier = diskio::maxTier;
 
     fds_assert(volId != invalid_vol_id);
     fds_assert(objId != NullObjectID);
@@ -721,7 +800,7 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
         err = objectStore->putObject(volId,
                                      objId,
                                      boost::make_shared<std::string>(putReq->putObjectNetReq->data_obj),
-                                     putReq->forwardedReq);
+                                     putReq->forwardedReq, useTier);
 
         qosCtrl->markIODone(*putReq);
 
@@ -742,6 +821,10 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
         }
     }
 
+    if (!err.ok()) {
+        auto smToken = SmDiskMap::smTokenId(objId, getDLT()->getNumBitsForToken());
+        objectStore->updateMediaTrackers(smToken, useTier, err);
+    }
     putReq->response_cb(err, putReq);
 }
 
@@ -819,7 +902,7 @@ ObjectStorMgr::addObjectRefInternal(SmIoAddObjRefReq* addObjRefReq)
 
         rc = objectStore->copyAssociation(addObjRefReq->getSrcVolId(),
                                           addObjRefReq->getDestVolId(),
-                                              oid);
+                                          oid);
         if (!rc.ok()) {
             LOGERROR << "Failed to add association entry for object " << oid
                      << "in to odb with err " << rc;
@@ -891,8 +974,10 @@ ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
         // a shared ptr structure so that we can directly store that, even
         // after the network message is freed.
         getReq->getObjectNetResp->data_obj = *objData;
+    } else {
+        auto smToken = SmDiskMap::smTokenId(objId, getDLT()->getNumBitsForToken());
+        objectStore->updateMediaTrackers(smToken, tierUsed, err);
     }
-
     qosCtrl->markIODone(*getReq, tierUsed, amIPrimary(objId));
 
     // end of ObjectStore layer latency
@@ -913,8 +998,8 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
 {
     Error err(ERR_OK);
     ObjectID objectId;
-    // since volId received for delete operation is system volumeId. Preserve volId of the 
-    // volume to be deleted 
+    // since volId received for delete operation is system volumeId. Preserve volId of the
+    // volume to be deleted
     fds_volid_t delVolId    = ioReq->getVolId();
     ioReq->setVolId(volId);
 
@@ -927,24 +1012,24 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
         case FDS_SM_SNAPSHOT_TOKEN:
         case FDS_SM_MIGRATION_ABORT:
         case FDS_SM_NOTIFY_DLT_CLOSE:
-        {
-            err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
-            break;
-        }
-        case FDS_SM_GET_OBJECT:
             {
-            StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
-
-            // It's possible that the volume information on this SM may not have
-            // all volume information propagated when IO is enabled.  If the
-            // volume is not found, then the object lookup should fail.
-            if (NULL == smVol) {
-                err = fds::ERR_VOL_NOT_FOUND;
+                err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
                 break;
             }
-            err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
-                                     static_cast<FDS_IOType*>(ioReq));
-            break;
+        case FDS_SM_GET_OBJECT:
+            {
+                StorMgrVolume* smVol = volTbl->getVolume(ioReq->getVolId());
+
+                // It's possible that the volume information on this SM may not have
+                // all volume information propagated when IO is enabled.  If the
+                // volume is not found, then the object lookup should fail.
+                if (NULL == smVol) {
+                    err = fds::ERR_VOL_NOT_FOUND;
+                    break;
+                }
+                err = qosCtrl->enqueueIO(smVol->getQueue()->getVolUuid(),
+                                         static_cast<FDS_IOType*>(ioReq));
+                break;
             }
         case FDS_SM_PUT_OBJECT:
             // Volume association resolution is handled in object store layer
@@ -990,24 +1075,51 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
 
     // When this lock is held, any put/delete request in that
     // object id range will block
-    auto token_lock = getTokenLock(snapReq->token_id, true);
+    {
+        auto token_lock = getTokenLock(snapReq->token_id, true);
 
-    // if this is the second snapshot for migration, start forwarding puts and deletes
-    // for this migration client (which is addressed by executorID on destination side)
-    migrationMgr->startForwarding(snapReq->executorId, snapReq->token_id);
+        // if this is the second snapshot for migration, start forwarding puts and deletes
+        // for this migration client (which is addressed by executorID on destination side)
+        migrationMgr->startForwarding(snapReq->executorId, snapReq->token_id);
+    }
 
-    if (snapReq->isPersistent) {
-        objectStore->snapshotMetadata(snapReq->token_id,
-                                      snapReq->smio_persist_snap_resp_cb,
-                                      snapReq);
+    if (!(snapReq->isPersistent)) {
+        leveldb::ReadOptions options;
+        std::shared_ptr<leveldb::DB> db;
+        {
+            auto token_lock = getTokenLock(snapReq->token_id, true);
+            objectStore->snapshotMetadata(snapReq->token_id,
+                                          [&](const Error& error, SmIoSnapshotObjectDB*,
+                                              leveldb::ReadOptions& _options,
+                                              std::shared_ptr<leveldb::DB> _db,
+                                              bool, fds_uint32_t)
+                                          {
+                                              err = error;
+                                              options = _options;
+                                              db=_db;
+                                          },
+                                          snapReq);
+        }
+        snapReq->smio_snap_resp_cb(err, snapReq, options, db, snapReq->retryReq, snapReq->unique_id);
     } else {
-        objectStore->snapshotMetadata(snapReq->token_id,
-                                      snapReq->smio_snap_resp_cb,
-                                      snapReq);
+        std::string snapDir;
+        leveldb::CopyEnv *env = nullptr;
+        {
+            auto token_lock = getTokenLock(snapReq->token_id, true);
+            objectStore->snapshotMetadata(snapReq->token_id,
+                                          [&](const Error& error, SmIoSnapshotObjectDB*,
+                                              std::string& _snapDir, leveldb::CopyEnv *_env) {
+                                              err = error;
+                                              snapDir = _snapDir;
+                                              env = _env;
+                                          },
+                                          snapReq);
+        }
+
+        snapReq->smio_persist_snap_resp_cb(err, snapReq, snapDir, env);
     }
     /* Mark the request as complete */
-    qosCtrl->markIODone(*snapReq,
-                        diskio::diskTier);
+    qosCtrl->markIODone(*snapReq, diskio::diskTier);
 }
 
 void
@@ -1123,8 +1235,10 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
               exit(1));
 
     SmIoReadObjDeltaSetReq *readDeltaSetReq = static_cast<SmIoReadObjDeltaSetReq *>(ioReq);
-    fds_verify(NULL != readDeltaSetReq);
-
+    if (!readDeltaSetReq) {
+        LOGWARN << "Invalid read delta set request";
+        return;
+    }
     LOGMIGRATE << "Filling DeltaSet:"
                << " destinationSmId " << readDeltaSetReq->destinationSmId
                << " executorID=" << std::hex << readDeltaSetReq->executorId << std::dec
@@ -1165,10 +1279,16 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
             /* TODO(sean): For now, just panic. Need to know why
              * object read failed.
              */
-            fds_verify(err.ok());
-
-            /* Copy the object data */
-            objMetaDataPropagate.objectData = *dataPtr;
+            if (!err.ok()) {
+                LOGERROR << "getObjectData failed for read delta set"
+                         << " destinationSmId: " << readDeltaSetReq->destinationSmId
+                         << " executorID: " << std::hex << readDeltaSetReq->executorId << std::dec
+                         << " object: " << objID;
+                         continue;
+            } else {
+                /* Copy the object data */
+                objMetaDataPropagate.objectData = *dataPtr;
+            }
         }
 
         /* Add metadata and data to the delta set */
@@ -1314,8 +1434,8 @@ ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq)
                 err != ERR_SM_TIER_HYBRIDMOVE_ON_FLASH_VOLUME &&
                 err != ERR_SM_TIER_WRITEBACK_NOT_DONE) {
                 LOGERROR << "Failed to move " << objId << " from tier "
-                    << moveReq->fromTier << " to tier " << moveReq->fromTier
-                    << " relocate? " << moveReq->relocate << " " << err;
+                         << moveReq->fromTier << " to tier " << moveReq->fromTier
+                         << " relocate? " << moveReq->relocate << " " << err;
                 // we will just continue to move other objects; ok for promotions
                 // demotion should not assume that object was written back to HDD
                 // anyway, because writeback is eventual
@@ -1375,107 +1495,107 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
     switch (io->io_type) {
         case FDS_IO_READ:
         case FDS_IO_WRITE:
-        {
-            fds_panic("must not get here!");
-            break;
-        }
+            {
+                fds_panic("must not get here!");
+                break;
+            }
         case FDS_SM_DELETE_OBJECT:
-        {
-            LOGDEBUG << "Processing a Delete request";
-            if (parentSm->enableReqSerialization) {
-                serialExecutor->scheduleOnHashKey(keyHash(key),
-                                                  std::bind(&ObjectStorMgr::deleteObjectInternal,
-                                                            objStorMgr,
-                                                            static_cast<SmIoDeleteObjectReq *>(io)));
-            } else {
-                threadPool->schedule(&ObjectStorMgr::deleteObjectInternal,
-                                     objStorMgr,
-                                     static_cast<SmIoDeleteObjectReq *>(io));
+            {
+                LOGDEBUG << "Processing a Delete request";
+                if (parentSm->enableReqSerialization) {
+                    serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                      std::bind(&ObjectStorMgr::deleteObjectInternal,
+                                                                objStorMgr,
+                                                                static_cast<SmIoDeleteObjectReq *>(io)));
+                } else {
+                    threadPool->schedule(&ObjectStorMgr::deleteObjectInternal,
+                                         objStorMgr,
+                                         static_cast<SmIoDeleteObjectReq *>(io));
+                }
+                break;
             }
-            break;
-        }
         case FDS_SM_GET_OBJECT:
-        {
-            LOGDEBUG << "Processing a get request";
-            if (parentSm->enableReqSerialization) {
-                serialExecutor->scheduleOnHashKey(keyHash(key),
-                                                  std::bind(&ObjectStorMgr::getObjectInternal,
-                                                            objStorMgr,
-                                                            static_cast<SmIoGetObjectReq *>(io)));
-            } else {
-                threadPool->schedule(&ObjectStorMgr::getObjectInternal,
-                                     objStorMgr,
-                                     static_cast<SmIoGetObjectReq *>(io));
+            {
+                LOGDEBUG << "Processing a get request";
+                if (parentSm->enableReqSerialization) {
+                    serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                      std::bind(&ObjectStorMgr::getObjectInternal,
+                                                                objStorMgr,
+                                                                static_cast<SmIoGetObjectReq *>(io)));
+                } else {
+                    threadPool->schedule(&ObjectStorMgr::getObjectInternal,
+                                         objStorMgr,
+                                         static_cast<SmIoGetObjectReq *>(io));
+                }
+                break;
             }
-            break;
-        }
         case FDS_SM_PUT_OBJECT:
-        {
-            LOGDEBUG << "Processing a put request";
-            if (parentSm->enableReqSerialization) {
-                serialExecutor->scheduleOnHashKey(keyHash(key),
-                                                  std::bind(&ObjectStorMgr::putObjectInternal,
-                                                            objStorMgr,
-                                                            static_cast<SmIoPutObjectReq *>(io)));
-            } else {
-                threadPool->schedule(&ObjectStorMgr::putObjectInternal,
-                                     objStorMgr,
-                                     static_cast<SmIoPutObjectReq *>(io));
+            {
+                LOGDEBUG << "Processing a put request";
+                if (parentSm->enableReqSerialization) {
+                    serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                      std::bind(&ObjectStorMgr::putObjectInternal,
+                                                                objStorMgr,
+                                                                static_cast<SmIoPutObjectReq *>(io)));
+                } else {
+                    threadPool->schedule(&ObjectStorMgr::putObjectInternal,
+                                         objStorMgr,
+                                         static_cast<SmIoPutObjectReq *>(io));
+                }
+                break;
             }
-            break;
-        }
         case FDS_SM_ADD_OBJECT_REF:
-        {
-            LOGDEBUG << "Processing and add object reference request";
-            if (parentSm->enableReqSerialization) {
-                serialExecutor->scheduleOnHashKey(keyHash(key),
-                                                  std::bind(&ObjectStorMgr::addObjectRefInternal,
-                                                            objStorMgr,
-                                                            static_cast<SmIoAddObjRefReq *>(io)));
-            } else {
-                threadPool->schedule(&ObjectStorMgr::addObjectRefInternal,
-                                     objStorMgr,
-                                     static_cast<SmIoAddObjRefReq *>(io));
+            {
+                LOGDEBUG << "Processing and add object reference request";
+                if (parentSm->enableReqSerialization) {
+                    serialExecutor->scheduleOnHashKey(keyHash(key),
+                                                      std::bind(&ObjectStorMgr::addObjectRefInternal,
+                                                                objStorMgr,
+                                                                static_cast<SmIoAddObjRefReq *>(io)));
+                } else {
+                    threadPool->schedule(&ObjectStorMgr::addObjectRefInternal,
+                                         objStorMgr,
+                                         static_cast<SmIoAddObjRefReq *>(io));
+                }
+                break;
             }
-            break;
-        }
         case FDS_SM_SNAPSHOT_TOKEN:
-        {
-            threadPool->schedule(&ObjectStorMgr::snapshotTokenInternal, objStorMgr, io);
-            break;
-        }
+            {
+                threadPool->schedule(&ObjectStorMgr::snapshotTokenInternal, objStorMgr, io);
+                break;
+            }
         case FDS_SM_COMPACT_OBJECTS:
-        {
-            LOGDEBUG << "Processing sync apply metadata";
-            threadPool->schedule(&ObjectStorMgr::compactObjectsInternal, objStorMgr, io);
-            break;
-        }
+            {
+                LOGDEBUG << "Processing sync apply metadata";
+                threadPool->schedule(&ObjectStorMgr::compactObjectsInternal, objStorMgr, io);
+                break;
+            }
         case FDS_SM_TIER_WRITEBACK_OBJECTS:
         case FDS_SM_TIER_PROMOTE_OBJECTS:
-        {
-            threadPool->schedule(&ObjectStorMgr::moveTierObjectsInternal, objStorMgr, io);
-            break;
-        }
+            {
+                threadPool->schedule(&ObjectStorMgr::moveTierObjectsInternal, objStorMgr, io);
+                break;
+            }
         case FDS_SM_APPLY_DELTA_SET:
-        {
-            threadPool->schedule(&ObjectStorMgr::applyRebalanceDeltaSet, objStorMgr, io);
-            break;
-        }
+            {
+                threadPool->schedule(&ObjectStorMgr::applyRebalanceDeltaSet, objStorMgr, io);
+                break;
+            }
         case FDS_SM_READ_DELTA_SET:
-        {
-            threadPool->schedule(&ObjectStorMgr::readObjDeltaSet, objStorMgr, io);
-            break;
-        }
+            {
+                threadPool->schedule(&ObjectStorMgr::readObjDeltaSet, objStorMgr, io);
+                break;
+            }
         case FDS_SM_MIGRATION_ABORT:
-        {
-            threadPool->schedule(&ObjectStorMgr::abortMigration, objStorMgr, io);
-            break;
-        }
+            {
+                threadPool->schedule(&ObjectStorMgr::abortMigration, objStorMgr, io);
+                break;
+            }
         case FDS_SM_NOTIFY_DLT_CLOSE:
-        {
-            threadPool->schedule(&ObjectStorMgr::notifyDLTClose, objStorMgr, io);
-            break;
-        }
+            {
+                threadPool->schedule(&ObjectStorMgr::notifyDLTClose, objStorMgr, io);
+                break;
+            }
         default:
             fds_assert(!"Unknown message");
             break;
@@ -1487,57 +1607,60 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
 Error
 ObjectStorMgr::getAllVolumeDescriptors()
 {
-	Error err(ERR_OK);
-	fpi::GetAllVolumeDescriptors list;
+    Error err(ERR_OK);
+    fpi::GetAllVolumeDescriptors list;
     err = MODULEPROVIDER()->getSvcMgr()->getAllVolumeDescriptors(list);
 
     if (!err.ok()) {
-    	return err;
+        return err;
     }
 
     for (const auto& volAdd : list.volumeList) {
-    	VolumeDesc vdb(volAdd.vol_desc);
-    	fds_volid_t volumeId (vdb.volUUID);
+        VolumeDesc vdb(volAdd.vol_desc);
+        fds_volid_t volumeId (vdb.volUUID);
 
-    	GLOGNOTIFY << "Pulled create for vol "
-    			<< "[" << std::hex << volumeId << std::dec << ", "
-				<< vdb.getName() << "]";
+        GLOGNOTIFY << "Pulled create for vol "
+                   << "[" << std::hex << volumeId << std::dec << ", "
+                   << vdb.getName() << "]";
 
-		Error err = regVol(vdb);
-		if (err.ok()) {
-			StorMgrVolume * vol = getVol(volumeId);
-			fds_assert(vol);
+        Error err = regVol(vdb);
+        if (err.ok()) {
+            StorMgrVolume * vol = getVol(volumeId);
+            fds_assert(vol);
 
-			fds_volid_t queueId = vol->getQueue()->getVolUuid();
-			if (!getQueue(queueId)) {
-				err = regVolQos(queueId, static_cast<FDS_VolumeQueue*>(
-					vol->getQueue().get()));
-			}
+            fds_volid_t queueId = vol->getQueue()->getVolUuid();
+            if (!getQueue(queueId)) {
+                err = regVolQos(queueId, static_cast<FDS_VolumeQueue*>(
+                    vol->getQueue().get()));
+            }
 
-			if (!err.ok()) {
-				// most likely axceeded min iops
-				deregVol(volumeId);
-			}
-		}
-		if (!err.ok()) {
-			GLOGERROR << "Registration failed for vol id " << std::hex << volumeId
-					  << std::dec << " " << err;
-		}
+            if (!err.ok()) {
+                // most likely axceeded min iops
+                deregVol(volumeId);
+            }
+        }
+        if (!err.ok()) {
+            GLOGERROR << "Registration failed for vol id " << std::hex << volumeId
+                      << std::dec << " " << err;
+        }
 
-		// Start the hybrid tier migration on the first volume add call. The volume information
-		// is propagated after DLT update, and this can cause missing volume and associated volume
-		// policy.
-		// Although this is called every time when a volume is added, but hybrid tier migration
-		// controller will decided if it need to start tier migration or not.
-		SmTieringCmd tierCmd(SmTieringCmd::TIERING_START_HYBRIDCTRLR_AUTO);
-		err = objectStore->tieringControlCmd(&tierCmd);
-		if (err != ERR_OK) {
-			LOGWARN << "Failed to enable Hybrid Tier Migration";
-		}
+        // Start the hybrid tier migration on the first volume add call. The volume information
+        // is propagated after DLT update, and this can cause missing volume and associated volume
+        // policy.
+        // Although this is called every time when a volume is added, but hybrid tier migration
+        // controller will decided if it need to start tier migration or not.
+        SmTieringCmd tierCmd(SmTieringCmd::TIERING_START_HYBRIDCTRLR_AUTO);
+        err = objectStore->tieringControlCmd(&tierCmd);
+        if (err != ERR_OK) {
+            LOGWARN << "Failed to enable Hybrid Tier Migration";
+        }
     }
 
-	return err;
+    return err;
 }
 
-
+bool
+ObjectStorMgr::haveAllObjectSets() const {
+    return objectStore->haveAllObjectSets();
+}
 }  // namespace fds
