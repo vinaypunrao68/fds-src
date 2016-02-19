@@ -1036,6 +1036,16 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
     // Get metadata from metadata store
     ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(unknownVolId, objId, err);
     if (!err.ok()) {
+        fds_token_id smToken = diskMap->smTokenId(objId);
+        diskio::DataTier metaTier = metaStore->getMetadataTier();
+        DiskId diskId = diskMap->getDiskId(objId, metaTier);
+        std::string path = diskMap->getDiskPath(diskId) + "/.tempFlush";
+
+        bool diskDown = DiskUtils::diskFileTest(path);
+        if (diskDown) {
+            updateMediaTrackers(smToken, metaTier, ERR_DISK_READ_FAILED);
+        }
+
         LOGERROR << "Failed to get metadata for object " << objId << " " << err;
         return err;
     }
