@@ -1,3 +1,4 @@
+
 /* Copyright 2015 Formation Data Systems, Inc.
 */
 #define GTEST_USE_OWN_TR1_TUPLE 0
@@ -6,7 +7,7 @@
 #include <chrono>
 #include <util/stringutils.h>
 #include <concurrency/RwLock.h>
-#include <testlib/VolumeGroupFixture.hpp>
+#include "../../testlib/DmGroupFixture.hpp"
 #include <testlib/ProcessHandle.hpp>
 #include <testlib/SvcMsgFactory.h>
 #include <net/VolumeGroupHandle.h>

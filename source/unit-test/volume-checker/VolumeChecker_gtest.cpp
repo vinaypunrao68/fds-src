@@ -1,3 +1,4 @@
+
 /*
  *  Copyright 2016 Formation Data Systems, Inc.
  */
@@ -7,7 +8,7 @@
 #include <chrono>
 #include <util/stringutils.h>
 #include <concurrency/RwLock.h>
-#include <testlib/VolumeGroupFixture.hpp>
+#include "../../testlib/DmGroupFixture.hpp"
 #include <testlib/ProcessHandle.hpp>
 #include <testlib/SvcMsgFactory.h>
 #include <testlib/TestUtils.h>
@@ -25,7 +26,7 @@ using namespace fds::TestUtils;
  * 2. Write IO to both DMs on the volume.
  * 3. Run Volume checker on volume, should return consistent result.
  */
-TEST_F(VolumeGroupFixture, twoHappyDMs) {
+TEST_F(DmGroupFixture, twoHappyDMs) {
 
     // Create 2 DMs
     createCluster(2);
@@ -52,6 +53,6 @@ int main(int argc, char* argv[]) {
     opts.add_options()
         ("help", "produce help message")
         ("puts-cnt", po::value<int>()->default_value(1), "puts count");
-    VolumeGroupFixture::init(argc, argv, opts);
+    DmGroupFixture::init(argc, argv, opts);
     return RUN_ALL_TESTS();
 }

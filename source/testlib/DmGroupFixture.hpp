@@ -2,8 +2,8 @@
  * Copyright 2016 Formation Data Systems, Inc.
  */
 
-#ifndef TESTLIB_VOLUMEGROUPFIXTURE_HPP_
-#define TESTLIB_VOLUMEGROUPFIXTURE_HPP_
+#ifndef TESTLIB_DMGROUPFIXTURE_HPP_
+#define TESTLIB_DMGROUPFIXTURE_HPP_
 
 #include <testlib/TestFixtures.h>
 #include <testlib/TestOm.hpp>
@@ -18,7 +18,7 @@
 using namespace fds;
 using namespace fds::TestUtils;
 
-struct VolumeGroupFixture : BaseTestFixture {
+struct DmGroupFixture : BaseTestFixture {
     using DmHandle = ProcessHandle<TestDm>;
     using OmHandle = ProcessHandle<TestOm>;
     using AmHandle = ProcessHandle<TestAm>;
@@ -262,8 +262,5 @@ struct VolumeGroupFixture : BaseTestFixture {
     VcHandle                                vcHandle;
 };
 
-using DmGroupFixture = VolumeGroupFixture;
 
-
-
-#endif /* TESTLIB_VOLUMEGROUPFIXTURE_HPP_ */
+#endif /* TESTLIB_DMGROUPFIXTURE_HPP_ */
