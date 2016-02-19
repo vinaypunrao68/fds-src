@@ -2,20 +2,18 @@
  * Copyright 2016 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_ACCESS_MGR_INCLUDE_VOLUMECHECKER_H_
-#define SOURCE_ACCESS_MGR_INCLUDE_VOLUMECHECKER_H_
+#ifndef SOURCE_UTIL_VOLUMECHECKER_INCLUDE_VOLUMECHECKER_H
+#define SOURCE_UTIL_VOLUMECHECKER_INCLUDE_VOLUMECHECKER_H
 
 #include <fds_process.h>
-#include <fdsp/PlatNetSvc.h>
 #include <net/SvcMgr.h>
 #include <net/SvcProcess.h>
-#include <net/PlatNetSvcHandler.h>
 
 namespace fds {
 
 class VolumeChecker : public SvcProcess {
 public:
-    VolumeChecker(int argc, char *argv[], bool initAsModule);
+    explicit VolumeChecker(int argc, char **argv, bool initAsModule);
     ~VolumeChecker() = default;
     int run() override {
         LOGNORMAL << "Running volume checker";
@@ -30,4 +28,4 @@ private:
 
 } // namespace fds
 
-#endif // SOURCE_ACCESS_MGR_INCLUDE_VOLUMECHECKER_H_
+#endif // SOURCE_UTIL_VOLUMECHECKER_INCLUDE_VOLUMECHECKER_H

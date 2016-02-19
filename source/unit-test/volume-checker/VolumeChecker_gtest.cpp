@@ -33,6 +33,7 @@ TEST_F(VolumeGroupFixture, twoHappyDMs) {
     setupVolumeGroup(2);
 
     /* Do some io. After Io is done, every volume replica must have same state */
+#if 0
     for (uint32_t i = 0; i < 10; i++) {
         sendUpdateOnceMsg(*v1, blobName, waiter);
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
@@ -40,6 +41,7 @@ TEST_F(VolumeGroupFixture, twoHappyDMs) {
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
         doGroupStateCheck(v1Id);
     }
+#endif
 
     // TODO(Neil) - implement volume checker phase 1 and run it here.
     initVolumeChecker();
