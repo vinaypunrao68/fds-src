@@ -7,7 +7,7 @@
 #include <chrono>
 #include <util/stringutils.h>
 #include <concurrency/RwLock.h>
-#include "../../testlib/DmGroupFixture.hpp"
+#include <testlib/VolumeGroupFixture.hpp>
 #include <testlib/ProcessHandle.hpp>
 #include <testlib/SvcMsgFactory.h>
 #include <net/VolumeGroupHandle.h>
@@ -19,7 +19,7 @@ using namespace fds;
 using namespace fds::TestUtils;
 
 
-TEST_F(DmGroupFixture, singledm) {
+TEST_F(VolumeGroupFixture, singledm) {
     /* Start with one dm */
     createCluster(1);
 
@@ -86,7 +86,7 @@ TEST_F(DmGroupFixture, singledm) {
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
-TEST_F(DmGroupFixture, staticio_restarts) {
+TEST_F(VolumeGroupFixture, staticio_restarts) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::trace);
 
     /* Create two dms */
@@ -149,7 +149,7 @@ TEST_F(DmGroupFixture, staticio_restarts) {
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
-TEST_F(DmGroupFixture, activeio_restart) {
+TEST_F(VolumeGroupFixture, activeio_restart) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
     /* Create two dms */
     createCluster(2);
@@ -191,7 +191,7 @@ TEST_F(DmGroupFixture, activeio_restart) {
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
-TEST_F(DmGroupFixture, domain_reboot) {
+TEST_F(VolumeGroupFixture, domain_reboot) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
 
     /* Create two dms */
@@ -232,7 +232,7 @@ TEST_F(DmGroupFixture, domain_reboot) {
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
-TEST_F(DmGroupFixture, allDownFollowedBySequentialUp) {
+TEST_F(VolumeGroupFixture, allDownFollowedBySequentialUp) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
 
     /* Create two dms */
@@ -271,6 +271,6 @@ int main(int argc, char* argv[]) {
     opts.add_options()
         ("help", "produce help message")
         ("puts-cnt", po::value<int>()->default_value(1), "puts count");
-    DmGroupFixture::init(argc, argv, opts);
+    VolumeGroupFixture::init(argc, argv, opts);
     return RUN_ALL_TESTS();
 }
