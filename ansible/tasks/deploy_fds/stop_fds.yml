@@ -20,7 +20,7 @@
     wait_for: host={{ fds_om_host }}
         port=7777
         delay=1
-        timeout=18
+        timeout=180
         state=started
     delegate_to: localhost
     sudo: no
@@ -65,7 +65,7 @@
     wait_for: host={{inventory_hostname}}
         port={{item}}
         delay=1
-        timeout=18
+        timeout=180
         state=absent
     when: fds_installed|success and
       (clean_fds is not defined or clean_fds == "no")
@@ -89,7 +89,7 @@
     wait_for: host={{inventory_hostname}}
         port=7004
         delay=1
-        timeout=18
+        timeout=180
         state=absent
     any_errors_fatal: true
     when: fds_om_host is defined and
@@ -110,7 +110,7 @@
     wait_for: host={{inventory_hostname}}
         port=7000
         delay=1
-        timeout=18
+        timeout=180
         state=absent
     any_errors_fatal: true
     tags:

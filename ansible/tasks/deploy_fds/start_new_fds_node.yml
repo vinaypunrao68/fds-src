@@ -13,7 +13,7 @@
     local_action: wait_for host={{ fds_om_host }}
         port=7777
         delay=1
-        timeout=18
+        timeout=180
         state=started
     run_once: true
     sudo: no
@@ -107,7 +107,7 @@
     local_action: wait_for host={{ inventory_hostname }}
         port=7000
         delay=1
-        timeout=18
+        timeout=180
         state=started
     sudo: no
     tags:
@@ -203,7 +203,7 @@
     wait_for: host={{inventory_hostname}}
         port={{item}}
         delay=1
-        timeout=18
+        timeout=180
         state=started
     with_items:
         - 7001

@@ -240,10 +240,10 @@
         - post-install
 
 
-#-   name: add cron job to gzip logs
-#    cron: name="compress logs" minute=49 hour=*/4
-#        user="root" job="find /fds/var/log -type f -name '*log' -size +50000000c -mmin +180 | /usr/bin/nice /usr/bin/xargs gzip --quiet --best >> /var/log/fds-gzip-cron.log"
-#        cron_file=fds-gzip-cron
-#    tags:
-#        - post-install
+-   name: add cron job to gzip logs
+    cron: name="compress logs placed by ansible" minute=49 hour=*/4
+        user="root" job="/usr/bin/find /fds/var/log -type f -name '*log' -size +50000000c -mmin +180 | /usr/bin/nice /usr/bin/xargs gzip --quiet --best >> /var/log/fds-gzip-cron.log"
+        cron_file=fds-gzip-cron
+    tags:
+        - post-install
 #
