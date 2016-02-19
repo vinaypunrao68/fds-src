@@ -146,7 +146,7 @@ class fds_threadpool : boost::noncopyable
     /* Worker notifies the pool owner when its thread exits. */
     void thp_worker_exit(thpool_worker *worker);
 
-    /* Use this function in debug builds to catch cases where long running/blocking
+    /* Use this function to catch cases where long running/blocking
      * task is blocking thread in the threadpool.
      */
     void enableThreadpoolCheck(FdsTimer *timer, const std::chrono::seconds &frequencySec);

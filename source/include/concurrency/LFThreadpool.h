@@ -108,7 +108,7 @@ struct LFMQThreadpool {
         workers[idx]->enqueue(
                 new LockFreeTask(std::bind(std::forward<F>(f), std::forward<Args>(args)...)));
     }
-    /* Use this function in debug builds to catch cases where long running/blocking
+    /* Use this function to catch cases where long running/blocking
      * task is blocking thread in the threadpool
      * NOTE: Don't run this function on this threadpool, it's better to run on a
      * separate thread.
