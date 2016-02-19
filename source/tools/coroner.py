@@ -264,7 +264,7 @@ def run_collect(opts):
         )
     # Collect cores from all possible locations
     corepaths = [
-       '%s/var/var/corefiles/*' % bodybag.fdsroot,
+       '%s/var/log/corefiles/*' % bodybag.fdsroot,
        '%s/var/cores/*' % bodybag.fdsroot,
        '%s/bin/*core*' % bodybag.fdsroot,
        '%s/bin/*.hprof' % bodybag.fdsroot,
