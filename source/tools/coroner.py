@@ -112,7 +112,6 @@ class FDSCoroner(object):
                 for item in excludesList:
                     cmd.insert (3, "--exclude=\"" + item + "\"")
 
-            print "cmd=", cmd
             subprocess.call(cmd)
 
     def collect_paths(self, directory, paths):
