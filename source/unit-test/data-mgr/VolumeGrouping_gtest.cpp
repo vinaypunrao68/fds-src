@@ -9,6 +9,7 @@
 #include <testlib/TestFixtures.h>
 #include <testlib/TestOm.hpp>
 #include <testlib/TestDm.hpp>
+#include <testlib/TestAm.hpp>
 #include <testlib/ProcessHandle.hpp>
 #include <testlib/SvcMsgFactory.h>
 #include <testlib/TestUtils.h>
@@ -21,44 +22,6 @@ using namespace fds;
 using namespace fds::TestUtils;
 
 #define MAX_OBJECT_SIZE 1024 * 1024 * 2
-
-struct TestAm : SvcProcess {
-    TestAm(int argc, char *argv[], bool initAsModule)
-    {
-        handler_ = MAKE_SHARED<PlatNetSvcHandler>(this);
-        auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler_);
-        init(argc, argv, initAsModule, "platform.conf",
-             "fds.am.", "am.log", nullptr, handler_, processor);
-        REGISTER_FDSP_MSG_HANDLER_GENERIC(handler_, \
-                                          fpi::AddToVolumeGroupCtrlMsg, addToVolumeGroup);
-    }
-    virtual int run() override
-    {
-        readyWaiter.done();
-        shutdownGate_.waitUntilOpened();
-        return 0;
-    }
-    void setVolumeHandle(VolumeGroupHandle *h) {
-        vc_ = h;
-    }
-    void addToVolumeGroup(fpi::AsyncHdrPtr& asyncHdr,
-                          fpi::AddToVolumeGroupCtrlMsgPtr& addMsg)
-    {
-        fds_volid_t volId(addMsg->groupId);
-        vc_->handleAddToVolumeGroupMsg(
-            addMsg,
-            [this, asyncHdr](const Error& e,
-                             const fpi::AddToVolumeGroupRespCtrlMsgPtr &payload) {
-            asyncHdr->msg_code = e.GetErrno();
-            handler_->sendAsyncResp(*asyncHdr,
-                                    FDSP_MSG_TYPEID(fpi::AddToVolumeGroupRespCtrlMsg),
-                                    *payload);
-            });
-    }
-    PlatNetSvcHandlerPtr handler_;
-    VolumeGroupHandle *vc_{nullptr};
-};
-
 
 struct DmGroupFixture : BaseTestFixture {
     using DmHandle = ProcessHandle<TestDm>;
