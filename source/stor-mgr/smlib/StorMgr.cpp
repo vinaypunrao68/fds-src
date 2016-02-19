@@ -1663,4 +1663,40 @@ bool
 ObjectStorMgr::haveAllObjectSets() const {
     return objectStore->haveAllObjectSets();
 }
+
+void ObjectStorMgr::startRefscanOnDMs() {
+    static fds_mutex lock("refscan request check");
+    static auto timegap = 30*60;
+    synchronized(lock) {
+        // send only once every 30 m
+        if (counters->dmRefScanRequestSentAt.value() + timegap >= util::getTimeStampSeconds()) {
+            LOGDEBUG << "will not send dm refscan request. last sent @ "
+                     << util::getLocalTimeString(counters->dmRefScanRequestSentAt.value());
+            return;
+        }
+        counters->dmRefScanRequestSentAt.set(util::getTimeStampSeconds());
+    }    
+
+    LOGNORMAL << "sending refscan message to all DMs, will also set force expunge";
+    fds::objDelCountThresh = 1;
+    SvcInfo info = MODULEPROVIDER()->getSvcMgr()->getSelfSvcInfo();
+
+    fpi::StartRefScanMsgPtr msg(new fpi::StartRefScanMsg());
+
+    auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+
+    // For each DM in the DMT we send the message
+    const DLT *curDlt = getDLT();
+    const auto dmt = MODULEPROVIDER()->getSvcMgr()->getCurrentDMT();
+    std::set<fds_uint64_t> nodes;
+    dmt->getUniqueNodes(&nodes);
+    for (auto node: nodes) {
+        fpi::SvcUuid svcUUID;
+        assign(svcUUID, node);
+        auto request = svcMgr->newEPSvcRequest(svcUUID);
+        request->setPayload(FDSP_MSG_TYPEID(fpi::StartRefScanMsg), msg);
+        request->invoke();
+    }
+
+}
 }  // namespace fds

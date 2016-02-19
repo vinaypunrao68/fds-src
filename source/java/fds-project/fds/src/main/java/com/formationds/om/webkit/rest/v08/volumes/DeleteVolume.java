@@ -29,7 +29,6 @@ public class DeleteVolume implements RequestHandler {
 	private AuthenticationToken token;
 
 	public DeleteVolume( Authorizer authorizer, AuthenticationToken token ) {
-		
 		this.authorizer = authorizer;
 		this.token = token;
 	}
@@ -39,11 +38,9 @@ public class DeleteVolume implements RequestHandler {
 			throws Exception {
 
 		long volumeId = requiredLong( routeParameters,  VOLUME_ARG );
-		
-		logger.debug( "Deleting volume: {}.", volumeId );
 
 		String volumeName = getConfigApi().getVolumeName( volumeId );
-		logger.debug( "Deleting volume: {}.", volumeId );
+		logger.debug( "Deleting volume: {}({}).", volumeName, volumeId );
 		if( volumeName == null || volumeName.length() <= 0 )
 		{
 			throw new ApiException( "The specified volume id ( " + volumeId + " ) wasn't found.",
@@ -62,21 +59,21 @@ public class DeleteVolume implements RequestHandler {
 									ErrorCode.BAD_REQUEST );
 		}
 	}
-	
+
 	private Authorizer getAuthorizer(){
 		return this.authorizer;
 	}
-	
+
 	private AuthenticationToken getToken(){
 		return this.token;
 	}
-	
+
 	private ConfigurationApi getConfigApi(){
-		
+
 		if ( configApi == null ){
 			configApi = SingletonConfigAPI.instance().api();
 		}
-		
+
 		return configApi;
 	}
 }

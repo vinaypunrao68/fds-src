@@ -74,14 +74,13 @@ StorMgrVolumeTable::~StorMgrVolumeTable() {
     /*
      * Iterate volume_map and free the volume pointers
      */
-    map_rwlock.write_lock();
+    WriteGuard wg(map_rwlock);
     for (std::unordered_map<fds_volid_t, StorMgrVolume*>::iterator it = volume_map.begin();
          it != volume_map.end();
          ++it) {
         delete it->second;
     }
     volume_map.clear();
-    map_rwlock.write_unlock();
 
     /*
      * Delete log if we created one
@@ -100,7 +99,7 @@ StorMgrVolumeTable::registerVolume(const VolumeDesc& vdb) {
     Error       err(ERR_OK);
     fds_volid_t volUuid = vdb.GetID();
 
-    map_rwlock.write_lock();
+    WriteGuard wg(map_rwlock);
     if (volume_map.count(volUuid) == 0) {
         LOGNORMAL << "Registering new " << (vdb.isSnapshot() ? "snapshot" : "volume")
                 << ": " << volUuid;
@@ -115,7 +114,6 @@ StorMgrVolumeTable::registerVolume(const VolumeDesc& vdb) {
          */
         LOGNOTIFY << "Register already known volume " << volUuid;
     }
-    map_rwlock.write_unlock();
 
     return err;
 }
@@ -127,14 +125,13 @@ StorMgrVolumeTable::registerVolume(const VolumeDesc& vdb) {
 StorMgrVolume* StorMgrVolumeTable::getVolume(fds_volid_t vol_uuid) {
     StorMgrVolume *ret_vol = NULL;
 
-    map_rwlock.read_lock();
+    ReadGuard rg(map_rwlock);
     if (volume_map.count(vol_uuid) > 0) {
         ret_vol = volume_map[vol_uuid];
     } else {
         LOGERROR << "StorMgrVolumeTable::getVolume - Volume " << vol_uuid
                  << " does not exist";
     }
-    map_rwlock.read_unlock();
 
     return ret_vol;
 }
@@ -144,18 +141,16 @@ StorMgrVolumeTable::deregisterVolume(fds_volid_t vol_uuid) {
     Error err(ERR_OK);
     StorMgrVolume *vol = NULL;
 
-    map_rwlock.write_lock();
+    WriteGuard wg(map_rwlock);
     if (volume_map.count(vol_uuid) == 0) {
         LOGERROR << "StorMgrVolumeTable - deregistering volume called for non-existing volume "
                  << vol_uuid;
         err = ERR_INVALID_ARG;
-        map_rwlock.write_unlock();
         return err;
     }
 
     vol = volume_map[vol_uuid];
     volume_map.erase(vol_uuid);
-    map_rwlock.write_unlock();
     delete vol;
 
     LOGNORMAL << "StorMgrVolumeTable - Removed volume " << vol_uuid;
@@ -166,18 +161,16 @@ StorMgrVolumeTable::deregisterVolume(fds_volid_t vol_uuid) {
 fds_uint32_t StorMgrVolumeTable::getVolAccessStats(fds_volid_t vol_uuid) {
     StorMgrVolume *vol = NULL;
     fds_uint32_t  AveNumVolObj = -1;
+    ReadGuard rg(map_rwlock);
 
-    map_rwlock.read_lock();
     if (volume_map.count(vol_uuid) > 0) {
         vol = volume_map[vol_uuid];
     }  else {
         LOGERROR << "STATS-VOL stats  requested on - Volume " << vol_uuid
                  << " does not exist";
-        map_rwlock.read_unlock();
         return AveNumVolObj;
     }
 
-    map_rwlock.read_unlock();
     AveNumVolObj = vol->averageObjectsRead;
     return AveNumVolObj;
 }
@@ -270,13 +263,12 @@ void StorMgrVolumeTable::updateDupObj(fds_volid_t volid,
 std::pair<double, double> StorMgrVolumeTable::getDedupBytes(fds_volid_t volid) {
     double dedup_bytes = 0;
     double domain_dedup_bytes_frac = 0;
-    map_rwlock.read_lock();
+    ReadGuard rg(map_rwlock);
     if (volume_map.count(volid) > 0) {
         StorMgrVolume *vol = volume_map[volid];
         dedup_bytes = vol->getDedupBytes();
         domain_dedup_bytes_frac = vol->getDomainDedupBytesFrac();
     }
-    map_rwlock.read_unlock();
     return std::pair<double, double>(dedup_bytes, domain_dedup_bytes_frac);
 }
 
@@ -285,14 +277,13 @@ Error StorMgrVolumeTable::updateVolStats(fds_volid_t vol_uuid) {
     StorMgrVolume *vol = NULL;
     fds_bool_t  slotChange;
 
-    map_rwlock.write_lock();
+    WriteGuard wg(map_rwlock);
     if (volume_map.count(vol_uuid) > 0) {
         vol = volume_map[vol_uuid];
     }  else {
         LOGERROR << "STATS-VOL - update stats request for non-existing volume "
                  << vol_uuid;
         err = ERR_INVALID_ARG;
-        map_rwlock.write_unlock();
         return err;
     }
 
@@ -312,7 +303,6 @@ Error StorMgrVolumeTable::updateVolStats(fds_volid_t vol_uuid) {
     */
     volume_map[vol_uuid] = vol;
 
-    map_rwlock.write_unlock();
     return err;
 }
 
@@ -327,7 +317,7 @@ Error StorMgrVolumeTable::updateVolStats(fds_volid_t vol_uuid) {
 */
 bool StorMgrVolumeTable::hasFlashOnlyVolumes(const std::vector<fds_volid_t>& inVols)
 {
-    map_rwlock.read_lock();
+    ReadGuard rg(map_rwlock);
     for (auto &volId : inVols) {
        auto itr = volume_map.find(volId);
        if (itr == volume_map.end()) {
@@ -337,7 +327,6 @@ bool StorMgrVolumeTable::hasFlashOnlyVolumes(const std::vector<fds_volid_t>& inV
            return false;
        }
     }
-    map_rwlock.read_unlock();
     return true;
 }
 }  // namespace fds

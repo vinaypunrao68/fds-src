@@ -16,6 +16,7 @@
 #include <fds_error.h>
 #include <fds_counters.h>
 #include <util/Log.h>
+#include <future>
 
 #include <concurrency/Mutex.h>
 #include <fds_volume.h>
@@ -87,7 +88,8 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     * @param highestOpId
     * @param txs
     */
-    Error applyActiveTxState(const int64_t &highestOpId, const std::vector<std::string> &txs);
+    Error applyActiveTxState(const int64_t &highestOpId,
+                             const std::vector<std::string> &txs);
 
     /**
     * @return  Returns base directory path for the volume
@@ -179,6 +181,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     Error handleMigrationDeltaBlobDescs(DmRequest *dmRequest);
     Error handleMigrationDeltaBlobs(DmRequest *dmRequest);
     void handleFinishStaticMigration(DmRequest *dmRequest);
+    Error handleMigrationActiveTx(DmRequest *dmRequest);
 
 
     /**
@@ -211,9 +214,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     /* Handlers */
     void handleVolumegroupUpdate(DmRequest *dmRequest);
 
-
     VolumeDesc *vol_desc;
-
 
     /*
      * per volume queue
@@ -225,6 +226,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     uint32_t                                maxInitializerTriesCnt;
 
  private:
+    friend class DmMigrationMgr;
     /*
      * This class is non-copyable.
      * Disable copy constructor/assignment operator.

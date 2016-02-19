@@ -4,7 +4,10 @@ import com.formationds.apis.MediaPolicy;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.apis.VolumeType;
 import com.formationds.commons.Fds;
-import com.formationds.nfs.*;
+import com.formationds.nfs.AmOps;
+import com.formationds.nfs.DeferredIoOps;
+import com.formationds.nfs.IoOps;
+import com.formationds.nfs.XdiVfs;
 import com.formationds.util.ServerPortFinder;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.RealAsyncAm;
@@ -71,7 +74,7 @@ public class FdsLuceneDirectoryTest {
 
     @Test
     public void testIndex() throws Exception {
-        Directory directory = new FdsLuceneDirectory(new DeferredIoOps(io, new Counters()), "domain", volumeName, OBJECT_SIZE);
+        Directory directory = new FdsLuceneDirectory(new DeferredIoOps(io, x -> MAX_OBJECT_SIZE), "domain", volumeName, MAX_OBJECT_SIZE);
         String[] resources = directory.listAll();
         for (String resource : resources) {
             directory.deleteFile(resource);
@@ -140,13 +143,13 @@ public class FdsLuceneDirectoryTest {
 
     private static XdiConfigurationApi config;
     private static AsyncAm asyncAm;
-    private static int OBJECT_SIZE = 2 * 1024 * 1024;
+    private static int MAX_OBJECT_SIZE = 2 * 1024 * 1024;
 
     @Before
     public void setUp() throws Exception {
         volumeName = UUID.randomUUID().toString();
-        config.createVolume(XdiVfs.DOMAIN, volumeName, new VolumeSettings(OBJECT_SIZE, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY), 0);
-        io = new AmOps(asyncAm, new Counters());
+        config.createVolume(XdiVfs.DOMAIN, volumeName, new VolumeSettings(MAX_OBJECT_SIZE, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY), 0);
+        io = new AmOps(asyncAm);
 //        io = new DeferredIoOps(new MemoryIoOps(), new Counters());
     }
 

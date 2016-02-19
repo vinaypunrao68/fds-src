@@ -874,8 +874,8 @@ struct DmIoMigrationDeltaBlobDesc : DmRequest {
 
 struct DmIoMigrationTxState : DmRequest {
     NodeUuid destUuid;
-    explicit DmIoMigrationTxState(NodeUuid _dest, const fpi::CtrlNotifyTxStateMsgPtr &msg)
-            : DmRequest(FdsDmSysTaskId, "", "", 0, FDS_DM_MIG_TX_STATE),
+    explicit DmIoMigrationTxState(NodeUuid _dest, const fpi::CtrlNotifyTxStateMsgPtr &msg, bool use_sys_queue)
+            : DmRequest(use_sys_queue ? FdsDmSysTaskId : fds_volid_t(msg->volume_id), "", "", 0, FDS_DM_MIG_TX_STATE),
               destUuid(_dest),
               txStateMsg(msg)
     {

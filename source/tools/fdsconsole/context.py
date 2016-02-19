@@ -65,7 +65,7 @@ class ContextInfo:
                             if action.dest == 'help':
                                 action.help = argparse.SUPPRESS
         else:
-            #print "no functions found in this context : %s" % (self.context.get_context_name()) 
+            print "no functions found in this context : %s" % (self.context.get_context_name()) 
             pass
 
     def get_help(self, level):
@@ -85,6 +85,7 @@ class ContextInfo:
                 helplist.append(('{}{}'.format(ctxName,cmd) , desc))
 
         for ctx in self.subcontexts.values():
+            helplist.append(('{}{}'.format(ctxName,ctx.context.name), '...'))
             helplist.extend([('{}{}'.format(ctxName,h[0]), h[1]) for h in ctx.get_help(level)])
 
         return helplist

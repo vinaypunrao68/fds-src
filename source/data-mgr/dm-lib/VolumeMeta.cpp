@@ -126,8 +126,9 @@ Error VolumeMeta::applyActiveTxState(const int64_t &highestOpId,
 {
     fds_volid_t volId = fds_volid_t(getId());
     DmCommitLog::ptr commitLog;
+    Error err = ERR_OK;
 
-    auto err = dataManager->timeVolCat_->getCommitlog(volId, commitLog);
+    err = dataManager->timeVolCat_->getCommitlog(volId, commitLog);
     if (!err.ok()) {
         return err;
     }
@@ -140,7 +141,7 @@ Error VolumeMeta::applyActiveTxState(const int64_t &highestOpId,
 
     setOpId(highestOpId);
 
-    return ERR_OK;
+    return err;
 }
 
 void VolumeMeta::setSequenceId(sequence_id_t new_seq_id){
@@ -333,8 +334,8 @@ Error VolumeMeta::startMigration(const fpi::SvcUuid &srcDmUuid,
     uint32_t deltaBlobTimeout = uint32_t(MODULEPROVIDER()->get_fds_config()->
                                 get<int32_t>("fds.dm.migration.migration_max_delta_blobs_to", 5));
 
-
-    // DataMgr *nonConstDm = dataManager;
+    // dataManager->counters->migrationLastRun.set(util::getTimeStampSeconds());
+    dataManager->counters->numberOfActiveMigrExecutors.incr(1);
 
     auto dummyId = 0;
     auto srcDmNodeid = NodeUuid(srcDmUuid);
@@ -376,6 +377,20 @@ Error VolumeMeta::handleMigrationDeltaBlobs(DmRequest *dmRequest)
     auto err = migrationDest->checkVolmetaVersion(dmRequest->version);
     if (err.OK()) {
         err = migrationDest->processDeltaBlobs(typedRequest->deltaBlobsMsg);
+    }
+    return err;
+}
+
+Error VolumeMeta::handleMigrationActiveTx(DmRequest *dmRequest)
+{
+    /**
+     * This is a weird re-route to dest to executor then back to volmeta again
+     * because we want to ensure similar failure handling path.
+     */
+    auto typedRequest = static_cast<DmIoMigrationTxState*>(dmRequest);
+    auto err = migrationDest->checkVolmetaVersion(dmRequest->version);
+    if (err.OK()) {
+        err = migrationDest->processTxState(typedRequest->txStateMsg);
     }
     return err;
 }
@@ -484,14 +499,24 @@ void VolumeMeta::cleanUpMigrationSource(fds_volid_t volId,
             migrationSrcMap.erase(search);
         }
     }
+    if (err.OK()) {
+        dataManager->counters->totalVolumesSentMigration.incr(1);
+    } else {
+        dataManager->counters->totalMigrationsAborted.incr(1);
+    }
+    dataManager->dmMigrationMgr->dumpStats();
 }
 
 void VolumeMeta::handleFinishStaticMigration(DmRequest *dmRequest)
 {
     dm::QueueHelper helper(*dataManager, dmRequest);
     DmIoFinishStaticMigration *request = static_cast<DmIoFinishStaticMigration*>(dmRequest);
+    NodeUuid srcUuid;
+    fds_volid_t volId;
 
     Error err(request->reqMessage->status);
+    srcUuid = request->reqMessage->srcUuid.svc_uuid;
+    volId.v = request->reqMessage->volume_id;
 
     /** volId and srcNodeUuid is there for formality */
     if (!err.ok()) {
@@ -500,21 +525,17 @@ void VolumeMeta::handleFinishStaticMigration(DmRequest *dmRequest)
         LOGNORMAL << "[migrate] Cleaning up DmMigrationDest " << logString();
     }
 
-    /* This shouldn't block.  This is there to avoid the assert ~MigrationTrackIOReqs() */
-    migrationDest->waitForAsyncMsgs();
-    migrationDest.reset();
+    cleanUpMigrationDestination(srcUuid, volId, err);
 
-    cbToVGMgr(err);
-    cbToVGMgr=nullptr;
 }
 
-// TODO(Rao): remoe the following
 void VolumeMeta::cleanUpMigrationDestination(NodeUuid srcNodeUuid,
                                              fds_volid_t volId,
                                              const Error &err) {
 
     /** volId and srcNodeUuid is there for formality */
     fds_assert(volId == vol_desc->volUUID);
+    fds_assert(isSynchronized());
     if (!err.ok()) {
         LOGERROR << "Cleaning up DmMigrationDest for vol: "
             << volId << " dest node: " << srcNodeUuid << " with error: " << err;
@@ -523,10 +544,26 @@ void VolumeMeta::cleanUpMigrationDestination(NodeUuid srcNodeUuid,
             << " dest node: " << srcNodeUuid << " with error: " << err;
     }
 
-    migrationDest.reset();
+    if (cbToVGMgr) {
+        /**
+         * If this cleanup has been called as part of executor's failure handling,
+         * then we do not execute the following. Since everything is done on a volume context
+         * we can guarantee there will not be races.
+         */
+        migrationDest->waitForAsyncMsgs();
+        migrationDest.reset();
+        dataManager->counters->numberOfActiveMigrExecutors.decr(1);
+        if (err.OK()) {
+            dataManager->counters->totalVolumesReceivedMigration.incr(1);
+        } else {
+            dataManager->counters->totalMigrationsAborted.incr(1);
+        }
+        dataManager->dmMigrationMgr->dumpStats();
 
-    cbToVGMgr(err);
-    cbToVGMgr=nullptr;
+        cbToVGMgr(err);
+        cbToVGMgr=nullptr;
+    }
+
 }
 
 
@@ -552,11 +589,10 @@ void VolumeMeta::handleVolumegroupUpdate(DmRequest *dmRequest)
             << " current sequence id: " << getSequenceId()
             << " expected sequence id: " << request->reqMessage->group.lastCommitId;
         setState(fpi::Offline, " - VolumegroupUpdateHandler:sequence id mismatch");
-        // TODO(Rao): At this point we should trigger a sync
+        scheduleInitializer(false);
         return;
     }
     setOpId(request->reqMessage->group.lastOpId);
     setState(fpi::Active, " - VolumegroupUpdateHandler:state matched with coordinator");
 }
-
 }  // namespace fds
