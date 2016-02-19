@@ -6,9 +6,9 @@ user_rtime_env    := user
 user_incl_dir     += \
     $(topdir)/platform/include \
     $(topdir)/data-mgr/include \
-    $(topdir)/access-mgr/include \
     $(topdir)/lib \
     $(topdir)/util \
+    $(topdir)/util/volume-checker/include \
     $(topdir)
 
 user_cpp_flags    +=

@@ -5,13 +5,13 @@ user_rtime_env    := user
 speedup           = -j $(threads)
 user_build_dir    :=
 
-user_incl_dir     := $(topdir) ../include
+user_incl_dir     := \
+                     $(topdir) \
+                     ../include \
+                     include
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  :=  \
-    fds-qos-lib \
-    fds-am-engine \
-    fds-am-connectors \
     fds-svc-request \
     fds-umod \
     fds-lib \
@@ -21,7 +21,9 @@ user_fds_ar_libs  :=  \
     fds-thread \
     fds-osdep
 
+
 user_static_libs  := ev
+
 user_non_fds_libs :=  \
     boost_log \
     boost_system \
@@ -34,13 +36,11 @@ user_non_fds_libs :=  \
     jansson \
     config++ \
     crypto \
-    gmock \
     hiredis \
     event \
     rt \
     fiu \
     dl \
-    profiler \
     tcmalloc
 
 user_cc           :=

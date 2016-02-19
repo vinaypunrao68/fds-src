@@ -6,7 +6,6 @@ user_build_dir    := \
     include \
     amlib \
     connector \
-    volume-checker \
     test
 
 user_incl_dir     := include

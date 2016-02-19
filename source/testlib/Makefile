@@ -4,8 +4,8 @@ user_rtime_env   := user
 user_build_dir   :=
 user_incl_dir    := $(topdir) . \
         $(topdir)/platform/include \
-        $(topdir)/access-mgr/include \
-	$(topdir)/net-service/include
+	    $(topdir)/net-service/include \
+        $(topdir)/util/volume-checker/include
 user_cpp         := \
 	Deployer.cpp \
 	SvcMsgFactory.cpp \

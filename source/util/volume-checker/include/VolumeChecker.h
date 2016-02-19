@@ -10,7 +10,6 @@
 #include <net/SvcMgr.h>
 #include <net/SvcProcess.h>
 #include <net/PlatNetSvcHandler.h>
-#include <AccessMgr.h>
 
 namespace fds {
 
@@ -24,7 +23,7 @@ public:
     }
 
 private:
-    std::unique_ptr<AccessMgr> am;
+//    std::unique_ptr<AccessMgr> am;
 
     fds::Module *vcVec[2];
 };
