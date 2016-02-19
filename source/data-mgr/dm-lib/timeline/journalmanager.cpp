@@ -172,6 +172,7 @@ void JournalManager::monitorLogs() {
     fds_bool_t processedEvent = false;
     fds_bool_t eventReady = false;
     std::string gzip = util::which("gzip");
+    Error diskErr = ERR_OK;
 
     if (gzip.empty()) {
         LOGWARN << "unable to locate gzip binary, will skip gzipping";
@@ -185,7 +186,7 @@ void JournalManager::monitorLogs() {
             LOGDEBUG << "monitoring : " << dmDir << " subdirs:" << volDirs.size();
 
             for (const auto & d : volDirs) {
-                std::string volPath = dmDir + d + "/";
+		std::string volPath = dmDir + d + "/";
                 std::vector<std::string> catFiles;
                 util::getFiles(volPath, catFiles);
                 LOGDEBUG << "processing:" << volPath << " with files:" << catFiles.size();
@@ -194,32 +195,50 @@ void JournalManager::monitorLogs() {
                     LOGDEBUG << "file:" << f;
                     if (0 == f.find(leveldb::DEFAULT_ARCHIVE_PREFIX)) {
                         LOGDEBUG << "Found leveldb archive file '" << volPath << f << "'";
-                        std::string volTLPath = root->dir_timeline_dm() + d + "/";
-                        FdsRootDir::fds_mkdir(volTLPath.c_str());
 
-                        std::string srcFile = volPath + f;
-                        std::string destFile = volTLPath + f;
-                        if (!gzip.empty()) destFile += ".gz";
+			// Get source file info
+			std::string srcFile = volPath + f;
+			TimeStamp startTime = 0;
+			getJournalStartTime(srcFile, startTime);
+			fds_volid_t volId (std::atoll(d.c_str()));
 
-                        TimeStamp startTime = 0;
-                        getJournalStartTime(srcFile, startTime);
-                        std::string cmd;
-                        if (gzip.empty()) {
-                            cmd  = "cp -f " + srcFile + " " + destFile;
-                        } else {
-                            cmd = "gzip  --stdout " + srcFile + " > " + destFile;
-                        }
-                        LOGDEBUG << "running command: [" << cmd << "]";
-                        auto rc = std::system(cmd.c_str());
+			float_t dm_user_repo_pct_used = dmutil::getUsedCapacityOfUserRepo();
+			if (dm_user_repo_pct_used >= dm->dmFullnessThreshold) {
+				diskErr = ERR_DM_DISK_CAPACITY_ERROR_THRESHOLD;
+				LOGERROR << "ERROR: DM user-repo already used " << dm_user_repo_pct_used
+				<< "% of available storage space!"
+				<<" Not creating new journal files for vol: ." << volId
+				<< diskErr;
 
-                        if (!rc) {
-                            fds_verify(0 == unlink(srcFile.c_str()));
-                            processedEvent = true;
-                            fds_volid_t volId (std::atoll(d.c_str()));
-                            dm->timelineMgr->getDB()->addJournalFile(volId, startTime, destFile);
-                        } else {
-                            LOGWARN << "command failed [" << cmd << "], error:" << rc << ":" << strerror(rc);
-                        }
+				fds_verify(0 == unlink(srcFile.c_str()));
+				dm->timelineMgr->getDB()->addJournalFile(volId, startTime, journalTableHole);
+				LOGNORMAL << "hole: " << journalTableHole << "srcFile: " << srcFile.c_str();
+			} else {
+
+				// Create destination file
+				std::string volTLPath = root->dir_timeline_dm() + d + "/";
+				FdsRootDir::fds_mkdir(volTLPath.c_str());
+
+				std::string destFile = volTLPath + f;
+				if (!gzip.empty()) destFile += ".gz";
+
+				std::string cmd;
+				if (gzip.empty()) {
+					cmd  = "cp -f " + srcFile + " " + destFile;
+				} else {
+					cmd = "gzip  --stdout " + srcFile + " > " + destFile;
+				}
+				LOGDEBUG << "running command: [" << cmd << "]";
+				auto rc = std::system(cmd.c_str());
+
+				if (!rc) {
+					fds_verify(0 == unlink(srcFile.c_str()));
+					processedEvent = true;
+					dm->timelineMgr->getDB()->addJournalFile(volId, startTime, destFile);
+				} else {
+					LOGWARN << "command failed [" << cmd << "], error:" << rc << ":" << strerror(rc);
+				}
+			}
                     }
                 }
 
@@ -234,6 +253,7 @@ void JournalManager::monitorLogs() {
                         watched.insert(volPath);
                     }
                 }
+
             }
 
             if (fStopLogMonitoring) {

@@ -31,6 +31,10 @@ std::string getLevelDBFile(const FdsRootDir* root, fds_volid_t volId, fds_volid_
 void getVolumeIds(const FdsRootDir* root, std::vector<fds_volid_t>& vecVolumes);
 
 std::string getTimelineDBPath(const FdsRootDir* root);
+
+float_t getUsedCapacityOfSysRepo();
+float_t getUsedCapacityOfUserRepo();
+
 }  // namespace dmutil
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DMUTIL_H_
