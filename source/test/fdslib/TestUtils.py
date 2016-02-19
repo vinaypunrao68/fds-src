@@ -730,7 +730,7 @@ def generate_file(qualified_file_name=default_generated_file, size=1024, seed='s
         for next_content_block, block_size in sha1_generator(seed=seed):
             bytes_to_write = block_size
             if bytes_written + bytes_to_write > size:
-                bytes_to_write = size - bytes_to_write
+                bytes_to_write = size - bytes_written
 
             content_to_write = bytearray(buffer(next_content_block, 0, bytes_to_write))
             generated_file.write(content_to_write)

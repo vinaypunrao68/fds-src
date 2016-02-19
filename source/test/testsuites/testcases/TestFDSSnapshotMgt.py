@@ -17,6 +17,8 @@ import sys
 from fdslib.TestUtils import get_volume_service
 from fdscli.model.volume.snapshot import Snapshot
 from fdscli.model.fds_error import FdsError
+from fdslib.TestUtils import create_fdsConf_file
+from fabric.api import local
 
 
 # This class contains the attributes and methods to test
@@ -52,7 +54,7 @@ class TestCreateSnapshot(TestCase.FDSTestCase):
                 for snapshot in snapshot_list:
                     if snapshot.volume_id == vol_snapshot.volume_id:
                         self.log.info(
-                            "Snapshot created for volume name={}: {}".format(self.passedVolume_name, snapshot.name))
+                            "Snapshot {0} created for volume {1} at time {2}".format(self.passedVolume_name, snapshot.name, snapshot.created))
 
                 if isinstance(status, FdsError) or type(status).__name__ == 'FdsError':
                     self.log.error(
@@ -142,9 +144,8 @@ class TestCreateVolClone(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
         vol_service = get_volume_service(self, om_node.nd_conf_dict['ip'])
-        each_volume = vol_service.find_volume_by_name(self.passedVolume_name)
-        each_volume.name = self.passedClone_name
-        snapshot_list = vol_service.list_snapshots(each_volume.id)
+        passed_volume = vol_service.find_volume_by_name(self.passedVolume_name)
+        snapshot_list = vol_service.list_snapshots(passed_volume.id)
         timeline = None
 
         # Case1: neither of snapshot1 and snapshot2 are passed -> timeline is current time
@@ -154,11 +155,15 @@ class TestCreateVolClone(TestCase.FDSTestCase):
 
         # Case2: only one snapshot is passed -> timeline is (given) snapshot creation time
         elif self.passedSnapshort_start is None or self.passedSnapshort_end is None:
+            time_start = 0
             for snapshot in snapshot_list:
                 if snapshot.name == self.passedSnapshort_start:
-                    timeline = snapshot.created
+                    time_start = snapshot.created
                 elif snapshot.name == self.passedSnapshort_end:
-                    timeline = snapshot.created
+                    time_start = snapshot.created
+                now = int(time.time())
+            timeline = random.randrange(time_start+2, now, 1)
+
 
         # Case3:Two snapshots are passed -> timeline is between first and second snapshot
         elif self.passedSnapshort_start is not None and self.passedSnapshort_end is not None:
@@ -173,13 +178,19 @@ class TestCreateVolClone(TestCase.FDSTestCase):
             timeline = random.randrange(time_start, time_end, 1)
 
         assert timeline is not None
-        status = vol_service.clone_from_timeline(each_volume, timeline)
-        if isinstance(status, FdsError) or type(status).__name__ == 'FdsError':
+        create_fdsConf_file(om_node.nd_conf_dict['ip'])
+        cmd = 'fds volume clone -name {0} -volume_id {1} -time {2}'.format(self.passedClone_name,passed_volume.id, timeline)
+        status = local(cmd)
+        time.sleep(3) #let clone volume creation propogate
+        cloned_volume = vol_service.find_volume_by_name(self.passedClone_name)
+
+        if type(cloned_volume).__name__ == 'FdsError':
             self.log.error("Creating %s clone from timeline failed" %self.passedVolume_name)
-            return False
+        elif type(cloned_volume).__name__ == 'Volume':
+            self.log.info("Created clone {0} of volume {1} with time line {2}".format(self.passedClone_name, self.passedVolume_name, timeline))
+            return True
 
-        return True
-
+        return False
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)

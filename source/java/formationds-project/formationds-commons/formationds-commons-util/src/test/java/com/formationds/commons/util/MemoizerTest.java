@@ -4,12 +4,12 @@
 package com.formationds.commons.util;
 
 import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -43,40 +43,81 @@ public class MemoizerTest {
     @After
     public void tearDown() throws Exception {
         Memoizer.clearAll();
-         i = 0;
-         tpe.shutdownNow();
+         supplierInc = 0;
     }
 
-    // hack a pool for submitting a bunch of sleep tasks concurrently
-    private ThreadPoolExecutor tpe = (ThreadPoolExecutor)Executors.newFixedThreadPool( 100 );
+    int supplierInc = 0;
 
-    static final long SLEEP_TASK_SLEEP_TIME = 10;
-    static final long CACHED_TASK_MAX_SLEEP_TIME = SLEEP_TASK_SLEEP_TIME / 2;
-
-    static int i = 0;
-    public static final Supplier<Integer> sleepySupplier = () -> {
-        try { Thread.sleep( SLEEP_TASK_SLEEP_TIME ); }
-        catch (InterruptedException ignore) {}
-        return i++;
+    // Supplier that increments a value.  When used with the memoizer,
+    // it should always return the initial value and only increment
+    // upon expiration (or purge).
+    public final Supplier<Integer> incrementingSupplier = () -> {
+        return supplierInc++;
     };
 
-    public static final Function<Integer,Integer> sleepyFunction = (j) -> {
-        try { Thread.sleep( SLEEP_TASK_SLEEP_TIME ); }
-        catch (InterruptedException ignore) {}
-        return j;
+    /**
+     * @author dave
+     *
+     */
+    private static class Result {
+        private final Integer i;
+        private final Instant ts;
+        public Result(Integer i, Instant ts) {
+            this.i = i;
+            this.ts = ts;
+        }
+        public Instant ts() { return ts; }
+        public Integer input() { return i; }
+        /* (non-Javadoc)
+         * @see java.lang.Object#hashCode()
+         */
+        @Override
+        public int hashCode() {
+            return Objects.hash( i, ts );
+        }
+
+        /* (non-Javadoc)
+         * @see java.lang.Object#equals(java.lang.Object)
+         */
+        @Override
+        public boolean equals( Object obj ) {
+            if ( this == obj ) return true;
+            if ( obj == null ) return false;
+            Result other = (Result) obj;
+            return Objects.equals( i, other.i ) &&
+                   Objects.equals( ts, other.ts );
+        }
+
+        /* (non-Javadoc)
+         * @see java.lang.Object#toString()
+         */
+        @Override
+        public String toString() {
+            return String.format( "Result [i=%s, ts=%s]", i, ts );
+        }
+    }
+
+
+    // Function returns a Pair containing the input argument and a timestamp (Instant)
+    // When memoized and returned from cache, the timestamp will not change for the input.
+    // After an expiration, the timestamp will change.  We will use these side-effects to
+    // test the memoization.
+    public final Function<Integer, Result> timestampFunction = (j) -> {
+        return new Result( j, Instant.now() );
     };
 
     @Test
     public void testMemoizeSupplierOfU() {
-        Supplier<Integer> msup = Memoizer.memoize( sleepySupplier );
+        Supplier<Integer> msup = Memoizer.memoize( incrementingSupplier );
 
-        Timed<Integer> t1 = timedOp(msup);
-        Assert.assertTrue( t1.elapsedMS() >= SLEEP_TASK_SLEEP_TIME  );
+        Integer t1 = msup.get();
+        Assert.assertEquals( "Value should be 0", Integer.valueOf( 0 ), t1  );
 
+        // since there is no expiration we can execute the supplier
+        // any number of times and get the same result.
         for (int i = 0; i < 100; i++) {
-            Timed<Integer> t2 = timedOp(msup);
-            Assert.assertTrue( t2.elapsedMS() < CACHED_TASK_MAX_SLEEP_TIME  );
-            Assert.assertEquals( Integer.valueOf( 0 ), t2.result() );
+            Integer t2 = msup.get();
+            Assert.assertEquals( "Cached value should be 0", Integer.valueOf( 0 ), t2 );
         }
 
         // for a supplier cache, there is only ever 1 entry
@@ -84,27 +125,14 @@ public class MemoizerTest {
 
         // if we memoize a second supplier this would be 2, but we only have 1 here.
         Assert.assertEquals("Expecting exactly 1 entry in all caches", 1, Memoizer.size());
-
     }
 
     @Test
     public void testMemoizeSupplierOfUExpiration() throws Exception {
-        Supplier<Integer> msup = Memoizer.memoize( Duration.ofMillis( 100 ), sleepySupplier );
+        Supplier<Integer> msup = Memoizer.memoize( Duration.ofMillis( 100 ), incrementingSupplier );
 
-        Timed<Integer> t1 = timedOp(msup);
-        Assert.assertTrue( t1.toString(), t1.elapsedMS() >= SLEEP_TASK_SLEEP_TIME  );
-
-        // each execution here (up to the expiration, which should not be hit here)
-        // should be retrieved from the memoized cache and should return the original
-        // value (0).
-        // What is a reasonable/reliable expectation for cache lookup time, but not too long.
-        // was using 2, but that failed sometimes (when running laptop on battery)
-        for (int i = 0; i < 100; i++) {
-            Timed<Integer> t2 = timedOp(msup);
-            Assert.assertTrue( i + "[" + t2.elapsedMS()  + "]",
-                               t2.elapsedMS() < CACHED_TASK_MAX_SLEEP_TIME  );
-            Assert.assertEquals( i + ": ",  Integer.valueOf( 0 ), t2.result() );
-        }
+        Integer t1 = msup.get();
+        Assert.assertEquals( "Value should be 0", Integer.valueOf( 0 ), t1  );
 
         // for a supplier cache, there is only ever 1 entry
         Assert.assertEquals("Expecting exactly 1 entry in the cache", 1, Memoizer.size((MemoizedCache)msup));
@@ -112,12 +140,13 @@ public class MemoizerTest {
         // if we memoize a second supplier this would be 2, but we only have 1 here.
         Assert.assertEquals("Expecting exactly 1 entry in all caches", 1, Memoizer.size());
 
-        // wait expiration plus the "sleepy supplier time" (10)
+        // wait twice the expiration
         Thread.sleep( 200 );
 
-        Timed<Integer> t3 = timedOp(msup);
-        Assert.assertTrue( t3.toString(), t3.elapsedMS() >= SLEEP_TASK_SLEEP_TIME  );
-        Assert.assertTrue( t3.toString(), 1 == t3.result() );
+        // After expiration, we expect the value incremented
+        Integer t3 = msup.get();
+        Assert.assertEquals( "Expecting the supplied value to have incremented after expiration",
+                             Integer.valueOf( 1 ), t3 );
     }
 
     /**
@@ -133,47 +162,51 @@ public class MemoizerTest {
     @Test
     public void testMemoizeFunction() throws InterruptedException {
 
-        Function<Integer,Integer> mfunc = Memoizer.memoize( sleepyFunction );
+        Function<Integer,Result> mfunc = Memoizer.memoize( timestampFunction );
 
-        logger.debug( "Test executiong of Memoized function.  Our \"sleepy\" function" +
-                " will sleep for a specified amount of time and then return the" +
-                " result." );
-        Timed<Integer> t1 = timedOp(1, mfunc);
-        Assert.assertTrue( t1.toString(), t1.elapsedMS() >= SLEEP_TASK_SLEEP_TIME  );
-        Assert.assertTrue( t1.toString(), 1 == t1.result() );
+        Result t1 = mfunc.apply( 0 );
+        Assert.assertEquals( "Expecting a result of 0", Integer.valueOf( 0 ), t1.input() );
 
-        for (int i = 0; i < 100; i++) {
-            Timed<Integer> t2 = timedOp(1, mfunc);
-            Assert.assertTrue( t2.toString(), t2.elapsedMS() <= 1  );
+        Instant ts = t1.ts();
+
+        // execute the function with the same argument a several times and validate we
+        // get the same timestamp
+        for (int i = 0; i < 10; i++) {
+            Thread.sleep( 1 );
+
+            Result t2 = mfunc.apply( 0 );
+            Assert.assertEquals( "Expecting a result of 0", Integer.valueOf( 0 ), t2.input() );
+            Assert.assertEquals( "Expecting the timestamp returned is identical to original execution", ts, t2.ts() );
         }
 
-        logger.debug( "Executing function 100 times with different arguments" );
-        logger.debug( "Expecting cache to contain 100 items, 1 for each argument" );
-        CountDownLatch c = new CountDownLatch( 100 );
-        // so now test other args to the function.  ???start at something other than 1
-        // which is already cached and would mess up the countdown (the function won't get exec'd)
-        for (int n = 0; n < 100; n++) {
-            final int x = n;
-            CompletableFuture.runAsync( () -> {
-                Timed<Integer> t2 = timedOp(x, mfunc);
-                if ( x != 1 ) Assert.assertTrue( t2.elapsedMS() >= SLEEP_TASK_SLEEP_TIME  );
-                Assert.assertTrue( t2.toString(), x == t2.result() );
-                c.countDown();
-            }, tpe );
+        logger.debug( "Executing function 10 times with different arguments" );
+        logger.debug( "Expecting cache to contain 10 items, 1 for each argument" );
+
+        List<Result> results = new ArrayList<>();
+
+        // so now test other args to the function.
+        for (int n = 0; n < 10; n++) {
+            // do a short sleep just to space out the results slightly
+            Thread.sleep( 1 );
+
+            Result t2 = mfunc.apply( n );
+            Assert.assertEquals( "Expecting a result of " + n, Integer.valueOf( n ), t2.input() );
+
+            results.add( t2 );
         }
 
-        // wait for all of them to complete
-        while ( !c.await(SLEEP_TASK_SLEEP_TIME, TimeUnit.MILLISECONDS) ) {
-            logger.debug( "Waiting for " + c.getCount() + " tasks." );
-        }
-
-        Assert.assertEquals("Expecting exactly 100 entries in the cache", 100, Memoizer.size((MemoizedCache)mfunc));
-        Assert.assertEquals("Expecting exactly 100 entries in all caches", 100, Memoizer.size());
+        Assert.assertEquals("Expecting exactly 10 entries in the cache", 10, Memoizer.size((MemoizedCache)mfunc));
+        Assert.assertEquals("Expecting exactly 10 entries in all caches", 10, Memoizer.size());
 
         // and subsequent execs with other args return from cache
-        for (int i = 0; i < 100; i++) {
-            Timed<Integer> t2 = timedOp(i, mfunc);
-            Assert.assertTrue( t2.toString(), t2.elapsedMS() <= CACHED_TASK_MAX_SLEEP_TIME  );
+        for (int i = 0; i < 10; i++) {
+
+            Result t2 = mfunc.apply( i );
+
+            Assert.assertEquals( "Expecting a result of " + i, Integer.valueOf( i ), t2.input() );
+            Assert.assertEquals( "Expecting the timestamp returned is identical to original execution",
+                                 results.get( i ).ts(),
+                                 t2.ts() );
         }
     }
 
@@ -181,73 +214,49 @@ public class MemoizerTest {
     public void testMemoizeFunctionExpiration() throws Exception {
 
         long expireMillis = 1000;
-        long start = System.nanoTime();
-        Function<Integer,Integer> mfunc = Memoizer.memoize( Duration.ofMillis( expireMillis ),
-                                                            sleepyFunction );
+        Function<Integer,Result> mfunc = Memoizer.memoize( Duration.ofMillis( expireMillis ), timestampFunction );
 
-        Timed<Integer> t1 = timedOp(1, mfunc);
-        Assert.assertTrue( t1.toString(), t1.elapsedMS() >= SLEEP_TASK_SLEEP_TIME  );
-        Assert.assertTrue( t1.toString(), 1 == t1.result() );
+        List<Result> results = new ArrayList<>();
+        for (int n = 0; n < 10; n++) {
+            // do a short sleep just to space out the results slightly
+            Thread.sleep( 1 );
 
-        for (int i = 0; i < 100; i++) {
-            Timed<Integer> t2 = timedOp(1, mfunc);
-            Assert.assertTrue( t2.toString(), t2.elapsedMS() <= CACHED_TASK_MAX_SLEEP_TIME  );
+            Result t1 = mfunc.apply( n );
+            Assert.assertEquals( "Expecting a result of " + n,
+                                 Integer.valueOf( n ),
+                                 t1.input() );
+
+            results.add( t1 );
         }
 
-        CountDownLatch c = new CountDownLatch( 100 );
-        // so now test other args to the function. 1 is already cached and the
-        // function won't get exec'd, so account for that.
-        for (int n = 0; n < 100; n++) {
-            final int x = n;
-            CompletableFuture.runAsync( () -> {
-                try {
-                    Timed<Integer> t2 = timedOp(x, mfunc);
-                    if (x != 1) Assert.assertTrue( t2.toString(), t2.elapsedMS() >= SLEEP_TASK_SLEEP_TIME  );
-                    Assert.assertTrue( t2.toString(), x == t2.result() );
-                } finally {
-                    c.countDown();
-                }
-            }, tpe );
-        }
+        Thread.sleep( expireMillis + 100 );
 
-        // wait for all of them to complete
-        while ( !c.await(SLEEP_TASK_SLEEP_TIME, TimeUnit.MILLISECONDS) ) {
-           logger.debug( "Waiting for " + c.getCount() + " tasks." );
-        }
+        // cache has expired for all values, so any execs should recompute
+        for (int i = 0; i < 10; i++) {
 
-        long elapsed = System.nanoTime() - start;
-        long diff = expireMillis - TimeUnit.NANOSECONDS.toMillis( elapsed );
-        if ( diff > 0 ) {
+            // do a short sleep just to space out the results slightly
+            Thread.sleep( 1 );
 
-            for (int i = 0; i < 100; i++) {
-                Timed<Integer> t2 = timedOp(i, mfunc);
-                Assert.assertTrue( t2.toString(), t2.elapsedMS() <= CACHED_TASK_MAX_SLEEP_TIME  );
-            }
+            Result t2 = mfunc.apply( i );
 
-            elapsed = System.nanoTime() - start;
-            diff = expireMillis - TimeUnit.NANOSECONDS.toMillis( elapsed );
-            if ( diff > 0 ) {
-                logger.debug( "waiting for expiration... " + (2 * (diff + SLEEP_TASK_SLEEP_TIME + 10)) );
-                Thread.sleep( 2 * (diff + SLEEP_TASK_SLEEP_TIME + 10) );
-            }
-        }
-
-        // cache has expired for all values, so any execs should recompute and take the SLEEP_TASK_SLEEP_TIME
-        for (int i = 0; i < 5; i++) {
-            Timed<Integer> t2 = timedOp(i, mfunc);
-            Assert.assertTrue(i + ": " + t2.toString(), t2.elapsedMS() >= SLEEP_TASK_SLEEP_TIME  );
+            Assert.assertEquals( "Expecting a result of " + i, Integer.valueOf( i ), t2.input() );
+            Assert.assertNotEquals( "Expecting the timestamp returned (" + results.get( i ).ts() + ") is not the same as the " +
+                                    "original execution",
+                                    results.get( i ).ts(),
+                                    t2.ts() );
         }
     }
 
     @Test
     public void testPurgeExpired() throws InterruptedException, ExecutionException {
         long expireMillis = 150;
-        Function<Integer,Integer> mfunc = Memoizer.memoize( Duration.ofMillis( expireMillis ),
-                                                            sleepyFunction );
+        Function<Integer,Result> mfunc = Memoizer.memoize( Duration.ofMillis( expireMillis ),
+                                                                          timestampFunction );
 
         for (int i = 0; i < 100; i++) {
-            timedOp(i, mfunc);
+            mfunc.apply(i);
         }
+        Assert.assertEquals("Expecting exactly 100 entries in the cache before purge", 100, Memoizer.size((MemoizedCache)mfunc));
 
         Thread.sleep( expireMillis * 2 );
 
@@ -257,31 +266,4 @@ public class MemoizerTest {
         Assert.assertEquals("Expecting exactly 0 entries in the cache after purge", 0, Memoizer.size((MemoizedCache)mfunc));
         Assert.assertEquals("Expecting exactly 0 entries in all caches after purge", 0, Memoizer.size());
     }
-
-    private class Timed<R> {
-        private final long elapsed;
-        private final R result;
-        Timed(long elapsed, R result) {
-            this.elapsed = elapsed;
-            this.result = result;
-        }
-        // elapsed time in nanoseconds
-        public long elapsed() { return elapsed; }
-        public long elapsedMS() { return TimeUnit.NANOSECONDS.toMillis(  elapsed() ); }
-        public R result() { return result; }
-        public String toString() { return String.format( "%s [%d ns (%d ms)]", result, elapsed(), elapsedMS() ); }
-    }
-
-    public <R> Timed<R> timedOp( Supplier<R> s ) {
-        long start = System.nanoTime();
-        R result = s.get();
-        return new Timed<R>(System.nanoTime() - start, result);
-    }
-
-    public <T,R> Timed<R> timedOp( T arg, Function<T,R> f ) {
-        long start = System.nanoTime();
-        R result = f.apply(arg);
-        return new Timed<R>(System.nanoTime() - start, result);
-    }
-
 }

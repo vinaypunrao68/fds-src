@@ -249,16 +249,17 @@ int SvcMgr::mod_init(SysParams const *const p)
 
     svcRequestHandler_->setTaskExecutor(taskExecutor_);
     Error e = startServer();
+
+    if (MODULEPROVIDER()->get_cntrs_mgr() != nullptr) {
+        stateProviderId = "svcmgr";
+        MODULEPROVIDER()->get_cntrs_mgr()->add_for_export(this);
+    }
+
     return e.getFdspErr();
 }
 
 void SvcMgr::mod_startup()
 {
-    if (MODULEPROVIDER()->get_cntrs_mgr() != nullptr) {
-        stateProviderId = "svcmgr";
-        MODULEPROVIDER()->get_cntrs_mgr()->add_for_export(this);
-    }
-    
     GLOGNOTIFY;
 }
 
@@ -869,7 +870,7 @@ SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr &current, const fpi::SvcI
         LOGDEBUG << "THIS NEEDS TO BE FIXED. Should be passing in with complete info.";
         ret = true;
     } else {
-        LOGWARN << "Criteria not met, will not allow update of svcMap";
+        LOGDEBUG << "Criteria not met, will not allow update of svcMap";
     }
 
     return (ret);
