@@ -17,7 +17,7 @@ peers_(peers),
 state_(INIT),
 tasks(1500),
 completedCntr(0),
-threadCheckCntr(0)
+threadCheckCntr(-1)
 {
 }
 
@@ -70,16 +70,9 @@ void LockfreeWorker::enqueue(LockFreeTask *t)
 }
 
 void LockfreeWorker::workLoop() {
-#if 0
-    int policy;
-    struct sched_param param;
-    pthread_getschedparam(pthread_self(), &policy, &param);
-    param.sched_priority = sched_get_priority_max(policy); // 20;
-    pthread_setschedparam(pthread_self(), SCHED_RR, &param);
-#endif
     /* Set id to be combination of threadpool id and this thread id */
     std::stringstream ss;
-    ss << id_ << ":" << std::this_thread::get_id();
+    ss << id_ << ":" << std::hex<< std::this_thread::get_id() << std::dec;
     id_ = ss.str();
 
     GLOGNOTIFY << "Starting LFThread worker id: " << id_;
@@ -217,7 +210,7 @@ void LockfreeWorker::workLoop() {
                 } catch (...) {
                     fds_panic("unknown exception : calling %s !\n", task->target_type().name());
                 }
-                threadCheckCntr = 0;
+                threadCheckCntr = -1;  // indicates thread is idle
                 delete task;
             } else {
                 fds_assert(NULL == task);
@@ -262,14 +255,14 @@ LFMQThreadpool::~LFMQThreadpool()
 
 void LFMQThreadpool::threadpoolCheck() {
     for (const auto& worker : workers) {
-        if (worker->threadCheckCntr > 0 &&
+        if (worker->threadCheckCntr >= 0 &&
             threadCheckCntr - worker->threadCheckCntr > 1) {
             GLOGWARN << worker->logString()
                 <<  " thread seems blocked for thread check cycles: "
                 << (threadCheckCntr - worker->threadCheckCntr);
         }
-        threadCheckCntr++;
     }
+    ++threadCheckCntr;
 }
 
 void LFMQThreadpool::stop()

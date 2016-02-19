@@ -79,10 +79,10 @@ struct LockfreeWorker {
     std::thread*                            worker;
     /* Counters */
     uint64_t                                completedCntr;
-    /* = 0 means thread is idle; > 0 indicates thread is busy and the value
+    /* = -1 means thread is idle; >= 0 indicates thread is busy and the value
      * held is couner value when last thread check was run
      */
-    uint64_t                                threadCheckCntr;
+    int64_t                                 threadCheckCntr;
 };
 
 /**
@@ -127,7 +127,7 @@ struct LFMQThreadpool {
 
     std::vector<LockfreeWorker*>            workers;
     int                                     idx;
-    uint64_t                                threadCheckCntr;
+    int64_t                                 threadCheckCntr;
 };
 
 typedef std::thread LFSQWorker;

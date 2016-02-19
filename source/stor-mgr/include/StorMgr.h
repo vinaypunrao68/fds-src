@@ -130,7 +130,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
              FDS_QoSControl(_max_thrds, algo, log, "SM") {
                  parentSm = _parent;
                  threadPool->enableThreadpoolCheck(
-                     _parent->getModuleProvider()->getTimer().get(),
+                     _parent->modProvider_->getTimer().get(),
                      std::chrono::seconds(30));
                  LOGNOTIFY << "Qos totalRate " << parentSm->totalRate
                            << ", num outstanding io " << parentSm->qosOutNum
