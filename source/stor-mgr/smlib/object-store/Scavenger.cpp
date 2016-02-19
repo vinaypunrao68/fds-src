@@ -18,9 +18,8 @@ using diskio::DiskStat;
 
 namespace fds {
 
-#define SCAV_TIMER_SECONDS (2*3600)  // 2 hours
+#define SCAV_TIMER_SECONDS (10*60)  // 10 minutes
 #define DEFAULT_MAX_DISKS_COMPACTING (2)
-
 
 ScavControl::ScavControl(const std::string &modName,
                          SmIoReqHandler *data_store,
@@ -61,8 +60,8 @@ ScavControl::mod_init(SysParams const *const param) {
     intervalSeconds = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.scavenger.interval_seconds",
                                                                     SCAV_TIMER_SECONDS);
 
-    LOGDEBUG << "Scavenger will be compacting at most " << max_disks_compacting
-             << " disks at a time; scavenger interval " << intervalSeconds << " seconds";
+    LOGNORMAL << "Scavenger will be compacting at most " << max_disks_compacting
+              << " disks at a time; scavenger interval " << intervalSeconds << " seconds";
     Module::mod_init(param);
     return 0;
 }
@@ -638,14 +637,14 @@ fds_bool_t DiskScavenger::updateDiskStats(fds_bool_t verify_data,
 
     err = getDiskStats(&disk_stat);
     if (!err.ok()) {
-        LOGCRITICAL << "Getting disk stats failed for disk id : "
+        LOGCRITICAL << "getting disk stats failed for disk id : "
                     << disk_id;
         return false;
     }
 
     tot_size = disk_stat.dsk_tot_size;
     avail_percent = (disk_stat.dsk_avail_size / tot_size) * 100;
-    LOGDEBUG << "Tier " << tier << " disk " << disk_id
+    LOGDEBUG << "tier " << tier << " disk " << disk_id
              << " total " << disk_stat.dsk_tot_size
              << ", avail " << disk_stat.dsk_avail_size << " ("
              << avail_percent << "%).";
@@ -660,6 +659,12 @@ fds_bool_t DiskScavenger::updateDiskStats(fds_bool_t verify_data,
             // we will GC only tokens that are worth to GC
             token_reclaim_threshold = scav_policy.tok_reclaim_threshold;
         }
+        LOGCRITICAL << "tier:" << tier << " disk:" << disk_id
+                    << " total:" << disk_stat.dsk_tot_size
+                    << " avail:" << disk_stat.dsk_avail_size << " (" << avail_percent << "%)"
+                    << " policy: thresh1="<< scav_policy.dsk_avail_threshold_1
+                    << " thresh2=" << scav_policy.dsk_avail_threshold_2
+                    << " reclaim:" << token_reclaim_threshold;
 
         // start token compaction process
         err = startScavenge(verifyData, done_hdlr, token_reclaim_threshold);
@@ -722,7 +727,7 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
     // get all tokens that SM owns and that reside on this disk
     SmTokenSet diskToks = smDiskMap->getSmTokens(disk_id);
     ObjectStorMgr* storMgr = dynamic_cast<ObjectStorMgr*>(dataStoreReqHandler);
-
+    bool fRefscanMessageSent = false;
     // add tokens to tokenDb that we need to compact
     for (SmTokenSet::const_iterator cit = diskToks.cbegin();
          cit != diskToks.cend();
@@ -742,6 +747,10 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
 
             if (!fHasNewObjects) {
                 LOGDEBUG << "no new object sets to process for disk:" << disk_id << " token:"<< *cit;
+                if (!fRefscanMessageSent) {
+                    storMgr->startRefscanOnDMs();
+                    fRefscanMessageSent = true;
+                }
             } else {
                 if (storMgr) {
                     TimeStamp now = util::getTimeStampSeconds() * 1000 * 1000 * 1000;
