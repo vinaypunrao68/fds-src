@@ -49,7 +49,7 @@ namespace fds
          * Other service related utility functions that will be used by both
          * the OM as well as other components such as svcMgr
          */
-        std::string  printSvcStatus(fpi::ServiceStatus svcStatus);
+        static std::string  printSvcStatus(fpi::ServiceStatus svcStatus);
         bool         isIncomingUpdateValid(fpi::SvcInfo incomingSvcInfo, fpi::SvcInfo currentInfo);
         bool         isTransitionAllowed(fpi::ServiceStatus incoming, fpi::ServiceStatus current);
 

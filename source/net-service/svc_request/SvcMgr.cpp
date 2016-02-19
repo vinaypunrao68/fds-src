@@ -45,7 +45,7 @@ std::string logString(const FDS_ProtocolInterface::SvcInfo &info)
         << SvcMgr::mapToSvcUuidAndName(info.svc_id.svc_uuid)
         << " ip: " << info.ip << " port: " << info.svc_port
         << " incarnation: " << info.incarnationNo << " status: "
-        << OmExternalApi::getInstance()->printSvcStatus(info.svc_status);
+        << OmExternalApi::printSvcStatus(info.svc_status);
     return ss.str();
 }
 

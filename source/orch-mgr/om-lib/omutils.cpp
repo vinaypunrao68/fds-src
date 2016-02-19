@@ -692,7 +692,7 @@ namespace fds
                     } else {
                         LOGNOTIFY << "!!ConfigDB already reflects desired state for svc:"
                                   << std::hex << svc_uuid << std::dec << " state:"
-                                  << OmExternalApi::getInstance()->printSvcStatus(initialDbStatus);
+                                  << OmExternalApi::printSvcStatus(initialDbStatus);
                     }
                 } else {
                     configDB->changeStateSvcMap( dbInfoPtr );
@@ -725,9 +725,9 @@ namespace fds
                     LOGNOTIFY << "!!Svc:" << std::hex << uuid.svc_uuid << std::dec
                               << " has already changed in service layer from [incarnation:"
                               << initialSvcLayerInfo.incarnationNo << ", status:"
-                              << OmExternalApi::getInstance()->printSvcStatus(initialSvcLayerInfo.svc_status)
+                              << OmExternalApi::printSvcStatus(initialSvcLayerInfo.svc_status)
                               << "] to [incarnation:" << svcLayerNewerInfo.incarnationNo << ", status:"
-                              << OmExternalApi::getInstance()->printSvcStatus(svcLayerNewerInfo.svc_status)
+                              << OmExternalApi::printSvcStatus(svcLayerNewerInfo.svc_status)
                               << "]. Initiating new update";
 
                     // Something has already changed in the svc layer, so the current update of
@@ -760,7 +760,7 @@ namespace fds
                 {
                     LOGNOTIFY << "!!SvcLayer already has the latest [incarnation:"
                               << svcLayerNewerInfo.incarnationNo << ", status:"
-                              << OmExternalApi::getInstance()->printSvcStatus(svcLayerNewerInfo.svc_status)
+                              << OmExternalApi::printSvcStatus(svcLayerNewerInfo.svc_status)
                               << "] for service:" << std::hex << uuid.svc_uuid << std::dec
                               << " , no need to update & broadcast";
 

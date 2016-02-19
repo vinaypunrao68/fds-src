@@ -2600,7 +2600,7 @@ bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo)
                  << " ip: " << svcinfo.ip
         		 << " port: " << svcinfo.svc_port
                  << " incarnation: " << svcinfo.incarnationNo
-                 << " status: " << OmExternalApi::getInstance()->printSvcStatus(svcinfo.svc_status);
+                 << " status: " << OmExternalApi::printSvcStatus(svcinfo.svc_status);
                 
         FDSP_SERIALIZE( svcinfo, serialized );        
         bRetCode = kv_store.hset( "svcmap", uuid.str().c_str(), *serialized );
@@ -2630,13 +2630,13 @@ bool ConfigDB::changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr)
             LOGNOTIFY << "!!ConfigDB changed service"
                        << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid << std::dec
                        << " from [incarnation:" << dbInfo.incarnationNo << ", status:"
-                       << OmExternalApi::getInstance()->printSvcStatus(dbInfo.svc_status) << "]"
+                       << OmExternalApi::printSvcStatus(dbInfo.svc_status) << "]"
                        << " to [incarnation:" << svcInfoPtr->incarnationNo << ", status:"
-                       << OmExternalApi::getInstance()->printSvcStatus(svcInfoPtr->svc_status) << "]";
+                       << OmExternalApi::printSvcStatus(svcInfoPtr->svc_status) << "]";
         } else {
             LOGNOTIFY << "!!ConfigDB updated map with new record:"
                        << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid << std::dec
-                       << " status:" << OmExternalApi::getInstance()->printSvcStatus(svcInfoPtr->svc_status);
+                       << " status:" << OmExternalApi::printSvcStatus(svcInfoPtr->svc_status);
         }
 
         /* Convert new registration request to existing registration request */
@@ -2712,12 +2712,10 @@ fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
                  << " uuid: " << std::hex << svc_uuid << std::dec;
 
         Reply reply = kv_store.hget( "svcmap", uuid.str().c_str() ); //NOLINT
-<<<<<<< HEAD
-=======
+
         /*
          * the reply.isValid() always == true, because its not NULL
          */
->>>>>>> 1c135a8fccf219b1282f008d27df2acbc0c7791b
         if ( !reply.isNil() )
         {
             std::string value = reply.getString();
@@ -2729,7 +2727,7 @@ fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
 
             LOGDEBUG << "ConfigDB retrieved service status for service"
                      << " uuid: " << std::hex << svc_uuid << std::dec
-                     << " status: " << OmExternalApi::getInstance()->printSvcStatus(retStatus);
+                     << " status: " << OmExternalApi::printSvcStatus(retStatus);
         }
     }
     catch( const RedisException& e )
