@@ -22,7 +22,7 @@
 #include <fds_dmt.h>
 #include <kvstore/configdb.h>
 #include <concurrency/RwLock.h>
-#include <OmExternalApi.h>
+#include <OmExtUtilApi.h>
 #include <fds_timer.h>
 
 namespace FDS_ProtocolInterface {

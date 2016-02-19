@@ -22,7 +22,7 @@
 #include <OmResources.h>
 #include <convert.h>
 #include <orchMgr.h>
-#include <omutils.h>
+#include <OmIntUtilApi.h>
 #include <util/stringutils.h>
 #include <util/timeutils.h>
 #include <net/PlatNetSvcHandler.h>

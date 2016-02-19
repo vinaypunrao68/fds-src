@@ -2,15 +2,14 @@
  * Copyright 2015 Formation Data Systems, Inc.
  */
 
-#include <OmExternalApi.h>
-#include <orch-mgr/include/omutils.h>
+#include <OmExtUtilApi.h>
 
 namespace fds
 {
 
-OmExternalApi* OmExternalApi::m_instance = NULL;
+OmExtUtilApi* OmExtUtilApi::m_instance = NULL;
 
-OmExternalApi::OmExternalApi()
+OmExtUtilApi::OmExtUtilApi()
                       : sendSMMigAbortAfterRestart(false),
                         sendDMMigAbortAfterRestart(false),
                         dltTargetVersionForAbort(0),
@@ -19,10 +18,10 @@ OmExternalApi::OmExternalApi()
 
 }
 
-OmExternalApi* OmExternalApi::getInstance()
+OmExtUtilApi* OmExtUtilApi::getInstance()
 {
     if (!m_instance) {
-        m_instance = new OmExternalApi();
+        m_instance = new OmExtUtilApi();
     }
     return m_instance;
 }
@@ -31,7 +30,7 @@ OmExternalApi* OmExternalApi::getInstance()
  *       Functions related to node remove interruption (SM,DM)
  *****************************************************************************/
 
-void OmExternalApi::addToRemoveList( int64_t uuid,
+void OmExtUtilApi::addToRemoveList( int64_t uuid,
                                  fpi::FDSP_MgrIdType type )
 {
     if (!isMarkedForRemoval(uuid))
@@ -43,7 +42,7 @@ void OmExternalApi::addToRemoveList( int64_t uuid,
     }
 }
 
-bool OmExternalApi::isMarkedForRemoval( int64_t uuid )
+bool OmExtUtilApi::isMarkedForRemoval( int64_t uuid )
 {
     bool found = false;
     for (const std::pair<int64_t, fpi::FDSP_MgrIdType> elem : removedNodes)
@@ -61,7 +60,7 @@ bool OmExternalApi::isMarkedForRemoval( int64_t uuid )
     return false;
 }
 
-void OmExternalApi::clearFromRemoveList( int64_t uuid )
+void OmExtUtilApi::clearFromRemoveList( int64_t uuid )
 {
     std::vector<std::pair<int64_t, fpi::FDSP_MgrIdType>>::iterator iter;
     iter = std::find_if(removedNodes.begin(), removedNodes.end(),
@@ -77,7 +76,7 @@ void OmExternalApi::clearFromRemoveList( int64_t uuid )
     }
 }
 
-int OmExternalApi::getPendingNodeRemoves( fpi::FDSP_MgrIdType svc_type )
+int OmExtUtilApi::getPendingNodeRemoves( fpi::FDSP_MgrIdType svc_type )
 {
     int size = 0;
     for (auto item : removedNodes)
@@ -94,32 +93,32 @@ int OmExternalApi::getPendingNodeRemoves( fpi::FDSP_MgrIdType svc_type )
  * Functions to help recover from interruption of DLT/DMT propagation by OM restart
  ***********************************************************************************/
 
-void OmExternalApi::setSMAbortParams( bool abort,
-                                  fds_uint64_t version )
+void OmExtUtilApi::setSMAbortParams( bool abort,
+                                     fds_uint64_t version )
 {
     sendSMMigAbortAfterRestart = abort;
     dltTargetVersionForAbort   = version;
 
 }
 
-void OmExternalApi::clearSMAbortParams()
+void OmExtUtilApi::clearSMAbortParams()
 {
     sendSMMigAbortAfterRestart = false;
     dltTargetVersionForAbort   = 0;
 }
 
-bool OmExternalApi::isSMAbortAfterRestartTrue()
+bool OmExtUtilApi::isSMAbortAfterRestartTrue()
 {
     return sendSMMigAbortAfterRestart;
 }
 
-fds_uint64_t OmExternalApi::getSMTargetVersionForAbort()
+fds_uint64_t OmExtUtilApi::getSMTargetVersionForAbort()
 {
     return dltTargetVersionForAbort;
 }
 
 
-void OmExternalApi::setDMAbortParams( bool abort,
+void OmExtUtilApi::setDMAbortParams( bool abort,
                                   fds_uint64_t version )
 {
     sendDMMigAbortAfterRestart = abort;
@@ -127,18 +126,18 @@ void OmExternalApi::setDMAbortParams( bool abort,
 
 }
 
-void OmExternalApi::clearDMAbortParams()
+void OmExtUtilApi::clearDMAbortParams()
 {
     sendDMMigAbortAfterRestart = false;
     dmtTargetVersionForAbort   = 0;
 }
 
-bool OmExternalApi::isDMAbortAfterRestartTrue()
+bool OmExtUtilApi::isDMAbortAfterRestartTrue()
 {
     return sendDMMigAbortAfterRestart;
 }
 
-fds_uint64_t OmExternalApi::getDMTargetVersionForAbort()
+fds_uint64_t OmExtUtilApi::getDMTargetVersionForAbort()
 {
     return dmtTargetVersionForAbort;
 }
@@ -149,7 +148,7 @@ fds_uint64_t OmExternalApi::getDMTargetVersionForAbort()
  *                   Service status related functions
  *****************************************************************************/
 
-std::string OmExternalApi::printSvcStatus( fpi::ServiceStatus svcStatus )
+std::string OmExtUtilApi::printSvcStatus( fpi::ServiceStatus svcStatus )
 {
     int32_t status = svcStatus;
     std::string statusString;
@@ -199,7 +198,7 @@ std::string OmExternalApi::printSvcStatus( fpi::ServiceStatus svcStatus )
  * This function ensures that an incoming transition from a given state to another
  * is a valid one (following the table allowedStateTransitions
  */
-bool OmExternalApi::isTransitionAllowed( fpi::ServiceStatus incoming,
+bool OmExtUtilApi::isTransitionAllowed( fpi::ServiceStatus incoming,
                                          fpi::ServiceStatus current )
 {
 
@@ -225,8 +224,8 @@ bool OmExternalApi::isTransitionAllowed( fpi::ServiceStatus incoming,
 
     if ( !allowed )
     {
-        LOGWARN << "!!Will not allow transition from state:" << OmExternalApi::getInstance()->printSvcStatus(current)
-                << " to state:" << OmExternalApi::getInstance()->printSvcStatus(incoming) << " !!";
+        LOGWARN << "!!Will not allow transition from state:" << OmExtUtilApi::getInstance()->printSvcStatus(current)
+                << " to state:" << OmExtUtilApi::getInstance()->printSvcStatus(incoming) << " !!";
     }
 
     return allowed;
@@ -238,12 +237,12 @@ bool OmExternalApi::isTransitionAllowed( fpi::ServiceStatus incoming,
  * This function verifies that an incoming update to svcMaps is valid
  * taking into account (1) incarnationNo (2) valid state transition
  */
-bool OmExternalApi::isIncomingUpdateValid( fpi::SvcInfo incomingSvcInfo,
+bool OmExtUtilApi::isIncomingUpdateValid( fpi::SvcInfo incomingSvcInfo,
                                            fpi::SvcInfo currentInfo )
 {
     bool ret = false;
 
-    LOGNOTIFY << "!!Uuid:" << std::hex << currentInfo.svc_id.svc_uuid.svc_uuid
+    LOGNOTIFY << "!!Uuid:" << std::hex << currentInfo.svc_id.svc_uuid.svc_uuid << std::dec
               << " Incoming [incarnationNo:" << incomingSvcInfo.incarnationNo
               << ", status:" << printSvcStatus(incomingSvcInfo.svc_status)
               << "] VS Current [incarnationNo:" << currentInfo.incarnationNo

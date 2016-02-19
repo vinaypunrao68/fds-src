@@ -7,7 +7,6 @@
 #include "OmResources.h"
 #include <orchMgr.h>
 #include <net/SvcMgr.h>
-#include "omutils.h"
 
 namespace fds
 {

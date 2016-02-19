@@ -15,7 +15,7 @@
 #include <net/net_utils.h>
 #include <ratio>
 #include <net/SvcMgr.h>
-#include <OmExternalApi.h>
+#include <OmExtUtilApi.h>
 #include "platform/platform_shm_typedefs.h"
 #include "platform/node_data.h"
 
@@ -1646,6 +1646,7 @@ bool ConfigDB::getDmt(DMT& dmt, fds_uint64_t version, int localDomain) {
 
 bool ConfigDB::addNode(const NodeInfoType& node)
 {
+    LOGDEBUG << "!!ScopedWrite nodeLock";
     SCOPEDWRITE(nodeLock);
 
     TRACKMOD();
@@ -1681,6 +1682,7 @@ bool ConfigDB::updateNode(const NodeInfoType& node)
 
 bool ConfigDB::removeNode(const NodeUuid& uuid)
 {
+    LOGDEBUG << "!!ScopedWritenodeLock";
     SCOPEDWRITE(nodeLock);
 
     TRACKMOD();
@@ -1706,6 +1708,7 @@ bool ConfigDB::removeNode(const NodeUuid& uuid)
 
 bool ConfigDB::setNodeServices(const NodeUuid& uuid, const NodeServices& services)
 {
+    LOGDEBUG << "!!ScopedWrite nodeLock";
     SCOPEDWRITE(nodeLock);
 
     try{
@@ -1723,6 +1726,7 @@ bool ConfigDB::setNodeServices(const NodeUuid& uuid, const NodeServices& service
 
 bool ConfigDB::setCapacityUsedNode( const int64_t svcUuid, const unsigned long usedCapacityInBytes )
 {
+    LOGDEBUG << "!!ScopedWrite nodeLock";
     SCOPEDWRITE(nodeLock);
 
     bool bRetCode = false;
@@ -1748,6 +1752,7 @@ bool ConfigDB::setCapacityUsedNode( const int64_t svcUuid, const unsigned long u
 
 bool ConfigDB::getNode(const NodeUuid& uuid, NodeInfoType& node)
 {
+    LOGDEBUG << "!!ScopedRead nodeLock";
     SCOPEDREAD(nodeLock);
 
     try {
@@ -1765,6 +1770,7 @@ bool ConfigDB::getNode(const NodeUuid& uuid, NodeInfoType& node)
 
 bool ConfigDB::nodeExists(const NodeUuid& uuid)
 {
+    LOGDEBUG << "!!ScopedRead nodeLock";
     SCOPEDREAD(nodeLock);
 
     try {
@@ -1779,6 +1785,7 @@ bool ConfigDB::nodeExists(const NodeUuid& uuid)
 
 bool ConfigDB::getNodeIds(std::unordered_set<NodeUuid, UuidHash>& nodes, int localDomain)
 {
+    LOGDEBUG << "!!ScopedRead nodeLock";
     SCOPEDREAD(nodeLock);
 
     std::vector<long long> nodeIds; //NOLINT
@@ -1808,6 +1815,7 @@ bool ConfigDB::getNodeIds(std::unordered_set<NodeUuid, UuidHash>& nodes, int loc
 
 bool ConfigDB::getAllNodes(std::vector<NodeInfoType>& nodes, int localDomain)
 {
+    LOGDEBUG << "!!ScopedRead nodeLock";
     SCOPEDREAD(nodeLock);
     std::vector<long long> nodeIds; //NOLINT
 
@@ -1850,6 +1858,7 @@ std::string ConfigDB::getNodeName(const NodeUuid& uuid)
 
 bool ConfigDB::getNodeServices(const NodeUuid& uuid, NodeServices& services)
 {
+    LOGDEBUG << "!!ScopedRead nodeLock";
     SCOPEDREAD(nodeLock);
 
     try{
@@ -1868,6 +1877,7 @@ bool ConfigDB::getNodeServices(const NodeUuid& uuid, NodeServices& services)
 
 uint ConfigDB::getNodeNameCounter()
 {
+    LOGDEBUG << "!!ScopedRead nodeLock";
     SCOPEDREAD(nodeLock);
 
     try{
@@ -2556,7 +2566,7 @@ bool ConfigDB::setSnapshotState(fds_volid_t const volumeId, fds_volid_t const sn
 
 bool ConfigDB::deleteSvcMap(const fpi::SvcInfo& svcinfo)
 {
-    LOGDEBUG << "!!Acquiring write svcMapLock";
+    LOGDEBUG << "!!ScopedWrite svcMapLock";
     //svcMapLock.write_lock();
     SCOPEDWRITE(svcMapLock);
 
@@ -2586,6 +2596,7 @@ bool ConfigDB::deleteSvcMap(const fpi::SvcInfo& svcinfo)
 
 bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo)
 {
+    LOGDEBUG << "!!ScopedWrite svcMapLock";
     SCOPEDWRITE(svcMapLock);
 
     bool bRetCode = false;
@@ -2600,7 +2611,7 @@ bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo)
                  << " ip: " << svcinfo.ip
         		 << " port: " << svcinfo.svc_port
                  << " incarnation: " << svcinfo.incarnationNo
-                 << " status: " << OmExternalApi::printSvcStatus(svcinfo.svc_status);
+                 << " status: " << OmExtUtilApi::printSvcStatus(svcinfo.svc_status);
                 
         FDSP_SERIALIZE( svcinfo, serialized );        
         bRetCode = kv_store.hset( "svcmap", uuid.str().c_str(), *serialized );
@@ -2630,13 +2641,13 @@ bool ConfigDB::changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr)
             LOGNOTIFY << "!!ConfigDB changed service"
                        << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid << std::dec
                        << " from [incarnation:" << dbInfo.incarnationNo << ", status:"
-                       << OmExternalApi::printSvcStatus(dbInfo.svc_status) << "]"
+                       << OmExtUtilApi::printSvcStatus(dbInfo.svc_status) << "]"
                        << " to [incarnation:" << svcInfoPtr->incarnationNo << ", status:"
-                       << OmExternalApi::printSvcStatus(svcInfoPtr->svc_status) << "]";
+                       << OmExtUtilApi::printSvcStatus(svcInfoPtr->svc_status) << "]";
         } else {
             LOGNOTIFY << "!!ConfigDB updated map with new record:"
                        << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid << std::dec
-                       << " status:" << OmExternalApi::printSvcStatus(svcInfoPtr->svc_status);
+                       << " status:" << OmExtUtilApi::printSvcStatus(svcInfoPtr->svc_status);
         }
 
         /* Convert new registration request to existing registration request */
@@ -2656,6 +2667,7 @@ bool ConfigDB::changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr)
 
 bool ConfigDB::getSvcInfo(const fds_uint64_t svc_uuid, fpi::SvcInfo& svcInfo)
 {
+    LOGDEBUG << "!!ScopedRead svcMapLock";
     SCOPEDREAD(svcMapLock);
 
     bool result = false;
@@ -2699,6 +2711,7 @@ bool ConfigDB::getSvcInfo(const fds_uint64_t svc_uuid, fpi::SvcInfo& svcInfo)
 //
 fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
 {
+    LOGDEBUG << "!!ScopedRead svcMapLock";
     SCOPEDREAD(svcMapLock);
 
     fpi::ServiceStatus retStatus = fpi::SVC_STATUS_INVALID;
@@ -2727,7 +2740,7 @@ fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
 
             LOGDEBUG << "ConfigDB retrieved service status for service"
                      << " uuid: " << std::hex << svc_uuid << std::dec
-                     << " status: " << OmExternalApi::printSvcStatus(retStatus);
+                     << " status: " << OmExtUtilApi::printSvcStatus(retStatus);
         }
     }
     catch( const RedisException& e )
@@ -2741,6 +2754,7 @@ fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
 
 bool ConfigDB::isPresentInSvcMap( const int64_t svc_uuid )
 {
+    LOGDEBUG << "!!ScopedRead svcMapLock";
     SCOPEDREAD(svcMapLock);
 
     bool isPresent = false;
@@ -2786,6 +2800,7 @@ bool ConfigDB::isPresentInSvcMap( const int64_t svc_uuid )
 
 bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
 {
+    LOGDEBUG << "!!ScopedRead svcMapLock";
     SCOPEDREAD(svcMapLock);
 
     try 

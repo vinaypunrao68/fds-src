@@ -14,7 +14,7 @@
 #include <OmResources.h>
 #include <OmDataPlacement.h>
 #include <OmVolumePlacement.h>
-#include <omutils.h>
+#include <OmIntUtilApi.h>
 #include <fds_process.h>
 #include <net/net_utils.h>
 #include <net/SvcMgr.h>
@@ -744,8 +744,8 @@ NodeDomainFSM::DACT_WaitDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
         OM_Module *om     = OM_Module::om_singleton();
         ClusterMap *cm    = om->om_clusmap_mod();
 
-        bool smMigAbort =  OmExternalApi::getInstance()->isSMAbortAfterRestartTrue();
-        bool dmMigAbort =  OmExternalApi::getInstance()->isDMAbortAfterRestartTrue();
+        bool smMigAbort =  OmExtUtilApi::getInstance()->isSMAbortAfterRestartTrue();
+        bool dmMigAbort =  OmExtUtilApi::getInstance()->isDMAbortAfterRestartTrue();
 
         if ( smMigAbort ) {
             LOGDEBUG << "OM needs to send abortMigration to all SMs,"
@@ -1568,7 +1568,7 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                         }
                     } else {
                             LOGDEBUG << "Adding to the remove list";
-                            OmExternalApi::getInstance()->addToRemoveList(svc.svc_id.svc_uuid.svc_uuid, svc.svc_type);
+                            OmExtUtilApi::getInstance()->addToRemoveList(svc.svc_id.svc_uuid.svc_uuid, svc.svc_type);
                         }
                 }
             }
@@ -1626,14 +1626,14 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         // if it is. The unset flag will cause this NULL set of newDlt so prevent it.
         // At the end of error handling we will explicitly clear "next" version
         // and newDlt out as a part of clearSMAbortParams()
-        bool unsetTarget = !(OmExternalApi::getInstance()->isSMAbortAfterRestartTrue());
+        bool unsetTarget = !(OmExtUtilApi::getInstance()->isSMAbortAfterRestartTrue());
         bool committed = dp->commitDlt( unsetTarget );
 
         LOGNOTIFY << "OM deployed DLT with "
                   << deployed_sm_services.size() << " nodes, committedDlt? " << committed;
 
         // Same reasoning as above
-        unsetTarget = !(OmExternalApi::getInstance()->isDMAbortAfterRestartTrue());
+        unsetTarget = !(OmExtUtilApi::getInstance()->isDMAbortAfterRestartTrue());
         vp->commitDMT( unsetTarget );
 
         if ( isAnyNonePlatformSvcActive( &pmSvcs, &amSvcs, &smSvcs, &dmSvcs ) ) {
@@ -2415,7 +2415,7 @@ void OM_NodeDomainMod::handlePendingSvcRemoval(std::vector<fpi::SvcInfo> removed
                      << uuid.uuid_get_val() << std::dec
                      << " in configDB, skip processing of removed svc:"
                      << std::hex << svcId << std::dec;
-            OmExternalApi::getInstance()->clearFromRemoveList(svc.svc_id.svc_uuid.svc_uuid);
+            OmExtUtilApi::getInstance()->clearFromRemoveList(svc.svc_id.svc_uuid.svc_uuid);
             continue;
         }
 
@@ -3357,7 +3357,7 @@ OM_NodeDomainMod::removeNodeComplete(NodeUuid uuid) {
 
         configDB->deleteSvcMap(svcInfo);
 
-        OmExternalApi::getInstance()->clearFromRemoveList(uuid.uuid_get_val());
+        OmExtUtilApi::getInstance()->clearFromRemoveList(uuid.uuid_get_val());
     }
 }
 

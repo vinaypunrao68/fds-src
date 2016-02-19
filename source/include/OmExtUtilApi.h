@@ -2,8 +2,8 @@
  * Copyright 2015 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_INCLUDE_OMEXTERNALAPI_H_
-#define SOURCE_INCLUDE_OMEXTERNALAPI_H_
+#ifndef SOURCE_INCLUDE_OMEXTUTILAPI_H_
+#define SOURCE_INCLUDE_OMEXTUTILAPI_H_
 
 #include <vector>
 #include <utility>
@@ -15,14 +15,14 @@
 
 namespace fds
 {
-    class OmExternalApi
+    class OmExtUtilApi
     {
     public:
 
         /* Making this class a singleton for ease of access */
-        static OmExternalApi* getInstance();
+        static OmExtUtilApi* getInstance();
 
-        ~OmExternalApi() { };
+        ~OmExtUtilApi() { };
 
         /* Functions to keep track of removed nodes */
         void         addToRemoveList(int64_t uuid, fpi::FDSP_MgrIdType svc_type);
@@ -55,12 +55,12 @@ namespace fds
 
     private:
 
-        OmExternalApi();
+        OmExtUtilApi();
         // Stop compiler generating methods to copy the object
-        OmExternalApi(OmExternalApi const& copy);
-        OmExternalApi& operator=(OmExternalApi const& copy);
+        OmExtUtilApi(OmExtUtilApi const& copy);
+        OmExtUtilApi& operator=(OmExtUtilApi const& copy);
 
-        static OmExternalApi*   m_instance;
+        static OmExtUtilApi*   m_instance;
 
         /* Member to track removedNodes */
         std::vector<std::pair<int64_t, fpi::FDSP_MgrIdType>> removedNodes;
@@ -118,4 +118,4 @@ namespace fds
 
 } // namespace fds
 
-#endif  // SOURCE_INCLUDE_OMEXTERNALAPI_H_
+#endif  // SOURCE_INCLUDE_OMEXTUTILAPI_H_

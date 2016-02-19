@@ -19,7 +19,7 @@
 #include "kvstore/configdb.h"
 #include <net/SvcMgr.h>
 #include <ctime>
-#include <omutils.h>
+#include <OmIntUtilApi.h>
 #include <fdsp_utils.h>
 
 DECL_EXTERN_OUTPUT_FUNCS(GenericCommandMsg);

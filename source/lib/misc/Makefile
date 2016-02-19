@@ -29,7 +29,7 @@ user_cpp         :=      \
 	MigrationUtility.cpp \
 	fds_subscription.cpp \
 	fds_ldomain.cpp      \
-	OmExternalApi.cpp	 \
+	OmExtUtilApi.cpp	 \
 	BufferReplay.cpp
 
 user_incl_dir    := .. $(topdir)

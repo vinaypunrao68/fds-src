@@ -12,7 +12,7 @@
 #include <OmConstants.h>
 #include <OmAdminCtrl.h>
 #include <OmDeploy.h>
-#include <omutils.h>
+#include <OmIntUtilApi.h>
 #include <orchMgr.h>
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>

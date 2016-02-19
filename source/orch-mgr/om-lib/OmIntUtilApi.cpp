@@ -2,7 +2,7 @@
  * Copyright 2014 Formation Data Systems, Inc.
  */
 #include <string>
-#include <omutils.h>
+#include <OmIntUtilApi.h>
 #include <fds_uuid.h>
 #include <net/net_utils.h>
 #include <fdsp_utils.h>
@@ -13,6 +13,7 @@
 #include <OmResources.h>
 
 #include "net/SvcMgr.h"
+#include "OmExtUtilApi.h"
 
 namespace fds 
 {
@@ -29,7 +30,9 @@ namespace fds
     }
 
 
-
+    /***********************************************************************************
+     *                              Converter functions
+     ***********************************************************************************/
     
     fpi::FDSP_Node_Info_Type fromSvcInfo( const fpi::SvcInfo& svcinfo )
     {
@@ -77,7 +80,8 @@ namespace fds
         return nodeInfo;
     }
 
-    fpi::FDSP_NodeState fromServiceStatus(fpi::ServiceStatus svcStatus) {
+    fpi::FDSP_NodeState fromServiceStatus(fpi::ServiceStatus svcStatus)
+    {
         fpi::FDSP_NodeState retNodeState = fpi::FDS_Node_Down;
         switch ( svcStatus )
         {
@@ -107,17 +111,17 @@ namespace fds
         return retNodeState;
     }
 
+    /***********************************************************************************
+     * Utility functions related to service state change actions
+     ***********************************************************************************/
+
     // Usage: For functions related to add/remove/start/stop services
     // that require manipulation of passed in svcInfo vector depending
     //  on the current state of the system
-    void
-    updateSvcInfoList
-        (
-        std::vector<fpi::SvcInfo>& svcInfos,
-        bool smFlag,
-        bool dmFlag,
-        bool amFlag
-        )
+    void updateSvcInfoList ( std::vector<fpi::SvcInfo>& svcInfos,
+                             bool smFlag,
+                             bool dmFlag,
+                             bool amFlag )
     {
         LOGDEBUG << "Updating svcInfoList "
                  << " smFlag: " << smFlag
@@ -152,11 +156,8 @@ namespace fds
         }
     }
 
-    std::vector<fpi::SvcInfo>::iterator isServicePresent
-        (
-        std::vector<fpi::SvcInfo>& svcInfos,
-        FDS_ProtocolInterface::FDSP_MgrIdType svcType
-        )
+    SvcInfoIter isServicePresent( std::vector<fpi::SvcInfo>& svcInfos,
+                                  FDS_ProtocolInterface::FDSP_MgrIdType svcType )
     {
         std::vector<fpi::SvcInfo>::iterator iter;
         iter = std::find_if(svcInfos.begin(), svcInfos.end(),
@@ -168,10 +169,7 @@ namespace fds
 
     }
 
-    fpi::SvcInfo getNewSvcInfo
-        (
-        FDS_ProtocolInterface::FDSP_MgrIdType type
-        )
+    fpi::SvcInfo getNewSvcInfo( FDS_ProtocolInterface::FDSP_MgrIdType type )
     {
         LOGDEBUG << "Creating new SvcInfo of type:" << type;
         fpi::SvcInfo* info = new fpi::SvcInfo();
@@ -183,14 +181,12 @@ namespace fds
 
     }
 
-    void getServicesToStart
-        (
-        bool start_sm,
-        bool start_dm,
-        bool start_am,
-        kvstore::ConfigDB* configDB,
-        NodeUuid nodeUuid,
-        std::vector<fpi::SvcInfo>& svcInfoList)
+    void getServicesToStart( bool start_sm,
+                             bool start_dm,
+                             bool start_am,
+                             kvstore::ConfigDB* configDB,
+                             NodeUuid nodeUuid,
+                             std::vector<fpi::SvcInfo>& svcInfoList )
         {
             NodeServices services;
 
@@ -276,12 +272,9 @@ namespace fds
             }
         }
 
-    void retrieveSvcId
-        (
-        int64_t pmID,
-        fpi::SvcUuid& svcUuid,
-        FDS_ProtocolInterface::FDSP_MgrIdType svcType
-        )
+    void retrieveSvcId( int64_t pmID,
+                        fpi::SvcUuid& svcUuid,
+                        FDS_ProtocolInterface::FDSP_MgrIdType svcType )
     {
         switch (svcType)
         {
@@ -301,18 +294,24 @@ namespace fds
 
     }
 
-    void populateAndRemoveSvc(fpi::SvcUuid serviceTypeId,
-                              fpi::FDSP_MgrIdType type,
-                              std::vector<fpi::SvcInfo> svcInfos,
-                              kvstore::ConfigDB* configDB)
+    void populateAndRemoveSvc( fpi::SvcUuid serviceTypeId,
+                               fpi::FDSP_MgrIdType type,
+                               std::vector<fpi::SvcInfo> svcInfos,
+                               kvstore::ConfigDB* configDB )
     {
 
-        OmExternalApi::getInstance()->addToRemoveList(serviceTypeId.svc_uuid, type);
+        OmExtUtilApi::getInstance()->addToRemoveList(serviceTypeId.svc_uuid, type);
 
         updateSvcMaps( configDB,
                        serviceTypeId.svc_uuid,
                        fpi::SVC_STATUS_REMOVED);
     }
+
+
+
+    /***********************************************************************************
+     * Functions related to service state update handling
+     ***********************************************************************************/
 
     /*
          * Update the svcMap in both the configDB and svc layer
@@ -416,36 +415,37 @@ namespace fds
              * ========================================================
              * */
 
-            //+----------------+---------------------+--------------------------+------------------+-------------------------------------+
-            //| dbRecordFound  | svcLayerRecordFound | Incoming VS found Record |  Apply incoming? |              Action                 |
-            //+----------------+---------------------+--------------------------+------------------+-------------------------------------+
-            //     True        |       False         |   incoming >= current    |      Yes         | Update DB, svcLayer with incoming   |
-            //                 |                     |   incoming < current     |      No          | Only update svcLayer with DB record |
-            //                 |                     |   incoming = 0           |      Yes         | Update DB, svcLayer with incoming   |
-            //                 |                     |                          |                  | (after updating 0 incarnationNo)    |
-            //+----------------+---------------------+--------------------------+-------------------------------------+
-            //     False       |       True          |   incoming >= current    |      Yes         | Update svcLayer, DB with incoming   |
-            //                 |                     |   incoming < current     |      No          | Only update DB with svcLayer record |
-            //                 |                     |   incoming = 0           |      Yes         | Update svcLayer, DB with incoming   |
-            //                 |                     |                          |                  | (after updating 0 incarnationNo)    |
-            //+----------------+---------------------+--------------------------+-------------------------------------+
-            //     False       |       False         |   only incoming is valid |      Yes         | Check incoming incarnationNo, if    |
-            //                 |                                                |                  | 0, update, then update DB & svcLayer|
-            //+----------------+---------------------+--------------------------+-------------------------------------+
-            //     True        |       True          |   incoming >= svcLayer   |      Yes         | Update svcLayer, DB with incoming   |
-            //                 |                     |   svcLayer > configDB    |                  |
-            //                 |                     |                          |                  |
-            //                 |                     |   incoming < svcLayer    |      No          | DB has most current, update svcLayer|
-            //                 |                     |   svcLayer < configDB    |                  | with DB record, ignore incoming     |
-            //                 |                     |                          |                  |
-            //                 |                     |   incoming >= svcLayer   |      No          | DB has most current, update svcLayer|
-            //                 |                     |   svcLayer < configDB    |                  | with DB record, ignore incoming     |
-            //                 |                     |                          |                  |
-            //                 |                     |   incoming < svcLayer    |      No          | SvcLayer has most current, update DB|
-            //                 |                     |   svcLayer > configDB    |                  | with svcLyr record, ignore incoming |
-            //                 |                     |                          |                  |
-            //                 |                     |   incoming = 0           |      Yes         | Update svcLayer, DB with incoming   |
-            //+----------------+---------------------+--------------------------+------------------+-------------------------------------+
+            //+----------------+---------------------+--------------------------+------------------+---------------------------+
+            //| dbRecordFound  | svcLayer  | Incoming VS found Record |  Apply incoming? |              Action                 |
+            //|                |RecordFound|                          |                  |                                     |
+            //+----------------+-------------- -------+--------------------------+------------------+--------------------------+
+            //     True        |   False   |   incoming >= current    |      Yes         | Update DB, svcLayer with incoming   |
+            //                 |           |   incoming < current     |      No          | Only update svcLayer with DB record |
+            //                 |           |   incoming = 0           |      Yes         | Update DB, svcLayer with incoming   |
+            //                 |           |                          |                  | (after updating 0 incarnationNo)    |
+            //+----------------+-----------+--------------------------+-------------------------------------+
+            //     False       |   True    |   incoming >= current    |      Yes         | Update svcLayer, DB with incoming   |
+            //                 |           |   incoming < current     |      No          | Only update DB with svcLayer record |
+            //                 |           |   incoming = 0           |      Yes         | Update svcLayer, DB with incoming   |
+            //                 |           |                          |                  | (after updating 0 incarnationNo)    |
+            //+----------------+-----------+--------------------------+-------------------------------------+
+            //     False       |   False   |   only incoming is valid |      Yes         | Check incoming incarnationNo, if    |
+            //                 |           |                          |                  | 0, update, then update DB & svcLayer|
+            //+----------------+-----------+--------------------------+-------------------------------------+
+            //     True        |   True    |   incoming >= svcLayer   |      Yes         | Update svcLayer, DB with incoming   |
+            //                 |           |   svcLayer > configDB    |                  |
+            //                 |           |                          |                  |
+            //                 |           |   incoming < svcLayer    |      No          | DB has most current, update svcLayer|
+            //                 |           |   svcLayer < configDB    |                  | with DB record, ignore incoming     |
+            //                 |           |                          |                  |
+            //                 |           |   incoming >= svcLayer   |      No          | DB has most current, update svcLayer|
+            //                 |           |   svcLayer < configDB    |                  | with DB record, ignore incoming     |
+            //                 |           |                          |                  |
+            //                 |           |   incoming < svcLayer    |      No          | SvcLayer has most current, update DB|
+            //                 |           |   svcLayer > configDB    |                  | with svcLyr record, ignore incoming |
+            //                 |           |                          |                  |
+            //                 |           |   incoming = 0           |      Yes         | Update svcLayer, DB with incoming   |
+            //+----------------+-----------+--------------------------+------------------+-------------------------------------+
 
 
             if (!svcLayerRecordFound && !dbRecordFound)
@@ -462,7 +462,7 @@ namespace fds
             } else if ( !svcLayerRecordFound && dbRecordFound ) {
 
                 // DB has a record, check if it is more current than incoming
-                validUpdate = OmExternalApi::getInstance()->isIncomingUpdateValid(incomingSvcInfo, dbInfo);
+                validUpdate = OmExtUtilApi::getInstance()->isIncomingUpdateValid(incomingSvcInfo, dbInfo);
 
                 if (validUpdate)
                 {
@@ -487,7 +487,7 @@ namespace fds
             } else if ( svcLayerRecordFound && !dbRecordFound ) {
 
                 // Only svcLayer has a record, check if it is more current than incoming
-                validUpdate = OmExternalApi::getInstance()->isIncomingUpdateValid(incomingSvcInfo, svcLayerInfo);
+                validUpdate = OmExtUtilApi::getInstance()->isIncomingUpdateValid(incomingSvcInfo, svcLayerInfo);
 
                 if (validUpdate)
                 {
@@ -512,7 +512,7 @@ namespace fds
                 svcLayerInfoPtr = boost::make_shared<fpi::SvcInfo>(svcLayerInfo);
                 dbInfoPtr       = boost::make_shared<fpi::SvcInfo>(dbInfo);
 
-                validUpdate = OmExternalApi::getInstance()->isIncomingUpdateValid(incomingSvcInfo, svcLayerInfo);
+                validUpdate = OmExtUtilApi::getInstance()->isIncomingUpdateValid(incomingSvcInfo, svcLayerInfo);
                 bool dbHasOlderRecord = dbRecordNeedsUpdate(svcLayerInfo, dbInfo);
 
 
@@ -692,7 +692,7 @@ namespace fds
                     } else {
                         LOGNOTIFY << "!!ConfigDB already reflects desired state for svc:"
                                   << std::hex << svc_uuid << std::dec << " state:"
-                                  << OmExternalApi::printSvcStatus(initialDbStatus);
+                                  << OmExtUtilApi::printSvcStatus(initialDbStatus);
                     }
                 } else {
                     configDB->changeStateSvcMap( dbInfoPtr );
@@ -718,16 +718,17 @@ namespace fds
                 // either (1) newer info has a bigger incarnationNo or (2) both original and new
                 // have same incarnationNo but different statuses.
                 if ( initialSvcLayerInfo.svc_id.svc_uuid.svc_uuid != 0 &&
-                     ( svcLayerNewerInfo.incarnationNo > initialSvcLayerInfo.incarnationNo ||
-                       (svcLayerNewerInfo.incarnationNo ==  initialSvcLayerInfo.incarnationNo &&
-                        svcLayerNewerInfo.svc_status != initialSvcLayerInfo.svc_status) ) )
+                     svcLayerNewerInfo.svc_status != initialSvcLayerInfo.svc_status &&
+                     ( svcLayerNewerInfo.incarnationNo > svcLayerInfo.incarnationNo ||
+                       (svcLayerNewerInfo.incarnationNo ==  svcLayerInfo.incarnationNo &&
+                        svcLayerNewerInfo.svc_status != svcLayerInfo.svc_status) ) )
                 {
                     LOGNOTIFY << "!!Svc:" << std::hex << uuid.svc_uuid << std::dec
                               << " has already changed in service layer from [incarnation:"
                               << initialSvcLayerInfo.incarnationNo << ", status:"
-                              << OmExternalApi::printSvcStatus(initialSvcLayerInfo.svc_status)
+                              << OmExtUtilApi::printSvcStatus(initialSvcLayerInfo.svc_status)
                               << "] to [incarnation:" << svcLayerNewerInfo.incarnationNo << ", status:"
-                              << OmExternalApi::printSvcStatus(svcLayerNewerInfo.svc_status)
+                              << OmExtUtilApi::printSvcStatus(svcLayerNewerInfo.svc_status)
                               << "]. Initiating new update";
 
                     // Something has already changed in the svc layer, so the current update of
@@ -760,7 +761,7 @@ namespace fds
                 {
                     LOGNOTIFY << "!!SvcLayer already has the latest [incarnation:"
                               << svcLayerNewerInfo.incarnationNo << ", status:"
-                              << OmExternalApi::printSvcStatus(svcLayerNewerInfo.svc_status)
+                              << OmExtUtilApi::printSvcStatus(svcLayerNewerInfo.svc_status)
                               << "] for service:" << std::hex << uuid.svc_uuid << std::dec
                               << " , no need to update & broadcast";
 

@@ -1156,8 +1156,8 @@ DmtDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
 
         fds_uint64_t targetDmtVersion = vp->getTargetDMTVersion();
 
-        if ( OmExternalApi::getInstance()->isDMAbortAfterRestartTrue() ) {
-            targetDmtVersion = OmExternalApi::getInstance()->getDMTargetVersionForAbort();
+        if ( OmExtUtilApi::getInstance()->isDMAbortAfterRestartTrue() ) {
+            targetDmtVersion = OmExtUtilApi::getInstance()->getDMTargetVersionForAbort();
             LOGDEBUG << "Setting target DMT version for abort to:" << targetDmtVersion;
         }
 
@@ -1174,7 +1174,7 @@ DmtDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         // We prevented targetVersion in DMTmgr from being cleared out to enter this
         // error mode, checks in undoTarget will falsely assume the target has been committed
         // and take action. Target version will be explicitly cleared out in the end of error mode
-        if ( !OmExternalApi::getInstance()->isDMAbortAfterRestartTrue() ) {
+        if ( !OmExtUtilApi::getInstance()->isDMAbortAfterRestartTrue() ) {
             // Revert to previously committed DMT locally in OM
             am_dm_needs_dmt_rollback = vp->undoTargetDmtCommit();
         }
@@ -1240,10 +1240,10 @@ DmtDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     ClusterMap* cm = om->om_clusmap_mod();
     cm->ongoingMigrationDMs.clear();
 
-    if ( OmExternalApi::getInstance()->isDMAbortAfterRestartTrue() ) {
+    if ( OmExtUtilApi::getInstance()->isDMAbortAfterRestartTrue() ) {
         vp->clearTargetDmt();
 
-        OmExternalApi::getInstance()->clearDMAbortParams();
+        OmExtUtilApi::getInstance()->clearDMAbortParams();
     }
 
     if (vp->canRetryMigration()) {

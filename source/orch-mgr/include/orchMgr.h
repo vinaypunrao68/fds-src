@@ -17,7 +17,7 @@
 #include <fds_typedefs.h>
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
-#include <omutils.h>
+#include <OmIntUtilApi.h>
 #include <OmVolume.h>
 #include <OMMonitorWellKnownPMs.h>
 #include <OmVolPolicy.hpp>
