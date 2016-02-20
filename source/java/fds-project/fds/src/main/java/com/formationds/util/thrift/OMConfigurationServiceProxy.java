@@ -6,6 +6,8 @@ package com.formationds.util.thrift;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.VolumeSettings;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.security.AuthenticationToken;
 import org.apache.log4j.Logger;
@@ -254,8 +256,9 @@ public class OMConfigurationServiceProxy implements InvocationHandler {
             } else {
                 getRestClient().deleteVolume(token, domain, name);
             }
+        } catch (OMConfigE
         } catch (TException te) {
-            throw new OMConfigException("Failed to load volume id for volume=" + name);
+            throw new OMConfigException( ErrorCode.MISSING_RESOURCE, "Failed to load volume id for volume=" + name);
         } finally {
             if (logger.isTraceEnabled()) {
                 logger.trace(String.format( "CONFIGPROXY::HTTP::%-9s %s(%s)",

@@ -10,6 +10,7 @@ import com.formationds.client.v08.model.QosPolicy;
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.AuthenticatedUser;
 import com.formationds.commons.model.helper.ObjectModelHelper;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.security.AuthenticationToken;
 import com.google.common.base.Preconditions;
 import com.google.gson.reflect.TypeToken;
@@ -18,11 +19,15 @@ import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.WebResource;
 import com.sun.jersey.api.client.config.DefaultClientConfig;
 import com.sun.jersey.api.uri.UriBuilderImpl;
+
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.crypto.SecretKey;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+
 import java.lang.reflect.Type;
 import java.net.URI;
 import java.util.List;
@@ -258,18 +263,26 @@ public class OMConfigServiceRestClientv08Impl implements OMConfigServiceClient {
         return null;
     }
 
-    private void isOk( final ClientResponse response )
-        throws OMConfigException {
-        if( !response.getClientResponseStatus()
-                     .equals( ClientResponse.Status.OK ) ) {
+    private void isOk( final ClientResponse response ) throws OMConfigException {
 
-            logger.error( "ISOK::RESPONSE::{}", response );
+        String json = response.getEntity( String.class );
+        logger.debug( "ISOK::RESPONSE::{}::{}", response.getStatusInfo(), json );
 
-            throw new OMConfigException( response.toString() );
+        if( response.getStatusInfo().getStatusCode() != Response.Status.OK.getStatusCode() ) {
 
-        } else {
+            logger.error( "ISOK::RESPONSE::FAILED::{}::{} ", response, json );
 
-            logger.debug( "ISOK::RESPONSE::{}", response );
+            JSONObject respObj = new JSONObject(json);
+            String type = respObj.getString( "type" );
+            String message = respObj.getString( "message" );
+            ErrorCode errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
+
+            if ( type.endsWith("ApiException") ) {
+                String respErrorCode = respObj.getString( "error_code" );
+                errorCode = ErrorCode.valueOf( respErrorCode );
+            }
+            throw new OMConfigException( errorCode, "%s: %s", response.getStatusInfo(), message );
+
         }
     }
 

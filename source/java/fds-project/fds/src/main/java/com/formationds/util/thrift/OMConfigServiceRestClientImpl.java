@@ -14,6 +14,7 @@ import com.formationds.commons.model.builder.ConnectorBuilder;
 import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.ConnectorType;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.util.SizeUnit;
 import com.google.common.base.Preconditions;
@@ -171,7 +172,7 @@ public class OMConfigServiceRestClientImpl implements OMConfigServiceClient {
                                           .build();
                 break;
             default:
-                throw new OMConfigException(
+                throw new OMConfigException( ErrorCode.BAD_REQUEST,
                     "The specified volume type " +
                     volumeSettings.getVolumeType().getValue() +
                     " is invalid." );
@@ -287,7 +288,7 @@ public class OMConfigServiceRestClientImpl implements OMConfigServiceClient {
 
             logger.error( "ISOK::RESPONSE::{}", response );
 
-            throw new OMConfigException( response.toString() );
+            throw new OMConfigException( ErrorCode.INTERNAL_SERVER_ERROR, response.toString() );
 
         } else {
 
