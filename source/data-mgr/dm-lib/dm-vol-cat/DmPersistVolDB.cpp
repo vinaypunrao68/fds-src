@@ -716,6 +716,91 @@ Error DmPersistVolDB::deleteBlobMetaDesc(const std::string & blobName) {
     return catalog_->Update(&batch);
 }
 
+bool DmPersistVolDB::volSummaryInitialized() {
+    return volSummary_.initialized;
+}
+
+Error DmPersistVolDB::initVolSummary(fds_uint64_t logicalSize,
+                                     fds_uint64_t blobCount,
+                                     fds_uint64_t logicalObjectCount) {
+    Error err{ERR_OK};
+
+    synchronized(lockVolSummary_) {
+        if (!volSummary_.initialized) {
+            volSummary_.size = logicalSize;
+            volSummary_.blobCount = blobCount;
+            volSummary_.objectCount = logicalObjectCount;
+            volSummary_.initialized = true;
+        } else {
+            err = ERR_DUPLICATE;  // Someone already initialized and we're attempting another initialization.
+        }
+    }
+
+    return err;
+}
+
+Error DmPersistVolDB::applyStatDeltas(const fds_uint64_t bytesAdded,
+                                      const fds_uint64_t bytesRemoved,
+                                      const fds_uint64_t blobsAdded,
+                                      const fds_uint64_t blobsRemoved,
+                                      const fds_uint64_t objectsAdded,
+                                      const fds_uint64_t objectsRemoved) {
+    Error err{ERR_OK};
+
+    synchronized(lockVolSummary_) {
+        if (!volSummary_.initialized) {
+            err = ERR_NOT_READY;
+        } else {
+            if (bytesAdded >= bytesRemoved) {
+                volSummary_.size += (bytesAdded - bytesRemoved);
+            } else {
+                volSummary_.size -= (bytesRemoved - bytesAdded);
+            }
+
+            if (blobsAdded >= blobsRemoved) {
+                volSummary_.blobCount += (blobsAdded - blobsRemoved);
+            } else {
+                volSummary_.blobCount -= (blobsRemoved - blobsAdded);
+            }
+
+            if (objectsAdded >= objectsRemoved) {
+                volSummary_.objectCount += (objectsAdded - objectsRemoved);
+            } else {
+                volSummary_.objectCount -= (objectsRemoved - objectsAdded);
+            }
+        }
+    }
+
+    return err;
+}
+
+void DmPersistVolDB::resetVolSummary() {
+    synchronized(lockVolSummary_) {
+        volSummary_.size = 0;
+        volSummary_.blobCount = 0;
+        volSummary_.objectCount = 0;
+        volSummary_.initialized = false;
+    }
+}
+
+Error DmPersistVolDB::getVolSummary(fds_uint64_t* logicalSize,
+                                    fds_uint64_t* blobCount,
+                                    fds_uint64_t* logicalObjectCount) {
+    Error err{ERR_OK};
+
+    synchronized(lockVolSummary_) {
+        if (!volSummary_.initialized) {
+            err = ERR_NOT_READY;
+        } else {
+            *logicalSize = volSummary_.size;
+            *blobCount = volSummary_.blobCount;
+            *logicalObjectCount = volSummary_.objectCount;
+        }
+    }
+
+    return err;
+}
+
 Error DmPersistVolDB::getInMemorySnapshot(Catalog::MemSnap& snap) {
     catalog_->GetSnapshot(snap);
     snapshotCount.fetch_add(1, std::memory_order_relaxed);
