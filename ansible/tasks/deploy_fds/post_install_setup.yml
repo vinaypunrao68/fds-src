@@ -41,6 +41,7 @@
         group=root
 
 -   name:  Check existance of virtual disk for core file storage
+    when: fds_ft_platform_use_new_superblock is defined and fds_ft_platform_use_new_superblock == "true"
     stat: path=/fds/var/log/sfs/loopmount_sparse_file_system_for_core_files
     register: loopfs
 
@@ -56,11 +57,15 @@
 
 -   name: Format cores sparse file system
     shell: mkfs.xfs -f /fds/var/log/sfs/loopmount_sparse_file_system_for_core_files
-    when: created_sparse.changed == True
+    when: created_sparse.changed == True and
+          fds_ft_platform_use_new_superblock is defined and
+          fds_ft_platform_use_new_superblock == "true"
 
 -   name: add fstab entry and mount cores sparse file system
     mount: name=/fds/var/log/corefiles src=/fds/var/log/sfs/loopmount_sparse_file_system_for_core_files state=mounted fstype=xfs opts=loop
-    when: created_sparse.changed == True
+    when: created_sparse.changed == True and
+          fds_ft_platform_use_new_superblock is defined and
+          fds_ft_platform_use_new_superblock == "true"
 
 -   name: set local for error messages
     command: update-locale LC_MESSAGES=POSIX
