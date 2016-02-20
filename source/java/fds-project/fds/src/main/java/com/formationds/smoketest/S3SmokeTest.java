@@ -11,11 +11,12 @@ import com.formationds.apis.MediaPolicy;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.commons.Fds;
 import com.formationds.commons.util.Uris;
-import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
 import com.formationds.protocol.svc.types.Snapshot;
 import com.formationds.util.RngFactory;
 import com.formationds.util.s3.auth.S3SignatureGeneratorV2;
 import com.formationds.xdi.XdiClientFactory;
+import com.formationds.xdi.s3.S3Failure;
+
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
@@ -177,6 +178,18 @@ public class S3SmokeTest {
         try {
             Thread.sleep(ms);
         } catch (java.lang.InterruptedException e) {
+        }
+    }
+
+    @Test
+    public void testCreateExistingBucket() {
+        try {
+            userClient.createBucket( userBucket );
+            fail("Expected bucket creation to fail.  Bucket already exists");
+        } catch (Exception e) {
+            assertTrue( e instanceof AmazonS3Exception );
+            AmazonS3Exception ase = (AmazonS3Exception)e;
+            assertEquals( S3Failure.ErrorCode.BucketAlreadyExists.name(), ase.getErrorCode() );
         }
     }
 
