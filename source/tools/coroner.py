@@ -11,7 +11,7 @@
 # and SHOULD provide a warning when enabled that requires acknowledgement
 #
 # TODO:
-# - Need a disk space check before gathering data - if < 5G or so of free 
+# - Need a disk space check before gathering data - if < 5G or so of free
 #   space in the destination disk we shouldn't proceed or we should not
 #   collect large artifacts (binaries, cores).
 
@@ -93,7 +93,7 @@ class FDSCoroner(object):
         self.make_dir(directory)
         return directory
 
-    def collect_dir(self, directory, path):
+    def collect_dir(self, directory, path, excludesList=None):
         """This method allows collection of a particular directory and all
            of its contents as a tarball"""
         mydir = self.prep_data_dir(directory)
@@ -102,9 +102,16 @@ class FDSCoroner(object):
             path = path.rstrip('/')
             basename = os.path.basename(path)
             path_base = os.path.dirname(path)
+
             logging.info("Collecting %s" % path)
+            # If you change this command, fix the insert below so it is always before the "-chzf" entry
             cmd = ["/bin/tar", "-C", path_base, "-chzf",
                    mydir + '/' + basename + '.tar.gz', basename]
+
+            if excludesList is not None:
+                for item in excludesList:
+                    cmd.insert (3, "--exclude=\"" + item + "\"")
+
             subprocess.call(cmd)
 
     def collect_paths(self, directory, paths):
@@ -213,7 +220,11 @@ def run_collect(opts):
         bodybag.collect_dir(directory="fds", path=bodybag.fdsroot + '/sbin')
 
     bodybag.collect_dir(directory="fds", path=bodybag.fdsroot + '/etc')
-    bodybag.collect_dir(directory="fds", path=bodybag.fdsroot + '/var')
+
+    # The excludes are relative to the FDS root
+    excludes=['var/log/sfs', 'var/log/sfs/*', 'var/log/corefiles', 'var/log/corefiles/*']
+
+    bodybag.collect_dir(directory="fds", path=bodybag.fdsroot + '/var', excludesList=excludes)
     bodybag.collect_paths(
         directory="fds",
         paths=[ bodybag.fdsroot + '/dev/disk-map',
@@ -234,7 +245,7 @@ def run_collect(opts):
     bodybag.collect_cmd(command='/bin/netstat -ni', name='netstat_interfaces')
     bodybag.collect_cmd(command='/bin/netstat -ns', name='netstat_stats')
     bodybag.collect_cmd(command='/sbin/fdisk -l', name='fdisk_list')
-    bodybag.collect_cmd(command='/bin/ls -l /corefiles', name='ls_corefiles')
+    bodybag.collect_cmd(command='/bin/ls -l %s/var/log/corefiles' % bodybag.fdsroot, name='ls_corefiles')
     if not opts['buildermode']:
         bodybag.collect_cmd(
             command='/opt/fds-deps/embedded/sbin/parted --list --script',
@@ -252,13 +263,13 @@ def run_collect(opts):
         )
     # Collect cores from all possible locations
     corepaths = [
-       '/corefiles/*',
+       '%s/var/log/corefiles/*' % bodybag.fdsroot,
        '%s/var/cores/*' % bodybag.fdsroot,
        '%s/bin/*core*' % bodybag.fdsroot,
        '%s/bin/*.hprof' % bodybag.fdsroot,
        '%s/bin/*hs_err_pid*.log' % bodybag.fdsroot,
-       '%s/var/logs/*.hprof' % bodybag.fdsroot,
-       '%s/var/logs/*hs_err_pid*.log' % bodybag.fdsroot
+       '%s/var/log/*.hprof' % bodybag.fdsroot,
+       '%s/var/log/*hs_err_pid*.log' % bodybag.fdsroot
     ]
     bodybag.collect_cores(corepaths)
     if opts['collect_dirs'] is not None:
