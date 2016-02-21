@@ -23,7 +23,19 @@ public:
     void init(int argc, char **argv, bool initAsModule);
     int run() override;
 
+    // Gets DMT/DLT and updates D{M/L}TMgr because we don't do mod_enable_services
+    Error getDMT();
+    Error getDLT();
+
 private:
+    // Local cached copy of dmt mgr pointer
+    DMTManagerPtr dmtMgr;
+
+    // Local cached copy of dlt manager
+    DLTManagerPtr dltMgr;
+
+    // Max retires for get - TODO needs to be organized later
+    int maxRetries = 10;
 };
 
 } // namespace fds

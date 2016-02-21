@@ -33,19 +33,7 @@ TEST_F(VolumeGroupFixture, singledm) {
     ASSERT_TRUE(waiter.awaitResult() != ERR_OK);
 
     /* Add DMT */
-    std::string dmtData;
-    dmt = DMT::newDMT({
-                      dmGroup[0]->proc->getSvcMgr()->getSelfSvcUuid(),
-                      });
-    dmt->getSerialized(dmtData);
-    Error e = amHandle.proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
-                                                                            nullptr,
-                                                                            DMT_COMMITTED);
-    ASSERT_TRUE(e == ERR_OK);
-    e = dmGroup[0]->proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
-                                                                         nullptr,
-                                                                         DMT_COMMITTED);
-    ASSERT_TRUE(e == ERR_OK);
+    addDMT();
 
     /* Open without volume being add to DM.  Open should fail */
     openVolume(*v1, waiter);
@@ -56,7 +44,7 @@ TEST_F(VolumeGroupFixture, singledm) {
     omHandle.proc->addVolume(v1Id, v1Desc);
 
     /* Add volume to DM */
-    e = dmGroup[0]->proc->getDataMgr()->addVolume("test1", v1Id, v1Desc.get());
+    Error e = dmGroup[0]->proc->getDataMgr()->addVolume("test1", v1Id, v1Desc.get());
     ASSERT_TRUE(e == ERR_OK);
     ASSERT_TRUE(dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Offline);
     /* Any IO should fail */

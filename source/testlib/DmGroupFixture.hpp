@@ -124,6 +124,22 @@ struct DmGroupFixture : BaseTestFixture {
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
     }
 
+    void addDMT() {
+        std::string dmtData;
+        dmt = DMT::newDMT({
+                  dmGroup[0]->proc->getSvcMgr()->getSelfSvcUuid(),
+                  });
+        dmt->getSerialized(dmtData);
+        Error e = amHandle.proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
+                                                                                nullptr,
+                                                                                DMT_COMMITTED);
+        ASSERT_TRUE(e == ERR_OK);
+        e = dmGroup[0]->proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
+                                                                             nullptr,
+                                                                             DMT_COMMITTED);
+        ASSERT_TRUE(e == ERR_OK);
+    }
+
     SHPTR<VolumeDesc> generateVolume(const fds_volid_t &volId) {
         std::string name = "test" + std::to_string(volId.get());
 

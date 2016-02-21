@@ -36,11 +36,31 @@ VolumeChecker::init(int argc, char **argv, bool initAsModule)
                      svc_handler,
                      svc_processor);
 
+    dmtMgr = MODULEPROVIDER()->getSvcMgr()->getDmtManager();
+    dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
+
+}
+
+Error
+VolumeChecker::getDMT()
+{
+    return (MODULEPROVIDER()->getSvcMgr()->getDMT(maxRetries));
+}
+
+Error
+VolumeChecker::getDLT()
+{
+    return (MODULEPROVIDER()->getSvcMgr()->getDLT(maxRetries));
 }
 
 int
 VolumeChecker::run() {
     LOGNORMAL << "Running volume checker";
+
+    // First pull the DMT and DLT from OM
+    getDMT();
+    getDLT();
+
     readyWaiter.done();
     // shutdownGate_.waitUntilOpened();
     LOGNORMAL << "Shutting down volume checker";
