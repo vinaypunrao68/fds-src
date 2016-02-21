@@ -1,19 +1,18 @@
-package com.formationds.am;
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+package com.formationds.am;
 
 import com.formationds.apis.ConfigurationService;
 import com.formationds.commons.libconfig.Assignment;
 import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.nfs.*;
+import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
 import com.formationds.util.ServerPortFinder;
 import com.formationds.util.thrift.ConfigurationApi;
-import com.formationds.util.thrift.OMConfigServiceClient;
-import com.formationds.util.thrift.OMConfigServiceRestClientImpl;
 import com.formationds.util.thrift.OMConfigurationServiceProxy;
 import com.formationds.web.toolkit.HttpConfiguration;
 import com.formationds.web.toolkit.HttpsConfiguration;
@@ -111,8 +110,6 @@ public class Main {
         LOG.debug("PM port " + pmPort +
                 " my port " + amResponsePort);
 
-        XdiClientFactory clientFactory = new XdiClientFactory();
-
         String amHost = platformConfig.defaultString("fds.xdi.am_host", "localhost");
         boolean useFakeAm = platformConfig.defaultBoolean( "fds.am.memory_backend", false );
 
@@ -147,32 +144,18 @@ public class Main {
                           .retryOn( TTransportException.class )
                           .retryOn( ConnectException.class );
 
-        final CompletableFuture<OMConfigServiceClient> restCompletableFuture =
-            asyncRetryExecutor.getWithRetry(
-                ( ) -> {
-                    return new OMConfigServiceRestClientImpl( secretKey,
-                                                              "http",
-                                                              omHost,
-                                                              omHttpPort );
-                } );
-
-        final OMConfigServiceClient omConfigServiceRestClient = restCompletableFuture.get( );
-        if( omConfigServiceRestClient == null )
-        {
-            throw new RuntimeException( "Failed to connect to service proxy " +
-                                        omHost + ":" + omConfigPort );
-        }
-
         LOG.debug( "Attempting to connect to configuration API, on " +
                    omHost + ":" + omHttpPort + "." );
         final CompletableFuture<ConfigurationApi> cfgApicompletableFuture =
             asyncRetryExecutor.getWithRetry(
                 ( ) -> {
-                    return OMConfigurationServiceProxy.newOMConfigProxy(
-                                   omConfigServiceRestClient,
-                                   clientFactory.remoteOmService( omHost,
-                                                                  omConfigPort ) );
+                    return OMConfigurationServiceProxy.newOMConfigProxy( secretKey,
+                                                                         "http",
+                                                                         omHost,
+                                                                         omHttpPort,
+                                                                         omConfigPort );
                 } );
+
         final ConfigurationApi omCachedConfigProxy = cfgApicompletableFuture.get();
         if( omCachedConfigProxy == null )
         {
@@ -194,6 +177,12 @@ public class Main {
             throw new RuntimeException( "Failed to populate XDI config cache" );
         }
 
+        // initialize darth vader.  Note that this is kinda circular and sucks!
+        // The v08 OM Rest Client uses the ExternalModelConverter, which accesses
+        // the config API through this singleton, but it ultimately references back
+        // to to OMConfigurationServiceProxy.
+        SingletonConfigAPI.instance().api( configCache );
+        
         // TODO: make cache update check configurable.
         // The config cache has been modified so that it captures all events that come through
         // the XDI apis.  However, it does not capture events that go direct through the
