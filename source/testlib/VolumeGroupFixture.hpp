@@ -15,7 +15,8 @@ struct VolumeGroupFixture : DmGroupFixture {
     void initVolumeChecker()
     {
         auto roots = getRootDirectories();
-        vcHandle.start({"vcm",
+        // As volume checker, we init as an AM
+        vcHandle.start({"am",
                        roots[0],
                        "--fds.pm.platform_uuid=2059",
                        "--fds.pm.platform_port=9861"

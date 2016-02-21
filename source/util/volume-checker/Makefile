@@ -4,7 +4,9 @@ user_rtime_env    := user
 speedup           = -j $(threads)
 user_build_dir    := vclib
 
-user_incl_dir     := include
+user_incl_dir     := include \
+                     ../../testlib
+
 
 user_fds_ar_libs  :=  \
     fds-svc-request \
@@ -15,6 +17,7 @@ user_fds_ar_libs  :=  \
     fds-hash \
     fds-thread \
     fds-osdep \
+    fds-test \
     fds-volume-checker
 
 user_non_fds_libs :=  \
@@ -34,7 +37,7 @@ user_non_fds_libs :=  \
     rt \
     fiu \
     dl \
-    tcmalloc
+    jemalloc
 
 user_cc           :=
 user_cpp          := $(wildcard *.cpp)

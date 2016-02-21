@@ -10,9 +10,13 @@ namespace fds {
 
 VolumeChecker::VolumeChecker(int argc, char **argv, bool initAsModule)
 {
-    vcVec[0] = nullptr;
-    vcVec[1] = nullptr;
+    init(argc, argv, initAsModule);
+    LOGNORMAL << "VolumeChecker initialized.";
+}
 
+void
+VolumeChecker::init(int argc, char **argv, bool initAsModule)
+{
     /**
      * Initialize VC service
      */
@@ -22,14 +26,25 @@ VolumeChecker::VolumeChecker(int argc, char **argv, bool initAsModule)
     /**
      * Init service process
      */
-    init(argc,
-         argv,
-         "platform.conf",
-         "fds.vc",
-         "vc.log",
-         vcVec,
-         svc_handler,
-         svc_processor);
+    SvcProcess::init(argc,
+                     argv,
+                     initAsModule,
+                     "platform.conf",
+                     "fds.vc",
+                     "vc.log",
+                     nullptr,
+                     svc_handler,
+                     svc_processor);
+
+}
+
+int
+VolumeChecker::run() {
+    LOGNORMAL << "Running volume checker";
+    readyWaiter.done();
+    // shutdownGate_.waitUntilOpened();
+    LOGNORMAL << "Shutting down volume checker";
+    return 0;
 }
 
 } // namespace fds

@@ -8,6 +8,7 @@ include "svc_api.thrift"
 include "svc_types.thrift"
 
 namespace cpp FDS_ProtocolInterface
+namespace java com.formationds.protocol.dm
 
 /**
  * VC Service.  Only put sync rpc calls in here.  Async RPC calls use

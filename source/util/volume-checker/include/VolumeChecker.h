@@ -5,9 +5,14 @@
 #ifndef SOURCE_UTIL_VOLUMECHECKER_INCLUDE_VOLUMECHECKER_H
 #define SOURCE_UTIL_VOLUMECHECKER_INCLUDE_VOLUMECHECKER_H
 
-#include <fds_process.h>
+#include <boost/shared_ptr.hpp>
+#include <fdsp/svc_api_types.h>
 #include <net/SvcMgr.h>
 #include <net/SvcProcess.h>
+#include <net/PlatNetSvcHandler.h>
+#include <net/SvcRequestPool.h>
+#include <net/SvcProcess.h>
+#include <fdsp_utils.h>
 
 namespace fds {
 
@@ -15,15 +20,10 @@ class VolumeChecker : public SvcProcess {
 public:
     explicit VolumeChecker(int argc, char **argv, bool initAsModule);
     ~VolumeChecker() = default;
-    int run() override {
-        LOGNORMAL << "Running volume checker";
-        return 0;
-    }
+    void init(int argc, char **argv, bool initAsModule);
+    int run() override;
 
 private:
-//    std::unique_ptr<AccessMgr> am;
-
-    fds::Module *vcVec[2];
 };
 
 } // namespace fds

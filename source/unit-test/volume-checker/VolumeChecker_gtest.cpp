@@ -27,6 +27,7 @@ using namespace fds::TestUtils;
  * 3. Run Volume checker on volume, should return consistent result.
  */
 TEST_F(VolumeGroupFixture, twoHappyDMs) {
+    LOGNORMAL << "Starting twoHappyDMs";
 
     // Create 2 DMs
     createCluster(2);
@@ -45,7 +46,7 @@ TEST_F(VolumeGroupFixture, twoHappyDMs) {
 
     // TODO(Neil) - implement volume checker phase 1 and run it here.
     initVolumeChecker();
-
+    LOGNORMAL << "Finished twoHappyDMs";
 }
 
 int main(int argc, char* argv[]) {

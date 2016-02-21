@@ -4,6 +4,7 @@
 #include <string>
 #include <fdsp/svc_types_types.h>
 #include <boost/filesystem.hpp>
+#include <util/stringutils.h>
 #include <TestUtils.h>
 
 namespace fds { namespace TestUtils {
@@ -43,6 +44,16 @@ bool findFdsSrcPath(std::string &fdsSrcPath)
         p = p.parent_path();
     }
     return false;
+}
+
+void populateRootDirectories(std::vector<std::string> &roots, int numOfNodes)
+{
+    std::string homedir = boost::filesystem::path(getenv("HOME")).string();
+    std::string baseDir =  homedir + "/temp";
+
+    for (int i = 1; i <= numOfNodes; i++) {
+        roots.push_back(util::strformat("--fds-root=%s/node%d", baseDir.c_str(), i));
+    }
 }
 
 }  // namespace TestUtils
