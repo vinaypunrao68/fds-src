@@ -78,7 +78,7 @@ public class QueryMetrics implements RequestHandler, QueryHandler {
             }
             else {
             
-            	stats = new QueryHelper().execute( ObjectModelHelper.toObject( reader, TYPE ), authorizer, token );
+            	stats = QueryHelper.instance().execute( ObjectModelHelper.toObject( reader, TYPE ), authorizer, token );
             }
             
             return new JsonResource( new JSONObject( stats ) );

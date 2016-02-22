@@ -51,7 +51,7 @@ public class QueryMetrics
     try( final Reader reader =
            new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
 
-      final Statistics stats = new QueryHelper().execute( ObjectModelHelper.toObject( reader, TYPE ),
+      final Statistics stats = QueryHelper.instance().execute( ObjectModelHelper.toObject( reader, TYPE ),
                                                     authorizer,
                                                     token );
 

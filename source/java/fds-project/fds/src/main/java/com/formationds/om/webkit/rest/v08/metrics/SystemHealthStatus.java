@@ -312,7 +312,7 @@ public class SystemHealthStatus implements RequestHandler {
 //        final List<IVolumeDatapoint> queryResults = (List<IVolumeDatapoint>) metricsRepository.query( query );
 
         // has some helper functions we can use for calculations
-        QueryHelper qh = new QueryHelper();
+        QueryHelper qh = QueryHelper.instance();
 
         /*
          * NOTE!!
