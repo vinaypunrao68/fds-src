@@ -183,7 +183,7 @@ class TestCreateVolClone(TestCase.FDSTestCase):
         assert timeline is not None
         create_fdsConf_file(om_node.nd_conf_dict['ip'])
         cmd = 'fds volume clone -name {0} -volume_id {1} -time {2}'.format(self.passedClone_name,passed_volume.id, timeline)
-        status = local(cmd)
+        status = local(cmd, capture=False)
         time.sleep(3) #let clone volume creation propogate
         cloned_volume = vol_service.find_volume_by_name(self.passedClone_name)
 

@@ -11,6 +11,7 @@ import logging.handlers
 import errno
 
 from optparse import OptionParser
+
 if sys.version_info[0] < 3:
     import ConfigParser as configparser
 else:
@@ -34,15 +35,16 @@ import fnmatch
 import fabric
 import fabric.network
 import subprocess
-
+from fabric.api import local
 
 # Assumes tests run from /source/test/testsuites
-RELPATH_TEMPLATES="../testsuites/templates/"
-RELPATH_DEVROOT="../../../"
-TESTSUITES_INVENTORY="%sansible-inventory/" % RELPATH_TEMPLATES
-DEFAULT_INVENTORY="%sansible/inventory/" % RELPATH_DEVROOT
+RELPATH_TEMPLATES = "../testsuites/templates/"
+RELPATH_DEVROOT = "../../../"
+TESTSUITES_INVENTORY = "%sansible-inventory/" % RELPATH_TEMPLATES
+DEFAULT_INVENTORY = "%sansible/inventory/" % RELPATH_DEVROOT
 
-def _setup_logging(log_name, dir, log_level, max_bytes=100*1024*1024, rollover_count=5):
+
+def _setup_logging(log_name, dir, log_level, max_bytes=100 * 1024 * 1024, rollover_count=5):
     # Set up the core logging engine
     log = logging.getLogger()
     log.setLevel(log_level)
@@ -63,8 +65,8 @@ def _setup_logging(log_name, dir, log_level, max_bytes=100*1024*1024, rollover_c
     log_file = os.path.join(dir, log_name)
 
     if not os.access(dir, os.W_OK):
-       log.warning("There is no write access to the specified log "
-                         "directory %s  No log file will be created." %dir)
+        log.warning("There is no write access to the specified log "
+                    "directory %s  No log file will be created." % dir)
     else:
         log_handle = None
         try:
@@ -88,6 +90,7 @@ def _setup_logging(log_name, dir, log_level, max_bytes=100*1024*1024, rollover_c
 
     return log
 
+
 def get_options(pyUnit):
     parser = OptionParser()
     parser.prog = sys.argv[0].split("/")[-1]
@@ -101,58 +104,59 @@ def get_options(pyUnit):
     # FDS: Changed to option i/ini_file from c/config to prevent clashing with PyUnit's c/catch option.
     parser.add_option("-q", "--qat-file", action="store", type="string",
                       dest="config", help="The file containing the test harness "
-                      "configuration information. (qaautotest's .ini file.)")
+                                          "configuration information. (qaautotest's .ini file.)")
     parser.add_option("-s", "--src-dir", action="store", type="string",
                       dest="test_source_dir", help="The path to the directory "
-                      "in which the tests may be found.")
+                                                   "in which the tests may be found.")
     parser.add_option("-b", "--build", action="store", type="string",
                       dest="build", default="Unspecified", help="The build "
-                      "number of the code under test.")
-    #FDS: Option -l used to have default='.' but this overrode configuration .ini settings.
+                                                                "number of the code under test.")
+    # FDS: Option -l used to have default='.' but this overrode configuration .ini settings.
     parser.add_option("-l", "--log-dir", action="store", type="string",
                       dest="log_dir", help="The directory in "
-                      "which the log file should be located.  If unspecified, "
-                      "the current directory will be used.")
+                                           "which the log file should be located.  If unspecified, "
+                                           "the current directory will be used.")
     parser.add_option("--level", action="store", type="string",
                       dest="log_level", help="The log level for the harness "
-                      "logger, e.g. logging.DEBUG, 20, etc.")
+                                             "logger, e.g. logging.DEBUG, 20, etc.")
     parser.add_option("--threads", action="store", type="int",
                       default=1, dest="threads", help="If unset, the tests "
-                      "will be run serially, i.e. in a single-threaded mode.  "
-                      "To run tests in parallel, set the number of threads to "
-                      "use.  Each test case will be run in its own thread.")
+                                                      "will be run serially, i.e. in a single-threaded mode.  "
+                                                      "To run tests in parallel, set the number of threads to "
+                                                      "use.  Each test case will be run in its own thread.")
     parser.add_option("--iterations", action="store", type="int",
                       dest="iterations", help="If unset, the specified tests "
-                      "will be run once.  Otherwise, the tests are repeated "
-                      "the specified number of iterations.  Enter -1 for "
-                      "infinite.")
+                                              "will be run once.  Otherwise, the tests are repeated "
+                                              "the specified number of iterations.  Enter -1 for "
+                                              "infinite.")
     parser.add_option("--stop-on-fail", action="store_true",
                       dest="stop_on_fail", help="If set, the harness will stop "
-                      "immediately if a test run fails.")
+                                                "immediately if a test run fails.")
     parser.add_option("--run-as-root", action="store_true",
                       dest="run_as_root", help="If set, the test cases will "
-                      "all be run as the root user.")
+                                               "all be run as the root user.")
     parser.add_option("--store", action="store_true",
                       dest="store_to_database", help="If set, the results of "
-                      "the test run will be archived in the test database.")
+                                                     "the test run will be archived in the test database.")
     # FDS: Add a couple of FDS-specific options.
-    parser.add_option('-v', '--verbose', action = 'store_true', dest = 'verbose',
-                      help = 'enable verbosity')
-    parser.add_option('-y', '--reusecluster', action = 'store_true', dest = 'reusecluster',
-                      help = 'Dont deploy or teardown domain, use existing nodes and then clean them instead of uninstalling')
-    parser.add_option('-r', '--dryrun', action = 'store_true', dest = 'dryrun',
-                      help = 'dry run, print commands only')
-    parser.add_option('-i', '--install', action = 'store_true', dest = 'install',
-                      help = 'perform an install from an FDS package as opposed '
-                                              'to a development environment')
-    parser.add_option('-d', '--sudo-password', action = 'store', dest = 'sudo_password',
-                      help = 'When the node is localhost, use this password for sudo access to the configured user. ')
+    parser.add_option('-v', '--verbose', action='store_true', dest='verbose',
+                      help='enable verbosity')
+    parser.add_option('-y', '--reusecluster', action='store_true', dest='reusecluster',
+                      help='Dont deploy or teardown domain, use existing nodes and then clean them instead of uninstalling')
+    parser.add_option('-r', '--dryrun', action='store_true', dest='dryrun',
+                      help='dry run, print commands only')
+    parser.add_option('-i', '--install', action='store_true', dest='install',
+                      help='perform an install from an FDS package as opposed '
+                           'to a development environment')
+    parser.add_option('-d', '--sudo-password', action='store', dest='sudo_password',
+                      help='When the node is localhost, use this password for sudo access to the configured user. ')
 
-    parser.add_option("-z","--inventory-file", action="store", type="string", dest = 'inventory_file',
-                      help = 'If given , will over ride ip addresses in cfg file with inventory ips')
+    parser.add_option("-z", "--inventory-file", action="store", type="string", dest='inventory_file',
+                      help='If given , will over ride ip addresses in cfg file with inventory ips')
 
     validate_cli_options(parser, pyUnit)
     return parser
+
 
 def validate_cli_options(parser, pyUnit):
     (options, args) = parser.parse_args()
@@ -167,11 +171,13 @@ def validate_cli_options(parser, pyUnit):
                      "enter the date, e.g. 2010-09-17.")
     try:
         if int(options.iterations) == -1:
-            options.iterations = pow(2, 24) # infinite enough
+            options.iterations = pow(2, 24)  # infinite enough
     except (ValueError, TypeError):
         pass
 
-def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUnitDryrun = False, pyUnitInstall = False, pyUnitSudoPw = None, pyUnitInventory = None, pyUnitReuseCluster = False):
+
+def get_config(pyUnit=False, pyUnitConfig=None, pyUnitVerbose=False, pyUnitDryrun=False, pyUnitInstall=False,
+               pyUnitSudoPw=None, pyUnitInventory=None, pyUnitReuseCluster=False):
     """ Configuration can be gathered from one of two sources: 1) a
     configuration .ini file and/or 2) the command line.  Configuration settings
     will first be imported from the file, if the option has been specified.
@@ -193,8 +199,8 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
 
     # In the event we try to log messages before we've set up logging...
     logging.basicConfig(level=logging.ERROR,
-                format='%(asctime)s (%(thread)d) %(name)-24s %(levelname)-8s %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S')
+                        format='%(asctime)s (%(thread)d) %(name)-24s %(levelname)-8s %(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S')
 
     # Initialize variables.
     # Import all options passed in at the command line.
@@ -228,7 +234,7 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     if options.config != None:
         if not os.path.exists(options.config):
             print("The qaautotest configuration .ini file specified doesn't exist: %s"
-                  %options.config)
+                  % options.config)
             sys.exit(1)
         config = configparser.SafeConfigParser()
         try:
@@ -236,11 +242,11 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
         except configparser.MissingSectionHeaderError:
             print("The configuration file %s is not in the expected "
                   "format.  It contains no section headers."
-                  %options.config)
+                  % options.config)
             sys.exit(1)
         try:
             print("Importing configuration settings from file: %s"
-                  %options.config)
+                  % options.config)
             for item in config.items("harness"):
                 params[item[0]] = item[1].split()[0]
         except configparser.NoSectionError:
@@ -279,7 +285,7 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
                 elif params[key][0] != '/':
                     params[key] = os.path.abspath(params[key])
 
-                #params[key] = os.path.abspath(value)
+                    # params[key] = os.path.abspath(value)
 
     # Ensure the number of iterations is valid
     try:
@@ -360,7 +366,7 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
                 params["inventory_file"] = "generic-lxc-nodes"
             else:
                 params["inventory_file"] = pyUnitInventory
-        setattr(options,"inventory_file", params["inventory_file"])
+        setattr(options, "inventory_file", params["inventory_file"])
     else:
         setattr(options, "inventory_file", "generic-lxc-nodes")
 
@@ -373,7 +379,7 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
     # FDS: We must have an FDS config file specified in the qaautotest .ini file for the suite.
     if params["fds_config_file"] is None:
         print("You need to pass item fds_config_file in your qaautotest test suite .ini file: %s"
-                  %options.config)
+              % options.config)
         sys.exit(1)
     setattr(options, "config_file", params["fds_config_file"])
 
@@ -406,6 +412,7 @@ def get_config(pyUnit = False, pyUnitConfig = None, pyUnitVerbose = False, pyUni
 
     return params
 
+
 def findNodeFromInv(node_inventory, target):
     '''
     Looks for target in node_inventory and returns the target object.
@@ -426,6 +433,7 @@ def findNodeFromInv(node_inventory, target):
     # else return None for debugging purposes
     return "None"
 
+
 def check_localhost(ip):
     ipad = socket.gethostbyname(ip)
     if ipad.count('.') == 4:
@@ -438,44 +446,46 @@ def check_localhost(ip):
     else:
         return False
 
+
 def create_fdsConf_file(om_ip):
     fileName = os.path.join(os.path.expanduser("~"), ".fdscli.conf")
     file = open(fileName, "w")
-    writeString = '[toggles]\ncommand_history=true\n[connection]\nhostname='+om_ip+'\nusername=admin\npassword=admin\nport=7777\n'
+    writeString = '[toggles]\ncommand_history=true\n[connection]\nhostname=' + om_ip + '\nusername=admin\npassword=admin\nport=7777\n'
     file.write(writeString)
     file.close()
 
+
 def convertor(volume, fdscfg):
     new_volume = Volume()
-    new_volume.name=volume.nd_conf_dict['vol-name']
-    new_volume.id=volume.nd_conf_dict['id']
+    new_volume.name = volume.nd_conf_dict['vol-name']
+    new_volume.id = volume.nd_conf_dict['id']
 
     if 'media' not in volume.nd_conf_dict:
         media = 'hdd'
     else:
         media = volume.nd_conf_dict['media']
-    new_volume.media_policy =media.upper()
+    new_volume.media_policy = media.upper()
 
     if 'access' not in volume.nd_conf_dict or volume.nd_conf_dict['access'] == 'object':
-        #set default volume settings to ObjectSettings
+        # set default volume settings to ObjectSettings
         access = ObjectSettings()
     else:
-        #if its a block then set the size in BlockSettings
+        # if its a block then set the size in BlockSettings
         access = volume.nd_conf_dict['access']
         if access == 'block':
             if 'size' not in volume.nd_conf_dict:
                 raise Exception('Volume section %s must have "size" keyword.' % volume.nd_conf_dict['vol-name'])
             access = BlockSettings()
-            access.capacity = Size( size = volume.nd_conf_dict['size'], unit = 'B')
+            access.capacity = Size(size=volume.nd_conf_dict['size'], unit='B')
         elif access == 'nfs':
             if 'size' not in volume.nd_conf_dict:
                 raise Exception('Volume section %s must have "size" keyword.' % volume.nd_conf_dict['vol-name'])
             access = NfsSettings()
-            access.max_object_size = Size( size = volume.nd_conf_dict['size'], unit = 'B')
+            access.max_object_size = Size(size=volume.nd_conf_dict['size'], unit='B')
 
     new_volume.settings = access
     if 'policy' in volume.nd_conf_dict:
-        #Set QOS policy which is defined is volume definition.
+        # Set QOS policy which is defined is volume definition.
         new_volume.qos_policy = get_volume_policy(volume.nd_conf_dict['policy'], fdscfg)
 
     return new_volume
@@ -524,9 +534,10 @@ def get_inventory_value(inventory_file, key_name, log):
     return result
 
 
-def get_volume_service(self,om_ip):
+def get_volume_service(self, om_ip):
     getAuth(self, om_ip)
     return VolumeService(self.__om_auth)
+
 
 def get_volume_policy(policy_id, fdscfg):
     qos_policy = QosPolicy()
@@ -548,13 +559,16 @@ def get_volume_policy(policy_id, fdscfg):
 
     return qos_policy
 
+
 def get_node_service(self, om_ip):
-    getAuth(self,om_ip)
+    getAuth(self, om_ip)
     return NodeService(self.__om_auth)
 
+
 def get_localDomain_service(self, om_ip):
-    getAuth(self,om_ip)
+    getAuth(self, om_ip)
     return LocalDomainService(self.__om_auth)
+
 
 def getAuth(self, om_ip):
     create_fdsConf_file(om_ip)
@@ -564,26 +578,27 @@ def getAuth(self, om_ip):
     retryCount = 0
     maxRetries = 20
     while retryCount < maxRetries:
-      retryCount += 1
-      try:
-        self.__om_auth.login()
-        break
+        retryCount += 1
+        try:
+            self.__om_auth.login()
+            break
 
-      except Exception as e:
-        if retryCount < maxRetries:
-          retryTime = 1 + ( (retryCount - 1) * 0.5 )
-          time.sleep(retryTime)
-        else:
-          raise FdsAuthError(message="Login unsuccessful, OM is down or unreachable.", error_code=404)
+        except Exception as e:
+            if retryCount < maxRetries:
+                retryTime = 1 + ((retryCount - 1) * 0.5)
+                time.sleep(retryTime)
+            else:
+                raise FdsAuthError(message="Login unsuccessful, OM is down or unreachable.", error_code=404)
 
-        continue
+            continue
+
 
 def read_ips_from_tmp(inventory_file_name):
-    filepath = '/tmp/'+inventory_file_name+'_ips.txt'
+    filepath = '/tmp/' + inventory_file_name + '_ips.txt'
     f = open(filepath, "r")
     contents = f.readlines()
     f.close()
-    contents[0]=contents[0].replace('OM_HOST','')
+    contents[0] = contents[0].replace('OM_HOST', '')
     ips_array = []
 
     for i in contents:
@@ -591,13 +606,15 @@ def read_ips_from_tmp(inventory_file_name):
 
     return ips_array
 
-def node_is_up(self,om_ip,node_id):
-    node_service = get_node_service(self,om_ip)
+
+def node_is_up(self, om_ip, node_id):
+    node_service = get_node_service(self, om_ip)
     node = node_service.get_node(node_id)
     if node.state == 'UP':
         return True
     else:
         return False
+
 
 def deploy_on_AWS(self, number_of_nodes, inventory_file):
     deploy_script = 'deploy_fds_ec2.sh'
@@ -605,42 +622,45 @@ def deploy_on_AWS(self, number_of_nodes, inventory_file):
     deploy_script_dir = os.path.join(self.rt_env.env_fdsSrc, '../ansible/scripts/')
     cur_dir = os.getcwd()
     os.chdir(deploy_script_dir)
-    cmd = './%s %s %s %s' %(deploy_script,inventory_file, number_of_nodes, deb_location)
+    cmd = './%s %s %s %s' % (deploy_script, inventory_file, number_of_nodes, deb_location)
     status = os.system(cmd)
     os.chdir(cur_dir)
     if status != 0:
         self.log.error("FDS package installation on AWS nodes returned status %d." %
-                           (status))
+                       (status))
         return False
 
     return True
 
+
 # This method searches coredumps in deployed AWS enviorment.
-def core_hunter_aws(self,node_ip):
+def core_hunter_aws(self, node_ip):
     connect_fabric(self, node_ip)
     if exists('/fds/bin', use_sudo=True):
-        for dir in {'/fds/bin','/fds/var/log/corefiles'}:
+        for dir in {'/fds/bin', '/fds/var/log/corefiles'}:
             with cd(dir):
                 files = run('ls').split()
                 for file in files:
-                    if fnmatch.fnmatch(file, "*.core") or fnmatch.fnmatch(file, "*.hprof") or fnmatch.fnmatch(file,"*hs_err_pid*.log"):
+                    if fnmatch.fnmatch(file, "*.core") or fnmatch.fnmatch(file, "*.hprof") or fnmatch.fnmatch(file,
+                                                                                                              "*hs_err_pid*.log"):
                         fabric.state.connections[node_ip].get_transport().close()
-                        self.log.error("Core file %s detected at node %s:%s"%(file,node_ip,dir))
+                        self.log.error("Core file %s detected at node %s:%s" % (file, node_ip, dir))
                         return 0
     disconnect_fabric()
     return 1
 
+
 # Returns a path to the named resource. Does not validate that the resource exists.
 def get_resource(self, resource):
-
     fdscfg = self.parameters["fdscfg"]
     resourceDir = fdscfg.rt_env.get_fds_source() + "test/testsuites/resources/"
 
     self.log.debug("Retrieving resource {}.".format(resourceDir + resource))
 
     return resourceDir + resource
-    
-def connect_fabric(self,node_ip):
+
+
+def connect_fabric(self, node_ip):
     """Specify connection info at runtime
 
     Fabric is a library of subroutines to make executing shell commands over SSH
@@ -652,8 +672,8 @@ def connect_fabric(self,node_ip):
     node_ip : str
     """
     # 'env' is a global dictionary-like object driving many of Fabric's settings.
-    env.user = get_inventory_value(self.parameters['inventory_file'],'fds_ssh_user', self.log)
-    env.password = get_inventory_value(self.parameters['inventory_file'],'fds_ssh_password', self.log)
+    env.user = get_inventory_value(self.parameters['inventory_file'], 'fds_ssh_user', self.log)
+    env.password = get_inventory_value(self.parameters['inventory_file'], 'fds_ssh_password', self.log)
     # 'host_string' defines the current user/host/port which Fabric will connect
     # to when executing run, put, and so forth.
     env.host_string = node_ip
@@ -670,7 +690,7 @@ def connect_fabric(self,node_ip):
             sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
             return True
 
-    self.log.error('Node %s unreachable after 10 mins retry time'%node_ip)
+    self.log.error('Node %s unreachable after 10 mins retry time' % node_ip)
     return False
 
 
@@ -754,18 +774,20 @@ def remove_file(qualified_file_name=default_generated_file):
         if e.errno != errno.ENOENT:
             raise
 
+
 # If disk used is more than passed thresh hold
 # then returns false or else returns true.
 #
-#@param thresh_hold to compare disk used
+# @param thresh_hold to compare disk used
 def verify_disk_free(self, thresh_hold):
-    free_disk = subprocess.Popen(["df", '/'], stdout=subprocess.PIPE)
-    output = free_disk.communicate()[0]
-    device_name, size, used_disk, available_disk, used_percent, mountpoint = output.split("\n")[1].split()
-    df = int(used_percent.replace('%',''))
+    stdout = local("df", capture=True)
+    lines = stdout.split('\n')
+    df = int(lines[1].split()[4].replace('%', ''))
+    device_name = lines[1].split()[0]
+
     if df > thresh_hold:
-        self.log.error('{0} is {1} full'.format(device_name,used_percent))
+        self.log.error('FAILED: Maximum disk usage should be {0}%. {1} is {2}% full. '.format(thresh_hold, device_name, df))
         return False
     else:
-        self.log.info('disk is not full. It is {0}% full'.format(df))
+        self.log.info('OK: {0} is only {1}% used.'.format(device_name, df))
         return True
