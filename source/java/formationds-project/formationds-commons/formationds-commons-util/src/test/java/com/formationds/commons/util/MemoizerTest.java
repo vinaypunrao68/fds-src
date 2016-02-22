@@ -130,6 +130,7 @@ public class MemoizerTest {
     }
 
     @Test
+    @Ignore
     public void testMemoizeSupplierOfUExpiration() throws Exception {
         Supplier<Integer> msup = Memoizer.memoize( Duration.ofMillis( 100 ), incrementingSupplier );
 
