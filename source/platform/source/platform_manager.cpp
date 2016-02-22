@@ -726,11 +726,16 @@ namespace fds
 
             if (rc < 0)
             {
-                LOGWARN << "Error sending signal (SIGTERM) to " << procName << "(pid = " << pid << ") errno = " << errno;
+                LOGWARN << "Error sending signal (SIGTERM) to " << procName << "(pid = " << pid << ") errno = " << errno << ". Following with a SIGKILL";
+                int rc = kill (pid, SIGKILL);
+                if (rc < 0)
+                {
+                    LOGERROR << "Error sending signal (SIGKILL) to process" << pid << "; errno = " << errno;
+                }
             }
 
             // Wait to shutdown the process; if we fail here, place pid on the killed processes list, so the monitor thread can wait on its exit
-            if (false == waitPid (pid, PROCESS_STOP_WAIT_PID_SLEEP_TIMER_NANOSECONDS))
+            if (!orphanChildProcess && false == waitPid (pid, PROCESS_STOP_WAIT_PID_SLEEP_TIMER_NANOSECONDS))
             {
                 std::lock_guard <decltype (m_killedProcessesMutex)> lock (m_killedProcessesMutex);
                 m_killedProcesses.push_back (pid);
