@@ -39,13 +39,18 @@ public class ThriftClientConnectionFactory<T>
     }
 
     private final Function<TProtocol, T> makeClient;
+    private final String thriftServiceName;
 
     /**
      * Create connection factory for synchronous connections
      * @param makeClient
+     * @param thriftServiceName When not empty string, creates client stub using
+     *   a TMultiplexedProtocol. Otherwise, uses TBinaryProtocol.
      */
-    public ThriftClientConnectionFactory( Function<TProtocol, T> makeClient ) {
+    public ThriftClientConnectionFactory( Function<TProtocol, T> makeClient,
+                                          String thriftServiceName ) {
         this.makeClient = makeClient;
+        this.thriftServiceName = thriftServiceName;
     }
 
     @Override
@@ -57,7 +62,13 @@ public class ThriftClientConnectionFactory<T>
         } catch (TTransportException e) {
             throw new RuntimeException(e);
         }
-        T client = makeClient.apply(new TBinaryProtocol(transport));
+        T client;
+        if ( this.thriftServiceName.equals("") ) {
+            client = makeClient.apply(new TBinaryProtocol(transport));
+        } else {
+            // Conditionally create server.client using multiplexed protocol
+            client = makeClient.apply(new TMultiplexedProtocol(new TBinaryProtocol(transport), this.thriftServiceName));
+        }
         ThriftClientConnection<T> connection =  new ThriftClientConnection<>(transport, client);
         return new DefaultPooledObject<>(connection);
     }

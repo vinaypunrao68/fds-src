@@ -1,6 +1,9 @@
 package com.formationds.sc;
 
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
+
 import com.formationds.apis.ConfigurationService;
+import com.formationds.protocol.commonConstants;
 import com.formationds.protocol.am.AMSvc;
 import com.formationds.protocol.om.OMSvc;
 import com.formationds.protocol.svc.PlatNetSvc;
@@ -21,13 +24,30 @@ public class ClientFactory {
     private final Lazy<ThriftClientFactory<AMSvc.Iface>> amSvcBuilder;
 
     public ClientFactory() {
-        omBuilder = new Lazy<>(() -> makeClientFactory(OMSvc.Iface.class, OMSvc.Client::new));
-        netSvcBuilder = new Lazy<>(() -> makeClientFactory(PlatNetSvc.Iface.class, PlatNetSvc.Client::new));
-        configSvcBuilder = new Lazy<>(() -> makeClientFactory(ConfigurationService.Iface.class, ConfigurationService.Client::new));
-        amSvcBuilder = new Lazy<>(() -> makeClientFactory(AMSvc.Iface.class, AMSvc.Client::new));
+        omBuilder = new Lazy<>(() -> makeClientFactory(OMSvc.Iface.class,
+            commonConstants.OM_SERVICE_NAME,
+            OMSvc.Client::new));
+        netSvcBuilder = new Lazy<>(() -> makeClientFactory(PlatNetSvc.Iface.class,
+            commonConstants.PLATNET_SERVICE_NAME,
+            PlatNetSvc.Client::new));
+        configSvcBuilder = new Lazy<>(() -> makeClientFactory(ConfigurationService.Iface.class,
+            commonConstants.CONFIGURATION_SERVICE_NAME,
+            ConfigurationService.Client::new));
+        amSvcBuilder = new Lazy<>(() -> makeClientFactory(AMSvc.Iface.class,
+            commonConstants.AM_SERVICE_NAME,
+            AMSvc.Client::new));
     }
 
-    private <T> ThriftClientFactory<T> makeClientFactory(Class<T> klass, Function<TProtocol, T> clientFactory) {
+    private <T> ThriftClientFactory<T> makeClientFactory(Class<T> klass, String thriftServiceName, Function<TProtocol, T> clientFactory) {
+        if ( FdsFeatureToggles.SUBSCRIPTIONS.isActive() ) {
+            // Always assume multiplexed server, use a ThriftServiceName
+            return new ThriftClientFactory.Builder<T>(klass)
+                    .withClientFactory(clientFactory)
+                    .withThriftServiceName(thriftServiceName)
+                    .withPoolConfig(CONN_MIN, CONN_MAX, EVICTION_MS)
+                    .build();
+        }
+        // TBinaryProtocol, no ThriftServiceName needed
         return new ThriftClientFactory.Builder<T>(klass)
                 .withClientFactory(clientFactory)
                 .withPoolConfig(CONN_MIN, CONN_MAX, EVICTION_MS)

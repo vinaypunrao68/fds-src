@@ -34,6 +34,7 @@ public class ThriftClientFactory<IF> {
 
     public static class Builder<IF> {
         String defaultHost;
+        String thriftServiceName;
         Integer defaultPort;
         int maxPoolSize = DEFAULT_MAX_POOL_SIZE;
         int minIdle = DEFAULT_MIN_IDLE;
@@ -44,11 +45,22 @@ public class ThriftClientFactory<IF> {
 
         public Builder( Class<IF> ifaceClass ) {
             this.ifaceClass = ifaceClass;
+            this.thriftServiceName = "";
         }
 
         public Builder<IF> withHostPort( String host, Integer port ) {
             defaultHost = host;
             defaultPort = port;
+            return this;
+        }
+
+        /**
+         * When the service for the client stub is multiplexed, Thrift service
+         * name is required to construct the multiplexed protocol. To create a
+         * non-multiplexed client, use empty string ("").
+         */
+        public Builder<IF> withThriftServiceName( String thriftServiceName ) {
+            this.thriftServiceName = thriftServiceName;
             return this;
         }
 
@@ -87,9 +99,10 @@ public class ThriftClientFactory<IF> {
 
             return new ThriftClientFactory<IF>( ifaceClass,
                                                 defaultHost,
-                                               defaultPort,
-                                               config,
-                                               clientFactory);
+                                                defaultPort,
+                                                config,
+                                                thriftServiceName,
+                                                clientFactory);
 
         }
     }
@@ -121,7 +134,7 @@ public class ThriftClientFactory<IF> {
          */
          static <T> T buildRemoteProxy( Class<T> klass,
                                         KeyedObjectPool<ConnectionSpecification,
-                                                        ThriftClientConnection<T>> pool,
+                                        ThriftClientConnection<T>> pool,
                                         String host,
                                         int port)
          {
@@ -244,15 +257,16 @@ public class ThriftClientFactory<IF> {
      * @param clientFactory
      */
     private ThriftClientFactory(Class<IF> ifaceClass,
-                                  String defaultHost,
-                                  Integer defaultPort,
-                                  GenericKeyedObjectPoolConfig config,
+                                String defaultHost,
+                                Integer defaultPort,
+                                GenericKeyedObjectPoolConfig config,
+                                String thriftServiceName,
                                 Function<TProtocol, IF> clientFactory ) {
         this.defaultHost = defaultHost;
         this.defaultPort = defaultPort;
         this.config = config;
 
-        ThriftClientConnectionFactory<IF> csFactory = new ThriftClientConnectionFactory<>(clientFactory);
+        ThriftClientConnectionFactory<IF> csFactory = new ThriftClientConnectionFactory<>(clientFactory, thriftServiceName);
         clientPool = new GenericKeyedObjectPool<>(csFactory, config);
 
         this.ifaceClass = ifaceClass;

@@ -12,7 +12,6 @@ import com.formationds.protocol.svc.PlatNetSvc.Client;
 import com.formationds.protocol.svc.PlatNetSvc.Client.Factory;
 import com.formationds.protocol.svc.PlatNetSvc.Iface;
 import com.formationds.protocol.svc.PlatNetSvc.Processor;
-import com.formationds.util.thrift.ThriftClientFactory;
 import com.google.common.base.Preconditions;
 import org.apache.thrift.TBaseProcessor;
 import org.apache.thrift.TServiceClient;
@@ -295,45 +294,5 @@ public class ThriftServiceDescriptor<T,
             asyncServiceClientFactory = newAsyncClientFactory();
         }
         return ( tt ) -> (AIF) asyncServiceClientFactory.getAsyncClient( tt );
-    }
-
-    /**
-     * Build a new thrift client factory for the service interface connecting to the specified host and port
-     *
-     * @param host the thrift server host
-     * @param port the thrift server port
-     *
-     * @return the new ThriftClientFactory
-     */
-    public ThriftClientFactory<IF> newThriftClientFactory( String host,
-                                                           Integer port ) {
-        return new ThriftClientFactory.Builder<>( extractIface() )
-                   .withHostPort( host, port )
-                   .withClientFactory( getClientFactory() )
-                   .build();
-    }
-
-    /**
-     *
-     * Build a new thrift client factory for the service interface connecting to the specified host and port
-     *
-     * @param host the thrift server host
-     * @param port the thrift server port
-     * @param maxPoolSize the maximum pool size for the client pool
-     * @param minIdle the minimum idle connections to keep in the pool
-     * @param softMinEvictionIdleTimeMillis the minimum idle eviction time
-     *
-     * @return the new ThriftClientFactory
-     */
-    public ThriftClientFactory<IF> newThriftClientFactory( String host,
-                                                           Integer port,
-                                                           int maxPoolSize,
-                                                           int minIdle,
-                                                           int softMinEvictionIdleTimeMillis ) {
-        return new ThriftClientFactory.Builder<>( extractIface() )
-                   .withHostPort( host, port )
-                   .withPoolConfig( maxPoolSize, minIdle, softMinEvictionIdleTimeMillis )
-                   .withClientFactory( getClientFactory() )
-                   .build();
     }
 }

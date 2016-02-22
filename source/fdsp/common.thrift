@@ -23,6 +23,7 @@ const i32 STAT_STREAM_RUN_FOR_EVER_DURATION = -1
  * Thrift service names used with multiplexed processor
  */
 const string AM_SERVICE_NAME            = "AMSvc"
+const string ASYNC_XDI_SERVICE_REQUEST_SERVICE_NAME = "AsyncXdiServiceRequest"
 const string CONFIGURATION_SERVICE_NAME = "ConfigurationService"
 const string DM_SERVICE_NAME            = "DMSvc"
 const string OM_SERVICE_NAME            = "OMSvc"

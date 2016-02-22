@@ -15,8 +15,11 @@ import org.apache.thrift.TException;
 
 public class OmSvcHandler extends PlatNetSvcHandlerBase<OMSvc.Iface> implements OMSvc.Iface {
 
-    public OmSvcHandler( String host, int port ) {
-        this( PlatNetSvcHandlerBase.newClientFactory( OMSvc.Iface.class, OMSvc.Client::new, host, port ) );
+    /**
+     * @param thriftServiceName empty string if non-multiplexed server, otherwise a Thrift service name 
+     */
+    public OmSvcHandler( String host, int port, String thriftServiceName ) {
+        this( PlatNetSvcHandlerBase.newClientFactory( OMSvc.Iface.class, OMSvc.Client::new, thriftServiceName, host, port ) );
     }
 
     protected OmSvcHandler( ThriftClientFactory<OMSvc.Iface> factory ) {
