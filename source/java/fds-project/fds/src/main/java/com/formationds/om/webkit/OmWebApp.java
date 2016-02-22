@@ -18,6 +18,8 @@ import javax.servlet.ServletResponse;
 import javax.servlet.annotation.WebFilter;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.eclipse.jetty.server.HttpConnection;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Response;
@@ -25,6 +27,7 @@ import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.json.JSONObject;
 
 import com.formationds.apis.ConfigurationService;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.web.toolkit.Dispatcher;
 import com.formationds.web.toolkit.JsonResource;
@@ -38,8 +41,11 @@ public class OmWebApp extends WebApp {
     @WebFilter("/fds/config/v08/*")
     public static class DomainStatusFilter implements Filter {
 
+        private static final Logger logger = LogManager.getLogger( DomainStatusFilter.class );
+
         public static final List<String> allowedPaths = Arrays.asList( "/fds/config/v08/token",
-                                                                       "/fds/config/v08/local_domain" );
+                                                                       "/fds/config/v08/local_domain",
+                                                                       "/fds/config/v08/nodes" );
         private FilterConfig filterConfig;
         private ConfigurationService.Iface configSvc;
 
@@ -66,6 +72,11 @@ public class OmWebApp extends WebApp {
         public void doFilter( ServletRequest request, ServletResponse response, FilterChain chain ) throws IOException,
                                                                                                     ServletException {
 
+            if ( ! FdsFeatureToggles.ENABLE_DOMAIN_WEB_FILTER.isActive() ) {
+                chain.doFilter( request, response );
+                return;
+            }
+
             Request base_request = request instanceof Request ? (Request) request
                                                               : HttpConnection.getCurrentConnection().getHttpChannel()
                                                                               .getRequest();
@@ -74,7 +85,10 @@ public class OmWebApp extends WebApp {
                                                                                   .getHttpChannel().getResponse();
 
             // allow local_domain requests to go through
-            if ( isAllowed( base_request.getRequestURI() ) ) {
+            String requestURI = base_request.getRequestURI();
+            if ( isAllowed( requestURI ) ) {
+                logger.trace( "DOMAIN_CHECK::ALLOWED::{}", requestURI );
+
                 chain.doFilter( request, response );
                 return;
             }
@@ -85,14 +99,18 @@ public class OmWebApp extends WebApp {
             try {
                 shortCircuitRequest = !configSvc.isLocalDomainUp();
             } catch ( Exception e ) {
-
+                // most certainly a Thrift connection exception of some kind.
+                logger.trace( "DOMAIN_CHECK::FAILED::{}", e.getMessage() );
+                throw new ServletException("Failed to access configuration service", e);
             }
 
             if ( shortCircuitRequest ) {
+                logger.trace( "DOMAIN_CHECK::DOWN::Filter request: {}", requestURI );
                 Resource r = new JsonResource( new JSONObject().put( "message", "Local domain is down" ),
                                                HttpServletResponse.SC_INTERNAL_SERVER_ERROR );
                 Dispatcher.sendResponse( base_response, r );
             } else {
+                logger.trace( "DOMAIN_CHECK::UP::Allowing request: {}", requestURI );
                 chain.doFilter( request, response );
             }
         }

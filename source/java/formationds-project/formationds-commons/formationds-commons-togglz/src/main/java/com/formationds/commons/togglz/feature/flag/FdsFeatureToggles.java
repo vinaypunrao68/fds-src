@@ -52,7 +52,10 @@ public enum FdsFeatureToggles implements Feature {
     INFLUX_QUERY_SERIES_PER_VOLUME( "fds.feature_toggle.om.enable_influxdb_query_series_per_volume" ),
 
     @Label( "If enabled, use a shared QueryHelper instance that caches results." )
-    USE_SHARED_QUERY_HELPER( "fds.feature_toggle.om.use_shared_queryhelper" );
+    USE_SHARED_QUERY_HELPER( "fds.feature_toggle.om.use_shared_queryhelper" ),
+
+    @Label( "If enabled, use a web filter that checks the domain is up before contacting config service." )
+    ENABLE_DOMAIN_WEB_FILTER( "fds.feature_toggle.om.enable_domain_web_filter" );
 
     /**
      * @return Returns {@code true} if the feature associated with {@code this}
