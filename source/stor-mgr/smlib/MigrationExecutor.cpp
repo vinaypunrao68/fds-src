@@ -952,7 +952,7 @@ MigrationExecutor::finishResyncResp(EPSvcRequest* req,
                                     const Error& error,
                                     boost::shared_ptr<std::string> payload)
 {
-    LOGMIGRATE << "Received finish resync response from client for executor " << std::hex
+    LOGMIGRATE << "Received finish resync response from client for executor: " << std::hex
                << executorId << std::dec << " SM token " << smTokenId << " " << error;
 
     trackIOReqs.finishTrackIOReqs();
@@ -961,7 +961,7 @@ MigrationExecutor::finishResyncResp(EPSvcRequest* req,
     // we can do on destination since we already either finished sync or
     // aborted with error
     if (!error.ok()) {
-        LOGWARN << "Received error for finish resync from client "  << std::hex
+        LOGWARN << "Received error for finish resync from client for executor: "  << std::hex
                 << executorId << std::dec << " SM token " << smTokenId << " " << error
                 << ", not changing any state, source should be able to deal with it";
     }

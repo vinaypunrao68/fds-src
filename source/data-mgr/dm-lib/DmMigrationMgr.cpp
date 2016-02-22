@@ -717,31 +717,33 @@ DmMigrationMgr::finishActiveMigration(NodeUuid destUuid, fds_volid_t volId, int6
 }
 
 // process the TxState request
+// This is used for both VG and non-VG
 Error
 DmMigrationMgr::applyTxState(DmIoMigrationTxState* txStateReq) {
     fpi::CtrlNotifyTxStateMsgPtr txStateMsg = txStateReq->txStateMsg;
     fds_volid_t volId(txStateMsg->volume_id);
+    Error err(ERR_OK);
+
     auto uniqueId = std::make_pair(txStateReq->destUuid, volId);
     SCOPEDREAD(migrExecutorLock);
     DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(uniqueId);
     if (executor == nullptr) {
-    	if (isMigrationAborted()) {
-			LOGMIGRATE << "Unable to find executor for volume " << volId << " during migration abort";
-    	} else {
-			LOGERROR << "Unable to find executor for volume " << volId;
-			// this is an race cond error that needs to be fixed in dev env.
-			// Only panic in debug build.
-			// fds_assert(0);
-    	}
+        if (isMigrationAborted()) {
+            LOGMIGRATE << "Unable to find executor for volume " << volId << " during migration abort";
+        } else {
+            LOGERROR << "Unable to find executor for volume " << volId;
+            // this is an race cond error that needs to be fixed in dev env.
+            // Only panic in debug build.
+            // fds_assert(0);
+        }
         return ERR_NOT_FOUND;
     }
 
-    Error err(ERR_OK);
     err = executor->processTxState(txStateMsg);
 
     if (!err.ok()) {
         LOGERROR << "Error applying migrated commit log: " << err;
-    	abortMigration();
+        abortMigration();
     }
 
     return (err);

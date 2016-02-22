@@ -32,6 +32,7 @@ DmMigrationSrc::DmMigrationSrc(DataMgr& _dataMgr,
     logStr = util::strformat("[DmMigrationSrc volId: %ld version: %d]",
                             volId.get(),
                             version);
+    myUuid = _myUuid;
 }
 
 DmMigrationSrc::~DmMigrationSrc()
@@ -114,6 +115,7 @@ void DmMigrationSrc::sendFinishStaticMigrationMsg(const Error &e)
     auto msg = MAKE_SHARED<fpi::CtrlNotifyFinishMigrationMsg>();
     msg->volume_id = volId.get();
     msg->status = e.GetErrno();
+    msg->srcUuid = myUuid.toSvcUuid();
 
     auto finishReq = requestMgr->newEPSvcRequest(destDmUuid.toSvcUuid());
     finishReq->setTimeoutMs(dataMgr.dmMigrationMgr->getTimeoutValue());

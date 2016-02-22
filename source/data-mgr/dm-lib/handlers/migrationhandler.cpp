@@ -184,6 +184,7 @@ void DmMigrationDeltaBlobDescHandler::handleQueueItem(DmRequest* dmRequest) {
     if (dataManager.features.isVolumegroupingEnabled()) {
         auto volMeta = dataManager.getVolumeMeta(typedRequest->volId);
         if (volMeta == nullptr) {
+            LOGMIGRATE << "Volume meta for " << typedRequest->volId << " not found.";
             helper.err = ERR_VOLMETA_NOT_FOUND;
             // Let handleResponse delete the request
             return;
@@ -249,6 +250,7 @@ void DmMigrationDeltaBlobHandler::handleQueueItem(DmRequest* dmRequest) {
     if (dataManager.features.isVolumegroupingEnabled()) {
         auto volMeta = dataManager.getVolumeMeta(typedRequest->volId);
         if (volMeta == nullptr) {
+            LOGMIGRATE << "Volume meta for " << typedRequest->volId << " not found.";
             // overload this error to mean that we'll delete the dmrequest
             helper.err = ERR_INVALID_VOLUME_VERSION;
         }
@@ -292,7 +294,8 @@ void DmMigrationTxStateHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
 
     NodeUuid destUuid;
     destUuid.uuid_set_val(asyncHdr->msg_src_uuid.svc_uuid);
-    auto dmReq = new DmIoMigrationTxState(destUuid, message);
+    auto dmReq = new DmIoMigrationTxState(destUuid, message, !dataManager.features.isVolumegroupingEnabled());
+    dmReq->version = message->version;
 
     dmReq->cb = BIND_MSG_CALLBACK(DmMigrationTxStateHandler::handleResponse, asyncHdr, message);
 
@@ -307,7 +310,12 @@ void DmMigrationTxStateHandler::handleRequest(fpi::AsyncHdrPtr& asyncHdr,
 void DmMigrationTxStateHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoMigrationTxState* typedRequest = static_cast<DmIoMigrationTxState*>(dmRequest);
-    helper.err = dataManager.dmMigrationMgr->applyTxState(typedRequest);
+    if (dataManager.features.isVolumegroupingEnabled()) {
+        auto volMeta = dataManager.getVolumeMeta(typedRequest->volId);
+        helper.err = volMeta->handleMigrationActiveTx(dmRequest);
+    } else {
+        helper.err = dataManager.dmMigrationMgr->applyTxState(typedRequest);
+    }
 }
 
 void DmMigrationTxStateHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

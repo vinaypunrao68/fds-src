@@ -46,7 +46,7 @@ PATH=${PATH}:${fds_root}/bin
 export PATH=${PATH}:${fds_root}/sbin
 
 # JAVA Options
-COMMON_JAVA_OPTS="-Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -XX:ErrorFile=/corefiles/hs_err_pid-%p.log"
+COMMON_JAVA_OPTS="-Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -XX:ErrorFile=${fds_root}/var/log/corefiles/hs_err_pid-%p.log"
 export OM_JAVA_OPTS="-Dfds.service.name=om-xdi -Xmx2048M ${COMMON_JAVA_OPTS}"
 export XDI_JAVA_OPTS="-Dfds.service.name=xdi  ${COMMON_JAVA_OPTS}"
 

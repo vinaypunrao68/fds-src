@@ -147,6 +147,9 @@ class ObjectStore : public Module, public boost::noncopyable {
     // Track when the last capacity message was sent
     float_t lastCapacityMessageSentAt;
 
+    // Track if we've printed the message that IOs bound for SSD are being sent to HDD now (hybrid volume)
+    bool sentPutToHddMsg;
+
   public:
     ObjectStore(const std::string &modName,
                 SmIoReqHandler *data_store,
