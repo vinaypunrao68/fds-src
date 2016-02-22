@@ -12,7 +12,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 /**
  * @author ptinius
@@ -21,7 +20,8 @@ public class AsyncAmMap
 {
     private static final Logger logger = LoggerFactory.getLogger( AsyncAmMap.class );
 
-    private static final ConcurrentMap<SvcUuid, AsyncAm> map = new ConcurrentHashMap<>( );
+    private static final ConcurrentHashMap<SvcUuid, AsyncAm> map = new ConcurrentHashMap<>( );
+
     private static final AsyncAmClientFactory factory =
         new AsyncAmClientFactory( SingletonConfiguration.getConfig( ) );
 
@@ -48,18 +48,34 @@ public class AsyncAmMap
     public static AsyncAm get( SvcUuid svcUuid )
         throws IOException
     {
-        return map.computeIfAbsent( svcUuid, ( am ) -> {
-            try
+        /**
+         * this is ugly! Turn 6 lines of code into 20, just to use the latest wiz-bang java 8
+         * feature!
+         */
+        try
+        {
+            return map.computeIfAbsent( svcUuid, ( am ) -> {
+                try
+                {
+                    return factory.newClient( svcUuid, true );
+                }
+                catch ( IOException e )
+                {
+                    logger.error( "Failed to create Async AM client for " + svcUuid, e );
+                    throw new RuntimeException( e );
+                }
+            } );
+        }
+        catch ( RuntimeException e )
+        {
+            Throwable t = e.getCause();
+            if( t instanceof IOException )
             {
-                return factory.newClient( svcUuid, true );
-            }
-            catch ( IOException e )
-            {
-                logger.error( "Failed to create Async AM client for " + svcUuid, e );
+                throw ( IOException ) t;
             }
 
-            return null;
-        } );
+            throw e;
+        }
     }
 
     /**
@@ -71,5 +87,4 @@ public class AsyncAmMap
      * @param svcUuid service uuid as a {@link SvcUuid} value
      */
     public static void failed( final SvcUuid svcUuid ) { map.remove( svcUuid ); }
-
 }
