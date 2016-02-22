@@ -1727,7 +1727,7 @@ Error DataMgr::copyVolumeToTargetDM(fpi::SvcUuid dmUuid, fds_volid_t volId, bool
         return ERR_NOT_FOUND;
     }
 
-    LOGDEBUG << "archive file:" << archiveFile;
+    LOGDEBUG << "archive file:" << archiveFile << " volid:" <<volId;
 
     auto transferCb = [&](fds::net::FileTransferService::Handle::ptr handle,const Error& err,
                           SHPTR<concurrency::TaskStatus> taskStatus) {

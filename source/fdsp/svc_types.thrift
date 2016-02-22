@@ -417,9 +417,9 @@ enum  FDSPMsgTypeId {
   CtrlNotifyRequestTxStateRspMsgTypeId	    = 20064;
   LoadFromArchiveMsgTypeId		    = 20065;
   CtrlNotifyFinishMigrationMsgTypeId	    = 20066;
-  CopyVolumeMsgTypeId               = 20067;
-  ArchiveMsgTypeId                  = 20068;
-  ArchiveRespMsgTypeId              = 20069;
+  CopyVolumeMsgTypeId                   = 20067;
+  ArchiveMsgTypeId                      = 20068;
+  ArchiveRespMsgTypeId                  = 20069;
 
 
   /* DM Debug Messages */
