@@ -93,7 +93,7 @@ class FDSCoroner(object):
         self.make_dir(directory)
         return directory
 
-    def collect_dir(self, directory, path):
+    def collect_dir(self, directory, path, excludesList=None):
         """This method allows collection of a particular directory and all
            of its contents as a tarball"""
         mydir = self.prep_data_dir(directory)
@@ -104,9 +104,14 @@ class FDSCoroner(object):
             path_base = os.path.dirname(path)
 
             logging.info("Collecting %s" % path)
-            # If you change this command, fix the insert below so it is always before the "-cvhzf" entry
-            cmd = ["/bin/tar", "-C", path_base, "--exclude-from", path_base + "/sbin/coroner.excludes", "-chzf",
+            # If you change this command, fix the insert below so it is always before the "-chzf" entry
+            cmd = ["/bin/tar", "-C", path_base, "-chzf",
                    mydir + '/' + basename + '.tar.gz', basename]
+
+            if excludesList is not None:
+                for item in excludesList:
+                    cmd.insert (3, "--exclude=\"" + item + "\"")
+
             subprocess.call(cmd)
 
     def collect_paths(self, directory, paths):
@@ -216,7 +221,10 @@ def run_collect(opts):
 
     bodybag.collect_dir(directory="fds", path=bodybag.fdsroot + '/etc')
 
-    bodybag.collect_dir(directory="fds", path=bodybag.fdsroot + '/var')
+    # The excludes are relative to the FDS root
+    excludes=['var/log/sfs', 'var/log/sfs/*', 'var/log/corefiles', 'var/log/corefiles/*']
+
+    bodybag.collect_dir(directory="fds", path=bodybag.fdsroot + '/var', excludesList=excludes)
     bodybag.collect_paths(
         directory="fds",
         paths=[ bodybag.fdsroot + '/dev/disk-map',

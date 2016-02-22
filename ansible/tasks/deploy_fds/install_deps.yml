@@ -1,12 +1,12 @@
 ---
 -   name: sysctl_params
-    sysctl: name={{ item.key }} value="{{ item.value }}" state={{ item.state }}
+    sysctl: name={{ item.key }} value={{ item.value }} state={{ item.state }}
     when: ansible_virtualization_type != "lxc"
     with_items:
         - { key: 'fs.file-max', value: '400000', state: 'present' }
         - { key: 'kernel.core_uses_pid', value: '1', state: 'present' }
         - { key: 'fs.suid_dumpable', value: '1', state: 'present' }
-        - { key: 'kernel.core_pattern', value: '|/bin/core.sh fds/var/log/corefiles %e-%p-%u-%t', state: 'present' }
+        - { key: 'kernel.core_pattern', value: '/fds/var/log/corefiles/%e-%p-%u-%t.core', state: 'present' }
     tags:
         - install-deps
 
@@ -97,9 +97,6 @@
         update_cache=yes
     tags:
         - install-deps
-
--   name: Place core.sh in /bin
-    copy: src=../files/core.sh dest=/bin/core.sh owner=root group=root mode=0755
 
 -   name: push local fds-deps deb to cluster nodes
     when: (fds_deploy_local_deps is defined and fds_deploy_local_deps == "yes") and this_is_an_ec2_node is not defined
