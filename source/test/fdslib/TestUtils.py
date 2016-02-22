@@ -33,6 +33,8 @@ from fabric.context_managers import cd
 import fnmatch
 import fabric
 import fabric.network
+import subprocess
+
 
 # Assumes tests run from /source/test/testsuites
 RELPATH_TEMPLATES="../testsuites/templates/"
@@ -500,10 +502,10 @@ def get_inventory_value(inventory_file, key_name, log):
     '''
     result = None
     if not key_name:
-        log.error("Missing required argument");
+        log.error("Missing required argument")
         raise Exception
     if not isinstance(key_name, str):
-        log.error("Invalid argument");
+        log.error("Invalid argument")
         raise Exception
     inventory_path = os.path.join(TESTSUITES_INVENTORY, inventory_file)
     if not os.path.isfile(inventory_path):
@@ -613,6 +615,7 @@ def deploy_on_AWS(self, number_of_nodes, inventory_file):
 
     return True
 
+# This method searches coredumps in deployed AWS enviorment.
 def core_hunter_aws(self,node_ip):
     connect_fabric(self, node_ip)
     if exists('/fds/bin', use_sudo=True):
@@ -750,3 +753,19 @@ def remove_file(qualified_file_name=default_generated_file):
     except OSError as e:
         if e.errno != errno.ENOENT:
             raise
+
+# If disk used is more than passed thresh hold
+# then returns false or else returns true.
+#
+#@param thresh_hold to compare disk used
+def verify_disk_free(self, thresh_hold):
+    free_disk = subprocess.Popen(["df", '/'], stdout=subprocess.PIPE)
+    output = free_disk.communicate()[0]
+    device_name, size, used_disk, available_disk, used_percent, mountpoint = output.split("\n")[1].split()
+    df = int(used_percent.replace('%',''))
+    if df > thresh_hold:
+        self.log.error('{0} is {1} full'.format(device_name,used_percent))
+        return False
+    else:
+        self.log.info('disk is not full. It is {0}% full'.format(df))
+        return True
