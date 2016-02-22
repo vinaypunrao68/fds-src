@@ -14,9 +14,11 @@ import com.formationds.client.v08.model.SizeUnit;
 import com.formationds.client.v08.model.SystemHealth;
 import com.formationds.client.v08.model.SystemStatus;
 import com.formationds.client.v08.model.Volume;
-import com.formationds.client.v08.model.stats.Calculated;
-import com.formationds.client.v08.model.stats.Series;
 import com.formationds.commons.model.DateRange;
+import com.formationds.commons.model.Series;
+import com.formationds.commons.model.calculated.capacity.CapacityConsumed;
+import com.formationds.commons.model.calculated.capacity.CapacityFull;
+import com.formationds.commons.model.calculated.capacity.CapacityToFull;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.Metrics;
@@ -36,7 +38,6 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.slf4j.Logger;
@@ -359,7 +360,8 @@ public class SystemHealthStatus implements RequestHandler {
             throw new IllegalStateException( "Failed to retrieve system capacity", te );
         }
 
-        Calculated consumed = new Calculated( Calculated.CONSUMED_BYTES, systemCapacityUsed.getValue().doubleValue() );
+        final CapacityConsumed consumed = new CapacityConsumed();
+        consumed.setTotal( systemCapacityUsed.getValue().doubleValue() );
 
 //        List<Series> series = SeriesHelper.getRollupSeries( queryResults,
 //                                                            query.getRange(),
@@ -367,13 +369,13 @@ public class SystemHealthStatus implements RequestHandler {
 //                                                            StatOperation.SUM );
 
         // use the helper to get the key metrics we'll use to ascertain the stat of our capacity
-        Calculated capacityFull = 
+        CapacityFull capacityFull =
                 qh.percentageFull( consumed, systemCapacity.getValue( SizeUnit.B ).doubleValue() );
-        Calculated timeToFull =
+        CapacityToFull timeToFull =
             qh.secondsToFullThirtyDays( volumes, systemCapacity );
 //                qh.toFull( series.get ( 0 ), systemCapacity.getValue( SizeUnit.B ).doubleValue() );
 
-        Long daysToFull = TimeUnit.SECONDS.toDays( timeToFull.getValue().longValue() );
+        Long daysToFull = TimeUnit.SECONDS.toDays( timeToFull.getToFull() );
 
         //noinspection Duplicates
         if ( daysToFull <= 7 )
@@ -381,7 +383,7 @@ public class SystemHealthStatus implements RequestHandler {
             status.setState( HealthState.BAD );
             status.setMessage( CAPACITY_BAD_RATE );
         }
-        else if ( capacityFull.getValue() >= 90 )
+        else if ( capacityFull.getPercentage( ) >= 90 )
         {
             status.setState( HealthState.BAD );
             status.setMessage( CAPACITY_BAD_THRESHOLD );
@@ -391,7 +393,7 @@ public class SystemHealthStatus implements RequestHandler {
             status.setState( HealthState.OKAY );
             status.setMessage( CAPACITY_OKAY_RATE );
         }
-        else if ( capacityFull.getValue( ) >= 80 )
+        else if ( capacityFull.getPercentage( ) >= 80 )
         {
             status.setState( HealthState.OKAY );
             status.setMessage( CAPACITY_OKAY_THRESHOLD );
@@ -406,7 +408,7 @@ public class SystemHealthStatus implements RequestHandler {
                       status.getState().name(),
                       status.getMessage(),
                       daysToFull,
-                      capacityFull.getValue( ) );
+                      capacityFull.getPercentage( ) );
 
         return status;
     }
