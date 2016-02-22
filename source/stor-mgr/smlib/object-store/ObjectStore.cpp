@@ -76,7 +76,8 @@ ObjectStore::ObjectStore(const std::string &modName,
                                          diskMap, data_store)),
           liveObjectsTable(new LiveObjectsDB(g_fdsprocess->proc_fdsroot()->dir_user_repo() + "liveobj.db")),
           currentState(OBJECT_STORE_INIT),
-          lastCapacityMessageSentAt(0)
+          lastCapacityMessageSentAt(0),
+          sentPutToHddMsg(false)
 {
     liveObjectsTable->createLiveObjectsTblAndIdx();
     nullary_always (ObjectStorMgr::*Lock)(ObjectID const&, bool) = &ObjectStorMgr::getTokenLock;
@@ -148,6 +149,8 @@ float_t ObjectStore::getUsedCapacityAsPct() {
 
     float_t max = 0;
     // For disks
+    //TODO(brian): Rework this to something smarter. Right now we can enter into a loop of RO -> RW -> RO ... if
+    // an SSD hits capacity on an all SSD volume.
     for (auto diskId : diskMap->getDiskIds()) {
         // Get the (used, total) pair
         DiskUtils::CapacityPair capacity = diskMap->getDiskConsumedSize(diskId);
@@ -158,7 +161,7 @@ float_t ObjectStore::getUsedCapacityAsPct() {
             LOGDEBUG << "Found disk used capacity of zero, possible error. DiskID = " << diskId
                         << ". Disk path = " << diskMap->getDiskPath(diskId) << ". If this is an SSD drive"
                         << " and you have not yet written data to the system, this message is OK.";
-            break;
+            continue;
         }
 
         // We're going to piggyback on this to refresh stats in our capacity map. We still want to do periodic checking
@@ -198,6 +201,20 @@ float_t ObjectStore::getUsedCapacityAsPct() {
                 lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
             } else if (pct_used < DISK_CAPACITY_ERROR_THRESHOLD) {
                 lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
+            }
+        }
+
+        if (diskMap->diskMediaType(diskId) == diskio::flashTier) {
+            // This will re-enable the hybrid tier SSD being redirected to HDD message if we fall below < 95%
+            if (sentPutToHddMsg && (pct_used < DISK_CAPACITY_ERROR_THRESHOLD)) {
+                sentPutToHddMsg = false;
+            }
+
+            // Basically ignore SSDs for this capacity check UNLESS it's an all SSD system
+            // This may still cause a RO -> RW -> RO ... loop on hybrid systems, but
+            // for now this should be OK
+            if (!diskMap->isAllDisksSSD()) {
+                continue;
             }
         }
 
@@ -1019,6 +1036,16 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
     // Get metadata from metadata store
     ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(unknownVolId, objId, err);
     if (!err.ok()) {
+        fds_token_id smToken = diskMap->smTokenId(objId);
+        diskio::DataTier metaTier = metaStore->getMetadataTier();
+        DiskId diskId = diskMap->getDiskId(objId, metaTier);
+        std::string path = diskMap->getDiskPath(diskId) + "/.tempFlush";
+
+        bool diskDown = DiskUtils::diskFileTest(path);
+        if (diskDown) {
+            updateMediaTrackers(smToken, metaTier, ERR_DISK_READ_FAILED);
+        }
+
         LOGERROR << "Failed to get metadata for object " << objId << " " << err;
         return err;
     }
@@ -2068,7 +2095,10 @@ fds_errno_t ObjectStore::triggerReadOnlyIfPutWillfail(StorMgrVolume *vol,
                 return ERR_SM_READ_ONLY;
             } else if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_HYBRID) {
                 // If we can't write, backoff to HDD since this is hybrid
-                LOGNOTIFY << "Write bound for SSD but SSD capacity exceeded. Using HDD instead.";
+                if (!sentPutToHddMsg) {
+                    sentPutToHddMsg = true;
+                    LOGNOTIFY << "Write bound for SSD but SSD capacity exceeded. Using HDD instead.";
+                }
                 useTier = diskio::diskTier;
             }
         }
