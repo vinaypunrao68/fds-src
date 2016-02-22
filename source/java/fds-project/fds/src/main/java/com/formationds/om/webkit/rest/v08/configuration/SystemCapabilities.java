@@ -6,6 +6,7 @@ package com.formationds.om.webkit.rest.v08.configuration;
 
 import com.formationds.client.v08.model.MediaPolicy;
 import com.formationds.commons.model.SystemCapability;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
@@ -55,6 +56,13 @@ public class SystemCapabilities
         
         JSONObject capabilities = new JSONObject(
                 new SystemCapability( mediaPolicies.toArray( new String[mediaPolicies.size()] ) ) );
+        
+        if ( FdsFeatureToggles.STATS_SERVICE_QUERY.isActive() ){
+        	capabilities.put( FdsFeatureToggles.STATS_SERVICE_QUERY.fdsname(), Boolean.TRUE );
+        }
+        else {
+        	capabilities.put( FdsFeatureToggles.STATS_SERVICE_QUERY.fdsname(), Boolean.FALSE );
+        }
 
         return new JsonResource( capabilities );
     }
