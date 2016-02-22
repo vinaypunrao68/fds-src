@@ -70,8 +70,6 @@ def suiteConstruction(self):
             tests.extend([
                 eval('service.Test'+ svc + 'Wait(node="'+node+'")'),
                 TestWait(delay=delay)                              ,
-                s3.TestS3CrtBucket(bucket='restart_suite_vol1')    ,
-                s3.TestGets()                                      ,
 
                 log("create /put /get /del /delbucket")            ,
                 s3.TestS3CrtBucket(bucket='restart_suite_vol2')    ,

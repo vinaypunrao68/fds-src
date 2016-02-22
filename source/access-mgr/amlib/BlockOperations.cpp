@@ -40,28 +40,36 @@ BlockOperations::BlockOperations(BlockOperations::ResponseIFace* respIface)
 // a shared pointer to ourselves (and the Connection already started one).
 void
 BlockOperations::init(boost::shared_ptr<std::string> vol_name,
-                    std::shared_ptr<AmProcessor> processor,
-                    BlockTask* resp)
+                      std::shared_ptr<AmProcessor> processor,
+                      BlockTask* resp,
+                      uint32_t const obj_size)
 {
     if (!amAsyncDataApi) {
         amAsyncDataApi.reset(new AmAsyncDataApi(processor, shared_from_this()));
         volumeName = vol_name;
     }
 
-    {   // add response that we will fill in with data
+    if (resp) {   // add response that we will fill in with data
         std::unique_lock<std::mutex> l(respLock);
         if (false == responses.emplace(std::make_pair(resp->getHandle(), resp)).second)
             { throw BlockError::connection_closed; }
     }
 
-    handle_type reqId{resp->getHandle(), 0};
+    // If we don't know the object size yet (NBD) we need to look it up
+    if (0 == obj_size) {
+        // We assume the client wants R/W with a cache for now
+        handle_type reqId{resp->getHandle(), 0};
+        auto mode = boost::make_shared<fpi::VolumeAccessMode>();
+        amAsyncDataApi->attachVolume(reqId, domainName, volumeName, mode);
+    } else {
+        fds_assert(!resp); // Shouldn't have a task
+        maxObjectSizeInBytes = obj_size;
+        empty_buffer = boost::make_shared<std::string>(maxObjectSizeInBytes, '\0');
 
-    // We assume the client wants R/W with a cache for now
-    auto mode = boost::make_shared<fpi::VolumeAccessMode>();
-    amAsyncDataApi->attachVolume(reqId,
-                                 domainName,
-                                 volumeName,
-                                 mode);
+        // Reference count this association
+        std::unique_lock<std::mutex> lk(assoc_map_lock);
+        ++assoc_map[*volumeName];
+    }
 }
 
 void

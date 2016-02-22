@@ -22,22 +22,6 @@
 namespace fds {
     class VolumeMeta;
 
-struct DmVolumeSummary {
-    typedef boost::shared_ptr<DmVolumeSummary> ptr;
-    typedef boost::shared_ptr<const DmVolumeSummary> const_ptr;
-
-    fds_volid_t volId;
-    std::atomic<fds_uint64_t> size;
-    std::atomic<fds_uint64_t> blobCount;
-    std::atomic<fds_uint64_t> objectCount;
-
-    DmVolumeSummary(fds_volid_t volId_, fds_uint64_t size_, fds_uint64_t blobCount_,
-            fds_uint64_t objectCount_) : volId(volId_), size(size_), blobCount(blobCount_),
-            objectCount(objectCount_) {}
-};
-
-typedef std::unordered_map<fds_volid_t, DmVolumeSummary::ptr> DmVolumeSummaryMap_t;
-
 /**
  * This modules stores all blob metadata and object ids for
  * all volumes managed by this DM. This module internally
@@ -368,9 +352,6 @@ class DmVolumeCatalog : public HasModuleProvider,
     fds_mutex volMapLock_;
 
     expunge_objs_cb_t expungeCb_;
-
-    DmVolumeSummaryMap_t volSummaryMap_;
-    fds_mutex lockVolSummaryMap_;
 };
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMVOLUMECATALOG_H_

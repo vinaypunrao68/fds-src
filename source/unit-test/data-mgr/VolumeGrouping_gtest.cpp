@@ -1,3 +1,4 @@
+
 /* Copyright 2015 Formation Data Systems, Inc.
 */
 #define GTEST_USE_OWN_TR1_TUPLE 0
@@ -6,12 +7,9 @@
 #include <chrono>
 #include <util/stringutils.h>
 #include <concurrency/RwLock.h>
-#include <testlib/TestFixtures.h>
-#include <testlib/TestOm.hpp>
-#include <testlib/TestDm.hpp>
+#include <testlib/VolumeGroupFixture.hpp>
 #include <testlib/ProcessHandle.hpp>
 #include <testlib/SvcMsgFactory.h>
-#include <testlib/TestUtils.h>
 #include <net/VolumeGroupHandle.h>
 #include <boost/filesystem.hpp>
 
@@ -284,21 +282,9 @@ struct DmGroupFixture : BaseTestFixture {
         ASSERT_TRUE(dmGroup[idx]->proc->getDataMgr()->counters->totalVolumesReceivedMigration.value() > 0);
         ASSERT_TRUE(dmGroup[idx]->proc->getDataMgr()->counters->totalMigrationsAborted.value() == 0);
     }
+}
 
-    OmHandle                                omHandle;
-    AmHandle                                amHandle;
-    std::vector<std::unique_ptr<DmHandle>>  dmGroup;
-    int64_t                                 sequenceId;
-    int64_t                                 txId {0};
-    Waiter                                  waiter{0};
-    std::string                             blobName{"blob1"};
-    fds_volid_t                             v1Id{10};
-    SHPTR<VolumeGroupHandle>                v1;
-    SHPTR<VolumeDesc>                       v1Desc;
-    DMTPtr                                  dmt;
-};
-
-TEST_F(DmGroupFixture, singledm) {
+TEST_F(VolumeGroupFixture, singledm) {
     /* Start with one dm */
     createCluster(1);
 
@@ -365,7 +351,7 @@ TEST_F(DmGroupFixture, singledm) {
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
-TEST_F(DmGroupFixture, staticio_restarts) {
+TEST_F(VolumeGroupFixture, staticio_restarts) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::trace);
 
     /* Create two dms */
@@ -428,7 +414,7 @@ TEST_F(DmGroupFixture, staticio_restarts) {
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
-TEST_F(DmGroupFixture, activeio_restart) {
+TEST_F(VolumeGroupFixture, activeio_restart) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
     /* Create two dms */
     createCluster(2);
@@ -470,7 +456,7 @@ TEST_F(DmGroupFixture, activeio_restart) {
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
-TEST_F(DmGroupFixture, domain_reboot) {
+TEST_F(VolumeGroupFixture, domain_reboot) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
 
     /* Create two dms */
@@ -511,7 +497,7 @@ TEST_F(DmGroupFixture, domain_reboot) {
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
-TEST_F(DmGroupFixture, allDownFollowedBySequentialUp) {
+TEST_F(VolumeGroupFixture, allDownFollowedBySequentialUp) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
 
     /* Create two dms */
@@ -594,6 +580,6 @@ int main(int argc, char* argv[]) {
     opts.add_options()
         ("help", "produce help message")
         ("puts-cnt", po::value<int>()->default_value(1), "puts count");
-    DmGroupFixture::init(argc, argv, opts);
+    VolumeGroupFixture::init(argc, argv, opts);
     return RUN_ALL_TESTS();
 }
