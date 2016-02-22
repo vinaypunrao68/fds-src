@@ -55,7 +55,7 @@ public class AsyncAmMap
             }
             catch ( IOException e )
             {
-                logger.error( "Failed to create Async AM client for {}", svcUuid, e );
+                logger.error( "Failed to create Async AM client for " + svcUuid, e );
             }
 
             return null;
