@@ -727,7 +727,7 @@ namespace fds
             if (rc < 0)
             {
                 LOGWARN << "Error sending signal (SIGTERM) to " << procName << "(pid = " << pid << ") errno = " << errno << ". Following with a SIGKILL";
-                int rc = kill (pid, SIGKILL);
+                rc = kill (pid, SIGKILL);
                 if (rc < 0)
                 {
                     LOGERROR << "Error sending signal (SIGKILL) to process" << pid << "; errno = " << errno;
