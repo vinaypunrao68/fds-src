@@ -4,20 +4,23 @@
 
 package com.formationds.om.util;
 
+import com.formationds.client.v08.converters.PlatformModelConverter;
 import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.nfs.XdiStaticConfiguration;
-import com.formationds.om.redis.RedisSingleton;
-import com.formationds.protocol.svc.types.SvcInfo;
+import com.formationds.om.helper.SingletonOmConfigApi;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
 import com.formationds.protocol.svc.types.SvcUuid;
 import com.formationds.util.Configuration;
 import com.formationds.util.ServerPortFinder;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.FakeAsyncAm;
 import com.formationds.xdi.RealAsyncAm;
+import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.util.Optional;
 
 /**
@@ -58,7 +61,7 @@ public class AsyncAmClientFactory
     public AsyncAm newClient( final SvcUuid uuid, final boolean start )
         throws IOException
     {
-        final Optional<SvcInfo> svc = lookup( uuid );
+        final Optional<FDSP_Node_Info_Type> svc = lookup( uuid );
         if( !svc.isPresent() )
         {
             throw new IllegalStateException( "The specified service uuid [ " +
@@ -66,7 +69,11 @@ public class AsyncAmClientFactory
                                              " ] was not found." );
         }
 
-        return newClient( svc.get().getIp(), start );
+        return newClient(
+            InetAddress.getByAddress( PlatformModelConverter.htonl( svc.get()
+                                                                       .getIp_lo_addr( ) ) )
+                       .getHostAddress(),
+            start );
     }
 
     /**
@@ -106,7 +113,7 @@ public class AsyncAmClientFactory
                                    platformDotConf.defaultInt( "fds.am.xdi_service_port_offset",
                                                                1899 );
         final int xdiResponsePort =
-            new ServerPortFinder().findPort( "Async XDI response port",
+            new ServerPortFinder().findPort( "Async XDI ( " + host + " )",
                                              pmPortNo +
                                              platformDotConf.defaultInt( "fds.om.xdi_response_port_offset",
                                                                          2988 ) );
@@ -124,13 +131,23 @@ public class AsyncAmClientFactory
         return asyncAm;
     }
 
-    protected Optional<SvcInfo> lookup( final SvcUuid uuid )
+    protected Optional<FDSP_Node_Info_Type> lookup( final SvcUuid uuid )
     {
-        return RedisSingleton.INSTANCE
-                             .api( )
-                             .getSvcInfos( )
-                             .stream()
-                             .filter( ( svc ) -> svc.getSvc_id().getSvc_uuid().equals( uuid ) )
-                             .findFirst();
+        try
+        {
+            logger.trace( "Looking up service {} ( hex: {} )",
+                          uuid.getSvc_uuid(),
+                          Long.toHexString( uuid.getSvc_uuid() ) );
+            return SingletonOmConfigApi.INSTANCE
+                                       .api()
+                                       .listLocalDomainServices( "local" )
+                                       .stream()
+                                       .filter( ( svc ) -> svc.getService_uuid() == uuid.getSvc_uuid() )
+                                       .findFirst();
+        }
+        catch ( TException e )
+        {
+            return Optional.empty();
+        }
     }
 }
