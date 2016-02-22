@@ -31,7 +31,11 @@ public class Configuration {
     public static final String FDS_ROOT_SYS_PROP = "fds-root";
     public static final String FDS_ROOT_ENV = "fds_root";
 
-    public static final String FDS_XDI_NFS_THREAD_POOL_SIZE                 = "fds.xdi.nfs_thread_pool_size";
+    public static final String FDS_SERVICE_CONFIG_PREFIX_COMMON = "fds.common";
+    public static final String FDS_SERVICE_CONFIG_PREFIX_OM = "fds.om";
+    public static final String FDS_SERVICE_CONFIG_PREFIX_XDI = "fds.xdi";
+
+    public static final String FDS_XDI_NFS_THREAD_POOL_SIZE = "fds.xdi.nfs_thread_pool_size";
     public static final String FDS_XDI_NFS_STATS = "fds.xdi.nfs_stats";
     public static final String FDS_XDI_NFS_DEFER_METADATA_UPDATES = "fds.xdi.nfs_defer_metatada_updates";
     public static final String FDS_XDI_NFS_MAX_LIVE_NFS_COOKIES = "fds.xdi.nfs_max_live_nfs_cookies";
