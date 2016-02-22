@@ -4,10 +4,10 @@
 
 package com.formationds.om.repository.helper;
 
-import com.formationds.client.v08.model.stats.Datapoint;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.formationds.commons.model.Datapoint;
 
 import java.util.Collections;
 import java.util.Comparator;
