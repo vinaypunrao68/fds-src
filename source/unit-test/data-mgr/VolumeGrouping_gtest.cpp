@@ -126,7 +126,7 @@ struct DmGroupFixture : BaseTestFixture {
         for (const auto &dm : dmGroup) {
             dms.push_back(dm->proc->getSvcMgr()->getSelfSvcUuid());
         }
-        
+
         /* Add the DMT to om and am */
         std::string dmtData;
         dmt = DMT::newDMT(dms);
@@ -221,7 +221,7 @@ struct DmGroupFixture : BaseTestFixture {
                            const std::string &blobName,
                            Waiter &w)
     {
-        auto updateMsg = SvcMsgFactory::newUpdateCatalogOnceMsg(v.getGroupId(), blobName); 
+        auto updateMsg = SvcMsgFactory::newUpdateCatalogOnceMsg(v.getGroupId(), blobName);
         updateMsg->txId = txId++;
         updateMsg->sequence_id = ++sequenceId;
         w.reset(1);
@@ -236,7 +236,7 @@ struct DmGroupFixture : BaseTestFixture {
                             const std::string &blobName,
                             Waiter &w)
     {
-        auto startMsg = SvcMsgFactory::newStartBlobTxMsg(v.getGroupId(), blobName); 
+        auto startMsg = SvcMsgFactory::newStartBlobTxMsg(v.getGroupId(), blobName);
         startMsg->txId = txId++;
         w.reset(1);
         v.sendModifyMsg<fpi::StartBlobTxMsg>(
