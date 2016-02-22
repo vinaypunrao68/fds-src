@@ -16,6 +16,7 @@ import com.formationds.stats.client.StatsConnection;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
+import com.formationds.web.toolkit.TextResource;
 import com.google.gson.reflect.TypeToken;
 
 import org.eclipse.jetty.server.Request;
@@ -55,8 +56,6 @@ public class QueryMetrics implements RequestHandler, QueryHandler {
 
         try( final Reader reader = new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
 
-            Statistics stats = null;
-            
             if ( FdsFeatureToggles.STATS_SERVICE_QUERY.isActive() ){
             	
             	StatsConnection statsConn = StatsConnection.newConnection( "localhost", 11011, GetUser.STATS_USERNAME, "$t@t$" );
@@ -69,19 +68,22 @@ public class QueryMetrics implements RequestHandler, QueryHandler {
             			Thread.sleep( 5 );
             			waited += 5;
             		}
+
+            		Statistics stats = this.returnStats;
             		
-            		stats = this.returnStats;
+            		return new JsonResource( new JSONObject( stats ) );
             	}
             	catch( Exception e ){
             		logger.warn( "Stats query timed out." );
             	}
             }
             else {
-            
-            	stats = QueryHelper.instance().execute( ObjectModelHelper.toObject( reader, TYPE ), authorizer, token );
+
+            	com.formationds.commons.model.Statistics stats = QueryHelper.instance().execute( ObjectModelHelper.toObject( reader, TYPE ), authorizer, token );
+            	return new JsonResource( new JSONObject( stats ) );
             }
             
-            return new JsonResource( new JSONObject( stats ) );
+            return new TextResource( "No data." );
         }
     }
 
