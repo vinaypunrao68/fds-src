@@ -735,7 +735,7 @@ namespace fds
             }
 
             // Wait to shutdown the process; if we fail here, place pid on the killed processes list, so the monitor thread can wait on its exit
-            if (!orphanChildProcess && false == waitPid (pid, PROCESS_STOP_WAIT_PID_SLEEP_TIMER_NANOSECONDS))
+            if (!orphanChildProcess && (false == waitPid (pid, PROCESS_STOP_WAIT_PID_SLEEP_TIMER_NANOSECONDS)))
             {
                 std::lock_guard <decltype (m_killedProcessesMutex)> lock (m_killedProcessesMutex);
                 m_killedProcesses.push_back (pid);
