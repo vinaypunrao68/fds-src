@@ -452,14 +452,15 @@ public class QueryHelper {
                             try {
                                 volumeId = String.valueOf(api.getVolumeId(vd.getName()));
                             } catch (TException ignored ) {
-
+                                return null;
                             }
 
                             Volume volume = new Volume( Long.parseLong(volumeId), vd.getName() );
 
                             return volume;
                         })
-	    			.collect( Collectors.toList() );
+                        .filter( (v) -> v != null )
+	    			    .collect( Collectors.toList() );
 
     		} catch ( Exception e ){
     			logger.error( "Could not gather the volumes this user has access to.", e) ;

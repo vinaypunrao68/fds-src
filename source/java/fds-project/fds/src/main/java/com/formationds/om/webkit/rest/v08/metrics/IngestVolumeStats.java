@@ -78,7 +78,8 @@ public class IngestVolumeStats implements RequestHandler {
 
                     volid = SingletonConfigAPI.instance().api().getVolumeId( vdp.getVolumeName() );
                 } catch (Exception e) {
-                    throw new IllegalStateException( "Volume does not have an ID associated with the name." );
+                    throw new IllegalStateException( "Volume " + vdp.getVolumeName() + " does not " +
+                            "have an ID associated with the name." );
                 }
 
                 vdp.setVolumeId( String.valueOf( volid ) );
