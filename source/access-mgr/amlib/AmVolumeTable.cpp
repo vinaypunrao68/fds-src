@@ -434,7 +434,7 @@ AmVolumeTable::renewTokens() {
         auto& vol = vol_pair.second;
         if (vol->writable() && vol->startOpen()) {
             fpi::VolumeAccessMode rw;
-            auto volReq = new AttachVolumeReq(vol_pair.first, "", rw, nullptr);
+            auto volReq = new AttachVolumeReq(vol_pair.first, vol->voldesc->name, rw, nullptr);
             volReq->token = vol->getToken();
             AmDataProvider::openVolume(volReq);
         }

@@ -190,7 +190,7 @@ public class CreateVolume implements RequestHandler
                                          throws ApiException, TException
     {
 
-        validateQOSSettings( externalVolume );
+        validateQOSSettings( externalVolume, isCreate );
 
         if ( externalVolume.getId( ) != null && externalVolume.getId( ) > 0 )
         {

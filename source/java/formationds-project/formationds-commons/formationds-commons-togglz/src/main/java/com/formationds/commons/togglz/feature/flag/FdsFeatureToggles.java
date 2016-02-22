@@ -21,6 +21,9 @@ public enum FdsFeatureToggles implements Feature {
     @Label( "OM Service Proxy Feature" )
     OM_SERVICE_PROXY("fds.feature_toggle.om.enable_java_om_svc_proxy"),
 
+    @Label( "OM Config Rest Client Proxy use v08 API" )
+    OM_CONFIG_REST_CLIENT_PROXY_V08( "fds.feature_toggle.om.configsvc_rest_client_proxy_v08" ),
+
     @Label( "REST 0.7 API Implementation" )
     REST_07( "fds.feature_toggle.om.rest_07_feature" ),
 
@@ -52,8 +55,10 @@ public enum FdsFeatureToggles implements Feature {
     STATS_SERVICE_QUERY( "fds.feature_toggle.om.enable_stats_service_query" ),
     
     @Label( "If enabled, the OM will write metrics into the Influx Database.")
-    INFLUX_WRITE_METRICS( "fds.feature_toggle.om.enable_influx_persistence" );
-    
+    INFLUX_WRITE_METRICS( "fds.feature_toggle.om.enable_influx_persistence" ),
+
+    @Label( "If enabled, use a shared QueryHelper instance that caches results." )
+    USE_SHARED_QUERY_HELPER( "fds.feature_toggle.om.use_shared_queryhelper" );
 
     /**
      * @return Returns {@code true} if the feature associated with {@code this}

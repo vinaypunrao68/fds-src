@@ -151,39 +151,7 @@ AmDispatcher::stop() {
 }
 
 void
-AmDispatcher::registerVolume(VolumeDesc const& volDesc) {
-    auto& vol_id = volDesc.volUUID;
-    if (volume_grouping_support) {
-        WriteGuard wg(volumegroup_lock);
-        auto it = volumegroup_map.find(vol_id);
-        if (volumegroup_map.end() != it) {
-            return;
-        }
-        auto quorum = std::max(MODULEPROVIDER()->getSvcMgr()->getCurrentDMT()->getDepth() - 1,
-                               static_cast<uint32_t>(1));
-        volumegroup_map[vol_id].reset(new VolumeGroupHandle(MODULEPROVIDER(),
-                                                            vol_id,
-                                                            quorum));
-        volumegroup_map[vol_id]->setListener(volumegroup_handler.get());
-    }
-}
-
-void
 AmDispatcher::removeVolume(VolumeDesc const& volDesc) {
-    auto& vol_id = volDesc.volUUID;
-    /**
-     * FEATURE TOGGLE: Enable/Disable volume grouping support
-     * Thu Jan 14 10:45:14 2016
-     */
-    if (volume_grouping_support) {
-        WriteGuard wg(volumegroup_lock);
-        auto it = volumegroup_map.find(vol_id);
-        // Give ownership of the volume handle to the handle itself, we're
-        // done with it
-        std::shared_ptr<VolumeGroupHandle> vg = std::move(it->second);
-        volumegroup_map.erase(it);
-        vg->close([this, vg] () mutable -> void { });
-    }
     // We need to remove any barriers for this volume as we don't expect to
     // see any aborts/commits for them now
     std::lock_guard<std::mutex> g(tx_map_lock);
@@ -441,18 +409,29 @@ AmDispatcher::openVolume(AmRequest* amReq) {
         return;
     } else {
         WriteGuard wg(volumegroup_lock);
-        auto it = volumegroup_map.find(amReq->io_vol_id);
-        if (volumegroup_map.end() != it) {
-            volMDMsg->volume_id = amReq->io_vol_id.get();
-            it->second->open(volMDMsg,
-                             [volReq, this] (Error const& e, fpi::OpenVolumeRspMsgPtr const& p) mutable -> void {
-                                _openVolumeCb(volReq, e, p);
-                                });
-            return;
+        auto& vol_id = amReq->io_vol_id;
+        bool happened {false};
+        auto it = volumegroup_map.end();
+        std::tie(it, happened) = volumegroup_map.emplace(vol_id, nullptr);
+        if (happened) {
+            auto quorum = std::max(MODULEPROVIDER()->getSvcMgr()->getCurrentDMT()->getDepth() - 1,
+                                   static_cast<uint32_t>(1));
+            it->second.reset(new VolumeGroupHandle(MODULEPROVIDER(), vol_id, quorum));
+            if (!it->second) {
+                LOGERROR << "Could not create a volume group handle for this volume: " << vol_id;
+                AmDataProvider::openVolumeCb(amReq, ERR_VOLUME_ACCESS_DENIED);
+                return;
+            }
+            it->second->setListener(volumegroup_handler.get());
         }
+
+        volMDMsg->volume_id = vol_id.get();
+        it->second->open(volMDMsg,
+                         [volReq, this] (Error const& e, fpi::OpenVolumeRspMsgPtr const& p) mutable -> void {
+                            _openVolumeCb(volReq, e, p);
+                            });
+        return;
     }
-    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
-    AmDataProvider::openVolumeCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 void

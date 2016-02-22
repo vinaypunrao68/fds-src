@@ -496,7 +496,7 @@ DmMigrationClient::sendActiveTx()
     fpi::CtrlNotifyTxStateMsgPtr activeTxs(new fpi::CtrlNotifyTxStateMsg());
     activeTxs->volume_id = volId.get();
     activeTxs->migration_id = migrationId;
-    activeTxs->version = dmtVersion;
+    activeTxs->version = version;
     activeTxs->highest_op_id = dataMgr.getVolumeMeta(volId)->getOpId();
     // no lowest op id?
     activeTxs->transactions = transactions; // should be small

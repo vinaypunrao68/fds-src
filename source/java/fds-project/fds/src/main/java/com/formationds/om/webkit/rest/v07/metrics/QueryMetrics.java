@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Formation Data Systems, Inc. All Rights Reserved.
+ * Copyright (c) 2014-2016, Formation Data Systems, Inc. All Rights Reserved.
  */
 
 package com.formationds.om.webkit.rest.v07.metrics;
@@ -36,10 +36,10 @@ public class QueryMetrics
   private static final Type TYPE = new TypeToken<MetricQueryCriteria>() { }.getType();
   private final AuthenticationToken token;
   private final Authorizer authorizer;
-  
+
   public QueryMetrics( final Authorizer authorizer, AuthenticationToken token ) {
     super();
-    
+
     this.token = token;
     this.authorizer = authorizer;
   }
@@ -51,8 +51,9 @@ public class QueryMetrics
     try( final Reader reader =
            new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
 
-      final Statistics stats = new QueryHelper().execute(
-        ObjectModelHelper.toObject( reader, TYPE ), authorizer, token );
+      final Statistics stats = new QueryHelper().execute( ObjectModelHelper.toObject( reader, TYPE ),
+                                                    authorizer,
+                                                    token );
 
       return new JsonResource( new JSONObject( stats ) );
     }

@@ -27,6 +27,8 @@ import java.util.stream.DoubleStream;
  * @author ptinius
  */
 public class SeriesHelper {
+
+
     private static final Logger logger =
             LoggerFactory.getLogger( SeriesHelper.class );
 
@@ -34,6 +36,15 @@ public class SeriesHelper {
     private static final Long SECONDS_IN_DAY     = TimeUnit.HOURS.toSeconds( 24 );
     private static final Long SECONDS_IN_WEEK    = TimeUnit.DAYS.toSeconds( 7 );
     private static final Long SECONDS_IN_30_DAYS = TimeUnit.DAYS.toSeconds( 30 );
+
+    // fairly obvious, but... we were passing minutes to the generate method
+    // that was previously documented to accept seconds (the implementation
+    // of that method was clearly expecting minutes and the doc
+    // was out of date).  Using the constants makes it slightly
+    // more clear.
+    private static final long MINUTES_PER_HOUR      = TimeUnit.HOURS.toMinutes( 1 );
+    private static final long MINUTES_PER_SIX_HOURS = TimeUnit.HOURS.toMillis( 6 );
+    private static final long MINUTES_PER_DAY       = TimeUnit.DAYS.toMinutes( 1 );
 
     enum RollupType {
         HOUR,
@@ -78,7 +89,7 @@ public class SeriesHelper {
     /**
      * default constructor
      */
-    public SeriesHelper(DateRange dateRange) {
+    SeriesHelper(DateRange dateRange) {
         this.dateRange = dateRange;
         this.rollupType = getRollupType(dateRange);
     }
@@ -123,34 +134,33 @@ public class SeriesHelper {
          * datapoint every 24 hours, i.e. 30 data points
          */
         SeriesHelper sh = new SeriesHelper(dateRange);
-        long diff = sh.dateRange.getDuration().getSeconds();
-        long epochSeconds = sh.dateRange.getStart();
 
-        return sh.doRollup(datapoints, epochSeconds, metrics, operation);
+        return sh.doRollup(datapoints, metrics, operation);
     }
 
     private List<Series> doRollup( final List<IVolumeDatapoint> datapoints,
-                                   final Long epochSeconds,
                                    final List<Metrics> metrics,
                                    final StatOperation operation) {
+        long startTimeEpochSeconds = dateRange.getStart();
+
         switch (rollupType) {
             case HOUR:
-                return hourRollup(datapoints, epochSeconds, metrics, operation);
+                return hourRollup(datapoints, startTimeEpochSeconds, metrics, operation);
             case DAY:
-                return dayRollup(datapoints, epochSeconds, metrics, operation);
+                return dayRollup(datapoints, startTimeEpochSeconds, metrics, operation);
             case WEEK:
-                return weekRollup(datapoints, epochSeconds, metrics, operation);
+                return weekRollup(datapoints, startTimeEpochSeconds, metrics, operation);
             case MONTH:
-                return thirtyDaysRollup(datapoints, epochSeconds, metrics, operation);
+                return thirtyDaysRollup(datapoints, startTimeEpochSeconds, metrics, operation);
             case LONGTERM:
-                return longTermRollup(datapoints, epochSeconds, metrics, operation);
+                return longTermRollup(datapoints, startTimeEpochSeconds, metrics, operation);
             default:
                 throw new IllegalArgumentException("Unknown rollup type");
         }
     }
 
-    private static List<Series> hourRollup( final List<IVolumeDatapoint> datapoints,
-                                            final Long epochSeconds,
+    private List<Series> hourRollup( final List<IVolumeDatapoint> datapoints,
+                                            final Long startTimeEpochSeconds,
                                             final List<Metrics> metrics,
                                             final StatOperation operation ) {
 
@@ -164,13 +174,13 @@ public class SeriesHelper {
          */
         for ( Metrics metric : metrics ) {
 
-            series.add( generate( datapoints, epochSeconds, metric, 2L, 30, operation ) );
+            series.add( generate( datapoints, startTimeEpochSeconds, metric, 2L, 30, operation ) );
         }
 
         return series;
     }
 
-    private static List<Series> dayRollup(	final List<IVolumeDatapoint> datapoints,
+    private List<Series> dayRollup(	final List<IVolumeDatapoint> datapoints,
                                           	final Long epochSeconds,
                                           	final List<Metrics> metrics,
                                           	final StatOperation operation	) {
@@ -184,13 +194,13 @@ public class SeriesHelper {
          *  data points
          */
         for ( Metrics metric : metrics ) {
-            series.add( generate( datapoints, epochSeconds, metric, 60L, 30, operation ) );
+            series.add( generate( datapoints, epochSeconds, metric, MINUTES_PER_HOUR, 30, operation ) );
         }
 
         return series;
     }
 
-    private static List<Series> weekRollup(final List<IVolumeDatapoint> datapoints,
+    private List<Series> weekRollup(final List<IVolumeDatapoint> datapoints,
                                            final Long epochSeconds,
                                            final List<Metrics> metrics,
                                            final StatOperation operation ) {
@@ -204,13 +214,13 @@ public class SeriesHelper {
          *  data points
          */
         for ( Metrics metric : metrics ) {
-            series.add( generate( datapoints, epochSeconds, metric, 360L, 28, operation ) );
+            series.add( generate( datapoints, epochSeconds, metric, MINUTES_PER_SIX_HOURS, 28, operation ) );
         }
 
         return series;
     }
 
-    private static List<Series> thirtyDaysRollup(	final List<IVolumeDatapoint> datapoints,
+    private List<Series> thirtyDaysRollup(	final List<IVolumeDatapoint> datapoints,
                                                  	final Long epochSeconds,
                                                  	final List<Metrics> metrics,
                                                  	final StatOperation operation ) {
@@ -223,13 +233,13 @@ public class SeriesHelper {
          *  per volume
          */
         for ( Metrics metric : metrics ) {
-            series.add( generate( datapoints, epochSeconds, metric, 1440L, 30, operation ) );
+            series.add( generate( datapoints, epochSeconds, metric, MINUTES_PER_DAY, 30, operation ) );
         }
 
         return series;
     }
 
-    private static List<Series> longTermRollup( final List<IVolumeDatapoint> datapoints,
+    private List<Series> longTermRollup( final List<IVolumeDatapoint> datapoints,
                                                 final long epochSeconds,
                                                 final List<Metrics> metrics,
                                                 final StatOperation operation ){
@@ -243,7 +253,7 @@ public class SeriesHelper {
          */
         for ( Metrics metric : metrics ) {
             // just setting it to one point per 2 days
-            series.add( generate( datapoints, epochSeconds, metric, 2880L, 999, operation ) );
+            series.add( generate( datapoints, epochSeconds, metric, 2*MINUTES_PER_DAY, 999, operation ) );
         }
 
         return series;
@@ -254,27 +264,27 @@ public class SeriesHelper {
      * values that match the metric argument.  Then it will
      * sum these values into buckets defined by the distribution value (in seconds).
      *
-     * If requested (operation = RATE), it will transform those buckets into rates based on the distribution.
+     * If requested (operation = RATE), it will transform those buckets into rates based
+     * on the distribution.
      *
      * It will then map these into a series object ready for display in a chart
      * or other statistical display mechanisms
      *
      * @param volumeDatapoints the list of datapoints to generate the series from
-     * @param timestampSeconds timestamp in seconds since the epoch
+     * @param startTimestampEpochSeconds timestamp in seconds since the epoch
      * @param metrics the metric to generate the series on
-     * @param distributionSeconds the distribution of the series in seconds
+     * @param distributionMinutes the distribution of the series in minutes
      * @param maxResults the max number of results to include in the series
      * @param operation the stat operation to apply
      *
      * @return the generated series
      */
-    protected static Series generate(
-                                     final List<IVolumeDatapoint> volumeDatapoints,
-                                     final Long timestampSeconds,
-                                     final Metrics metrics,
-                                     final Long distributionSeconds,
-                                     final int maxResults,
-                                     final StatOperation operation ) {
+    protected static Series generate( final List<IVolumeDatapoint> volumeDatapoints,
+                                      final Long startTimestampEpochSeconds,
+                                      final Metrics metrics,
+                                      final Long distributionMinutes,
+                                      final int maxResults,
+                                      final StatOperation operation ) {
 
         Map<Long, Set<? extends IVolumeDatapoint>> groupByTimestamp =
                 VolumeDatapointHelper.groupByTimestamp( volumeDatapoints );
@@ -304,7 +314,7 @@ public class SeriesHelper {
         } );
 
         logger.trace( "START::{} INTERVAL::{} MAX::{} SIZE::{}",
-                      timestampSeconds, distributionSeconds, maxResults, datapoints.size() );
+                      startTimestampEpochSeconds, distributionMinutes, maxResults, datapoints.size() );
 
         final List<Datapoint> results = new ArrayList<>( );
 
@@ -316,11 +326,11 @@ public class SeriesHelper {
 
             // normalize the key so it's the value of one of our buckets
             // which are separated by "distribution" and start at "timestamp"
-            Double diff = dp.getX() - timestampSeconds;
+            Double diff = dp.getX() - startTimestampEpochSeconds;
 
             Double bucket = Math.floor( diff /
-                                        ( double ) TimeUnit.MINUTES.toSeconds( distributionSeconds ) );
-            bucket = timestampSeconds + ( bucket * TimeUnit.MINUTES.toSeconds( distributionSeconds ) );
+                                        ( double ) TimeUnit.MINUTES.toSeconds( distributionMinutes ) );
+            bucket = startTimestampEpochSeconds + ( bucket * TimeUnit.MINUTES.toSeconds( distributionMinutes ) );
 
             List<Datapoint> bucketList = bucketMap.get( bucket );
 
@@ -339,7 +349,7 @@ public class SeriesHelper {
 
             switch( operation ) {
                 case RATE:
-                    rolledupValue = dsY.sum() / TimeUnit.MINUTES.toSeconds( distributionSeconds );
+                    rolledupValue = dsY.sum() / TimeUnit.MINUTES.toSeconds( distributionMinutes );
                     break;
                 case MAX_Y:
                     // capacity is an example of using max for bucket calculation
@@ -378,17 +388,17 @@ public class SeriesHelper {
         if ( results.isEmpty() ){
 
             // at start time
-            results.add( new Datapoint( (double) timestampSeconds, 0.0 ) );
+            results.add( new Datapoint( (double) startTimestampEpochSeconds, 0.0 ) );
 
             // at end time
             results.add( new Datapoint( 
-            		(double) timestampSeconds + (maxResults * TimeUnit.MINUTES.toSeconds( distributionSeconds )),
+            		(double) startTimestampEpochSeconds + (maxResults * TimeUnit.MINUTES.toSeconds( distributionMinutes )),
             		0.0 ) );
         }
 
         // if our earliest timestamp is after the requested start time we will add a zero "distribution"
         // before the earliest, and a zero at the requested start time.
-        else if ( results.get( 0 ).getX() > timestampSeconds ){
+        else if ( results.get( 0 ).getX() > startTimestampEpochSeconds ){
 
             // a point just earlier than the first real point. ... let's do one second
             results.add( 0, new Datapoint( 
@@ -396,9 +406,11 @@ public class SeriesHelper {
             					0.0 ) );
 
             // at start time
+
             results.add( 0, new Datapoint(
-            					(double) timestampSeconds,
+            					(double) startTimestampEpochSeconds,
             					0.0 ) );
+
         }
 
         final Series realS = new Series();

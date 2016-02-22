@@ -124,6 +124,25 @@ class DmPersistVolDB : public HasLogger, public DmPersistVolCat {
     virtual Error deleteObject(const std::string & blobName, fds_uint64_t startOffset,
             fds_uint64_t endOffset) override;
 
+    virtual bool volSummaryInitialized() override;
+
+    virtual Error initVolSummary(fds_uint64_t logicalSize,
+                                 fds_uint64_t blobCount,
+                                 fds_uint64_t logicalObjectCount) override;
+
+    virtual Error applyStatDeltas(const fds_uint64_t bytesAdded,
+                                  const fds_uint64_t bytesRemoved,
+                                  const fds_uint64_t blobsAdded,
+                                  const fds_uint64_t blobsRemoved,
+                                  const fds_uint64_t objectsAdded,
+                                  const fds_uint64_t objectsRemoved) override;
+
+    virtual void resetVolSummary() override;
+
+    virtual Error getVolSummary(fds_uint64_t* logicalSize,
+                                fds_uint64_t* blobCount,
+                                fds_uint64_t* logicalObjectCount) override;
+
     virtual Error deleteBlobMetaDesc(const std::string & blobName) override;
     virtual void forEachObject(std::function<void(const ObjectID&)>) override;
 

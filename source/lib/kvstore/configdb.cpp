@@ -2516,7 +2516,10 @@ bool ConfigDB::changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr,
                   << " to status: " << svc_status;
         
         Reply reply = kv_store.hget( "svcmap", uuid.str().c_str() ); //NOLINT
-        if ( reply.isValid() ) 
+        /*
+         * the reply.isValid() always == true, because its not NULL
+         */
+        if ( !reply.isNil() )
         {
             bRetCode = true;
             std::string value = reply.getString();
@@ -2575,7 +2578,10 @@ fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
                  << " uuid: " << std::hex << svc_uuid << std::dec;
 
         Reply reply = kv_store.hget( "svcmap", uuid.str().c_str() ); //NOLINT
-        if ( reply.isValid() )
+        /*
+         * the reply.isValid() always == true, because its not NULL
+         */
+        if ( !reply.isNil() )
         {
             std::string value = reply.getString();
             fpi::SvcInfo svcInfo;

@@ -60,21 +60,12 @@ DmMigrationDest::testStaticMigrationComplete()
 {
     {
         fds_scoped_lock lock(progressLock);
-        fds_verify(migrationProgress == STATICMIGRATION_IN_PROGRESS &&
-                   deltaBlobDescsSeqNum.isSeqNumComplete());
-
-        migrationProgress = MIGRATION_COMPLETE;
-        cancelIdleTimer();
+        fds_verify(migrationProgress == STATICMIGRATION_IN_PROGRESS);
+        if (deltaBlobDescsSeqNum.isSeqNumComplete()) {
+            migrationProgress = MIGRATION_COMPLETE;
+            cancelIdleTimer();
+        }
     }
-
-#if 0
-    if (migrDoneCb) {
-        dataMgr.getModuleProvider()->proc_thrpool()->schedule(migrDoneCb,
-                                                              srcDmSvcUuid,
-                                                              volDesc.volUUID,
-                                                              ERR_OK);
-    }
-#endif
 }
 
 void DmMigrationDest::routeAbortMigration()
