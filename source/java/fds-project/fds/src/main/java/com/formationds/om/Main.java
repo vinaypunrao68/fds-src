@@ -4,7 +4,6 @@
 package com.formationds.om;
 
 import com.formationds.apis.ConfigurationService;
-import com.formationds.om.helper.SingletonOmConfigApi;
 import com.formationds.util.thrift.ThriftClientFactory;
 import com.formationds.commons.libconfig.Assignment;
 import com.formationds.commons.libconfig.ParsedConfig;
@@ -189,7 +188,6 @@ public class Main {
         {
             logger.debug( "Successful connected to configuration service, on {}:{}.",
                           omHost, omConfigPort );
-            SingletonOmConfigApi.INSTANCE.api( configCache );
         }
         else
         {

@@ -48,13 +48,18 @@ public class AsyncAmMap
     public static AsyncAm get( SvcUuid svcUuid )
         throws IOException
     {
-        if ( !map.containsKey( svcUuid ) )
-        {
-            logger.trace( "Creating Access Manager {}", svcUuid );
-            map.put( svcUuid, factory.newClient( svcUuid, true ) );
-        }
+        return map.computeIfAbsent( svcUuid, ( am ) -> {
+            try
+            {
+                return factory.newClient( svcUuid, true );
+            }
+            catch ( IOException e )
+            {
+                logger.error( "Failed to create Async AM client for {}", svcUuid, e );
+            }
 
-        return map.get( svcUuid );
+            return null;
+        } );
     }
 
     /**

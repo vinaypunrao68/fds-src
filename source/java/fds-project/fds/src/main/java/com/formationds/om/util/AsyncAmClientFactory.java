@@ -7,7 +7,7 @@ package com.formationds.om.util;
 import com.formationds.client.v08.converters.PlatformModelConverter;
 import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.nfs.XdiStaticConfiguration;
-import com.formationds.om.helper.SingletonOmConfigApi;
+import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
 import com.formationds.protocol.svc.types.SvcUuid;
 import com.formationds.util.Configuration;
@@ -138,12 +138,12 @@ public class AsyncAmClientFactory
             logger.trace( "Looking up service {} ( hex: {} )",
                           uuid.getSvc_uuid(),
                           Long.toHexString( uuid.getSvc_uuid() ) );
-            return SingletonOmConfigApi.INSTANCE
-                                       .api()
-                                       .listLocalDomainServices( "local" )
-                                       .stream()
-                                       .filter( ( svc ) -> svc.getService_uuid() == uuid.getSvc_uuid() )
-                                       .findFirst();
+            return SingletonConfigAPI.instance( )
+                                     .api()
+                                     .listLocalDomainServices( "local" )
+                                     .stream()
+                                     .filter( ( svc ) -> svc.getService_uuid() == uuid.getSvc_uuid() )
+                                     .findFirst();
         }
         catch ( TException e )
         {

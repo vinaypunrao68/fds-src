@@ -322,16 +322,18 @@ public class ExternalModelConverter {
                                                                       .getId( )
                                                                       .getSvc_uuid( ) );
 
-                    CompletableFuture<com.formationds.apis.VolumeStatus> completableFuture =
-                        am.volumeStatus( "" /* Local Domain Name */,
-                                         internalVolume.getName() );
-
-                    final com.formationds.apis.VolumeStatus vstatus = completableFuture.get();
-                    if( vstatus != null )
+                    if( am != null )
                     {
-                        extUsage =
-                            Optional.of( Size.of( vstatus.getCurrentUsageInBytes( ), SizeUnit.B ) );
+                        CompletableFuture<com.formationds.apis.VolumeStatus> completableFuture =
+                            am.volumeStatus( "" /* Local Domain Name */, internalVolume.getName( ) );
 
+                        final com.formationds.apis.VolumeStatus vstatus = completableFuture.get( );
+                        if ( vstatus != null )
+                        {
+                            extUsage = Optional.of(
+                                Size.of( vstatus.getCurrentUsageInBytes( ), SizeUnit.B ) );
+
+                        }
                     }
                 }
                 catch ( IOException | InterruptedException | ExecutionException e )
