@@ -1,22 +1,17 @@
 /*
- * Copyright (c) 2015-2016 Formation Data Systems. All rights Reserved.
+ * Copyright (c) 2016 Formation Data Systems. All rights Reserved.
  */
 package com.formationds.util.thrift;
 
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeSettings;
+import com.formationds.client.v08.converters.ExternalModelConverter;
+import com.formationds.client.v08.model.QosPolicy;
+import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.AuthenticatedUser;
-import com.formationds.commons.model.Connector;
-import com.formationds.commons.model.ConnectorAttributes;
-import com.formationds.commons.model.Volume;
-import com.formationds.commons.model.builder.ConnectorAttributesBuilder;
-import com.formationds.commons.model.builder.ConnectorBuilder;
-import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.helper.ObjectModelHelper;
-import com.formationds.commons.model.type.ConnectorType;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.security.AuthenticationToken;
-import com.formationds.util.SizeUnit;
 import com.google.common.base.Preconditions;
 import com.google.gson.reflect.TypeToken;
 import com.sun.jersey.api.client.Client;
@@ -24,11 +19,15 @@ import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.WebResource;
 import com.sun.jersey.api.client.config.DefaultClientConfig;
 import com.sun.jersey.api.uri.UriBuilderImpl;
+
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.crypto.SecretKey;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+
 import java.lang.reflect.Type;
 import java.net.URI;
 import java.util.List;
@@ -37,17 +36,23 @@ import java.util.Optional;
 /**
  * @author ptinius
  */
-public class OMConfigServiceRestClientImpl implements OMConfigServiceClient {
+// The v08 implementation is nearly identical to
+// the original v07 api version, with the exception
+// of the volume creation using the ExternalModelConverter
+// and the API paths.  This is intended to be loaded behind a
+// a feature toggle and work side-by-side with existing
+// v07 api for now, with the expectation that it will soon
+// completely replace the v07 version.
+public class OMConfigServiceRestClientv08Impl implements OMConfigServiceClient {
 
     private static final Logger logger =
-        LoggerFactory.getLogger( OMConfigServiceRestClientImpl.class);
+        LoggerFactory.getLogger( OMConfigServiceRestClientv08Impl.class);
 
     private static final String DEF_PROTOCOL = "http";
-    private static final String DEF_API_PATH = "/api";
+    private static final String DEF_API_PATH = "/fds/config/v08";
     private static final int    DEF_OM_PORT  = 7777;
 
     private static final String authUrl    = "/auth";
-    private static final String configUrl  = "/config";
     private static final String tokenUrl   = "/token";
     private static final String volumesUrl = "/volumes";
 
@@ -67,10 +72,10 @@ public class OMConfigServiceRestClientImpl implements OMConfigServiceClient {
      * @param protocol
      * @param host
      */
-    public OMConfigServiceRestClientImpl(final SecretKey key,
-                                         final String protocol,
-                                         final String host,
-                                         final Integer port) {
+    public OMConfigServiceRestClientv08Impl(final SecretKey key,
+                                            final String protocol,
+                                            final String host,
+                                            final Integer port) {
         super();
 
         this.key = key;
@@ -147,52 +152,20 @@ public class OMConfigServiceRestClientImpl implements OMConfigServiceClient {
             "The specified argument within volume settings for volume type " +
             " must not be null!" );
 
-        Connector connector;
-        switch( volumeSettings.getVolumeType() ) {
-            case OBJECT: // Object volume type
-                connector =
-                    new ConnectorBuilder().withType( ConnectorType.OBJECT )
-                                          .withApi( "S3, Swift" )
-                                          .build();
-                break;
-            case BLOCK: // Block volume type
-                Preconditions.checkArgument(
-                    volumeSettings.getBlockDeviceSizeInBytes() > 0,
-                    "The specified block device %s size is invalid",
-                    name );
+        VolumeDescriptor vd = new VolumeDescriptor();
+        vd.setName( name );
+        vd.setTenantId( tenantId );
+        vd.setPolicy( volumeSettings );
 
-                final ConnectorAttributes attrs =
-                    new ConnectorAttributesBuilder()
-                        .withSize( volumeSettings.getBlockDeviceSizeInBytes() )
-                        .withUnit( SizeUnit.B )
-                        .build();
-                connector =
-                    new ConnectorBuilder().withType( ConnectorType.BLOCK )
-                                          .withAttributes( attrs )
-                                          .build();
-                break;
-            default:
-                throw new OMConfigException( ErrorCode.BAD_REQUEST,
-                    "The specified volume type " +
-                    volumeSettings.getVolumeType().getValue() +
-                    " is invalid." );
-        }
+        // use the model converter to create the v08 representation of the volume
+        final Volume volume = ExternalModelConverter.convertToExternalVolume( vd, null );
 
-        final Volume volume =
-            new VolumeBuilder().withName( name )
-                               .withLimit( 0 )          // default for now
-                               .withPriority( 10 )      // default for now
-                               .withSla( 0 )            // default for now
-                               .withTenantId( tenantId )
-                               .withCommitLogRetention(
-                                   volumeSettings.getContCommitlogRetention() )
-                               .withMediaPolicy( volumeSettings.getMediaPolicy() )
-                               .withData_connector( connector )
-                               .build();
+        // Set a default Qos Policy.  Without this, the OM handler will fail with
+        // an exception indicating that the Qos Policy is not valid (null)
+        volume.setQosPolicy( QosPolicy.defaultPolicy() );
 
         final ClientResponse response =
-            webResource().path(configUrl)
-                         .path(volumesUrl)
+            webResource().path(volumesUrl)
                          .type(MediaType.APPLICATION_JSON_TYPE)
                          .header(FDS_AUTH_HEADER, getToken(token))
                          .post(ClientResponse.class,
@@ -207,8 +180,7 @@ public class OMConfigServiceRestClientImpl implements OMConfigServiceClient {
         throws OMConfigException {
 
         final ClientResponse response =
-            webResource().path( configUrl )
-                         .path( volumesUrl )
+            webResource().path( volumesUrl )
                          .type( MediaType.APPLICATION_JSON_TYPE )
                          .header( FDS_AUTH_HEADER, getToken(token) )
                          .get( ClientResponse.class );
@@ -242,10 +214,20 @@ public class OMConfigServiceRestClientImpl implements OMConfigServiceClient {
     public void deleteVolume(AuthenticationToken token, final String domainName, final String volumeName)
         throws OMConfigException {
 
+        // rest call here is going to get all volumes and search for the requested one.  If you
+        // can acess the volume id outside of this and call deleteVolume directly with that id,
+        // it will be much more efficient.
+        VolumeDescriptor vd = statVolume(token, domainName, volumeName);
+
+        deleteVolume(token, vd.getVolId() );
+    }
+
+    public void deleteVolume(AuthenticationToken token, final Long volumeId)
+        throws OMConfigException {
+
         final ClientResponse response =
-            webResource().path(configUrl)
-                         .path( volumesUrl )
-                         .path(volumeName)
+            webResource().path( volumesUrl )
+                         .path( Long.toString( volumeId ) )
                          .type( MediaType.APPLICATION_JSON_TYPE )
                          .header( FDS_AUTH_HEADER, getToken(token) )
                          .delete( ClientResponse.class );
@@ -281,18 +263,26 @@ public class OMConfigServiceRestClientImpl implements OMConfigServiceClient {
         return null;
     }
 
-    private void isOk( final ClientResponse response )
-        throws OMConfigException {
-        if( !response.getClientResponseStatus()
-                     .equals( ClientResponse.Status.OK ) ) {
+    private void isOk( final ClientResponse response ) throws OMConfigException {
 
-            logger.error( "ISOK::RESPONSE::{}", response );
+        String json = response.getEntity( String.class );
+        logger.debug( "ISOK::RESPONSE::{}::{}", response.getStatusInfo(), json );
 
-            throw new OMConfigException( ErrorCode.INTERNAL_SERVER_ERROR, response.toString() );
+        if( response.getStatusInfo().getStatusCode() != Response.Status.OK.getStatusCode() ) {
 
-        } else {
+            logger.error( "ISOK::RESPONSE::FAILED::{}::{} ", response, json );
 
-            logger.debug( "ISOK::RESPONSE::{}", response );
+            JSONObject respObj = new JSONObject(json);
+            String type = respObj.getString( "type" );
+            String message = respObj.getString( "message" );
+            ErrorCode errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
+
+            if ( type.endsWith("ApiException") ) {
+                String respErrorCode = respObj.getString( "error_code" );
+                errorCode = ErrorCode.valueOf( respErrorCode );
+            }
+            throw new OMConfigException( errorCode, "%s: %s", response.getStatusInfo(), message );
+
         }
     }
 
