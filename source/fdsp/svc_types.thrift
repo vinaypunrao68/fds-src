@@ -73,7 +73,7 @@ enum FDSP_MgrIdType {
     FDSP_OMCLIENT_MGR   = 0x6,
     FDSP_MIGRATION_MGR  = 0x7,
     FDSP_PLATFORM_SVC   = 0x8,
-    FDSP_VOLUME_CHKR    = 0x9,
+    FDSP_CHECKER_TYPE   = 0x9,
     FDSP_TEST_APP       = 0xa,
     FDSP_CONSOLE        = 0xb,
     FDSP_INVALID_SVC    = 0xc

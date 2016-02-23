@@ -174,8 +174,8 @@ fpi::FDSP_MgrIdType SvcMgr::mapToSvcType(const std::string &svcName)
         return fpi::FDSP_ORCH_MGR;
     } else if (svcName == "console") {
         return fpi::FDSP_CONSOLE;
-    } else if (svcName == "vc") {
-        return fpi::FDSP_VOLUME_CHKR;
+    } else if (svcName == "checker") {
+        return fpi::FDSP_CHECKER_TYPE;
     } else if (svcName == "test") {
         return fpi::FDSP_TEST_APP;
     } else {
@@ -199,8 +199,8 @@ std::string SvcMgr::mapToSvcName(const fpi::FDSP_MgrIdType &svcType)
         return "om";
     case fpi::FDSP_CONSOLE:
         return "console";
-    case fpi::FDSP_VOLUME_CHKR:
-        return "vc";
+    case fpi::FDSP_CHECKER_TYPE:
+        return "checker";
     case fpi::FDSP_TEST_APP:
         return "test";
     default:

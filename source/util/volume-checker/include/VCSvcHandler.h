@@ -7,13 +7,12 @@
 
 #include <fdsp/PlatNetSvc.h>
 #include <net/PlatNetSvcHandler.h>
-#include <fdsp/VCSvc.h>
 
 #include <VolumeChecker.h>
 
 namespace fds {
 
-class VCSvcHandler : virtual public fpi::VCSvcIf, public PlatNetSvcHandler {
+class VCSvcHandler : public PlatNetSvcHandler {
 public:
     explicit VCSvcHandler(VolumeChecker *vc);
     ~VCSvcHandler() = default;

@@ -4,119 +4,73 @@
  * drive the main VolumeChecker process.
  */
 
+#include <boost/program_options.hpp>
 #include <VolumeChecker.h>
 #include <unistd.h>
 #include <TestUtils.h>
 #include <string.h>
 #include <stdio.h>
+#include <fds_volume.h>
 
 /* Globals to drive Volume Checker */
 bool help_flag;
 int pm_uuid = -1;
 int pm_port = -1;
 int min_argc = 0;
-std::string volumeList;
+std::vector<fds::fds_volid_t> volumes;
+namespace po = boost::program_options;
 
 /**
  * Helper Functions
  */
-
-void displayUsage(std::string &progName) {
-    std::cout << "Usage: " << progName << " [-h] -u <PM UUID> -p <PM Port> -v <List of volumes (CSV)>" << std::endl;
-    std::cout << "" << std::endl;
-}
-
-void displayHelp(std::string &progName) {
-    displayUsage(progName);
-    std::cout << "Brings a list of volumes offline for consistency check." << std::endl;
-    std::cout << "This program must be run from the OM node, and the OM must be up." << std::endl;
-    std::cout << "" << std::endl;
-    std::cout << "List of arguments: " << std::endl;
-    std::cout << " -h : Displays this help page." << std::endl;
-    std::cout << " -u : Current node's PM's UUID in decimal." << std::endl;
-    std::cout << " -p : Current node's PM's port in decimal." << std::endl;
-    std::cout << " -v : A list of volumes to be checked separated by commas." << std::endl;
-    std::cout << "" << std::endl;
-    std::cout << "Example:" << std::endl;
-    std::cout << progName << " -u 2059 -p 9861 -v 2,3,5" << std::endl;
-    std::cout << "" << std::endl;
-}
-
-void parseArgs(int argc, char **argv) {
-    int opt, flags;
-    bool pmPortSet = false;
-    bool pmUuidSet = false;
-    bool volListSet = false;
-    std::string progName(argv[0]);
-
-    // When adding a new option below, make sure to increment min_argc
-    while ((opt = getopt(argc, argv, "hv:u:p:")) != -1) {
-        switch (opt) {
-        case 'h':
-            help_flag = true;
-            break;
-        case 'v':
-            // TODO - check input
-            volumeList = optarg;
-            volListSet = true;
-            min_argc++;
-            break;
-        case 'u':
-            pm_uuid = atoi(optarg);
-            pmUuidSet = true;
-            min_argc++;
-            break;
-        case 'p':
-            pm_port = atoi(optarg);
-            pmPortSet = true;
-            min_argc++;
-            break;
-        default: /* '?' */
-            displayUsage(progName);
-            exit(EXIT_FAILURE);
-        }
+void populateVolumeList(std::string &volumeList) {
+    volumeList.clear();
+    for (auto vol : volumes) {
+        volumeList += std::to_string(vol.get());
+        volumeList += ",";
     }
-
-    if (!pmPortSet || !pmUuidSet || !volListSet) {
-        displayUsage(progName);
-        exit(EXIT_FAILURE);
-    }
+    // Erase the last ","
+    auto it = volumeList.end();
+    fds_assert(it != volumeList.begin());
+    --it;
+    volumeList.erase(it);
 }
 
 /**
  * Args to be sent are as follows:
- *         {"vc", <-- not part of min_argc
- *          roots[0], <-- not part of min_argc
+ *         {"checker",
+ *          roots[0],
  *          "--fds.pm.platform_uuid=<uuid>",
  *          "--fds.pm.platform_port=<port>",
  *          "-v=1,2,3
  *          }
  *
- *  min_argc == 5 above + 1 for original prog name
+ *  internal_argc == 5 above + 1 for original prog name
  *
  */
 void populateInternalArgs(int argc, char **argv, int *internal_argc, char ***internal_argv, std::string root) {
 
     fds_verify(internal_argc && internal_argv);
 
-
     char **new_argv = *internal_argv;
     int new_argc = *internal_argc;
 
-    // see above for increment
-    min_argc += 3;
+    // see above for magic number here
+    *internal_argc = 6;
 
-    *internal_argc = min_argc;
     // one for NULL ptr
     *internal_argv = (char **)malloc(sizeof(char*) * (*internal_argc) + 1);
     (*internal_argv)[*internal_argc] = NULL;
     std::string currentArg;
+    std::string volumeList;
+
+    populateVolumeList(volumeList);
 
     for (int i = 0; i < *internal_argc; ++i) {
         if (i == 0) {
             currentArg.assign(argv[0]);
         } else if (i == 1) {
-            currentArg = "vc";
+            currentArg = "checker";
         } else if (i == 2) {
             currentArg = root;
         } else if (i == 3) {
@@ -133,18 +87,56 @@ void populateInternalArgs(int argc, char **argv, int *internal_argc, char ***int
     }
 }
 
+void parsePoArgs(int argc, char **argv) {
+    /**
+     * Process cmd line options
+     * When adding new options here, please double check internal_argc in
+     * populateInternalArgs as well.
+     */
+    po::options_description desc("\nVolume checker command line options");
+    po::positional_options_description m_positional;
+    desc.add_options()
+            ("help,h", "help/ usage message")
+            ("uuid,u", po::value<int>(&pm_uuid), "Current node PM's UUID in decimal")
+            ("port,p", po::value<int>(&pm_port), "Current node PM's Port")
+            ("volume,v", po::value<std::vector<uint64_t>>()->multitoken(), "Volume IDs to be checked");
+
+    po::variables_map vm;
+    po::store(po::command_line_parser(argc, argv)
+              .options(desc)
+//              .allow_unregistered()
+              .positional(m_positional)
+              .run(), vm);
+    po::notify(vm);
+
+    if (vm.count("help")) {
+        std::cout << desc << std::endl;
+        exit(0);
+    }
+
+    if (vm.count("volume")) {
+        auto parsedIds = vm["volume"].as<std::vector<uint64_t> >();
+        if (!parsedIds.empty()) {
+            std::transform(parsedIds.begin(), parsedIds.end(), std::back_inserter(volumes),
+                           [](uint64_t const& val) -> fds::fds_volid_t { return fds::fds_volid_t(val); });
+        }
+    } else {
+        std::cout << desc << std::endl;
+        exit(0);
+    }
+
+    if ((!vm.count("uuid")) || (!vm.count("port"))) {
+        std::cout << desc << std::endl;
+        exit(0);
+    }
+}
+
 int main(int argc, char **argv) {
 
     char **internal_argv = NULL;
     int internal_argc = 0;
 
-    help_flag = (argc > 1) ? false : true;
-    parseArgs(argc, argv);
-    if (help_flag) {
-        std::string progName(argv[0]);
-        displayHelp(progName);
-        return(0);
-    }
+    parsePoArgs(argc, argv);
 
     // Set up internal args to pass to checker
     std::vector<std::string> roots;

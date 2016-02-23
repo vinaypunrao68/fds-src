@@ -32,12 +32,11 @@ TEST_F(VolumeGroupFixture, twoHappyDMs) {
     // Create 2 DMs
     unsigned clusterSize = 2;
     createCluster(clusterSize);
-    DMTPtr dmt;
-    setupVolumeGroup(clusterSize, dmt);
+    setupVolumeGroup(clusterSize);
 
     // Test Volume Checker svcmgr layer
     initVolumeChecker();
-    addDMTToVC(dmt);
+    addDMTToVC(getOmDMT(DMT_COMMITTED));
     stopVolumeChecker();
 
     /* Do some io. After Io is done, every volume replica must have same state */

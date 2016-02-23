@@ -84,7 +84,7 @@ struct DmGroupFixture : BaseTestFixture {
         }
     }
 
-    void setupVolumeGroup(uint32_t quorumCnt, DMTPtr returnedDMT)
+    void setupVolumeGroup(uint32_t quorumCnt)
     {
         /* Create a coordinator with quorum of quorumCnt */
         v1 = MAKE_SHARED<VolumeGroupHandle>(amHandle.proc, v1Id, quorumCnt);
@@ -99,9 +99,6 @@ struct DmGroupFixture : BaseTestFixture {
         /* Add the DMT to om and am */
         std::string dmtData;
         dmt = DMT::newDMT(dms);
-        if (returnedDMT != nullptr) {
-            returnedDMT = dmt;
-        }
         dmt->getSerialized(dmtData);
         omHandle.proc->addDmt(dmt);
         Error e = amHandle.proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
@@ -127,9 +124,8 @@ struct DmGroupFixture : BaseTestFixture {
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
     }
 
-    void setupVolumeGroup(uint32_t quorumCnt)
-    {
-        setupVolumeGroup(quorumCnt, nullptr);
+    DMTPtr getOmDMT(DMTType type) {
+        return omHandle.proc->getSvcMgr()->getDmtManager()->getDMT(type);
     }
 
     SHPTR<VolumeDesc> generateVolume(const fds_volid_t &volId) {

@@ -22,7 +22,7 @@ VolumeChecker::init(int argc, char **argv, bool initAsModule)
      * Initialize VC service
      */
     auto svc_handler = boost::make_shared<VCSvcHandler>(this);
-    auto svc_processor = boost::make_shared<fpi::VCSvcProcessor>(svc_handler);
+    auto svc_processor = boost::make_shared<fpi::PlatNetSvcProcessor>(svc_handler);
 
     /**
      * Init service process
