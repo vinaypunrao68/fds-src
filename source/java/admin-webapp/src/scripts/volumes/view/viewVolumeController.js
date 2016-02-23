@@ -1,4 +1,5 @@
-angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$volume_api', '$snapshot_service', '$stats_service', '$byte_converter', '$filter', '$timeout', '$rootScope', '$media_policy_helper', '$translate', '$time_converter', '$qos_policy_helper', '$timeline_policy_helper', function( $scope, $volume_api, $snapshot_service, $stats_service, $byte_converter, $filter, $timeout, $rootScope, $media_policy_helper, $translate, $time_converter, $qos_policy_helper, $timeline_policy_helper ){
+angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$volume_api', '$snapshot_service', '$stats_service', '$byte_converter', '$filter', '$timeout', '$rootScope', '$media_policy_helper', '$translate', '$time_converter', '$qos_policy_helper', '$timeline_policy_helper', 
+'$toggle_service', '$q', function( $scope, $volume_api, $snapshot_service, $stats_service, $byte_converter, $filter, $timeout, $rootScope, $media_policy_helper, $translate, $time_converter, $qos_policy_helper, $timeline_policy_helper, $toggle_service, $q ){
     
     var translate = function( key ){
         return $filter( 'translate' )( key );
@@ -242,54 +243,85 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     /**
     Polling functions
     **/
+    //Helper to get a context def for this volume
+    var getContextList = function( callback ){
+        
+        var deferred = $q.defer();
+        
+        var contexts = [];
+        
+        $toggle_service.getToggles().then( function( rToggles ){
+            
+            if ( rToggles[$toggle_service.STATS_QUERY_TOGGLE] === true ){
+                contexts = [{'contextType': StatQueryFilter.TYPE_VOLUME, 'contextId': $scope.thisVolume.uid}];
+            }
+            else {
+                contexts = [$scope.thisVolume];
+            } 
+            
+            deferred.resolve( contexts );
+        });
+        
+        return deferred.promise;
+    };
+    
     var pollCapacity = function(){
         
-        $timeout.cancel( capacityIntervalId );
+        getContextList().then( function( contexts ){
+            
+            $timeout.cancel( capacityIntervalId );
         
-        var now = new Date();
-        
-        capacityQuery = StatQueryFilter.create( [$scope.thisVolume], 
-            [StatQueryFilter.LOGICAL_CAPACITY], 
-            Math.round( (now.getTime() - $scope.capacityTimeChoice.value)/1000 ),
-            Math.round( now.getTime() / 1000 ) );
-        
-        $stats_service.getCapacitySummary( capacityQuery, $scope.capacityReturned, 
-            function(){ 
-                capacityIntervalId = $timeout( pollCapacity, 60000 ); 
-            });
+            var now = new Date();
+
+            capacityQuery = StatQueryFilter.create( contexts, 
+                [StatQueryFilter.LOGICAL_CAPACITY], 
+                Math.round( (now.getTime() - $scope.capacityTimeChoice.value)/1000 ),
+                Math.round( now.getTime() / 1000 ) );
+
+            $stats_service.getCapacitySummary( capacityQuery, $scope.capacityReturned, 
+                function(){ 
+                    capacityIntervalId = $timeout( pollCapacity, 60000 ); 
+                });
+        });
     };
     
     var pollPerformance = function(){
 
-        $timeout.cancel( performanceIntervalId );
-        
-        var now = new Date();
-        
-        performanceQuery = StatQueryFilter.create( [$scope.thisVolume],
-            [StatQueryFilter.PUTS, StatQueryFilter.HDD_GETS, StatQueryFilter.SSD_GETS],
-            Math.round( (now.getTime() - $scope.performanceTimeChoice.value)/1000 ),
-            Math.round( now.getTime() / 1000 ) );
-        
-        $stats_service.getPerformanceBreakdownSummary( performanceQuery, $scope.performanceReturned, 
-            function(){ performanceIntervalId = $timeout( pollPerformance, 60000 ); } );
+        getContextList().then( function( contexts ){
+            
+            $timeout.cancel( performanceIntervalId );
+
+            var now = new Date();
+
+            performanceQuery = StatQueryFilter.create( contexts,
+                [StatQueryFilter.PUTS, StatQueryFilter.HDD_GETS, StatQueryFilter.SSD_GETS],
+                Math.round( (now.getTime() - $scope.performanceTimeChoice.value)/1000 ),
+                Math.round( now.getTime() / 1000 ) );
+
+            $stats_service.getPerformanceBreakdownSummary( performanceQuery, $scope.performanceReturned, 
+                function(){ performanceIntervalId = $timeout( pollPerformance, 60000 ); } );
+        });
     };
     
     var pollFirebreak = function(){
         
-        $timeout.cancel( firebreakIntervalId );
-        
-        var now = new Date();
-        
-        firebreakQuery = StatQueryFilter.create( [$scope.thisVolume],
-            [ StatQueryFilter.SHORT_TERM_CAPACITY_SIGMA,
-             StatQueryFilter.LONG_TERM_CAPACITY_SIGMA,
-             StatQueryFilter.SHORT_TERM_PERFORMANCE_SIGMA,
-             StatQueryFilter.LONG_TERM_PERFORMANCE_SIGMA],
-            Math.round( (now.getTime() - $scope.performanceTimeChoice.value)/1000 ),
-            Math.round( now.getTime() / 1000 ) );        
-        
-        $stats_service.getFirebreakSummary( firebreakQuery, $scope.firebreakReturned, 
-            function(){ firebreakIntervalId = $timeout( pollFirebreak, 60000 );} );
+        getContextList().then( function( contexts ){
+            
+            $timeout.cancel( firebreakIntervalId );
+
+            var now = new Date();
+
+            firebreakQuery = StatQueryFilter.create( contexts,
+                [ StatQueryFilter.SHORT_TERM_CAPACITY_SIGMA,
+                 StatQueryFilter.LONG_TERM_CAPACITY_SIGMA,
+                 StatQueryFilter.SHORT_TERM_PERFORMANCE_SIGMA,
+                 StatQueryFilter.LONG_TERM_PERFORMANCE_SIGMA],
+                Math.round( (now.getTime() - $scope.performanceTimeChoice.value)/1000 ),
+                Math.round( now.getTime() / 1000 ) );        
+
+            $stats_service.getFirebreakSummary( firebreakQuery, $scope.firebreakReturned, 
+                function(){ firebreakIntervalId = $timeout( pollFirebreak, 60000 );} );
+        });
     };
     
     /**
