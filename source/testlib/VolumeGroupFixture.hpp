@@ -9,19 +9,34 @@
 #include <VolumeChecker.h>
 
 struct VolumeGroupFixture : DmGroupFixture {
-    using VcHandle = ProcessHandle<VolumeChecker>;
-    VcHandle                                vcHandle;
 
-    void initVolumeChecker()
-    {
+    VolumeGroupFixture() {}
+    using VcHandle = ProcessHandle<VolumeChecker>;
+    VcHandle   vcHandle;
+
+    void addDMTToVC(DMTPtr DMT) {
+        ASSERT_TRUE(vcHandle.isRunning());
+        std::string dmtData;
+        dmt->getSerialized(dmtData);
+        Error e = vcHandle.proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
+                                                                          nullptr,
+                                                                          DMT_COMMITTED);
+        ASSERT_TRUE(e == ERR_OK);
+    }
+
+    void initVolumeChecker() {
         auto roots = getRootDirectories();
         // As volume checker, we init as an AM
-        vcHandle.start({"am",
+        vcHandle.start({"vc",
                        roots[0],
                        "--fds.pm.platform_uuid=2059",
                        "--fds.pm.platform_port=9861"
                        });
 
+    }
+
+    void stopVolumeChecker() {
+        vcHandle.stop();
     }
 
 };

@@ -30,9 +30,15 @@ TEST_F(VolumeGroupFixture, twoHappyDMs) {
     LOGNORMAL << "TEST MARKER Starting twoHappyDMs";
 
     // Create 2 DMs
-    createCluster(2);
-    setupVolumeGroup(2);
-    addDMT();
+    unsigned clusterSize = 2;
+    createCluster(clusterSize);
+    DMTPtr dmt;
+    setupVolumeGroup(clusterSize, dmt);
+
+    // Test Volume Checker svcmgr layer
+    initVolumeChecker();
+    addDMTToVC(dmt);
+    stopVolumeChecker();
 
     /* Do some io. After Io is done, every volume replica must have same state */
 #if 0
@@ -45,7 +51,6 @@ TEST_F(VolumeGroupFixture, twoHappyDMs) {
     }
 #endif
 
-    initVolumeChecker();
 
     LOGNORMAL << "TEST MARKER Finished twoHappyDMs";
 }

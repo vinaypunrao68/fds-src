@@ -9,6 +9,7 @@
 namespace fds {
 
 VolumeChecker::VolumeChecker(int argc, char **argv, bool initAsModule)
+    : waitForShutdown(initAsModule)
 {
     init(argc, argv, initAsModule);
     LOGNORMAL << "VolumeChecker initialized.";
@@ -62,7 +63,9 @@ VolumeChecker::run() {
     getDLT();
 
     readyWaiter.done();
-    // shutdownGate_.waitUntilOpened();
+    if (waitForShutdown) {
+        shutdownGate_.waitUntilOpened();
+    }
     LOGNORMAL << "Shutting down volume checker";
     return 0;
 }

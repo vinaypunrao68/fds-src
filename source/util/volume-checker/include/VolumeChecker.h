@@ -36,6 +36,9 @@ private:
 
     // Max retires for get - TODO needs to be organized later
     int maxRetries = 10;
+
+    // If the process should wait for a shutdown call
+    bool waitForShutdown;
 };
 
 } // namespace fds

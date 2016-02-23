@@ -21,7 +21,8 @@ using namespace fds::TestUtils;
 
 TEST_F(VolumeGroupFixture, singledm) {
     /* Start with one dm */
-    createCluster(1);
+    unsigned clusterSize=1;
+    createCluster(clusterSize);
 
     /* Create a DM group */
     /* Create a coordinator */
@@ -33,7 +34,23 @@ TEST_F(VolumeGroupFixture, singledm) {
     ASSERT_TRUE(waiter.awaitResult() != ERR_OK);
 
     /* Add DMT */
-    addDMT();
+    std::string dmtData;
+    std::vector<fpi::SvcUuid> dmtColumn;
+    for (unsigned i = 0; i < clusterSize; i++) {
+        dmtColumn.emplace_back(dmGroup[i]->proc->getSvcMgr()->getSelfSvcUuid());
+    }
+    dmt = DMT::newDMT(dmtColumn);
+    dmt->getSerialized(dmtData);
+    Error e = amHandle.proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
+                                                                            nullptr,
+                                                                            DMT_COMMITTED);
+    ASSERT_TRUE(e == ERR_OK);
+    for (unsigned i = 0; i < clusterSize; i++) {
+        e = dmGroup[i]->proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
+                                                                             nullptr,
+                                                                             DMT_COMMITTED);
+    }
+    ASSERT_TRUE(e == ERR_OK);
 
     /* Open without volume being add to DM.  Open should fail */
     openVolume(*v1, waiter);
@@ -44,7 +61,7 @@ TEST_F(VolumeGroupFixture, singledm) {
     omHandle.proc->addVolume(v1Id, v1Desc);
 
     /* Add volume to DM */
-    Error e = dmGroup[0]->proc->getDataMgr()->addVolume("test1", v1Id, v1Desc.get());
+    e = dmGroup[0]->proc->getDataMgr()->addVolume("test1", v1Id, v1Desc.get());
     ASSERT_TRUE(e == ERR_OK);
     ASSERT_TRUE(dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Offline);
     /* Any IO should fail */
