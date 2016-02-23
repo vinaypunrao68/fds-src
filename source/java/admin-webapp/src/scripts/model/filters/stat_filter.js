@@ -13,6 +13,13 @@ var StatQueryFilter = {
     SSD_GETS: 'SSD_GETS',
     HDD_GETS: 'HDD_GETS',
     
+    TYPE_VOLUME: 'VOLUME',
+    TYPE_NODE: 'NODE',
+    TYPE_SERVICE: 'SERVICE',
+    TYPE_USER: 'USER',
+    TYPE_TENANT: 'TENANT',
+    TYPE_DOMAIN: 'DOMAIN',
+    
     create: function( contextList, seriesTypes, startTime, endTime, datapoints ){
         
         var val = { 
@@ -24,8 +31,7 @@ var StatQueryFilter = {
         };
         
         if ( angular.isDefined( contextList ) && 
-            contextList.length > 0 &&
-            angular.isDefined( contextList[0].uid ) ){
+            contextList.length > 0 ){
             
             val.contexts = contextList;
         }
