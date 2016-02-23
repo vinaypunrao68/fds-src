@@ -501,7 +501,7 @@ DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
     		msgHandler.addToQueue(fwdCatReq);
     		break;
     	case MIGRATION_ABORTED:
-            LOGERROR << "Migration aborted so dropping forward request for " << fwdCatReq;
+            	LOGERROR << "Migration aborted so dropping forward request for " << fwdCatReq;
     		err = ERR_DM_MIGRATION_ABORTED;
     		break;
     	case MIGRATION_COMPLETE:
