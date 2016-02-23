@@ -17,11 +17,6 @@ private static final long serialVersionUID = 7313793869030172350L;
 
   public Datapoint(){}
   
-  public Datapoint( Double x, Double y ){
-	  this.x = x;
-	  this.y = y;
-  }
-  
   /**
    * @return Returns the {@link Long} representing the x-axis
    */
