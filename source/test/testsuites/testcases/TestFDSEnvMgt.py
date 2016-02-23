@@ -17,6 +17,8 @@ from fdslib.TestUtils import findNodeFromInv
 import subprocess
 from fdslib.TestUtils import core_hunter_aws
 from fdslib.TestUtils import get_inventory_value
+from fdslib.TestUtils import check_catalogs_local
+from fdslib.TestUtils import check_catalogs_remote
 
 KEY_ENABLE_SCST='fds_ft_am_scst_enabled'
 
@@ -330,7 +332,8 @@ class TestFDSDeleteInstDir(TestCase.FDSTestCase):
             return False
         else:
             self.log.info("No cores found.")
-
+        self.log.info(' Check for catalog journals or archives in user-repo before deleting installation directory')
+        assert check_catalogs_local(self) is True
         nodes = fdscfg.rt_obj.cfg_nodes
         for n in nodes:
             # If we were passed a specific node, use it and get it.
@@ -471,11 +474,12 @@ class TestFDSSelectiveInstDirClean(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
         bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+        nodes = fdscfg.rt_obj.cfg_nodes
 
         if self.parameters['ansible_install_done'] == True:
-            nodes = fdscfg.rt_obj.cfg_nodes
             for node in nodes:
-                rc =core_hunter_aws(self,node.nd_host)
+                self.log.info("Searching for core files on AWS node {0}".format(node.nd_host))
+                rc = core_hunter_aws(self, node.nd_host)
                 if rc == 0: break
         else:
             # If we have core files, return a failure and don't remove anything.
@@ -492,7 +496,17 @@ class TestFDSSelectiveInstDirClean(TestCase.FDSTestCase):
         else:
             self.log.info("No cores found.")
 
-        nodes = fdscfg.rt_obj.cfg_nodes
+        # If catalog_journals > 5 and catalog_archives >1 then return an error fs-4999
+        if self.parameters['ansible_install_done'] == True: # AWS environment
+            self.log.info('Checking for catalog journals and archives count in real node domain')
+            for node in nodes:
+                if check_catalogs_remote(self, node.nd_host) is False:
+                    return False
+        else: # Local simulated environment
+            self.log.info('Checking catalog journals and archives count in local domain')
+            if check_catalogs_local(self) is False:
+                return False
+
         for n in nodes:
             # If we were passed a specific node, use it and get it.
             if self.passedNode is not None:

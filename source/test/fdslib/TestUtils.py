@@ -634,6 +634,8 @@ def deploy_on_AWS(self, number_of_nodes, inventory_file):
 
 
 # This method searches coredumps in deployed AWS enviorment.
+# @param node_ip : fabric connects to given node_ip to search cores
+# @param returns 0 as success if cores are found on passed node_ip
 def core_hunter_aws(self, node_ip):
     connect_fabric(self, node_ip)
     if exists('/fds/bin', use_sudo=True):
@@ -790,4 +792,61 @@ def verify_disk_free(self, thresh_hold):
         return False
     else:
         self.log.info('OK: {0} is only {1}% used.'.format(device_name, df))
+        return True
+
+
+# This method returns True/False if catalog journal or archives are more than expected in local domain i.e. simulated mode.
+# Part of for kill-unist scenario in cfg. i.e.just before deleting installation dir and Selective installation Dir Clean
+# It does not recursively count files in directories
+# no param as path is constant.
+def check_catalogs_local(self):
+    path_a = '/fds/user-repo/timeline/'
+    if not os.path.isdir(path_a):
+        self.log.error('{0} does not exists'.format(path_a))
+        return False
+
+    with lcd(path_a):
+        output= local('ls -d */', capture=True)
+        vol_id_dirs = output.split()
+    for vol_id_dir in vol_id_dirs:
+        with lcd(path_a+vol_id_dir):
+            catalog_journal_count= len(local('find . -type f -name "catalog.journal*"', capture=True).split())
+            catalog_archive_count = len(local('find . -type f -name "catalog.archive*"', capture=True).split())
+
+            # These values are hardcoded from fs-4999
+            if catalog_archive_count > 1 or catalog_journal_count > 5:
+                self.log.error('FAILED: In volume_id {0} dir, {1} catalog journal (>5) and {2} catalog archive (>1) found.'.
+                               format(vol_id_dir, catalog_journal_count,catalog_archive_count))
+                return False
+        self.log.info(('OK: In volume_id {0} dir, {1} catalog journal and {2} catalog archive found.'.format(vol_id_dir, catalog_archive_count, catalog_journal_count)))
+        return True
+
+
+# This method returns True/False if catalog journal or archives are more than expected in remote domain i.e. aws env.
+# Part of for kill-unist scenario in cfg. i.e.just before deleting installation dir and Selective installation Dir Clean
+# It does not recursively count files in directories
+# @param node_ip as ip of node to connect fabric and look for catalogs.
+def check_catalogs_remote(self, node_ip):
+    path_a = '/fds/sys-repo/dm-names/'
+    connect_fabric(self, node_ip)
+    if not exists(path_a, use_sudo=True):
+        self.log.error('{0} path does not exists')
+        return False
+
+    with cd(path_a):
+        output = run('ls -d */')
+        vol_id_dirs = output.split()
+
+    for vol_id_dir in vol_id_dirs:
+        with cd(path_a+vol_id_dir):
+            catalog_journal_count = len(run('find . -type f -name "catalog.journal*"', quiet=True).split())
+            catalog_archive_count=  len(run('find . -type f -name "catalog.archive*"', quiet=True).split())
+            # These values are hardcoded from fs-4999
+            if catalog_archive_count > 1 or catalog_journal_count > 5:
+                self.log.error('FAILED: In volume_id {0} dir, {1} catalog journal (>5) and {2} catalog_archive (>1) found on node {3}'
+                              .format(vol_id_dir, catalog_journal_count, catalog_archive_count, node_ip))
+                return False
+            else:
+                self.log.info('OK: In volume_id {0} dir, {1} catalog journal and {2} catalog archive found for node {3}'
+                              .format(vol_id_dir, catalog_journal_count,catalog_archive_count, node_ip))
         return True
