@@ -90,6 +90,7 @@ public class Chunker {
                     LOG.error("Read error, volume=" + volume + ", blobName=" + blobName);
                     LOG.error("maxObjectSize=" + maxObjectSize + ", destination=" + destination + "bytes, offset=" + offset + ", length=" + length);
                     LOG.error("Object capacity=" + o.capacity() + ", object limit=" + o.limit());
+                    throw new IOException(e);
                 }
                 return null;
             });
