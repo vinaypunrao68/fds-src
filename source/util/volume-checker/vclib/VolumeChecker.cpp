@@ -71,10 +71,3 @@ VolumeChecker::run() {
 }
 
 } // namespace fds
-#if 0
-int main(int argc, char **argv) {
-    fds::VolumeChecker checker(argc, argv, false);
-    checker.run();
-    return checker.main();
-}
-#endif

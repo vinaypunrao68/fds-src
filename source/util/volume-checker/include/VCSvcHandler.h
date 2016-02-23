@@ -1,8 +1,5 @@
 /*
- * VCSvcHandler.h
- *
- *  Created on: Feb 19, 2016
- *      Author: nhuang
+ *  Copyright 2016 Formation Data Systems, Inc.
  */
 
 #ifndef SOURCE_UTIL_VOLUME_CHECKER_INCLUDE_VCSVCHANDLER_H_
