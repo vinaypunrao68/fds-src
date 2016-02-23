@@ -1,5 +1,6 @@
 package com.formationds.nfs;
 
+import com.formationds.util.IoFunction;
 import com.formationds.xdi.AsyncAm;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Sets;
@@ -39,9 +40,10 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
     public static final String FILE_ID_WELL = "file-id-well";
 
     public XdiVfs(AsyncAm asyncAm, ExportResolver resolver, Counters counters, boolean deferMetadataWrites, int amRetryAttempts, Duration amRetryInterval) {
-        IoOps ops = new RecoveryHandler(new AmOps(asyncAm, counters), amRetryAttempts, amRetryInterval);
+        IoFunction<String, Integer> maxObjectSize = (v) -> resolver.objectSize(v);
+        IoOps ops = new RecoveryHandler(new AmOps(asyncAm), amRetryAttempts, amRetryInterval);
         if (deferMetadataWrites) {
-            DeferredIoOps deferredOps = new DeferredIoOps(ops, counters);
+            DeferredIoOps deferredOps = new DeferredIoOps(ops, maxObjectSize);
             ops = deferredOps;
             resolver.addVolumeDeleteEventHandler(v -> deferredOps.onVolumeDeletion(DOMAIN, v));
             ((DeferredIoOps) ops).start();
@@ -136,7 +138,7 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
                 throw new NoEntException();
             }
 
-            int exportId = (int) exportResolver.exportId(volumeName);
+            int exportId = (int) exportResolver.nfsExportId(volumeName);
             Subject nobodyUser = new Subject(
                     true,
                     Sets.newHashSet(

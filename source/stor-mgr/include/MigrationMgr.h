@@ -463,7 +463,7 @@ class MigrationMgr : StateProvider{
     fds_uint8_t maxRetriesWithDifferentSources;
 
     /// callback to svc handler to ack back to OM for Start Migration
-    OmStartMigrationCbType omStartMigrCb;
+    OmStartMigrationCbType omStartMigrCb = [](const Error&){};
 
     /// set of SM tokens that are currently in progress of migrating
     std::unordered_set<fds_token_id> smTokenInProgress;
@@ -566,7 +566,7 @@ class MigrationMgr : StateProvider{
      * Pending resync
      */
     std::atomic<bool> isResyncPending = {false};
-    ResyncDoneOrPendingCb cachedResyncDoneOrPendingCb = ResyncDoneOrPendingCb();
+    ResyncDoneOrPendingCb cachedResyncDoneOrPendingCb = [](fds_bool_t, fds_bool_t){};
 
     /**
      * Source SMs which are marked as failed for some executors during migration.

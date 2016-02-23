@@ -156,6 +156,7 @@ AmProcessor_impl::start()
 void
 AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
     if (amReq->cb) {
+        bool should_log {false};
         fpi::ErrorCode code {fpi::OK};
         if (!error.ok()) {
             switch (error.GetErrno()) {
@@ -166,6 +167,7 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
                     break;;
                 case ERR_NOT_FOUND:
                     code = fpi::INTERNAL_SERVER_ERROR;
+                    should_log = true;
                     break;;
                 case ERR_BLOB_NOT_FOUND:
                 case ERR_BLOB_OFFSET_INVALID:
@@ -179,19 +181,28 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
                 case ERR_SVC_REQUEST_INVOCATION:
                 case ERR_VOLUME_ACCESS_DENIED:
                     code = fpi::SERVICE_NOT_READY;
+                    should_log = true;
                     break;;
                 case ERR_SVC_REQUEST_TIMEOUT:
                     code = fpi::TIMEOUT;
+                    should_log = true;
                     break;
                 default:
                     code = fpi::BAD_REQUEST;
                     break;;
             }
         }
-        LOGIO << amReq->io_type
-              << " on: [" << std::hex << amReq->getBlobName()
-              << "] had result: [" << error
-              << "] API code: [" << fpi::_ErrorCode_VALUES_TO_NAMES.at(code) << "]";
+        if (should_log) {
+            LOGERROR << amReq->io_type
+                     << " on: [" << std::hex << amReq->getBlobName()
+                     << "] had result: [" << error
+                     << "] API code: [" << fpi::_ErrorCode_VALUES_TO_NAMES.at(code) << "]";
+        } else {
+            LOGIO << amReq->io_type
+                  << " on: [" << std::hex << amReq->getBlobName()
+                  << "] had result: [" << error
+                  << "] API code: [" << fpi::_ErrorCode_VALUES_TO_NAMES.at(code) << "]";
+        }
         amReq->cb->call(code);
     }
     delete amReq;

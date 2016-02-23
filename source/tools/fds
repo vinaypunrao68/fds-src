@@ -89,6 +89,7 @@ function usage() {
     log "   - $(yellow package)   : package fds-platform/ fds-deps(specify param deps)"
     log "   - $(yellow release)   : switch to $(green release) build"
     log "   - $(yellow restart)   : stop & start  the app "
+    log "   - $(yellow size)      : set the /fds size"
     log "   - $(yellow start)     : start the app "
     log "   - $(yellow start[2/4]): start 2/4 node cluster "
     log "   - $(yellow status)    : print status of the apps"
@@ -96,6 +97,7 @@ function usage() {
     log "   - $(yellow tail)      : tail the application log file"
     log "   - $(yellow test)      : run specific tests"
     log "   - $(yellow top)       : top command for fds apps"
+    log "   - $(yellow usage)       : print disk usage"
     log " options :"
     log "   : $(yellow --fds-root/-f) rootdir"
     log "   : $(yellow --om-debug-port) java debugger port #"
@@ -451,6 +453,7 @@ function statusApp() {
             fi
             ;;
     esac
+    printDiskUsage
 }
 
 function getAppPid() {
@@ -577,23 +580,32 @@ function attachgdb() {
 }
 
 function taillog() {
-    local app=$1
+    local apps=$1
     local logfiles
-    case "${app}" in
-        om|am|dm|sm|pm)
-            ls -1 ${FDSLOGROOT}/${app}.log*.log
-            for n in $(seq 0 20); do
-                logfiles="$logfiles ${FDSLOGROOT}/${app}.log_${n}.log"
-            done
-            tail -qF ${logfiles} 2>/dev/null
-            ;;
-        redis)
-            tail -F /fds/logs/redis/*.log
-            ;;
-        *)
-            logerror "can tail logs of only om|am|dm|sm|pm|redis"
-            ;;
-    esac
+    if [[ $apps == 'all' || -z $apps ]]; then
+        apps="am om dm sm pm"
+    fi
+
+    for app in $apps ; 
+    do
+        case "${app}" in
+            om|am|dm|sm|pm)
+                logfiles="$logfiles ${FDSLOGROOT}/${app}.log_{0..20}.log"
+                ;;
+            redis)
+                logfile="${logfiles} /fds/logs/redis/*.log"
+                ;;
+            *)
+                logerror "can tail logs of only om|am|dm|sm|pm|redis"
+                ;;
+        esac
+    done
+
+    if [[ -n $logfiles ]]; then
+        logfiles=$(eval echo $logfiles)
+        #echo ${logfiles}
+        tail -F ${logfiles} 2>/dev/null
+    fi
 }
 
 function showtop() {
@@ -622,7 +634,7 @@ function showtop() {
 
 function showerrors() {
     local apps="$@"
-    if [[ $1 == 'all' ]]; then
+    if [[ $apps == 'all' || -z $apps ]]; then
         apps="am om dm sm pm xdi"
     fi
     for app in ${apps}; do
@@ -716,6 +728,16 @@ function clean() {
 
     cleanInfluxDB
     cleanBinDirs
+}
+
+function setdisksize() {
+    local size=$1
+    if [[ -z $size ]]; then
+        logerror "disk size needs to be specified"
+        return
+    fi
+    loginfo "setting the size of [${FDSROOT}] to $size"
+    mount -o size=$size -t tmpfs none ${FDSROOT}
 }
 
 function runUnitTests() {
@@ -816,6 +838,14 @@ function nfs() {
     if [[ -z $volname ]]; then logerror "volume name needs to be specified. usage: nfs <volname> [amip:localhost]"; return ; fi
     if [[ -z $amip ]]; then amip="localhost"; fi
 
+    loginfo "attempting o create volume $volname"
+    if [[ -f /usr/local/bin/fds ]]; then
+        /usr/local/bin/fds volume create -name $volname -type nfs
+    fi
+
+    loginfo "un-mounting old : /mnt/$volname"
+    umount -f /mnt/$volname 2>/dev/null
+
     loginfo "making dir : /mnt/$volname"
     mkdir /mnt/$volname 2>/dev/null
 
@@ -832,6 +862,23 @@ function cleanlogs() {
         ) 2>/dev/null
     done
 }
+
+function getDiskUsage() {
+    local root=${1}
+    local match=${2}
+    echo $(find ${root} -name "*${match}*" -exec du -ch {} + 2>/dev/null | grep total | cut -f1)
+}
+
+function printDiskUsage() {
+    echo $(boldwhite disk usage) @ ${FDSROOT} :: \
+        $(boldwhite objects): $(boldblue $(getDiskUsage ${FDSROOT}/dev tokenFile)) \
+        $(boldwhite sm-ldb): $(boldblue $(getDiskUsage ${FDSROOT}/dev SNodeObjIndex)) \
+        $(boldwhite dm-ldb): $(boldblue $(getDiskUsage ${FDSROOT}/sys-repo dm-names)) \
+        $(boldwhite timeline): $(boldblue $(getDiskUsage ${FDSROOT}/sys-repo timeline)) \
+        $(boldwhite sys-repo): $(boldblue $(getDiskUsage ${FDSROOT}/sys-repo)) \
+        $(boldwhite user-repo): $(boldblue $(getDiskUsage ${FDSROOT}/user-repo))
+}
+
 
 ########################################################################
 # Main Program
@@ -911,10 +958,10 @@ do
             exit 0
             ;;
         # detect commands
-        kill|start*|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*|top)
+        kill|start*|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|port*|top|usage)
             CMD=$opt
             ;;
-        test|deploy|package|nfs)
+        test|deploy|package|nfs|size|tail|err*)
             CMD=$opt
             (( n++ ))
             NEXTARG="${args[@]:$n}"
@@ -958,7 +1005,6 @@ FDSLOGROOT=${FDSROOT}/var/logs
 #exit 0
 
 printMode
-
 case "${CMD}" in
     start) startApp $APP
         [[ $APP == "all" ]] && waitForAll
@@ -993,9 +1039,9 @@ case "${CMD}" in
         ;;
     gdb) attachgdb $APP
         ;;
-    tail) taillog $APP
+    tail) taillog "$NEXTARG"
         ;;
-    err*) showerrors $APP
+    err*) showerrors "$NEXTARG"
         ;;
     test) runTest "$NEXTARG"
         ;;
@@ -1008,6 +1054,11 @@ case "${CMD}" in
     package) package "$NEXTARG"
         ;;
     nfs) nfs "$NEXTARG"
+        ;;
+    size) setdisksize "$NEXTARG"
+        ;;
+    usage)
+        printDiskUsage
         ;;
     *) usage ;;
 esac
