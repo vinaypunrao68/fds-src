@@ -39,7 +39,11 @@ public class ClientFactory {
     }
 
     private <T> ThriftClientFactory<T> makeClientFactory(Class<T> klass, String thriftServiceName, Function<TProtocol, T> clientFactory) {
-        if ( FdsFeatureToggles.SUBSCRIPTIONS.isActive() ) {
+        /**
+         * FEATURE TOGGLE: enable multiplexed services
+         * Tue Feb 23 15:04:17 MST 2016
+        */
+        if ( FdsFeatureToggles.THRIFT_MULTIPLEXED_SERVICES.isActive() ) {
             // Always assume multiplexed server, use a ThriftServiceName
             return new ThriftClientFactory.Builder<T>(klass)
                     .withClientFactory(clientFactory)

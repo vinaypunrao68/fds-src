@@ -2227,10 +2227,10 @@ std::thread* runConfigService(OrchMgr* om) {
     // to be confused with FDS configuration (platform.conf).
     FdsConfigAccessor configAccess(MODULEPROVIDER()->get_fds_config(), "fds.feature_toggle.");
     /**
-     * FEATURE TOGGLE: enable subscriptions (async replication)
-     * Mon Dec 28 16:51:58 MST 2015
+     * FEATURE TOGGLE: enable multiplexed services
+     * Tue Feb 23 15:04:17 MST 2016
      */
-    bool enableSubscriptions = configAccess.get<bool>("common.enable_subscriptions", false);
+    bool enableMultiplexedServices = configAccess.get<bool>("common.enable_multiplexed_services", false);
 
     boost::shared_ptr<TServerTransport> serverTransport(
         new TServerSocket( port ) );  //NOLINT
@@ -2239,7 +2239,7 @@ std::thread* runConfigService(OrchMgr* om) {
     boost::shared_ptr<TProtocolFactory> protocolFactory(
         new TBinaryProtocolFactory( ) );  //NOLINT
 
-    if (enableSubscriptions) {
+    if (enableMultiplexedServices) {
 
         // Use a multiplexed processor. Currently, multiplexed processor does not
         // work with existing non-multiplexed TProtocol. TODO: Remedy this situation

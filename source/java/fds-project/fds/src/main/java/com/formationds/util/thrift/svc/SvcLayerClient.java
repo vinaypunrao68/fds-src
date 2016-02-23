@@ -56,7 +56,11 @@ public class SvcLayerClient
 
         this.host = host;
 
-        if ( FdsFeatureToggles.SUBSCRIPTIONS.isActive() ) {
+        /**
+         * FEATURE TOGGLE: enable multiplexed services
+         * Tue Feb 23 15:04:17 MST 2016
+         */
+        if ( FdsFeatureToggles.THRIFT_MULTIPLEXED_SERVICES.isActive() ) {
             netsvc =
                 new ThriftClientFactory.Builder<>( PlatNetSvc.Iface.class )
                     .withThriftServiceName( commonConstants.PLATNET_SERVICE_NAME )

@@ -55,7 +55,11 @@ public class ConfigServiceClientFactory {
                                                                                     int maxPoolSize,
                                                                                     int minIdle,
                                                                                     int softMinEvictionIdleTimeMillis) {
-        if ( FdsFeatureToggles.SUBSCRIPTIONS.isActive() ) {
+        /**
+         * FEATURE TOGGLE: enable multiplexed services
+         * Tue Feb 23 15:04:17 MST 2016
+         */
+        if ( FdsFeatureToggles.THRIFT_MULTIPLEXED_SERVICES.isActive() ) {
 
             // service.client will use multiplexed protocol
             return new ThriftClientFactory.Builder<>(ConfigurationService.Iface.class)

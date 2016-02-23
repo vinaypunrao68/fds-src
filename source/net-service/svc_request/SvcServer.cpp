@@ -41,18 +41,18 @@ SvcServer::SvcServer(int port, boost::shared_ptr<at::TProcessor> currentProcesso
     boost::shared_ptr<tt::TTransportFactory> tfact(new tt::TFramedTransportFactory());
 
     /**
-     * FEATURE TOGGLE: enable subscriptions (async replication)
-     * Mon Dec 28 16:51:58 MST 2015
+     * FEATURE TOGGLE: enable multiplexed services
+     * Tue Feb 23 15:04:17 MST 2016
      */
-    bool enableSubscriptions = false;
+    bool enableMultiplexedServices = false;
     if (moduleProvider) {
         // The module provider might not supply the base path we want,
         // so make our own config access. This is libConfig data, not
         // to be confused with FDS configuration (platform.conf).
         FdsConfigAccessor configAccess(moduleProvider->get_fds_config(), "fds.feature_toggle.");
-        enableSubscriptions = configAccess.get<bool>("common.enable_subscriptions", false);
+        enableMultiplexedServices = configAccess.get<bool>("common.enable_multiplexed_services", false);
     }
-    if (enableSubscriptions) {
+    if (enableMultiplexedServices) {
         // Note on Thrift service compatibility:
         // If a backward incompatible change arises, pass additional pairs of
         // processor and Thrift service name to SvcProcess::init(). Similarly,

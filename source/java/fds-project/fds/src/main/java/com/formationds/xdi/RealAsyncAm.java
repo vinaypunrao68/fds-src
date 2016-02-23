@@ -54,11 +54,11 @@ public class RealAsyncAm implements AsyncAm {
             responseListener.start();
 
             /**
-             * FEATURE TOGGLE: enable subscriptions (async replication)
-             * Mon Dec 28 16:51:58 MST 2015
+             * FEATURE TOGGLE: enable multiplexed services
+             * Tue Feb 23 15:04:17 MST 2016
              */
             String thriftServiceName = ""; // non-multiplexed by default
-            if ( FdsFeatureToggles.SUBSCRIPTIONS.isActive() ) {
+            if ( FdsFeatureToggles.THRIFT_MULTIPLEXED_SERVICES.isActive() ) {
                 // Multiplexed server
                 thriftServiceName = commonConstants.ASYNC_XDI_SERVICE_REQUEST_SERVICE_NAME;
             }

@@ -54,6 +54,9 @@ public enum FdsFeatureToggles implements Feature {
     @Label( "Enable subscriptions" )
     SUBSCRIPTIONS( "fds.feature_toggle.common.enable_subscriptions" ),
 
+    @Label( "Enable Thrift multiplexed services on any transport, protocol, and server." )
+    THRIFT_MULTIPLEXED_SERVICES( "fds.feature_toggle.common.enable_multiplexed_services" ),
+
     @Label( "If enabled, use a shared QueryHelper instance that caches results." )
     USE_SHARED_QUERY_HELPER( "fds.feature_toggle.om.use_shared_queryhelper" );
 

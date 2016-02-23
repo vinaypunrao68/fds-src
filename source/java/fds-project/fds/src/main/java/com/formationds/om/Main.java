@@ -112,10 +112,10 @@ public class Main {
             int proxyToPort = omPort + proxyPortOffset;  // 8904 by default
             logger.trace( "Starting OM Service Proxy {} -> {}", omPort, proxyToPort );
             /**
-             * FEATURE TOGGLE: enable subscriptions (async replication)
-             * Mon Dec 28 16:51:58 MST 2015
+             * FEATURE TOGGLE: enable multiplexed services
+             * Tue Feb 23 15:04:17 MST 2016
              */
-            if ( FdsFeatureToggles.SUBSCRIPTIONS.isActive() ) {
+            if ( FdsFeatureToggles.THRIFT_MULTIPLEXED_SERVICES.isActive() ) {
                 // Multiplexed
                 proxyServer = Optional.of( new SvcServer<>( omPort,
                                                  new OmSvcHandler( "localhost", proxyToPort, commonConstants.OM_SERVICE_NAME ),

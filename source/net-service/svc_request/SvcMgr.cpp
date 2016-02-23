@@ -82,10 +82,10 @@ boost::shared_ptr<ClientT> allocRpcClient(const std::string &ip, const int &port
         // to be confused with FDS configuration (platform.conf).
         FdsConfigAccessor configAccess(plc, "fds.feature_toggle.");
         /**
-         * FEATURE TOGGLE: enable subscriptions (async replication)
-         * Mon Dec 28 16:51:58 MST 2015
+         * FEATURE TOGGLE: enable multiplexed services
+         * Tue Feb 23 15:04:17 MST 2016
          */
-        bool enableSubscriptions = configAccess.get<bool>("common.enable_subscriptions", false);
+        bool enableSubscriptions = configAccess.get<bool>("common.enable_multiplexed_services", false);
         if (enableSubscriptions) {
             boost::shared_ptr<::apache::thrift::protocol::TMultiplexedProtocol> multiproto =
                 boost::make_shared<tp::TMultiplexedProtocol>(proto, strThriftServiceName);
