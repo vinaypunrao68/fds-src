@@ -636,6 +636,33 @@ namespace fds
             m_db->setNodeInfo (m_nodeInfo);
         }
 
+        bool PlatformManager::waitOrphanPid(pid_t const pid, std::string const &procName, uint64_t waitTimeoutNanoSeconds)
+        {
+            timespec startTime;
+            timespec timeNow;
+            timespec endTime;
+
+            clock_gettime (CLOCK_REALTIME, &startTime);
+
+            endTime.tv_sec = startTime.tv_sec + (waitTimeoutNanoSeconds / NANO_SECONDS_IN_1_SECOND) + (startTime.tv_nsec + waitTimeoutNanoSeconds) / NANO_SECONDS_IN_1_SECOND;
+            endTime.tv_nsec = (startTime.tv_nsec + waitTimeoutNanoSeconds) % NANO_SECONDS_IN_1_SECOND;
+
+            do
+            {
+                if (!procCheck(procName, pid))
+                {
+                    return true;
+                }
+                usleep (WAIT_PID_SLEEP_TIMER_MICROSECONDS);
+                clock_gettime (CLOCK_REALTIME, &timeNow);
+            }
+            while (timeNow.tv_sec < endTime.tv_sec || (timeNow.tv_sec <= endTime.tv_sec && timeNow.tv_nsec < endTime.tv_nsec));
+
+            LOGWARN << "Orphan process " << procName << " pid " << pid << " did not exit as expected.";
+
+            return false;
+        }
+
         bool PlatformManager::waitPid (pid_t const pid, uint64_t waitTimeoutNanoSeconds, bool monitoring)  // 1-%-9
         {
             int    status;
@@ -724,9 +751,20 @@ namespace fds
 
             rc = kill (pid, SIGTERM);
 
+            bool forcekill = false;
             if (rc < 0)
             {
-                LOGWARN << "Error sending signal (SIGTERM) to " << procName << "(pid = " << pid << ") errno = " << errno << ". Following with a SIGKILL";
+                LOGWARN << "Error sending signal (SIGTERM) to " << procName << "(pid = " << pid << ") errno = " << errno;
+                forcekill = true;
+            }
+            else if (orphanChildProcess)
+            {
+                forcekill = !waitOrphanPid(pid, procName, PROCESS_STOP_WAIT_PID_SLEEP_TIMER_NANOSECONDS);
+            }
+            if (forcekill)
+            {
+                LOGNORMAL << "Preparing to stop " << (orphanChildProcess ? "orphan " : "") << "process "<< procName << " via kill(" << pid <<", SIGKILL)";
+
                 rc = kill (pid, SIGKILL);
                 if (rc < 0)
                 {
