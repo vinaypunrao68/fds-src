@@ -519,8 +519,12 @@ class ServiceContext(Context):
             for uuid in self.getServiceIds(svc):
                 helpers.printHeader('info for {}'.format(self.getServiceName(uuid)))
                 #print state
-                state = ServiceMap.client(uuid).getStateInfo('svcmgr')
-                state = json.loads(state)
+                state=None
+                try:
+                    state = ServiceMap.client(uuid).getStateInfo('svcmgr')
+                    state = json.loads(state)
+                except:
+                    state = None
                 svcMap = ServiceMap.client(uuid).getSvcMap(None)
                 #print svcMap
                 myinfo = {}
@@ -532,7 +536,7 @@ class ServiceContext(Context):
                     myinfo['status'] = e.svc_status
                     myinfo['ip'] = e.ip
                     myinfo['port'] = e.svc_port
-                    myinfo['outstanding_svc_reqs'] = state['outstandingRequestsCount']
+                    myinfo['outstanding_svc_reqs'] = 0 if state == None else state['outstandingRequestsCount']
 
                 # add service map properties
                 for s in svcMap:
