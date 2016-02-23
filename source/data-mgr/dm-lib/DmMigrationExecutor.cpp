@@ -446,6 +446,11 @@ DmMigrationExecutor::testStaticMigrationComplete() {
             // update TS to reflect that we are actively processing buffered messages
             lastUpdateFromClientTsSec_ = util::getTimeStampSeconds();
 
+            //The last forwarded message is a simple termination - without this check there will be deadlock with the
+            // iotracker
+            if (!(msg->fwdCatMsg->lastForward && msg->fwdCatMsg->blob_name.empty())) {
+              asyncMsgIssued();
+            }
             msgHandler.addToQueue(msg);
         }
 
@@ -462,7 +467,7 @@ DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
     fwdCatReq->cb = [this](const Error &e, DmRequest *dmReq) {
         if (e != ERR_OK) {
             LOGERROR << logString() << "error processing forwarded commit " << e;
-        	routeAbortMigration();
+            asyncMsgFailed();
             delete dmReq;
             return;
         }
@@ -474,6 +479,7 @@ DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
              */
             finishActiveMigration();
         }
+        asyncMsgPassed();
         delete dmReq;
     };
 
@@ -487,10 +493,15 @@ DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
     		break;
     	case APPLYING_FORWARDS_IN_PROGRESS:
     		LOGDEBUG << "Enqueued " << fwdCatReq << " to be applied";
+            //The last forwarded message is a simple termination - without this check there will be deadlock with the
+            // iotracker
+            if (!(fwdCatReq->fwdCatMsg->lastForward && fwdCatReq->fwdCatMsg->blob_name.empty())) {
+              asyncMsgIssued();
+            }
     		msgHandler.addToQueue(fwdCatReq);
     		break;
     	case MIGRATION_ABORTED:
-    		LOGERROR "Migration aborted so dropping forward request for " << fwdCatReq;
+            LOGERROR << "Migration aborted so dropping forward request for " << fwdCatReq;
     		err = ERR_DM_MIGRATION_ABORTED;
     		break;
     	case MIGRATION_COMPLETE:
