@@ -1323,7 +1323,7 @@ namespace fds
                             orphanAlive = procCheck (procName, pid);
                         }
 
-                        if (!orphanAlive || waitPid (mapIter->second, 1000, true))
+                        if (!orphanAlive || (!orphanChildProcess && waitPid (mapIter->second, 1000, true)))
                         {
 
                             int appIndex = -1;
