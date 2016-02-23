@@ -252,7 +252,7 @@ void DmMigrationDeltaBlobHandler::handleQueueItem(DmRequest* dmRequest) {
         if (volMeta == nullptr) {
             LOGMIGRATE << "Volume meta for " << typedRequest->volId << " not found.";
             // overload this error to mean that we'll delete the dmrequest
-            helper.err = ERR_INVALID_VOLUME_VERSION;
+            helper.err = ERR_INVALID_VERSION;
         }
         helper.err = volMeta->handleMigrationDeltaBlobs(dmRequest);
     } else {
@@ -272,7 +272,7 @@ void DmMigrationDeltaBlobHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDeltaBlobsRspMsg),
                        fpi::CtrlNotifyDeltaBlobsRspMsg());
 
-    if (e == ERR_INVALID_VOLUME_VERSION) {
+    if (e == ERR_INVALID_VERSION) {
         /**
          * This mean that the migration never got to the queue-ing point. Safe to delete
          * here to prevent leaks.

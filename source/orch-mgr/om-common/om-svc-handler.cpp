@@ -679,50 +679,59 @@ void
 OmSvcHandler::setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                         boost::shared_ptr<fpi::SetVolumeGroupCoordinatorMsg> &msg)
 {
-    /* xxx: This needs to be synchronized and be done volume managing statemachine */
-    Error e;
-    fds_volid_t volId(msg->volumeId);
-	OM_Module *om = OM_Module::om_singleton();
-	OM_NodeDomainMod *dom_mod = om->om_nodedomain_mod();
-	OM_NodeContainer *local = dom_mod->om_loc_domain_ctrl();
-    VolumeContainer::pointer volumes = local->om_vol_mgr();
+    auto task = [hdr, msg, this]() {
+        fds_volid_t volId(msg->volumeId);
+        OM_Module *om = OM_Module::om_singleton();
+        OM_NodeDomainMod *dom_mod = om->om_nodedomain_mod();
+        OM_NodeContainer *local = dom_mod->om_loc_domain_ctrl();
+        VolumeContainer::pointer volumes = local->om_vol_mgr();
 
-    auto volumePtr = volumes->get_volume(volId);
-    if (volumePtr != nullptr) {
-        auto volDescPtr = volumePtr->vol_get_properties();
-        fpi::VolumeGroupCoordinatorInfo volCoordinatorInfo = msg->coordinator;
-        if (volCoordinatorInfo.id.svc_uuid == 0) {
-            if (hdr->msg_src_id != volDescPtr->getCoordinatorId().svc_uuid) {
-                LOGWARN << "Attempting clear coordinator from svc: " << hdr->msg_src_id
-                    << " volid: " << volId
-                    << " from AM that isn't a coordinator anymore.  Rejected";
-                hdr->msg_code = ERR_INVALID;
-                sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
-                return;
+        auto volumePtr = volumes->get_volume(volId);
+
+        if (volumePtr != nullptr) {
+            auto storedVolDesc = volumePtr->vol_get_properties();
+            auto version = storedVolDesc->getCoordinatorVersion();
+            fpi::VolumeGroupCoordinatorInfo incomingCoordinator = msg->coordinator;
+
+            if (incomingCoordinator.id.svc_uuid == 0) {
+                /* Request to unset coordinator.  We only unset if the request to unset is
+                 * coming from the AM hosting the coordinator
+                 */
+                if (hdr->msg_src_id != storedVolDesc->getCoordinatorId().svc_uuid) {
+                    LOGWARN << "Attempting clear coordinator from svc: " << hdr->msg_src_id
+                        << " volid: " << volId
+                        << " from AM that isn't a coordinator anymore.  Rejected";
+                    hdr->msg_code = ERR_INVALID;
+                    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+                    return;
+                }
+            } else {
+                ++version;
             }
-            /* No need for taking incoming version into account for now.  Changing to zero
-             * so that zero is persisted as version when we clear and persist in configdb
-             */
-            volCoordinatorInfo.version = 0;
-        }
-        volDescPtr->setCoordinatorId(volCoordinatorInfo.id);
-        volDescPtr->setCoordinatorVersion(volCoordinatorInfo.version);
-        LOGNOTIFY << "Set volume coordinator for volid: " << volId
-            << " coordinator: " << volCoordinatorInfo.id.svc_uuid;
-        /* Persist the new desc w/ coordinator info in configDB.  NOTE: below vol_modify will
-         * broadcast modified volume around the domain.  This isn't necessary when we
-         * set the coordinator.  This is a side effect of the way vol_modify is implemented
-         */
-        auto boostPtr = boost::make_shared<VolumeDesc>(*volDescPtr);
-        volumePtr->vol_modify(boostPtr);
-        e = ERR_OK;
-    } else {
-        LOGERROR << "Unable to find volume " << volId;
-        e = ERR_VOL_NOT_FOUND;
-    }
 
-    hdr->msg_code = e.GetErrno();
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+            auto newVolDesc = boost::make_shared<VolumeDesc>(*storedVolDesc);
+            newVolDesc->setCoordinatorId(incomingCoordinator.id);
+            newVolDesc->setCoordinatorVersion(version);
+            LOGNOTIFY << "updated volume coordinator for volid: " << volId
+                << " coordinator: " << newVolDesc->getCoordinatorId()
+                << " version: " << newVolDesc->getCoordinatorVersion();
+
+            /* Notify the domain of the change */
+            volumePtr->vol_modify(newVolDesc);
+
+            auto resp = MAKE_SHARED<fpi::SetVolumeGroupCoordinatorRspMsg>();
+            resp->version = version;
+            hdr->msg_code = static_cast<int>(ERR_OK);
+            sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::SetVolumeGroupCoordinatorRspMsg), *resp); 
+        } else {
+            LOGERROR << "Unable to find volume " << volId;
+            hdr->msg_code = static_cast<int>(ERR_VOL_NOT_FOUND);
+            sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+        }
+    };
+
+    /* Run in a synchronized context */
+    MODULEPROVIDER()->proc_thrpool()->scheduleWithAffinity(msg->volumeId, task);
 }
 
 void OmSvcHandler::genericCommand(ASYNC_HANDLER_PARAMS(GenericCommandMsg)) {

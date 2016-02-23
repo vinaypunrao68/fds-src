@@ -273,6 +273,7 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     inline bool isFunctional() const { return state_ == fpi::ResourceState::Active; }
     inline int64_t getGroupId() const { return groupId_; }
     inline int32_t getDmtVersion() const { return dmtVersion_; }
+    inline int32_t getVersion() const { return version_; }
     inline int32_t size() const {
         return functionalReplicas_.size() +
             nonfunctionalReplicas_.size() +

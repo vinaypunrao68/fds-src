@@ -146,11 +146,6 @@ bool VolumeGroupHandle::replayFromWriteOpsBuffer_(const VolumeReplicaHandle &han
 
 void VolumeGroupHandle::resetGroup_(fpi::ResourceState state)
 {
-    /* NOTE: Consider not incrementing version every time open is called.  If open fails
-     * we may not want to incrment the version.
-     */
-    version_++;
-
     opSeqNo_ = VolumeGroupConstants::OPSTARTID;
     commitNo_ = VolumeGroupConstants::COMMITSTARTID;
 
@@ -204,8 +199,11 @@ void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
         /* Send a message to OM requesting to be coordinator for the group */
         auto setCoordinatorreq = createSetVolumeGroupCoordinatorMsgReq_();
         setCoordinatorreq->onResponseCb([this, clientCb](EPSvcRequest*,
-                                                         const Error& e,
-                                                         StringPtr) {
+                                                         const Error& e_,
+                                                         StringPtr payload) {
+           Error e = e_;
+           auto responseMsg = fds::deserializeFdspMsg<fpi::SetVolumeGroupCoordinatorRspMsg>(e,
+                                                                                            payload);
            if (e != ERR_OK) {
             LOGWARN << logString()
                     << " Failed set volume group coordinator.  Received "
@@ -213,6 +211,9 @@ void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
             clientCb(e, nullptr);
             return;
            }
+
+           version_ = responseMsg->version;
+
            /* Send open volume against the group to prepare for open */
            auto openReq = createPreareOpenVolumeGroupMsgReq_();
            openReq->onResponseCb([this, clientCb](QuorumSvcRequest* openReq,
@@ -704,7 +705,7 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
         if (replicaVersion != VolumeGroupConstants::VERSION_START &&
             replicaVersion <= volumeHandle->version) {
             fds_assert(!"Invalid version");
-            return ERR_INVALID_VOLUME_VERSION;
+            return ERR_INVALID_VERSION;
         }
         if (writeOpsBuffer_) {
             /* Replica has/will get to active state upto opId, we will replay
@@ -729,7 +730,7 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
     } else if (VolumeReplicaHandle::isFunctional(targetState)){
         if (replicaVersion != volumeHandle->version) {
             fds_assert(!"Invalid version: expecting %d got %d");
-            return ERR_INVALID_VOLUME_VERSION;
+            return ERR_INVALID_VERSION;
         }
         /* When transition to functional we must transition from sync state and latest opids
          * must match.  NOTE: We only asssert because opid checks will fail at volume replica.

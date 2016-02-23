@@ -424,9 +424,10 @@ enum  FDSPMsgTypeId {
   /* VolumeGroup messages */
   VolumeGroupInfoUpdateCtrlMsgTypeId        = 30000;
   SetVolumeGroupCoordinatorMsgTypeId        = 30002;
-  AddToVolumeGroupCtrlMsgTypeId             = 30003;
-  AddToVolumeGroupRespCtrlMsgTypeId         = 30004;
-  VolumeStateUpdateInfoCtrlMsgTypeId        = 30005;
+  SetVolumeGroupCoordinatorRspMsgTypeId     = 30003;
+  AddToVolumeGroupCtrlMsgTypeId             = 30004;
+  AddToVolumeGroupRespCtrlMsgTypeId         = 30005;
+  VolumeStateUpdateInfoCtrlMsgTypeId        = 30006;
 
   /** Health Status */
   NotifyHealthReportTypeId                  = 100000;

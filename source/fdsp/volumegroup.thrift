@@ -64,6 +64,11 @@ struct SetVolumeGroupCoordinatorMsg {
     2: i64                          		volumeId;
 }
 
+/* Response for SetVolumeGroupCoordinatorMsg */
+struct SetVolumeGroupCoordinatorRspMsg {
+    1: i32				version;
+}
+
 /* BEGIN exposed for testing.  Will be removed */
 struct StartTxMsg {
     1: required VolumeIoHdr		volumeIoHdr;

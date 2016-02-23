@@ -64,7 +64,17 @@ void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
             helper.err = ERR_SYNC_INPROGRESS;
             return;
         }
+        if (volMeta->isCoordinatorSet() &&
+            request->msg->coordinatorVersion < volMeta->getCoordinatorVersion()) {
+            LOGWARN << "Rejecting openvolume request due to version check failure.  from: "
+                << request->client_uuid_
+                << " request version: " << request->msg->coordinatorVersion
+                << " stored version: " << volMeta->getCoordinatorVersion();
+            helper.err = ERR_INVALID_VERSION;
+            return;
+        }
         volMeta->setCoordinatorId(request->client_uuid_);
+        volMeta->setCoordinatorVersion(request->msg->coordinatorVersion);
         volMeta->setState(fpi::Loading,
                           util::strformat(" - openvolume from coordinator: %ld",
                                           volMeta->getCoordinatorId().svc_uuid));

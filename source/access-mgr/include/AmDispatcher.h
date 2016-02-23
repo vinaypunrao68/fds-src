@@ -117,6 +117,7 @@ struct AmDispatcher : public AmDataProvider
     void removeVolume(VolumeDesc const& volDesc) override;
     void openVolume(AmRequest * amReq) override;
     void closeVolume(AmRequest * amReq) override;
+    Error modifyVolumePolicy(const VolumeDesc& vdesc) override;
     void addToVolumeGroup(const fpi::AddToVolumeGroupCtrlMsgPtr &addMsg,
                                const AddToVolumeGroupCb &cb) override;
     void statVolume(AmRequest * amReq) override;

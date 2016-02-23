@@ -161,6 +161,7 @@ struct OpenVolumeMsg {
   2: required common.VolumeAccessMode   mode;
   /** Existing token */
   3: optional i64                       token = 0;
+  4: i32                                coordinatorVersion = 0;
 }
 
 /**
