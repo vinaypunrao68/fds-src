@@ -36,7 +36,8 @@ public class QueryMetrics implements RequestHandler, QueryHandler {
     private static final Logger logger =
             LoggerFactory.getLogger( QueryMetrics.class );
 
-    private static final Type TYPE = new TypeToken<MetricQueryCriteria>() { }.getType();
+    private static final Type TYPE_08 = new TypeToken<MetricQueryCriteria>() { }.getType();
+    private static final Type TYPE_COMMON = new TypeToken<MetricQueryCriteria>() { }.getType();
     private final AuthenticationToken token;
     private final Authorizer authorizer;
     
@@ -59,7 +60,7 @@ public class QueryMetrics implements RequestHandler, QueryHandler {
             if ( FdsFeatureToggles.STATS_SERVICE_QUERY.isActive() ){
             	
             	StatsConnection statsConn = StatsConnection.newConnection( "localhost", 11011, GetUser.STATS_USERNAME, "$t@t$" );
-            	statsConn.query( ObjectModelHelper.toObject( reader, TYPE ), this );
+            	statsConn.query( ObjectModelHelper.toObject( reader, TYPE_08 ), this );
             	
             	long waited = 0;
             	
@@ -79,7 +80,7 @@ public class QueryMetrics implements RequestHandler, QueryHandler {
             }
             else {
 
-            	com.formationds.commons.model.Statistics stats = QueryHelper.instance().execute( ObjectModelHelper.toObject( reader, TYPE ), authorizer, token );
+            	com.formationds.commons.model.Statistics stats = QueryHelper.instance().execute( ObjectModelHelper.toObject( reader, TYPE_COMMON ), authorizer, token );
             	return new JsonResource( new JSONObject( stats ) );
             }
             
