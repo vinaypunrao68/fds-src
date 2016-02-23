@@ -37,7 +37,7 @@ public class QueryMetrics implements RequestHandler, QueryHandler {
             LoggerFactory.getLogger( QueryMetrics.class );
 
     private static final Type TYPE_08 = new TypeToken<MetricQueryCriteria>() { }.getType();
-    private static final Type TYPE_COMMON = new TypeToken<MetricQueryCriteria>() { }.getType();
+    private static final Type TYPE_COMMON = new TypeToken<com.formationds.om.repository.query.MetricQueryCriteria>() { }.getType();
     private final AuthenticationToken token;
     private final Authorizer authorizer;
     
