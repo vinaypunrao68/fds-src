@@ -20,12 +20,7 @@ public class SimpleInodeIndex implements InodeIndex {
     public Optional<InodeMetadata> lookup(Inode parent, String name) throws IOException {
         String volumeName = exportResolver.volumeName(parent.exportIndex());
         String blobName = blobName(InodeMetadata.fileId(parent), name);
-        Optional<FdsMetadata> fdsMetadata = io.readMetadata(XdiVfs.DOMAIN, volumeName, blobName);
-        if (!fdsMetadata.isPresent()) {
-            return Optional.empty();
-        } else {
-            return Optional.of(fdsMetadata.get().lock(m -> new InodeMetadata(m.mutableMap())));
-        }
+        return io.readMetadata(XdiVfs.DOMAIN, volumeName, blobName).map(m -> new InodeMetadata(m));
     }
 
     @Override
@@ -35,7 +30,7 @@ public class SimpleInodeIndex implements InodeIndex {
         Collection<BlobMetadata> scanResult = io.scan(XdiVfs.DOMAIN, volumeName, blobNamePrefix);
         List<DirectoryEntry> result = new ArrayList<>(scanResult.size());
         for (BlobMetadata blobMetadata : scanResult) {
-            InodeMetadata im = blobMetadata.getMetadata().lock(m -> new InodeMetadata(m.mutableMap()));
+            InodeMetadata im = new InodeMetadata(blobMetadata.getMetadata());
             String blobName = blobMetadata.getBlobName().replace(blobNamePrefix, "");
             result.add(im.asDirectoryEntry(blobName, exportId));
         }
@@ -50,7 +45,7 @@ public class SimpleInodeIndex implements InodeIndex {
             Collection<String> names = links.get(parentId);
             for (String name : names) {
                 String blobName = blobName(parentId, name);
-                io.writeMetadata(XdiVfs.DOMAIN, volumeName, blobName, new FdsMetadata(entry.asMap()));
+                io.writeMetadata(XdiVfs.DOMAIN, volumeName, blobName, entry.asMap());
                 if (!deferrable) {
                     io.commitMetadata(XdiVfs.DOMAIN, volumeName, blobName);
                 }

@@ -126,13 +126,13 @@ public class DynamicExports implements ExportResolver {
         return exportFile;
     }
 
-    public int exportId(String volumeName) {
+    public int nfsExportId(String volumeName) {
         return exportsByName.get(volumeName);
     }
 
     @Override
-    public String volumeName(int volumeId) {
-        return exportsById.get(volumeId);
+    public String volumeName(int nfsExportId) {
+        return exportsById.get(nfsExportId);
     }
 
     @Override
