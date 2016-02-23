@@ -3,16 +3,13 @@ package com.formationds.nfs;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.HashMap;
-import java.util.Optional;
-import java.util.Random;
-import java.util.UUID;
+import java.util.*;
 
 import static org.junit.Assert.*;
 
 public class ChunkerTest {
 
-    public static final int OBJECT_SIZE = 1024;
+    public static final int MAX_OBJECT_SIZE = 1024;
     public static final String DOMAIN = "domain";
     public static final String VOLUME = "volume";
     private Chunker chunker;
@@ -31,16 +28,16 @@ public class ChunkerTest {
         byte[] bytes = randomBytes(length);
         String arbitraryValue = UUID.randomUUID().toString();
         String blobName = "blobName";
-        io.writeMetadata(DOMAIN, VOLUME, blobName, new FdsMetadata(new HashMap<>()));
+        io.writeMetadata(DOMAIN, VOLUME, blobName, new HashMap<String, String>(new HashMap<>()));
         io.commitMetadata(DOMAIN, VOLUME, blobName);
-        chunker.write(DOMAIN, VOLUME, blobName, OBJECT_SIZE, bytes, 0, length, meta -> meta.put("key", arbitraryValue));
-        Optional<FdsMetadata> ofm = io.readMetadata(DOMAIN, VOLUME, blobName);
+        chunker.write(DOMAIN, VOLUME, blobName, MAX_OBJECT_SIZE, bytes, 0, length, meta -> meta.put("key", arbitraryValue));
+        Optional<Map<String, String>> ofm = io.readMetadata(DOMAIN, VOLUME, blobName);
         assertTrue(ofm.isPresent());
-        assertEquals(arbitraryValue, ofm.get().lock(m -> m.mutableMap().get("key")));
+        assertEquals(arbitraryValue, ofm.get().get("key"));
         byte[] readBuf = new byte[length];
-        chunker.read(DOMAIN, VOLUME, blobName, OBJECT_SIZE, readBuf, 0, length);
+        chunker.read(DOMAIN, VOLUME, blobName, MAX_OBJECT_SIZE, readBuf, 0, length);
         assertArrayEquals(bytes, readBuf);
-        chunker.read(DOMAIN, VOLUME, blobName, OBJECT_SIZE, readBuf, 0, length);
+        chunker.read(DOMAIN, VOLUME, blobName, MAX_OBJECT_SIZE, readBuf, 0, length);
         assertArrayEquals(bytes, readBuf);
     }
 
@@ -54,7 +51,7 @@ public class ChunkerTest {
 
     @Before
     public void setUp() throws Exception {
-        io = new MemoryIoOps();
+        io = new MemoryIoOps(MAX_OBJECT_SIZE);
         chunker = new Chunker(io);
     }
 }
