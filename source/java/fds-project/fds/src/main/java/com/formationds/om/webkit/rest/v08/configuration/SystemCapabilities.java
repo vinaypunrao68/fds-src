@@ -12,7 +12,9 @@ import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 
+import org.dcache.nfs.v4.xdr.newoffset4;
 import org.eclipse.jetty.server.Request;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +32,8 @@ public class SystemCapabilities
 	private Logger logger = LoggerFactory.getLogger( SystemCapabilities.class );
 	
     private final ParsedConfig parsedConfig;
+    
+    private final String TOGGLES = "toggles";
 
     public SystemCapabilities( final ParsedConfig parsedConfig ) {
 
@@ -57,12 +61,16 @@ public class SystemCapabilities
         JSONObject capabilities = new JSONObject(
                 new SystemCapability( mediaPolicies.toArray( new String[mediaPolicies.size()] ) ) );
         
+        JSONObject toggleObject = new JSONObject();
+        
         if ( FdsFeatureToggles.STATS_SERVICE_QUERY.isActive() ){
-        	capabilities.put( FdsFeatureToggles.STATS_SERVICE_QUERY.fdsname(), Boolean.TRUE );
+        	toggleObject.put( FdsFeatureToggles.STATS_SERVICE_QUERY.fdsname(), Boolean.TRUE );
         }
         else {
-        	capabilities.put( FdsFeatureToggles.STATS_SERVICE_QUERY.fdsname(), Boolean.FALSE );
+        	toggleObject.put( FdsFeatureToggles.STATS_SERVICE_QUERY.fdsname(), Boolean.FALSE );
         }
+        
+        capabilities.put( TOGGLES, toggleObject );
 
         return new JsonResource( capabilities );
     }
