@@ -51,6 +51,11 @@ class SmPersistStoreHandler;
                                 const Error& error)> compaction_done_handler_t;
 
     /**
+     * Callback type to continue iterating over snapshot
+     */
+    typedef std::function<void()> ContinueWorkFn;
+
+    /**
      * TokenCompactor is responsible for compacting storage for one token.
      * One can either create this class once for one particular token
      * and once compaction is done, delete this class object. Or can re-use
@@ -138,11 +143,22 @@ class SmPersistStoreHandler;
                         std::shared_ptr<leveldb::DB> db);
 
         /**
+         * Perform the work of iterating over the leveldb and sending out requests for objects to be compacted
+         * this should provide some level of rate limiting such that we can't have too many outstanding IO requests
+         * at the same time.
+         */
+         void compactionWorker(leveldb::Iterator *it,
+                               std::shared_ptr<leveldb::DB> db,
+                               leveldb::ReadOptions& options,
+                               bool last_run);
+
+        /**
          * Callback from object store that compaction for a set of objects is
          * finished
          */
         void objsCompactedCb(const Error& error,
-                             SmIoCompactObjects* req);
+                             SmIoCompactObjects* req,
+                             ContinueWorkFn nextWork);
 
 
         void handleTimerEvent();
@@ -157,7 +173,7 @@ class SmPersistStoreHandler;
          * @param obj_list list of object ids to work on, when method
          * returns this list will be empty
          */
-        Error enqCopyWork(std::vector<ObjectID>* obj_list);
+        Error enqCopyWork(std::vector<ObjectID>* obj_list, ContinueWorkFn nextWork);
         /**
          * Tells tokenFileDB that GC for the token is finished, sets the compactor
          * state to idle and calls callback function provided in startCompaction()

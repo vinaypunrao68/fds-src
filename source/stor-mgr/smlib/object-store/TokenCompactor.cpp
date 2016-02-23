@@ -143,7 +143,7 @@ void TokenCompactor::enqSnapDbWork()
 /**
  * Enqueue request for objects copy/delete
  */
-Error TokenCompactor::enqCopyWork(std::vector<ObjectID>* obj_list)
+Error TokenCompactor::enqCopyWork(std::vector<ObjectID>* obj_list, ContinueWorkFn nextWork)
 {
     Error err(ERR_OK);
     SmIoCompactObjects* copy_req = new SmIoCompactObjects();
@@ -153,7 +153,7 @@ Error TokenCompactor::enqCopyWork(std::vector<ObjectID>* obj_list)
     copy_req->verifyData = verifyData;
     copy_req->smio_compactobj_resp_cb = std::bind(
         &TokenCompactor::objsCompactedCb, this,
-        std::placeholders::_1, std::placeholders::_2);
+        std::placeholders::_1, std::placeholders::_2, nextWork);
 
     // enqueue to qos queue, copy_req will be delete after it's dequeued
     // and processed
@@ -180,8 +180,6 @@ void TokenCompactor::snapDoneCb(const Error& error,
                                 std::shared_ptr<leveldb::DB> db)
 {
     Error err(ERR_OK);
-    ObjMetaData omd;
-    fds_uint32_t offset = 0;
 
     LOGDEBUG << "snapshot done for token:" << token_id
              << " received with result:" << error;
@@ -200,10 +198,38 @@ void TokenCompactor::snapDoneCb(const Error& error,
     }
 
     // iterate over snapshot of index db and create work items to work with
+    leveldb::Iterator* it = db->NewIterator(options);
+
+    // Using a noop lambda here to trick
+    compactionWorker(it, db, options, false);
+}
+
+void TokenCompactor::compactionWorker(leveldb::Iterator *it,
+                                      std::shared_ptr<leveldb::DB> db,
+                                      leveldb::ReadOptions& options,
+                                      bool last_run) {
+
+    if (last_run) {
+        // cleanup
+        delete it;
+        db->ReleaseSnapshot(options.snapshot);
+
+        if (total_objs == 0) {
+            handleCompactionDone(Error(ERR_OK));
+        }
+
+        return;
+    }
+
+    Error err(ERR_OK);
+
+    ObjMetaData omd;
+    fds_uint32_t offset = 0;
+
     std::vector<ObjectID> obj_list;
     loc_oid_map_t loc_oid_map;
-    leveldb::Iterator* it = db->NewIterator(options);
-    for (it->SeekToFirst(); it->Valid(); it->Next()) {
+
+    for (; it->Valid(); it->Next()) {
         ObjectID id(it->key().ToString());
 
         omd.deserializeFrom(it->value());
@@ -221,9 +247,9 @@ void TokenCompactor::snapDoneCb(const Error& error,
         // to shadow file and we took this db snapshot
         if (persistGcHandler->isShadowLocation(cur_disk_id, loc, token_id)) {
             LOGDEBUG << id << " already in shadow file (disk_id "
-                     << loc->obj_stor_loc_id << " file_id "
-                     << loc->obj_file_id << " tok " << token_id
-                     << " tier " << (fds_int16_t)loc->obj_tier << ")";
+                        << loc->obj_stor_loc_id << " file_id "
+                        << loc->obj_file_id << " tok " << token_id
+                        << " tier " << (fds_int16_t)loc->obj_tier << ")";
             continue;
         }
 
@@ -232,15 +258,15 @@ void TokenCompactor::snapDoneCb(const Error& error,
         fds_uint32_t loc_fid = loc->obj_stor_loc_id;
         loc_fid |= (loc->obj_file_id << 16);
         LOGDEBUG << "Object " << id << " loc_id " << loc->obj_stor_loc_id
-                 << " fileId " << loc->obj_file_id << "("
-                 << loc_fid << ") offset " << loc->obj_stor_offset
-                 << " tier " << (fds_int16_t)loc->obj_tier
-                 << " tok " << token_id;
+                    << " fileId " << loc->obj_file_id << "("
+                    << loc_fid << ") offset " << loc->obj_stor_offset
+                    << " tier " << (fds_int16_t)loc->obj_tier
+                    << " tok " << token_id;
 
         fds_assert(!(loc_oid_map.count(loc_fid)
-                     && loc_oid_map[loc_fid].count(loc->obj_stor_offset)));
+            && loc_oid_map[loc_fid].count(loc->obj_stor_offset)));
         if (loc_oid_map.count(loc_fid)
-                     && loc_oid_map[loc_fid].count(loc->obj_stor_offset)) {
+            && loc_oid_map[loc_fid].count(loc->obj_stor_offset)) {
             LOGWARN << "Entry for object " << id << " already exists in the shadow file.";
         }
 
@@ -266,8 +292,12 @@ void TokenCompactor::snapDoneCb(const Error& error,
 
             // if we collected enough oids, create copy req and put it to qos queue
             if (obj_list.size() >= GC_COPY_WORKLIST_SIZE) {
+
+                ContinueWorkFn nextWork = std::bind(&TokenCompactor::compactionWorker, this,
+                                                    it, db, options, false);
+
                 LOGDEBUG << "Enqueue copy work for " << obj_list.size() << " objects";
-                err = enqCopyWork(&obj_list);
+                err = enqCopyWork(&obj_list, nextWork);
                 if (!err.ok()) {
                     // TODO(anna): most likely queue is full, we need to save the
                     // work and try again later
@@ -286,7 +316,10 @@ void TokenCompactor::snapDoneCb(const Error& error,
     // send copy request for the remaining objects
     if (obj_list.size() > 0) {
         LOGDEBUG << "Enqueue copy work for " << obj_list.size() << " objects";
-        err = enqCopyWork(&obj_list);
+
+        ContinueWorkFn nextWork = std::bind(&TokenCompactor::compactionWorker, this, it, db, options, true);
+        err = enqCopyWork(&obj_list, nextWork);
+
         if (!err.ok()) {
             // TODO(anna): most likely queue is full, we need to save the
             // work and try again later
@@ -298,16 +331,8 @@ void TokenCompactor::snapDoneCb(const Error& error,
             return;
         }
     }
-
-    // cleanup
-    delete it;
-    db->ReleaseSnapshot(options.snapshot);
-
-    if (total_objs == 0) {
-        // there are no objects in index db, we are done
-        handleCompactionDone(Error(ERR_OK));
-    }
 }
+
 
 //
 // Notification that set of objects were compacted
@@ -315,7 +340,8 @@ void TokenCompactor::snapDoneCb(const Error& error,
 // if we finished compaction of all objects
 //
 void TokenCompactor::objsCompactedCb(const Error& error,
-                                     SmIoCompactObjects* req)
+                                     SmIoCompactObjects* req,
+                                     ContinueWorkFn nextWork)
 {
     fds_assert(req != nullptr);
     fds_uint32_t done_before, total_done;
@@ -371,6 +397,8 @@ void TokenCompactor::objsCompactedCb(const Error& error,
     }
 
     delete req;
+
+    nextWork();
 }
 
 Error TokenCompactor::handleCompactionDone(const Error& tc_error)
@@ -476,5 +504,4 @@ void CompactorTimerTask::runTimerTask()
     fds_assert(tok_compactor);
     if (tok_compactor) { tok_compactor->handleTimerEvent(); }
 }
-
 }  // namespace fds
