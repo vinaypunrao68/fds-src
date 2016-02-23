@@ -12,10 +12,7 @@ import org.apache.log4j.Logger;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.formationds.hadoop.FdsFileSystem.unwindExceptions;
@@ -23,7 +20,6 @@ import static com.formationds.hadoop.FdsFileSystem.unwindExceptions;
 public class AmOps implements IoOps {
     private static final Logger LOG = Logger.getLogger(AmOps.class);
     private AsyncAm asyncAm;
-    private Counters counters;
 
     public static final ErrorCode[] RECOVERABLE_ERRORS = new ErrorCode[]{
             ErrorCode.INTERNAL_SERVER_ERROR,
@@ -32,22 +28,20 @@ public class AmOps implements IoOps {
             ErrorCode.SERVICE_SHUTTING_DOWN,
             ErrorCode.TIMEOUT};
 
-    public AmOps(AsyncAm asyncAm, Counters counters) {
+    public AmOps(AsyncAm asyncAm) {
         this.asyncAm = asyncAm;
-        this.counters = counters;
     }
 
     @Override
-    public Optional<FdsMetadata> readMetadata(String domain, String volumeName, String blobName) throws IOException {
+    public Optional<Map<String, String>> readMetadata(String domain, String volumeName, String blobName) throws IOException {
         String operationName = "AM.readMetadata";
         String description = "volume=" + volumeName + ", blobName=" + blobName;
 
-        WorkUnit<Optional<FdsMetadata>> unit = new WorkUnit<Optional<FdsMetadata>>(operationName, description) {
+        WorkUnit<Optional<Map<String, String>>> unit = new WorkUnit<Optional<Map<String, String>>>(operationName, description) {
             @Override
-            public Optional<FdsMetadata> supply() throws Exception {
-                counters.increment(Counters.Key.AM_statBlob);
+            public Optional<Map<String, String>> supply() throws Exception {
                 BlobDescriptor blobDescriptor = asyncAm.statBlob(domain, volumeName, blobName).get();
-                return Optional.of(new FdsMetadata(blobDescriptor.getMetadata()));
+                return Optional.of(new HashMap<String, String>(blobDescriptor.getMetadata()));
             }
         };
 
@@ -58,16 +52,14 @@ public class AmOps implements IoOps {
     }
 
     @Override
-    public void writeMetadata(String domain, String volume, String blobName, FdsMetadata metadata) throws IOException {
+    public void writeMetadata(String domain, String volume, String blobName, Map<String, String> metadata) throws IOException {
         String operationName = "AM.writeMetadata";
-        HashMap<String, String> map = metadata.lock(m -> new HashMap<>(m.mutableMap()));
-        String description = "volume=" + volume + ", blobName=" + blobName + ", fieldCount=" + map.size();
+        String description = "volume=" + volume + ", blobName=" + blobName + ", fieldCount=" + metadata.size();
         WorkUnit<Void> workUnit = new WorkUnit<Void>(operationName, description) {
             @Override
             public Void supply() throws Exception {
-                counters.increment(Counters.Key.AM_updateMetadataTx);
                 TxDescriptor tx = asyncAm.startBlobTx(domain, volume, blobName, 0).get();
-                asyncAm.updateMetadata(domain, volume, blobName, tx, map).get();
+                asyncAm.updateMetadata(domain, volume, blobName, tx, metadata).get();
                 asyncAm.commitBlobTx(domain, volume, blobName, tx).get();
                 return null;
             }
@@ -89,7 +81,6 @@ public class AmOps implements IoOps {
         WorkUnit<FdsObject> unit = new WorkUnit<FdsObject>(operation, description) {
             @Override
             public FdsObject supply() throws Exception {
-                counters.increment(Counters.Key.AM_getBlob);
                 ByteBuffer byteBuffer = asyncAm.getBlob(domain, volumeName, blobName, maxObjectSize, objectOffset).get();
                 return new FdsObject(byteBuffer, maxObjectSize);
             }
@@ -111,7 +102,6 @@ public class AmOps implements IoOps {
             WorkUnit<Void> unit = new WorkUnit<Void>(description, argumentsSummary) {
                 @Override
                 public Void supply() throws Exception {
-                    counters.increment(Counters.Key.AM_updateBlobTx);
                     TxDescriptor tx = asyncAm.startBlobTx(domain, volume, blobName, 0).get();
                     asyncAm.updateBlob(domain, volume, blobName, tx, o.asByteBuffer(), o.limit(), objectOffset, false).get();
                     asyncAm.commitBlobTx(domain, volume, blobName, tx).get();
@@ -137,11 +127,10 @@ public class AmOps implements IoOps {
         WorkUnit<List<BlobMetadata>> unit = new WorkUnit<List<BlobMetadata>>(operationName, description) {
             @Override
             public List<BlobMetadata> supply() throws Exception {
-                counters.increment(Counters.Key.AM_volumeContents);
                 List<BlobMetadata> result = asyncAm.volumeContents(domain, volume, Integer.MAX_VALUE, 0, blobNamePrefix, PatternSemantics.PREFIX, null, BlobListOrder.UNSPECIFIED, false).get()
                         .getBlobs()
                         .stream()
-                        .map(bd -> new BlobMetadata(bd.getName(), new FdsMetadata(bd.getMetadata())))
+                        .map(bd -> new BlobMetadata(bd.getName(), bd.getMetadata()))
                         .collect(Collectors.toList());
                 return result;
             }

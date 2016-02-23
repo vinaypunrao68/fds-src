@@ -50,7 +50,7 @@ public class NfsTest extends BaseAmTest {
         asyncAm = new RealAsyncAm(Fds.getFdsHost(), 8899, responsePort, Duration.standardSeconds(30));
         asyncAm.start();
         resolver = mock(ExportResolver.class);
-        when(resolver.exportId(anyString())).thenReturn(0);
+        when(resolver.nfsExportId(anyString())).thenReturn(0);
         amVfs = new XdiVfs(asyncAm, resolver, new Counters(), true, 5, Duration.standardSeconds(1));
     }
 
