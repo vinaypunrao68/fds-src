@@ -244,6 +244,8 @@
     tags:
         - post-install
 
+-   name: Place coroner excludes
+    copy: src=../files/coroner.excludes dest=/fds/sbin/coroner.excludes owner=root group=root mode=0755
 
 -   name: add cron job to gzip logs
     cron: name="compress logs placed by ansible" minute=49 hour=*/4

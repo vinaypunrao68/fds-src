@@ -374,6 +374,10 @@ function run_node_cleanup
 
 function run_coroner
 {
+    excludes_dest="/fds/sbin"
+
+    [[ ! -e ${excludes_dest} ]] && mkdir -p ${excludes_dest}
+
     start_time=$(date +%s)
 
     if [[ ${#JENKINS_URL} -gt 0 ]]
@@ -391,6 +395,7 @@ function run_coroner
 
     do_pushd ${TEST_WORKSPACE}
 
+    cp ansible/files/coroner.excludes ${excludes_dest}/.
     source/tools/coroner.py collect --refid $REFID --buildermode \
       --collect-dirs build_debug_bin:source/Build/linux-x86_64.debug/bin        \
                      build_release_bin:source/Build/linux-x86_64.release/bin    \

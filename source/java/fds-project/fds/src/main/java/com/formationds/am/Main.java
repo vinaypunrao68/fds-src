@@ -39,6 +39,7 @@ import org.eclipse.jetty.io.ByteBufferPool;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.IOException;
 import java.net.ConnectException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -232,8 +233,13 @@ public class Main {
                 httpConfiguration).start(), "S3 service thread").start();
 
         // Experimental: XDI server
-        Counters counters = new Counters();
-        IoOps ioOps = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
+        IoOps ioOps = new DeferredIoOps(new AmOps(asyncAm), v -> {
+            try {
+                return configCache.statVolume(XdiVfs.DOMAIN, v).getPolicy().getMaxObjectSizeInBytes();
+            } catch (Exception e) {
+                throw new IOException(e);
+            }
+        });
         // ioOps = new MemoryIoOps();
         XdiConnector connector = new XdiConnector(configCache, ioOps);
 
