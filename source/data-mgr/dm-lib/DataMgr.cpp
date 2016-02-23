@@ -599,15 +599,10 @@ Error DataMgr::addVolume(const std::string& vol_name,
                     << "for vol:" << vdesc->srcVolumeId;
             return err;
         }
-
-        if (fOldVolume) {
-            LOGWARN << "previous existing snap.. should not happen";
-            return ERR_OK;
-        }
     }
 
     // do this processing only in the case..
-    if (vdesc->isSnapshot() || (vdesc->isClone() && fPrimary && !fOldVolume)) {
+    if ((vdesc->isSnapshot() || (vdesc->isClone() && fPrimary)) && !fOldVolume) {
         auto volmeta = getVolumeMeta(vdesc->srcVolumeId);
         if (!volmeta) {
             GLOGWARN << "Volume [" << vdesc->srcVolumeId << "] not found!";
