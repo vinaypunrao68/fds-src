@@ -3,6 +3,8 @@ package com.formationds.nfs;
 import com.formationds.util.IoConsumer;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Function;
 
 public class PersistentCounter implements IoConsumer<MetaKey> {
@@ -10,12 +12,14 @@ public class PersistentCounter implements IoConsumer<MetaKey> {
     private String domain;
     private final String counterName;
     private final long startValue;
+    private StripedLock lock;
 
     public PersistentCounter(IoOps io, String domain, String counterName, long startValue) {
         this.io = io;
         this.domain = domain;
         this.counterName = counterName;
         this.startValue = startValue;
+        lock = new StripedLock();
     }
 
     public long increment(String volume, long step) throws IOException {
@@ -31,20 +35,17 @@ public class PersistentCounter implements IoConsumer<MetaKey> {
     }
 
     public long currentValue(String volume) throws IOException {
-        FdsMetadata metadata = io.readMetadata(domain, volume, counterName).orElse(new FdsMetadata());
-        return metadata.lock(m -> {
-            return Long.parseLong(m.mutableMap().getOrDefault(counterName, Long.toString(startValue)));
-        });
-
+        Map<String, String> metadata = io.readMetadata(domain, volume, counterName).orElse(new HashMap<String, String>());
+        return Long.parseLong(metadata.getOrDefault(counterName, Long.toString(startValue)));
     }
 
     private long mutate(String volume, Function<Long, Long> mutator) throws IOException {
-        FdsMetadata metadata = io.readMetadata(domain, volume, counterName).orElse(new FdsMetadata());
-        return metadata.lock(m -> {
-            long currentValue = Long.parseLong(m.mutableMap().getOrDefault(counterName, Long.toString(startValue)));
+        return lock.lock(new MetaKey(domain, volume, counterName), () -> {
+            Map<String, String> metadata = io.readMetadata(domain, volume, counterName).orElse(new HashMap<String, String>());
+            long currentValue = Long.parseLong(metadata.getOrDefault(counterName, Long.toString(startValue)));
             long mutated = mutator.apply(currentValue);
-            m.mutableMap().put(counterName, Long.toString(mutated));
-            io.writeMetadata(domain, volume, counterName, m.fdsMetadata());
+            metadata.put(counterName, Long.toString(mutated));
+            io.writeMetadata(domain, volume, counterName, metadata);
             return mutated;
         });
     }

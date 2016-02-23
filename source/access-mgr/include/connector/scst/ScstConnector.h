@@ -74,7 +74,7 @@ struct ScstConnector
     std::string target_prefix;
 
     void addTarget(VolumeDesc const& volDesc);
-    void _addTarget(VolumeDesc const& volDesc);
+    bool _addTarget(VolumeDesc const& volDesc);
     void discoverTargets();
     void removeTarget(VolumeDesc const& volDesc);
     void shutdown();

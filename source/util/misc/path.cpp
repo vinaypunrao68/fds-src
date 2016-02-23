@@ -37,12 +37,15 @@ void getSubDirectories(const std::string& dirname, std::vector<std::string>& vec
     DIR *dp;
     struct dirent *ep;
     dp = opendir (dirname.c_str());
-
     if (dp != NULL) {
         std::string name;
         while ((ep = readdir(dp))) {
-            if (ep->d_type == DT_DIR) {
-                name = ep->d_name;
+            name = ep->d_name;
+            bool fIsDir = ep->d_type == DT_DIR;
+            if (ep->d_type == DT_UNKNOWN) {
+                fIsDir = dirExists(dirname + "/" + name);
+            }
+            if (fIsDir) {
                 if (name != ".." && name != ".") {
                     vecDirs.push_back(name);
                 }
@@ -61,7 +64,12 @@ void getFiles(const std::string& dirname, std::vector<std::string>& vecDirs) {
     if (dp != NULL) {
         std::string name;
         while ((ep = readdir (dp))) {
-            if (ep->d_type == DT_REG) {
+            bool fIsFile = ep->d_type == DT_REG;
+            if (ep->d_type == DT_UNKNOWN) {
+                fIsFile = fileExists(dirname + "/" + std::string(ep->d_name));
+            }
+
+            if (fIsFile) {
                 vecDirs.push_back(ep->d_name);
             }
         }

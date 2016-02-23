@@ -674,11 +674,22 @@ namespace fds
 
                     return true;
                 }
+                else if (-1 == waitPidRC)
+                {
+                    LOGERROR << "waitpid " << pid << " failed with error " << errno;
+                    return false;
+                }
+                // else return value is zero meaning the process is running
 
                 usleep (WAIT_PID_SLEEP_TIMER_MICROSECONDS);
                 clock_gettime (CLOCK_REALTIME, &timeNow);
             }
             while (timeNow.tv_sec < endTime.tv_sec || (timeNow.tv_sec <= endTime.tv_sec && timeNow.tv_nsec < endTime.tv_nsec));
+
+            if (!monitoring)
+            {
+                LOGWARN << "pid " << pid << " did not exit as expected.";
+            }
 
             return false;
         }
@@ -700,52 +711,29 @@ namespace fds
                 return;
             }
 
-            LOGNORMAL << "Preparing to stop " << procName << " via kill(pid, SIGTERM)";
-
             bool orphanChildProcess = mapIter->second & PROC_CHECK_BITMASK;
             int rc;
 
             pid_t pid = mapIter->second & ~PROC_CHECK_BITMASK;
 
+            LOGNORMAL << "Preparing to stop " << (orphanChildProcess ? "orphan " : "") << "process "<< procName << " via kill(" << pid <<", SIGTERM)";
+
             // TODO(DJN): check for pid < 2 here and error
 
             m_serviceFlapDetector->removeService (procIndex);
 
-            if (orphanChildProcess)
-            {
-                rc = kill (pid, SIGKILL);
+            rc = kill (pid, SIGTERM);
 
-                if (rc < 0)
-                {
-                    LOGERROR << "Error sending signal (SIGKILL) to orphaned child process:  " << procName << "(pid = " << pid << ") errno = " << rc << "";
-                }
+            if (rc < 0)
+            {
+                LOGWARN << "Error sending signal (SIGTERM) to " << procName << "(pid = " << pid << ") errno = " << errno;
             }
-            else
+
+            // Wait to shutdown the process; if we fail here, place pid on the killed processes list, so the monitor thread can wait on its exit
+            if (false == waitPid (pid, PROCESS_STOP_WAIT_PID_SLEEP_TIMER_NANOSECONDS))
             {
-                rc = kill (pid, SIGTERM);
-
-                if (rc < 0)
-                {
-                    LOGWARN << "Error sending signal (SIGTERM) to " << procName << "(pid = " << pid << ") errno = " << rc << ", will follow up with a SIGKILL";
-                }
-
-                // Wait for the SIGTERM to shutdown the process, otherwise revert to using SIGKILL
-                if (rc < 0 || false == waitPid (pid, PROCESS_STOP_WAIT_PID_SLEEP_TIMER_NANOSECONDS))
-                {
-                    rc = kill (pid, SIGKILL);
-
-                    if (rc < 0)
-                    {
-                        LOGERROR << "Error sending signal (SIGKILL) to " << procName << "(pid = " << pid << ") errno = " << rc << "";
-                    }
-
-                    waitPid (pid, PROCESS_STOP_WAIT_PID_SLEEP_TIMER_NANOSECONDS);
-
-                    if (rc < 0)
-                    {
-                        LOGERROR << "Error sending signal (SIGKILL) to " << procName << "(pid = " << pid << ") errno = " << errno << "";
-                    }
-                }
+                std::lock_guard <decltype (m_killedProcessesMutex)> lock (m_killedProcessesMutex);
+                m_killedProcesses.push_back (pid);
             }
 
             m_appPidMap.erase (mapIter);
@@ -982,6 +970,9 @@ namespace fds
 
                 switch (vectItem.svc_type)
                 {
+                    case fpi::FDSP_PLATFORM:
+                    break; // always sent by OM, ignore
+
                     case fpi::FDSP_ACCESS_MGR:
                     {
                         FDS_ProtocolInterface::SvcChangeReqInfo amChangeInfo;
@@ -1082,6 +1073,9 @@ namespace fds
 
                 switch (vectItem.svc_type)
                 {
+                    case fpi::FDSP_PLATFORM:
+                    break; // always sent by OM, ignore
+
                     case fpi::FDSP_ACCESS_MGR:
                     {
                         if (fpi::SERVICE_RUNNING == m_nodeInfo.bareAMState && fpi::SERVICE_RUNNING == m_nodeInfo.javaAMState)
@@ -1372,12 +1366,38 @@ namespace fds
                     }
                 }  // lock_guard context
 
+                waitForKilledProcesses(); // wait for any processes we previously killed
+
                 if (deadProcessesFound)
                 {
                     m_startQueueCondition.notify_one();
                 }
 
                 usleep (PROCESS_MONITOR_SLEEP_TIMER_MICROSECONDS);
+            }
+        }
+
+        void PlatformManager::waitForKilledProcesses()
+        {
+            std::lock_guard <decltype (m_killedProcessesMutex)> lock (m_killedProcessesMutex);
+            for ( auto pidIter = m_killedProcesses.begin( ); m_killedProcesses.end( ) != pidIter; )
+            {
+                pid_t pid = *pidIter;
+                LOGDEBUG << "Trying to wait for previously killed process " << pid;
+                if (waitPid (pid, PROCESS_STOP_WAIT_PID_SLEEP_TIMER_NANOSECONDS))
+                {
+                    pidIter = m_killedProcesses.erase(pidIter);
+                }
+                else
+                {
+                    LOGNORMAL << "Preparing to stop process via kill(" << pid <<", SIGKILL)";
+                    int rc = kill (pid, SIGKILL);
+                    if (rc < 0)
+                    {
+                        LOGERROR << "Error sending signal (SIGKILL) to process" << pid << "; errno = " << errno;
+                    }
+                    ++pidIter;
+                }
             }
         }
 

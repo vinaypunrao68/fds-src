@@ -4,43 +4,41 @@ import com.formationds.nfs.SimpleKey;
 import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertEquals;
 
 public class EvictingCacheTest {
     @Test
-    public void testFlush() throws Exception {
-        EvictingCache<SimpleKey, String> cache = new EvictingCache<>(
-                (key, entry) -> {},
-                "test", 100, 1, TimeUnit.HOURS
+    public void test() throws Exception {
+        AtomicInteger loads = new AtomicInteger(0);
+        AtomicInteger evictions = new AtomicInteger(0);
+
+        EvictingCache.Loader<SimpleKey, Integer> loader =
+                simpleKey -> new CacheEntry<>(loads.incrementAndGet(), true, false);
+
+        Evictor<SimpleKey, Integer> evictor =
+                (simpleKey, cacheEntry) -> evictions.incrementAndGet();
+
+        EvictingCache<SimpleKey, Integer> cache = new EvictingCache<>(
+                loader, evictor, "foo", 42, 10, TimeUnit.SECONDS
         );
 
+        cache.start();
+
         SimpleKey key = new SimpleKey("foo");
-        cache.lock(key, c -> c.put(key, new CacheEntry<>("foo", true, false)));
-        assertTrue(cache.lock(key, c -> c.get(key).isDirty));
+        CacheEntry<Integer> value = cache.get(key);
+        assertEquals(1, (int) value.value);
+
+        cache.put(key, new CacheEntry<>(42, true, false));
+        assertEquals(42, (int) cache.get(key).value);
+        assertEquals(1, loads.get());
+
+        cache.flush(key);
+        assertEquals(1, evictions.get());
+
+        cache.put(key, new CacheEntry<>(42, true, true));
         cache.flush();
-        assertFalse(cache.lock(key, c -> c.get(key).isDirty));
-    }
-
-    @Test
-    public void testDropKeysWithPrefix() throws Exception {
-        EvictingCache<SimpleKey, String> cache = new EvictingCache<>((o, ce) -> {
-        }, "foo", 1000, 1, TimeUnit.HOURS);
-
-        SimpleKey someKey = new SimpleKey("");
-        cache.lock(someKey, c -> {
-            c.put(new SimpleKey("aaa"), new CacheEntry<>("aaa", true, false));
-            c.put(new SimpleKey("aab"), new CacheEntry<>("aab", true, false));
-            c.put(new SimpleKey("abb"), new CacheEntry<>("abb", true, false));
-            return null;
-        });
-
-        assertTrue(cache.lock(someKey, c -> c.get(new SimpleKey("aaa")) != null));
-        assertTrue(cache.lock(someKey, c -> c.get(new SimpleKey("aab")) != null));
-        cache.dropKeysWithPrefix(new SimpleKey("aa"));
-        assertTrue(cache.lock(someKey, c -> c.get(new SimpleKey("aaa")) == null));
-        assertTrue(cache.lock(someKey, c -> c.get(new SimpleKey("aab")) == null));
-        assertTrue(cache.lock(someKey, c -> c.get(new SimpleKey("abb")) != null));
+        assertEquals(2, evictions.get());
     }
 }

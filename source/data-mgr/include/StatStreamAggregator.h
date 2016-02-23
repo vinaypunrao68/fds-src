@@ -50,7 +50,8 @@ class StatStreamTimerTask : public FdsTimerTask {
                                            std::string const& name,
                                            double value,
                                            int64_t slotSeconds,
-                                           int64_t volumeId);
+                                           int64_t volumeId,
+                                           AggregationType aggregation);
 };
 
 /**
