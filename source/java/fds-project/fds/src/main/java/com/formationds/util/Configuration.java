@@ -187,7 +187,7 @@ public class Configuration {
         Logger logger = LogManager.getLogger( Configuration.class );
         if ( ManagementFactory.getRuntimeMXBean().getVmVendor().toLowerCase().contains( "oracle" ) ) {
 
-            Path dfltCorefilesDir = Paths.get( "/corefiles" );
+            Path dfltCorefilesDir = Paths.get( fdsRoot.getAbsolutePath() + "/var/log/corefiles" );
             Optional<Path> systemCorePatternLocation = loadSystemCorePatternPath();
 
             if ( !systemCorePatternLocation.isPresent() ) {

@@ -11,17 +11,17 @@ import java.util.Optional;
 import static org.junit.Assert.assertEquals;
 
 public class SimpleInodeIndexTest {
-    public static final int OBJECT_SIZE = 8;
+    public static final int MAX_OBJECT_SIZE = 8;
     public static final String VOLUME = "volume";
     public static final String SUE = "sue";
     public static final String JOHN = "john";
 
     @Test
     public void testIndex() throws Exception {
-        ExportResolver exportResolver = new StubExportResolver(VOLUME, OBJECT_SIZE, Long.MAX_VALUE);
-        IoOps io = new MemoryIoOps();
+        ExportResolver exportResolver = new StubExportResolver(VOLUME, MAX_OBJECT_SIZE, Long.MAX_VALUE);
+        IoOps io = new MemoryIoOps(MAX_OBJECT_SIZE);
         SimpleInodeIndex index = new SimpleInodeIndex(io, exportResolver);
-        int exportId = exportResolver.exportId(VOLUME);
+        int exportId = exportResolver.nfsExportId(VOLUME);
         int parentId = 3;
         int sueId = 4;
         int johnId = 5;
