@@ -1,6 +1,7 @@
 package com.formationds.nfs;
 
 import com.formationds.apis.ObjectOffset;
+import org.apache.log4j.Logger;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -10,6 +11,7 @@ import java.util.Map;
 import java.util.Optional;
 
 public class Chunker {
+    private static final Logger LOG = Logger.getLogger(Chunker.class);
     private IoOps io;
     private final StripedLock lock;
 
@@ -74,15 +76,22 @@ public class Chunker {
             }
             ObjectOffset objectOffset = new ObjectOffset(startObject + i);
             io.readCompleteObject(domain, volume, blobName, objectOffset, maxObjectSize).lock(o -> {
-                int toBeRead = Math.min(o.limit() - startOffset[0], (maxObjectSize - startOffset[0]));
-                toBeRead = Math.min(toBeRead, output.remaining());
-                ByteBuffer buf = o.asByteBuffer();
-                buf.position(startOffset[0]);
-                buf.limit(startOffset[0] + toBeRead);
-                output.put(buf);
-                startOffset[0] = 0;
-                remaining[0] -= toBeRead;
-                readSoFar[0] += toBeRead;
+                try {
+                    int toBeRead = Math.min(o.limit() - startOffset[0], (maxObjectSize - startOffset[0]));
+                    toBeRead = Math.min(toBeRead, output.remaining());
+                    ByteBuffer buf = o.asByteBuffer();
+                    buf.limit(startOffset[0] + toBeRead);
+                    buf.position(startOffset[0]);
+                    output.put(buf);
+                    startOffset[0] = 0;
+                    remaining[0] -= toBeRead;
+                    readSoFar[0] += toBeRead;
+                } catch (Exception e) {
+                    LOG.error("Read error, volume=" + volume + ", blobName=" + blobName);
+                    LOG.error("maxObjectSize=" + maxObjectSize + ", destination=" + destination + "bytes, offset=" + offset + ", length=" + length);
+                    LOG.error("Object capacity=" + o.capacity() + ", object limit=" + o.limit());
+                    throw new IOException(e);
+                }
                 return null;
             });
         }
