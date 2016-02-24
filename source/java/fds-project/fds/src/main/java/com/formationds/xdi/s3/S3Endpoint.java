@@ -11,6 +11,7 @@ import com.formationds.spike.later.AsyncWebapp;
 import com.formationds.spike.later.HttpContext;
 import com.formationds.spike.later.HttpPath;
 import com.formationds.spike.later.SyncRequestHandler;
+import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.web.toolkit.*;
 import com.formationds.xdi.AsyncStreamer;
 import com.formationds.xdi.Xdi;
@@ -212,7 +213,7 @@ public class S3Endpoint {
 
             cf = function.apply(localContext, token);
         } catch (Exception e) {
-            cf.completeExceptionally(e);
+            cf = CompletableFutureUtility.exceptionFuture(e);
         }
 
         return cf.exceptionally(e -> {
