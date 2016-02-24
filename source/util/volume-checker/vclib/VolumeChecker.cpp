@@ -3,7 +3,6 @@
  */
 #include <VolumeChecker.h>
 #include <VCSvcHandler.h>
-#include <fdsp/VCSvc.h>
 #include <boost/algorithm/string.hpp>
 
 
