@@ -38,7 +38,7 @@ public class FdsTogglzConfig
         "Failed to parse feature toggles ( %s ), " +
         "Toggles will be disabled by default.";
 
-    private static final String DEF_FDS = "fds";
+    private static final String DEF_FDS = "/fds";
     private static final String DEF_ETC = "etc";
 
     private static final String PLATFORM_DOT_CONF = "platform.conf";
