@@ -12,9 +12,7 @@ import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 
-import org.dcache.nfs.v4.xdr.newoffset4;
 import org.eclipse.jetty.server.Request;
-import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

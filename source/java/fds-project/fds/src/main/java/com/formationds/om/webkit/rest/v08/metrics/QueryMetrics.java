@@ -9,6 +9,8 @@ import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.repository.helper.QueryHelper;
 import com.formationds.om.webkit.rest.v08.users.GetUser;
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.formationds.stats.client.QueryHandler;
@@ -16,7 +18,6 @@ import com.formationds.stats.client.StatsConnection;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.web.toolkit.TextResource;
 import com.google.gson.reflect.TypeToken;
 
 import org.eclipse.jetty.server.Request;
@@ -75,7 +76,9 @@ public class QueryMetrics implements RequestHandler, QueryHandler {
             		return new JsonResource( new JSONObject( stats ) );
             	}
             	catch( Exception e ){
-            		logger.warn( "Stats query timed out." );
+            		logger.debug( "Stats query failed.", e );
+            		
+            		throw new ApiException( "Failure during a metrics query using the stats service.", ErrorCode.INTERNAL_SERVER_ERROR );
             	}
             }
             else {
@@ -83,8 +86,6 @@ public class QueryMetrics implements RequestHandler, QueryHandler {
             	com.formationds.commons.model.Statistics stats = QueryHelper.instance().execute( ObjectModelHelper.toObject( reader, TYPE_COMMON ), authorizer, token );
             	return new JsonResource( new JSONObject( stats ) );
             }
-            
-            return new TextResource( "No data." );
         }
     }
 
