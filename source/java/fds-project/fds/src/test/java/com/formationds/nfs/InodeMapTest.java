@@ -11,13 +11,14 @@ import static org.junit.Assert.fail;
 
 public class InodeMapTest {
     private static final String VOLUME = "foo";
+    public static final int MAX_OBJECT_SIZE = 1024;
 
     @Test
     public void testMaxCapacityIsEnforced() throws Exception {
         long maxVolumeCapacityInBytes = 100;
-        StubExportResolver exportResolver = new StubExportResolver(VOLUME, 1024, maxVolumeCapacityInBytes);
-        InodeMap inodeMap = new InodeMap(new MemoryIoOps(), exportResolver);
-        Inode inode = inodeMap.create(new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0644, 257), exportResolver.exportId(VOLUME));
+        StubExportResolver exportResolver = new StubExportResolver(VOLUME, MAX_OBJECT_SIZE, maxVolumeCapacityInBytes);
+        InodeMap inodeMap = new InodeMap(new MemoryIoOps(MAX_OBJECT_SIZE), exportResolver);
+        Inode inode = inodeMap.create(new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0644, 257), exportResolver.nfsExportId(VOLUME));
         inodeMap.write(inode, new byte[100], 0, 100);
 
         try {

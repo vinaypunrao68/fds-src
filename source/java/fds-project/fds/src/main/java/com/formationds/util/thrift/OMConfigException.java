@@ -4,15 +4,19 @@
 
 package com.formationds.util.thrift;
 
+import com.formationds.protocol.ApiException;
+import com.formationds.protocol.ErrorCode;
+
 /**
  * Generic OM Configuration Client exception
  */
-public class OMConfigException extends Exception {
-    public OMConfigException(String message, Object... messageArgs) {
-        super(String.format(message, messageArgs));
+public class OMConfigException extends ApiException {
+
+    public OMConfigException( ErrorCode errorCode, String message ) {
+        super( message, errorCode );
     }
 
-    public OMConfigException(Throwable cause, String message, String... messageArgs) {
-        super(String.format(message, messageArgs), cause);
+    public OMConfigException(ErrorCode ec, String message, Object... messageArgs) {
+        super(String.format(message, messageArgs), ec);
     }
 }

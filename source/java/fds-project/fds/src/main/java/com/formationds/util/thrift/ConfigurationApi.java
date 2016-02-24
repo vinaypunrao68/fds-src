@@ -8,8 +8,10 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.SnapshotPolicy;
 import com.formationds.apis.Tenant;
 import com.formationds.apis.User;
+import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
 import org.apache.thrift.TException;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -60,4 +62,7 @@ public interface ConfigurationApi extends ConfigurationService.Iface {
     User getUser(long userId);
 
     User getUser(String login);
+
+    List<FDSP_Node_Info_Type> listLocalDomainServices( String domainName )
+        throws TException;
 }
