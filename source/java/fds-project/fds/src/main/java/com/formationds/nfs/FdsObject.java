@@ -60,6 +60,10 @@ public class FdsObject {
             FdsObject.this.limit = value;
         }
 
+        public int capacity() {
+            return bytes.length;
+        }
+
         public int maxObjectSize() {
             return maxObjectSize;
         }

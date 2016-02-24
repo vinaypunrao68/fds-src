@@ -203,6 +203,34 @@ public class Main {
 
         EnsureAdminUser.bootstrapAdminUser( configCache );
 
+        /**
+         * if volume grouping is disabled, use the statVolume call against the am host defined in
+         * the platform.conf file.
+         */
+        if( !FdsFeatureToggles.USE_VOLUME_GROUPING.isActive() )
+        {
+            // TODO: should there be an OM property for the am host?
+            String amHost = platformConfig.defaultString( "fds.xdi.am_host", "localhost" );
+
+            int xdiServicePortOffset = platformConfig.defaultInt( "fds.am.xdi_service_port_offset",
+                                                                  1899 );
+            int xdiServicePort = pmPort + xdiServicePortOffset;
+
+            int xdiResponsePortOffset = platformConfig.defaultInt( "fds.om.xdi_response_port_offset", 2988 );
+            int xdiResponsePort = new ServerPortFinder( ).findPort( "Async XDI response port",
+                                                                    pmPort + xdiResponsePortOffset );
+
+            XdiStaticConfiguration xdiStaticConfig = configuration.getXdiStaticConfig( pmPort );
+
+            boolean useFakeAm = platformConfig.defaultBoolean( "fds.am.memory_backend", false );
+            AsyncAm asyncAm = useFakeAm ? new FakeAsyncAm( ) : new RealAsyncAm( amHost,
+                                                                                xdiServicePort,
+                                                                                xdiResponsePort,
+                                                                                xdiStaticConfig.getAmTimeout( ) );
+            SingletonAmAPI.instance( )
+                          .api( asyncAm );
+        }
+
         /*
          * TODO(Tinius) currently we only support a single OM
          */

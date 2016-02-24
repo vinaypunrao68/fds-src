@@ -48,16 +48,14 @@ public class InodeMap {
         String blobName = blobName(inode);
         String volumeName = volumeName(inode);
 
-        Optional<FdsMetadata> opt = io.readMetadata(XdiVfs.DOMAIN, volumeName, blobName);
+        Optional<Map<String, String>> opt = io.readMetadata(XdiVfs.DOMAIN, volumeName, blobName);
         if (opt.isPresent()) {
-            InodeMetadata inodeMetadata = opt.get().lock(m -> {
-                if (m.mutableMap().size() == 0) {
-                    LOG.error("Metadata for inode-" + InodeMetadata.fileId(inode) + " is empty!");
-                    throw new NoEntException();
-                }
-                return new InodeMetadata(m.mutableMap());
-            });
-            return Optional.of(inodeMetadata);
+            if (opt.get().size() == 0) {
+                LOG.error("Metadata for inode-" + InodeMetadata.fileId(inode) + " is empty!");
+                throw new NoEntException();
+            }
+
+            return Optional.of(new InodeMetadata(opt.get()));
         } else {
             return Optional.empty();
         }
@@ -95,8 +93,7 @@ public class InodeMap {
 
         try {
             int objectSize = exportResolver.objectSize(volumeName);
-            InodeMetadata[] last = new InodeMetadata[1];
-            chunker.write(XdiVfs.DOMAIN, volumeName, blobName, objectSize, data, offset, count, map -> {
+            return chunker.write(XdiVfs.DOMAIN, volumeName, blobName, objectSize, data, offset, count, map -> {
                 if (map.isEmpty()) {
                     throw new NoEntException();
                 }
@@ -105,17 +102,16 @@ public class InodeMap {
                 int length = Math.min(data.length, count);
                 long newByteCount = Math.max(oldByteCount, offset + length);
                 enforceVolumeLimit(volumeName, newByteCount - oldByteCount);
-                last[0] = inodeMetadata
+                inodeMetadata = inodeMetadata
                         .withUpdatedAtime()
                         .withUpdatedMtime()
                         .withUpdatedCtime()
                         .withUpdatedSize(newByteCount);
                 usedBytes.increment(volumeName, newByteCount - oldByteCount);
                 map.clear();
-                map.putAll(last[0].asMap());
-                return null;
+                map.putAll(inodeMetadata.asMap());
+                return inodeMetadata;
             });
-            return last[0];
         } catch (IOException e) {
             String message = "Error writing " + volumeName + "." + blobName;
             LOG.error(message, e);
@@ -140,12 +136,7 @@ public class InodeMap {
     private Inode doUpdate(InodeMetadata metadata, long exportId) throws IOException {
         String volume = exportResolver.volumeName((int) exportId);
         String blobName = blobName(metadata.asInode(exportId));
-        FdsMetadata updated = io.readMetadata(XdiVfs.DOMAIN, volume, blobName).orElse(new FdsMetadata()).lock(m -> {
-            Map<String, String> mutableMap = m.mutableMap();
-            mutableMap.putAll(metadata.asMap());
-            return m.fdsMetadata();
-        });
-        io.writeMetadata(XdiVfs.DOMAIN, volume, blobName, updated);
+        io.writeMetadata(XdiVfs.DOMAIN, volume, blobName, metadata.asMap());
         return metadata.asInode(exportId);
     }
 

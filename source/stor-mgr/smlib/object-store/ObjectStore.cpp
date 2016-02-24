@@ -1270,8 +1270,17 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         if (TokenCompactor::isGarbage(*objMeta) || !objOwned) {
             LOGDEBUG << "Removing metadata for " << objId
                       << " object owned? " << objOwned;
-            OBJECTSTOREMGR(objStorMgr)->counters->dataRemoved.incr(objMeta->getObjSize());
-            err = metaStore->removeObjectMetadata(unknownVolId, objId);
+            ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
+            updatedMeta->removePhyLocation(tier);
+            err = metaStore->putObjectMetadata(unknownVolId, objId, updatedMeta);
+            if (!err.ok()) {
+                LOGERROR << "Failed to update metadata for obj " << objId;
+            }
+            auto latestMeta = metaStore->getObjectMetadata(unknownVolId, objId, err);
+            if (!latestMeta->dataPhysicallyExists()) {
+                OBJECTSTOREMGR(objStorMgr)->counters->dataRemoved.incr(objMeta->getObjSize());
+                err = metaStore->removeObjectMetadata(unknownVolId, objId);
+            }
         }
     }
 
