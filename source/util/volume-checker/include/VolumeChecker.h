@@ -76,12 +76,6 @@ private:
      */
     Error runPhase1();
 
-    enum chkNodeStatus {
-        NS_NOT_STARTED,     // Just created
-        NS_CONTACTED,       // Volume list has been sent to the node
-        NS_WORKING          // Node has sent async resp saying it's churning
-    };
-
     struct dmCheckerMetaData {
         dmCheckerMetaData(fds_volid_t _volId,
                           fpi::SvcUuid _nodeUuid) :
@@ -92,6 +86,9 @@ private:
 
         ~dmCheckerMetaData() = default;
 
+        // Sends the initial check message to the dm
+        void sendVolChkMsg(const EPSvcRequestRespCb &cb = nullptr);
+
         // Cached id of what this checker meta-data is checking for
         fds_volid_t volId;
 
@@ -99,6 +96,11 @@ private:
         fpi::SvcUuid nodeUuid;
 
         // Current node's status
+        enum chkNodeStatus {
+            NS_NOT_STARTED,     // Just created
+            NS_CONTACTED,       // Volume list has been sent to the node
+            NS_WORKING          // Node has sent async resp saying it's churning
+        };
         chkNodeStatus status;
     };
 
@@ -108,6 +110,11 @@ private:
 
     // Prepares the accounting data structures
     void prepareDmCheckerMap();
+
+    // Sends the volume check msgs to DMs();
+    Error sendVolChkMsgsToDMs();
+
+    void sendOneVolChkMsg(const EPSvcRequestRespCb &cb = nullptr);
 };
 
 } // namespace fds

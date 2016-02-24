@@ -36,9 +36,10 @@ TEST_F(VolumeGroupFixture, twoHappyDMs) {
 
     // Test Volume Checker svcmgr layer
     // For now only one volume
-    std::vector<unsigned> volIdList(1);
+    std::vector<unsigned> volIdList;
+    volIdList.push_back(v1Id.v);
     initVolumeChecker(volIdList, clusterSize);
-    addDMTToVC(getOmDMT(DMT_COMMITTED), clusterSize);
+    // addDMTToVC(getOmDMT(DMT_COMMITTED), clusterSize);
     stopVolumeChecker();
 
     /* Do some io. After Io is done, every volume replica must have same state */

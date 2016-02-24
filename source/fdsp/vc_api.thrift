@@ -10,4 +10,15 @@ include "svc_types.thrift"
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.dm
 
+/**
+ * A message sent to a DM to mark the volume offline and to start the checking process
+ */
+struct CheckVolumeMetaDataMsg {
+    1: required i64         volumeId;
+}
 
+/**
+ * Empty response
+ */
+struct CheckVolumeMetaDataMsgRsp {
+}

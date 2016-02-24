@@ -57,6 +57,14 @@ struct VolumeGroupFixture : DmGroupFixture {
         ASSERT_TRUE(vcHandle.proc->dmCheckerList.size() == 1);
         // That one should have "clusterSize" in it
         ASSERT_TRUE(vcHandle.proc->dmCheckerList[0].second.size() == clusterSize);
+
+        // The checker should have sent msgs to all the volumes
+        for (auto dmChecker : vcHandle.proc->dmCheckerList) {
+            for (auto oneDMtoCheck : dmChecker.second) {
+                ASSERT_TRUE(oneDMtoCheck.status == fds::VolumeChecker::dmCheckerMetaData::NS_CONTACTED);
+            }
+        }
+
     }
 
     void stopVolumeChecker() {

@@ -4,6 +4,8 @@
 #include <VolumeChecker.h>
 #include <VCSvcHandler.h>
 #include <boost/algorithm/string.hpp>
+#include <fds_volume.h>
+#include <fdsp/vc_api_types.h>
 
 
 namespace fds {
@@ -100,7 +102,7 @@ VolumeChecker::run() {
     LOGNORMAL << "Running volume checker";
 
     // First pull the DMT and DLT from OM
-    getDMT();
+    fds_assert(getDMT() != ERR_NOT_FOUND);
     getDLT();
 
     LOGNORMAL << "Running volume checker DM check (phase 1)";
@@ -125,13 +127,14 @@ VolumeChecker::runPhase1() {
     currentStatusCode = VC_PHASE_1;
 
     prepareDmCheckerMap();
+    sendVolChkMsgsToDMs();
 
     return err;
 }
 
 void
 VolumeChecker::prepareDmCheckerMap() {
-    for (auto vol : volumeList) {
+    for (auto &vol : volumeList) {
         auto svcUuidVector = dmtMgr->getDMT(DMT_COMMITTED)->getSvcUuids(vol);
         std::vector<dmCheckerMetaData> dataPerVol;
         for (auto oneSvcUuid : svcUuidVector) {
@@ -139,6 +142,39 @@ VolumeChecker::prepareDmCheckerMap() {
         }
         dmCheckerList.emplace_back(std::make_pair(vol, dataPerVol));
     }
+}
+
+Error
+VolumeChecker::sendVolChkMsgsToDMs() {
+    Error err(ERR_OK);
+    for (auto &dmChecker : dmCheckerList) {
+        for (auto &oneDMtoCheck : dmChecker.second) {
+            oneDMtoCheck.sendVolChkMsg([this](EPSvcRequest *,
+                                              const Error &e_,
+                                              StringPtr payload) {
+                // todo
+                });
+            }
+    }
+
+    return err;
+}
+
+void
+VolumeChecker::dmCheckerMetaData::sendVolChkMsg(const EPSvcRequestRespCb &cb) {
+    auto msg = fpi::CheckVolumeMetaDataMsgPtr(new fpi::CheckVolumeMetaDataMsg);
+    msg->volumeId = volId.v;
+
+    auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+    auto req = requestMgr->newEPSvcRequest(nodeUuid);
+    req->setPayload(FDSP_MSG_TYPEID(fpi::CheckVolumeMetaDataMsg), msg);
+    auto sysVol = FdsSysTaskQueueId;
+    req->setTaskExecutorId(sysVol.v);
+    if (cb) {
+        req->onResponseCb(cb);
+    }
+    req->invoke();
+    status = NS_CONTACTED;
 }
 
 } // namespace fds

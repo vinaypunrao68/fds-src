@@ -428,6 +428,9 @@ enum  FDSPMsgTypeId {
   AddToVolumeGroupRespCtrlMsgTypeId         = 30004;
   VolumeStateUpdateInfoCtrlMsgTypeId        = 30005;
 
+  /** Volume Checker Messages */
+  CheckVolumeMetaDataMsgTypeId              = 40000;
+
   /** Health Status */
   NotifyHealthReportTypeId                  = 100000;
   HeartbeatMessageTypeId                    = 100001;
