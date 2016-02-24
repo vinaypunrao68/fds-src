@@ -202,8 +202,6 @@ public class Main {
                 new FdsAuthorizer(configCache) :
                 new DumbAuthorizer();
 
-        ByteBufferPool bbp = new ArrayByteBufferPool();
-
         AsyncAm asyncAm = useFakeAm ?
                 new FakeAsyncAm() :
                 new RealAsyncAm(amHost, pmPort + xdiServicePortOffset, amResponsePort, xdiStaticConfig.getAmTimeout());
@@ -211,7 +209,6 @@ public class Main {
 
         // TODO: should XdiAsync use omCachedConfigProxy too?
         Supplier<AsyncStreamer> factory = () -> new AsyncStreamer(asyncAm,
-                bbp,
                 configCache);
 
         Xdi xdi = new Xdi(configCache, authenticator, authorizer, asyncAm, factory);

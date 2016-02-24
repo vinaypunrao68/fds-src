@@ -220,7 +220,7 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testAsyncStreamerWritesOneChunkOnly() throws Exception {
-        AsyncStreamer asyncStreamer = new AsyncStreamer(asyncAm, new ArrayByteBufferPool(), new XdiConfigurationApi(configService));
+        AsyncStreamer asyncStreamer = new AsyncStreamer(asyncAm, new XdiConfigurationApi(configService));
         HashMap<String, String> map = new HashMap<>();
         map.put("hello", "world");
         OutputStream outputStream = asyncStreamer.openForWriting(domainName, volumeName, blobName, map);
@@ -233,7 +233,7 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testAsyncStreamer() throws Exception {
-        AsyncStreamer asyncStreamer = new AsyncStreamer(asyncAm, new ArrayByteBufferPool(), new XdiConfigurationApi(configService));
+        AsyncStreamer asyncStreamer = new AsyncStreamer(asyncAm, new XdiConfigurationApi(configService));
         OutputStream outputStream = asyncStreamer.openForWriting(domainName, volumeName, blobName, new HashMap<>());
         outputStream.write(new byte[42]);
         outputStream.write(new byte[42]);

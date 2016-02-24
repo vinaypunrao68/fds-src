@@ -32,15 +32,12 @@ import java.util.function.Function;
 
 public class AsyncStreamer {
     private AsyncAm asyncAm;
-    private ByteBufferPool bufferPool;
     private XdiConfigurationApi configurationApi;
     private AsyncRequestStatistics statistics;
 
     public AsyncStreamer(AsyncAm asyncAm,
-                         ByteBufferPool bufferPool,
                          XdiConfigurationApi configurationApi) {
         this.asyncAm = asyncAm;
-        this.bufferPool = bufferPool;
         this.configurationApi = configurationApi;
         statistics = new AsyncRequestStatistics();
     }
@@ -119,18 +116,17 @@ public class AsyncStreamer {
 
     private ByteBuffer condenseBuffer(ByteBuffer buffer) {
         if (buffer.remaining() < buffer.capacity() / 2) {
-            ByteBuffer targetBuffer = ByteBuffer.allocate(buffer.remaining()); //bufferPool.acquire(buffer.remaining(), false);
+            ByteBuffer targetBuffer = ByteBuffer.allocate(buffer.remaining());
             targetBuffer.limit(targetBuffer.capacity());
             targetBuffer.put(buffer);
             targetBuffer.flip();
-            bufferPool.release(buffer);
             return targetBuffer;
         }
         return buffer;
     }
 
     private CompletableFuture<Void> firstPut(PutParameters putParameters, long objectOffset) {
-        ByteBuffer readBuf = bufferPool.acquire(putParameters.objectSize, false);
+        ByteBuffer readBuf = ByteBuffer.allocate(putParameters.objectSize);
         readBuf.limit(putParameters.objectSize);
         CompletableFuture<Void> readCompleteFuture = putParameters.reader.apply(readBuf);
 
@@ -139,8 +135,7 @@ public class AsyncStreamer {
             putParameters.digest.update(condensedBuffer);
             if (condensedBuffer.remaining() < putParameters.objectSize) {
                 return putParameters.getFinalizedMetadata().thenCompose(md ->
-                        updateBlobOnce(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue(), condensedBuffer, condensedBuffer.remaining(), objectOffset, md)
-                                .whenComplete((_null2, ex) -> bufferPool.release(condensedBuffer)));
+                        updateBlobOnce(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue(), condensedBuffer, condensedBuffer.remaining(), objectOffset, md));
             } else {
                 // secondPut is called for the put requests equal to or larger than the objectSize.
                 return secondPut(putParameters, objectOffset + 1, condensedBuffer);
@@ -149,7 +144,7 @@ public class AsyncStreamer {
     }
 
     private CompletableFuture<Void> secondPut(PutParameters putParameters, long objectOffset, ByteBuffer first) {
-        ByteBuffer readBuf = bufferPool.acquire(putParameters.objectSize, false);
+        ByteBuffer readBuf = ByteBuffer.allocate(putParameters.objectSize);
         readBuf.limit(putParameters.objectSize);
 
         CompletableFuture<Void> readCompleteFuture = putParameters.reader.apply(readBuf);
@@ -157,16 +152,14 @@ public class AsyncStreamer {
             final ByteBuffer condensedBuffer = condenseBuffer(readBuf);
             if (condensedBuffer.remaining() == 0) {
                 return putParameters.getFinalizedMetadata().thenCompose(md ->
-                        updateBlobOnce(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue(), first, putParameters.objectSize, objectOffset - 1, md).whenComplete((_null2, ex) -> bufferPool.release(condensedBuffer)));
+                        updateBlobOnce(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue(), first, putParameters.objectSize, objectOffset - 1, md));
             } else {
                 CompletableFuture<Void> digestFuture = putParameters.digest.update(condensedBuffer);
                 return createTx(putParameters.domain, putParameters.volume, putParameters.blob, Mode.TRUNCATE.getValue()).thenComposeAsync(tx -> {
                     CompletableFuture<Void> firstResult = tx.update(first, objectOffset - 1, putParameters.objectSize)
-                            .thenCompose(_null1 -> digestFuture)
-                            .whenComplete((_r1, _ex1) -> bufferPool.release(first));
+                            .thenCompose(_null1 -> digestFuture);
                     CompletableFuture<Void> secondResult = tx.update(condensedBuffer, objectOffset, condensedBuffer.remaining())
-                            .thenCompose(_null1 -> digestFuture)
-                            .whenComplete((_r1, _ex1) -> bufferPool.release(condensedBuffer));
+                            .thenCompose(_null1 -> digestFuture);
 
                     CompletableFuture<Void> rest = putSequence(putParameters, tx, objectOffset + 1)
                             .thenCompose(_sequenceCompletion -> putParameters.getFinalizedMetadata())
@@ -182,7 +175,7 @@ public class AsyncStreamer {
     }
 
     private CompletableFuture<Void> putSequence(PutParameters putParameters, TransactionHandle tx, long objectOffset) {
-        ByteBuffer readBuf = bufferPool.acquire(putParameters.objectSize, false);
+        ByteBuffer readBuf = ByteBuffer.allocate(putParameters.objectSize);
         readBuf.limit(putParameters.objectSize);
         CompletableFuture<ByteBuffer> readCompleteFuture = putParameters.reader.apply(readBuf).thenApply(_null -> condenseBuffer(readBuf));
 
@@ -191,12 +184,10 @@ public class AsyncStreamer {
             CompletableFuture<Void> writeFuture = null;
             CompletableFuture<Void> readNextFuture = null;
             if (condensedBuffer.remaining() == 0) {
-                bufferPool.release(condensedBuffer);
                 writeFuture = CompletableFuture.<Void>completedFuture(null);
             } else {
                 writeFuture = tx.update(condensedBuffer, objectOffset, condensedBuffer.remaining())
-                        .thenCompose(_null1 -> digestFuture)
-                        .whenComplete((r, ex) -> bufferPool.release(condensedBuffer));
+                        .thenCompose(_null1 -> digestFuture);
             }
 
             if (condensedBuffer.remaining() < putParameters.objectSize)
