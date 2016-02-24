@@ -76,9 +76,9 @@ public class Chunker {
             }
             ObjectOffset objectOffset = new ObjectOffset(startObject + i);
             io.readCompleteObject(domain, volume, blobName, objectOffset, maxObjectSize).lock(o -> {
+                int toBeRead = Math.min(o.limit() - startOffset[0], (maxObjectSize - startOffset[0]));
+                toBeRead = Math.min(toBeRead, output.remaining());
                 try {
-                    int toBeRead = Math.min(o.limit() - startOffset[0], (maxObjectSize - startOffset[0]));
-                    toBeRead = Math.min(toBeRead, output.remaining());
                     ByteBuffer buf = o.asByteBuffer();
                     buf.limit(startOffset[0] + toBeRead);
                     buf.position(startOffset[0]);
@@ -87,9 +87,13 @@ public class Chunker {
                     remaining[0] -= toBeRead;
                     readSoFar[0] += toBeRead;
                 } catch (Exception e) {
+                    LOG.error("BEGIN -------------------");
                     LOG.error("Read error, volume=" + volume + ", blobName=" + blobName);
-                    LOG.error("maxObjectSize=" + maxObjectSize + ", destination=" + destination + "bytes, offset=" + offset + ", length=" + length);
-                    LOG.error("Object capacity=" + o.capacity() + ", object limit=" + o.limit());
+                    LOG.error("maxObjectSize=" + maxObjectSize + ", destination=" + destination.length + "bytes, offset=" + offset + ", length=" + length);
+                    LOG.error("Object capacity=" + o.capacity() + ", object limit=" + o.limit() + ", startOffset=" + startOffset[0]);
+                    LOG.error("To be read: " + toBeRead);
+                    LOG.error("Stack trace: ", e);
+                    LOG.error("END   -------------------");
                     throw new IOException(e);
                 }
                 return null;

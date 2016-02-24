@@ -1,164 +1,60 @@
 package com.formationds.index;
 
-import com.formationds.apis.MediaPolicy;
-import com.formationds.apis.VolumeSettings;
-import com.formationds.apis.VolumeType;
-import com.formationds.commons.Fds;
-import com.formationds.nfs.AmOps;
-import com.formationds.nfs.DeferredIoOps;
 import com.formationds.nfs.IoOps;
-import com.formationds.nfs.XdiVfs;
-import com.formationds.util.ServerPortFinder;
-import com.formationds.xdi.AsyncAm;
-import com.formationds.xdi.RealAsyncAm;
-import com.formationds.xdi.XdiClientFactory;
-import com.formationds.xdi.XdiConfigurationApi;
-import com.google.common.collect.Lists;
+import com.formationds.nfs.MemoryIoOps;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
-import org.apache.lucene.document.*;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.Field;
+import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.Term;
-import org.apache.lucene.search.*;
-import org.apache.lucene.store.Directory;
-import org.joda.time.DateTime;
-import org.joda.time.Duration;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexOutput;
 import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Random;
-import java.util.UUID;
+import static org.junit.Assert.assertEquals;
 
-@Ignore
 public class FdsLuceneDirectoryTest {
-    public static final List<String> KEYS = Lists.newArrayList("giraffe", "turtle", "panda", "lemur");
-    public static final List<Long> VOLUMES = Lists.newArrayList(1l, 2l, 3l, 4l);
-    private String volumeName;
-    private IoOps io;
 
-    public static class DataPoint {
-        public static final String TIMESTAMP = "TIMESTAMP";
-        public static final String TIMESTAMP_SORT = "TIMESTAMP_SORT";
-        public static final String VOLUME_ID = "VOLUME_ID";
-        public static final String KEY = "KEY";
-        public static final String VALUE = "VALUE";
-        private DateTime timestamp;
-        private long volumeId;
-        private String key;
-        private double value;
-
-        public DataPoint(DateTime timestamp, long volumeId, String key, double value) {
-            this.timestamp = timestamp;
-            this.volumeId = volumeId;
-            this.key = key;
-            this.value = value;
-        }
-
-        public Document asDocument() {
-            Document document = new Document();
-            document.add(new LongField(TIMESTAMP, timestamp.getMillis(), Field.Store.YES));
-            document.add(new NumericDocValuesField(TIMESTAMP_SORT, timestamp.getMillis()));
-            document.add(new LongField(VOLUME_ID, volumeId, Field.Store.YES));
-            document.add(new StringField(KEY, key, Field.Store.YES));
-            document.add(new DoubleField(VALUE, value, Field.Store.YES));
-            return document;
-        }
-    }
-
-    Random random = new Random();
+    public static final int MAX_OBJECT_SIZE = 1024 * 1024;
+    private FdsLuceneDirectory directory;
 
     @Test
-    public void testIndex() throws Exception {
-        Directory directory = new FdsLuceneDirectory(new DeferredIoOps(io, x -> MAX_OBJECT_SIZE), "domain", volumeName, MAX_OBJECT_SIZE);
-        String[] resources = directory.listAll();
-        for (String resource : resources) {
-            directory.deleteFile(resource);
-        }
-        IndexWriterConfig conf = new IndexWriterConfig(new StandardAnalyzer());
-        conf.setMaxBufferedDocs(1024 * 1024);
-        IndexWriter indexWriter = new IndexWriter(directory, conf);
-        int docs = 1000000;
-        long then = System.currentTimeMillis();
-        for (int i = 0; i < docs; i++) {
-            indexWriter.addDocument(randomDocument(i));
-        }
+    public void testListCreateRename() throws Exception {
+        IndexOutput output = directory.createOutput("foo", IOContext.DEFAULT);
+        output.writeString("hello");
+        output.close();
+        String[] result = directory.listAll();
+        assertEquals(1, result.length);
+        assertEquals("foo", result[0]);
+        assertEquals(6, directory.fileLength("foo"));
+        directory.renameFile("foo", "bar");
+        result = directory.listAll();
+        assertEquals(1, result.length);
+        assertEquals("bar", result[0]);
+        assertEquals(6, directory.fileLength("bar"));
+    }
+
+    @Test
+    public void testBasic() throws Exception {
+        IndexWriter indexWriter = new IndexWriter(directory, new IndexWriterConfig(new StandardAnalyzer()));
+        Document document = new Document();
+        document.add(new TextField("foo", "bar", Field.Store.YES));
+        indexWriter.addDocument(document);
         indexWriter.commit();
         indexWriter.close();
-        long elapsed = System.currentTimeMillis() - then;
-        System.out.println("Indexed " + docs + " datapoints in " + elapsed + "ms");
-        IndexSearcher indexSearcher = new IndexSearcher(DirectoryReader.open(directory));
-
-        BooleanQuery q = new BooleanQuery();
-        NumericRangeQuery<Long> dateClause = NumericRangeQuery.newLongRange(DataPoint.TIMESTAMP, 0l, docs / 2l, true, true);
-        NumericRangeQuery<Long> leftVolumeClause = NumericRangeQuery.newLongRange(DataPoint.VOLUME_ID, 1, 2l, 2l, true, true);
-        NumericRangeQuery<Long> rightVolumeClause = NumericRangeQuery.newLongRange(DataPoint.VOLUME_ID, 1, 4l, 4l, true, true);
-        BooleanQuery volumeQuery = new BooleanQuery();
-        volumeQuery.add(leftVolumeClause, BooleanClause.Occur.SHOULD);
-        volumeQuery.add(rightVolumeClause, BooleanClause.Occur.SHOULD);
-        TermQuery leftTerm = new TermQuery(new Term(DataPoint.KEY, "turtle"));
-        TermQuery rightTerm = new TermQuery(new Term(DataPoint.KEY, "panda"));
-        BooleanQuery keyQuery = new BooleanQuery();
-        keyQuery.add(leftTerm, BooleanClause.Occur.SHOULD);
-        keyQuery.add(rightTerm, BooleanClause.Occur.SHOULD);
-        q.add(dateClause, BooleanClause.Occur.MUST);
-        q.add(volumeQuery, BooleanClause.Occur.MUST);
-        q.add(keyQuery, BooleanClause.Occur.MUST);
-
-        SortField field = new SortField(DataPoint.TIMESTAMP_SORT, SortField.Type.LONG);
-        Sort sort = new Sort(field);
-
-        then = System.currentTimeMillis();
-        TopFieldDocs results = indexSearcher.search(q, indexSearcher.getIndexReader().maxDoc(), sort);
-        elapsed = System.currentTimeMillis() - then;
-        System.out.println("First search in " + elapsed + "ms");
-
-        then = System.currentTimeMillis();
-        results = indexSearcher.search(q, indexSearcher.getIndexReader().maxDoc(), sort);
-        elapsed = System.currentTimeMillis() - then;
-
-        System.out.println("Second search in " + elapsed + "ms");
-        System.out.println("Count: " + results.totalHits);
-//        for (int i = 0; i < results.totalHits; i++) {
-//            Document doc = indexSearcher.doc(results.scoreDocs[i].doc);
-//            System.out.println("##########");
-//            System.out.println("timestamp:" + doc.get(DataPoint.TIMESTAMP));
-//            System.out.println("volume_id:" + doc.get(DataPoint.VOLUME_ID));
-//            System.out.println("key:" + doc.get(DataPoint.KEY));
-//            System.out.println("value:" + doc.get(DataPoint.VALUE));
-//        }
+        DirectoryReader reader = DirectoryReader.open(directory);
+        IndexSearcher searcher = new IndexSearcher(reader);
+        Document doc = searcher.doc(0);
+        assertEquals("bar", doc.get("foo"));
     }
-
-    public Document randomDocument(long timestamp) {
-        Collections.shuffle(KEYS);
-        Collections.shuffle(VOLUMES);
-        return new DataPoint(
-                new DateTime(timestamp), VOLUMES.get(0), KEYS.get(0), random.nextDouble()
-        ).asDocument();
-    }
-
-    private static XdiConfigurationApi config;
-    private static AsyncAm asyncAm;
-    private static int MAX_OBJECT_SIZE = 2 * 1024 * 1024;
 
     @Before
     public void setUp() throws Exception {
-        volumeName = UUID.randomUUID().toString();
-        config.createVolume(XdiVfs.DOMAIN, volumeName, new VolumeSettings(MAX_OBJECT_SIZE, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY), 0);
-        io = new AmOps(asyncAm);
-//        io = new DeferredIoOps(new MemoryIoOps(), new Counters());
-    }
-
-    @BeforeClass
-    public static void staticSetUp() throws Exception {
-        XdiClientFactory xdiCf = new XdiClientFactory();
-        config = new XdiConfigurationApi(xdiCf.remoteOmService(Fds.getFdsHost(), 9090));
-        int serverPort = new ServerPortFinder().findPort("LuceneTest", 10000);
-        asyncAm = new RealAsyncAm(Fds.getFdsHost(), 8899, serverPort, Duration.standardSeconds(30));
-        asyncAm.start();
+        IoOps ops = new MemoryIoOps(MAX_OBJECT_SIZE);
+        directory = new FdsLuceneDirectory(ops, "", "foo", MAX_OBJECT_SIZE);
     }
 }
