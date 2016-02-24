@@ -76,7 +76,8 @@ public class QueryMetrics implements RequestHandler, QueryHandler {
             		return new JsonResource( new JSONObject( stats ) );
             	}
             	catch( Exception e ){
-            		logger.debug( "Stats query failed.", e );
+            		logger.warn( "Metric query failed with exception message: " + e.getLocalizedMessage() );
+            		logger.debug( "Metric query exception", e );
             		
             		throw new ApiException( "Failure during a metrics query using the stats service.", ErrorCode.INTERNAL_SERVER_ERROR );
             	}
