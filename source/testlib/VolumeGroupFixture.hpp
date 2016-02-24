@@ -6,7 +6,12 @@
 #define TESTLIB_VOLUMEGROUPFIXTURE_HPP_
 
 #include <testlib/DmGroupFixture.hpp>
+
+// Hack to allow VolumeGroupFixture to access private members
+// FRIEND_TEST() macro doesn't work for non-test functions
+#define private public
 #include <VolumeChecker.h>
+#undef private
 
 struct VolumeGroupFixture : DmGroupFixture {
 
@@ -14,7 +19,7 @@ struct VolumeGroupFixture : DmGroupFixture {
     using VcHandle = ProcessHandle<VolumeChecker>;
     VcHandle   vcHandle;
 
-    void addDMTToVC(DMTPtr DMT) {
+    void addDMTToVC(DMTPtr DMT, unsigned clusterSize) {
         ASSERT_TRUE(vcHandle.isRunning());
         std::string dmtData;
         dmt->getSerialized(dmtData);
@@ -22,9 +27,12 @@ struct VolumeGroupFixture : DmGroupFixture {
                                                                           nullptr,
                                                                           DMT_COMMITTED);
         ASSERT_TRUE(e == ERR_OK);
+        auto dmt = vcHandle.proc->getSvcMgr()->getDmtManager()->getDMT(DMT_COMMITTED);
+        auto svcUuidVector = dmt->getSvcUuids(fds_volid_t(v1Id));
+        ASSERT_TRUE(svcUuidVector.size() == clusterSize);
     }
 
-    void initVolumeChecker(std::vector<unsigned> volIdList) {
+    void initVolumeChecker(std::vector<unsigned> volIdList, unsigned clusterSize) {
         auto roots = getRootDirectories();
 
         std::string volListString = "-v=";
@@ -41,6 +49,14 @@ struct VolumeGroupFixture : DmGroupFixture {
                        });
 
         ASSERT_FALSE(vcHandle.proc->getStatus() == fds::VolumeChecker::VC_NOT_STARTED);
+
+        // Phase 1 test
+        ASSERT_TRUE(vcHandle.proc->getStatus() == fds::VolumeChecker::VC_PHASE_1);
+
+        // dmCheckerList should have 1 volume element in it
+        ASSERT_TRUE(vcHandle.proc->dmCheckerList.size() == 1);
+        // That one should have "clusterSize" in it
+        ASSERT_TRUE(vcHandle.proc->dmCheckerList[0].second.size() == clusterSize);
     }
 
     void stopVolumeChecker() {

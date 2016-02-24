@@ -103,6 +103,9 @@ VolumeChecker::run() {
     getDMT();
     getDLT();
 
+    LOGNORMAL << "Running volume checker DM check (phase 1)";
+    runPhase1();
+
     readyWaiter.done();
     if (waitForShutdown) {
         shutdownGate_.waitUntilOpened();
@@ -114,6 +117,28 @@ VolumeChecker::run() {
 VolumeChecker::vcStatus
 VolumeChecker::getStatus() {
     return (currentStatusCode);
+}
+
+Error
+VolumeChecker::runPhase1() {
+    Error err(ERR_OK);
+    currentStatusCode = VC_PHASE_1;
+
+    prepareDmCheckerMap();
+
+    return err;
+}
+
+void
+VolumeChecker::prepareDmCheckerMap() {
+    for (auto vol : volumeList) {
+        auto svcUuidVector = dmtMgr->getDMT(DMT_COMMITTED)->getSvcUuids(vol);
+        std::vector<dmCheckerMetaData> dataPerVol;
+        for (auto oneSvcUuid : svcUuidVector) {
+            dataPerVol.emplace_back(vol, oneSvcUuid);
+        }
+        dmCheckerList.emplace_back(std::make_pair(vol, dataPerVol));
+    }
 }
 
 } // namespace fds
