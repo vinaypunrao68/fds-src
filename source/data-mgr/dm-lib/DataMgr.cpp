@@ -1936,9 +1936,9 @@ std::string getTimelineDBPath(const FdsRootDir* root) {
     return util::strformat("%s/timeline.db", dmDir.c_str());
 }
 
-float_t getUsedCapacityOfSysRepo() {
+float_t getUsedCapacityOfSysRepo(const FdsRootDir* _root) {
     // Get fds root dir
-    const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
+    auto root = (_root == NULL)? MODULEPROVIDER()->proc_fdsroot() : _root;
     // Get sys-repo dir
     DiskUtils::CapacityPair cap = DiskUtils::getDiskConsumedSize(root->dir_sys_repo_dm());
 
@@ -1950,9 +1950,9 @@ float_t getUsedCapacityOfSysRepo() {
 }
 
 
-float_t getUsedCapacityOfUserRepo() {
+float_t getUsedCapacityOfUserRepo(const FdsRootDir* _root) {
     // Get fds root dir
-    const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
+    auto root = (_root == NULL)? MODULEPROVIDER()->proc_fdsroot() : _root;
     // Get user-repo dir
     DiskUtils::CapacityPair cap = DiskUtils::getDiskConsumedSize(root->dir_user_repo_dm());
 

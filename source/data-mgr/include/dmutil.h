@@ -32,8 +32,8 @@ void getVolumeIds(const FdsRootDir* root, std::vector<fds_volid_t>& vecVolumes);
 
 std::string getTimelineDBPath(const FdsRootDir* root);
 
-float_t getUsedCapacityOfSysRepo();
-float_t getUsedCapacityOfUserRepo();
+float_t getUsedCapacityOfSysRepo(const FdsRootDir* root);
+float_t getUsedCapacityOfUserRepo(const FdsRootDir* root);
 
 }  // namespace dmutil
 }  // namespace fds

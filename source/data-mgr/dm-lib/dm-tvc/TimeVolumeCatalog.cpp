@@ -664,7 +664,7 @@ DmTimeVolCatalog::getUsedCapacityAsPct() {
               return DISK_CAPACITY_WARNING_THRESHOLD + 1; );
 
     // Calculate disk usage capacity pct
-    float_t result = dmutil::getUsedCapacityOfSysRepo();
+    float_t result = dmutil::getUsedCapacityOfSysRepo(MODULEPROVIDER()->proc_fdsroot());
     GLOGDEBUG << "Found DM sys-repo disk capacity of " << result;
 
     return result;

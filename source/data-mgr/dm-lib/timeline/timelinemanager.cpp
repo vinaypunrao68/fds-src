@@ -139,7 +139,7 @@ Error TimelineManager::createSnapshot(VolumeDesc *vdesc) {
     Error err;
     TIMELINE_FEATURE_CHECK();
 
-    float_t dm_user_repo_pct_used = dmutil::getUsedCapacityOfUserRepo();
+    float_t dm_user_repo_pct_used = dmutil::getUsedCapacityOfUserRepo(MODULEPROVIDER()->proc_fdsroot());
     if (dm_user_repo_pct_used >= dm->dmFullnessThreshold) {
            err = ERR_DM_DISK_CAPACITY_ERROR_THRESHOLD;
             LOGERROR << "ERROR: DM user-repo already used " << dm_user_repo_pct_used

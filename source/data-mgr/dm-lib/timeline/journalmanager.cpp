@@ -202,7 +202,7 @@ void JournalManager::monitorLogs() {
 			getJournalStartTime(srcFile, startTime);
 			fds_volid_t volId (std::atoll(d.c_str()));
 
-			float_t dm_user_repo_pct_used = dmutil::getUsedCapacityOfUserRepo();
+			float_t dm_user_repo_pct_used = dmutil::getUsedCapacityOfUserRepo(MODULEPROVIDER()->proc_fdsroot());
 			if (dm_user_repo_pct_used >= dm->dmFullnessThreshold) {
 				diskErr = ERR_DM_DISK_CAPACITY_ERROR_THRESHOLD;
 				LOGERROR << "ERROR: DM user-repo already used " << dm_user_repo_pct_used
