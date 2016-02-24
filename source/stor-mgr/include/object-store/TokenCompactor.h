@@ -55,6 +55,11 @@ class SmPersistStoreHandler;
      */
     typedef std::function<void()> ContinueWorkFn;
 
+    // TODO(Sean):
+    // Why is the offset 32bit?
+    typedef std::map<fds_uint32_t, ObjectID> offset_oid_map_t;
+    typedef std::map<fds_uint32_t, offset_oid_map_t> loc_oid_map_t;
+
     /**
      * TokenCompactor is responsible for compacting storage for one token.
      * One can either create this class once for one particular token
@@ -147,9 +152,9 @@ class SmPersistStoreHandler;
          * this should provide some level of rate limiting such that we can't have too many outstanding IO requests
          * at the same time.
          */
-         void compactionWorker(leveldb::Iterator *it,
-                               std::shared_ptr<leveldb::DB> db,
-                               leveldb::ReadOptions& options,
+         void compactionWorker(std::shared_ptr<loc_oid_map_t> loc_oid_map,
+                               loc_oid_map_t::const_iterator cit,
+                               offset_oid_map_t::const_iterator cit2,
                                bool last_run);
 
         /**

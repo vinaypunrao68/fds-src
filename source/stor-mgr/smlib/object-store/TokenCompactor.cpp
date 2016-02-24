@@ -12,11 +12,6 @@
 #include <StorMgr.h>
 namespace fds {
 
-// TODO(Sean):
-// Why is the offset 32bit?
-typedef std::map<fds_uint32_t, ObjectID> offset_oid_map_t;
-typedef std::map<fds_uint32_t, offset_oid_map_t> loc_oid_map_t;
-
 TokenCompactor::TokenCompactor(SmIoReqHandler *_data_store,
                                SmPersistStoreHandler* persist_store)
         : token_id(0),
@@ -200,36 +195,12 @@ void TokenCompactor::snapDoneCb(const Error& error,
     // iterate over snapshot of index db and create work items to work with
     leveldb::Iterator* it = db->NewIterator(options);
 
-    // Using a noop lambda here to trick
-    compactionWorker(it, db, options, false);
-}
-
-void TokenCompactor::compactionWorker(leveldb::Iterator *it,
-                                      std::shared_ptr<leveldb::DB> db,
-                                      leveldb::ReadOptions& options,
-                                      bool last_run) {
-
-    if (last_run) {
-        // cleanup
-        delete it;
-        db->ReleaseSnapshot(options.snapshot);
-
-        if (total_objs == 0) {
-            handleCompactionDone(Error(ERR_OK));
-        }
-
-        return;
-    }
-
-    Error err(ERR_OK);
-
     ObjMetaData omd;
-    fds_uint32_t offset = 0;
+    std::shared_ptr<loc_oid_map_t> loc_oid_map = std::make_shared<loc_oid_map_t>();
 
-    std::vector<ObjectID> obj_list;
-    loc_oid_map_t loc_oid_map;
+    LOGDEBUG << "Building object list to compact... it valid? " << it->Valid();
 
-    for (; it->Valid(); it->Next()) {
+    for (it->SeekToFirst(); it->Valid(); it->Next()) {
         ObjectID id(it->key().ToString());
 
         omd.deserializeFrom(it->value());
@@ -247,9 +218,9 @@ void TokenCompactor::compactionWorker(leveldb::Iterator *it,
         // to shadow file and we took this db snapshot
         if (persistGcHandler->isShadowLocation(cur_disk_id, loc, token_id)) {
             LOGDEBUG << id << " already in shadow file (disk_id "
-                        << loc->obj_stor_loc_id << " file_id "
-                        << loc->obj_file_id << " tok " << token_id
-                        << " tier " << (fds_int16_t)loc->obj_tier << ")";
+                << loc->obj_stor_loc_id << " file_id "
+                << loc->obj_file_id << " tok " << token_id
+                << " tier " << (fds_int16_t)loc->obj_tier << ")";
             continue;
         }
 
@@ -258,78 +229,85 @@ void TokenCompactor::compactionWorker(leveldb::Iterator *it,
         fds_uint32_t loc_fid = loc->obj_stor_loc_id;
         loc_fid |= (loc->obj_file_id << 16);
         LOGDEBUG << "Object " << id << " loc_id " << loc->obj_stor_loc_id
-                    << " fileId " << loc->obj_file_id << "("
-                    << loc_fid << ") offset " << loc->obj_stor_offset
-                    << " tier " << (fds_int16_t)loc->obj_tier
-                    << " tok " << token_id;
+            << " fileId " << loc->obj_file_id << "("
+            << loc_fid << ") offset " << loc->obj_stor_offset
+            << " tier " << (fds_int16_t)loc->obj_tier
+            << " tok " << token_id;
 
-        fds_assert(!(loc_oid_map.count(loc_fid)
-            && loc_oid_map[loc_fid].count(loc->obj_stor_offset)));
-        if (loc_oid_map.count(loc_fid)
-            && loc_oid_map[loc_fid].count(loc->obj_stor_offset)) {
+        fds_assert(!(loc_oid_map->count(loc_fid)
+            && (*loc_oid_map)[loc_fid].count(loc->obj_stor_offset)));
+        if (loc_oid_map->count(loc_fid)
+            && (*loc_oid_map)[loc_fid].count(loc->obj_stor_offset)) {
             LOGWARN << "Entry for object " << id << " already exists in the shadow file.";
         }
 
-        (loc_oid_map[loc_fid])[loc->obj_stor_offset] = id;
+        ((*loc_oid_map)[loc_fid])[loc->obj_stor_offset] = id;
     }
 
     // calculate total_objs before enqueueing copy work into QoS queue,
     // to make sure that total_objs is correct when we get copy done cb
-    for (loc_oid_map_t::const_iterator cit = loc_oid_map.cbegin();
-         cit != loc_oid_map.cend();
+    for (loc_oid_map_t::const_iterator cit = loc_oid_map->cbegin();
+         cit != loc_oid_map->cend();
          ++cit) {
         total_objs += (cit->second).size();
     }
 
+    delete it;
+    db->ReleaseSnapshot(options.snapshot);
+
+    loc_oid_map_t::const_iterator cit = loc_oid_map->cbegin();
+    offset_oid_map_t::const_iterator cit2 = (cit->second).cbegin();
+    compactionWorker(loc_oid_map, cit, cit2, false);
+}
+
+void TokenCompactor::compactionWorker(std::shared_ptr<loc_oid_map_t> loc_oid_map,
+                                      loc_oid_map_t::const_iterator cit,
+                                      offset_oid_map_t::const_iterator cit2,
+                                      bool last_run) {
+
+    if (last_run) {
+        loc_oid_map.reset();
+
+        if (total_objs == 0) {
+            handleCompactionDone(Error(ERR_OK));
+        }
+        return;
+    }
+
+    fds_uint32_t offset = 0;
+    std::vector<ObjectID> obj_list;
+
+    Error err(ERR_OK);
+
     // create copy work items
-    for (loc_oid_map_t::const_iterator cit = loc_oid_map.cbegin();
-         cit != loc_oid_map.cend();
-         ++cit) {
-        for (offset_oid_map_t::const_iterator cit2 = (cit->second).cbegin();
-             cit2 != (cit->second).cend();
-             ++cit2) {
+    for (cit; cit != loc_oid_map->cend(); ++cit) {
+        for (cit2; cit2 != (cit->second).cend() && obj_list.size() <= GC_COPY_WORKLIST_SIZE; ++cit2) {
+
+            LOGDEBUG << "Pushing " << cit2->second;
             obj_list.push_back(cit2->second);
+        }
+        // if we collected enough oids, create copy req and put it to qos queue
+        if (obj_list.size() >= GC_COPY_WORKLIST_SIZE) {
 
-            // if we collected enough oids, create copy req and put it to qos queue
-            if (obj_list.size() >= GC_COPY_WORKLIST_SIZE) {
+            ContinueWorkFn nextWork = std::bind(&TokenCompactor::compactionWorker, this,
+                                                loc_oid_map, cit, cit2, false);
 
-                ContinueWorkFn nextWork = std::bind(&TokenCompactor::compactionWorker, this,
-                                                    it, db, options, false);
+            LOGDEBUG << "Enqueue copy work for " << obj_list.size() << " objects";
+            err = enqCopyWork(&obj_list, nextWork);
 
-                LOGDEBUG << "Enqueue copy work for " << obj_list.size() << " objects";
-                err = enqCopyWork(&obj_list, nextWork);
-                if (!err.ok()) {
-                    // TODO(anna): most likely queue is full, we need to save the
-                    // work and try again later
-
-                    // cleanup
-                    delete it;
-                    db->ReleaseSnapshot(options.snapshot);
-                    handleCompactionDone(err);
-                    return;
-                }
-                obj_list.clear();
-            }
+            return;
         }
     }
 
     // send copy request for the remaining objects
     if (obj_list.size() > 0) {
-        LOGDEBUG << "Enqueue copy work for " << obj_list.size() << " objects";
+        LOGDEBUG << "Enqueue copy work for " << obj_list.size() << " objects (this should be < "
+                    << GC_COPY_WORKLIST_SIZE << " )";
 
-        ContinueWorkFn nextWork = std::bind(&TokenCompactor::compactionWorker, this, it, db, options, true);
+        ContinueWorkFn nextWork = std::bind(&TokenCompactor::compactionWorker, this, loc_oid_map, cit, cit2, true);
         err = enqCopyWork(&obj_list, nextWork);
-
-        if (!err.ok()) {
-            // TODO(anna): most likely queue is full, we need to save the
-            // work and try again later
-
-            // cleanup
-            delete it;
-            db->ReleaseSnapshot(options.snapshot);
-            handleCompactionDone(err);
-            return;
-        }
+    } else {
+        compactionWorker(loc_oid_map, cit, cit2, true);
     }
 }
 
@@ -394,9 +372,8 @@ void TokenCompactor::objsCompactedCb(const Error& error,
         }
         */
         handleTimerEvent();
+        delete req;
     }
-
-    delete req;
 
     nextWork();
 }
