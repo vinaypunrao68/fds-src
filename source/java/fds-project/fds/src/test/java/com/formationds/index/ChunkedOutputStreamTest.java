@@ -10,9 +10,12 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 
 public class ChunkedOutputStreamTest {
+
+    public static final int MAX_OBJECT_SIZE = 1024;
+
     @Test
     public void testWrite() throws Exception {
-        IoOps io = new MemoryIoOps();
+        IoOps io = new MemoryIoOps(MAX_OBJECT_SIZE);
         int objectSize = 8;
         String DOMAIN = "foo";
         String VOLUME = "bar";

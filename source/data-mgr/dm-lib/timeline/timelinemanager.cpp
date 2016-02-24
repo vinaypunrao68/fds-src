@@ -73,7 +73,7 @@ Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
         snapDir  = dmutil::getSnapshotDir(root, volid);
         util::getSubDirectories(snapDir, vecDirs);
     } else {
-        // load only a particluar snapshot
+        // load only a particular snapshot
         snapDir = dmutil::getVolumeDir(root, volid, snapshotid);
         if (!util::dirExists(snapDir)) {
             LOGERROR << "unable to locate snapshot [" << snapshotid << "]"
@@ -103,24 +103,9 @@ Error TimelineManager::loadSnapshot(fds_volid_t volid, fds_volid_t snapshotid) {
         desc->contCommitlogRetention = 0;
         desc->timelineTime = 0;
         desc->setState(fpi::Active);
-        desc->name = util::strformat("snaphot_%ld_%ld",
-                                     volid.get(), snapId.get());
-        auto meta = MAKE_SHARED<VolumeMeta>(dm->getModuleProvider(),
-                                            desc->name,
-                                            snapId,
-                                            GetLog(),
-                                            desc,
-                                            dm);
-        {
-            FDSGUARD(dm->vol_map_mtx);
-            if (dm->vol_meta_map.find(snapId) != dm->vol_meta_map.end()) {
-                LOGWARN << "snapshot:" << snapId << " already loaded";
-                continue;
-            }
-            dm->vol_meta_map[snapId] = meta;
-        }
-        LOGDEBUG << "Adding snapshot" << " name:" << desc->name << " vol:" << desc->volUUID;
-        err = dm->timeVolCat_->addVolume(*desc);
+        desc->name = util::strformat("snaphot_%ld_%ld", volid.get(), snapId.get());
+
+        err = dm->addVolume(desc->name, snapId, desc);
         if (!err.ok()) {
             LOGERROR << "unable to load snapshot [" << snapId << "] for vol:"<< volid
                      << " - " << err;
