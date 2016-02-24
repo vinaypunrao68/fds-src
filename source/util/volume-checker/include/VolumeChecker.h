@@ -27,7 +27,27 @@ public:
     Error getDMT();
     Error getDLT();
 
+    /**
+     * Status Querying methods
+     */
+    // Enum of lifecycle of volume checker to be allowed for querying
+    enum vcStatusCode {
+        VC_NOT_STARTED,     // First started
+        VC_RUNNING          // VC has finished initializing and is running
+    };
+    // For the future, may return more than just status code, but progress as well
+    using vcStatus = vcStatusCode;
+    vcStatus getStatus();
+
 private:
+    using volListType = std::vector<fds_volid_t>;
+
+    // Clears and then populates the volume list from the argv. Returns ERR_OK if populated.
+    Error populateVolumeList(int argc, char **argv);
+
+    // List of volumes to check
+    volListType volumeList;
+
     // Local cached copy of dmt mgr pointer
     DMTManagerPtr dmtMgr;
 
@@ -37,8 +57,14 @@ private:
     // Max retires for get - TODO needs to be organized later
     int maxRetries = 10;
 
+    // If volumeChecker initialization succeeded
+    bool initCompleted;
+
     // If the process should wait for a shutdown call
     bool waitForShutdown;
+
+    // Keeping track of internal state machine
+    vcStatusCode currentStatusCode;
 };
 
 } // namespace fds

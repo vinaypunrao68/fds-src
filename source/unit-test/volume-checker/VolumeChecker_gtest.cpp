@@ -35,7 +35,9 @@ TEST_F(VolumeGroupFixture, twoHappyDMs) {
     setupVolumeGroup(clusterSize);
 
     // Test Volume Checker svcmgr layer
-    initVolumeChecker();
+    // For now only one volume
+    std::vector<unsigned> volIdList(1);
+    initVolumeChecker(volIdList);
     addDMTToVC(getOmDMT(DMT_COMMITTED));
     stopVolumeChecker();
 

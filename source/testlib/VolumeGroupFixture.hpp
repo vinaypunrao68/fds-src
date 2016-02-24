@@ -24,15 +24,23 @@ struct VolumeGroupFixture : DmGroupFixture {
         ASSERT_TRUE(e == ERR_OK);
     }
 
-    void initVolumeChecker() {
+    void initVolumeChecker(std::vector<unsigned> volIdList) {
         auto roots = getRootDirectories();
+
+        std::string volListString = "-v=";
+
+        // For now, we only have one volume
+        volListString += std::to_string(volIdList[0]);
+
         // As volume checker, we init as an AM
         vcHandle.start({"checker",
                        roots[0],
                        "--fds.pm.platform_uuid=2059",
-                       "--fds.pm.platform_port=9861"
+                       "--fds.pm.platform_port=9861",
+                       volListString
                        });
 
+        ASSERT_FALSE(vcHandle.proc->getStatus() == fds::VolumeChecker::VC_NOT_STARTED);
     }
 
     void stopVolumeChecker() {
