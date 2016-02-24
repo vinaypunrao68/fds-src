@@ -17,6 +17,7 @@ import org.apache.thrift.transport.TTransportException;
 
 import java.io.IOException;
 import java.util.function.Function;
+import java.util.Optional;
 
 public class ThriftClientConnectionFactory<T>
     implements KeyedPooledObjectFactory<ConnectionSpecification, ThriftClientConnection<T>> {
@@ -39,7 +40,7 @@ public class ThriftClientConnectionFactory<T>
     }
 
     private final Function<TProtocol, T> makeClient;
-    private final String thriftServiceName;
+    private final Optional<String> thriftServiceName;
 
     /**
      * Create connection factory for synchronous connections
@@ -50,7 +51,7 @@ public class ThriftClientConnectionFactory<T>
     public ThriftClientConnectionFactory( Function<TProtocol, T> makeClient,
                                           String thriftServiceName ) {
         this.makeClient = makeClient;
-        this.thriftServiceName = thriftServiceName;
+        this.thriftServiceName = Optional.ofNullable(thriftServiceName);
     }
 
     @Override
@@ -63,11 +64,13 @@ public class ThriftClientConnectionFactory<T>
             throw new RuntimeException(e);
         }
         T client;
-        if ( this.thriftServiceName.equals("") ) {
+        String serviceName = this.thriftServiceName.orElse("");
+        if ( serviceName.equals("") ) {
+            // non-multiplexed
             client = makeClient.apply(new TBinaryProtocol(transport));
         } else {
             // Conditionally create server.client using multiplexed protocol
-            client = makeClient.apply(new TMultiplexedProtocol(new TBinaryProtocol(transport), this.thriftServiceName));
+            client = makeClient.apply(new TMultiplexedProtocol(new TBinaryProtocol(transport), serviceName));
         }
         ThriftClientConnection<T> connection =  new ThriftClientConnection<>(transport, client);
         return new DefaultPooledObject<>(connection);

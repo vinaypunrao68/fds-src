@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * The Service Layer SvcServer class runs a Thrift server that accepts events for the
@@ -72,7 +73,7 @@ public class SvcServer<S extends PlatNetSvc.Iface> {
 
     private final InetSocketAddress       address;
     private final S                       serviceLayerHandler;
-    private final String                  thriftServiceName;
+    private final Optional<String>        thriftServiceName;
     private final ThriftServiceDescriptor serviceDescriptor;
     private final ExecutorService         serviceLayerExecutor;
 
@@ -118,7 +119,7 @@ public class SvcServer<S extends PlatNetSvc.Iface> {
 
         this.address = address;
         this.serviceLayerHandler = handler;
-        this.thriftServiceName = thriftServiceName;
+        this.thriftServiceName = Optional.ofNullable( thriftServiceName );
         this.serviceDescriptor = ThriftServiceDescriptor.newDescriptor( handler.getClass().getInterfaces()[0]
                                                                             .getEnclosingClass() );
         this.serviceLayerExecutor = Executors.newSingleThreadExecutor( ThreadFactories
@@ -183,7 +184,7 @@ public class SvcServer<S extends PlatNetSvc.Iface> {
                 // API wants to be broken up.
                 Map<String, S> handlers = new HashMap<String, S>();
                 // For now, there is only one
-                handlers.put( thriftServiceName, serviceLayerHandler );
+                handlers.put( thriftServiceName.orElse(""), serviceLayerHandler );
                 thriftServer = createThriftServer( addr, handlers );
                 // thrift has an internal event handler, but it is not yet implemented in the (ancient) version
                 // we are using.
@@ -209,11 +210,10 @@ public class SvcServer<S extends PlatNetSvc.Iface> {
     private TNonblockingServer createThriftServer( InetSocketAddress address, Map<String, S> handlers ) throws TTransportException {
 
         TNonblockingServerSocket transport = new TNonblockingServerSocket( address );
-        /**
-         * FEATURE TOGGLE: enable subscriptions (async replication)
-         * Mon Dec 28 16:51:58 MST 2015
-         */
-        if ( this.thriftServiceName.equals("") ) {
+
+        // Indirectly controlled by THRIFT_MULTIPLEXED_SERVERS feature toggle
+        String serviceName = this.thriftServiceName.orElse("");
+        if ( serviceName.equals("") ) {
 
             S handler;
             for ( Map.Entry<String, S> e : handlers.entrySet()) {

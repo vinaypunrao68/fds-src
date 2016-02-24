@@ -37,9 +37,9 @@ SvcProcess::SvcProcess(int argc, char *argv[],
                        fds::Module **mod_vec,
                        PlatNetSvcHandlerPtr handler,
                        fpi::PlatNetSvcProcessorPtr processor,
-                       const std::string& strThriftServiceName)
+                       const std::string& thriftServiceName)
 : SvcProcess(argc, argv, false, def_cfg_file, base_path, def_log_file, mod_vec,
-            handler, processor, strThriftServiceName)
+            handler, processor, thriftServiceName)
 {
 }
 
@@ -51,10 +51,10 @@ SvcProcess::SvcProcess(int argc, char *argv[],
                        fds::Module **mod_vec,
                        PlatNetSvcHandlerPtr handler,
                        fpi::PlatNetSvcProcessorPtr processor,
-                       const std::string &strThriftServiceName)
+                       const std::string &thriftServiceName)
 {
     init(argc, argv, initAsModule, def_cfg_file,
-         base_path, def_log_file, mod_vec, handler, processor, strThriftServiceName);
+         base_path, def_log_file, mod_vec, handler, processor, thriftServiceName);
 }
 
 SvcProcess::~SvcProcess()
@@ -68,10 +68,10 @@ void SvcProcess::init(int argc, char *argv[],
                       fds::Module **mod_vec,
                       PlatNetSvcHandlerPtr handler,
                       fpi::PlatNetSvcProcessorPtr processor,
-                      const std::string& strThriftServiceName)
+                      const std::string& thriftServiceName)
 {
     init(argc, argv, false, def_cfg_file,
-         base_path, def_log_file, mod_vec, handler, processor, strThriftServiceName);
+         base_path, def_log_file, mod_vec, handler, processor, thriftServiceName);
 }
 void SvcProcess::init(int argc, char *argv[],
                       bool initAsModule,
@@ -81,7 +81,7 @@ void SvcProcess::init(int argc, char *argv[],
                       fds::Module **mod_vec,
                       PlatNetSvcHandlerPtr handler,
                       fpi::PlatNetSvcProcessorPtr processor,
-                      const std::string &strThriftServiceName)
+                      const std::string &thriftServiceName)
 {
     if (!initAsModule) {
         /* Set up process related services such as logger, timer, etc. */
@@ -105,7 +105,7 @@ void SvcProcess::init(int argc, char *argv[],
     setupSvcInfo_();
 
     /* Set up service layer */
-    setupSvcMgr_(handler, processor, strThriftServiceName);
+    setupSvcMgr_(handler, processor, thriftServiceName);
 }
 
 void SvcProcess::initAsModule_(int argc, char *argv[],
@@ -317,7 +317,7 @@ void SvcProcess::setupSvcInfo_()
 
 void SvcProcess::setupSvcMgr_(PlatNetSvcHandlerPtr handler,
                               fpi::PlatNetSvcProcessorPtr processor,
-                              const std::string &strThriftServiceName)
+                              const std::string &thriftServiceName)
 {
     LOGNOTIFY << "setup service manager";
 
@@ -326,7 +326,7 @@ void SvcProcess::setupSvcMgr_(PlatNetSvcHandlerPtr handler,
         throw std::runtime_error("Failed to initialize service handler");
     }
 
-    svcMgr_.reset(new SvcMgr(this, handler, processor, svcInfo_, strThriftServiceName));
+    svcMgr_.reset(new SvcMgr(this, handler, processor, svcInfo_, thriftServiceName));
     svcMgr_->setSvcServerListener(this);
     /* This will start SvcServer instance */
     if (svcMgr_->mod_init(nullptr) != 0) {

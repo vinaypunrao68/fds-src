@@ -45,7 +45,7 @@ struct SvcProcess : FdsProcess, SvcServerListener {
                fds::Module **mod_vec,
                PlatNetSvcHandlerPtr handler,
                fpi::PlatNetSvcProcessorPtr processor,
-               const std::string &strThriftServiceName);
+               const std::string &thriftServiceName);
     SvcProcess(int argc, char *argv[],
                bool initAsModule,
                const std::string &def_cfg_file,
@@ -88,7 +88,7 @@ struct SvcProcess : FdsProcess, SvcServerListener {
               fds::Module **mod_vec,
               PlatNetSvcHandlerPtr handler,
               fpi::PlatNetSvcProcessorPtr processor,
-              const std::string &strThriftServiceName);
+              const std::string &thriftServiceName);
     void init(int argc, char *argv[],
               const std::string &def_cfg_file,
               const std::string &base_path,
@@ -96,7 +96,7 @@ struct SvcProcess : FdsProcess, SvcServerListener {
               fds::Module **mod_vec,
               PlatNetSvcHandlerPtr handler,
               fpi::PlatNetSvcProcessorPtr processor,
-              const std::string &strThriftServiceName);
+              const std::string &thriftServiceName);
 
     /**
      * Note on Thrift service compatibility:
@@ -113,11 +113,11 @@ struct SvcProcess : FdsProcess, SvcServerListener {
               const std::string &base_path,
               const std::string &def_log_file,
               fds::Module **mod_vec,
-              const std::string &strThriftServiceName) {
+              const std::string &thriftServiceName) {
         auto handler = boost::make_shared<Handler>(this);
         auto processor = boost::make_shared<Processor>(handler);
         init(argc, argv, false, def_cfg_file, base_path, def_log_file, mod_vec,
-                handler, processor, strThriftServiceName);
+                handler, processor, thriftServiceName);
     }
 
     /**
@@ -135,11 +135,11 @@ struct SvcProcess : FdsProcess, SvcServerListener {
               const std::string &base_path,
               const std::string &def_log_file,
               fds::Module **mod_vec,
-              const std::string& strThriftServiceName) {
+              const std::string& thriftServiceName) {
         auto handler = boost::make_shared<Handler>(this);
         auto processor = boost::make_shared<Processor>(handler);
         init(argc, argv, initAsModule, def_cfg_file, base_path, def_log_file, mod_vec,
-                handler, processor, strThriftServiceName);
+                handler, processor, thriftServiceName);
     }
 
     /**
@@ -197,7 +197,7 @@ struct SvcProcess : FdsProcess, SvcServerListener {
     */
     virtual void setupSvcMgr_(PlatNetSvcHandlerPtr handler,
                               fpi::PlatNetSvcProcessorPtr processor,
-                              const std::string &strThriftServiceName);
+                              const std::string &thriftServiceName);
 
     /* TODO(Rao): Include persistence as well */
     boost::shared_ptr<SvcMgr> svcMgr_;
