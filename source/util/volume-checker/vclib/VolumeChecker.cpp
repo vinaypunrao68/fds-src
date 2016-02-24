@@ -31,7 +31,7 @@ VolumeChecker::init(int argc, char **argv, bool initAsModule)
                      argv,
                      initAsModule,
                      "platform.conf",
-                     "fds.vc",
+                     "fds.checker",
                      "vc.log",
                      nullptr,
                      svc_handler,
