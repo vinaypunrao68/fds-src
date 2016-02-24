@@ -17,6 +17,15 @@ public class ChunkerTest {
     private IoOps io;
 
     @Test
+    public void testIntFun() throws Exception {
+        long offset = Long.parseLong("90696900608");
+        int objectSize = 1024 * 1024 * 2;
+        int startOffset = (int) (offset % objectSize);
+        assertTrue(startOffset > 0);
+        assertTrue(startOffset < objectSize);
+    }
+
+    @Test
     public void testReadWrite() throws Exception {
         readWriteCycle(42);
         readWriteCycle(84);
