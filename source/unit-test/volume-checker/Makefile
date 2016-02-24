@@ -1,7 +1,9 @@
 test_topdir       := ..
+topdir            := ../..
 user_build_dir    :=
 user_incl_dir     := \
-                     $(topdir)/util/volume-checker/include
+                     $(topdir)/util/volume-checker/include \
+                     $(topdir)/include/util
 
 user_hh           := $(wildcard *.h)
 user_fds_so_libs  :=

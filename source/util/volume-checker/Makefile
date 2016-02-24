@@ -5,19 +5,18 @@ speedup           = -j $(threads)
 user_build_dir    := vclib
 
 user_incl_dir     := include \
-                     ../../testlib
+                     ../../include/util
 
 
 user_fds_ar_libs  :=  \
     fds-svc-request \
     fds-umod \
     fds-lib \
-    fds-util \
     fds-fdsp \
     fds-hash \
     fds-thread \
     fds-osdep \
-    fds-test \
+    fds-util \
     fds-volume-checker
 
 user_non_fds_libs :=  \
