@@ -104,7 +104,7 @@ public class AsyncStreamer {
 
         CompletableFuture<Void> result = CompletableFuture.completedFuture(null);
         for (CompletableFuture<ByteBuffer> readFuture : readFutures) {
-            result = result.thenCompose(r -> readFuture.thenCompose(buf -> statistics.time("writeOutputTime", processor.apply(buf))));
+            result = result.thenCompose(r -> readFuture.thenCompose(buf -> processor.apply(buf)));
         }
         return result;
     }
