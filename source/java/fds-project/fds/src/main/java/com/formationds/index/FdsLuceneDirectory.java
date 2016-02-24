@@ -61,7 +61,7 @@ public class FdsLuceneDirectory extends Directory {
     @Override
     public String[] listAll() throws IOException {
         Collection<BlobMetadata> bms = io.scan(domain, volume, INDEX_FILE_PREFIX);
-        List<String> result = new ArrayList<>(bms.size());
+        List<String> result = new ArrayList<>();
         for (BlobMetadata bm : bms) {
             result.add(bm.getMetadata().get(LUCENE_RESOURCE_NAME));
         }
@@ -111,7 +111,7 @@ public class FdsLuceneDirectory extends Directory {
             throw new FileNotFoundException("Volume=" + volume + ", blobName=" + blobName);
         }
 
-        Map<String, String> metadata = new HashMap<>();
+        Map<String, String> metadata = new HashMap<>(ofm.get());
         metadata.put(LUCENE_RESOURCE_NAME, to);
         io.writeMetadata(domain, volume, blobName, metadata);
         io.commitMetadata(domain, volume, blobName);
