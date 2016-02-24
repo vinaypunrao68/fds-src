@@ -42,11 +42,11 @@ public class S3Endpoint {
     private SecretKey secretKey;
 
     public S3Endpoint(Xdi xdi, Supplier<AsyncStreamer> xdiAsync, SecretKey secretKey,
-                      HttpsConfiguration httpsConfiguration, HttpConfiguration httpConfiguration) {
+                      HttpsConfiguration httpsConfiguration, HttpConfiguration httpConfiguration, int maxConcurrentRequests) {
         this.xdi = xdi;
         this.xdiAsync = xdiAsync;
         this.secretKey = secretKey;
-        webApp = new AsyncWebapp(httpConfiguration, httpsConfiguration);
+        webApp = new AsyncWebapp(httpConfiguration, httpsConfiguration, maxConcurrentRequests);
         authenticator = new S3Authenticator(xdi.getAuthorizer(), secretKey);
     }
 

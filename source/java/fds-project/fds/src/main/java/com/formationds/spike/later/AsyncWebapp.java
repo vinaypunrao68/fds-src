@@ -40,7 +40,13 @@ public class AsyncWebapp extends HttpServlet {
         this.httpConfiguration = httpConfiguration;
         this.httpsConfiguration = httpsConfiguration;
         routingMap = new RoutingMap<>();
-        semaphore = new AsyncSemaphore(500);
+    }
+
+    public AsyncWebapp(com.formationds.web.toolkit.HttpConfiguration httpConfiguration, HttpsConfiguration httpsConfiguration, int maxConcurrentRequests) {
+        this(httpConfiguration, httpsConfiguration);
+        if(maxConcurrentRequests < 1)
+            throw new IllegalArgumentException("maxConcurrentRequests is cannot be less than zero");
+        semaphore = new AsyncSemaphore(maxConcurrentRequests);
     }
 
     public void route(HttpPath httpPath, Function<HttpContext, CompletableFuture<Void>> handler) {
@@ -130,9 +136,14 @@ public class AsyncWebapp extends HttpServlet {
             Function<HttpContext, CompletableFuture<Void>> handler = matchResult.getResult();
             response.addHeader("Access-Control-Allow-Origin", "*");
             response.addHeader("Server", "Formation");
-            CompletableFuture<Void> cf = semaphore.execute(() -> handler.apply(context.withRouteParameters(matchResult.getRouteParameters())));
-            cf.exceptionally(ex -> handleError(ex, context));
-            cf.whenComplete((_x, _z) -> asyncContext.complete());
+            CompletableFuture<Void> requestHandledFuture;
+            if(semaphore != null)
+                requestHandledFuture = semaphore.execute(() -> handler.apply(context.withRouteParameters(matchResult.getRouteParameters())));
+            else
+                requestHandledFuture = handler.apply(context.withRouteParameters(matchResult.getRouteParameters()));
+
+            requestHandledFuture.exceptionally(ex -> handleError(ex, context));
+            requestHandledFuture.whenComplete((_x, _z) -> asyncContext.complete());
             return;
         }
 
