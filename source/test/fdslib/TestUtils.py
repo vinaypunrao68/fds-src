@@ -802,8 +802,8 @@ def verify_disk_free(self, thresh_hold):
 def check_catalogs_local(self):
     path_a = '/fds/user-repo/timeline/'
     if not os.path.isdir(path_a):
-        self.log.error('{0} does not exists'.format(path_a))
-        return False
+        self.log.warn('{0} does not exists'.format(path_a))
+        return True
 
     with lcd(path_a):
         output= local('ls -d */', capture=True)
@@ -830,8 +830,8 @@ def check_catalogs_remote(self, node_ip):
     path_a = '/fds/sys-repo/dm-names/'
     connect_fabric(self, node_ip)
     if not exists(path_a, use_sudo=True):
-        self.log.error('{0} path does not exists')
-        return False
+        self.log.warn('{0} path does not exists')
+        return True
 
     with cd(path_a):
         output = run('ls -d */')
