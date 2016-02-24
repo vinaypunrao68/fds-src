@@ -599,7 +599,7 @@ def node_is_up(self,om_ip,node_id):
 
 def deploy_on_AWS(self, number_of_nodes, inventory_file):
     deploy_script = 'deploy_fds_ec2.sh'
-    deb_location = 'nightly'
+    deb_location = 'local'
     deploy_script_dir = os.path.join(self.rt_env.env_fdsSrc, '../ansible/scripts/')
     cur_dir = os.getcwd()
     os.chdir(deploy_script_dir)
