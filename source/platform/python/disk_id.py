@@ -234,18 +234,183 @@ def discover_os_devices ():
 
     return os_device_list
 
-def disk_type_with_stor_cli (stor_client):
+def disk_type_with_controller_tool (controller_tool):
     '''
-    This uses the megaraid storcli64 tool (or perccli64 tool) to inspect the raid controllers and enclosures
-    to find storage media types attached to hardware controllers.
-
     inputs:
-        stor_client:  Full path and binary name of the storcli64/perccli64 tool
+        controller_tool:  Full path and binary name of the controller tool (storcli64/perccli64 or arcconf or sas2ircu)
 
     returns:
         A list of Disk device types and bus type for HDD's
         e.g., ['SSD', 'SSD', 'HDD', 'SAS', 'HDD', 'SATA']
+    '''
+    cmdpath = controller_tool.lower()
+    if 'storcli' in cmdpath or 'perccli' in cmdpath:
+        return disk_type_with_stor_cli (controller_tool)
+    elif 'arcconf' in cmdpath:
+        return disk_type_with_arcconf (controller_tool)
+    elif 'sas2ircu' in cmdpath:
+        return disk_type_with_sas2ircu (controller_tool)
+    else:
+        print ( "Error: Unknown controller tool %s " % controller_tool )
+        sys.exit(1)
 
+def add_disk_to_list(type, bus, return_list):
+    if type == Disk.DSK_TYP_SSD:
+        return_list.append(Disk.DSK_TYP_SSD)
+    else:
+        if type != Disk.DSK_TYP_HDD:
+            print "Warning: Unknown disk type %s" % type
+        return_list.append(Disk.DSK_TYP_HDD)
+        if bus == Disk.DISK_BUS_SAS:
+            return_list.append(Disk.DISK_BUS_SAS)
+        elif bus == Disk.DISK_BUS_SATA:
+            return_list.append(Disk.DISK_BUS_SATA)
+        else:
+            return_list.append(Disk.DISK_BUS_NA)
+
+def disk_type_with_sas2ircu (sas2ircu):
+    '''
+    This issues an sas2ircu command; for description of inputs and outputs see disk_type_with_controller_tool
+    '''
+    return_list = []
+
+    controllers = []
+
+    # Regular expressions to find particular details needed from sas2ircu output
+    controller_index = re.compile("[0-9]+")
+    device_section = re.compile("Device is a Hard disk")
+    state_line = re.compile("State\s+:\s*Ready")
+    drive_type_line = re.compile("Drive Type\s+:\s*(S[A-Z]+)_([A-Z]+)\s")
+
+    # sas2ircu to list controller numbers
+    output = subprocess.Popen([sas2ircu, "LIST" ], stdout=subprocess.PIPE).stdout 
+    #             Adapter      Vendor  Device                       SubSys  SubSys 
+    #    Index    Type          ID      ID    Pci Address          Ven ID  Dev ID 
+    #    -----  ------------  ------  ------  -----------------    ------  ------ 
+    #        0     SAS2004     1000h    70h   00h:01h:00h:00h      1000h   3010h 
+ # itemindex 0           1         2      3                 4          5       6
+
+    found_controller_index = False
+    reading_controller_indices = False
+    for line in output:
+        items = line.strip ('\r\n').split()
+        if len(items) > 0:
+            found_controller_index = controller_index.match(items[0])
+            if not reading_controller_indices and found_controller_index and len(items) == 7:
+                reading_controller_indices = True
+            elif reading_controller_indices:
+                break # done reading the controller table
+            if reading_controller_indices:
+                controllers.append(items[0])
+
+    for controller in controllers:
+        # sas2ircu arguments
+        # DISPLAY = the actual command being issued
+        # controller = controller to check
+        output = subprocess.Popen([sas2ircu, controller, "DISPLAY"], stdout=subprocess.PIPE).stdout
+
+        state_line_found = False
+        drive_type_line_found = False
+
+        for line in output:
+           device_section_found = device_section.match(line)
+           if device_section_found:
+                # from this point on gather info about a device
+                # if we found a qualified device before, record the info
+                if state_line_found:
+                    add_disk_to_list(type, bus, return_list)
+                # initialize all variables for the new round (new device)
+                state_line_found = False
+                drive_type_line_found = False
+                type = None
+                bus = Disk.DISK_BUS_NA
+           else: # we are in device section parsing mode
+               if not state_line_found:
+                   state_line_found = state_line.search(line)
+               if not drive_type_line_found:
+                   drive_type_line_found = drive_type_line.search(line)
+                   if drive_type_line_found:
+                       bus = drive_type_line.search(line).group(1)
+                       type = drive_type_line.search(line).group(2)
+        # we are done with this contoller, let's record the last disk if there is one
+        if state_line_found:
+            add_disk_to_list(type, bus, return_list)
+    return return_list
+
+def disk_type_with_arcconf (arcconf):
+    '''
+    This issues an arcconf command; for description of inputs and outputs see disk_type_with_controller_tool
+    '''
+
+    return_list = []
+    
+    # Regular expressions to find particular details needed from arcconf output
+    controller_number_section = re.compile ("Controllers found: ([0-9]*)")
+    device_section = re.compile("Device #")
+    state_line = re.compile("State\s+:\s*Online")
+    ssd_line = re.compile("SSD\s+:")
+    transfer_line = re.compile("Transfer Speed\s+:\s*(S[A-Z]+)\s")
+
+    controller_number = 1
+    found_controller_number_section = False
+    num_controllers = 0
+
+    while True: # keep calling the command until we run out of controllers, then break out of the loop 
+        # arcconf arguments
+        # GETCONFIG = the actual command being issued
+        # controller_number = controller to check
+        # PD = only check physical devices
+        output = subprocess.Popen([arcconf, "GETCONFIG", str(controller_number), "PD" ], stdout=subprocess.PIPE).stdout
+
+        state_line_found = False
+        ssd_line_found = False
+        transfer_line_found = False
+ 
+        for line in output:
+            if not found_controller_number_section:
+                found_controller_number_section = controller_number_section.match(line) 
+                if found_controller_number_section:
+                    num_controllers = int(controller_number_section.match(line).group(1))
+                    if num_controllers == 0:
+                        print ( "Error: no controllers found" )
+                        sys.exit(1)
+                    continue
+            device_section_found = device_section.search(line)
+            if device_section_found:
+                # from this point on gather info about a device
+                # if we found a qualified device before, record the info
+                if state_line_found:
+                    add_disk_to_list(type, transfer, return_list)
+                # initialize all variables for the new round (new device)
+                state_line_found = False
+                ssd_line_found = False
+                type = Disk.DSK_TYP_HDD
+                transfer_line_found = False
+                transfer = Disk.DISK_BUS_NA
+            else: # we are in device section parsing mode
+                if not state_line_found: 
+                    state_line_found = state_line.search(line)
+                if not ssd_line_found:
+                    ssd_line_found = ssd_line.search(line)
+                    if ssd_line_found and "Yes" in line:
+                        type = Disk.DSK_TYP_SSD 
+                if not transfer_line_found:
+                    transfer_line_found = transfer_line.search(line)
+                    if transfer_line_found:
+                        transfer = transfer_line.search(line).group(1)
+        
+        # we are done with this contoller, let's record the last disk if there is one
+        if state_line_found:
+            add_disk_to_list(type, transfer, return_list)
+
+        controller_number = controller_number + 1            
+        if controller_number > num_controllers:
+            break
+    return return_list
+
+def disk_type_with_stor_cli (stor_client):
+    '''
+    This issues a storcli/perccli command; for description of inputs and outputs see disk_type_with_controller_tool
     notes:
         This may need to be expanded in the future to limit commands to certain
         controllers or enclosures.
@@ -395,7 +560,7 @@ if __name__ == "__main__":
             sys.stdout.flush()
             dbg_print ('')
 
-            controller_disk_list = disk_type_with_stor_cli(options.stor_cli)
+            controller_disk_list = disk_type_with_controller_tool(options.stor_cli)
 
             sys.stdout.write ("Complete")
             sys.stdout.flush()

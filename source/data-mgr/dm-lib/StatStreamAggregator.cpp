@@ -214,7 +214,8 @@ void VolumeStats::updateStdev(const std::vector<StatSlot>& slots,
     for (std::vector<StatSlot>::const_iterator cit = slots.cbegin();
          cit != slots.cend();
          cit++) {
-        double bytes = StatHelper::getTotalPhysicalBytes(*cit);
+        StatSlot current_slot(*cit);
+        double bytes = StatHelper::getTotalPhysicalBytes(current_slot, coarsegrain_hist_);
         LOGTRACE << "1 - Volume " << std::hex << volid_ << std::dec << " rel secs "
                  << (*cit).getRelSeconds() << " bytes " << static_cast<fds_int64_t>(bytes);
 
@@ -302,7 +303,8 @@ StatStreamAggregator::StatStreamAggregator(CommonModuleProviderIf *modProvider,
 
     // align timestamp to the length of finestat slot
     start_time_ = util::getTimeStampNanos();
-    fds_uint64_t freq_nanos = hist_config.finestat_slotsec_ * NANOS_IN_SECOND;
+    fds_uint64_t stat_sampling_freq64 = hist_config.finestat_slotsec_;
+    fds_uint64_t freq_nanos = stat_sampling_freq64 * NANOS_IN_SECOND;
     start_time_ = start_time_ / freq_nanos;
     start_time_ = start_time_ * freq_nanos;
 
@@ -334,7 +336,8 @@ StatStreamAggregator::StatStreamAggregator(CommonModuleProviderIf *modProvider,
     LOGTRACE << "Finegrain slot period " << hist_config.finestat_slotsec_ << " seconds, "
              << "slots " << hist_config.finestat_slots_ << "; coarsegrain slot period "
              << hist_config.coarsestat_slotsec_ << " seconds, slots " << hist_config.coarsestat_slots_
-             << ". Will update coarse grain stats every " << StatConstants::singleton()->FdsStatPushAndAggregatePeriodSec << " seconds.";
+             << ". Will update coarse grain stats every " << StatConstants::singleton()->FdsStatPushAndAggregatePeriodSec
+             << " seconds. Start timestamp is " << start_time_ << ".";
 
     fds_bool_t ret = aggregate_stats_->scheduleRepeated(aggregate_stats_task_,
                                                         std::chrono::seconds(StatConstants::singleton()->FdsStatPushAndAggregatePeriodSec));
@@ -718,11 +721,64 @@ fds_uint64_t StatHelper::getCountRenameBlob(const StatSlot &slot) {
     return slot.getCount(STAT_AM_RENAME_BLOB);
 }
 
-fds_uint64_t StatHelper::getTotalLogicalBytes(const StatSlot& slot) {
-    return slot.getTotal(STAT_DM_CUR_LBYTES);
+fds_uint64_t StatHelper::getTotalWithDriftSupport(FdsVolStatType type, StatSlot &slot,
+                                                  VolumePerfHistory::ptr hist) {
+    if (slot.getCount(type) > 0) {
+        return slot.getTotal(type);
+    } else {
+        /**
+         * Supposedly, the wanted stat is a "monitor" stat. In such cases, we can
+         * accomodate a potential for "time-drift" between
+         * the different services as they report their stats
+         * by looking to see if there were reports of this
+         * stat for a previous generation of slot and use that
+         * value.
+         */
+        auto prev_slot = hist->getPreviousSlot(slot);
+        while ((prev_slot != nullptr) &&
+               (prev_slot->getCount(type) == 0)) {
+            prev_slot = hist->getPreviousSlot(*prev_slot);
+        }
+
+        if ((prev_slot != nullptr) &&
+            (prev_slot->getCount(type) > 0)) {
+            if (prev_slot->getCount(type) > 0) {
+                /**
+                 * Let's take the opportunity to copy this previous slot's
+                 * data into the current slot in case we run into this
+                 * situation again. That way, we don't have to seach too
+                 * far back.
+                 */
+                auto lbytes = prev_slot->getTotal(type);
+                slot.add(type, lbytes);
+
+                LOGTRACE << "Accomodating drift in stat <" << type
+                         << "> for stat history <" << *hist
+                         << ">.";
+
+                return lbytes;
+            } else {
+                LOGTRACE << "Tried to accomodate drift in stat <" << type
+                         << "> for stat history <" << *hist
+                         << "> but failed.";
+
+                return 0;
+            }
+        } else {
+            LOGTRACE << "Tried to accomodate drift in stat <" << type
+                     << "> for stat history <" << *hist
+                     << "> but failed.";
+
+            return 0;
+        }
+    }
 }
 
-fds_uint64_t StatHelper::getTotalPhysicalBytes(const StatSlot& slot) {
+fds_uint64_t StatHelper::getTotalLogicalBytes(StatSlot& slot, const VolumePerfHistory::ptr hist) {
+    return getTotalWithDriftSupport(STAT_DM_CUR_LBYTES, slot, hist);
+}
+
+fds_uint64_t StatHelper::getTotalPhysicalBytes(StatSlot& slot, const VolumePerfHistory::ptr hist) {
     /**
      * We used to calculate physical bytes thusly:
      */
@@ -741,7 +797,7 @@ fds_uint64_t StatHelper::getTotalPhysicalBytes(const StatSlot& slot) {
      * be delivered on time. Better to capture the raw data and
      * let the stats consumers calculate what they want.
      */
-    return slot.getTotal(STAT_DM_CUR_PBYTES);
+    return getTotalWithDriftSupport(STAT_DM_CUR_PBYTES, slot, hist);
 }
 
 fds_uint64_t StatHelper::getTotalDomainDedupBytesFrac(const StatSlot &slot) {
@@ -753,24 +809,24 @@ fds_uint64_t StatHelper::getTotalDedupBytes(const StatSlot &slot) {
 }
 
 // we do not include user-defined metadata
-fds_uint64_t StatHelper::getTotalMetadataBytes(const StatSlot& slot) {
-    fds_uint64_t tot_objs = slot.getTotal(STAT_DM_CUR_POBJECTS);
-    fds_uint64_t tot_blobs = slot.getTotal(STAT_DM_CUR_BLOBS);
-    // approx -- asume 20 bytes for blob name
+fds_uint64_t StatHelper::getTotalMetadataBytes(StatSlot& slot, const VolumePerfHistory::ptr hist) {
+    fds_uint64_t tot_objs = getTotalPhysicalObjects(slot, hist);
+    fds_uint64_t tot_blobs = getTotalBlobs(slot, hist);
+    // approx -- assume 20 bytes for blob name
     fds_uint64_t header_bytes = 20 + 8*3 + 4;
     return (tot_blobs * header_bytes + tot_objs * 24);
 }
 
-fds_uint64_t StatHelper::getTotalBlobs(const StatSlot& slot) {
-    return slot.getTotal(STAT_DM_CUR_BLOBS);
+fds_uint64_t StatHelper::getTotalBlobs(StatSlot& slot, const VolumePerfHistory::ptr hist) {
+    return getTotalWithDriftSupport(STAT_DM_CUR_BLOBS, slot, hist);
 }
 
-fds_uint64_t StatHelper::getTotalLogicalObjects(const StatSlot &slot) {
-    return slot.getTotal(STAT_DM_CUR_LOBJECTS);
+fds_uint64_t StatHelper::getTotalLogicalObjects(StatSlot& slot, const VolumePerfHistory::ptr hist) {
+    return getTotalWithDriftSupport(STAT_DM_CUR_LOBJECTS, slot, hist);
 }
 
-fds_uint64_t StatHelper::getTotalPhysicalObjects(const StatSlot &slot) {
-    return slot.getTotal(STAT_DM_CUR_POBJECTS);
+fds_uint64_t StatHelper::getTotalPhysicalObjects(StatSlot& slot, const VolumePerfHistory::ptr hist) {
+    return getTotalWithDriftSupport(STAT_DM_CUR_POBJECTS, slot, hist);
 }
 
 double StatHelper::getAverageBytesInBlob(const StatSlot& slot) {
@@ -853,7 +909,7 @@ void StatStreamTimerTask::runTimerTask() {
     std::unique_ptr<std::list<StatDataPoint>> newStatsServiceMetrics;
     if (dataManager_.features.isSendToNewStatsServiceEnabled())
     {
-        newStatsServiceMetrics.reset({});
+        newStatsServiceMetrics.reset(new std::list<StatDataPoint> {});
     }
 
     bool logLocal = reg_->method == std::string("log-local");
@@ -970,12 +1026,12 @@ void StatStreamTimerTask::runTimerTask() {
 
             fpi::DataPointPair logicalBytesDP;
             logicalBytesDP.key = "Logical Bytes";
-            logicalBytesDP.value = StatHelper::getTotalLogicalBytes(slot);
+            logicalBytesDP.value = StatHelper::getTotalLogicalBytes(slot, hist);
             volDataPointsMap[timestamp].push_back(logicalBytesDP);
 
             fpi::DataPointPair physicalBytesDP;
             physicalBytesDP.key = "Physical Bytes";
-            physicalBytesDP.value = StatHelper::getTotalPhysicalBytes(slot);
+            physicalBytesDP.value = StatHelper::getTotalPhysicalBytes(slot, hist);
             volDataPointsMap[timestamp].push_back(physicalBytesDP);
 
             fpi::DataPointPair domaindedupBytesDP;
@@ -990,22 +1046,22 @@ void StatStreamTimerTask::runTimerTask() {
 
             fpi::DataPointPair mdBytesDP;
             mdBytesDP.key = "Metadata Bytes";
-            mdBytesDP.value = StatHelper::getTotalMetadataBytes(slot);
+            mdBytesDP.value = StatHelper::getTotalMetadataBytes(slot, hist);
             volDataPointsMap[timestamp].push_back(mdBytesDP);
 
             fpi::DataPointPair blobsDP;
             blobsDP.key = "Blobs";
-            blobsDP.value = StatHelper::getTotalBlobs(slot);
+            blobsDP.value = StatHelper::getTotalBlobs(slot, hist);
             volDataPointsMap[timestamp].push_back(blobsDP);
 
             fpi::DataPointPair logicalObjectsDP;
             logicalObjectsDP.key = "Objects";
-            logicalObjectsDP.value = StatHelper::getTotalLogicalObjects(slot);
+            logicalObjectsDP.value = StatHelper::getTotalLogicalObjects(slot, hist);
             volDataPointsMap[timestamp].push_back(logicalObjectsDP);
 
             fpi::DataPointPair physicalObjectsDP;
             physicalObjectsDP.key = "Physical Objects";
-            physicalObjectsDP.value = StatHelper::getTotalPhysicalObjects(slot);
+            physicalObjectsDP.value = StatHelper::getTotalPhysicalObjects(slot, hist);
             volDataPointsMap[timestamp].push_back(physicalObjectsDP);
 
             fpi::DataPointPair aveBlobSizeDP;

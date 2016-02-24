@@ -114,7 +114,6 @@ struct AmDispatcher : public AmDataProvider
     void start() override;
     bool done() override;
     void stop() override;
-    void registerVolume(VolumeDesc const& volDesc) override;
     void removeVolume(VolumeDesc const& volDesc) override;
     void openVolume(AmRequest * amReq) override;
     void closeVolume(AmRequest * amReq) override;

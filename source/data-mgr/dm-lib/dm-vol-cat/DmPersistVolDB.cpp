@@ -179,7 +179,7 @@ Error DmPersistVolDB::archive(const std::string& destDir, const std::string& fil
             err = ERR_NOT_FOUND;
         }
     }
-    
+
     // remove all temp files ..
     boost::filesystem::remove_all(tempArchiveDir);
 
@@ -385,7 +385,7 @@ Error DmPersistVolDB::getObject(const std::string & blobName, fds_uint64_t offse
     fds_verify(0 == offset % objSize_);
 
     auto objectIndex = offset / objSize_;
-    fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
+    if (objectIndex > std::numeric_limits<fds_uint32_t>::max()) {return ERR_DM_OFFSET_OUT_RANGE;}
 
     BlobObjectKey key {blobName, static_cast<fds_uint32_t>(objectIndex)};
 
@@ -530,7 +530,7 @@ Error DmPersistVolDB::putObject(const std::string & blobName, fds_uint64_t offse
     fds_verify(0 == offset % objSize_);
 
     auto objectIndex = offset / objSize_;
-    fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
+    if (objectIndex > std::numeric_limits<fds_uint32_t>::max()) {return ERR_DM_OFFSET_OUT_RANGE;}
 
     BlobObjectKey key {blobName, static_cast<fds_uint32_t>(objectIndex)};
     leveldb::Slice const valRec(reinterpret_cast<char const*>(obj.GetId()), obj.GetLen());
@@ -557,7 +557,7 @@ Error DmPersistVolDB::putObject(const std::string & blobName, const BlobObjList 
         fds_verify(0 == it.first % objSize_);
 
         auto objectIndex = it.first / objSize_;
-        fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
+        if (objectIndex > std::numeric_limits<fds_uint32_t>::max()) {return ERR_DM_OFFSET_OUT_RANGE;}
 
         BlobObjectKey const key {blobName, static_cast<fds_uint32_t>(objectIndex)};
         leveldb::Slice const valRec(reinterpret_cast<const char *>(it.second.oid.GetId()),
@@ -586,7 +586,7 @@ Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc 
         fds_verify(0 == it.first % objSize_);
 
         auto objectIndex = it.first / objSize_;
-        fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
+        if (objectIndex > std::numeric_limits<fds_uint32_t>::max()) {return ERR_DM_OFFSET_OUT_RANGE;}
 
         BlobObjectKey const key {blobName, static_cast<fds_uint32_t>(objectIndex)};
         leveldb::Slice const valRec(reinterpret_cast<const char *>(it.second.oid.GetId()),
@@ -599,7 +599,7 @@ Error DmPersistVolDB::putBatch(const std::string & blobName, const BlobMetaDesc 
         fds_verify(0 == it % objSize_);
 
         auto objectIndex = it / objSize_;
-        fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
+        if (objectIndex > std::numeric_limits<fds_uint32_t>::max()) {return ERR_DM_OFFSET_OUT_RANGE;}
 
         BlobObjectKey const key {blobName, static_cast<fds_uint32_t>(objectIndex)};
         batch.Delete(static_cast<leveldb::Slice>(key));
@@ -655,7 +655,7 @@ Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t of
     // IS_OP_ALLOWED();
 
     auto objectIndex = offset / objSize_;
-    fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
+    if (objectIndex > std::numeric_limits<fds_uint32_t>::max()) {return ERR_DM_OFFSET_OUT_RANGE;}
 
     BlobObjectKey const key {blobName, static_cast<fds_uint32_t>(objectIndex)};
 
@@ -686,7 +686,7 @@ Error DmPersistVolDB::deleteObject(const std::string & blobName, fds_uint64_t st
         TIMESTAMP_OP(batch);
 
         auto objectIndex = i / objSize_;
-        fds_verify(objectIndex <= std::numeric_limits<fds_uint32_t>::max());
+        if (objectIndex > std::numeric_limits<fds_uint32_t>::max()) {return ERR_DM_OFFSET_OUT_RANGE;}
 
         key.setObjectIndex(static_cast<fds_uint32_t>(objectIndex));
         batch.Delete(static_cast<leveldb::Slice>(key));
@@ -714,6 +714,91 @@ Error DmPersistVolDB::deleteBlobMetaDesc(const std::string & blobName) {
     TIMESTAMP_OP(batch);
     batch.Delete(static_cast<leveldb::Slice>(key));
     return catalog_->Update(&batch);
+}
+
+bool DmPersistVolDB::volSummaryInitialized() {
+    return volSummary_.initialized;
+}
+
+Error DmPersistVolDB::initVolSummary(fds_uint64_t logicalSize,
+                                     fds_uint64_t blobCount,
+                                     fds_uint64_t logicalObjectCount) {
+    Error err{ERR_OK};
+
+    synchronized(lockVolSummary_) {
+        if (!volSummary_.initialized) {
+            volSummary_.size = logicalSize;
+            volSummary_.blobCount = blobCount;
+            volSummary_.objectCount = logicalObjectCount;
+            volSummary_.initialized = true;
+        } else {
+            err = ERR_DUPLICATE;  // Someone already initialized and we're attempting another initialization.
+        }
+    }
+
+    return err;
+}
+
+Error DmPersistVolDB::applyStatDeltas(const fds_uint64_t bytesAdded,
+                                      const fds_uint64_t bytesRemoved,
+                                      const fds_uint64_t blobsAdded,
+                                      const fds_uint64_t blobsRemoved,
+                                      const fds_uint64_t objectsAdded,
+                                      const fds_uint64_t objectsRemoved) {
+    Error err{ERR_OK};
+
+    synchronized(lockVolSummary_) {
+        if (!volSummary_.initialized) {
+            err = ERR_NOT_READY;
+        } else {
+            if (bytesAdded >= bytesRemoved) {
+                volSummary_.size += (bytesAdded - bytesRemoved);
+            } else {
+                volSummary_.size -= (bytesRemoved - bytesAdded);
+            }
+
+            if (blobsAdded >= blobsRemoved) {
+                volSummary_.blobCount += (blobsAdded - blobsRemoved);
+            } else {
+                volSummary_.blobCount -= (blobsRemoved - blobsAdded);
+            }
+
+            if (objectsAdded >= objectsRemoved) {
+                volSummary_.objectCount += (objectsAdded - objectsRemoved);
+            } else {
+                volSummary_.objectCount -= (objectsRemoved - objectsAdded);
+            }
+        }
+    }
+
+    return err;
+}
+
+void DmPersistVolDB::resetVolSummary() {
+    synchronized(lockVolSummary_) {
+        volSummary_.size = 0;
+        volSummary_.blobCount = 0;
+        volSummary_.objectCount = 0;
+        volSummary_.initialized = false;
+    }
+}
+
+Error DmPersistVolDB::getVolSummary(fds_uint64_t* logicalSize,
+                                    fds_uint64_t* blobCount,
+                                    fds_uint64_t* logicalObjectCount) {
+    Error err{ERR_OK};
+
+    synchronized(lockVolSummary_) {
+        if (!volSummary_.initialized) {
+            err = ERR_NOT_READY;
+        } else {
+            *logicalSize = volSummary_.size;
+            *blobCount = volSummary_.blobCount;
+            *logicalObjectCount = volSummary_.objectCount;
+        }
+    }
+
+    return err;
 }
 
 Error DmPersistVolDB::getInMemorySnapshot(Catalog::MemSnap& snap) {

@@ -9,6 +9,7 @@ import com.formationds.sc.SvcState;
 import com.formationds.sc.api.SvcAsyncAm;
 import com.formationds.util.ByteBufferUtility;
 import com.formationds.util.ConsumerWithException;
+import com.formationds.util.IoFunction;
 import com.formationds.xdi.*;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -33,14 +34,10 @@ import static org.junit.Assert.*;
 @Ignore
 public class AsyncAmTest extends BaseAmTest {
     private static final boolean USE_SVC_IMPL = false;
-    public static final int NFS_EXPORT_ID = 42;
-    private static SvcState svc;
-    private Counters counters;
-
 
     @Test
     public void testChunker() throws Exception {
-        AmOps amOps = new AmOps(asyncAm, counters);
+        AmOps amOps = new AmOps(asyncAm);
         Chunker chunker = new Chunker(amOps);
         int length = (int) Math.round(OBJECT_SIZE * 10.5);
         byte[] bytes = new byte[length];
@@ -53,7 +50,7 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testDmSupportsSmallObjects() throws Exception {
-        AmOps amOps = new AmOps(asyncAm, counters);
+        AmOps amOps = new AmOps(asyncAm);
         amOps.writeObject(domainName, volumeName, blobName, new ObjectOffset(0), FdsObject.allocate(10, OBJECT_SIZE));
         amOps.commitObject(domainName, volumeName, blobName, new ObjectOffset(0));
         FdsObject fdsObject = amOps.readCompleteObject(domainName, volumeName, blobName, new ObjectOffset(0), OBJECT_SIZE);
@@ -66,8 +63,8 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testUpdate() throws Exception {
-        AmOps amOps = new AmOps(asyncAm, counters);
-        DeferredIoOps io = new DeferredIoOps(amOps, counters);
+        AmOps amOps = new AmOps(asyncAm);
+        DeferredIoOps io = new DeferredIoOps(amOps, maxObjectSize);
         InodeIndex index = new SimpleInodeIndex(io, new MyExportResolver());
         InodeMetadata dir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3);
         InodeMetadata child = new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0, 4)
@@ -83,7 +80,7 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testLookup() throws Exception {
-        DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
+        DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm), maxObjectSize);
         InodeIndex index = new SimpleInodeIndex(io, new MyExportResolver());
         InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2);
         InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 3);
@@ -105,7 +102,7 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testListDirectory() throws Exception {
-        DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm, counters), counters);
+        DeferredIoOps io = new DeferredIoOps(new AmOps(asyncAm), maxObjectSize);
         InodeIndex index = new SimpleInodeIndex(io, new MyExportResolver());
         InodeMetadata fooDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 1);
         InodeMetadata barDir = new InodeMetadata(Stat.Type.DIRECTORY, new Subject(), 0, 2);
@@ -133,12 +130,12 @@ public class AsyncAmTest extends BaseAmTest {
         }
 
         @Override
-        public int exportId(String volumeName) {
+        public int nfsExportId(String volumeName) {
             return NFS_EXPORT_ID;
         }
 
         @Override
-        public String volumeName(int volumeId) {
+        public String volumeName(int nfsExportId) {
             return volumeName;
         }
 
@@ -546,6 +543,10 @@ public class AsyncAmTest extends BaseAmTest {
     private static ConfigurationService.Iface configService;
     private String volumeName;
     private static final int OBJECT_SIZE = 1024 * 1024 * 2;
+    public static final int NFS_EXPORT_ID = 42;
+    private static IoFunction<String, Integer> maxObjectSize = x -> OBJECT_SIZE;
+    private static SvcState svc;
+    private Counters counters;
     private static final int MY_AM_RESPONSE_PORT = 9881;
     private static XdiClientFactory xdiCf;
     private static AsyncAm asyncAm;

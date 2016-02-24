@@ -6,6 +6,7 @@
 function core_hunter
 {
     message  "POKING around for core files"
+    # TODO, remove /corefiles sometime
     for d in /corefiles /fds; do 
         for c in core hprof; do 
         
