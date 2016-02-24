@@ -7,7 +7,7 @@
 #include <boost/program_options.hpp>
 #include <VolumeChecker.h>
 #include <unistd.h>
-#include <TestUtils.h>
+#include <path.h>
 #include <string.h>
 #include <stdio.h>
 #include <fds_volume.h>
@@ -140,7 +140,7 @@ int main(int argc, char **argv) {
 
     // Set up internal args to pass to checker
     std::vector<std::string> roots;
-    fds::TestUtils::populateRootDirectories(roots, 1);
+    fds::util::populateRootDirectories(roots, 1);
 
     populateInternalArgs(argc, argv, &internal_argc, &internal_argv, roots[0]);
 

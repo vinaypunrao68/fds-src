@@ -46,15 +46,5 @@ bool findFdsSrcPath(std::string &fdsSrcPath)
     return false;
 }
 
-void populateRootDirectories(std::vector<std::string> &roots, int numOfNodes)
-{
-    std::string homedir = boost::filesystem::path(getenv("HOME")).string();
-    std::string baseDir =  homedir + "/temp";
-
-    for (int i = 1; i <= numOfNodes; i++) {
-        roots.push_back(util::strformat("--fds-root=%s/node%d", baseDir.c_str(), i));
-    }
-}
-
 }  // namespace TestUtils
 }  // namespace fds

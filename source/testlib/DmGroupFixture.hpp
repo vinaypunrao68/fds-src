@@ -11,6 +11,7 @@
 #include <testlib/TestAm.hpp>
 #include <testlib/TestUtils.h>
 #include <net/VolumeGroupHandle.h>
+#include <path.h>
 
 #define MAX_OBJECT_SIZE 1024 * 1024 * 2
 
@@ -36,7 +37,7 @@ struct DmGroupFixture : BaseTestFixture {
             std::string homedir = boost::filesystem::path(getenv("HOME")).string();
             std::string baseDir =  homedir + "/temp";
 
-            populateRootDirectories(roots, numOfNodes);
+            fds::util::populateRootDirectories(roots, numOfNodes);
             setupDmClusterEnv(fdsSrcPath, baseDir);
         }
         return roots;
