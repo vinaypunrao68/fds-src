@@ -60,7 +60,7 @@ public class QueryMetrics implements RequestHandler, QueryHandler {
 
             if ( FdsFeatureToggles.STATS_SERVICE_QUERY.isActive() ){
             	
-            	StatsConnection statsConn = StatsConnection.newConnection( "localhost", 11011, GetUser.STATS_USERNAME, "$t@t$" );
+            	StatsConnection statsConn = StatsConnection.newConnection( "localhost", 11011, "admin", "admin" );
             	statsConn.query( ObjectModelHelper.toObject( reader, TYPE_08 ), this );
             	
             	long waited = 0;
@@ -80,6 +80,12 @@ public class QueryMetrics implements RequestHandler, QueryHandler {
             		logger.debug( "Metric query exception", e );
             		
             		throw new ApiException( "Failure during a metrics query using the stats service.", ErrorCode.INTERNAL_SERVER_ERROR );
+            	}
+            	finally {
+            		
+            		if ( statsConn != null ){
+            			statsConn.close();
+            		}
             	}
             }
             else {
