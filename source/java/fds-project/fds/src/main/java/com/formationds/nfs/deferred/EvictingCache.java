@@ -70,6 +70,11 @@ public class EvictingCache<TKey extends SortableKey<TKey>, TValue> {
     public CacheEntry<TValue> get(TKey key) throws IOException {
         bubbleExceptions();
         try {
+            // Try and find it there first - It won't be in the cache if it's pending eviction
+            CacheEntry<TValue> result = traversableView.get(key);
+            if (result != null) {
+                return result;
+            }
             CacheEntry<TValue> cacheEntry = cache.get(key, () -> loader.load(key));
             traversableView.put(key, cacheEntry);
             return cacheEntry;
