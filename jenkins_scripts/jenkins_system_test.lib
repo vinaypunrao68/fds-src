@@ -305,6 +305,11 @@ function check_xunit_errors
     [[ $? -eq 0 ]] && system_test_error ${scenario}
 }
 
+function packaging_error
+{
+    message "Problem(s) detected in packaging fds-platform/deb"
+    run_coroner 1
+}
 function system_test_error
 {
     scenario=${1}
@@ -432,11 +437,17 @@ function run_coroner
 
 function run_aws_test_scenarios
 {
+    make package fds-platform BUILD_TYPE=debug || packaging_error
+    message "fds-platform packaging done"
+
+    make package fds-deps || packaging_error
+    message "fds-deps packaging done"
+
     start_time=$(date +%s)
 
     INVENTORY=$1; shift
     AWS_LST_TEST_SCENARIO_LIST=( "$@" )
-    
+
     for scenario in ${AWS_LST_TEST_SCENARIO_LIST[@]}; do
         aws_test_scenario_wrapper $INVENTORY $scenario
     done
