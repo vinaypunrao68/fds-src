@@ -9,6 +9,7 @@ import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.Term;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexOutput;
@@ -50,6 +51,14 @@ public class FdsLuceneDirectoryTest {
         IndexSearcher searcher = new IndexSearcher(reader);
         Document doc = searcher.doc(0);
         assertEquals("bar", doc.get("foo"));
+
+        IndexWriterConfig conf = new IndexWriterConfig(new StandardAnalyzer());
+        conf.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
+        IndexWriter writer = new IndexWriter(directory, conf);
+        writer.deleteDocuments(new Term("foo", "bar"));
+        writer.commit();
+        writer.forceMergeDeletes();
+        writer.close();
     }
 
     @Before

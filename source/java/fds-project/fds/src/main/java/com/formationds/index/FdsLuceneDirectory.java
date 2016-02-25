@@ -132,7 +132,7 @@ public class FdsLuceneDirectory extends Directory {
     public Lock obtainLock(String name) throws IOException {
         SimpleKey key = new SimpleKey(name);
         try {
-            return locks.get(key, () -> new MemoryLock());
+            return locks.get(key, () -> new MemoryLock(() -> locks.asMap().remove(key)));
         } catch (ExecutionException e) {
             if (e.getCause() instanceof IOException) {
                 throw (IOException) e.getCause();
