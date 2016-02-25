@@ -6,15 +6,9 @@
 #define TESTLIB_VOLUMEGROUPFIXTURE_HPP_
 
 #include <testlib/DmGroupFixture.hpp>
-
-// Hack to allow VolumeGroupFixture to access private members
-// FRIEND_TEST() macro doesn't work for non-test functions
-#define private public
 #include <VolumeChecker.h>
-#undef private
 
 struct VolumeGroupFixture : DmGroupFixture {
-
     VolumeGroupFixture() {}
     using VcHandle = ProcessHandle<VolumeChecker>;
     VcHandle   vcHandle;
@@ -51,20 +45,16 @@ struct VolumeGroupFixture : DmGroupFixture {
         ASSERT_FALSE(vcHandle.proc->getStatus() == fds::VolumeChecker::VC_NOT_STARTED);
 
         // Phase 1 test
-        ASSERT_TRUE(vcHandle.proc->getStatus() == fds::VolumeChecker::VC_PHASE_1);
+        ASSERT_TRUE(vcHandle.proc->getStatus() == fds::VolumeChecker::VC_DM_HASHING);
 
-        // dmCheckerList should have 1 volume element in it
-        ASSERT_TRUE(vcHandle.proc->dmCheckerList.size() == 1);
+        // vgCheckerList should have 1 volume element in it
+        ASSERT_TRUE(vcHandle.proc->testGetVgCheckerListSize() == 1);
         // That one should have "clusterSize" in it
-        ASSERT_TRUE(vcHandle.proc->dmCheckerList[0].second.size() == clusterSize);
+        ASSERT_TRUE(vcHandle.proc->testGetVgCheckerListSize(0) == clusterSize);
 
         // The checker should have sent msgs to all the volumes
-        for (auto dmChecker : vcHandle.proc->dmCheckerList) {
-            for (auto oneDMtoCheck : dmChecker.second) {
-                ASSERT_TRUE(oneDMtoCheck.status == fds::VolumeChecker::dmCheckerMetaData::NS_CONTACTED);
-            }
-        }
-
+        // See the chkNodeStatus code for match
+        ASSERT_TRUE(vcHandle.proc->testVerifyCheckerListStatus(1));
     }
 
     void stopVolumeChecker() {

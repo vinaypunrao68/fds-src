@@ -13,9 +13,17 @@
 #include <net/SvcRequestPool.h>
 #include <net/SvcProcess.h>
 #include <fdsp_utils.h>
+#include <gtest/gtest_prod.h>
 
 namespace fds {
+
+// Forward declaration
 class VolumeChecker : public SvcProcess {
+    // TODO(Neil) Doesn't seem to work... see if this can be figured out later
+    template <typename T> friend struct ProcessHandle;
+    friend struct DmGroupFixture;
+    friend struct VolumeGroupFixture;
+    FRIEND_TEST(VolumeGroupFixture, twoHappyDMs);
 public:
     explicit VolumeChecker(int argc, char **argv, bool initAsModule);
     ~VolumeChecker() = default;
@@ -30,18 +38,24 @@ public:
      * Status Querying methods
      */
     // Enum of lifecycle of volume checker to be allowed for querying
-    enum vcStatusCode {
+    enum StatusCode {
         VC_NOT_STARTED,     // First started
         VC_RUNNING,         // Finished initializing
-        VC_PHASE_1          // VC has finished initializing and is running phase 1
+        VC_DM_HASHING          // VC has finished initializing and is running phase 1
     };
     // For the future, may return more than just status code, but progress as well
-    using vcStatus = vcStatusCode;
-    vcStatus getStatus();
+    using VcStatus = StatusCode;
+    VcStatus getStatus();
 
+
+    /**
+     * UNIT TEST METHODS. Do not use anywhere else.
+     */
+    size_t testGetVgCheckerListSize();
+    size_t testGetVgCheckerListSize(unsigned index);
+    bool testVerifyCheckerListStatus(unsigned castCode);
 private:
-    friend struct VolumeGroupFixture;
-    using volListType = std::vector<fds_volid_t>;
+    using VolListType = std::vector<fds_volid_t>;
 
     /**
      * Private members for keeping checker functional
@@ -50,7 +64,7 @@ private:
     Error populateVolumeList(int argc, char **argv);
 
     // List of volumes to check
-    volListType volumeList;
+    VolListType volumeList;
 
     // Local cached copy of dmt mgr pointer
     DMTManagerPtr dmtMgr;
@@ -68,7 +82,7 @@ private:
     bool waitForShutdown;
 
     // Keeping track of internal state machine
-    vcStatusCode currentStatusCode;
+    StatusCode currentStatusCode;
 
     /**
      * Internal data structure of keeping track of each DM that is responsible
@@ -76,15 +90,15 @@ private:
      */
     Error runPhase1();
 
-    struct dmCheckerMetaData {
-        dmCheckerMetaData(fds_volid_t _volId,
-                          fpi::SvcUuid _nodeUuid) :
+    struct DmCheckerMetaData {
+        DmCheckerMetaData(fds_volid_t _volId,
+                          fpi::SvcUuid _svcUuid) :
             volId(_volId),
-            nodeUuid(_nodeUuid),
+            svcUuid(_svcUuid),
             status(NS_NOT_STARTED)
             {}
 
-        ~dmCheckerMetaData() = default;
+        ~DmCheckerMetaData() = default;
 
         // Sends the initial check message to the dm
         void sendVolChkMsg(const EPSvcRequestRespCb &cb = nullptr);
@@ -93,7 +107,7 @@ private:
         fds_volid_t volId;
 
         // Instead of using NodeUuid, use SvcUuid since it's easier to use for thrift
-        fpi::SvcUuid nodeUuid;
+        fpi::SvcUuid svcUuid;
 
         // Current node's status
         enum chkNodeStatus {
@@ -104,9 +118,9 @@ private:
         chkNodeStatus status;
     };
 
-    // Map of volID -> metadata for DM quorum check
-    using dmCheckerMetaType = std::vector<std::pair<fds_volid_t, std::vector<dmCheckerMetaData>>>;
-    dmCheckerMetaType dmCheckerList;
+    // Map of volID -> set of metadata for DM quorum check
+    using VolumeGroupTable = std::vector<std::pair<fds_volid_t, std::vector<DmCheckerMetaData>>>;
+    VolumeGroupTable vgCheckerList;
 
     // Prepares the accounting data structures
     void prepareDmCheckerMap();

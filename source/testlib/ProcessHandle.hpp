@@ -19,6 +19,8 @@ struct ProcessHandle
     std::vector<std::string>            args;
     bool    started;
 
+    friend struct VolumeGroupTestFixture;
+
     ProcessHandle() : started(false) {}
     ProcessHandle(const std::vector<std::string> &args)
     {
