@@ -155,7 +155,7 @@ enum ResourceState {
 /* Volumegroup coordinator information */
 struct VolumeGroupCoordinatorInfo {
     1: required SvcUuid		                id;
-    2: i32				        version;
+    2: i32				        version = 0;
 }
 
 struct FDSP_VolumeDescType {
