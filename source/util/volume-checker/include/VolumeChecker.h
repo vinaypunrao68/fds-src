@@ -99,7 +99,8 @@ private:
         enum chkNodeStatus {
             NS_NOT_STARTED,     // Just created
             NS_CONTACTED,       // Volume list has been sent to the node
-            NS_WORKING          // Node has sent async resp saying it's churning
+            NS_WORKING,         // Node has sent async resp saying it's churning
+            NS_ERROR            // Error state
         };
         chkNodeStatus status;
     };

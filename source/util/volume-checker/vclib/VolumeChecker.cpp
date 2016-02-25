@@ -149,10 +149,14 @@ VolumeChecker::sendVolChkMsgsToDMs() {
     Error err(ERR_OK);
     for (auto &dmChecker : dmCheckerList) {
         for (auto &oneDMtoCheck : dmChecker.second) {
-            oneDMtoCheck.sendVolChkMsg([this](EPSvcRequest *,
+            oneDMtoCheck.sendVolChkMsg([&oneDMtoCheck](EPSvcRequest *,
                                               const Error &e_,
                                               StringPtr payload) {
-                // todo
+                if (!e_.OK()) {
+                    oneDMtoCheck.status = dmCheckerMetaData::NS_ERROR;
+                } else {
+                    oneDMtoCheck.status = dmCheckerMetaData::NS_WORKING;
+                }
                 });
             }
     }

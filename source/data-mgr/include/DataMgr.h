@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 Formation Data Systems, Inc.
+ * Copyright 2013-2016 Formation Data Systems, Inc.
  */
 
 /*
@@ -55,6 +55,7 @@
 
 #include <timeline/timelinemanager.h>
 #include <refcount/refcountmanager.h>
+#include <VolumeCheckerMgr.h>
 
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
@@ -406,6 +407,11 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
      * Migration mgr for managing DM migrations
      */
     std::unique_ptr<DmMigrationMgr> dmMigrationMgr;
+
+    /**
+     * Volume Checker Mgr for handling volume checking operations
+     */
+    std::unique_ptr<VolumeCheckerMgr> volumeCheckerMgr;
 
     friend class DMSvcHandler;
     friend class dm::GetBucketHandler;

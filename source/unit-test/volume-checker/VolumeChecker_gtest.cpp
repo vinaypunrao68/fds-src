@@ -38,7 +38,7 @@ TEST_F(VolumeGroupFixture, twoHappyDMs) {
     // For now only one volume
     std::vector<unsigned> volIdList;
     volIdList.push_back(v1Id.v);
-    initVolumeChecker(volIdList, clusterSize);
+    runVolumeChecker(volIdList, clusterSize);
     // addDMTToVC(getOmDMT(DMT_COMMITTED), clusterSize);
     stopVolumeChecker();
 

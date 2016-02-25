@@ -1058,6 +1058,11 @@ int DataMgr::mod_init(SysParams const *const param)
     dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(*this));
     counters->clearMigrationCounters();
 
+    /**
+     * Instantiate vc manager
+     */
+    volumeCheckerMgr = VolumeCheckerMgr::unique_ptr(new VolumeCheckerMgr(*this));
+
     fileTransfer.reset(new net::FileTransferService(MODULEPROVIDER()->proc_fdsroot()->dir_filetransfer(), MODULEPROVIDER()->getSvcMgr()));
     refCountMgr.reset(new refcount::RefCountManager(this));
     requestHandler.reset(new dm::Handler(*this));

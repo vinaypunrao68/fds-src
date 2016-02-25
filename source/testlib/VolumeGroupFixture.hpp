@@ -32,7 +32,7 @@ struct VolumeGroupFixture : DmGroupFixture {
         ASSERT_TRUE(svcUuidVector.size() == clusterSize);
     }
 
-    void initVolumeChecker(std::vector<unsigned> volIdList, unsigned clusterSize) {
+    void runVolumeChecker(std::vector<unsigned> volIdList, unsigned clusterSize) {
         auto roots = getRootDirectories();
 
         std::string volListString = "-v=";
