@@ -54,7 +54,7 @@ static uint32_t const ieee_oui = 0x88A084;
 static uint8_t const vendor_name[] = { 'F', 'D', 'S', ' ', ' ', ' ', ' ', ' ' };
 
 static constexpr bool ensure(bool b)
-{ return (!b ? throw fds::BlockError::connection_closed : true); }
+{ return (!b ? throw fds::ScstError::scst_error : true); }
 
 namespace fds
 {
@@ -64,7 +64,6 @@ ScstDevice::ScstDevice(VolumeDesc const& vol_desc,
                        std::shared_ptr<AmProcessor> processor)
         : amProcessor(processor),
           scst_target(target),
-          scstOps(boost::make_shared<BlockOperations>(this)),
           volumeName(vol_desc.name),
           readyResponses(4000),
           inquiry_handler(new InquiryHandler()),
@@ -169,6 +168,14 @@ void ScstDevice::setupInquiryPages(uint64_t const volume_id)
 }
 
 void
+ScstDevice::devicePoke(ConnectionState const state) {
+    if (ConnectionState::NOCHANGE != state) {
+        state_ = state;
+    }
+    asyncWatcher->send();
+}
+
+void
 ScstDevice::start(std::shared_ptr<ev::dynamic_loop> loop) {
     ioWatcher = std::unique_ptr<ev::io>(new ev::io());
     ioWatcher->set(*loop);
@@ -195,12 +202,6 @@ ScstDevice::shutdown() {
     asyncWatcher->send();
 }
 
-void
-ScstDevice::terminate() {
-    state_ = ConnectionState::STOPPED;
-    asyncWatcher->send();
-}
-
 int
 ScstDevice::openScst() {
     int dev = open(DEV_USER_PATH DEV_USER_NAME, O_RDWR | O_NONBLOCK);
@@ -214,13 +215,13 @@ void
 ScstDevice::wakeupCb(ev::async &watcher, int revents) {
     if (processing_) return;
     if (ConnectionState::RUNNING != state_) {
-        scstOps->shutdown();                        // We are shutting down
+        startShutdown();
         if (ConnectionState::STOPPED == state_ ||
             ConnectionState::DRAINED == state_) {
             asyncWatcher->stop();                   // We are not responding
             ioWatcher->stop();
             if (ConnectionState::STOPPED == state_) {
-                scstOps.reset();
+                stopped();
                 scst_target->deviceDone(volumeName);    // We are FIN!
                 return;
             }
@@ -249,6 +250,7 @@ void ScstDevice::execAllocCmd() {
 void ScstDevice::execMemFree() {
     LOGTRACE << "Deallocation requested.";
     free((void*)cmd.on_cached_mem_free.pbuf);
+    fast_reply.result = 0;
     fastReply(); // Setup the reply for the next ioctl
 }
 
@@ -262,6 +264,7 @@ void ScstDevice::execCompleteCmd() {
     if (!cmd.on_free_cmd.buffer_cached && 0 < cmd.on_free_cmd.pbuf) {
         free((void*)cmd.on_free_cmd.pbuf);
     }
+    fast_reply.result = 0;
     fastReply(); // Setup the reply for the next ioctl
 }
 
@@ -300,27 +303,7 @@ void ScstDevice::execTaskMgmtCmd() {
         }
     }
 
-    fastReply(); // Setup the reply for the next ioctl
-}
-
-void
-ScstDevice::execSessionCmd() {
-    auto attaching = (SCST_USER_ATTACH_SESS == cmd.subcode) ? true : false;
-    auto& sess = cmd.sess;
-    LOGNOTIFY << "Session "
-              << (attaching ? "attachment" : "detachment") << " requested"
-              << ", handle [" << sess.sess_h
-              << "] Init [" << sess.initiator_name
-              << "] Targ [" << sess.target_name << "]";
-
-    if (attaching) {
-        auto volName = boost::make_shared<std::string>(volumeName);
-        auto task = new ScstTask(cmd.cmd_h, SCST_USER_ATTACH_SESS);
-        scstOps->init(volName, amProcessor, task); // Defer
-        return deferredReply();
-    } else {
-        scstOps->detachVolume();
-    }
+    fast_reply.result = 0;
     fastReply(); // Setup the reply for the next ioctl
 }
 
@@ -463,7 +446,7 @@ ScstDevice::getAndRespond() {
             case ENOTTY:
             case EBADF:
                 LOGNOTIFY << "Scst device no longer has a valid handle to the kernel, terminating.";
-                throw BlockError::connection_closed;
+                throw ScstError::scst_error;
             case EFAULT:
             case EINVAL:
                 fds_panic("Invalid Scst argument!");
@@ -528,9 +511,9 @@ ScstDevice::ioEvent(ev::io &watcher, int revents) {
     try {
         // Get the next command, and/or reply to any existing finished commands
         getAndRespond();
-    } catch(BlockError const& e) {
+    } catch(ScstError const& e) {
         state_ = ConnectionState::DRAINING;
-        if (e == BlockError::connection_closed) {
+        if (e == ScstError::scst_error) {
             // If we had an error, stop the event loop too
             state_ = ConnectionState::DRAINED;
         }
@@ -539,29 +522,6 @@ ScstDevice::ioEvent(ev::io &watcher, int revents) {
     processing_ = false;
     asyncWatcher->send();
     scst_target->follow();
-}
-
-void
-ScstDevice::respondTask(BlockTask* response) {
-    auto scst_response = static_cast<ScstTask*>(response);
-    if (scst_response->isRead() || scst_response->isWrite()) {
-        respondDeviceTask(scst_response);
-    } else if (fpi::OK != scst_response->getError()) {
-        scst_response->setResult(scst_response->getError());
-    }
-
-    // add to queue
-    readyResponses.push(scst_response);
-
-    // We have something to write, so poke the loop
-    asyncWatcher->send();
-}
-
-void
-ScstDevice::attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) {
-    if (volDesc) {
-        LOGNORMAL << "Attached to volume: " << volDesc->name;
-    }
 }
 
 }  // namespace fds
