@@ -888,7 +888,7 @@ function printDiskUsage() {
 if [[ -n $1 ]]; then
     case "$1" in
         event|global_domain|local_domain|node|presets|service|snapshot_policy|stats|system_health|tenant|token|whoami|user|volume)
-            exec /usr/local/bin/cli "$@"
+            exec /usr/local/bin/fds "$@"
             ;;
     esac
 fi
