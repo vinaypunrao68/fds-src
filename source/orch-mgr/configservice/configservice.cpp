@@ -1388,9 +1388,10 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         }
 
         vol = volContainer->get_volume(*clonedVolumeName);
-        if (vol != NULL) {
-            LOGWARN << "volume with same name already exists : " << *clonedVolumeName;
-            apiException("volume with same name already exists");
+        Error err = volContainer->getVolumeStatus(*clonedVolumeName);
+        if (err == ERR_OK)
+        {
+            apiException( "Volume ( " + *clonedVolumeName + " ) already exists", fpi::RESOURCE_ALREADY_EXISTS);
         }
 
         parentVol = VolumeInfo::vol_cast_ptr(volContainer->rs_get_resource(*volumeId));
