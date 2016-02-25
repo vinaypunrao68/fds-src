@@ -614,16 +614,19 @@ def deploy_on_AWS(self, number_of_nodes, inventory_file):
     return True
 
 def core_hunter_aws(self,node_ip):
+    core_dir = '/fds/var/log/corefiles'
     connect_fabric(self, node_ip)
-    if exists('/fds/bin', use_sudo=True):
-        for dir in {'/fds/bin','/fds/var/log/corefiles'}:
+    if exists(core_dir, use_sudo=True):
+        for dir in {'/fds/var/log/corefiles'}:
             with cd(dir):
                 files = run('ls').split()
                 for file in files:
                     if fnmatch.fnmatch(file, "*.core") or fnmatch.fnmatch(file, "*.hprof") or fnmatch.fnmatch(file,"*hs_err_pid*.log"):
-                        fabric.state.connections[node_ip].get_transport().close()
+                        disconnect_fabric()
                         self.log.error("Core file %s detected at node %s:%s"%(file,node_ip,dir))
                         return 0
+    else:
+        self.log.info("{0} dir doesnt exist".format(core_dir))
     disconnect_fabric()
     return 1
 
