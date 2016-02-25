@@ -255,10 +255,11 @@ AmQoSCtrl::registerVolume(VolumeDesc const& volDesc) {
 
 Error
 AmQoSCtrl::modifyVolumePolicy(const VolumeDesc& vdesc) {
-    return htb_dispatcher->modifyQueueQosParams(vdesc.volUUID.get(),
-                                                vdesc.iops_assured,
-                                                vdesc.iops_throttle,
-                                                vdesc.relativePrio);
+    htb_dispatcher->modifyQueueQosParams(vdesc.volUUID.get(),
+                                         vdesc.iops_assured,
+                                         vdesc.iops_throttle,
+                                         vdesc.relativePrio);
+    return AmDataProvider::modifyVolumePolicy(vdesc);
 }
 
 /*
