@@ -374,6 +374,7 @@ function run_node_cleanup
 
 function run_coroner
 {
+    # TODO pooja: write/modify this method run coroner against deployed env
     excludes_dest="/fds/sbin"
 
     [[ ! -e ${excludes_dest} ]] && mkdir -p ${excludes_dest}
@@ -432,11 +433,12 @@ function run_coroner
 function run_aws_test_scenarios
 {
     start_time=$(date +%s)
-    AWS_LST_TEST_SCENARIO_LIST = ${1}
 
-    for scenario in ${AWS_LST_TEST_SCENARIO_LIST}
-    do
-        aws_test_scenario_wrapper ${scenario}
+    INVENTORY=$1; shift
+    AWS_LST_TEST_SCENARIO_LIST=( "$@" )
+    
+    for scenario in ${AWS_LST_TEST_SCENARIO_LIST[@]}; do
+        aws_test_scenario_wrapper $INVENTORY $scenario
     done
 
     end_time=$(date +%s)
@@ -446,12 +448,13 @@ function run_aws_test_scenarios
 
 function aws_test_scenario_wrapper
 {
-    scenario=${1}
+    INVENTORY=$1
+    scenario=$2
 
     do_pushd source/test/testsuites
-    # For now hard code variable values e.g. log, inventory name TODO pooja
-    message " *** RUNNING System Test Scenario: ${scenario} on AWS nodes"
-    ./ScenarioDriverSuite.py -q ./${scenario}.ini -d dummy --verbose -l ../../cit/ --install -z aws_long_system_test --reusecluster || system_test_error ${scenario}
+    # TODO pooja: fix  fs-4375
+    message " *** In AWS environment: RUNNING System Test: ${scenario}"
+    ./ScenarioDriverSuite.py -q ./${scenario}.ini -d dummy --verbose -l ../../cit/ --install -z $INVENTORY --reusecluster || system_test_error $scenario
     echo " *** Scenario completed :  ${scenario} passed"
     do_popd
 
