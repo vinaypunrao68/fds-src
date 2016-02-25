@@ -58,7 +58,10 @@ public enum FdsFeatureToggles implements Feature {
     INFLUX_WRITE_METRICS( "fds.feature_toggle.om.enable_influx_persistence" ),
 
     @Label( "If enabled, use a shared QueryHelper instance that caches results." )
-    USE_SHARED_QUERY_HELPER( "fds.feature_toggle.om.use_shared_queryhelper" );
+    USE_SHARED_QUERY_HELPER( "fds.feature_toggle.om.use_shared_queryhelper" ),
+
+    @Label( "If enabled, volume grouping is n=being used." )
+    USE_VOLUME_GROUPING( "fds.feature_toggle.common.enable_volumegrouping" );
 
     /**
      * @return Returns {@code true} if the feature associated with {@code this}

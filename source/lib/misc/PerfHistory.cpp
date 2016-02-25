@@ -433,6 +433,9 @@ void VolumePerfHistory::recordEvent(fds_uint64_t ts,
 // on the two machines are roughly in sync' - at least within the range of a collection
 // interval.
 //
+// If we determine that the remote relative seconds are earlier than our local start
+// time, we return std::numeric_limits<fds_uint64_t>::max().
+//
 fds_uint64_t VolumePerfHistory::getLocalRelativeSec(fds_uint64_t remote_rel_sec,
                                                     fds_uint64_t remote_start_ts) {
     //LOGTRACE << "remote_rel_sec = <" << remote_rel_sec
@@ -470,12 +473,19 @@ fds_uint64_t VolumePerfHistory::getLocalRelativeSec(fds_uint64_t remote_rel_sec,
      *
      */
     auto local_rel_sec = remote_rel_sec;
+    auto diff_rel_sec = tsToRelativeSec(remote_start_ts);
+
+    /**
+     * tsToRelativeSec gives us an absolute value relative to
+     * local_start_ts. We have to determine the relationship
+     * of the remote timestamp to the local timestamp to see
+     * whether that absolute value should be added or substracted.
+     */
     if (local_start_ts_ < remote_start_ts) {
-        auto diff_sec = tsToRelativeSec(remote_start_ts - local_start_ts_);
-        local_rel_sec += diff_sec;
+        local_rel_sec += diff_rel_sec;
     } else {
-        auto diff_sec = tsToRelativeSec(local_start_ts_ - remote_start_ts);
-        local_rel_sec -= diff_sec;
+        local_rel_sec = (local_rel_sec >= diff_rel_sec) ? local_rel_sec - diff_rel_sec :
+                                                          std::numeric_limits<fds_uint64_t>::max();
     }
 
     return local_rel_sec;
@@ -502,18 +512,27 @@ Error VolumePerfHistory::mergeSlots(const fpi::VolStatList& fdsp_volstats,
          * same timestamps, but their collection start times may be different as well.
          */
         fds_uint64_t rel_seconds = getLocalRelativeSec(fdsp_volstats.statlist[i].rel_seconds, fdsp_start_ts);
-        fds_uint32_t index;
-        write_synchronized(stat_lock_) {
-            index = relSecToStatHistIndex_LockHeld(rel_seconds);
-
+        if (rel_seconds == std::numeric_limits<fds_uint64_t>::max()) {
             /**
-             * An out-of-bounds index means the stat is too old.
+             * getLocalRelativeSec() has determined that these stats from the remote
+             * were collected for a generation (slot) prior to the start of our
+             * aggregation of stats. We have nowhere to record these.
              */
-            if (index < max_slot_generations_) {
-                //LOGTRACE << "Merging slot from remote service: " << remote_slot;
-                stat_slots_[index] += remote_slot;
-            } else {
-                LOGDEBUG << "Slot from remote service too old to merge: " << remote_slot;
+            LOGDEBUG << "Slot from remote service collected prior to our start and therefore too old to merge: " << remote_slot;
+        } else {
+            fds_uint32_t index;
+            write_synchronized(stat_lock_) {
+                index = relSecToStatHistIndex_LockHeld(rel_seconds);
+
+                /**
+                 * An out-of-bounds index means the stat is too old.
+                 */
+                if (index < max_slot_generations_) {
+                    //LOGTRACE << "Merging slot from remote service: " << remote_slot;
+                    stat_slots_[index] += remote_slot;
+                } else {
+                    LOGDEBUG << "Slot from remote service too old to merge: " << remote_slot;
+                }
             }
         }
     }
@@ -724,6 +743,63 @@ fds_uint64_t VolumePerfHistory::toSlotList(std::vector<StatSlot>& stat_list,
     }
 
     return last_added_rel_sec;
+}
+
+StatSlot* VolumePerfHistory::getPreviousSlot(const StatSlot& current_slot) {
+    SCOPEDREAD(stat_lock_);
+    auto slot_search_upper_bound_index = last_slot_generation_ % max_slot_generations_;
+    auto slot_search_lower_bound_index = (last_slot_generation_ >= max_slot_generations_) ?  // We don't start wrapping until this point.
+                                             (slot_search_upper_bound_index + 1) % max_slot_generations_ : 0;  // The "oldest" slot.
+
+    StatSlot* prev_slot = nullptr;
+
+    /**
+     * Locate our current slot.
+     */
+    auto slot_index = slot_search_lower_bound_index;
+    bool current_slot_found = false;
+    while ((slot_index != slot_search_upper_bound_index) && !current_slot_found) {
+        if (current_slot.getRelSeconds() == stat_slots_[slot_index].getRelSeconds()) {
+            current_slot_found = true;
+            break;
+        }
+
+        slot_index = (slot_index + 1) % max_slot_generations_;  // Go to next slot, mindful to wrap.
+    }
+
+    /**
+     * If we found the current_slot, see if we can find the
+     * one previous to it.
+     */
+    if (current_slot_found) {
+        /**
+         * Make sure the current slot is not the slot at our lower
+         * bound. If it is, there is no slot previous to it.
+         */
+        if (slot_index != slot_search_lower_bound_index) {
+            /**
+             * Go to the previous slot mindful to wrap.
+             */
+            slot_index = (slot_index == 0) ? max_slot_generations_ - 1 : slot_index - 1;
+            prev_slot = &(stat_slots_[slot_index]);
+
+            /**
+             * If the previous slot is uninitialized, we have no previous slot data.
+             */
+            if (prev_slot->getRelSeconds() == std::numeric_limits<fds_uint64_t>::max()) {
+                prev_slot = nullptr;
+            } else {
+                /**
+                 * If we don't recognize the previous slot's timestamp, then we can't use it.
+                 */
+                if (prev_slot->getRelSeconds() != current_slot.getRelSeconds() - slot_interval_sec_) {
+                    prev_slot = nullptr;
+                }
+            }
+        }
+    }
+
+    return prev_slot;
 }
 
 /**
