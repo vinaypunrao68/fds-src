@@ -122,6 +122,12 @@ NbdConnection::~NbdConnection() {
 }
 
 void
+NbdConnection::startShutdown() {
+    state_ = ConnectionState::DRAINING;
+    asyncWatcher->send();
+}
+
+void
 NbdConnection::terminate() {
     state_ = ConnectionState::STOPPED;
     asyncWatcher->send();
