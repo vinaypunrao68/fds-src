@@ -150,3 +150,9 @@
     when: fds_installed|success
     tags:
         - shutdown
+
+-   name: kill redis when doing a clean install to ensure that it is not running
+    shell: pkill -9 -f redis-server
+    when: (clean_fds is defined and clean_fds == "yes")
+    tags:
+        - shutdown
