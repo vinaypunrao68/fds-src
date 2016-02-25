@@ -437,11 +437,15 @@ function run_coroner
 
 function run_aws_test_scenarios
 {
+    message "Packaging fds-platform"
     make package fds-platform BUILD_TYPE=debug || packaging_error
-    message "fds-platform packaging done"
 
+    message "Packaging fds-deps"
     make package fds-deps || packaging_error
-    message "fds-deps packaging done"
+
+    # --reusecluster arg indicates same aws nodes are used for each test.so deploy fds before running tests.
+    message "Deploying local build on 4 aws nodes"
+    ansible/scripts/deploy_fds_ec2.sh ${ANSIBLE_CLUSTER} 4 local
 
     start_time=$(date +%s)
 
