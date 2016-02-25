@@ -378,6 +378,7 @@ VolumeGroupHandle::createPreareOpenVolumeGroupMsgReq_()
 
     auto prepareMsg = boost::make_shared<fpi::OpenVolumeMsg>();
     prepareMsg->volume_id = groupId_;
+    prepareMsg->coordinatorVersion = version_;
     // TODO(Rao): Set the token.  Set cooridnator as well
     // prepareMsg->token = volReq->token;
     // prepareMsg->mode = volReq->mode;
