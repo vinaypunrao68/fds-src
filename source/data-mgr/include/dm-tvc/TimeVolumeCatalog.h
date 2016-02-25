@@ -168,13 +168,6 @@ class DmTimeVolCatalog : public HasModuleProvider,
     Error copyVolume(VolumeDesc & voldesc,  fds_volid_t origSrcVolume = invalid_vol_id);
 
     /**
-     * Increment object reference counts for all objects referred by source
-     * volume. Sends message to SM with list of object IDs.
-     */
-    void incrObjRefCount(fds_volid_t srcVolId, fds_volid_t destVolId, fds_token_id token,
-            boost::shared_ptr<std::vector<fpi::FDS_ObjectIdType> > objIds);
-
-    /**
      * Prepare TVC and Volume Catalog to accept requests for
      * this volume
      * @param[in] volId volume ID
