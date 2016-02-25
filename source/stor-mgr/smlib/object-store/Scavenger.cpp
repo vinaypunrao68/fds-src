@@ -18,7 +18,7 @@ using diskio::DiskStat;
 
 namespace fds {
 
-#define SCAV_TIMER_SECONDS (10*60)  // 10 minutes
+#define SCAV_TIMER_SECONDS (120*60)  // 10 minutes
 #define DEFAULT_MAX_DISKS_COMPACTING (2)
 
 ScavControl::ScavControl(const std::string &modName,
