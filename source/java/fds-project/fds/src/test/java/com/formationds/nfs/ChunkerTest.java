@@ -16,6 +16,14 @@ public class ChunkerTest {
     private Chunker chunker;
     private IoOps io;
 
+    //@Test
+    public void testTimBug() throws Exception {
+        Chunker chunker = new Chunker(io);
+        int length = 16384;
+        byte[] dest = new byte[length];
+        chunker.read(DOMAIN, VOLUME, BLOB_NAME, 2097152, dest, Long.parseLong("29668368384"), length);
+    }
+
     @Test
     public void testIntFun() throws Exception {
         long offset = Long.parseLong("90696900608");
