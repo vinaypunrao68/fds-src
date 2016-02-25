@@ -148,12 +148,12 @@ class TestCreateVolClone(TestCase.FDSTestCase):
         snapshot_list = vol_service.list_snapshots(passed_volume.id)
         timeline = None
 
-        # Case1: neither of snapshot1 and snapshot2 are passed -> timeline is current time
+        # Case1: neither of snapshot1 and snapshot2 are passed -> snapshot_start < timeline < snapshot_end
         if self.passedSnapshort_start is None and self.passedSnapshort_end is None:
             # This time format is same as `snapshot.created` time format
             timeline = int(time.time())
 
-        # Case2: only one snapshot is passed -> timeline is (given) snapshot creation time
+        # Case2: only one snapshot is passed -> snapshot_start/end < timeline < now
         elif self.passedSnapshort_start is None or self.passedSnapshort_end is None:
             time_start = 0
             for snapshot in snapshot_list:
@@ -161,11 +161,11 @@ class TestCreateVolClone(TestCase.FDSTestCase):
                     time_start = snapshot.created
                 elif snapshot.name == self.passedSnapshort_end:
                     time_start = snapshot.created
-                now = int(time.time())
+            now = int(time.time())
             timeline = random.randrange(time_start+2, now, 1)
 
 
-        # Case3:Two snapshots are passed -> timeline is between first and second snapshot
+        # Case3:Two snapshots are passed -> snapshot_start < timeline < snapshot_end
         elif self.passedSnapshort_start is not None and self.passedSnapshort_end is not None:
             time_start = 0
             time_end = 0
@@ -175,7 +175,7 @@ class TestCreateVolClone(TestCase.FDSTestCase):
                 if str(snapshot.name) == self.passedSnapshort_end:
                     time_end = snapshot.created
             assert time_end > time_start
-            timeline = random.randrange(time_start, time_end, 1)
+            timeline = random.randrange(time_start+2, time_end, 1)
 
         assert timeline is not None
         create_fdsConf_file(om_node.nd_conf_dict['ip'])
