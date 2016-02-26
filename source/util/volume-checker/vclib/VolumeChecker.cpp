@@ -116,7 +116,7 @@ VolumeChecker::run() {
     return 0;
 }
 
-VolumeChecker::vcStatus
+VolumeChecker::VcStatus
 VolumeChecker::getStatus() {
     return (currentStatusCode);
 }
@@ -124,7 +124,7 @@ VolumeChecker::getStatus() {
 Error
 VolumeChecker::runPhase1() {
     Error err(ERR_OK);
-    currentStatusCode = VC_PHASE_1;
+    currentStatusCode = VC_DM_HASHING;
 
     prepareDmCheckerMap();
     sendVolChkMsgsToDMs();
@@ -134,20 +134,28 @@ VolumeChecker::runPhase1() {
 
 void
 VolumeChecker::prepareDmCheckerMap() {
+    /**
+     * For each volume that needs to be checked:
+     * 1. From the committed DMT, get the DMs responsible for this volume.
+     * 2. Create a vector called dataPerVol, each one will contain a DmCheckerMetaData
+     *    obj, representing the vol->DM relationship and used to carry out DM
+     *    operations.
+     * 3. in vgCheckerList, we add the pair of vol -> list of DM metadatas
+     */
     for (auto &vol : volumeList) {
         auto svcUuidVector = dmtMgr->getDMT(DMT_COMMITTED)->getSvcUuids(vol);
-        std::vector<dmCheckerMetaData> dataPerVol;
+        std::vector<DmCheckerMetaData> dataPerVol;
         for (auto oneSvcUuid : svcUuidVector) {
             dataPerVol.emplace_back(vol, oneSvcUuid);
         }
-        dmCheckerList.emplace_back(std::make_pair(vol, dataPerVol));
+        vgCheckerList.emplace_back(std::make_pair(vol, dataPerVol));
     }
 }
 
 Error
 VolumeChecker::sendVolChkMsgsToDMs() {
     Error err(ERR_OK);
-    for (auto &dmChecker : dmCheckerList) {
+    for (auto &dmChecker : vgCheckerList) {
         for (auto &oneDMtoCheck : dmChecker.second) {
             oneDMtoCheck.sendVolChkMsg([&oneDMtoCheck](EPSvcRequest *,
                                               const Error &e_,
@@ -165,12 +173,12 @@ VolumeChecker::sendVolChkMsgsToDMs() {
 }
 
 void
-VolumeChecker::dmCheckerMetaData::sendVolChkMsg(const EPSvcRequestRespCb &cb) {
+VolumeChecker::DmCheckerMetaData::sendVolChkMsg(const EPSvcRequestRespCb &cb) {
     auto msg = fpi::CheckVolumeMetaDataMsgPtr(new fpi::CheckVolumeMetaDataMsg);
     msg->volumeId = volId.v;
 
     auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
-    auto req = requestMgr->newEPSvcRequest(nodeUuid);
+    auto req = requestMgr->newEPSvcRequest(svcUuid);
     req->setPayload(FDSP_MSG_TYPEID(fpi::CheckVolumeMetaDataMsg), msg);
     auto sysVol = FdsSysTaskQueueId;
     req->setTaskExecutorId(sysVol.v);
@@ -179,6 +187,31 @@ VolumeChecker::dmCheckerMetaData::sendVolChkMsg(const EPSvcRequestRespCb &cb) {
     }
     req->invoke();
     status = NS_CONTACTED;
+}
+
+
+/** Unit test implementations */
+size_t
+VolumeChecker::testGetVgCheckerListSize() {
+    return vgCheckerList.size();
+}
+
+size_t
+VolumeChecker::testGetVgCheckerListSize(unsigned index) {
+    return vgCheckerList[index].second.size();
+}
+
+bool
+VolumeChecker::testVerifyCheckerListStatus(unsigned castCode) {
+    bool ret = true;
+    for (auto dmChecker : vgCheckerList) {
+        for (auto oneDMtoCheck : dmChecker.second) {
+            if (oneDMtoCheck.status != static_cast<DmCheckerMetaData::chkNodeStatus>(castCode)) {
+                ret = false;
+            }
+        }
+    }
+    return ret;
 }
 
 } // namespace fds
