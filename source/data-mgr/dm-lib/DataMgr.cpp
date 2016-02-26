@@ -1716,7 +1716,6 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_GET_VOLUME_METADATA:
         case FDS_DM_LIST_BLOBS_BY_PATTERN:
         case FDS_DM_MIGRATION:
-        case FDS_DM_MIG_TX_STATE:
             // Other (stats, etc...) handlers
         case FDS_DM_SYS_STATS:
         case FDS_DM_STAT_STREAM:
@@ -1785,6 +1784,7 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_DM_MIG_DELTA_BLOBDESC:
         case FDS_DM_MIG_FINISH_VOL_RESYNC:
         case FDS_DM_MIG_REQ_TX_STATE:
+        case FDS_DM_MIG_TX_STATE:
             if (parentDm->features.isVolumegroupingEnabled()) {
                 schedule(scheduleOnId, true,
                          std::bind(&dm::Handler::handleQueueItem,

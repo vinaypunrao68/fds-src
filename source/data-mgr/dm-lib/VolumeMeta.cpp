@@ -217,6 +217,7 @@ void VolumeMeta::enqueDmIoReq(DataMgr &dataManager, DmRequest *dmReq)
 
 void VolumeMeta::startInitializer(bool force)
 {
+    fds_assert(isSynchronized());
     fds_assert(getState() == fpi::Offline);
     fds_assert(!isInitializerInProgress());
 
@@ -232,6 +233,7 @@ void VolumeMeta::startInitializer(bool force)
 
 void VolumeMeta::notifyInitializerComplete(const Error &completionError)
 {
+    fds_assert(isSynchronized());
     fds_assert(initializer->getProgress() == VolumeInitializer::COMPLETE);
     initializer.reset();
     LOGDEBUG << "Cleanedup initializer: " << logString();
@@ -274,6 +276,8 @@ Error VolumeMeta::startMigration(const fpi::SvcUuid &srcDmUuid,
                                  const int64_t &volId,
                                  const StatusCb &doneCb)
 {
+    fds_assert(isSynchronized());
+
     Error err(ERR_OK);
     fpi::FDSP_VolumeDescType vol;
     vol.volUUID = volId;
@@ -308,6 +312,8 @@ Error VolumeMeta::startMigration(const fpi::SvcUuid &srcDmUuid,
 
 Error VolumeMeta::handleMigrationDeltaBlobDescs(DmRequest *dmRequest)
 {
+    fds_assert(isSynchronized());
+
     auto typedRequest = static_cast<DmIoMigrationDeltaBlobDesc*>(dmRequest);
 
     auto err = migrationDest->checkVolmetaVersion(dmRequest->version);
@@ -322,6 +328,8 @@ Error VolumeMeta::handleMigrationDeltaBlobDescs(DmRequest *dmRequest)
 
 Error VolumeMeta::handleMigrationDeltaBlobs(DmRequest *dmRequest)
 {
+    fds_assert(isSynchronized());
+
     auto typedRequest = static_cast<DmIoMigrationDeltaBlobs*>(dmRequest);
     auto err = migrationDest->checkVolmetaVersion(dmRequest->version);
     if (err.OK()) {
@@ -332,6 +340,8 @@ Error VolumeMeta::handleMigrationDeltaBlobs(DmRequest *dmRequest)
 
 Error VolumeMeta::handleMigrationActiveTx(DmRequest *dmRequest)
 {
+    fds_assert(isSynchronized());
+
     /**
      * This is a weird re-route to dest to executor then back to volmeta again
      * because we want to ensure similar failure handling path.
@@ -344,7 +354,9 @@ Error VolumeMeta::handleMigrationActiveTx(DmRequest *dmRequest)
     return err;
 }
 
-Error VolumeMeta::serveMigration(DmRequest *dmRequest) {
+Error VolumeMeta::serveMigration(DmRequest *dmRequest)
+{
+    fds_assert(isSynchronized());
 
     Error err(ERR_OK);
     NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
@@ -458,6 +470,8 @@ void VolumeMeta::cleanUpMigrationSource(fds_volid_t volId,
 
 void VolumeMeta::handleFinishStaticMigration(DmRequest *dmRequest)
 {
+    fds_assert(isSynchronized());
+
     dm::QueueHelper helper(*dataManager, dmRequest);
     DmIoFinishStaticMigration *request = static_cast<DmIoFinishStaticMigration*>(dmRequest);
     NodeUuid srcUuid;
@@ -547,6 +561,8 @@ Error VolumeMeta::initState() {
 
 void VolumeMeta::handleVolumegroupUpdate(DmRequest *dmRequest)
 {
+    fds_assert(isSynchronized());
+
     dm::QueueHelper helper(*dataManager, dmRequest);
     DmIoVolumegroupUpdate* request = static_cast<DmIoVolumegroupUpdate*>(dmRequest);
     auto &group = request->reqMessage->group;
