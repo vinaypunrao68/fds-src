@@ -12,6 +12,7 @@ import com.formationds.om.webkit.rest.v08.users.GetUser;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.security.AuthenticationToken;
+import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
 import com.formationds.stats.client.QueryHandler;
 import com.formationds.stats.client.StatsConnection;
@@ -30,6 +31,8 @@ import java.io.Reader;
 import java.lang.reflect.Type;
 import java.util.Map;
 
+import javax.crypto.SecretKey;
+
 /**
  * @author ptinius
  */
@@ -40,15 +43,17 @@ public class QueryMetrics implements RequestHandler, QueryHandler {
     private static final Type TYPE_08 = new TypeToken<MetricQueryCriteria>() { }.getType();
     private static final Type TYPE_COMMON = new TypeToken<com.formationds.om.repository.query.MetricQueryCriteria>() { }.getType();
     private final AuthenticationToken token;
+    private final SecretKey key;
     private final Authorizer authorizer;
     
     private static final long TIMEOUT = 300000;
     private Statistics returnStats = null;
 
-    public QueryMetrics( final Authorizer authorizer, AuthenticationToken token ) {
+    public QueryMetrics( final Authorizer authorizer, final AuthenticationToken token, final SecretKey key ) {
         super();
 
         this.token = token;
+        this.key = key;
         this.authorizer = authorizer;
     }
 
@@ -60,7 +65,7 @@ public class QueryMetrics implements RequestHandler, QueryHandler {
 
             if ( FdsFeatureToggles.STATS_SERVICE_QUERY.isActive() ){
             	
-            	StatsConnection statsConn = StatsConnection.newConnection( "localhost", 11011, "admin", "admin" );
+            	StatsConnection statsConn = StatsConnection.newConnection( "localhost", 11011, "admin", getToken().signature( getSecretKey() ) );
             	statsConn.query( ObjectModelHelper.toObject( reader, TYPE_08 ), this );
             	
             	long waited = 0;
@@ -99,5 +104,13 @@ public class QueryMetrics implements RequestHandler, QueryHandler {
 	@Override
 	public void queryResults( Statistics stats) {
 		returnStats = stats;
+	}
+	
+	private AuthenticationToken getToken(){
+		return this.token;
+	}
+	
+	private SecretKey getSecretKey(){
+		return this.key;
 	}
 }
