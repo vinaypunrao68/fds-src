@@ -59,10 +59,11 @@ std::string logString(const fpi::VolumeGroupInfo &group)
 {
     std::stringstream ss;
     ss << " groupId: " << group.groupId
-        << " version: " << group.version
+        << " version: " << group.coordinator.version
         << " lastOpId: " << group.lastOpId
         << " lastCommitId: " << group.lastCommitId
         << " functional size: " << group.functionalReplicas.size()
+        << " syncing size: " << group.syncingReplicas.size()
         << " nonfunctionalReplicas size: " << group.nonfunctionalReplicas.size();
     return ss.str();
 }

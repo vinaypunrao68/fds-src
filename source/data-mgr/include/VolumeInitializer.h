@@ -262,7 +262,7 @@ void ReplicaInitializer<T>::startBuffering_()
     }
 
     /* Callback to get the progress of replay */
-    bufferReplay_->setProgressCb(replica_->synchronizedProgressCb([this](BufferReplay::Progress progress) {
+    bufferReplay_->setProgressCb(replica_->makeSynchronized([this](BufferReplay::Progress progress) {
         // TODO(Rao): Current state validity checks
         LOGNOTIFY << "BufferReplay progressCb: " << replica_->logString()
             << bufferReplay_->logString();
