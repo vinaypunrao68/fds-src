@@ -48,7 +48,9 @@ struct RemoveErroredVolume {
         auto iter = dm->vol_meta_map.find(vol_uuid);
         if (iter != dm->vol_meta_map.end() && iter->second == NULL) {
             dm->vol_meta_map.erase(iter);
-            LOGERROR << "add volume failed for vol:" << vol_uuid;
+            LOGERROR << "vol:" << vol_uuid << " add volume failed";
+        } else {
+            LOGNORMAL << "vol:" << vol_uuid << "added successfully";
         }
     }
     DataMgr* dm;
@@ -564,15 +566,15 @@ Error DataMgr::addVolume(const std::string& vol_name,
     }
 
     /* We only add the volume if the volume is owned by this DM */
-    bool fShouldBeHere = true;
+    bool fShouldBeHere = false;
 
     if (features.isVolumegroupingEnabled()) {
         if (vdesc->isSnapshot()) {
             fShouldBeHere = amIinVolumeGroup(vdesc->srcVolumeId);
         } else if (vdesc->isClone()) {
-            fShouldBeHere = fOldVolume ?
-                amIinVolumeGroup(vdesc->volUUID) :
-                amIinVolumeGroup(vdesc->srcVolumeId);
+            // TODO(prem,rao) : dig deeper
+            fShouldBeHere = (amIinVolumeGroup(vdesc->volUUID) || 
+                             amIinVolumeGroup(vdesc->srcVolumeId));
         } else {
             fShouldBeHere = amIinVolumeGroup(vdesc->volUUID);
         }
@@ -587,14 +589,13 @@ Error DataMgr::addVolume(const std::string& vol_name,
               << " shouldbehere:" << fShouldBeHere
               << " name:" << vdesc->name;
 
-    if (!fShouldBeHere) {
+    if (features.isVolumegroupingEnabled() && !fShouldBeHere) {
         FDSGUARD(vol_map_mtx);
         vol_meta_map.erase(vol_uuid);
         LOGNORMAL << "Ignoring add volume: " << vol_uuid
                   << " as volume doesn't belong in the group";
         return ERR_OK;
     }
-
 
     if (vdesc->isSnapshot()) {
         if (!fPrimary) {
@@ -695,7 +696,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
         if (fActivated) {
             if (features.isVolumegroupingEnabled() &&
                 !(vdesc->isSnapshot())) {
-                volmeta->setPersistVolDB(getPersistDB(vol_uuid));
+                // volmeta->setPersistVolDB(getPersistDB(vol_uuid));
                 if (volmeta->isCoordinatorSet()) {
                     /* Coordinator is set. We can go through sync protocol */
                     fSyncRequired = true;
@@ -1647,7 +1648,7 @@ Error DataMgr::copyVolumeToOtherDMs(fds_volid_t volId) {
                 err = requestMgr->sendLoadFromArchiveRequest(nodes->get(i), volId, archiveFileName);
                 if (!err.ok()) {
                     failed++;
-                    LOGERROR << "could to send load from archive cmd to:" << nodes->get(i)
+                    LOGERROR << "loadfromarchive cmd failed to:" << nodes->get(i)
                              << " vol:" << volId
                              << " file:" << archiveFileName
                              << " error:" << err;
@@ -1679,12 +1680,20 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
     // Stop the queue latency timer.
     PerfTracer::tracePointEnd(io->opQoSWaitCtx);
 
-    // Get the key and vol type to use during serialization
-    // TODO(Andrew): Adding the sender's SvcUuid to the key
-    // would allow additional concurrency. Since we already
-    // don't ensure ordering with multiple senders we don't
-    // need to make them serialize.
-    SerialKey key(io->volId, io->blob_name);
+    // specifically pick what id to serialize/synchronize this request
+    auto scheduleOnId = io->volId;
+
+    // explicit background tasks
+    switch (io->io_type) {
+        case FDS_DM_RELOAD_VOLUME:
+        case FDS_DM_LOAD_FROM_ARCHIVE:
+            scheduleOnId = FdsDmSysTaskId;
+            break;
+        default:
+            break;
+    }
+
+    SerialKey key(scheduleOnId, io->blob_name);
     fpi::FDSP_VolType volType(fpi::FDSP_VOL_S3_TYPE);
     {
         fds_mutex::scoped_lock l(*(parentDm->vol_map_mtx));
@@ -1734,7 +1743,7 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
             break;
         case FDS_RENAME_BLOB:
             if (parentDm->features.isVolumegroupingEnabled()) {
-                schedule(io->volId, true,
+                schedule(scheduleOnId, true,
                          std::bind(&dm::Handler::handleQueueItem,
                                    parentDm->handlers.at(io->io_type),
                                    io));
@@ -1744,7 +1753,7 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
             // otherwise just schedule directly.
             if ((parentDm->features.isSerializeReqsEnabled())) {
                 auto renameReq = static_cast<DmIoRenameBlob*>(io);
-                SerialKey key2(io->volId, renameReq->message->destination_blob);
+                SerialKey key2(scheduleOnId, renameReq->message->destination_blob);
                 serialExecutor->scheduleOnHashKeys(keyHash(key),
                                                    keyHash(key2),
                                                    std::bind(&dm::Handler::handleQueueItem,
@@ -1761,7 +1770,7 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_DM_VOLUMEGROUP_UPDATE:
         {
             VOLUME_REQUEST_CHECK();
-            schedule(io->volId, true,
+            schedule(scheduleOnId, true,
                      std::bind(&VolumeMeta::handleVolumegroupUpdate,
                                volMeta,
                                io));
@@ -1770,7 +1779,7 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_DM_MIG_FINISH_STATIC_MIGRATION:
         {
             VOLUME_REQUEST_CHECK();
-            schedule(io->volId, true,
+            schedule(scheduleOnId, true,
                      std::bind(&VolumeMeta::handleFinishStaticMigration,
                                volMeta,
                                io));
@@ -1794,7 +1803,7 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_DM_MIG_FINISH_VOL_RESYNC:
         case FDS_DM_MIG_REQ_TX_STATE:
             if (parentDm->features.isVolumegroupingEnabled()) {
-                schedule(io->volId, true,
+                schedule(scheduleOnId, true,
                          std::bind(&dm::Handler::handleQueueItem,
                                    parentDm->handlers.at(io->io_type),
                                    io));
@@ -1835,7 +1844,7 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
                                                         io));
             break;
         case FDS_DM_FUNCTOR:
-            schedule(io->volId, true,
+            schedule(scheduleOnId, true,
                      std::bind(&DataMgr::handleDmFunctor,
                                parentDm, io));
             break;
