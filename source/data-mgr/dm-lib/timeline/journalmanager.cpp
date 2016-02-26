@@ -182,18 +182,18 @@ void JournalManager::monitorLogs() {
             processedEvent = false;
             std::vector<std::string> volDirs;
             util::getSubDirectories(dmDir, volDirs);
-            LOGDEBUG << "monitoring : " << dmDir << " subdirs:" << volDirs.size();
+            LOGTRACE << "monitoring : " << dmDir << " subdirs:" << volDirs.size();
 
             for (const auto & d : volDirs) {
                 std::string volPath = dmDir + d + "/";
                 std::vector<std::string> catFiles;
                 util::getFiles(volPath, catFiles);
-                LOGDEBUG << "processing:" << volPath << " with files:" << catFiles.size();
+                LOGTRACE << "processing:" << volPath << " with files:" << catFiles.size();
 
                 for (const auto & f : catFiles) {
-                    LOGDEBUG << "file:" << f;
+                    LOGTRACE << "file:" << f;
                     if (0 == f.find(leveldb::DEFAULT_ARCHIVE_PREFIX)) {
-                        LOGDEBUG << "Found leveldb archive file '" << volPath << f << "'";
+                        LOGTRACE << "Found leveldb archive file '" << volPath << f << "'";
                         std::string volTLPath = root->dir_timeline_dm() + d + "/";
                         FdsRootDir::fds_mkdir(volTLPath.c_str());
 
@@ -209,7 +209,7 @@ void JournalManager::monitorLogs() {
                         } else {
                             cmd = "gzip  --stdout " + srcFile + " > " + destFile;
                         }
-                        LOGDEBUG << "running command: [" << cmd << "]";
+                        LOGTRACE << "running command: [" << cmd << "]";
                         auto rc = std::system(cmd.c_str());
 
                         if (!rc) {
@@ -229,7 +229,7 @@ void JournalManager::monitorLogs() {
                         LOGCRITICAL << "Failed to add watch for directory '" << volPath << "'";
                         continue;
                     } else {
-                        LOGDEBUG << "Watching directory [" << volPath << "]";
+                        LOGTRACE << "Watching directory [" << volPath << "]";
                         processedEvent = true;
                         watched.insert(volPath);
                     }
@@ -248,7 +248,7 @@ void JournalManager::monitorLogs() {
             eventReady = false;
             errno = 0;
             fds_int32_t fdCount = epoll_wait(efd, &ev, MAX_POLL_EVENTS, POLL_WAIT_TIME_MS);
-            LOGDEBUG << "fdcount:" << fdCount;
+            LOGTRACE << "fdcount:" << fdCount;
             if (fStopLogMonitoring) {
                 return;
             }
@@ -270,7 +270,7 @@ void JournalManager::monitorLogs() {
 
                 for (char * p = buffer; p < buffer + len; ) {
                     struct inotify_event * event = reinterpret_cast<struct inotify_event *>(p);
-                    LOGDEBUG << "event name:" << event->name;
+                    LOGTRACE << "event name:" << event->name;
                     if (event->mask | IN_ISDIR
                         || 0 == strncmp(event->name,
                                         leveldb::DEFAULT_ARCHIVE_PREFIX.c_str(),
@@ -310,7 +310,7 @@ void JournalManager::removeExpiredJournals() {
             if (!vecJournalFiles.empty()) {
                 LOGNORMAL << "[" << vecJournalFiles.size() << "] files will be removed for vol:" << volid;
             } else {
-                LOGDEBUG << "No journals to be removed for vol:" << volid;
+                LOGTRACE << "No journals to be removed for vol:" << volid;
             }
 
             for (const auto& journal : vecJournalFiles) {
