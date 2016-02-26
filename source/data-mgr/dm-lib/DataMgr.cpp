@@ -553,28 +553,6 @@ Error DataMgr::addVolume(const std::string& vol_name,
         LOGWARN << "previously active vol:"<< vdesc->volUUID <<", but dbfile missing.. this should be either be a new Node or DM was down during previous addVolume";
     }
 
-    if (features.isVolumegroupingEnabled()) {
-        /* We only add the volume if the volume is owned by this DM */
-        bool fShouldBeHere = true;
-
-        if (vdesc->isSnapshot()) {
-            fShouldBeHere = amIinVolumeGroup(vdesc->srcVolumeId);
-        } else if (vdesc->isClone()) {
-            fShouldBeHere = fOldVolume ?
-                amIinVolumeGroup(vdesc->volUUID) :
-                amIinVolumeGroup(vdesc->srcVolumeId);
-        } else {
-            fShouldBeHere = amIinVolumeGroup(vdesc->volUUID);
-        }
-        if (!fShouldBeHere) {
-            FDSGUARD(vol_map_mtx);
-            vol_meta_map.erase(vol_uuid);
-            LOGNORMAL << "Ignoring add volume: " << vol_uuid
-                << " as volume doesn't belong in the group";
-            return ERR_OK;
-        }
-    }
-
     if (vdesc->isClone()) {
         // clone happens only on primary
         fPrimary = amIPrimary(vdesc->srcVolumeId);
@@ -585,13 +563,38 @@ Error DataMgr::addVolume(const std::string& vol_name,
         fPrimary = amIPrimary(vdesc->volUUID);
     }
 
-    LOGNORMAL << "vol:" << vol_name
+    /* We only add the volume if the volume is owned by this DM */
+    bool fShouldBeHere = true;
+
+    if (features.isVolumegroupingEnabled()) {
+        if (vdesc->isSnapshot()) {
+            fShouldBeHere = amIinVolumeGroup(vdesc->srcVolumeId);
+        } else if (vdesc->isClone()) {
+            fShouldBeHere = fOldVolume ?
+                amIinVolumeGroup(vdesc->volUUID) :
+                amIinVolumeGroup(vdesc->srcVolumeId);
+        } else {
+            fShouldBeHere = amIinVolumeGroup(vdesc->volUUID);
+        }
+    }
+
+    LOGNORMAL << "vol:" << vdesc->volUUID
               << " clone:" << vdesc->isClone()
               << " snap:" << vdesc->isSnapshot()
               << " state:" << vdesc->getState()
               << " old:" << fOldVolume
               << " primary:" << fPrimary
+              << " shouldbehere:" << fShouldBeHere
               << " name:" << vdesc->name;
+
+    if (!fShouldBeHere) {
+        FDSGUARD(vol_map_mtx);
+        vol_meta_map.erase(vol_uuid);
+        LOGNORMAL << "Ignoring add volume: " << vol_uuid
+                  << " as volume doesn't belong in the group";
+        return ERR_OK;
+    }
+
 
     if (vdesc->isSnapshot()) {
         if (!fPrimary) {
