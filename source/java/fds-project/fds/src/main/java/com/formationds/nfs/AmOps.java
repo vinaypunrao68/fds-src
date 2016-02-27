@@ -94,24 +94,21 @@ public class AmOps implements IoOps {
 
     @Override
     public void writeObject(String domain, String volume, String blobName, ObjectOffset objectOffset, FdsObject fdsObject) throws IOException {
-        fdsObject.lock(o -> {
-            int length = o.limit();
-            String description = "AM.writeObject";
-            String argumentsSummary = "volume=" + volume + ", blobName=" + blobName + ", objectOffset=" + objectOffset.getValue() + ", buf=" + length;
+        int length = fdsObject.limit();
+        String description = "AM.writeObject";
+        String argumentsSummary = "volume=" + volume + ", blobName=" + blobName + ", objectOffset=" + objectOffset.getValue() + ", buf=" + length;
 
-            WorkUnit<Void> unit = new WorkUnit<Void>(description, argumentsSummary) {
-                @Override
-                public Void supply() throws Exception {
-                    TxDescriptor tx = asyncAm.startBlobTx(domain, volume, blobName, 0).get();
-                    asyncAm.updateBlob(domain, volume, blobName, tx, o.asByteBuffer(), o.limit(), objectOffset, false).get();
-                    asyncAm.commitBlobTx(domain, volume, blobName, tx).get();
-                    return null;
-                }
-            };
+        WorkUnit<Void> unit = new WorkUnit<Void>(description, argumentsSummary) {
+            @Override
+            public Void supply() throws Exception {
+                TxDescriptor tx = asyncAm.startBlobTx(domain, volume, blobName, 0).get();
+                asyncAm.updateBlob(domain, volume, blobName, tx, fdsObject.asByteBuffer(), fdsObject.limit(), objectOffset, false).get();
+                asyncAm.commitBlobTx(domain, volume, blobName, tx).get();
+                return null;
+            }
+        };
 
-            handleExceptions(new ErrorCode[0], c -> null, unit);
-            return null;
-        });
+        handleExceptions(new ErrorCode[0], c -> null, unit);
     }
 
     @Override
