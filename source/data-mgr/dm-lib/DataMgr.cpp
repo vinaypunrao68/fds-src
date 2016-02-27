@@ -1693,7 +1693,11 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
     GLOGDEBUG << "processing : " << io->log_string() << " volType: " << volType
               << " key: " << key.first << ":" << key.second;
     switch (io->io_type){
-        /* TODO(Rao): Add the new refactored DM messages types here */
+        /* TODO(Rao):
+         * 1. clean up unnecessary messages
+         * 2. Use DataMgr::dmQosCtrl::schedule() instead of fds_threadpool directly here.
+         *    Once we switch to volume grouping this clean up can be done.
+         */
         case FDS_DM_SNAP_VOLCAT:
         case FDS_DM_SNAPDELTA_VOLCAT:
             threadPool->schedule(&DataMgr::snapVolCat, parentDm, io);
@@ -1727,10 +1731,10 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
             break;
         case FDS_RENAME_BLOB:
             if (parentDm->features.isVolumegroupingEnabled()) {
-                serialExecutor->scheduleOnHashKey(io->volId.get(),
-                                                  std::bind(&dm::Handler::handleQueueItem,
-                                                            parentDm->handlers.at(io->io_type),
-                                                            io));
+                schedule(io->volId, true,
+                         std::bind(&dm::Handler::handleQueueItem,
+                                   parentDm->handlers.at(io->io_type),
+                                   io));
                 break;
             }
             // If serialization is enabled, serialize on both keys,
@@ -1754,19 +1758,19 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_DM_VOLUMEGROUP_UPDATE:
         {
             VOLUME_REQUEST_CHECK();
-            serialExecutor->scheduleOnHashKey(io->volId.get(),
-                                              std::bind(&VolumeMeta::handleVolumegroupUpdate,
-                                                        volMeta,
-                                                        io));
+            schedule(io->volId, true,
+                     std::bind(&VolumeMeta::handleVolumegroupUpdate,
+                               volMeta,
+                               io));
             break;
         }
         case FDS_DM_MIG_FINISH_STATIC_MIGRATION:
         {
             VOLUME_REQUEST_CHECK();
-            serialExecutor->scheduleOnHashKey(io->volId.get(),
-                                              std::bind(&VolumeMeta::handleFinishStaticMigration,
-                                                        volMeta,
-                                                        io));
+            schedule(io->volId, true,
+                     std::bind(&VolumeMeta::handleFinishStaticMigration,
+                               volMeta,
+                               io));
             break;
         }
         case FDS_DELETE_BLOB:
@@ -1787,10 +1791,10 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_DM_MIG_FINISH_VOL_RESYNC:
         case FDS_DM_MIG_REQ_TX_STATE:
             if (parentDm->features.isVolumegroupingEnabled()) {
-                serialExecutor->scheduleOnHashKey(io->volId.get(),
-                                                  std::bind(&dm::Handler::handleQueueItem,
-                                                            parentDm->handlers.at(io->io_type),
-                                                            io));
+                schedule(io->volId, true,
+                         std::bind(&dm::Handler::handleQueueItem,
+                                   parentDm->handlers.at(io->io_type),
+                                   io));
                 break;
             }
             // If serialization in enabled, serialize on the key
@@ -1828,8 +1832,9 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
                                                         io));
             break;
         case FDS_DM_FUNCTOR:
-            serialExecutor->scheduleOnHashKey(io->volId.get(),
-                                              std::bind(&DataMgr::handleDmFunctor, parentDm, io));
+            schedule(io->volId, true,
+                     std::bind(&DataMgr::handleDmFunctor,
+                               parentDm, io));
             break;
         default:
             LOGWARN << "Unknown IO Type received";
@@ -1844,7 +1849,7 @@ DataMgr::dmQosCtrl::dmQosCtrl(DataMgr *_parent,
                               uint32_t _max_thrds,
                               dispatchAlgoType algo,
                               fds_log *log) :
-        FDS_QoSControl(_max_thrds, algo, log, "DM") {
+        FDS_QoSControl(_max_thrds, 2, algo, log, "DM") {
     parentDm = _parent;
     dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate,
                                       parentDm->qosOutstandingTasks,

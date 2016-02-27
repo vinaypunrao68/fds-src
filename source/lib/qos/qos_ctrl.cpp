@@ -26,7 +26,7 @@ FDS_QoSControl::FDS_QoSControl(fds_uint32_t _max_threads,
                                dispatchAlgoType algo,
                                fds_log *log,
                                const std::string& prefix)
-:qos_max_threads(_max_threads),
+:qos_max_threads(_max_threads)
 {
     threadPool = new fds_threadpool(qos_max_threads);
     if (lowpriThreadpoolSz > 0) {
