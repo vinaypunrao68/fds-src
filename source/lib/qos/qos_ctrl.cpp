@@ -39,7 +39,9 @@ FDS_QoSControl::FDS_QoSControl(fds_uint32_t _max_threads,
 
 FDS_QoSControl::~FDS_QoSControl()  {
     delete threadPool;
-    delete lowpriThreadPool;
+    if (lowpriThreadPool) {
+        delete lowpriThreadPool;
+    }
 }
 
 void FDS_QoSControl::stop() {
