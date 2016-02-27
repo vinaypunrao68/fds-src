@@ -382,11 +382,10 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                         boost::shared_ptr<fpi::NotifyHealthReport> &msg)
 {
     LOGNORMAL << "Received Health Report: "
-              << msg->healthReport.serviceInfo.svc_id.svc_name
-              << " state: " << msg->healthReport.serviceState
-              << " status: " << msg->healthReport.statusCode 
-              << " SvcInfo ("
-              << fds::logString(msg->healthReport.serviceInfo) << " )"
+              << " health service state: " << msg->healthReport.serviceState
+              << " health status code: " << msg->healthReport.statusCode
+              << " health status info: '" << msg->healthReport.statusInfo << "'"
+              << " SvcInfo ( " << fds::logString(msg->healthReport.serviceInfo) << " )"
               << " from service uuid:" << std::hex << hdr->msg_src_id << std::dec;
 
     ResourceUUID service_UUID (msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
@@ -414,11 +413,6 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
             healthReportError(service_type, msg);
             break;
         case fpi::HEALTH_STATE_UNREACHABLE:
-            LOGERROR << "Handling unreachable event for service " 
-                     << msg->healthReport.serviceInfo.name
-                     << " in state " 
-                     << msg->healthReport.serviceState;
-
             healthReportUnreachable( service_type, msg );
 
             // Track this error event as a timeout. We're assuming a timeout is
@@ -442,8 +436,7 @@ void OmSvcHandler::notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                 default:
                     LOGERROR << "Unhandled process: "
                              << msg->healthReport.serviceInfo.svc_id.svc_name.c_str()
-                             << " with service type "
-                             << service_type;
+                             << " with service type " << service_type;
                     break;
             }
             break;
@@ -562,6 +555,12 @@ void OmSvcHandler::healthReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
 void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
                                             boost::shared_ptr<fpi::NotifyHealthReport> &msg) 
 {
+    LOGERROR << "Handle Health Report: "
+             << " health service state: " << msg->healthReport.serviceState
+             << " health status code: " << msg->healthReport.statusCode
+             << " health status info: '" << msg->healthReport.statusInfo << "'"
+             << " SvcInfo ( " << fds::logString(msg->healthReport.serviceInfo) << " )";
+
     // we only handle specific errors from SM and DM for now
     if ( ( svc_type == fpi::FDSP_STOR_MGR ) || ( svc_type == fpi::FDSP_DATA_MGR ) ) {
         /*
@@ -583,18 +582,22 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
                 return;
             }
 
-            auto domain = OM_NodeDomainMod::om_local_domain();
-            Error reportError(msg->healthReport.statusCode);
-
-            LOGERROR << "Will set service to failed state, svcInfo ("
-                     << fds::logString(msg->healthReport.serviceInfo) << " )";
-
             /*
              * change the state and update service map; then broadcast updated service map
              */
-            auto svcInfo = boost::make_shared<fpi::SvcInfo>(msg->healthReport.serviceInfo);
-            domain->om_change_svc_state_and_bcast_svcmap( svcInfo, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
-            //domain->om_service_down( reportError, uuid, svc_type );
+
+            /*
+             * As of March 1st, 2016 it is determined that we don't want to mark a service as inactive failed
+             * when we receive a "unreachable" health message form service layer.
+             */
+//            auto domain = OM_NodeDomainMod::om_local_domain();
+//            Error reportError(msg->healthReport.statusCode);
+//
+//            auto svcInfo = boost::make_shared<fpi::SvcInfo>(msg->healthReport.serviceInfo);
+//            LOGERROR << "Will set service to inactive failed state, svcInfo ("
+//                     << fds::logString(msg->healthReport.serviceInfo) << " )";
+//            domain->om_change_svc_state_and_bcast_svcmap( svcInfo, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
+//            domain->om_service_down( reportError, uuid, svc_type );
         }
 
         return;
@@ -653,7 +656,7 @@ void OmSvcHandler::healthReportError(fpi::FDSP_MgrIdType &svc_type,
         {
             LOGNOTIFY << "Received Flapping error from PM for service:"
                       << std::hex << uuid.uuid_get_val() << std::dec
-                      << " , setting to state INACTIVE_FAILED";
+                      << ", setting to state INACTIVE_FAILED";
             auto svcPtr = boost::make_shared<fpi::SvcInfo>(msg->healthReport.serviceInfo);
             domain->om_change_svc_state_and_bcast_svcmap( svcPtr, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
 
@@ -663,7 +666,7 @@ void OmSvcHandler::healthReportError(fpi::FDSP_MgrIdType &svc_type,
         } else {
             LOGWARN << "Received Flapping error from PM for service:"
                       << std::hex << uuid.uuid_get_val() << std::dec
-                      << " , ignoring since svc is not in started/active state, current state:" << status;
+                      << ", ignoring since svc is not in started/active state, current state:" << status;
         }
 
         return;
@@ -737,7 +740,7 @@ OmSvcHandler::setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 void OmSvcHandler::genericCommand(ASYNC_HANDLER_PARAMS(GenericCommandMsg)) {
     if (msg->command == "timeline.queue.ping") {
         auto om = gl_orch_mgr;
-        if (om->snapshotMgr != NULL) {
+        if ( om->snapshotMgr != NULL ) {
             om->snapshotMgr->snapScheduler->ping();
             om->snapshotMgr->deleteScheduler->ping();
         } else {

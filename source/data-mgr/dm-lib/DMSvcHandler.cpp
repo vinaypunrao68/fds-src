@@ -3,9 +3,11 @@
  */
 #include <DataMgr.h>
 #include <fdsp_utils.h>
+#include <util/path.h>
 #include <DMSvcHandler.h>
 #include <StatStreamAggregator.h>
 #include <fdsp/dm_api_types.h>
+#include <err.h>
 
 namespace fds {
 DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManager)
@@ -35,6 +37,9 @@ DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManage
 
     /* DM Debug messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::DbgForceVolumeSyncMsg, handleDbgForceVolumeSyncMsg);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CopyVolumeMsg, handleCopyVolume);
+    REGISTER_FDSP_MSG_HANDLER(fpi::ArchiveMsg, handleArchive);
+    REGISTER_FDSP_MSG_HANDLER(fpi::ArchiveRespMsg, handleArchiveResp);
 
     registerDmVolumeReqHandler<DmIoVolumegroupUpdate>();
     registerDmVolumeReqHandler<DmIoFinishStaticMigration>();
@@ -513,4 +518,35 @@ DMSvcHandler::handleDbgForceVolumeSyncMsg(SHPTR<fpi::AsyncHdr>& hdr,
         });
     func();
 }
+
+void
+DMSvcHandler::handleCopyVolume(SHPTR<fpi::AsyncHdr> &hdr, SHPTR<fpi::CopyVolumeMsg> &copyMsg) {
+    Error err;
+
+    auto volId = fds_volid_t(copyMsg->volId);
+    fpi::SvcUuid svcId;
+    svcId.__set_svc_uuid(copyMsg->destDmUuid);
+    err = dataManager_.copyVolumeToTargetDM(svcId,volId, copyMsg->archivePolicy);
+
+    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    hdr->msg_type_id = fpi::EmptyMsgTypeId;
+    sendAsyncResp(*hdr,fpi::EmptyMsgTypeId, fpi::EmptyMsg());
+}
+
+void
+DMSvcHandler::handleArchive(SHPTR<fpi::AsyncHdr> &hdr, SHPTR<fpi::ArchiveMsg> &archiveMsg) {
+    Error err;
+    auto volId = fds_volid_t(archiveMsg->volId);
+
+    err = dataManager_.archiveTargetVolume(volId);
+
+    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    hdr->msg_type_id = fpi::ArchiveRespMsgTypeId;
+    sendAsyncResp(*hdr,fpi::ArchiveRespMsgTypeId,fpi::ArchiveRespMsg());
+}
+
+
+void DMSvcHandler::handleArchiveResp(SHPTR<fpi::AsyncHdr> &hdr, SHPTR<fpi::ArchiveRespMsg> &archiveMsg) {
+}
+
 }  // namespace fds

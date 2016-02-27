@@ -202,8 +202,6 @@ public class Main {
                 new FdsAuthorizer(configCache) :
                 new DumbAuthorizer();
 
-        ByteBufferPool bbp = new ArrayByteBufferPool();
-
         AsyncAm asyncAm = useFakeAm ?
                 new FakeAsyncAm() :
                 new RealAsyncAm(amHost, pmPort + xdiServicePortOffset, amResponsePort, xdiStaticConfig.getAmTimeout());
@@ -211,7 +209,6 @@ public class Main {
 
         // TODO: should XdiAsync use omCachedConfigProxy too?
         Supplier<AsyncStreamer> factory = () -> new AsyncStreamer(asyncAm,
-                bbp,
                 configCache);
 
         Xdi xdi = new Xdi(configCache, authenticator, authorizer, asyncAm, factory);
@@ -226,11 +223,13 @@ public class Main {
         HttpsConfiguration httpsConfiguration = new HttpsConfiguration(s3SslPort,
                 configuration);
 
+        int s3MaxConcurrentRequests = platformConfig.defaultInt("fds.am.s3_max_concurrent_requests", 500);
         new Thread(() -> new S3Endpoint(xdi,
                 factory,
                 secretKey,
                 httpsConfiguration,
-                httpConfiguration).start(), "S3 service thread").start();
+                httpConfiguration,
+                s3MaxConcurrentRequests).start(), "S3 service thread").start();
 
         // Experimental: XDI server
         IoOps ioOps = new DeferredIoOps(new AmOps(asyncAm), v -> {

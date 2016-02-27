@@ -36,10 +36,10 @@ struct NodeInfo
   4: required bool fHasOm;
   5: required bool fHasSm;
 
-  6: i32  bareAMPid = -1;
-  7: i32  javaAMPid = -1;
-  8: i32  dmPid = -1;
-  9: i32  smPid = -1;
+  6: required i32  bareAMPid = -1;
+  7: required i32  javaAMPid = -1;
+  8: required i32  dmPid = -1;
+  9: required i32  smPid = -1;
 
  10: pm_types.pmServiceStateTypeId  bareAMState = pmServiceStateTypeId.SERVICE_NOT_PRESENT;
  11: pm_types.pmServiceStateTypeId  javaAMState = pmServiceStateTypeId.SERVICE_NOT_PRESENT;

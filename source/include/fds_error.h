@@ -103,6 +103,7 @@ namespace fds {
     ADD(ERR_IO_DLT_MISMATCH,= 100," "), \
     ADD(ERR_IO_DMT_MISMATCH,= 101," "), \
     ADD(ERR_IO_OPID_MISMATCH,= 102," "), \
+    ADD(ERR_IO_SEQUENCEID_MISMATCH,= 103," "), \
     \
     /* Metadata error range */          \
     ADD(ERR_BLOB_OFFSET_INVALID,= 500," "), \
