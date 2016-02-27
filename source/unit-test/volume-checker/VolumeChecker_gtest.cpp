@@ -27,6 +27,7 @@ using namespace fds::TestUtils;
  * 3. Run Volume checker on volume, should return consistent result.
  */
 TEST_F(VolumeGroupFixture, twoHappyDMs) {
+    g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
     LOGNORMAL << "TEST MARKER Starting twoHappyDMs";
 
     // Create 2 DMs
@@ -39,7 +40,6 @@ TEST_F(VolumeGroupFixture, twoHappyDMs) {
     std::vector<unsigned> volIdList;
     volIdList.push_back(v1Id.v);
     runVolumeChecker(volIdList, clusterSize);
-    // addDMTToVC(getOmDMT(DMT_COMMITTED), clusterSize);
     stopVolumeChecker();
 
     /* Do some io. After Io is done, every volume replica must have same state */

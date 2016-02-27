@@ -4,6 +4,7 @@
 
 #ifndef SOURCE_DATA_MGR_INCLUDE_VOLUMECHECKERMGR_H_
 #define SOURCE_DATA_MGR_INCLUDE_VOLUMECHECKERMGR_H_
+#include <VolumeCheckerWorker.h>
 
 namespace fds {
 
@@ -22,9 +23,28 @@ public:
     explicit VolumeCheckerMgr(DataMgr &_dataMgr);
     ~VolumeCheckerMgr() = default;
 
+    /**
+     * Registers the volume to be checked
+     */
+    Error registerRequest(DmRequest *req);
+
+    /**
+     * Unit test functions only
+     */
+    size_t testGetvcWorkerMapSize();
+
 private:
     // Local reference of dm
     DataMgr &dataMgr;
+
+    // The node that the volumeChecker command was issued
+    fpi::SvcUuid checkerUuid;
+
+    using vcWorkerPtr = std::unique_ptr<VolumeCheckerWorker>;
+    using workerMapType = std::unordered_map<fds_volid_t, vcWorkerPtr>;
+    workerMapType vcWorkerMap;
+
+
 };
 
 

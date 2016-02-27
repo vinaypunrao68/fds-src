@@ -126,8 +126,13 @@ VolumeChecker::runPhase1() {
     Error err(ERR_OK);
     currentStatusCode = VC_DM_HASHING;
 
+    initialMsgTracker = new MigrationTrackIOReqs;
     prepareDmCheckerMap();
     sendVolChkMsgsToDMs();
+    if (!waitForVolChkMsg().OK()) {
+        handleVolumeCheckerError();
+    }
+    delete initialMsgTracker;
 
     return err;
 }
@@ -146,36 +151,67 @@ VolumeChecker::prepareDmCheckerMap() {
         auto svcUuidVector = dmtMgr->getDMT(DMT_COMMITTED)->getSvcUuids(vol);
         std::vector<DmCheckerMetaData> dataPerVol;
         for (auto oneSvcUuid : svcUuidVector) {
+            LOGDEBUG << "VolumeChecker creating metadata for volume "
+                    << vol << " for node: " << oneSvcUuid;
             dataPerVol.emplace_back(vol, oneSvcUuid);
         }
+        LOGDEBUG << "VolumeChecker created all nodes metadata for volume: " << vol;
         vgCheckerList.emplace_back(std::make_pair(vol, dataPerVol));
     }
 }
 
-Error
+void
 VolumeChecker::sendVolChkMsgsToDMs() {
-    Error err(ERR_OK);
+    // For each volume that needs checking, send a msg to the DM responsible
     for (auto &dmChecker : vgCheckerList) {
         for (auto &oneDMtoCheck : dmChecker.second) {
-            oneDMtoCheck.sendVolChkMsg([&oneDMtoCheck](EPSvcRequest *,
+            DmCheckerMetaData *dmData = &oneDMtoCheck;
+            MigrationTrackIOReqs *msgTracker = initialMsgTracker;
+            initialMsgTracker->startTrackIOReqs();
+            LOGDEBUG << "Sending initial check msg to node : "
+                    << dmData->svcUuid.svc_uuid << " for volume: "
+                    << dmData->volId;
+            dmData->sendVolChkMsg([dmData, msgTracker](EPSvcRequest *,
                                               const Error &e_,
                                               StringPtr payload) {
                 if (!e_.OK()) {
-                    oneDMtoCheck.status = dmCheckerMetaData::NS_ERROR;
+                    dmData->status = DmCheckerMetaData::NS_ERROR;
                 } else {
-                    oneDMtoCheck.status = dmCheckerMetaData::NS_WORKING;
+                    dmData->status = DmCheckerMetaData::NS_WORKING;
                 }
-                });
-            }
+                fds_assert(msgTracker);
+                msgTracker->finishTrackIOReqs();
+            });
+        }
     }
+}
 
+Error
+VolumeChecker::waitForVolChkMsg() {
+    Error err(ERR_OK);
+    fds_assert(initialMsgTracker);
+    initialMsgTracker->waitForTrackIOReqs();
+
+    for (auto &dmChecker : vgCheckerList) {
+        for (auto &oneDMtoCheck : dmChecker.second) {
+            if (oneDMtoCheck.status == DmCheckerMetaData::NS_ERROR) {
+                err = ERR_INVALID;
+                break;
+            }
+        }
+    }
     return err;
+}
+
+void
+VolumeChecker::handleVolumeCheckerError() {
+    // TODO
 }
 
 void
 VolumeChecker::DmCheckerMetaData::sendVolChkMsg(const EPSvcRequestRespCb &cb) {
     auto msg = fpi::CheckVolumeMetaDataMsgPtr(new fpi::CheckVolumeMetaDataMsg);
-    msg->volumeId = volId.v;
+    msg->volume_id = volId.v;
 
     auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
     auto req = requestMgr->newEPSvcRequest(svcUuid);
@@ -186,6 +222,10 @@ VolumeChecker::DmCheckerMetaData::sendVolChkMsg(const EPSvcRequestRespCb &cb) {
         req->onResponseCb(cb);
     }
     req->invoke();
+    /**
+     * Note: For receiving end, start with DMSvcHandler.cpp and follow
+     * DmIoVolumeCheck
+     */
     status = NS_CONTACTED;
 }
 

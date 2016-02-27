@@ -7,6 +7,7 @@
 #include <fdsp/am_types_types.h>
 #include <fdsp/dm_api_types.h>
 #include <fdsp/sm_api_types.h>
+#include <fdsp/vc_api_types.h>
 #include <fds_resource.h>
 #include <net/SvcMgr.h>
 #include <net/SvcRequest.h>
@@ -406,6 +407,14 @@ std::string logString(const fpi::GetVolumeMetadataMsg& msg) {
     std::ostringstream oss;
     oss << " GetVolumeMetadataMsg "
         << " volume_id: " << msg.volumeId;
+    return oss.str();
+}
+
+std::string logString(const fpi::CheckVolumeMetaDataMsg& msg) {
+    std::ostringstream oss;
+    oss << " GetVolumeMetadataMsg "
+        << " from node " << msg.volCheckerNodeUuid
+        << " volume_id: " << msg.volume_id;
     return oss.str();
 }
 

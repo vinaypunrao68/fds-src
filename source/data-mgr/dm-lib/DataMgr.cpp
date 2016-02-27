@@ -291,6 +291,14 @@ void DataMgr::handleLocalStatStream(fds_uint64_t start_timestamp,
                                             slots);
 }
 
+void DataMgr::handleInitVolCheck(DmRequest *dmRequest) {
+    dm::QueueHelper helper(*this, dmRequest);
+
+    if (!volumeCheckerMgr->registerRequest(dmRequest).OK()) {
+        LOGERROR << "Unable to register volume to be checked.";
+        helper.err = ERR_INVALID;
+    }
+}
 /**
  * Is called on timer to finish forwarding for all volumes that
  * are still forwarding, send DMT close ack, and remove vcat/tcat
@@ -1840,6 +1848,12 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_DM_FUNCTOR:
             serialExecutor->scheduleOnHashKey(io->volId.get(),
                                               std::bind(&DataMgr::handleDmFunctor, parentDm, io));
+            break;
+        case FDS_DM_VOLUME_CHK_MSG:
+            serialExecutor->scheduleOnHashKey(io->volId.get(),
+                                              std::bind(&DataMgr::handleInitVolCheck,
+                                                        parentDm,
+                                                        io));
             break;
         default:
             LOGWARN << "Unknown IO Type received";

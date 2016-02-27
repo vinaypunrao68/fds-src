@@ -42,9 +42,9 @@ struct VolumeGroupFixture : DmGroupFixture {
                        volListString
                        });
 
-        ASSERT_FALSE(vcHandle.proc->getStatus() == fds::VolumeChecker::VC_NOT_STARTED);
 
         // Phase 1 test
+        ASSERT_FALSE(vcHandle.proc->getStatus() == fds::VolumeChecker::VC_NOT_STARTED);
         ASSERT_TRUE(vcHandle.proc->getStatus() == fds::VolumeChecker::VC_DM_HASHING);
 
         // vgCheckerList should have 1 volume element in it
@@ -52,9 +52,16 @@ struct VolumeGroupFixture : DmGroupFixture {
         // That one should have "clusterSize" in it
         ASSERT_TRUE(vcHandle.proc->testGetVgCheckerListSize(0) == clusterSize);
 
-        // The checker should have sent msgs to all the volumes
-        // See the chkNodeStatus code for match
-        ASSERT_TRUE(vcHandle.proc->testVerifyCheckerListStatus(1));
+        // Sleep for a second for msgs to be sent
+        sleep(1);
+
+        // Each DM in the cluster should have received the command
+        for (auto &dmHandlePtr : dmGroup) {
+            ASSERT_TRUE(dmHandlePtr->proc->dm->volumeCheckerMgr->testGetvcWorkerMapSize() > 0);
+        }
+
+        // Check if all DMs have responded (NS_WORKING)
+        ASSERT_TRUE(vcHandle.proc->testVerifyCheckerListStatus(2));
     }
 
     void stopVolumeChecker() {

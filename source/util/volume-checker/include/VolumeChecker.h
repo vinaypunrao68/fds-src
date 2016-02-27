@@ -14,6 +14,7 @@
 #include <net/SvcProcess.h>
 #include <fdsp_utils.h>
 #include <gtest/gtest_prod.h>
+#include <MigrationUtility.h>
 
 namespace fds {
 
@@ -41,12 +42,11 @@ public:
     enum StatusCode {
         VC_NOT_STARTED,     // First started
         VC_RUNNING,         // Finished initializing
-        VC_DM_HASHING          // VC has finished initializing and is running phase 1
+        VC_DM_HASHING       // VC has finished initializing and is running phase 1
     };
     // For the future, may return more than just status code, but progress as well
     using VcStatus = StatusCode;
     VcStatus getStatus();
-
 
     /**
      * UNIT TEST METHODS. Do not use anywhere else.
@@ -101,7 +101,7 @@ private:
         ~DmCheckerMetaData() = default;
 
         // Sends the initial check message to the dm
-        void sendVolChkMsg(const EPSvcRequestRespCb &cb = nullptr);
+        void sendVolChkMsg(const EPSvcRequestRespCb &cb);
 
         // Cached id of what this checker meta-data is checking for
         fds_volid_t volId;
@@ -111,10 +111,10 @@ private:
 
         // Current node's status
         enum chkNodeStatus {
-            NS_NOT_STARTED,     // Just created
-            NS_CONTACTED,       // Volume list has been sent to the node
-            NS_WORKING,         // Node has sent async resp saying it's churning
-            NS_ERROR            // Error state
+            NS_NOT_STARTED,       // Just created
+            NS_CONTACTED,         // Volume list has been sent to the node
+            NS_WORKING,           // Node has sent async resp saying it's churning
+            NS_ERROR              // Error state, idle
         };
         chkNodeStatus status;
     };
@@ -123,13 +123,28 @@ private:
     using VolumeGroupTable = std::vector<std::pair<fds_volid_t, std::vector<DmCheckerMetaData>>>;
     VolumeGroupTable vgCheckerList;
 
+    // For keeping track of messages sent
+    MigrationTrackIOReqs *initialMsgTracker;
+
     // Prepares the accounting data structures
     void prepareDmCheckerMap();
 
     // Sends the volume check msgs to DMs();
-    Error sendVolChkMsgsToDMs();
+    void sendVolChkMsgsToDMs();
 
     void sendOneVolChkMsg(const EPSvcRequestRespCb &cb = nullptr);
+
+    /**
+     *  Wait for all the DMs to respond and see if we are all running w/o errors
+     *  Returns ERR_INVALID if at least one DM errored out.
+     */
+    Error waitForVolChkMsg();
+
+    /**
+     * If an error occurs during volume checking process, this will send out the
+     * abort message to everyone to stop churning through levelDBs and wasting resources
+     */
+    void handleVolumeCheckerError();
 };
 
 } // namespace fds

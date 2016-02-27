@@ -352,6 +352,7 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     void handleForwardComplete(DmRequest *io);
     void handleStatStream(DmRequest *io);
     void handleDmFunctor(DmRequest *io);
+    void handleInitVolCheck(DmRequest *io);
     Error copyVolumeToOtherDMs(fds_volid_t volId);
     Error processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete);
 

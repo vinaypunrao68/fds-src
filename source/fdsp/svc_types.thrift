@@ -430,6 +430,7 @@ enum  FDSPMsgTypeId {
 
   /** Volume Checker Messages */
   CheckVolumeMetaDataMsgTypeId              = 40000;
+  CheckVolumeMetaDataRspMsgTypeId           = 40001;
 
   /** Health Status */
   NotifyHealthReportTypeId                  = 100000;
