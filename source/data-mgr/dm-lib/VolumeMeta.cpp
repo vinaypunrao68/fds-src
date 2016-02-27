@@ -520,28 +520,43 @@ void VolumeMeta::handleVolumegroupUpdate(DmRequest *dmRequest)
 {
     dm::QueueHelper helper(*dataManager, dmRequest);
     DmIoVolumegroupUpdate* request = static_cast<DmIoVolumegroupUpdate*>(dmRequest);
+    auto &group = request->reqMessage->group;
 
-    LOGDEBUG << "Attempting to set volumegroup info for vol: '"
-             << std::hex << request->volId << std::dec << "'";
-    if (getState() != fpi::Loading) {
-        LOGWARN << "Failed setting volumegroup info vol: " << request->volId
-            << ". Volume isn't in loading state " << logString();
-        helper.err = ERR_INVALID;
-        return;
-    } else if (isInitializerInProgress()) {
-        LOGWARN << "Failed setting volumegroup info vol: " << logString();
-        helper.err = ERR_SYNC_INPROGRESS;
-        return;
-    } else if (getSequenceId() !=
-               static_cast<uint64_t>(request->reqMessage->group.lastCommitId)) {
-        LOGWARN << "vol: " << request->volId << " doesn't have active state."
-            << " current sequence id: " << getSequenceId()
-            << " expected sequence id: " << request->reqMessage->group.lastCommitId;
-        setState(fpi::Offline, " - VolumegroupUpdateHandler:sequence id mismatch");
-        scheduleInitializer(false);
+    LOGDEBUG << logString() << " volume group update ";
+    if (getCoordinatorId() != group.coordinator.id) {
+        LOGDEBUG << logString() << " Coordinator mismatch.  Ignoring volume group update";
         return;
     }
-    setOpId(request->reqMessage->group.lastOpId);
-    setState(fpi::Active, " - VolumegroupUpdateHandler:state matched with coordinator");
+    if (getState() == fpi::Active) {
+        if (group.nonfunctionalReplicas.end() !=
+            std::find(group.nonfunctionalReplicas.begin(),
+                      group.nonfunctionalReplicas.end(),
+                      selfSvcUuid)) {
+            setState(fpi::Offline,
+                     " - VolumegroupUpdateHandler:coordinator has this volume as nonfunctional");
+            scheduleInitializer(false);
+        }
+        return;
+    } else if (isInitializerInProgress()) {
+        LOGDEBUG << "Initializer in progress.  Ignoring volume group update";
+        return;
+    } else if (getState() == fpi::Loading) {  // This branch is when open is in progress
+        if (group.functionalReplicas.end() !=
+            std::find(group.functionalReplicas.begin(),
+                      group.functionalReplicas.end(),
+                      selfSvcUuid)) {
+            fds_assert(getSequenceId() == static_cast<uint64_t>(group.lastCommitId));
+            setOpId(group.lastOpId);
+            setState(fpi::Active, " - VolumegroupUpdateHandler:state matched with coordinator");
+        } else {
+            fds_assert(getSequenceId() != static_cast<uint64_t>(group.lastCommitId));
+            LOGWARN << "vol: " << request->volId << " doesn't have active state."
+                << " current sequence id: " << getSequenceId()
+                << " expected sequence id: " << group.lastCommitId;
+            setState(fpi::Offline, " - VolumegroupUpdateHandler:sequence id mismatch");
+            scheduleInitializer(false);
+        }
+        return;
+    }
 }
 }  // namespace fds

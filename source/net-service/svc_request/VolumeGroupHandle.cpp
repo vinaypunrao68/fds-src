@@ -73,6 +73,7 @@ VolumeGroupHandle::VolumeGroupHandle(CommonModuleProviderIf* provider,
     refCnt_ = 0;
 
     closeCb_ = nullptr;
+    checkOnNonFunctionalScheduled_ = false;
 
     if (MODULEPROVIDER()->get_cntrs_mgr()) {
         MODULEPROVIDER()->get_cntrs_mgr()->add_for_export(this);
@@ -345,6 +346,45 @@ void VolumeGroupHandle::decRef()
         closeCb_ = nullptr;
         cb();
     }
+}
+
+void VolumeGroupHandle::scheduleCheckOnNonfunctionalReplicas_()
+{
+    ASSERT_SYNCHRONIZED();
+
+    if (checkOnNonFunctionalScheduled_) {
+        return;
+    }
+
+    incRef();
+    checkOnNonFunctionalScheduled_ = true;
+    MODULEPROVIDER()->getTimer()->scheduleFunction(
+        std::chrono::seconds(30),
+        [this]() {
+           checkOnNonFunctaionalReplicas_();
+       });
+}
+
+void VolumeGroupHandle::checkOnNonFunctaionalReplicas_()
+{
+    runSynchronized([this]() mutable {
+        checkOnNonFunctionalScheduled_ = false;
+
+        if (closeCb_) {
+            decRef();
+            return;
+        }
+
+        /* Only schedule if we still have non-functional replicas */
+        if (nonfunctionalReplicas_.size() > 0) {
+            auto broadcastGroupReq = createBroadcastGroupInfoReq_();
+            broadcastGroupReq->onResponseCb([](QuorumSvcRequest*, const Error&, StringPtr) {} );
+            broadcastGroupReq->invoke();
+            /* schedule the next round */
+            scheduleCheckOnNonfunctionalReplicas_();
+        }
+        decRef();
+    });
 }
 
 EPSvcRequestPtr
@@ -728,6 +768,8 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
         volumeHandle->setState(targetState);
         volumeHandle->setError(e);
 
+        scheduleCheckOnNonfunctionalReplicas_();
+
     } else if (VolumeReplicaHandle::isFunctional(targetState)){
         if (replicaVersion != volumeHandle->version) {
             fds_assert(!"Invalid version: expecting %d got %d");
@@ -794,16 +836,17 @@ fpi::VolumeGroupInfo VolumeGroupHandle::getGroupInfoForExternalUse_()
 {
     fpi::VolumeGroupInfo groupInfo; 
     groupInfo.groupId = groupId_;
-    groupInfo.version = version_;
+    groupInfo.coordinator.id = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
+    groupInfo.coordinator.version = version_;
     groupInfo.lastOpId = opSeqNo_;
     groupInfo.lastCommitId = commitNo_;
     for (const auto &replica : functionalReplicas_) {
         groupInfo.functionalReplicas.push_back(replica.svcUuid); 
     }
-    for (const auto &replica : nonfunctionalReplicas_) {
-        groupInfo.nonfunctionalReplicas.push_back(replica.svcUuid); 
-    }
     for (const auto &replica : syncingReplicas_) {
+        groupInfo.syncingReplicas.push_back(replica.svcUuid); 
+    }
+    for (const auto &replica : nonfunctionalReplicas_) {
         groupInfo.nonfunctionalReplicas.push_back(replica.svcUuid); 
     }
     return groupInfo;
@@ -812,7 +855,7 @@ fpi::VolumeGroupInfo VolumeGroupHandle::getGroupInfoForExternalUse_()
 void VolumeGroupHandle::setGroupInfo_(const fpi::VolumeGroupInfo &groupInfo)
 {
     groupId_ = groupInfo.groupId;
-    version_ = groupInfo.version;
+    version_ = groupInfo.coordinator.version;
     opSeqNo_ = groupInfo.lastOpId;
     commitNo_ = groupInfo.lastCommitId;
     functionalReplicas_.clear();

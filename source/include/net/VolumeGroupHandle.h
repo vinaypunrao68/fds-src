@@ -327,6 +327,8 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     fpi::VolumeGroupInfo getGroupInfoForExternalUse_();
     VolumeReplicaHandleItr getVolumeReplicaHandle_(const fpi::SvcUuid &svcUuid);
     VolumeReplicaHandleList& getVolumeReplicaHandleList_(const fpi::ResourceState& s);
+    void scheduleCheckOnNonfunctionalReplicas_();
+    void checkOnNonFunctaionalReplicas_();
 
     SynchronizedTaskExecutor<uint64_t>  *taskExecutor_;
     SvcRequestPool                      *requestMgr_;
@@ -362,6 +364,8 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
      * VolumeGroupHandle is zero
      */
     VoidCb                              closeCb_;
+    /* Whether check on non-functional replicas is in progress */
+    bool                                checkOnNonFunctionalScheduled_;
 
     static const uint32_t               WRITEOPS_BUFFER_SZ = 1024;
 
