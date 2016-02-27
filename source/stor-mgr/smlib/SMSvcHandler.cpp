@@ -906,7 +906,6 @@ SMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     std::string volName  = vol_msg->vol_desc.vol_name;
 
     StorMgrVolume * vol = objStorMgr->getVol(volumeId);
-    fds_assert(vol != nullptr);
     if (!vol) {
         LOGERROR << "Received delete request for unknown volume "
                  << "[" << std::hex << volumeId << std::dec << ", "
@@ -960,7 +959,6 @@ SMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                << vdb->getName() << "]";
 
     StorMgrVolume * vol = objStorMgr->getVol(volumeId);
-    fds_assert(vol != nullptr);
     if (!vol) {
         LOGERROR << "Received modifiy request for unknown volume "
                  << "[" << std::hex << volumeId << std::dec << ", "
