@@ -18,7 +18,6 @@ using ::testing::Return;
 using namespace fds;
 using namespace fds::TestUtils;
 
-
 TEST_F(VolumeGroupFixture, singledm) {
     /* Start with one dm */
     createCluster(1);

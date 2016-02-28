@@ -12,6 +12,7 @@
 #include <net/SvcMgr.h>
 #include <net/SvcRequestPool.h>
 #include <net/SvcProcess.h>
+#include "fdsp/common_constants.h"
 #include <fdsp_utils.h>
 
 
@@ -139,7 +140,7 @@ void TestOm::init(int argc, char *argv[], bool initAsModule)
 
     /* Set up process related services such as logger, timer, etc. */
     SvcProcess::init(argc, argv, initAsModule, "platform.conf", "fds.om.",
-                     "om.log", nullptr, handler, processor);
+        "om.log", nullptr, handler, processor, fpi::commonConstants().OM_SERVICE_NAME);
 }
 
 void TestOm::registerSvcProcess()

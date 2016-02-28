@@ -25,6 +25,8 @@
 #include <gtest/gtest.h>
 #include <google/profiler.h>
 
+#include "fdsp/common_constants.h"
+
 using ::testing::AtLeast;
 using ::testing::Return;
 using namespace fds;  // NOLINT
@@ -56,7 +58,7 @@ struct SvcMgrModuleProvider : CommonModuleProviderIf {
         svcInfo.ip = net::get_local_ip(configHelper_.get_abs<std::string>("fds.nic_if","lo"));
         svcInfo.svc_port = configHelper_.get<int>("svc.port");
         svcInfo.incarnationNo = util::getTimeStampSeconds();
-        svcMgr_.reset(new SvcMgr(this, handler, processor, svcInfo));
+        svcMgr_.reset(new SvcMgr(this, handler, processor, svcInfo, fpi::commonConstants().PLATNET_SERVICE_NAME));
         svcMgr_->mod_init(nullptr);
     }
 
@@ -92,7 +94,8 @@ TEST(SvcServer, stop)
     auto handler = boost::make_shared<PlatNetSvcHandler>(nullptr);
     auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
 
-    auto server = boost::make_shared<SvcServer>(port, processor);
+    auto server = boost::make_shared<SvcServer>(port, processor,
+        fpi::commonConstants().PLATNET_SERVICE_NAME, nullptr);
     server->start();
 
     sleep(1);
@@ -112,14 +115,18 @@ TEST(SvcServer, multi_stop)
 
     for (int i = 0; i < 10; i++) {
         /* Create and start the server */
-        auto server = boost::make_shared<SvcServer>(port, processor);
+        auto server = boost::make_shared<SvcServer>(port, processor,
+            fpi::commonConstants().PLATNET_SERVICE_NAME, nullptr);
         server->start();
 
         sleep(1);
 
         /* Create two clients */
-        auto client1 = allocRpcClient<fpi::PlatNetSvcClient>("127.0.0.1", port, SvcMgr::MAX_CONN_RETRIES);
-        auto client2 = allocRpcClient<fpi::PlatNetSvcClient>("127.0.0.1", port, SvcMgr::MAX_CONN_RETRIES);
+        boost::shared_ptr<FdsConfig> pEmpty;
+        auto client1 = allocRpcClient<fpi::PlatNetSvcClient>("127.0.0.1", port,
+            SvcMgr::MAX_CONN_RETRIES, "", pEmpty);
+        auto client2 = allocRpcClient<fpi::PlatNetSvcClient>("127.0.0.1", port,
+            SvcMgr::MAX_CONN_RETRIES, "", pEmpty);
 
         /* Stop the server.  This will block until stop() completes */
         server->stop();
