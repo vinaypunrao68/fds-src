@@ -583,8 +583,8 @@ Error DmTimeVolCatalog::updateFwdCommittedBlob(fds_volid_t volid,
 
         if (objList.size() > 0) {
             BlobObjList::ptr olist(new(std::nothrow) BlobObjList(objList));
-            // TODO(anna) pass truncate op, for now always truncate
-            olist->setEndOfBlob();
+            // never trunctating is less bad than always truncating. hopefully forwarding is going away soon.
+            //olist->setEndOfBlob();
 
             if (metaList.size() > 0) {
                 MetaDataList::ptr mlist(new(std::nothrow) MetaDataList(metaList));

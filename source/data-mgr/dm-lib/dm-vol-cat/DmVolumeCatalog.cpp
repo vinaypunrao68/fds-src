@@ -791,18 +791,18 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
     BlobObjList oldBlobObjList;
 
     // new details
-    fds_uint64_t newBlobSize = oldBlobSize;
-    fds_uint64_t newLastOffset = blobObjList->lastOffset();
+    fds_uint64_t newLastByte = oldBlobSize;
+    fds_uint64_t reqLastOffset = blobObjList->lastOffset();
 
     if (!newBlob) {
-        rc = vol->getObject(blobName, reqFirstOffset, newLastOffset, oldBlobObjList);
+        rc = vol->getObject(blobName, reqFirstOffset, reqLastOffset, oldBlobObjList);
         if (!rc.ok()) {
             LOGERROR << "Failed to retrieve existing blob: '" << blobName << "' in volume: '"
                     << std::hex << volId << std::dec <<"'";
             return rc;
         }
 
-        if (reqFirstOffset <= oldLastOffset && newLastOffset >= oldLastOffset) {
+        if (reqFirstOffset <= oldLastOffset && reqLastOffset >= oldLastOffset) {
             oldBlobObjList[oldLastOffset].size = oldLastObjSize;
         }
     }
@@ -811,7 +811,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         BlobObjList::iterator oldIter = oldBlobObjList.find(cit->first);
         if (oldBlobObjList.end() == oldIter) {
             // new offset, update blob size
-            newBlobSize = std::max(newBlobSize, cit->first + cit->second.size);
+            //newLastByte = std::max(newLastByte, cit->first + cit->second.size);
 
             objectsAdded++;
             bytesAdded += cit->second.size; // Data Object size is correct here ... even for the last one. Surprise!
@@ -825,38 +825,46 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
 
         // if we are updating last offset, adjust blob size
         if (oldLastOffset == cit->first) {
-            // modifying existing last offset, update size
-            if (NullObjectID != oldIter->second.oid) {
-                fds_verify(newBlobSize >= oldLastObjSize);
-                newBlobSize -= oldLastObjSize;
-            }
-            newBlobSize += cit->second.size;
+
+            /*if (oldLastOffset == reqLastOffset) {
+                fds_verify(newLastByte >= oldLastObjSize);
+                newLastByte -= oldLastObjSize;
+                newLastByte += cit->second.size;
+                }*/
 
             if (oldLastObjSize >= cit->second.size) {
                 bytesRemoved += oldLastObjSize - cit->second.size;
             } else {
                 bytesAdded += cit->second.size - oldLastObjSize;
             }
-        } else if (cit->first == newLastOffset) {
-            // fds_verify(oldIter->second.oid != NullObjectID);
-            fds_verify(newBlobSize >= vol->getObjSize());
-            newBlobSize -= vol->getObjSize();
-            newBlobSize += cit->second.size;
+        } else if (cit->first == reqLastOffset) {
+            /**
+             *  In this path we know:
+             *   a) we are overwriting an object, or else we would have taken the continue above
+             *   b) this is not the oldLastOffset, or we would have taken the prior if
+             *
+             *   therfore, either:
+             *  a) we are truncating the blob - this is the new last offset
+             *  b) this is just the last object in the object list, but the update has nothing to do with the end of the blob
+             *
+             * in case a), truncation code should sort us out, in case b) there is nothing to be done to modify the last byte
+             */
 
-            if (oldLastObjSize >= cit->second.size) {
-                bytesRemoved += oldLastObjSize - cit->second.size;
+            // for now, this should always be true
+            if (oldIter->second.size >= cit->second.size) {
+                bytesRemoved += oldIter->second.size - cit->second.size;
             } else {
-                bytesAdded += cit->second.size - oldLastObjSize;
+                bytesAdded += cit->second.size - oldIter->second.size;
             }
         }
         // otherwise object sizes match
     }
 
     std::vector<fds_uint64_t> delOffsetList;
-    if (blobObjList->endOfBlob() && newLastOffset < oldLastOffset) {
+    if (blobObjList->endOfBlob() && reqLastOffset < oldLastOffset) {
         // truncating the blob
         BlobObjList truncateObjList;
-        rc = vol->getObject(blobName, newLastOffset + vol->getObjSize(),
+        rc = vol->getObject(blobName, reqLastOffset + vol->getObjSize(),
                 oldLastOffset, truncateObjList);
         if (!rc.ok()) {
             LOGERROR << "Failed to retrieve existing blob: '" << blobName << "' in volume: '"
@@ -868,12 +876,16 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
             if (NullObjectID != i.second.oid) {
                 delOffsetList.push_back(i.first);
                 // expungeList.push_back(i.second.oid);
-                newBlobSize -= i.first == oldLastOffset ? oldLastObjSize : i.second.size;
                 bytesRemoved += (i.first == oldLastOffset) ? oldLastObjSize : i.second.size;  // Data Object size is *not* correct here for the last one. Surprise!
             }
         }
 
         objectsRemoved += truncateObjList.size();
+    }
+
+    // iterative calclation of the last byte is a bit silly. either this operation sets the last byte, or the value should remain untouched
+    if (reqLastOffset >= oldLastOffset || blobObjList->endOfBlob()) {
+        newLastByte = reqLastOffset + blobObjList->at(reqLastOffset).size;
     }
 
     // Is it possible to have an empty incoming metaList but with one or more offsets?
@@ -884,7 +896,8 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
     }
     blobMeta.desc.version += 1;
     blobMeta.desc.sequence_id = std::max(blobMeta.desc.sequence_id, seq_id);
-    blobMeta.desc.blob_size = newBlobSize;  // Note that this is really *not* the blob size, neither logical or physical, due to "sparseness". Surprise!
+    blobMeta.desc.blob_size = newLastByte;
+
     if (newBlob) {
         blobMeta.desc.blob_name = blobName;
     }
