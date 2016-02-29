@@ -55,6 +55,7 @@ inline bool isVolumeGroupError(const Error &e)
         case ERR_SVC_REQUEST_INVOCATION:
         case ERR_SVC_REQUEST_FAILED:
         case ERR_IO_OPID_MISMATCH:
+        case ERR_IO_SEQUENCEID_MISMATCH:
         case ERR_SYNC_INPROGRESS:
         case ERR_DM_VOL_NOT_ACTIVATED:
         case ERR_VOL_NOT_FOUND:
