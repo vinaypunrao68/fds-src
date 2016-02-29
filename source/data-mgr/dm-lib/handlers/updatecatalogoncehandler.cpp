@@ -78,7 +78,8 @@ void UpdateCatalogOnceHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, static_cast<DmIoUpdateCatOnce*>(dmRequest)->commitBlobReq);
     DmIoUpdateCatOnce* typedRequest = static_cast<DmIoUpdateCatOnce*>(dmRequest);
 
-    ENSURE_SEQUENCEID_ORDER(typedRequest->updcatMsg->sequence_id, typedRequest, helper);
+    ENSURE_SEQUENCEID_ORDER(static_cast<sequence_id_t>(typedRequest->updcatMsg->sequence_id), \
+                            typedRequest, helper);
 
     // Start the transaction
     helper.err = dataManager.timeVolCat_->startBlobTx(typedRequest->volId,

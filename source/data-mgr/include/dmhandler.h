@@ -53,7 +53,7 @@
 #define VOLUME_IO_VERSION_CHECK(io, helper)
 
 /* Ensure IO is ordered */
-#define ENSURE_SEQUENCEID_ORDER(seq_id, io, helper) \
+#define ENSURE_IO_ORDER(bSequenceIdCheck, seqId, io, helper) \
 do { \
     if (!dataManager.features.isVolumegroupingEnabled()) { \
         break; \
@@ -66,9 +66,9 @@ do { \
         helper.err = ERR_IO_OPID_MISMATCH; \
         return; \
     } \
-    if (seq_id != -1 && seq_id != volMeta->getSequenceId()+1) { \
+    if (bSequenceIdCheck && seqId != volMeta->getSequenceId()+1) { \
         LOGWARN << "volid: " << io->getVolId() << ". sequenceid mismatch.  Current sequenceid: " \
-            << volMeta->getSequenceId() << " incoming sequenceid: " << seq_id; \
+            << volMeta->getSequenceId() << " incoming sequenceid: " << seqId; \
         fds_assert(!"sequenceid mismatch"); \
         helper.err = ERR_IO_SEQUENCEID_MISMATCH; \
         return; \
@@ -81,7 +81,9 @@ do { \
      */ \
     volMeta->incrementOpId(); \
 } while (false)
-#define ENSURE_OPID_ORDER(io, helper) ENSURE_SEQUENCEID_ORDER(-1, io, helper)
+
+#define ENSURE_OPID_ORDER(io, helper) ENSURE_IO_ORDER(false, 0, io, helper)
+#define ENSURE_SEQUENCEID_ORDER(seqId, io, helper) ENSURE_IO_ORDER(true, seqId, io, helper)
 
 namespace fds {
 
