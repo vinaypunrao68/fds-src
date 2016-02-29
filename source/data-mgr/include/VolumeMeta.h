@@ -160,6 +160,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     * context
     */
     std::function<void()> makeSynchronized(const std::function<void()> &f);
+    std::function<void()> makeSystemSynchronized(const std::function<void()> &f);
     std::function<void(EPSvcRequest*,const Error &e, StringPtr)>
     makeSynchronized(const std::function<void(EPSvcRequest*,const Error &e, StringPtr)> &f);
 
@@ -167,6 +168,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     /* NOTE: Should be overloaded as makeSynchronized.  I was getting compiler errors I named it
      * makeSynchronized.  I ended up renaming as a quick fix
      */
+
     BufferReplay::ProgressCb synchronizedProgressCb(const BufferReplay::ProgressCb &f);
 
 
@@ -224,6 +226,18 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     VolumeInitializerPtr                    initializer;
     uint32_t                                initializerTriesCnt;
     uint32_t                                maxInitializerTriesCnt;
+
+    /**
+     * Hash context public methods
+     */
+    Error createHashCalcContext(DmRequest *req, fpi::SvcUuid _reqUUID);
+
+    /**
+     * For unit testing
+     */
+    inline bool hashCalcContextExists() {
+        return (hashCalcContextPtr != nullptr);
+    }
 
  private:
     friend class DmMigrationMgr;
@@ -312,6 +326,29 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
      * Stores the hook for Callback to the volume group manager
      */
     StatusCb cbToVGMgr;
+
+    // Context for requests that ask for hash calculations, such as volume checker
+    // Everything done here must be synchronized on FdsSysTaskQueueId
+    struct hashCalcContext {
+        explicit hashCalcContext(DmRequest *req, fpi::SvcUuid _reqUUID);
+        ~hashCalcContext();
+
+        // Sends the callback with an error code
+        void sendCb();
+
+        // Node (could be self) that requested the operation
+        fpi::SvcUuid requesterUUID;
+
+        // DmRequest to send back to the requester
+        DmRequest *dmRequest;
+
+        // Current context error code
+        Error contextErr;
+
+    };
+    // nullptr if no operation is ongoing, otherwise, we only allow 1 hashing op to occur
+    // No need for locking since we require things to be done in synchronized context
+    hashCalcContext *hashCalcContextPtr;
 };
 
 using VolumeMetaPtr = SHPTR<VolumeMeta>;

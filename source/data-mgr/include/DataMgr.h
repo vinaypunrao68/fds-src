@@ -409,11 +409,6 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
      */
     std::unique_ptr<DmMigrationMgr> dmMigrationMgr;
 
-    /**
-     * Volume Checker Mgr for handling volume checking operations
-     */
-    std::unique_ptr<VolumeCheckerMgr> volumeCheckerMgr;
-
     friend class DMSvcHandler;
     friend class dm::GetBucketHandler;
     friend class dm::DmSysStatsHandler;

@@ -176,8 +176,6 @@ VolumeChecker::sendVolChkMsgsToDMs() {
                                               StringPtr payload) {
                 if (!e_.OK()) {
                     dmData->status = DmCheckerMetaData::NS_ERROR;
-                } else {
-                    dmData->status = DmCheckerMetaData::NS_WORKING;
                 }
                 fds_assert(msgTracker);
                 msgTracker->finishTrackIOReqs();

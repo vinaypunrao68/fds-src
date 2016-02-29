@@ -220,6 +220,21 @@ std::function<void()> VolumeMeta::makeSynchronized(const std::function<void()> &
     return newCb;
 }
 
+std::function<void()> VolumeMeta::makeSystemSynchronized(const std::function<void()> &f)
+{
+    auto qosCtrl = dataManager->getQosCtrl();
+    fds_volid_t volId(FdsDmSysTaskId);
+    auto newCb = [f, qosCtrl, volId]() {
+        auto ioReq = new DmFunctor(volId, std::bind(f));
+        auto err = qosCtrl->enqueueIO(volId, ioReq);
+        if (err != ERR_OK) {
+            GLOGWARN << "Failed to enqueue volume synchronized DmFunctor.  Dropping. " << err;
+            delete ioReq;
+        }
+    };
+    return newCb;
+}
+
 EPSvcRequestRespCb
 VolumeMeta::makeSynchronized(const EPSvcRequestRespCb &f)
 {
@@ -594,5 +609,39 @@ void VolumeMeta::handleVolumegroupUpdate(DmRequest *dmRequest)
     }
     setOpId(request->reqMessage->group.lastOpId);
     setState(fpi::Active, " - VolumegroupUpdateHandler:state matched with coordinator");
+}
+
+VolumeMeta::hashCalcContext::hashCalcContext(DmRequest *req, fpi::SvcUuid _reqUUID) :
+        requesterUUID(_reqUUID),
+        dmRequest(req),
+        contextErr(ERR_OK)
+{ }
+
+VolumeMeta::hashCalcContext::~hashCalcContext() {
+    sendCb();
+    delete (dmRequest);
+}
+
+void
+VolumeMeta::hashCalcContext::sendCb() {
+    dmRequest->cb(contextErr, dmRequest);
+}
+
+Error VolumeMeta::createHashCalcContext(DmRequest *req, fpi::SvcUuid _reqUUID) {
+    if (hashCalcContextPtr) {
+        LOGERROR << "A hash request has already been sent and is processing.";
+        return ERR_DUPLICATE;
+    } else {
+        hashCalcContextPtr = new hashCalcContext (req, _reqUUID);
+        makeSystemSynchronized([this](){
+            if (getState() != fpi::Offline) {
+                LOGERROR << "Volume is not offline.";
+                delete hashCalcContextPtr;
+            } else {
+                // Next step
+            }
+        });
+        return ERR_OK;
+    }
 }
 }  // namespace fds

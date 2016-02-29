@@ -33,6 +33,7 @@ struct VolumeGroupFixture : DmGroupFixture {
 
         // For now, we only have one volume
         volListString += std::to_string(volIdList[0]);
+        fds_volid_t volId0(volIdList[0]);
 
         // As volume checker, we init as an AM
         vcHandle.start({"checker",
@@ -57,11 +58,11 @@ struct VolumeGroupFixture : DmGroupFixture {
 
         // Each DM in the cluster should have received the command
         for (auto &dmHandlePtr : dmGroup) {
-            ASSERT_TRUE(dmHandlePtr->proc->dm->volumeCheckerMgr->testGetvcWorkerMapSize() > 0);
+            auto volMeta = dmHandlePtr->proc->dm->getVolumeMeta(volId0, false);
+            ASSERT_TRUE(volMeta->hashCalcContextExists());
         }
-
-        // Check if all DMs have responded (NS_WORKING)
-        ASSERT_TRUE(vcHandle.proc->testVerifyCheckerListStatus(2));
+        // Check if all DMs have responded (NS_CONTACTED)
+        ASSERT_TRUE(vcHandle.proc->testVerifyCheckerListStatus(1));
     }
 
     void stopVolumeChecker() {

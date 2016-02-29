@@ -294,9 +294,23 @@ void DataMgr::handleLocalStatStream(fds_uint64_t start_timestamp,
 void DataMgr::handleInitVolCheck(DmRequest *dmRequest) {
     dm::QueueHelper helper(*this, dmRequest);
 
-    if (!volumeCheckerMgr->registerRequest(dmRequest).OK()) {
-        LOGERROR << "Unable to register volume to be checked.";
-        helper.err = ERR_INVALID;
+    DmIoVolumeCheck *request = static_cast<DmIoVolumeCheck*>(dmRequest);
+    auto msgPtr = request->reqMessage;
+    fds_volid_t incomingVolId;
+    incomingVolId.v = msgPtr->volume_id;
+    fpi::SvcUuid checkerUuid(msgPtr->volCheckerNodeUuid);
+
+    LOGDEBUG << "Received initial checker message for volume " << incomingVolId.v;
+    // We do things now on the volumeMeta context
+    auto volMeta = getVolumeMeta(incomingVolId, false);
+    if (volMeta == nullptr) {
+        LOGERROR << "Volume Metadata not found for specified volume: "
+                << incomingVolId;
+        helper.err = ERR_VOL_NOT_FOUND;
+        return;
+    } else {
+        helper.skipImplicitCb = false;
+        helper.err = volMeta->createHashCalcContext(dmRequest, checkerUuid);
     }
 }
 /**
@@ -1065,11 +1079,6 @@ int DataMgr::mod_init(SysParams const *const param)
      */
     dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(*this));
     counters->clearMigrationCounters();
-
-    /**
-     * Instantiate vc manager
-     */
-    volumeCheckerMgr = VolumeCheckerMgr::unique_ptr(new VolumeCheckerMgr(*this));
 
     fileTransfer.reset(new net::FileTransferService(MODULEPROVIDER()->proc_fdsroot()->dir_filetransfer(), MODULEPROVIDER()->getSvcMgr()));
     refCountMgr.reset(new refcount::RefCountManager(this));
