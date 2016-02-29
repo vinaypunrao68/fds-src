@@ -3484,13 +3484,53 @@ OM_NodeDomainMod::om_dmt_waiting_timeout() {
  * Drives the DLT deployment state machine.
  */
 void
-OM_NodeDomainMod::om_dlt_update_cluster() {
-    LOGNOTIFY << "Attempt to update DLT, will raise DltCompute event";
-    OM_Module *om = OM_Module::om_singleton();
-    OM_DLTMod *dltMod = om->om_dlt_mod();
+OM_NodeDomainMod::om_dlt_update_cluster()
+{
 
-    // this will check if we need to compute DLT
-    dltMod->dlt_deploy_event(DltComputeEvt());
+    OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    OM_SmContainer::pointer smNodes = local->om_sm_nodes();
+
+    if ( smNodes->om_nodes_up() > 0 ) // implying a service is being added
+    {
+        int64_t replicas = g_fdsprocess->get_conf_helper().get<int>("replica_factor");
+
+        std::vector<fpi::SvcInfo> services;
+        int64_t knownSms = 0;
+
+        configDB->getSvcMap(services);
+
+        for (auto svc : services)
+        {
+            if ( svc.svc_type == fpi::FDSP_STOR_MGR && svc.svc_status == fpi::SVC_STATUS_ACTIVE )
+            {
+                ++knownSms;
+            }
+        }
+
+        if (knownSms >= replicas)
+        {
+            LOGNOTIFY << "Attempt to update DLT for svc addition, will raise DltCompute event";
+            OM_Module *om = OM_Module::om_singleton();
+            OM_DLTMod *dltMod = om->om_dlt_mod();
+
+            // this will check if we need to compute DLT
+            dltMod->dlt_deploy_event(DltComputeEvt());
+
+        } else {
+            LOGWARN << knownSms << " known SM(s) in the domain."
+                    << " Will not calculate DLT until there are at least " << replicas
+                    << " SM(s) to satisfy configured replica factor";
+            return;
+        }
+    } else { // implies this is either for a service removal, or a safety re-try, let it through
+
+        LOGNOTIFY << "Attempt to update DLT, will raise DltCompute event";
+        OM_Module *om = OM_Module::om_singleton();
+        OM_DLTMod *dltMod = om->om_dlt_mod();
+
+        // this will check if we need to compute DLT
+        dltMod->dlt_deploy_event(DltComputeEvt());
+    }
 }
 
 void
@@ -3565,7 +3605,7 @@ OM_NodeDomainMod::om_service_up(const NodeUuid& svcUuid,
                 LOGNOTIFY << "SM:" << std::hex
                           << svcUuid.uuid_get_val() << std::dec << " up.";
 
-                om_dlt_update_cluster();
+                //om_dlt_update_cluster();
             }
             else if (svcType == fpi::FDSP_DATA_MGR)
             {
