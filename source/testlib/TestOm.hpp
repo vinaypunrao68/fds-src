@@ -41,7 +41,7 @@ struct TestOm : SvcProcess {
     void getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& _return, const int64_t nullarg);
     void getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& _return, const int64_t nullarg);
     void getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return, const int64_t nullarg);
-    Error setVolumeGroupCoordinator(const fpi::SetVolumeGroupCoordinatorMsg &msg);
+    Error setVolumeGroupCoordinator(const fpi::SetVolumeGroupCoordinatorMsg &msg, int32_t &version);
 
  protected:
     /**
@@ -113,8 +113,9 @@ struct TestOmHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler {
     void setVolumeGroupCoordinator(SHPTR<fpi::AsyncHdr> &hdr,
                                    SHPTR<fpi::SetVolumeGroupCoordinatorMsg> &msg)
     {
-        hdr->msg_code = om_->setVolumeGroupCoordinator(*msg).GetErrno();
-        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+        auto resp = MAKE_SHARED<fpi::SetVolumeGroupCoordinatorRspMsg>();
+        hdr->msg_code = om_->setVolumeGroupCoordinator(*msg, resp->version).GetErrno();
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::SetVolumeGroupCoordinatorRspMsg), *resp); 
     }
 
 
@@ -243,7 +244,8 @@ void TestOm::getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return,
     }
 }
 
-Error TestOm::setVolumeGroupCoordinator(const fpi::SetVolumeGroupCoordinatorMsg &msg)
+Error TestOm::setVolumeGroupCoordinator(const fpi::SetVolumeGroupCoordinatorMsg &msg,
+                                        int32_t &version)
 {
     fds_scoped_lock l(volumeLock);
     auto itr = volumeTbl.find(fds_volid_t(msg.volumeId));
@@ -253,10 +255,13 @@ Error TestOm::setVolumeGroupCoordinator(const fpi::SetVolumeGroupCoordinatorMsg 
     }
     auto &volDescPtr = itr->second;
     auto &volCoordinatorInfo = msg.coordinator;
+    version = volDescPtr->getCoordinatorVersion();
+    version++;
     volDescPtr->setCoordinatorId(volCoordinatorInfo.id);
-    volDescPtr->setCoordinatorVersion(volCoordinatorInfo.version);
+    volDescPtr->setCoordinatorVersion(version);
     LOGNOTIFY << "Set volume coordinator for volid: " << msg.volumeId
         << " coordinator: " << volCoordinatorInfo.id.svc_uuid;
+
     return ERR_OK;
 }
 }  // namespace fds

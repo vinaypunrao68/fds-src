@@ -270,6 +270,11 @@ Error DmVolumeCatalog::deleteCatalog(fds_volid_t volId, bool checkDeleted /* = t
                                       iter->second->isMarkedDeleted() ||
                                       iter->second->isSnapshot()
                                       )) {
+            if (iter->second.use_count()>2) {
+                LOGCRITICAL << "vol:" << volId
+                            << " shptr refcount:" << iter->second.use_count()
+                            << " should NOT HAPPEN....!!!!!";
+            }
             volMap_.erase(iter);
         }
     }
