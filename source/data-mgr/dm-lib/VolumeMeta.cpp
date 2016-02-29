@@ -60,7 +60,7 @@ VolumeMeta::~VolumeMeta()
 
     delete vol_desc;
     delete vol_mtx;
-    volDb.reset();
+    // volDb.reset();
 }
 
 std::string VolumeMeta::getBaseDirPath() const
@@ -89,7 +89,7 @@ void VolumeMeta::finishForwarding() {
 
 void VolumeMeta::setPersistVolDB(DmPersistVolDB::ptr dbPtr)
 {
-    volDb = dbPtr;
+    // volDb = dbPtr;
 }
 
 void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
@@ -178,7 +178,7 @@ void VolumeMeta::setState(const fpi::ResourceState &state,
     vol_desc->state = state;
     if (state == fpi::ResourceState::Loading) {
         /* Every time volume goes into loading state version is incremented */
-        version = volDb->updateVersion();
+        version = dataManager->getPersistDB(vol_desc->volUUID)->updateVersion();
     } else if (state == fpi::ResourceState::Active) {
         initializerTriesCnt = 0;
     }
