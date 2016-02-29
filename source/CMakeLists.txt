@@ -1047,6 +1047,6 @@ osdep/umod-linux/fds_osdep.cpp
     ./util/misc/stringutils.cpp
     ./util/misc/timeutils.cpp
     ./util/misc/type.cpp
-)
+        include/concurrency/flow_control.h umod-lib/concurrency/flow_control.cpp)
 
 add_executable(source ${SOURCE_FILES})
