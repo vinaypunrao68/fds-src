@@ -1,24 +1,29 @@
-package com.formationds.am;
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+package com.formationds.am;
 
 import com.formationds.apis.ConfigurationService;
 import com.formationds.commons.libconfig.Assignment;
 import com.formationds.commons.libconfig.ParsedConfig;
-import com.formationds.nfs.NfsServer;
-import com.formationds.nfs.XdiStaticConfiguration;
+import com.formationds.nfs.*;
+import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
 import com.formationds.util.ServerPortFinder;
 import com.formationds.util.thrift.ConfigurationApi;
-import com.formationds.util.thrift.OMConfigServiceClient;
-import com.formationds.util.thrift.OMConfigServiceRestClientImpl;
 import com.formationds.util.thrift.OMConfigurationServiceProxy;
 import com.formationds.web.toolkit.HttpConfiguration;
 import com.formationds.web.toolkit.HttpsConfiguration;
 import com.formationds.xdi.*;
+import com.formationds.xdi.contracts.ConnectorConfig;
+import com.formationds.xdi.contracts.ConnectorData;
+import com.formationds.xdi.contracts.transport.ConnectorConfigMessageHandler;
+import com.formationds.xdi.contracts.transport.ConnectorDataMessageHandler;
+import com.formationds.xdi.contracts.transport.TransportServer;
+import com.formationds.xdi.contracts.transport.pipe.NamedPipeServer;
+import com.formationds.xdi.experimental.XdiConnector;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.formationds.xdi.swift.SwiftEndpoint;
 import com.nurkiewicz.asyncretry.AsyncRetryExecutor;
@@ -34,9 +39,13 @@ import org.eclipse.jetty.io.ByteBufferPool;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.IOException;
 import java.net.ConnectException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 
@@ -102,8 +111,6 @@ public class Main {
         LOG.debug("PM port " + pmPort +
                 " my port " + amResponsePort);
 
-        XdiClientFactory clientFactory = new XdiClientFactory();
-
         String amHost = platformConfig.defaultString("fds.xdi.am_host", "localhost");
         boolean useFakeAm = platformConfig.defaultBoolean( "fds.am.memory_backend", false );
 
@@ -138,32 +145,18 @@ public class Main {
                           .retryOn( TTransportException.class )
                           .retryOn( ConnectException.class );
 
-        final CompletableFuture<OMConfigServiceClient> restCompletableFuture =
-            asyncRetryExecutor.getWithRetry(
-                ( ) -> {
-                    return new OMConfigServiceRestClientImpl( secretKey,
-                                                              "http",
-                                                              omHost,
-                                                              omHttpPort );
-                } );
-
-        final OMConfigServiceClient omConfigServiceRestClient = restCompletableFuture.get( );
-        if( omConfigServiceRestClient == null )
-        {
-            throw new RuntimeException( "Failed to connect to service proxy " +
-                                        omHost + ":" + omConfigPort );
-        }
-
         LOG.debug( "Attempting to connect to configuration API, on " +
                    omHost + ":" + omHttpPort + "." );
         final CompletableFuture<ConfigurationApi> cfgApicompletableFuture =
             asyncRetryExecutor.getWithRetry(
                 ( ) -> {
-                    return OMConfigurationServiceProxy.newOMConfigProxy(
-                                   omConfigServiceRestClient,
-                                   clientFactory.remoteOmService( omHost,
-                                                                  omConfigPort ) );
+                    return OMConfigurationServiceProxy.newOMConfigProxy( secretKey,
+                                                                         "http",
+                                                                         omHost,
+                                                                         omHttpPort,
+                                                                         omConfigPort );
                 } );
+
         final ConfigurationApi omCachedConfigProxy = cfgApicompletableFuture.get();
         if( omCachedConfigProxy == null )
         {
@@ -185,6 +178,12 @@ public class Main {
             throw new RuntimeException( "Failed to populate XDI config cache" );
         }
 
+        // initialize darth vader.  Note that this is kinda circular and sucks!
+        // The v08 OM Rest Client uses the ExternalModelConverter, which accesses
+        // the config API through this singleton, but it ultimately references back
+        // to to OMConfigurationServiceProxy.
+        SingletonConfigAPI.instance().api( configCache );
+        
         // TODO: make cache update check configurable.
         // The config cache has been modified so that it captures all events that come through
         // the XDI apis.  However, it does not capture events that go direct through the
@@ -233,6 +232,24 @@ public class Main {
                 httpsConfiguration,
                 httpConfiguration).start(), "S3 service thread").start();
 
+        // Experimental: XDI server
+        IoOps ioOps = new DeferredIoOps(new AmOps(asyncAm), v -> {
+            try {
+                return configCache.statVolume(XdiVfs.DOMAIN, v).getPolicy().getMaxObjectSizeInBytes();
+            } catch (Exception e) {
+                throw new IOException(e);
+            }
+        });
+        // ioOps = new MemoryIoOps();
+        XdiConnector connector = new XdiConnector(configCache, ioOps);
+
+        // start XDI connector servers -- add this to config?
+        TransportServer xdiConfigServer = createXdiConfigServer(connector, Executors.newFixedThreadPool(4));
+        monitorNamedPipePath(xdiConfigServer, Paths.get("/tmp/xdi/config"));
+
+        TransportServer xdiDataServer = createXdiDataServer(connector, Executors.newFixedThreadPool(16));
+        monitorNamedPipePath(xdiDataServer, Paths.get("/tmp/xdi/data"));
+
         // Default NFS port is 2049, or 7000 - 4951
         new NfsServer().start(xdiStaticConfig, configCache, asyncAm, pmPort - 4951);
         startStreamingServer(pmPort + streamingPortOffset, configCache);
@@ -259,5 +276,21 @@ public class Main {
         new Thread(runnable, "Statistics streaming thread").start();
     }
 
+    private void monitorNamedPipePath(TransportServer server, Path path) {
+        NamedPipeServer namedPipeServer = new NamedPipeServer(server, path);
+        Thread thread = new Thread(namedPipeServer::open);
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private TransportServer createXdiDataServer(ConnectorData connectorData, Executor runner) {
+        ConnectorDataMessageHandler handler = new ConnectorDataMessageHandler(connectorData);
+        return new TransportServer(handler, runner);
+    }
+
+    private TransportServer createXdiConfigServer(ConnectorConfig connectorConfig, Executor runner) {
+        ConnectorConfigMessageHandler handler = new ConnectorConfigMessageHandler(connectorConfig);
+        return new TransportServer(handler, runner);
+    }
 }
 

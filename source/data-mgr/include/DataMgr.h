@@ -245,6 +245,19 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
         Error markIODone(const FDS_IOType& _io);
         Error processIO(FDS_IOType* _io);
         virtual ~dmQosCtrl();        
+
+        template<class F>
+        void schedule(const fds_volid_t &volId, bool bSynchronize, F &&f) {
+            fds_threadpool *executor = threadPool;
+            if (volId == FdsDmSysTaskId) {
+                executor = lowpriThreadPool;
+            }
+            if (bSynchronize) {
+                executor->scheduleWithAffinity(volId.get(), std::forward<F>(f));
+            } else {
+                executor->schedule(std::forward<F>(f));
+            }
+        }
     };
 
     FDS_VolumeQueue*  sysTaskQueue;

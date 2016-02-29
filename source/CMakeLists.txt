@@ -154,6 +154,7 @@ set(SOURCE_FILES
     ./data-mgr/dm-lib/handlers/getbuckethandler.cpp
     ./data-mgr/dm-lib/handlers/getdmstatshandler.cpp
     ./data-mgr/dm-lib/handlers/getvolumemetadatahandler.cpp
+    ./data-mgr/dm-lib/handlers/loadfromarchivehandler.cpp
     ./data-mgr/dm-lib/handlers/migrationhandler.cpp
     ./data-mgr/dm-lib/handlers/querycataloghandler.cpp
     ./data-mgr/dm-lib/handlers/reloadvolumehandler.cpp
@@ -609,7 +610,6 @@ set(SOURCE_FILES
     ./orch-mgr/include/orchMgr.h
     ./orch-mgr/om-common/om-service.cpp
     ./orch-mgr/om-common/om-svc-handler.cpp
-    ./orch-mgr/om-dlt/deletescheduler.cpp
     ./orch-mgr/om-dlt/OmClusMap.cpp
     ./orch-mgr/om-dlt/OmDataPlacement.cpp
     ./orch-mgr/om-dlt/OmDeploy.cpp
@@ -620,6 +620,7 @@ set(SOURCE_FILES
     ./orch-mgr/om-dlt/OmVolPlacementAlgo.cpp
     ./orch-mgr/om-dlt/OmVolume.cpp
     ./orch-mgr/om-dlt/OmVolumePlacement.cpp
+    ./orch-mgr/om-dlt/volumedeletescheduler.cpp
     ./orch-mgr/om-lib/OmAdminCtrl.cpp
     ./orch-mgr/om-lib/OMMonitorWellKnownPMs.cpp
     ./orch-mgr/om-lib/omutils.cpp
@@ -1046,6 +1047,6 @@ osdep/umod-linux/fds_osdep.cpp
     ./util/misc/stringutils.cpp
     ./util/misc/timeutils.cpp
     ./util/misc/type.cpp
-)
+        include/concurrency/flow_control.h umod-lib/concurrency/flow_control.cpp)
 
 add_executable(source ${SOURCE_FILES})

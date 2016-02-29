@@ -7,13 +7,11 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class FdsObject {
-    private final ReentrantLock lock;
     private final int maxObjectSize;
     private int limit;
     private byte[] bytes;
 
     public FdsObject(ByteBuffer byteBuffer, int maxObjectSize) {
-        lock = new ReentrantLock();
         bytes = new byte[maxObjectSize];
         this.maxObjectSize = maxObjectSize;
         this.limit = byteBuffer.remaining();
@@ -28,20 +26,16 @@ public class FdsObject {
         return wrap(new byte[size], maxObjectSize);
     }
 
-    public <T> T lock(IoFunction<Accessor, T> f) throws IOException {
-        lock.lock();
-        try {
-            return f.apply(new Accessor());
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    /**
-     * Not thread-safe, use lock()
-     */
     public int limit() {
         return limit;
+    }
+
+    public int capacity() {
+        return bytes.length;
+    }
+
+    public void limit(int limit) {
+        this.limit = limit;
     }
 
     /**
@@ -51,34 +45,13 @@ public class FdsObject {
         return maxObjectSize;
     }
 
-    public class Accessor {
-        public int limit() {
-            return limit;
-        }
+    public ByteBuffer asByteBuffer() {
+        ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
+        byteBuffer.limit(limit);
+        return byteBuffer;
+    }
 
-        public void limit(int value) {
-            FdsObject.this.limit = value;
-        }
-
-        public int maxObjectSize() {
-            return maxObjectSize;
-        }
-
-        public ByteBuffer asByteBuffer() {
-            ByteBuffer bb = ByteBuffer.wrap(bytes);
-            bb.limit(limit);
-            return bb;
-        }
-
-        public byte[] toByteArray() {
-            byte[] byteArray = new byte[limit];
-            System.arraycopy(bytes, 0, byteArray, 0, limit);
-            return byteArray;
-        }
-
-        public FdsObject fdsObject() {
-            return FdsObject.this;
-
-        }
+    public byte[] toByteArray() {
+        return bytes;
     }
 }

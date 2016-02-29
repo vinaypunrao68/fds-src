@@ -19,6 +19,9 @@ Error RequestManager::sendReloadVolumeRequest(const NodeUuid & nodeId, const fds
     SvcRequestCbTask<EPSvcRequest, fpi::ReloadVolumeRspMsg> waiter;
     asyncReq->onResponseCb(waiter.cb);
 
+    // set 5 minute timeout
+    asyncReq->setTimeoutMs(5*60*1000);
+
     asyncReq->invoke();
     waiter.await();
     return waiter.error;
@@ -34,7 +37,8 @@ Error RequestManager::sendLoadFromArchiveRequest(const NodeUuid & nodeId, const 
     
     SvcRequestCbTask<EPSvcRequest, fpi::LoadFromArchiveMsg> waiter;
     asyncReq->onResponseCb(waiter.cb);
-
+    // set 5 minute timeout
+    asyncReq->setTimeoutMs(5*60*1000);
     asyncReq->invoke();
     waiter.await();
     return waiter.error;

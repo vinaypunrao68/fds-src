@@ -3,6 +3,7 @@ package com.formationds.om.webkit.rest;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.protocol.ApiException;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
@@ -32,22 +33,23 @@ public class HttpErrorHandler implements RequestHandler {
 
         } catch (Exception e) {
 
-            logger.error( "Error executing " +
-                          request.getRequestURI() +
-                          " -- " +
-                          e.getMessage() );
+            logger.error( "Error executing {} -- {}", request.getRequestURI(), e.getMessage() );
             logger.trace( "Stack Trace::", e );
-            if( e.getMessage() != null && e.getMessage().length() > 1 ) {
-                return new JsonResource(
-                    new JSONObject().put( "message",
-                                          e.getMessage() ),
-                    HttpServletResponse.SC_INTERNAL_SERVER_ERROR );
+
+            JSONObject response = new JSONObject();
+            response.put( "type", e.getClass().getName() );
+
+            if( e.getMessage() != null && e.getMessage().length() > 0 ) {
+                response.put( "message", e.getMessage() );
+            } else {
+                response.put( "message", "Internal server error" );
             }
 
-            return new JsonResource(
-                new JSONObject().put( "message",
-                                      "Internal server error" ),
-                HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            if (e instanceof ApiException) {
+                response.put( "error_code", ((ApiException)e).getErrorCode() );
+            }
+
+            return new JsonResource( response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR );
         }
     }
 }

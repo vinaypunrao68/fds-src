@@ -161,14 +161,15 @@
 {% set ft_enable_influxdb_series_per_volume       = fds_ft_enable_influxdb_series_per_volume       if fds_ft_enable_influxdb_series_per_volume       is defined else 'false' %}
 {% set ft_enable_influxdb_query_series_per_volume = fds_ft_enable_influxdb_query_series_per_volume if fds_ft_enable_influxdb_query_series_per_volume is defined else 'false' %}
 {% set ft_ignore_failed_svcs                      = fds_ft_ignore_failed_svcs                      if fds_ft_ignore_failed_svcs                      is defined else 'true'  %}
+{% set ft_configsvc_rest_client_proxy_v08         = fds_ft_configsvc_rest_client_proxy_v08         if fds_ft_configsvc_rest_client_proxy_v08         is defined else 'true'  %}
 {% set ft_use_shared_queryhelper                  = fds_ft_use_shared_queryhelper                  if fds_ft_use_shared_queryhelper                  is defined else 'true'  %}
 {% set ft_send_to_new_stats_service               = fds_ft_send_to_new_stats_service               if fds_ft_send_to_new_stats_service               is defined else 'false' %}
 {#
     Java Options -- not stored in platform.conf, but rather in formation_env and ultimately in environment variables
     The Logging and service name configuration in the defaults are important.  Without it, the logging may not be configured properly.
-    -XX:ErrorFile=/corefiles/*_hs_err_pid%p..log specifies the JVM crash report file location.
+    -XX:ErrorFile=${fds_root}/var/log/corefiles/*_hs_err_pid%p..log specifies the JVM crash report file location.
 #}
-{% set common_java_opts = fds_common_java_opts if fds_common_java_opts is defined else '-Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -XX:ErrorFile=/corefiles/hs_err_pid-%p.log' %}
+{% set common_java_opts = fds_common_java_opts if fds_common_java_opts is defined else '-Dlog4j.configurationFile=${fds_root}/etc/log4j2.xml -XX:ErrorFile=${fds_root}/var/log/corefiles/hs_err_pid-%p.log' %}
 {% set om_java_opts = fds_om_java_opts if fds_om_java_opts is defined else '' %}
 {% set xdi_java_opts = fds_xdi_java_opts if fds_xdi_java_opts is defined else '' %}
 {% block content %}{% endblock %}
