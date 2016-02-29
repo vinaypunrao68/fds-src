@@ -73,6 +73,7 @@ VolumeGroupHandle::VolumeGroupHandle(CommonModuleProviderIf* provider,
     refCnt_ = 0;
 
     closeCb_ = nullptr;
+    checkOnNonFunctionalScheduled_ = false;
 
     if (MODULEPROVIDER()->get_cntrs_mgr()) {
         MODULEPROVIDER()->get_cntrs_mgr()->add_for_export(this);
@@ -146,11 +147,6 @@ bool VolumeGroupHandle::replayFromWriteOpsBuffer_(const VolumeReplicaHandle &han
 
 void VolumeGroupHandle::resetGroup_(fpi::ResourceState state)
 {
-    /* NOTE: Consider not incrementing version every time open is called.  If open fails
-     * we may not want to incrment the version.
-     */
-    version_++;
-
     opSeqNo_ = VolumeGroupConstants::OPSTARTID;
     commitNo_ = VolumeGroupConstants::COMMITSTARTID;
 
@@ -204,8 +200,11 @@ void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
         /* Send a message to OM requesting to be coordinator for the group */
         auto setCoordinatorreq = createSetVolumeGroupCoordinatorMsgReq_();
         setCoordinatorreq->onResponseCb([this, clientCb](EPSvcRequest*,
-                                                         const Error& e,
-                                                         StringPtr) {
+                                                         const Error& e_,
+                                                         StringPtr payload) {
+           Error e = e_;
+           auto responseMsg = fds::deserializeFdspMsg<fpi::SetVolumeGroupCoordinatorRspMsg>(e,
+                                                                                            payload);
            if (e != ERR_OK) {
             LOGWARN << logString()
                     << " Failed set volume group coordinator.  Received "
@@ -213,6 +212,9 @@ void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
             clientCb(e, nullptr);
             return;
            }
+
+           version_ = responseMsg->version;
+
            /* Send open volume against the group to prepare for open */
            auto openReq = createPreareOpenVolumeGroupMsgReq_();
            openReq->onResponseCb([this, clientCb](QuorumSvcRequest* openReq,
@@ -346,6 +348,45 @@ void VolumeGroupHandle::decRef()
     }
 }
 
+void VolumeGroupHandle::scheduleCheckOnNonfunctionalReplicas_()
+{
+    ASSERT_SYNCHRONIZED();
+
+    if (checkOnNonFunctionalScheduled_) {
+        return;
+    }
+
+    incRef();
+    checkOnNonFunctionalScheduled_ = true;
+    MODULEPROVIDER()->getTimer()->scheduleFunction(
+        std::chrono::seconds(30),
+        [this]() {
+           checkOnNonFunctaionalReplicas_();
+       });
+}
+
+void VolumeGroupHandle::checkOnNonFunctaionalReplicas_()
+{
+    runSynchronized([this]() mutable {
+        checkOnNonFunctionalScheduled_ = false;
+
+        if (closeCb_) {
+            decRef();
+            return;
+        }
+
+        /* Only schedule if we still have non-functional replicas */
+        if (nonfunctionalReplicas_.size() > 0) {
+            auto broadcastGroupReq = createBroadcastGroupInfoReq_();
+            broadcastGroupReq->onResponseCb([](QuorumSvcRequest*, const Error&, StringPtr) {} );
+            broadcastGroupReq->invoke();
+            /* schedule the next round */
+            scheduleCheckOnNonfunctionalReplicas_();
+        }
+        decRef();
+    });
+}
+
 EPSvcRequestPtr
 VolumeGroupHandle::createSetVolumeGroupCoordinatorMsgReq_(bool clearCoordinator)
 {
@@ -377,6 +418,7 @@ VolumeGroupHandle::createPreareOpenVolumeGroupMsgReq_()
 
     auto prepareMsg = boost::make_shared<fpi::OpenVolumeMsg>();
     prepareMsg->volume_id = groupId_;
+    prepareMsg->coordinatorVersion = version_;
     // TODO(Rao): Set the token.  Set cooridnator as well
     // prepareMsg->token = volReq->token;
     // prepareMsg->mode = volReq->mode;
@@ -704,7 +746,7 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
         if (replicaVersion != VolumeGroupConstants::VERSION_START &&
             replicaVersion <= volumeHandle->version) {
             fds_assert(!"Invalid version");
-            return ERR_INVALID_VOLUME_VERSION;
+            return ERR_INVALID_VERSION;
         }
         if (writeOpsBuffer_) {
             /* Replica has/will get to active state upto opId, we will replay
@@ -726,10 +768,12 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
         volumeHandle->setState(targetState);
         volumeHandle->setError(e);
 
+        scheduleCheckOnNonfunctionalReplicas_();
+
     } else if (VolumeReplicaHandle::isFunctional(targetState)){
         if (replicaVersion != volumeHandle->version) {
             fds_assert(!"Invalid version: expecting %d got %d");
-            return ERR_INVALID_VOLUME_VERSION;
+            return ERR_INVALID_VERSION;
         }
         /* When transition to functional we must transition from sync state and latest opids
          * must match.  NOTE: We only asssert because opid checks will fail at volume replica.
@@ -792,16 +836,17 @@ fpi::VolumeGroupInfo VolumeGroupHandle::getGroupInfoForExternalUse_()
 {
     fpi::VolumeGroupInfo groupInfo; 
     groupInfo.groupId = groupId_;
-    groupInfo.version = version_;
+    groupInfo.coordinator.id = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
+    groupInfo.coordinator.version = version_;
     groupInfo.lastOpId = opSeqNo_;
     groupInfo.lastCommitId = commitNo_;
     for (const auto &replica : functionalReplicas_) {
         groupInfo.functionalReplicas.push_back(replica.svcUuid); 
     }
-    for (const auto &replica : nonfunctionalReplicas_) {
-        groupInfo.nonfunctionalReplicas.push_back(replica.svcUuid); 
-    }
     for (const auto &replica : syncingReplicas_) {
+        groupInfo.syncingReplicas.push_back(replica.svcUuid); 
+    }
+    for (const auto &replica : nonfunctionalReplicas_) {
         groupInfo.nonfunctionalReplicas.push_back(replica.svcUuid); 
     }
     return groupInfo;
@@ -810,7 +855,7 @@ fpi::VolumeGroupInfo VolumeGroupHandle::getGroupInfoForExternalUse_()
 void VolumeGroupHandle::setGroupInfo_(const fpi::VolumeGroupInfo &groupInfo)
 {
     groupId_ = groupInfo.groupId;
-    version_ = groupInfo.version;
+    version_ = groupInfo.coordinator.version;
     opSeqNo_ = groupInfo.lastOpId;
     commitNo_ = groupInfo.lastCommitId;
     functionalReplicas_.clear();
