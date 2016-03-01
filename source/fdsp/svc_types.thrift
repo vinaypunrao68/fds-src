@@ -417,9 +417,13 @@ enum  FDSPMsgTypeId {
   CtrlNotifyRequestTxStateRspMsgTypeId	    = 20064;
   LoadFromArchiveMsgTypeId		    = 20065;
   CtrlNotifyFinishMigrationMsgTypeId	    = 20066;
+  CopyVolumeMsgTypeId                   = 20067;
+  ArchiveMsgTypeId                      = 20068;
+  ArchiveRespMsgTypeId                  = 20069;
+
 
   /* DM Debug Messages */
-  DbgForceVolumeSyncMsgTypeId               = 21000; 
+  DbgForceVolumeSyncMsgTypeId               = 21000;
 
   /* VolumeGroup messages */
   VolumeGroupInfoUpdateCtrlMsgTypeId        = 30000;
