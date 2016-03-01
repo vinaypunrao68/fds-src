@@ -86,8 +86,8 @@ fds: {
 
            use_shared_queryhelper                  = {{ ft_use_shared_queryhelper }}
         
-           /* if enabled, will allow update of dlt for single node cluster whose replica_factor is > 1 */
-           allow_singlenode_dlt_update             = {{ ft_allow_singlenode_dlt_update }}
+           /* if enabled, will update DLT only when minimum number of SMs have come up */
+           enforce_minimum_replicas                = {{ ft_enforce_minimum_replicas }}
 	}
     }
 
