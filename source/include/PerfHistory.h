@@ -245,6 +245,13 @@ class VolumePerfHistory {
                             fds_uint64_t last_rel_sec,
                             fds_uint32_t last_seconds_to_ignore = 0);
 
+    /**
+     * Based upon the passed slot, returns the previous slot if it exists.
+     * @param[in] current_slot is the slot for which the previous slot is desired.
+     * @return the previous slot if it exists or null otherwise.
+     */
+    StatSlot* getPreviousSlot(const StatSlot& current_slot);
+
     friend std::ostream& operator<< (std::ostream &out,
                                      const VolumePerfHistory& hist);
 
@@ -282,12 +289,20 @@ class VolumePerfHistory {
 
   private:  /* methods */
     fds_uint32_t relSecToStatHistIndex_LockHeld(fds_uint64_t rel_seconds);
+
+    /**
+     * Return the number of seconds indicated by the given timestamp
+     * relative to the local start time. The caller needs to be aware
+     * of whether the provided timestamp is before or after the local
+     * start timestamp since this method returns an absolute value with
+     * no indication of whether the number of seconds are prior to or after
+     * the local timestamp.
+     */
     inline fds_uint64_t tsToRelativeSec(fds_uint64_t tsnano) const {
-        if (tsnano < local_start_ts_) {
-            return 0;
-        }
-        return (tsnano - local_start_ts_) / NANOS_IN_SECOND;
+        auto tsdiff = (tsnano > local_start_ts_) ? tsnano - local_start_ts_ : local_start_ts_ - tsnano;
+        return tsdiff / NANOS_IN_SECOND;
     }
+
     inline fds_uint64_t relativeSecToTS(fds_uint64_t start_nano,
                                         fds_uint64_t rel_sec) const {
         return (start_nano + rel_sec * NANOS_IN_SECOND);

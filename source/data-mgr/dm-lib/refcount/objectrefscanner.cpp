@@ -327,7 +327,16 @@ VolumeRefScannerContext::VolumeRefScannerContext(ObjectRefScanMgr* m, fds_volid_
     Error err = m->getDataMgr()->timelineMgr->getSnapshotsForVolume(vId, vecSnapIds);
     for (const auto& snapId : vecSnapIds) {
         err = m->getDataMgr()->timelineMgr->loadSnapshot(vId, snapId);
-        scanners.push_back(ObjectRefScannerPtr(new VolumeObjectRefScanner(m, snapId)));
+        if (err.ok()) {
+            // double check if the snapshot was loaded.
+            if (nullptr != m->getDataMgr()->getVolumeMeta(snapId)) {
+                scanners.push_back(ObjectRefScannerPtr(new VolumeObjectRefScanner(m, snapId)));
+            } else {
+                LOGERROR << "unable to load snap:" << snapId;
+            }
+        } else {
+            LOGWARN << "unable to load snapshot for refscan vol:" << vId << " snap:"<< snapId;
+        }
     }
     itr = scanners.begin();
     state = SCANNING;
