@@ -57,12 +57,12 @@ struct VolumeGroupFixture : DmGroupFixture {
         sleep(1);
 
         // Each DM in the cluster should have received the command
-        for (auto &dmHandlePtr : dmGroup) {
-            auto volMeta = dmHandlePtr->proc->dm->getVolumeMeta(volId0, false);
-            ASSERT_TRUE(volMeta->hashCalcContextExists());
-        }
-        // Check if all DMs have responded (NS_CONTACTED)
-        ASSERT_TRUE(vcHandle.proc->testVerifyCheckerListStatus(1));
+//        for (auto &dmHandlePtr : dmGroup) {
+//            auto volMeta = dmHandlePtr->proc->dm->getVolumeMeta(volId0, false);
+//            ASSERT_TRUE(volMeta->hashCalcContextExists());
+//        }
+        // Check if all DMs have responded (NS_FINISHED)
+        ASSERT_TRUE(vcHandle.proc->testVerifyCheckerListStatus(2));
     }
 
     void stopVolumeChecker() {

@@ -75,6 +75,9 @@ private:
     // Max retires for get - TODO needs to be organized later
     int maxRetries = 10;
 
+    // Batch size per levelDB iteration
+    int batchSize;
+
     // If volumeChecker initialization succeeded
     bool initCompleted;
 
@@ -92,10 +95,14 @@ private:
 
     struct DmCheckerMetaData {
         DmCheckerMetaData(fds_volid_t _volId,
-                          fpi::SvcUuid _svcUuid) :
+                          fpi::SvcUuid _svcUuid,
+                          int _batchSize) :
             volId(_volId),
             svcUuid(_svcUuid),
-            status(NS_NOT_STARTED)
+            status(NS_NOT_STARTED),
+            batchSize(_batchSize),
+            hashResult(0),
+            time_out(1000*10*60)    // 10 minutes
             {}
 
         ~DmCheckerMetaData() = default;
@@ -113,9 +120,19 @@ private:
         enum chkNodeStatus {
             NS_NOT_STARTED,       // Just created
             NS_CONTACTED,         // Volume list has been sent to the node and should be working
+            NS_FINISHED,          // The node has responded with a result
             NS_ERROR              // Error state, idle
         };
         chkNodeStatus status;
+
+        // Local cached batchSize
+        int batchSize;
+
+        // stored result
+        unsigned hashResult;
+
+        // stored timeout
+        unsigned time_out;
     };
 
     // Map of volID -> set of metadata for DM quorum check

@@ -13,7 +13,8 @@ namespace fds {
 VolumeChecker::VolumeChecker(int argc, char **argv, bool initAsModule)
     : waitForShutdown(initAsModule),
       initCompleted(false),
-      currentStatusCode(VC_NOT_STARTED)
+      currentStatusCode(VC_NOT_STARTED),
+      batchSize(100)
 {
     init(argc, argv, initAsModule);
     LOGNORMAL << "VolumeChecker initialized.";
@@ -153,7 +154,7 @@ VolumeChecker::prepareDmCheckerMap() {
         for (auto oneSvcUuid : svcUuidVector) {
             LOGDEBUG << "VolumeChecker creating metadata for volume "
                     << vol << " for node: " << oneSvcUuid;
-            dataPerVol.emplace_back(vol, oneSvcUuid);
+            dataPerVol.emplace_back(vol, oneSvcUuid, batchSize);
         }
         LOGDEBUG << "VolumeChecker created all nodes metadata for volume: " << vol;
         vgCheckerList.emplace_back(std::make_pair(vol, dataPerVol));
@@ -176,6 +177,12 @@ VolumeChecker::sendVolChkMsgsToDMs() {
                                               StringPtr payload) {
                 if (!e_.OK()) {
                     dmData->status = DmCheckerMetaData::NS_ERROR;
+                } else {
+                    Error err(ERR_OK);
+                    dmData->status = DmCheckerMetaData::NS_FINISHED;
+                    fpi::CheckVolumeMetaDataRspMsgPtr respMsg =
+                            fds::deserializeFdspMsg<fpi::CheckVolumeMetaDataRspMsg>(err, payload);
+                    dmData->hashResult = respMsg->hash_result;
                 }
                 fds_assert(msgTracker);
                 msgTracker->finishTrackIOReqs();
@@ -210,10 +217,12 @@ void
 VolumeChecker::DmCheckerMetaData::sendVolChkMsg(const EPSvcRequestRespCb &cb) {
     auto msg = fpi::CheckVolumeMetaDataMsgPtr(new fpi::CheckVolumeMetaDataMsg);
     msg->volume_id = volId.v;
+    msg->batch_size = batchSize;
 
     auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
     auto req = requestMgr->newEPSvcRequest(svcUuid);
     req->setPayload(FDSP_MSG_TYPEID(fpi::CheckVolumeMetaDataMsg), msg);
+    req->setTimeoutMs(time_out);
     auto sysVol = FdsSysTaskQueueId;
     req->setTaskExecutorId(sysVol.v);
     if (cb) {

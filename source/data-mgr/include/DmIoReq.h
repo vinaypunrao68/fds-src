@@ -934,16 +934,10 @@ struct DmVolumeReq : DmRequest {
     {
         reqMessageType = ReqTypeId;
         reqMessage = msg;
-    }
-
-    DmVolumeReq(const fds_volid_t &volId, const SHPTR<ReqMsgT> &msg,
-                const SHPTR<RespMsgT> &rspMsg)
-            : DmRequest(volId, "", "", 0, QosIoT)
-    {
-        reqMessageType = ReqTypeId;
-        reqMessage = msg;
         respMessageType = RespTypeId;
-        respMessage = rspMsg;
+        if (respMessageType != FDSP_MSG_TYPEID(fpi::EmptyMsg)) {
+            respMessage = boost::make_shared<RespT>();
+        }
     }
 
     std::string log_string() const

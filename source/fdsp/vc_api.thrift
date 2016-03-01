@@ -16,10 +16,13 @@ namespace java com.formationds.protocol.dm
 struct CheckVolumeMetaDataMsg {
     1: required i64                 volume_id;
     2: required svc_types.SvcUuid   volCheckerNodeUuid;
+    /* The max number of levelDB entires to hash every time */
+    3: i32                          batch_size;
 }
 
 /**
  * Empty response
  */
 struct CheckVolumeMetaDataRspMsg {
+    1: required i32         hash_result;
 }

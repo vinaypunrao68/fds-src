@@ -301,6 +301,7 @@ void DataMgr::handleInitVolCheck(DmRequest *dmRequest) {
     fds_volid_t incomingVolId;
     incomingVolId.v = msgPtr->volume_id;
     fpi::SvcUuid checkerUuid(msgPtr->volCheckerNodeUuid);
+    int batchSize = msgPtr->batch_size;
 
     LOGDEBUG << "Received initial checker message for volume " << incomingVolId.v;
     // We do things now on the volumeMeta context
@@ -311,8 +312,11 @@ void DataMgr::handleInitVolCheck(DmRequest *dmRequest) {
         helper.err = ERR_VOL_NOT_FOUND;
         return;
     } else {
-        helper.skipImplicitCb = false;
-        helper.err = volMeta->createHashCalcContext(dmRequest, checkerUuid);
+        helper.skipImplicitCb = true;
+        helper.err = volMeta->createHashCalcContext(dmRequest,
+                                                    checkerUuid,
+                                                    batchSize);
+        helper.markIoDone();
     }
 }
 /**

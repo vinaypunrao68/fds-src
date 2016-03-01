@@ -25,6 +25,8 @@
 #include <VolumeInitializer.h>
 #include <dm-vol-cat/DmPersistVolDB.h>
 
+#include <FdsCrypto.h>
+
 namespace fds {
 
 struct EPSvcRequest;
@@ -261,7 +263,9 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     /**
      * Hash context public methods
      */
-    Error createHashCalcContext(DmRequest *req, fpi::SvcUuid _reqUUID);
+    Error createHashCalcContext(DmRequest *req,
+                                fpi::SvcUuid _reqUUID,
+                                int batchSize);
 
     /**
      * For unit testing
@@ -361,8 +365,17 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     // Context for requests that ask for hash calculations, such as volume checker
     // Everything done here must be synchronized on FdsSysTaskQueueId
     struct hashCalcContext {
-        explicit hashCalcContext(DmRequest *req, fpi::SvcUuid _reqUUID);
+        explicit hashCalcContext(DmRequest *req,
+                                fpi::SvcUuid _reqUUID,
+                                int _batchSize);
         ~hashCalcContext();
+
+        /**
+         * The sha1 class related to this context.
+         * Each batch pass, we update the sha1 calculation.
+         * Once the last batch is processed, we call final on it.
+         */
+        hash::Sha1 hasher;
 
         // Sends the callback with an error code
         void sendCb();
@@ -370,16 +383,28 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
         // Node (could be self) that requested the operation
         fpi::SvcUuid requesterUUID;
 
-        // DmRequest to send back to the requester
-        DmRequest *dmRequest;
+        // typedRequest to send back to the requester
+        DmIoVolumeCheck *typedRequest;
 
         // Current context error code
         Error contextErr;
+
+        // Max entries of levelDB walk before looping back to another system queue req
+        int batchSize;
+
+        // Result to be sent back as part of the cb
+        unsigned hashResult;
 
     };
     // nullptr if no operation is ongoing, otherwise, we only allow 1 hashing op to occur
     // No need for locking since we require things to be done in synchronized context
     hashCalcContext *hashCalcContextPtr;
+
+    /**
+     * Given a hashCalcContext that's been established, execute the next step.
+     * Either do the initial hash, continue hash, or send result back
+     */
+    void doHashTaskOnContext();
 };
 
 using VolumeMetaPtr = SHPTR<VolumeMeta>;
