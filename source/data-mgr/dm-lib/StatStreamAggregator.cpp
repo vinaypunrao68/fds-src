@@ -1179,7 +1179,7 @@ void StatStreamTimerTask::runTimerTask() {
                 addMetric("QFULL", qfullDP.value, AggregationType::MAX);
                 addMetric("SSD_GETS", ssdGetsDP.value, AggregationType::SUM);
                 addMetric("HDD_GETS", hddGetsDP.value, AggregationType::SUM);
-                addMetric("LBYTES", logicalBytesDP.value, AggregationType::SUM);
+                addMetric("LBYTES", logicalBytesDP.value, AggregationType::LATEST);
                 addMetric("PBYTES", physicalBytesDP.value, AggregationType::SUM);
                 addMetric("MBYTES", mdBytesDP.value, AggregationType::SUM);
                 addMetric("BLOBS", blobsDP.value, AggregationType::SUM);
