@@ -8,6 +8,8 @@ import com.formationds.commons.libconfig.Assignment;
 import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.nfs.*;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.sc.SvcState;
+import com.formationds.sc.api.SvcAsyncAm;
 import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
@@ -26,6 +28,7 @@ import com.formationds.xdi.contracts.transport.pipe.NamedPipeServer;
 import com.formationds.xdi.experimental.XdiConnector;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.formationds.xdi.swift.SwiftEndpoint;
+import com.google.common.net.HostAndPort;
 import com.nurkiewicz.asyncretry.AsyncRetryExecutor;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -43,6 +46,7 @@ import java.io.IOException;
 import java.net.ConnectException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -232,14 +236,17 @@ public class Main {
                 s3MaxConcurrentRequests).start(), "S3 service thread").start();
 
         // Experimental: XDI server
-        IoOps ioOps = new DeferredIoOps(new AmOps(asyncAm), v -> {
+        SvcState svc = new SvcState(HostAndPort.fromParts("*", amResponsePort), HostAndPort.fromParts(omHost, 7004), UUID.randomUUID().getLeastSignificantBits());
+        svc.openAndRegister();
+        SvcAsyncAm svcLayer = new SvcAsyncAm(svc);
+        IoOps ioOps = new DeferredIoOps(new AmOps(svcLayer), v -> {
             try {
                 return configCache.statVolume(XdiVfs.DOMAIN, v).getPolicy().getMaxObjectSizeInBytes();
             } catch (Exception e) {
                 throw new IOException(e);
             }
         });
-        // ioOps = new MemoryIoOps();
+
         XdiConnector connector = new XdiConnector(configCache, ioOps);
 
         // start XDI connector servers -- add this to config?
