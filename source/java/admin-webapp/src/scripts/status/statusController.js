@@ -36,6 +36,9 @@ $toggle_service ){
     $scope.capacityLabels = [ $filter( 'translate' )( 'common.l_yesterday' ), $filter( 'translate' )( 'common.l_today' )];
     $scope.performanceLabels = [ $filter( 'translate' )( 'common.l_1_hour' ), $filter( 'translate' )( 'common.l_now' )];
     
+    $scope.capacityMinTime = 0;
+    $scope.capacityMaxTime = 0;
+    
     $scope.goToDebug = function(){
         
         $state.transitionTo( 'homepage.debug' );
@@ -164,20 +167,24 @@ $toggle_service ){
         }
         
 //        var parts = $byte_converter.convertBytesToString( data.calculated[1].total );
-        var parts = $byte_converter.convertBytesToString( data.series[1].datapoints[ data.series[1].datapoints.length - 1 ].y );
-        parts = parts.split( ' ' );
+        $scope.capacityItems = [];
         
-        var num = parseFloat( parts[0] );
-        var percentage = ( capacityUsed / totalCapacity * 100 ).toFixed( 0 );
-        
-        if ( isNaN( percentage ) ){
-            percentage = 0;
+        if ( data.series.length > 1 ){
+            var parts = $byte_converter.convertBytesToString( data.series[1].datapoints[ data.series[1].datapoints.length - 1 ].y );
+            parts = parts.split( ' ' );
+
+            var num = parseFloat( parts[0] );
+            var percentage = ( capacityUsed / totalCapacity * 100 ).toFixed( 0 );
+
+            if ( isNaN( percentage ) ){
+                percentage = 0;
+            }
+
+            $scope.capacityItems = [
+                {number: percentage, description: '(' + $byte_converter.convertBytesToString( capacityUsed ) + ' / ' + $byte_converter.convertBytesToString( totalCapacity ) + ')', suffix: '% ' + $filter( 'translate' )( 'status.l_used' ) + '  '},
+                {number: dedupRatio, description: $filter( 'translate' )( 'status.desc_dedup_ratio' ), separator: ':'}
+            ];
         }
-        
-        $scope.capacityItems = [
-            {number: percentage, description: '(' + $byte_converter.convertBytesToString( capacityUsed ) + ' / ' + $byte_converter.convertBytesToString( totalCapacity ) + ')', suffix: '% ' + $filter( 'translate' )( 'status.l_used' ) + '  '},
-            {number: dedupRatio, description: $filter( 'translate' )( 'status.desc_dedup_ratio' ), separator: ':'}
-        ];
         
         if ( angular.isDefined( secondsToFull )){
             
@@ -198,6 +205,10 @@ $toggle_service ){
             $scope.capacityItems.push( fullInfo );
             $scope.capacityLimit = totalCapacity;
         }
+        
+        // set the mins and maxs
+        $scope.capacityMinTime = data.query.range.start;
+        $scope.capacityMaxTime = data.query.range.end;
         
         capacityInterval = $timeout( startCapacitySummary, 60000 );
     };

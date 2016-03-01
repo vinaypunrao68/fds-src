@@ -263,7 +263,9 @@ public class QueryHelper {
             }
 
         }
-
+        
+        stats.setQuery( query );
+        
         return stats;
     }
 
