@@ -54,8 +54,7 @@ void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoVolumeOpen * request = static_cast<DmIoVolumeOpen *>(dmRequest);
 
-    LOGDEBUG << "Attempting to open volume: '"
-             << std::hex << request->volId << std::dec << "'";
+    LOGDEBUG << "Attempting to open volume: " << request->volId;
 
     auto volMeta = dataManager.getVolumeMeta(request->volId);
     if (dataManager.features.isVolumegroupingEnabled()) {
@@ -64,7 +63,18 @@ void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
             helper.err = ERR_SYNC_INPROGRESS;
             return;
         }
+        if (volMeta->isCoordinatorSet() &&
+            request->msg->coordinatorVersion < volMeta->getCoordinatorVersion()) {
+            LOGWARN << "Rejecting openvolume request due to version check failure"
+                << " volume: " << request->volId
+                << " from: " << request->client_uuid_
+                << " request version: " << request->msg->coordinatorVersion
+                << " stored version: " << volMeta->getCoordinatorVersion();
+            helper.err = ERR_INVALID_VERSION;
+            return;
+        }
         volMeta->setCoordinatorId(request->client_uuid_);
+        volMeta->setCoordinatorVersion(request->msg->coordinatorVersion);
         volMeta->setState(fpi::Loading,
                           util::strformat(" - openvolume from coordinator: %ld",
                                           volMeta->getCoordinatorId().svc_uuid));
@@ -78,7 +88,7 @@ void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
                                                      request->version);
 
     if (helper.err.ok()) {
-        LOGDEBUG << "on opening vol: " << request->volId
+        LOGDEBUG << "on opening volume: " << request->volId
                  << ", latest sequence was determined to be "
                  << request->sequence_id;
     }

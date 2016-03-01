@@ -276,6 +276,24 @@ AmDispatcher::closeVolume(AmRequest * amReq) {
     return AmDataProvider::closeVolumeCb(amReq, ERR_OK);
 }
 
+Error AmDispatcher::modifyVolumePolicy(const VolumeDesc& vdesc) {
+    if (volume_grouping_support) {
+        // Check to see if another AM has claimed ownership of coordinating the volume
+        WriteGuard wg(volumegroup_lock);
+        auto it = volumegroup_map.find(vdesc.GetID());
+        if (volumegroup_map.end() != it &&
+            vdesc.getCoordinatorId() != MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() &&
+            vdesc.getCoordinatorVersion() > it->second->getVersion()) {
+            // Give ownership of the volume handle to the handle itself, we're
+            // done with it
+            std::shared_ptr<VolumeGroupHandle> vg = std::move(it->second);
+            volumegroup_map.erase(it);
+            vg->close([this, vg] () mutable -> void {});
+        }
+    }
+    return AmDataProvider::modifyVolumePolicy(vdesc);
+}
+
 void
 AmDispatcher::commitBlobTx(AmRequest* amReq) {
     fiu_do_on("am.uturn.dispatcher", return AmDataProvider::commitBlobTxCb(amReq, ERR_OK););
@@ -291,12 +309,12 @@ AmDispatcher::commitBlobTx(AmRequest* amReq) {
      * FEATURE TOGGLE: VolumeGrouping
      * Thu Jan 14 10:39:09 2016
      */
-    auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
     if (!volume_grouping_support) {
+        auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
         message->dmt_version = amReq->dmt_version;
         writeToDM(blobReq, message, &AmDispatcher::commitBlobTxCb);
     } else {
-        volumeGroupCommit(blobReq, message, &AmDispatcher::_commitBlobTxCb, std::move(vLock));
+        volumeGroupCommit(blobReq, message, &AmDispatcher::_commitBlobTxCb);
     }
 }
 
@@ -517,13 +535,13 @@ AmDispatcher::updateCatalog(AmRequest* amReq) {
      * FEATURE TOGGLE: VolumeGrouping
      * Thu Jan 14 10:39:09 2016
      */
-    auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
     if (!volume_grouping_support) {
+        auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
         blobReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
         message->dmt_version = blobReq->dmt_version;
         writeToDM(blobReq, message, &AmDispatcher::updateCatalogCb, message_timeout_io);
     } else {
-        volumeGroupCommit(blobReq, message, &AmDispatcher::_updateCatalogCb, std::move(vLock));
+        volumeGroupCommit(blobReq, message, &AmDispatcher::_updateCatalogCb);
     }
 }
 
@@ -549,13 +567,13 @@ AmDispatcher::renameBlob(AmRequest* amReq) {
      * FEATURE TOGGLE: VolumeGrouping
      * Thu Jan 14 10:39:09 2016
      */
-    auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
     if (!volume_grouping_support) {
+        auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
         blobReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
         message->dmt_version = blobReq->dmt_version;
         writeToDM(blobReq, message, &AmDispatcher::renameBlobCb, message_timeout_io);
     } else {
-        volumeGroupCommit(blobReq, message, &AmDispatcher::_renameBlobCb, std::move(vLock));
+        volumeGroupCommit(blobReq, message, &AmDispatcher::_renameBlobCb);
     }
 }
 
@@ -604,12 +622,12 @@ AmDispatcher::setVolumeMetadata(AmRequest* amReq) {
      * FEATURE TOGGLE: VolumeGrouping
      * Thu Jan 14 10:39:09 2016
      */
-    auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
     if (!volume_grouping_support) {
+        auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
         volReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
         writeToDM(volReq, message, &AmDispatcher::setVolumeMetadataCb);
     } else {
-        volumeGroupCommit(volReq, message, &AmDispatcher::_setVolumeMetadataCb, std::move(vLock));
+        volumeGroupCommit(volReq, message, &AmDispatcher::_setVolumeMetadataCb);
     }
 }
 

@@ -117,6 +117,7 @@ struct AmDispatcher : public AmDataProvider
     void removeVolume(VolumeDesc const& volDesc) override;
     void openVolume(AmRequest * amReq) override;
     void closeVolume(AmRequest * amReq) override;
+    Error modifyVolumePolicy(const VolumeDesc& vdesc) override;
     void addToVolumeGroup(const fpi::AddToVolumeGroupCtrlMsgPtr &addMsg,
                                const AddToVolumeGroupCb &cb) override;
     void statVolume(AmRequest * amReq) override;
@@ -182,7 +183,7 @@ struct AmDispatcher : public AmDataProvider
     void volumeGroupModify(ReqPtr request, MsgPtr message, CbMeth cb_func);
 
     template<typename CbMeth, typename MsgPtr, typename ReqPtr>
-    void volumeGroupCommit(ReqPtr request, MsgPtr message, CbMeth cb_func, std::unique_lock<std::mutex>&& vol_lock);
+    void volumeGroupCommit(ReqPtr request, MsgPtr message, CbMeth cb_func);
 
     std::unique_ptr<ErrorHandler> volumegroup_handler;
     fds_rwlock volumegroup_lock;

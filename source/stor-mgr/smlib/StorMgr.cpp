@@ -229,7 +229,7 @@ void ObjectStorMgr::mod_enable_service()
         auto svcmgr = MODULEPROVIDER()->getSvcMgr();
         totalRate = static_cast<uint32_t>(atoi(
                 svcmgr->getSvcProperty(modProvider_->getSvcMgr()->getMappedSelfPlatformUuid(),
-                                       "node_iops_min").c_str()));
+                                       "node_iops_min", "400").c_str()));
         fds_assert(totalRate > 0);
     }
 
@@ -1100,6 +1100,9 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
                                           },
                                           snapReq);
         }
+        /* Mark the request as complete */
+        qosCtrl->markIODone(*snapReq, diskio::diskTier);
+
         snapReq->smio_snap_resp_cb(err, snapReq, options, db, snapReq->retryReq, snapReq->unique_id);
     } else {
         std::string snapDir;
@@ -1116,10 +1119,12 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
                                           snapReq);
         }
 
+        /* Mark the request as complete */
+        qosCtrl->markIODone(*snapReq, diskio::diskTier);
+
         snapReq->smio_persist_snap_resp_cb(err, snapReq, snapDir, env);
     }
-    /* Mark the request as complete */
-    qosCtrl->markIODone(*snapReq, diskio::diskTier);
+
 }
 
 void
@@ -1212,6 +1217,8 @@ ObjectStorMgr::applyRebalanceDeltaSet(SmIoReq* ioReq)
             // we will stop applying object metadata/data and report error to migr mgr
             LOGERROR << "Failed to apply object metadata/data " << objId
                      << ", " << err;
+
+            delete rebalReq;
             break;
         }
     }
@@ -1260,6 +1267,8 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
         fpi::ObjectMetaDataReconcileFlags reconcileFlag = (readDeltaSetReq->deltaSet)[i].second;
 
         const ObjectID objID(objMetaDataPtr->obj_map.obj_id.metaDigest);
+
+        LOGDEBUG << "Object ptr = " << objMetaDataPtr << " flag = " << reconcileFlag << " Object ID = " << objID;
 
         fpi::CtrlObjectMetaDataPropagate objMetaDataPropagate;
 

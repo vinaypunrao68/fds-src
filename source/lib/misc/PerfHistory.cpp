@@ -789,7 +789,12 @@ StatSlot* VolumePerfHistory::getPreviousSlot(const StatSlot& current_slot) {
             if (prev_slot->getRelSeconds() == std::numeric_limits<fds_uint64_t>::max()) {
                 prev_slot = nullptr;
             } else {
-                fds_verify(prev_slot->getRelSeconds() == current_slot.getRelSeconds() - slot_interval_sec_);
+                /**
+                 * If we don't recognize the previous slot's timestamp, then we can't use it.
+                 */
+                if (prev_slot->getRelSeconds() != current_slot.getRelSeconds() - slot_interval_sec_) {
+                    prev_slot = nullptr;
+                }
             }
         }
     }

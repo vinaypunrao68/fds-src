@@ -10,6 +10,7 @@
 
 #include <StatsConnFactory.h>
 
+#include "fdsp/common_constants.h"
 #include "fdsp/fds_stream_types.h"
 #include "fdsp/Streaming.h"
 #include "net/SvcMgr.h"
@@ -800,12 +801,12 @@ fds_uint64_t StatHelper::getTotalPhysicalBytes(StatSlot& slot, const VolumePerfH
     return getTotalWithDriftSupport(STAT_DM_CUR_PBYTES, slot, hist);
 }
 
-fds_uint64_t StatHelper::getTotalDomainDedupBytesFrac(const StatSlot &slot) {
-    return slot.getTotal(STAT_SM_CUR_DOMAIN_DEDUP_BYTES_FRAC);
+fds_uint64_t StatHelper::getTotalDomainDedupBytesFrac(StatSlot &slot, const VolumePerfHistory::ptr hist) {
+    return getTotalWithDriftSupport(STAT_SM_CUR_DOMAIN_DEDUP_BYTES_FRAC, slot, hist);
 }
 
-fds_uint64_t StatHelper::getTotalDedupBytes(const StatSlot &slot) {
-    return slot.getTotal(STAT_SM_CUR_DEDUP_BYTES);
+fds_uint64_t StatHelper::getTotalDedupBytes(StatSlot &slot, const VolumePerfHistory::ptr hist) {
+    return getTotalWithDriftSupport(STAT_SM_CUR_DEDUP_BYTES, slot, hist);
 }
 
 // we do not include user-defined metadata
@@ -1036,12 +1037,12 @@ void StatStreamTimerTask::runTimerTask() {
 
             fpi::DataPointPair domaindedupBytesDP;
             domaindedupBytesDP.key = "Domain Dedup Bytes Fraction";
-            domaindedupBytesDP.value = StatHelper::getTotalDomainDedupBytesFrac(slot);
+            domaindedupBytesDP.value = StatHelper::getTotalDomainDedupBytesFrac(slot, hist);
             volDataPointsMap[timestamp].push_back(domaindedupBytesDP);
 
             fpi::DataPointPair dedupBytesDP;
             dedupBytesDP.key = "Dedup Bytes";
-            dedupBytesDP.value = StatHelper::getTotalDedupBytes(slot);
+            dedupBytesDP.value = StatHelper::getTotalDedupBytes(slot, hist);
             volDataPointsMap[timestamp].push_back(dedupBytesDP);
 
             fpi::DataPointPair mdBytesDP;
@@ -1229,6 +1230,8 @@ void StatStreamTimerTask::runTimerTask() {
         } else {
             // XXX: hard-coded to bind to java endpoint in AM
             EpInvokeRpc(fpi::StreamingClient, publishMetaStream, info.ip, 8911,
+                    fpi::commonConstants().STREAMING_SERVICE_NAME,
+                    MODULEPROVIDER()->get_fds_config(),
                     reg_->id, dataPoints);
 
             if (newStatsServiceMetrics)

@@ -13,6 +13,7 @@ import org.apache.commons.httpclient.methods.PutMethod;
 import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Request;
 
+import com.formationds.om.webkit.rest.v08.users.GetUser;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
@@ -50,7 +51,7 @@ public class MessageBusForwarder implements RequestHandler {
 				break;
 		}
 		
-		method.setRequestHeader( "Authorization", "Basic " + new String( Base64.getEncoder().encode( "admin:admin".getBytes() ) ) );
+		method.setRequestHeader( "Authorization", "Basic " + new String( Base64.getEncoder().encode( (GetUser.STATS_USERNAME + ":$t@t$").getBytes() ) ) );
 		method.setRequestHeader( "Content-Type", "application/json" );
 		
 		int statusCode = client.executeMethod( method );

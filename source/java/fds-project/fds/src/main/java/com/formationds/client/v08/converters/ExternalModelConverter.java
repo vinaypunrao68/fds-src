@@ -25,6 +25,7 @@ import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
+import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.redis.RedisSingleton;
@@ -76,6 +77,9 @@ public class ExternalModelConverter {
     private static final String OBJECT_SIZE_NOT_SET =
         "Maximum object size was either not set, or outside the bounds of 4KB-8MB so it is being " +
         "set to the default of 2MB";
+    private static final String NFS_SIZE_NOT_SET =
+        "Maximum object size was either not set, or outside the bounds of 4KB-1MB so it is being " +
+        "set to the default of 1MB";
     private static final String BLOCK_SIZE_NOT_SET =
         "Block size was either not set, or outside the bounds of 4KB-8MB so it is being set to " +
         "the default of 128KB";
@@ -83,6 +87,7 @@ public class ExternalModelConverter {
     private static ConfigurationApi configApi;
     private static final Integer DEF_BLOCK_SIZE  = (1024 * 128);
     private static final Integer DEF_OBJECT_SIZE = ((1024 * 1024) * 2);
+    private static final Integer DEF_NFS_SIZE = ((1024 * 1024) * 1);
     private static final Logger  logger          = LoggerFactory.getLogger( ExternalModelConverter.class );
 
     public static Domain convertToExternalDomain( LocalDomainDescriptor internalDomain ) {
@@ -303,58 +308,77 @@ public class ExternalModelConverter {
 
         if( volDescType != null )
         {
-            final Optional<VolumeGroupCoordinatorInfo> coordinatorInfo =
-                Optional.ofNullable( volDescType.getCoordinator( ) );
-            if( coordinatorInfo.isPresent( ) && ( coordinatorInfo.get( )
-                                                                 .getId( )
-                                                                 .getSvc_uuid( ) != 0 ) )
+            if( FdsFeatureToggles.USE_VOLUME_GROUPING.isActive() )
             {
-                try
-                {
-                    logger.trace( "Requesting volume status for {}:{} from Volume group coordinator {}",
-                                  internalVolume.getVolId(),
-                                  internalVolume.getName(),
-                                  coordinatorInfo.get( )
-                                                 .getId( )
-                                                 .getSvc_uuid( ) );
-
-                    final AsyncAm am = AsyncAmMap.get( coordinatorInfo.get( )
+                final Optional<VolumeGroupCoordinatorInfo> coordinatorInfo = Optional.ofNullable(
+                    volDescType.getCoordinator( ) );
+                if ( coordinatorInfo.isPresent( ) && ( coordinatorInfo.get( )
                                                                       .getId( )
-                                                                      .getSvc_uuid( ) );
-
-                    if( am != null )
+                                                                      .getSvc_uuid( ) != 0 ) )
+                {
+                    try
                     {
-                        CompletableFuture<com.formationds.apis.VolumeStatus> completableFuture =
-                            am.volumeStatus( "" /* Local Domain Name */, internalVolume.getName( ) );
+                        logger.trace(
+                            "Requesting volume status for {}:{} from Volume group coordinator {}",
+                            internalVolume.getVolId( ), internalVolume.getName( ), coordinatorInfo.get( )
+                                                                                                  .getId( )
+                                                                                                  .getSvc_uuid( ) );
 
-                        final com.formationds.apis.VolumeStatus vstatus = completableFuture.get( );
-                        if ( vstatus != null )
+                        final AsyncAm am = AsyncAmMap.get( coordinatorInfo.get( )
+                                                                          .getId( )
+                                                                          .getSvc_uuid( ) );
+
+                        if ( am != null )
                         {
-                            extUsage = Optional.of(
-                                Size.of( vstatus.getCurrentUsageInBytes( ), SizeUnit.B ) );
+                            CompletableFuture<com.formationds.apis.VolumeStatus> completableFuture =
+                                am.volumeStatus( "" /* Local Domain Name */, internalVolume.getName( ) );
 
+                            final com.formationds.apis.VolumeStatus vstatus = completableFuture.get( );
+                            if ( vstatus != null )
+                            {
+                                extUsage = Optional.of(
+                                    Size.of( vstatus.getCurrentUsageInBytes( ), SizeUnit.B ) );
+
+                            }
                         }
                     }
-                }
-                catch ( IOException | InterruptedException | ExecutionException e )
-                {
-                    logger.warn( "Failed to retrieve volume description for {}:{} - reason: {}.",
-                                 internalVolume.getVolId(),
-                                 internalVolume.getName(),
-                                 e.getMessage() != null ? e.getMessage() : "none reported" );
-                    logger.debug( "", e );
+                    catch ( IOException | InterruptedException | ExecutionException e )
+                    {
+                        logger.warn( "Failed to retrieve volume description for {}:{} - reason: {}.",
+                                     internalVolume.getVolId( ), internalVolume.getName( ),
+                                     e.getMessage( ) != null ? e.getMessage( ) : "none reported" );
+                        logger.debug( "", e );
 
-                    // force a new client to be created.
-                    AsyncAmMap.failed( coordinatorInfo.get( )
-                                                      .getId( )
-                                                      .getSvc_uuid( ) );
+                        // force a new client to be created.
+                        AsyncAmMap.failed( coordinatorInfo.get( )
+                                                          .getId( )
+                                                          .getSvc_uuid( ) );
+                    }
+                }
+                else
+                {
+                    logger.trace(
+                        "Volume Coordinator isn't set for {}:{}, will attempt retrieving usage from stats",
+                        internalVolume.getVolId( ), internalVolume.getName( ) );
                 }
             }
-            else
+            else // volume grouping is disabled!, use platform.conf resource 'fds.xdi.am_host'
             {
-                logger.trace( "Volume Coordinator isn't set for {}:{}, will attempt retrieving usage from stats",
-                              internalVolume.getVolId(),
-                              internalVolume.getName() );
+                com.formationds.apis.VolumeStatus volumeStatus;
+                try {
+                    volumeStatus = SingletonAmAPI.instance()
+                                                 .api()
+                                                 .volumeStatus( "" /* TODO: Dummy domain name. */,
+                                                                internalVolume.getName()).get();
+                    extUsage = Optional.of( Size.of( volumeStatus.getCurrentUsageInBytes(),
+                                                     SizeUnit.B ) );
+                } catch (Exception e)
+                {
+                    logger.warn( "Failed to retrieve volume description for {}:{} - reason: {}.",
+                                 internalVolume.getVolId( ), internalVolume.getName( ),
+                                 e.getMessage( ) != null ? e.getMessage( ) : "none reported" );
+                    logger.debug( "", e );
+                }
             }
         }
 
@@ -377,8 +401,10 @@ public class ExternalModelConverter {
             extUsage = Optional.of( Size.of( 0L, SizeUnit.B ) );
         }
 
-        logger.trace( "Determined extUsage for " + internalVolume.getName() +
-                      " to be " + extUsage + "." );
+        logger.info( "Determined extUsage for {}:{} to be {}.",
+                     internalVolume.getVolId( ),
+                     internalVolume.getName(),
+                     extUsage );
 
         Instant[] instants = {Instant.EPOCH, Instant.EPOCH};
         extractTimestamps( fbResults, instants );
@@ -1182,7 +1208,7 @@ public class ExternalModelConverter {
                  maxObjSize.getValue( SizeUnit.B ).longValue() >= Size.of( 4, SizeUnit.KB )
                                                                       .getValue( SizeUnit.B )
                                                                       .longValue() &&
-                 maxObjSize.getValue( SizeUnit.B ).longValue() <= Size.of( 8, SizeUnit.MB )
+                 maxObjSize.getValue( SizeUnit.B ).longValue() <= Size.of( 1, SizeUnit.MB )
                                                                       .getValue( SizeUnit.B )
                                                                       .longValue() )
             {
@@ -1191,8 +1217,8 @@ public class ExternalModelConverter {
             }
             else
             {
-                logger.warn( OBJECT_SIZE_NOT_SET );
-                internalSettings.setMaxObjectSizeInBytes( DEF_OBJECT_SIZE );
+                logger.warn( NFS_SIZE_NOT_SET );
+                internalSettings.setMaxObjectSizeInBytes( DEF_NFS_SIZE );
             }
 
             final NfsOption options = new NfsOption( );

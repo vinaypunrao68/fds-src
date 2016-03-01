@@ -244,6 +244,19 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
         Error markIODone(const FDS_IOType& _io);
         Error processIO(FDS_IOType* _io);
         virtual ~dmQosCtrl();        
+
+        template<class F>
+        void schedule(const fds_volid_t &volId, bool bSynchronize, F &&f) {
+            fds_threadpool *executor = threadPool;
+            if (volId == FdsDmSysTaskId) {
+                executor = lowpriThreadPool;
+            }
+            if (bSynchronize) {
+                executor->scheduleWithAffinity(volId.get(), std::forward<F>(f));
+            } else {
+                executor->schedule(std::forward<F>(f));
+            }
+        }
     };
 
     FDS_VolumeQueue*  sysTaskQueue;
@@ -353,6 +366,8 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     void handleDmFunctor(DmRequest *io);
     Error copyVolumeToOtherDMs(fds_volid_t volId);
     Error processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete);
+    Error copyVolumeToTargetDM(fpi::SvcUuid dmUuid, fds_volid_t volId, bool ArchivePolicy);
+    Error archiveTargetVolume(fds_volid_t volId);
 
     /**
      * Timeout to send DMT close ack if not sent yet and stop forwarding

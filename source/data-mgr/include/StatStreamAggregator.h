@@ -199,8 +199,8 @@ class StatHelper {
     static fds_uint64_t getTotalWithDriftSupport(FdsVolStatType type, StatSlot &slot, VolumePerfHistory::ptr hist);
     static fds_uint64_t getTotalLogicalBytes(StatSlot& slot, const VolumePerfHistory::ptr hist);
     static fds_uint64_t getTotalPhysicalBytes(StatSlot& slot, const VolumePerfHistory::ptr hist);
-    static fds_uint64_t getTotalDomainDedupBytesFrac(const StatSlot &slot);
-    static fds_uint64_t getTotalDedupBytes(const StatSlot &slot);
+    static fds_uint64_t getTotalDomainDedupBytesFrac(StatSlot &slot, const VolumePerfHistory::ptr hist);
+    static fds_uint64_t getTotalDedupBytes(StatSlot &slot, const VolumePerfHistory::ptr hist);
     static fds_uint64_t getTotalBlobs(StatSlot& slot, const VolumePerfHistory::ptr hist);
     static fds_uint64_t getTotalLogicalObjects(StatSlot& slot, const VolumePerfHistory::ptr hist);
     static fds_uint64_t getTotalPhysicalObjects(StatSlot& slot, const VolumePerfHistory::ptr hist);
