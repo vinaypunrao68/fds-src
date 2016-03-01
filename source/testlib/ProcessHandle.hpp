@@ -17,8 +17,9 @@ struct ProcessHandle
     std::thread         *thread{nullptr};
     T                   *proc{nullptr};
     std::vector<std::string>            args;
+    bool    started;
 
-    ProcessHandle() {}
+    ProcessHandle() : started(false) {}
     ProcessHandle(const std::vector<std::string> &args)
     {
         start(args);
@@ -44,11 +45,13 @@ struct ProcessHandle
         args.push_back(util::strformat("--fds.pm.platform_uuid=%ld", platformUuid));
         args.push_back(util::strformat("--fds.pm.platform_port=%d", platformPort));
         start();
+        started = true;
     }
     void start(const std::vector<std::string> &args)
     {
         this->args = args;
         start();
+        started = true;
     }
     void start()
     {
@@ -56,6 +59,7 @@ struct ProcessHandle
         proc = new T((int) args.size(), (char**) &(args[0]), true);
         thread = new std::thread([&]() { proc->main(); });
         proc->getReadyWaiter().await();
+        started = true;
     }
     void stop()
     {
@@ -69,6 +73,10 @@ struct ProcessHandle
             delete thread;
             thread = nullptr;
         }
+        started = false;
+    }
+    bool isRunning() {
+        return started;
     }
 };
 }  // namespace fds

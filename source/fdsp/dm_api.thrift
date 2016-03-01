@@ -765,6 +765,20 @@ struct LoadFromArchiveMsg {
     2: string                   filename;
 }
 
+struct CopyVolumeMsg {
+    1: i64                      volId;
+    2: i64                      destDmUuid;
+    3: bool                     archivePolicy;
+
+}
+
+struct ArchiveMsg {
+    1: i64                      volId;
+}
+
+struct ArchiveRespMsg {
+}
+
 /* ------------------------------------------------------------
    Other specified services
    ------------------------------------------------------------*/
