@@ -276,6 +276,24 @@ AmDispatcher::closeVolume(AmRequest * amReq) {
     return AmDataProvider::closeVolumeCb(amReq, ERR_OK);
 }
 
+Error AmDispatcher::modifyVolumePolicy(const VolumeDesc& vdesc) {
+    if (volume_grouping_support) {
+        // Check to see if another AM has claimed ownership of coordinating the volume
+        WriteGuard wg(volumegroup_lock);
+        auto it = volumegroup_map.find(vdesc.GetID());
+        if (volumegroup_map.end() != it &&
+            vdesc.getCoordinatorId() != MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() &&
+            vdesc.getCoordinatorVersion() > it->second->getVersion()) {
+            // Give ownership of the volume handle to the handle itself, we're
+            // done with it
+            std::shared_ptr<VolumeGroupHandle> vg = std::move(it->second);
+            volumegroup_map.erase(it);
+            vg->close([this, vg] () mutable -> void {});
+        }
+    }
+    return AmDataProvider::modifyVolumePolicy(vdesc);
+}
+
 void
 AmDispatcher::commitBlobTx(AmRequest* amReq) {
     fiu_do_on("am.uturn.dispatcher", return AmDataProvider::commitBlobTxCb(amReq, ERR_OK););

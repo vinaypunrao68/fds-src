@@ -1,0 +1,233 @@
+#!/usr/bin/env python
+import argparse
+import re
+import sys
+import os
+import os.path
+import datetime
+import pprint
+import gzip
+import functools
+
+class Record:
+    def __init__(self, app, filename, parser):
+        self.elapsed = 0
+        self.time = None
+        self.level = 'normal'
+        self.threadid = ''
+        self.srcinfo = None
+        self.message = ''
+        self.line = None
+        self.linenum = 0
+        self.filename = filename
+        self.app = app
+        self.parser = parser
+
+    def setLineInfo(self, linenum, line, group):
+        self.linenum = linenum
+        self.line = line
+        if group == None: return
+        self.time = datetime.datetime.strptime(group[0],self.parser.appInfos[self.app].dateformat)
+        self.level = group[1].lower()
+        self.threadid = group[2]
+        self.srcinfo = group[3]
+        self.message = group[4]
+
+    def append(self, message):
+        self.message += '\n' + message
+
+class AppInfo:
+    def __init__(self, name):
+        self.name = name
+        # [time] [level] [thread] - [file] - message
+        # srcinfo - \[([^:]+):(\d+):([^\]]+)\]
+        self.linepattern = re.compile('\[([^\]]+)\] \[([^\]]+)\] \[([^\]]+)\] - \[([^\]]+)\] -(.*)')
+        # 23.02.2016 17:30:34.461230
+        self.dateformat = '%d.%m.%Y %H:%M:%S.%f'
+        # dm.log_1.log
+        self.filenameformat = re.compile('{}.log_([0-9]+)\.log'.format(name))
+
+    def isLogFile(self, filename):
+        return self.filenameformat.search(filename) != None
+
+class LogParser:
+    '''
+    Parse Fds Logs
+    '''
+    apps = ['om', 'sm', 'am', 'pm', 'dm']
+    def __init__(self, args):
+        self.args = args
+        self.logdir = '{}/var/logs'.format(self.args.fdsroot)
+        self.files = []
+        self.firstTime = None
+        self.appInfos={}
+        for app in LogParser.apps:
+            self.appInfos[app] = AppInfo(app)
+
+        self.getFileList()
+        self.keyaliases=[]
+        self.keyaliases.append(['vol','volume','volid','volume id','vol id'])
+        self.keyaliases.append(['snap','snapid','snapshot id','snap id'])
+        self.keyaliases.append(['idx','index'])
+        self.keyaliases.append(['off','offset'])
+        self.keyaliases.append(['req','reqid','request'])
+        self.keyaliases.append(['seq','seqid','sequence','sequenceid'])
+        self.keyaliases.append(['uuid','svc_uuid','svcuuid','svc','node','nodeid','nodeuuid'])
+
+        self.levels=[l.lower() for l in self.args.level.split(',')]
+        
+        # for printing only when needed
+        self.processedfileset=set()
+        self.setSearchPattern()
+
+    def setSearchPattern(self):
+        keys=[]
+        pattern = ''
+        if self.args.key != None:
+            for alias in self.keyaliases:
+                if self.args.key in alias: 
+                    keys.extend(alias)
+                    break
+            if len(keys) == 0:
+                keys.append(self.args.key)
+            pattern = '(' + '|'.join(keys) + ')[ :=]+'
+
+        pattern += self.args.match
+        print 'pattern = [{}]'.format(pattern)
+        self.searchpattern = re.compile(pattern,re.IGNORECASE)
+
+    def getLogFileType(self, filename):
+        filename=filename.split('/')[-1]
+        for app in self.appInfos:
+            if self.appInfos[app].isLogFile(filename): return app
+        return None
+
+    def getLogFileNum(self,filename):
+        filename=filename.split('/')[-1]
+        app = self.getLogFileType(filename)
+        num=self.appInfos[app].filenameformat.findall(filename)
+        if num:
+            try:
+                return int(num[0])
+            except:
+                pass
+        return None
+
+    def getFileList(self):
+        self.files=[]
+        for f in os.listdir(self.logdir):
+            fn=os.path.join(self.logdir, f)
+            if not os.path.isfile(fn): continue
+            app = self.getLogFileType(f)
+            if app != None and getattr(self.args, app):
+                self.files.append(fn)
+                
+        def numeric_file_comparator(self, x):
+            return '{}-{:0>10}'.format(self.getLogFileType(x), self.getLogFileNum(x))
+
+        # sort the files numerically
+        self.files.sort(key=functools.partial(numeric_file_comparator,self))
+        return self.files
+
+    def processFile(self,filename):
+        linenum = 0
+        record = None
+        app = self.getLogFileType(filename)
+        appInfo=self.appInfos[app]
+        with gzip.open(filename,'r') if filename.endswith('.gz') else open(filename,'r')  as f:
+            for line in f:
+                line=line.strip()
+                linenum += 1
+                stdline = appInfo.linepattern.match(line)
+                if stdline:
+                    if record and self.isMatch(record):
+                        self.output(record)
+                    record = Record(app, filename, self)
+                    g = stdline.groups()
+                    record.setLineInfo(linenum, line, g)
+                else:
+                    if record != None and len(line) > 0:
+                        record.append(line)
+        # last record may not have been checked
+        if record and self.isMatch(record):
+            self.output(record)
+
+
+    def isMatch(self, record):
+        matched = False
+        for level in self.levels:
+            if record.level.startswith(level):
+                matched = True
+                break
+
+        if matched and self.args.thread != None:
+            matched = matched and record.threadid.endswith(self.args.thread)
+            
+        return matched and self.searchpattern.search(record.message)
+
+    def output(self, record):
+        if self.firstTime == None: self.firstTime = record.time
+        record.elapsed = record.time - self.firstTime
+
+        if record.filename not in self.processedfileset:
+            print '\n{} from [{}] {}'.format('-'*10,record.filename, '-'*10)
+            self.processedfileset.add(record.filename)
+
+        if args.compact:
+            print '[{}] [{}] - {}'.format(record.elapsed,
+                                          record.srcinfo,
+                                          record.message.strip())
+        else:
+            print '[{}] [{}] [{}] [{}] - [{}] - [{}]'.format(record.elapsed,
+                                                             record.time,
+                                                             record.level,
+                                                             record.threadid,
+                                                             record.srcinfo,
+                                                             record.message)
+
+    def process(self):
+        for f in self.files:
+            #print 'processing - [{}]'.format(f)
+            self.processFile(f)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='parse fds logs',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('-f', '--fds-root', dest='fdsroot',default='/fds',help='fds root dir')
+    parser.add_argument('--ofull', dest='compact',action='store_false',help='output full line')
+    parser.add_argument('-k', '--key', dest='key',default=None,help='key for the value to grep -  will have aliases')
+    parser.add_argument('-l','--level', dest='level',default='',help='error,warn,crit,notify')
+    parser.add_argument('-t','--thread', dest='thread',default=None,help='thread id - matches ending')
+    
+    parser.set_defaults(compact=True)
+    for app in LogParser.apps:
+        parser.add_argument('--'+app, dest=app, action='store_true'   ,help='grep %s logs' % (app) )
+        parser.add_argument('--no'+app, dest=app, action='store_false',help='skip %s logs' % (app) )
+        eval('parser.set_defaults(' + app + '=None)')
+
+    #parser.add_argument('-p','--port',dest='ports', action='append' ,type=int ,help="other ports to be monitored", default=[])
+    parser.add_argument('match',default='', nargs='?' ,help="Matching regex", type=str)
+    args = parser.parse_args()
+    
+    numtrue = 0
+    for proc in LogParser.apps:
+        val = getattr(args, proc)
+        if val == True:
+            numtrue += 1
+
+    val = True
+    if numtrue > 0:
+        val = False
+    
+    for proc in LogParser.apps:
+        if getattr(args, proc) == None:            
+            setattr(args, proc, val)
+
+    if len(args.match) == 0 and args.key == None and args.level == '':
+        args.level='error,warn,crit'
+
+    print args
+
+    parser = LogParser(args)
+    #pprint.pprint(parser.getFileList())
+    parser.process()
+

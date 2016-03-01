@@ -1085,6 +1085,11 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
         return err;
     }
 
+    err = triggerReadOnlyIfPutWillfail(nullptr, objId, objData, toTier);
+    if (!err.ok()) {
+        return err;
+    }
+
     // write to object data store to toTier
     obj_phy_loc_t objPhyLoc;  // will be set by data store with new location
     err = dataStore->putObjectData(unknownVolId, objId, toTier, objData, objPhyLoc);
@@ -1245,6 +1250,11 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
             }
         }
 
+        err = triggerReadOnlyIfPutWillfail(nullptr, objId, objData, tier);
+        if (!err.ok()) {
+            return err;
+        }
+
         // write to object data store (will automatically write to new file)
         obj_phy_loc_t objPhyLoc;  // will be set by data store with new location
         err = dataStore->putObjectData(unknownVolId, objId, tier, objData, objPhyLoc);
@@ -1270,8 +1280,17 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         if (TokenCompactor::isGarbage(*objMeta) || !objOwned) {
             LOGDEBUG << "Removing metadata for " << objId
                       << " object owned? " << objOwned;
-            OBJECTSTOREMGR(objStorMgr)->counters->dataRemoved.incr(objMeta->getObjSize());
-            err = metaStore->removeObjectMetadata(unknownVolId, objId);
+            ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
+            updatedMeta->removePhyLocation(tier);
+            err = metaStore->putObjectMetadata(unknownVolId, objId, updatedMeta);
+            if (!err.ok()) {
+                LOGERROR << "Failed to update metadata for obj " << objId;
+            }
+            auto latestMeta = metaStore->getObjectMetadata(unknownVolId, objId, err);
+            if (!latestMeta->dataPhysicallyExists()) {
+                OBJECTSTOREMGR(objStorMgr)->counters->dataRemoved.incr(objMeta->getObjSize());
+                err = metaStore->removeObjectMetadata(unknownVolId, objId);
+            }
         }
     }
 

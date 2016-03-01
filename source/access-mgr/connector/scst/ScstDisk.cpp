@@ -58,6 +58,7 @@ ScstDisk::ScstDisk(VolumeDesc const& vol_desc,
                    ScstTarget* target,
                    std::shared_ptr<AmProcessor> processor)
         : ScstDevice(vol_desc, target, processor),
+          scstOps(boost::make_shared<BlockOperations>(this)),
           logical_block_size(512ul)
 {
     {
@@ -90,6 +91,29 @@ void ScstDisk::setupModePages(size_t const lba_size, size_t const pba_size, size
     recovery_page &= ReadWriteRecoveryPage::TerminateOnRecovery;
     recovery_page &= ReadWriteRecoveryPage::CorrectionPrevented;
     mode_handler->addModePage(recovery_page);
+}
+
+void ScstDisk::execSessionCmd() {
+    auto attaching = (SCST_USER_ATTACH_SESS == cmd.subcode) ? true : false;
+    auto& sess = cmd.sess;
+    LOGNOTIFY << "Session "
+              << (attaching ? "attachment" : "detachment") << " requested"
+              << ", handle [" << sess.sess_h
+              << "] Init [" << sess.initiator_name
+              << "] Targ [" << sess.target_name << "]";
+
+    try {
+    if (attaching) {
+        auto volName = boost::make_shared<std::string>(getName());
+        scstOps->init(volName, amProcessor, nullptr, physical_block_size);
+    } else {
+        scstOps->detachVolume();
+    }
+    } catch (BlockError const e) {
+        throw ScstError::scst_error;
+    }
+    fast_reply.result = 0;
+    fastReply(); // Setup the reply for the next ioctl
 }
 
 void ScstDisk::execDeviceCmd(ScstTask* task) {
@@ -152,7 +176,11 @@ void ScstDisk::execDeviceCmd(ScstTask* task) {
 
             uint64_t offset = scsi_cmd.lba * logical_block_size;
             task->setRead(offset, scsi_cmd.bufflen);
+            try {
             scstOps->read(task);
+            } catch (BlockError const e) {
+                throw ScstError::scst_error;
+            }
             return;
         }
         break;
@@ -208,7 +236,11 @@ void ScstDisk::execDeviceCmd(ScstTask* task) {
             task->setWrite(offset, scsi_cmd.bufflen);
             // Right now our API expects the data in a boost shared_ptr :(
             auto write_buffer = boost::make_shared<std::string>((char*) buffer, buflen);
+            try {
             scstOps->write(write_buffer, task);
+            } catch (BlockError const e) {
+                throw ScstError::scst_error;
+            }
             return;
         }
         break;
@@ -222,6 +254,31 @@ void ScstDisk::execDeviceCmd(ScstTask* task) {
     }
     } while (false);
     readyResponses.push(task);
+}
+
+void ScstDisk::attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) {
+    if (volDesc) {
+        LOGNORMAL << "Attached to volume: " << volDesc->name;
+    }
+}
+
+void ScstDisk::respondTask(BlockTask* response) {
+    auto scst_response = static_cast<ScstTask*>(response);
+    if (scst_response->isRead() || scst_response->isWrite()) {
+        respondDeviceTask(scst_response);
+    } else if (fpi::OK != scst_response->getError()) {
+        scst_response->setResult(scst_response->getError());
+    }
+
+    // add to queue
+    readyResponses.push(scst_response);
+
+    // We have something to write, so poke the loop
+    devicePoke();
+}
+
+void ScstDisk::terminate() {
+    devicePoke(ConnectionState::STOPPED);
 }
 
 void
@@ -248,5 +305,12 @@ ScstDisk::respondDeviceTask(ScstTask* task) {
     }
 }
 
+void ScstDisk::startShutdown() {
+    scstOps->shutdown(); // We are shutting down
+}
+
+void ScstDisk::stopped() {
+    scstOps.reset();
+}
 
 }  // namespace fds
