@@ -1089,6 +1089,7 @@ namespace fds
 
         void PlatformManager::stopService (fpi::FDSP_MgrIdType svc_type, bool force)
         {
+            std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
             switch (svc_type)
             {
                 case fpi::FDSP_ACCESS_MGR:
