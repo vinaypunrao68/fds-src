@@ -2,32 +2,45 @@
  * Copyright 2016 Formation Data Systems, Inc.
  */
 
-#ifndef SOURCE_ACCESS_MGR_INCLUDE_VOLUMECHECKER_H_
-#define SOURCE_ACCESS_MGR_INCLUDE_VOLUMECHECKER_H_
+#ifndef SOURCE_UTIL_VOLUMECHECKER_INCLUDE_VOLUMECHECKER_H
+#define SOURCE_UTIL_VOLUMECHECKER_INCLUDE_VOLUMECHECKER_H
 
-#include <fds_process.h>
-#include <fdsp/PlatNetSvc.h>
+#include <boost/shared_ptr.hpp>
+#include <fdsp/svc_api_types.h>
 #include <net/SvcMgr.h>
 #include <net/SvcProcess.h>
 #include <net/PlatNetSvcHandler.h>
+#include <net/SvcRequestPool.h>
+#include <net/SvcProcess.h>
+#include <fdsp_utils.h>
 
 namespace fds {
 
 class VolumeChecker : public SvcProcess {
 public:
-    VolumeChecker(int argc, char *argv[], bool initAsModule);
+    explicit VolumeChecker(int argc, char **argv, bool initAsModule);
     ~VolumeChecker() = default;
-    int run() override {
-        LOGNORMAL << "Running volume checker";
-        return 0;
-    }
+    void init(int argc, char **argv, bool initAsModule);
+    int run() override;
+
+    // Gets DMT/DLT and updates D{M/L}TMgr because we don't do mod_enable_services
+    Error getDMT();
+    Error getDLT();
 
 private:
-//    std::unique_ptr<AccessMgr> am;
+    // Local cached copy of dmt mgr pointer
+    DMTManagerPtr dmtMgr;
 
-    fds::Module *vcVec[2];
+    // Local cached copy of dlt manager
+    DLTManagerPtr dltMgr;
+
+    // Max retires for get - TODO needs to be organized later
+    int maxRetries = 10;
+
+    // If the process should wait for a shutdown call
+    bool waitForShutdown;
 };
 
 } // namespace fds
 
-#endif // SOURCE_ACCESS_MGR_INCLUDE_VOLUMECHECKER_H_
+#endif // SOURCE_UTIL_VOLUMECHECKER_INCLUDE_VOLUMECHECKER_H

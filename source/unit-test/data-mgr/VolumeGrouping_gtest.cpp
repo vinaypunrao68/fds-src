@@ -22,7 +22,8 @@ using namespace fds::TestUtils;
 
 TEST_F(VolumeGroupFixture, singledm) {
     /* Start with one dm */
-    createCluster(1);
+    unsigned clusterSize=1;
+    createCluster(clusterSize);
 
     /* Create a DM group */
     /* Create a coordinator */
@@ -35,17 +36,21 @@ TEST_F(VolumeGroupFixture, singledm) {
 
     /* Add DMT */
     std::string dmtData;
-    dmt = DMT::newDMT({
-                      dmGroup[0]->proc->getSvcMgr()->getSelfSvcUuid(),
-                      });
+    std::vector<fpi::SvcUuid> dmtColumn;
+    for (unsigned i = 0; i < clusterSize; i++) {
+        dmtColumn.emplace_back(dmGroup[i]->proc->getSvcMgr()->getSelfSvcUuid());
+    }
+    dmt = DMT::newDMT(dmtColumn);
     dmt->getSerialized(dmtData);
     Error e = amHandle.proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
                                                                             nullptr,
                                                                             DMT_COMMITTED);
     ASSERT_TRUE(e == ERR_OK);
-    e = dmGroup[0]->proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
-                                                                         nullptr,
-                                                                         DMT_COMMITTED);
+    for (unsigned i = 0; i < clusterSize; i++) {
+        e = dmGroup[i]->proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
+                                                                             nullptr,
+                                                                             DMT_COMMITTED);
+    }
     ASSERT_TRUE(e == ERR_OK);
 
     /* Open without volume being add to DM.  Open should fail */
