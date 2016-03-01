@@ -18,6 +18,7 @@ using ::testing::Return;
 using namespace fds;
 using namespace fds::TestUtils;
 
+#define MAX_OBJECT_SIZE 1024 * 1024 * 2
 
 TEST_F(VolumeGroupFixture, singledm) {
     /* Start with one dm */
@@ -262,6 +263,50 @@ TEST_F(VolumeGroupFixture, allDownFollowedBySequentialUp) {
     doVolumeStateCheck(0, v1Id, fpi::Active);
     doVolumeStateCheck(1, v1Id, fpi::Active, 1000, 10000);
     doVolumeStateCheck(2, v1Id, fpi::Active, 1000, 10000);
+}
+
+TEST_F(DmGroupFixture, VolumeTargetCopy) {
+    g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
+    /* Create two dms */
+    createCluster(2);
+    setupVolumeGroup(1);
+
+    Waiter waiter(0);
+    fds_volid_t v1Id(10);
+    std::string blobName1 = "blob1";
+    std::string blobName2 = "blob2";
+
+    /* Copy volume with archive destination dm volume policy enabled */
+    auto msg = MAKE_SHARED<fpi::CopyVolumeMsg>();
+    msg->volId = 10;
+    msg->destDmUuid = dmGroup[1]->proc->getSvcMgr()->getSelfSvcUuid().svc_uuid;
+    msg->archivePolicy = true;
+    auto reqMgr = omHandle.proc->getSvcMgr()->getSvcRequestMgr();
+    auto req = reqMgr->newEPSvcRequest(dmGroup[0]->proc->getSvcMgr()->getSelfSvcUuid());
+    req->onResponseCb([&waiter](EPSvcRequest* ee, const Error &e, StringPtr) {waiter.doneWith(e);});
+    req->setPayload(fpi::CopyVolumeMsgTypeId,msg);
+    req->setTimeoutMs(1000 * 10);
+    waiter.reset(1);
+    req->invoke();
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+
+    /* Copy volume without archiving destination dm's volume */
+    msg->volId = 10;
+    msg->destDmUuid = dmGroup[1]->proc->getSvcMgr()->getSelfSvcUuid().svc_uuid;
+    msg->archivePolicy = false;
+    reqMgr = omHandle.proc->getSvcMgr()->getSvcRequestMgr();
+    req = reqMgr->newEPSvcRequest(dmGroup[0]->proc->getSvcMgr()->getSelfSvcUuid());
+    req->onResponseCb([&waiter](EPSvcRequest* ee, const Error &e, StringPtr) {waiter.doneWith(e);});
+    req->setPayload(fpi::CopyVolumeMsgTypeId,msg);
+    req->setTimeoutMs(1000 * 10);
+    waiter.reset(1);
+    req->invoke();
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+
+    /* Close volumegroup handle */
+    waiter.reset(1);
+    v1->close([this, &waiter]() { waiter.doneWith(ERR_OK); });
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
 int main(int argc, char* argv[]) {
