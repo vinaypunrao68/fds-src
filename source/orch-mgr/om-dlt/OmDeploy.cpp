@@ -635,9 +635,9 @@ DltDplyFSM::DACT_Rebalance::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
             }
 
         } else {
-            LOGWARN << "Re-balance has failed too many times, failureCount:"
+            LOGWARN << "Re-balance has FAILED too many times, failureCount:"
                     << dp->getRebalanceFailures()
-                    << " Will not re-try computation!";
+                    << " Will not re-try computation!!!";
         }
 
         fsm.process_event(DltEndErrorEvt());

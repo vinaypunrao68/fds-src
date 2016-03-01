@@ -187,6 +187,10 @@ std::ostream& operator<<(std::ostream &oss, const DataPlacement &dp)
 
     oss << "NEW TOKEN IDs\n\n";
 
+    if (tokList.size() == 0 )
+    {
+        oss << "None\n";
+    }
     // Copied the following code from dlt.cpp to print tokens in ranges
     bool fFirst             = true;
     size_t last             = tokList.size() - 1;
@@ -372,10 +376,6 @@ bool DataPlacement::verifyRebalance( MigrationMap startMigrMsgs, std::map<int64_
 
         newlySyncedTokens = tokList.size();
 
-        // This value can either be 0 (for a new node) or non-zero if this target
-        // already exists in the committed dlt
-        prevOwnedTokens = (commitedDlt->getTokens(NodeUuid(targetUuid))).size();
-
         // This bitset should tell us, for how many tokens(if any) the node with this
         // uuid acted as a source. This is so we get an accurate count of tokens
         // being synced from this node. BitSet is used so we eliminate potential overlap of
@@ -383,9 +383,44 @@ bool DataPlacement::verifyRebalance( MigrationMap startMigrMsgs, std::map<int64_
         std::bitset<256> tokSet = tokBitmap[targetUuid];
         tokensSyncFrmThisNode = tokSet.count(); // gets all bits set to 1
 
-        newOwnedTokenCount = (newDlt->getTokens(NodeUuid(targetUuid))).size();
 
-        movedTokens = (prevOwnedTokens + newlySyncedTokens) - newOwnedTokenCount;
+        /*==========================================================================
+         * Main, crucial calculation of newOwnedTokenCount
+         ===========================================================================
+         */
+
+        std::vector<int32_t> summationList;
+
+        auto committedDltTokList = commitedDlt->getTokens(NodeUuid(targetUuid));
+        auto newDltTokList       = newDlt->getTokens(NodeUuid(targetUuid));
+
+        // This value can either be 0 (for a new node) or non-zero if this target
+        // already exists in the committed dlt
+        prevOwnedTokens = committedDltTokList.size();
+
+        // Combine the previously owned, and newly synced tokens (according to re-balance)
+        std::set_union(committedDltTokList.begin(), committedDltTokList.end(),
+                       tokList.begin(), tokList.end(),
+                       std::back_inserter(summationList));
+
+        // Essentially, what we are doing is comparing what we have gathered
+        // from the migration messages to be the newTokenCount using the logic that
+        // newly owned tokens = previously owned + newly synced to what newDlt says
+        // should be the new token count
+        // Two Scenarios:
+        // 1. Node add   : In this case, the new node is the only node to be a
+        //                 target. It will likely have no previously owned tokens, newly
+        //                 synced tokens reflect new token count
+        // 2. Node remove: Here, all remaining nodes in the cluster are receiving new
+        //                 tokens(and are targets). There is a possibility of existing tokens
+        //                being  moved. To handle & account for this is what the below logic is for
+        if ( summationList.size() > newDltTokList.size())
+        {
+            // some tokens from this target uuid have moved
+            movedTokens = summationList.size() - newDltTokList.size();
+        }
+
+        newOwnedTokenCount = prevOwnedTokens + newlySyncedTokens - movedTokens;
 
         LOGNORMAL << (*this);
 
@@ -517,6 +552,12 @@ DataPlacement::beginRebalance()
                     }
                 }
             }
+
+            // maybe here we need to say, if no source found, then look
+            // at committed to find sources that owned the tokens and see
+            // if they are still in the new. If so, sync from them.
+            // The getNewAndNewPrimary should be in there? Because we
+            // will still need to know what tokens require sync
 
             if (nosyncSm.uuid_get_val() > 0)
             {
