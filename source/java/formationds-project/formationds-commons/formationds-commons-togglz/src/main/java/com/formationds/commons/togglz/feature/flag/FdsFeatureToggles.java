@@ -54,6 +54,9 @@ public enum FdsFeatureToggles implements Feature {
     @Label( "If enabled, use a shared QueryHelper instance that caches results." )
     USE_SHARED_QUERY_HELPER( "fds.feature_toggle.om.use_shared_queryhelper" ),
 
+    @Label( "If enabled, use a web filter that checks the domain is up before contacting config service." )
+    ENABLE_DOMAIN_WEB_FILTER( "fds.feature_toggle.om.enable_domain_web_filter" ),
+
     @Label( "If enabled, volume grouping is n=being used." )
     USE_VOLUME_GROUPING( "fds.feature_toggle.common.enable_volumegrouping" );
 
