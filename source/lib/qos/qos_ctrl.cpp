@@ -13,10 +13,25 @@ namespace fds {
 FDS_QoSControl::FDS_QoSControl() {
 }
 
-FDS_QoSControl::FDS_QoSControl(fds_uint32_t _max_threads, dispatchAlgoType algo, fds_log *log,
-                                       const std::string& prefix) :qos_max_threads(_max_threads)
+FDS_QoSControl::FDS_QoSControl(fds_uint32_t _max_threads,
+                               dispatchAlgoType algo,
+                               fds_log *log,
+                               const std::string& prefix)
+: FDS_QoSControl(_max_threads, 0, algo, log, prefix)
+{
+}
+
+FDS_QoSControl::FDS_QoSControl(fds_uint32_t _max_threads,
+                               uint32_t lowpriThreadpoolSz,
+                               dispatchAlgoType algo,
+                               fds_log *log,
+                               const std::string& prefix)
+:qos_max_threads(_max_threads)
 {
     threadPool = new fds_threadpool(qos_max_threads);
+    if (lowpriThreadpoolSz > 0) {
+        lowpriThreadPool = new fds_threadpool(lowpriThreadpoolSz);
+    }
     dispatchAlgo = algo;
     qos_log = log;
     total_rate = 20000;  // IOPS
@@ -24,10 +39,16 @@ FDS_QoSControl::FDS_QoSControl(fds_uint32_t _max_threads, dispatchAlgoType algo,
 
 FDS_QoSControl::~FDS_QoSControl()  {
     delete threadPool;
+    if (lowpriThreadPool) {
+        delete lowpriThreadPool;
+    }
 }
 
 void FDS_QoSControl::stop() {
     threadPool->stop();
+    if (lowpriThreadPool) {
+        lowpriThreadPool->stop();
+    }
     if (dispatcher) {
         dispatcher->stop();
         if (dispatcherThread) {
