@@ -3489,50 +3489,81 @@ OM_NodeDomainMod::om_dlt_update_cluster()
 
     OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
     OM_SmContainer::pointer smNodes = local->om_sm_nodes();
+    OM_Module *om = OM_Module::om_singleton();
+    ClusterMap *cm = om->om_clusmap_mod();
 
-    if ( smNodes->om_nodes_up() > 0 ) // implying a service is being added
+    bool fAllowSingleNodeDltUpdate = MODULEPROVIDER()->get_fds_config()->get<bool>
+                                     ("fds.feature_toggle.om.allow_singlenode_dlt_update", false);
+
+    if ( fAllowSingleNodeDltUpdate )
     {
-        int64_t replicas = g_fdsprocess->get_conf_helper().get<int>("replica_factor");
+        // Implying old way of doing things: a single node can come up in a cluster where
+        // replica_factor is 3, and we will still update the DLT. By allowing this we risk
+        // running into a token distribution problem as hit by FS-4942
 
-        std::vector<fpi::SvcInfo> services;
-        int64_t knownSms = 0;
-
-        configDB->getSvcMap(services);
-
-        for (auto svc : services)
-        {
-            if ( svc.svc_type == fpi::FDSP_STOR_MGR && svc.svc_status == fpi::SVC_STATUS_ACTIVE )
-            {
-                ++knownSms;
-            }
-        }
-
-        if (knownSms >= replicas)
-        {
-            LOGNOTIFY << "Attempt to update DLT for svc addition, will raise DltCompute event";
-            OM_Module *om = OM_Module::om_singleton();
-            OM_DLTMod *dltMod = om->om_dlt_mod();
-
-            // this will check if we need to compute DLT
-            dltMod->dlt_deploy_event(DltComputeEvt());
-
-        } else {
-            LOGWARN << knownSms << " known SM(s) in the domain."
-                    << " Will not calculate DLT until there are at least " << replicas
-                    << " SM(s) to satisfy configured replica factor";
-            return;
-        }
-    } else {
-
-        // Implies this is either for a service removal, or a safety re-try, let it through
-        // ToDo @meena FS-5283 Restrict node remove if it causes known SM to drop below
-        // replica_factor
         LOGNOTIFY << "Attempt to update DLT, will raise DltCompute event";
         OM_Module *om = OM_Module::om_singleton();
         OM_DLTMod *dltMod = om->om_dlt_mod();
 
         // this will check if we need to compute DLT
         dltMod->dlt_deploy_event(DltComputeEvt());
+
+    } else {
+
+        bool svcAddition = false;
+
+        // Added nodes should either be in the node_up_pend list or if somehow that list has been
+        // cleared it should be in the cluster map.
+        if ( smNodes->om_nodes_up() > 0 ||
+             ((cm->getAddedServices(fpi::FDSP_STOR_MGR)).size() > 0) )
+        {
+            svcAddition = true;
+        }
+
+        if ( svcAddition )
+        {
+            int64_t replicas = g_fdsprocess->get_conf_helper().get<int>("replica_factor");
+
+            std::vector<fpi::SvcInfo> services;
+            int64_t knownSms = 0;
+
+            configDB->getSvcMap(services);
+
+            for (auto svc : services)
+            {
+                if ( svc.svc_type == fpi::FDSP_STOR_MGR && svc.svc_status == fpi::SVC_STATUS_ACTIVE )
+                {
+                    ++knownSms;
+                }
+            }
+
+            if (knownSms >= replicas)
+            {
+                LOGNOTIFY << "Attempt to update DLT for svc addition, will raise DltCompute event";
+                OM_Module *om = OM_Module::om_singleton();
+                OM_DLTMod *dltMod = om->om_dlt_mod();
+
+                // this will check if we need to compute DLT
+                dltMod->dlt_deploy_event(DltComputeEvt());
+
+            } else {
+                LOGWARN << knownSms << " known SM(s) in the domain."
+                        << " Will not calculate DLT until there are at least " << replicas
+                        << " SM(s) to satisfy configured replica factor";
+                return;
+            }
+        } else {
+            // Service removal, or safety re-try, so let it through
+            // ToDo @meena FS-5283 Restrict node remove if it causes known SM to drop below
+            // replica_factor
+
+            LOGNOTIFY << "Attempt to update DLT, will raise DltCompute event";
+            OM_Module *om = OM_Module::om_singleton();
+            OM_DLTMod *dltMod = om->om_dlt_mod();
+
+            // this will check if we need to compute DLT
+            dltMod->dlt_deploy_event(DltComputeEvt());
+        }
     }
 }
 

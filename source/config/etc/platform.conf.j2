@@ -60,31 +60,35 @@ fds: {
             cache_missing_cat_entries = {{ am_cache_missing_cat }}
         }
         om: {
-           allow_service_reregistration = {{ ft_allow_service_reregistration }}
-           enable_java_om_svc_proxy = {{ ft_enable_java_om_svc_proxy }}
-           rest_07_feature = {{ ft_fds_rest_07_feature }}
-           fs_2660_metric_firebreak_event_query = {{ ft_fs_2660_metric_firebreak_event_query }}
-           enable_influxdb_write_batch = {{ ft_enable_influxdb_write_batch }}
-           enable_influxdb_chunked_query_response = {{ ft_enable_influxdb_chunked_query_response }}
+           allow_service_reregistration            = {{ ft_allow_service_reregistration }}
+           enable_java_om_svc_proxy                = {{ ft_enable_java_om_svc_proxy }}
+           rest_07_feature                         = {{ ft_fds_rest_07_feature }}
+           fs_2660_metric_firebreak_event_query    = {{ ft_fs_2660_metric_firebreak_event_query }}
+           enable_influxdb_write_batch             = {{ ft_enable_influxdb_write_batch }}
+           enable_influxdb_chunked_query_response  = {{ ft_enable_influxdb_chunked_query_response }}
 
            /* If both are enabled, then metrics are written to both and queries depend on
               the enable_influxdb_query_series_per_volume flag */
 
            /* default original implementation using a single series containing all volume metrics */
-           enable_influxdb_one_series = {{ ft_enable_influxdb_one_series }}
+           enable_influxdb_one_series              = {{ ft_enable_influxdb_one_series }}
 
            /* new implementation that uses a series per volume */
-           enable_influxdb_series_per_volume = {{ ft_enable_influxdb_series_per_volume }}
+           enable_influxdb_series_per_volume       = {{ ft_enable_influxdb_series_per_volume }}
 
            /** if enabled, query from new series per volume implementation */
            enable_influxdb_query_series_per_volume = {{ ft_enable_influxdb_query_series_per_volume }}
 
-           ignore_failed_svcs = {{ ft_ignore_failed_svcs }}
+           /* If enabled, ignores any failed SM, DM services when trying to update dlt/dmt */
+           ignore_failed_svcs                      = {{ ft_ignore_failed_svcs }}
 
-           configsvc_rest_client_proxy_v08 = {{ ft_configsvc_rest_client_proxy_v08 }}
+           configsvc_rest_client_proxy_v08         = {{ ft_configsvc_rest_client_proxy_v08 }}
 
-           use_shared_queryhelper = {{ ft_use_shared_queryhelper }}
-        }
+           use_shared_queryhelper                  = {{ ft_use_shared_queryhelper }}
+        
+           /* if enabled, will allow update of dlt for single node cluster whose replica_factor is > 1 */
+           allow_singlenode_dlt_update             = {{ ft_allow_singlenode_dlt_update }}
+	}
     }
 
     /* Use this section for settings that are shared (or needed) by most or all processes */
