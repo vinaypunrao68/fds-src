@@ -674,6 +674,9 @@ namespace fds {
         }
 
 
+        /*
+         * Functions related to re-balance failures
+         */
         inline void markRebalanceFailure() {
             ++rebalanceFailures;
         }

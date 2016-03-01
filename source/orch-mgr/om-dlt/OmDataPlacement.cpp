@@ -372,16 +372,14 @@ bool DataPlacement::verifyRebalance( MigrationMap startMigrMsgs, std::map<int64_
 
         newlySyncedTokens = tokList.size();
 
-        // NewDlt has lesser number of nodes than committed dlt, so tokens from the removed node
-        // are being re-distributed. So the target node here is likely to have already
-        // owned a certain number of tokens
-
+        // This value can either be 0 (for a new node) or non-zero if this target
+        // already exists in the committed dlt
         prevOwnedTokens = (commitedDlt->getTokens(NodeUuid(targetUuid))).size();
 
         // This bitset should tell us, for how many tokens(if any) the node with this
         // uuid acted as a source. This is so we get an accurate count of tokens
-        // being synced from this node. There could potentially be an overlap of token IDs
-        // that are being synced to 2 different destinations SMs.
+        // being synced from this node. BitSet is used so we eliminate potential overlap of
+        // token IDs being synced to 2 different destinations SMs.
         std::bitset<256> tokSet = tokBitmap[targetUuid];
         tokensSyncFrmThisNode = tokSet.count(); // gets all bits set to 1
 
@@ -409,7 +407,7 @@ bool DataPlacement::verifyRebalance( MigrationMap startMigrMsgs, std::map<int64_
     if (totalTokenCount != expectedTotalTokenCount)
     {
         LOGWARN << "Incorrect Re-balance! Total tokens distributed between " << newNodeCount
-                << " nodes:" << totalTokenCount << " is not equal to the expected value (256*3):"
+                << " nodes:" << totalTokenCount << " is not equal to the expected value:"
                 << expectedTotalTokenCount;
 
         correctRebalance = false;

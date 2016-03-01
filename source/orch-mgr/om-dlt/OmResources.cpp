@@ -3522,8 +3522,11 @@ OM_NodeDomainMod::om_dlt_update_cluster()
                     << " SM(s) to satisfy configured replica factor";
             return;
         }
-    } else { // implies this is either for a service removal, or a safety re-try, let it through
+    } else {
 
+        // Implies this is either for a service removal, or a safety re-try, let it through
+        // ToDo @meena FS-5283 Restrict node remove if it causes known SM to drop below
+        // replica_factor
         LOGNOTIFY << "Attempt to update DLT, will raise DltCompute event";
         OM_Module *om = OM_Module::om_singleton();
         OM_DLTMod *dltMod = om->om_dlt_mod();
