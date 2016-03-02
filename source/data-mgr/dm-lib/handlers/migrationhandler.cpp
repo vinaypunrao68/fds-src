@@ -253,6 +253,7 @@ void DmMigrationDeltaBlobHandler::handleQueueItem(DmRequest* dmRequest) {
             LOGMIGRATE << "Volume meta for " << typedRequest->volId << " not found.";
             // overload this error to mean that we'll delete the dmrequest
             helper.err = ERR_INVALID_VERSION;
+            return;
         }
         helper.err = volMeta->handleMigrationDeltaBlobs(dmRequest);
     } else {
