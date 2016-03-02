@@ -277,21 +277,21 @@ AmDispatcher::closeVolume(AmRequest * amReq) {
 }
 
 Error AmDispatcher::modifyVolumePolicy(const VolumeDesc& vdesc) {
+    auto err = AmDataProvider::modifyVolumePolicy(vdesc);
+
     if (volume_grouping_support) {
         // Check to see if another AM has claimed ownership of coordinating the volume
-        WriteGuard wg(volumegroup_lock);
+        ReadGuard rg(volumegroup_lock);
         auto it = volumegroup_map.find(vdesc.GetID());
         if (volumegroup_map.end() != it &&
             vdesc.getCoordinatorId() != MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() &&
             vdesc.getCoordinatorVersion() > it->second->getVersion()) {
             // Give ownership of the volume handle to the handle itself, we're
             // done with it
-            std::shared_ptr<VolumeGroupHandle> vg = std::move(it->second);
-            volumegroup_map.erase(it);
-            vg->close([this, vg] () mutable -> void {});
+            err = ERR_VOLUME_ACCESS_DENIED;
         }
     }
-    return AmDataProvider::modifyVolumePolicy(vdesc);
+    return err;
 }
 
 void
