@@ -283,6 +283,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      }
 
      bool haveAllObjectSets() const;
+     void startRefscanOnDMs();
 
      /**
       * A callback from stats collector to sample SM specific stats

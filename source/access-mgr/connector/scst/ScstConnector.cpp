@@ -110,6 +110,7 @@ bool ScstConnector::_addTarget(VolumeDesc const& volDesc) {
                                             amProcessor));
         } catch (ScstError& e) {
             LOGERROR << "Failed to initialize target [" << target_name << "], ensure that SCST is installed and running.";
+            targets_.erase(it);
             return false;
         }
         it->second->addDevice(volDesc);

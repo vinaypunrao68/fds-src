@@ -161,6 +161,7 @@ struct OpenVolumeMsg {
   2: required common.VolumeAccessMode   mode;
   /** Existing token */
   3: optional i64                       token = 0;
+  4: i32                                coordinatorVersion = 0;
 }
 
 /**
@@ -762,6 +763,20 @@ struct DbgForceVolumeSyncMsg  {
 struct LoadFromArchiveMsg {
     1: i64                      volId;
     2: string                   filename;
+}
+
+struct CopyVolumeMsg {
+    1: i64                      volId;
+    2: i64                      destDmUuid;
+    3: bool                     archivePolicy;
+
+}
+
+struct ArchiveMsg {
+    1: i64                      volId;
+}
+
+struct ArchiveRespMsg {
 }
 
 /* ------------------------------------------------------------

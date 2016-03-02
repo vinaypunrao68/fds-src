@@ -49,6 +49,7 @@ source/am-engine/misc/am-urls.cpp
 source/am-engine/misc/build.linux-x86_64
 source/cit/*.xml
 source/cit/*.log*
+source/cit/ps-out*.txt
 source/cit/classes
 source/cit/surefire-reports
 source/config/sys-repo/
@@ -93,6 +94,7 @@ source/tools/pharos/*
 source/tools/pharos/.DS_Store
 source/tools/pharos/libposix-aio-0.8.1/*
 source/tools/results/*
+source/tools/logs/*
 source/unit-test/fds-probe/am/in.h
 source/unit-test/fds-probe/platform/node-work.h
 source/unit-test/fds-probe/s3-template/o.h

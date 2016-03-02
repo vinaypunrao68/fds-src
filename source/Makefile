@@ -11,8 +11,8 @@ user_build_dir :=                       \
     osdep                               \
     net-service                         \
     umod-lib                            \
-    util                                \
     lib                                 \
+    util                                \
     persistent-layer                    \
     platform                            \
     orch-mgr                            \

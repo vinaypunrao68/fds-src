@@ -11,6 +11,7 @@ import com.formationds.spike.later.AsyncWebapp;
 import com.formationds.spike.later.HttpContext;
 import com.formationds.spike.later.HttpPath;
 import com.formationds.spike.later.SyncRequestHandler;
+import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.web.toolkit.*;
 import com.formationds.xdi.AsyncStreamer;
 import com.formationds.xdi.Xdi;
@@ -41,11 +42,11 @@ public class S3Endpoint {
     private SecretKey secretKey;
 
     public S3Endpoint(Xdi xdi, Supplier<AsyncStreamer> xdiAsync, SecretKey secretKey,
-                      HttpsConfiguration httpsConfiguration, HttpConfiguration httpConfiguration) {
+                      HttpsConfiguration httpsConfiguration, HttpConfiguration httpConfiguration, int maxConcurrentRequests) {
         this.xdi = xdi;
         this.xdiAsync = xdiAsync;
         this.secretKey = secretKey;
-        webApp = new AsyncWebapp(httpConfiguration, httpsConfiguration);
+        webApp = new AsyncWebapp(httpConfiguration, httpsConfiguration, maxConcurrentRequests);
         authenticator = new S3Authenticator(xdi.getAuthorizer(), secretKey);
     }
 
@@ -212,7 +213,7 @@ public class S3Endpoint {
 
             cf = function.apply(localContext, token);
         } catch (Exception e) {
-            cf.completeExceptionally(e);
+            cf = CompletableFutureUtility.exceptionFuture(e);
         }
 
         return cf.exceptionally(e -> {

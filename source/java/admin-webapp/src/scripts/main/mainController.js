@@ -1,4 +1,4 @@
-angular.module( 'main' ).controller( 'mainController', ['$scope', '$authentication', '$authorization', '$state', '$domain_service', '$filter', function( $scope, $authentication, $authorization, $state, $domain_service, $filter ){
+angular.module( 'main' ).controller( 'mainController', ['$scope', '$authentication', '$authorization', '$state', '$domain_service', '$filter', '$toggle_service', function( $scope, $authentication, $authorization, $state, $domain_service, $filter, $toggle_service ){
     
     $scope.priority = 10;
     $scope.menuWidth = 38;

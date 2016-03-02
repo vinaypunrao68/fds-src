@@ -196,12 +196,8 @@ Error DmVolumeCatalog::reloadCatalog(const VolumeDesc & voldesc) {
 
     if (rc.ok()) {
         /*
-        synchronized(lockVolSummaryMap_) {
-            DmVolumeSummaryMap_t::const_iterator iter = volSummaryMap_.find(voldesc.volUUID);
-            if (volSummaryMap_.end() != iter) {
-                volSummaryMap_.erase(iter);
-            }
-        }
+        GET_VOL(volId);
+        vol->resetVolSummary();
         fds_uint64_t volSize=0, blobCount=0, objCount=0;
         // statVolumeLogical(voldesc.volUUID, &volSize, &blobCount, &objCount);
         LOGNORMAL << "reloaded vol:" << voldesc.volUUID << "["
@@ -274,6 +270,11 @@ Error DmVolumeCatalog::deleteCatalog(fds_volid_t volId, bool checkDeleted /* = t
                                       iter->second->isMarkedDeleted() ||
                                       iter->second->isSnapshot()
                                       )) {
+            if (iter->second.use_count()>2) {
+                LOGCRITICAL << "vol:" << volId
+                            << " shptr refcount:" << iter->second.use_count()
+                            << " should NOT HAPPEN....!!!!!";
+            }
             volMap_.erase(iter);
         }
     }
@@ -286,25 +287,27 @@ Error DmVolumeCatalog::statVolumeLogical(fds_volid_t volId,
                                          fds_uint64_t* blobCount,
                                          fds_uint64_t* objCount) {
     Error rc(ERR_OK);
-    synchronized(lockVolSummaryMap_) {
-        DmVolumeSummaryMap_t::const_iterator iter = volSummaryMap_.find(volId);
-        if (volSummaryMap_.end() != iter) {
-            *volSize = iter->second->size;
-            *blobCount = iter->second->blobCount;
-            *objCount = iter->second->objectCount;
-            return rc;
-        }
-    }
 
-    rc = statVolumeInternal(volId, volSize, blobCount, objCount);
+    GET_VOL_N_CHECK_DELETED(volId);
 
-    if (rc.ok()) {
-        FDSGUARD(lockVolSummaryMap_);
-        DmVolumeSummaryMap_t::const_iterator iter = volSummaryMap_.find(volId);
-        if (volSummaryMap_.end() == iter) {
-            volSummaryMap_[volId].reset(new DmVolumeSummary(volId, *volSize,
-                    *blobCount, *objCount));
+    if (!vol->volSummaryInitialized()) {
+        /**
+         * We need to initialize the volume summary cache.
+         */
+        rc = statVolumeInternal(volId, volSize, blobCount, objCount);
+
+        if (rc.ok()) {
+            if (vol->initVolSummary(*volSize, *blobCount, *objCount) == ERR_DUPLICATE) {
+                /**
+                 * Someone got to the initialization ahead of us. Just get
+                 * the current summary as if we never suspected initialization
+                 * had not been done.
+                 */
+                rc = vol->getVolSummary(volSize, blobCount, objCount);
+            }
         }
+    } else {
+        rc = vol->getVolSummary(volSize, blobCount, objCount);
     }
 
     return rc;
@@ -354,10 +357,8 @@ Error DmVolumeCatalog::statVolumePhysical(fds_volid_t volId, fds_uint64_t *pbyte
          * produced by vol->getObject().
          *
          * As to the other bad assumption, that all Data Objects in the range have been
-         * written, we offer no correction for that at this time. So when a Connector
-         * writes to offsets sporadically, leaving some unwritten (as do the iSCSI and S3
-         * Connectors at least), we will continue to calculate PBYTEs as if all offsets,
-         * from 0 up to the last one based on Blob size have been written as well.
+         * written, we correct by adding the sizes of only those Data Objects that we
+         * actually have - the unique Data Objects, that is.
          */
         objList[endOffset].size = DmVolumeCatalog::getLastObjSize(it.desc.blob_size,
                                                                   vol->getObjSize());
@@ -386,6 +387,10 @@ Error DmVolumeCatalog::statVolumeInternal(fds_volid_t volId, fds_uint64_t * volS
     GET_VOL_N_CHECK_DELETED(volId);
     HANDLE_VOL_NOT_ACTIVATED();
 
+    *volSize = 0;
+    *blobCount = 0;
+    *objCount = 0;
+
     std::vector<BlobMetaDesc> blobMetaList;
     Error rc = vol->getAllBlobMetaDesc(blobMetaList);
     if (!rc.ok()) {
@@ -395,24 +400,85 @@ Error DmVolumeCatalog::statVolumeInternal(fds_volid_t volId, fds_uint64_t * volS
     }
 
     *blobCount = blobMetaList.size();
+
     // calculate size of volume
     for (const auto & it : blobMetaList) {
-        *volSize += it.desc.blob_size;
-        *objCount += it.desc.blob_size / vol->getObjSize();
+        /**
+         * Get the data object list for this blob.
+         *
+         * Since we don't know whether and where there might be "sparseness", we'll
+         * scan for all possible "offsets" given the (incorrect) logical Blob size.
+         *
+         * (I put "offsets" in quotes here because
+         * we should really be talking about Data Objects. This notion that
+         * some how "offsets" equate to Data Objects is an example of the pecularities
+         * of a specific storage API - Block, for example - acting as a corrupting
+         * influence upon the design and implementation of our storage platform
+         * where a clear-eyed assessment of the architecture reveals that no such
+         * concept exists. And we would be better off without it in our platform
+         * not only because it is an inconsistency with the architecture in this respect,
+         * but also because without it we liberate Connectors and applications wishing
+         * to write directly to XDI to take full advantage of the freedom of storage
+         * management offered by the architecture. With it, everybody has to conform
+         * to Block concepts.)
+         *
+         * The difficulty here is that DM does not correctly implement the
+         * architecture where there is no such concept as "offset" and so, no
+         * "sparseness".
+         */
+        BlobObjList objList;
+        fds_uint64_t endOffset = DmVolumeCatalog::getLastOffset(it.desc.blob_size,
+                                                                vol->getObjSize());
+        rc = vol->getObject(it.desc.blob_name, 0 /* start offset */, endOffset, objList);
+
+        if (!rc.ok()) {
+            LOGERROR << "Failed to retrieve objects for blob: '" << it.desc.blob_name <<
+                     "' volume: '" << volId << "'";
+            return rc;
+        }
 
         /**
-         * The last Data Object may be smaller than the max
-         * Data Object size for the volume. And above, we assumed
-         * that all the other Data Objects had size equal to
-         * the max Data Object size for the volume.
+         * The vol->getObject() method (which should probably really be called something like
+         * getDataObjectRange()), makes an assumption that all Data Objects in the
+         * range are written and all have the same size, the maximum size of a Data Object
+         * as defined with the Volume, here identified with a call to vol->getObjSize().
+         *
+         * This assumption is wrong on both accounts.
+         *
+         * The last Data Object in the Blob's list will be sized sufficiently to finish
+         * out the entire size of the Blob. In other words, the rest of DM assumes that the
+         * Connector wrote the Blob in chunks of vol->getObjSize() size until the last
+         * Data Object which catches the remainder of BlobSize/vol->getObjSize(). In order
+         * to get a correct byte count here, we must now correct that bad assumption.
+         *
+         * We could put this correction into vol->getObject() so that all callers can enjoy
+         * the benefits of a more correct Data Object list, but that would break the S3
+         * Connector's multi-part upload interface which relies upon the incorrect list
+         * produced by vol->getObject().
+         *
+         * As to the other bad assumption, that all Data Objects in the range have been
+         * written, we correct and account for that here since we now have the entire
+         * Data Object list with no "sparseness".
          */
-        if (it.desc.blob_size % vol->getObjSize()) {
-            *objCount += 1;
-        }
+        objList[objList.lastOffset()].size = DmVolumeCatalog::getLastObjSize(it.desc.blob_size,
+                                                                             vol->getObjSize());
+
+        *objCount += objList.size();
+
+        /**
+         * WARNING! WARNING! Will Robinson! DANGER!
+         *
+         * Once we correctly implement the architecture wherein Data Objects may be any
+         * size the Connector or XDI application chooses and not restrictied to the
+         * arbitrary caprices of whoever set the max Data Object size for the volume ...
+         * this won't work!
+         */
+        *volSize += ((objList.size() - 1) * vol->getObjSize()) + objList[objList.lastOffset()].size;
     }
 
-    LOGDEBUG << "Volume: '" << std::hex << volId << std::dec << "' size: '" << *volSize
-            << "' blobs: '" << *blobCount << "' objects: '" << *objCount << "'";
+    LOGDEBUG << "Volume: '" << volId << "' logical size: '" << *volSize
+             << "' blobs: '" << *blobCount << "' logical objects: '" << *objCount << "'";
+
     return rc;
 }
 
@@ -685,6 +751,10 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
     fds_assert(0 < blobObjList->size());
 
     bool newBlob = false;
+    fds_uint64_t objectsAdded = 0;  // Number of Data Objects added to the Blob by this operation.
+    fds_uint64_t objectsRemoved = 0;  // Number of Data Objects removed from the Blob by this operation.
+    fds_uint64_t bytesAdded = 0;  // Number of bytes added to the Blob by this operation.
+    fds_uint64_t bytesRemoved = 0;  // Number of bytes removed from the Blob by this operation.
 
     // see if the blob exists and get details of it
     BlobMetaDesc blobMeta;
@@ -726,18 +796,18 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
     BlobObjList oldBlobObjList;
 
     // new details
-    fds_uint64_t newBlobSize = oldBlobSize;
-    fds_uint64_t newLastOffset = blobObjList->lastOffset();
+    fds_uint64_t newLastByte = oldBlobSize;
+    fds_uint64_t reqLastOffset = blobObjList->lastOffset();
 
     if (!newBlob) {
-        rc = vol->getObject(blobName, reqFirstOffset, newLastOffset, oldBlobObjList);
+        rc = vol->getObject(blobName, reqFirstOffset, reqLastOffset, oldBlobObjList);
         if (!rc.ok()) {
             LOGERROR << "Failed to retrieve existing blob: '" << blobName << "' in volume: '"
                     << std::hex << volId << std::dec <<"'";
             return rc;
         }
 
-        if (reqFirstOffset <= oldLastOffset && newLastOffset >= oldLastOffset) {
+        if (reqFirstOffset <= oldLastOffset && reqLastOffset >= oldLastOffset) {
             oldBlobObjList[oldLastOffset].size = oldLastObjSize;
         }
     }
@@ -746,13 +816,10 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         BlobObjList::iterator oldIter = oldBlobObjList.find(cit->first);
         if (oldBlobObjList.end() == oldIter) {
             // new offset, update blob size
-            newBlobSize = std::max(newBlobSize, cit->first + cit->second.size);
+            //newLastByte = std::max(newLastByte, cit->first + cit->second.size);
 
-            FDSGUARD(lockVolSummaryMap_);
-            DmVolumeSummaryMap_t::iterator volSummaryIter = volSummaryMap_.find(volId);
-            if (volSummaryMap_.end() != volSummaryIter) {
-                volSummaryIter->second->objectCount.fetch_add(1);
-            }
+            objectsAdded++;
+            bytesAdded += cit->second.size; // Data Object size is correct here ... even for the last one. Surprise!
             continue;
         }
 
@@ -763,26 +830,46 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
 
         // if we are updating last offset, adjust blob size
         if (oldLastOffset == cit->first) {
-            // modifying existing last offset, update size
-            if (NullObjectID != oldIter->second.oid) {
-                fds_verify(newBlobSize >= oldLastObjSize);
-                newBlobSize -= oldLastObjSize;
+
+            /*if (oldLastOffset == reqLastOffset) {
+                fds_verify(newLastByte >= oldLastObjSize);
+                newLastByte -= oldLastObjSize;
+                newLastByte += cit->second.size;
+                }*/
+
+            if (oldLastObjSize >= cit->second.size) {
+                bytesRemoved += oldLastObjSize - cit->second.size;
+            } else {
+                bytesAdded += cit->second.size - oldLastObjSize;
             }
-            newBlobSize += cit->second.size;
-        } else if (cit->first == newLastOffset) {
-            // fds_verify(oldIter->second.oid != NullObjectID);
-            fds_verify(newBlobSize >= vol->getObjSize());
-            newBlobSize -= vol->getObjSize();
-            newBlobSize += cit->second.size;
+        } else if (cit->first == reqLastOffset) {
+            /**
+             *  In this path we know:
+             *   a) we are overwriting an object, or else we would have taken the continue above
+             *   b) this is not the oldLastOffset, or we would have taken the prior if
+             *
+             *   therfore, either:
+             *  a) we are truncating the blob - this is the new last offset
+             *  b) this is just the last object in the object list, but the update has nothing to do with the end of the blob
+             *
+             * in case a), truncation code should sort us out, in case b) there is nothing to be done to modify the last byte
+             */
+
+            // for now, this should always be true
+            if (oldIter->second.size >= cit->second.size) {
+                bytesRemoved += oldIter->second.size - cit->second.size;
+            } else {
+                bytesAdded += cit->second.size - oldIter->second.size;
+            }
         }
         // otherwise object sizes match
     }
 
     std::vector<fds_uint64_t> delOffsetList;
-    if (blobObjList->endOfBlob() && newLastOffset < oldLastOffset) {
+    if (blobObjList->endOfBlob() && reqLastOffset < oldLastOffset) {
         // truncating the blob
         BlobObjList truncateObjList;
-        rc = vol->getObject(blobName, newLastOffset + vol->getObjSize(),
+        rc = vol->getObject(blobName, reqLastOffset + vol->getObjSize(),
                 oldLastOffset, truncateObjList);
         if (!rc.ok()) {
             LOGERROR << "Failed to retrieve existing blob: '" << blobName << "' in volume: '"
@@ -794,15 +881,16 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
             if (NullObjectID != i.second.oid) {
                 delOffsetList.push_back(i.first);
                 // expungeList.push_back(i.second.oid);
-                newBlobSize -= i.first == oldLastOffset ? oldLastObjSize : i.second.size;
+                bytesRemoved += (i.first == oldLastOffset) ? oldLastObjSize : i.second.size;  // Data Object size is *not* correct here for the last one. Surprise!
             }
         }
 
-        FDSGUARD(lockVolSummaryMap_);
-        DmVolumeSummaryMap_t::iterator volSummaryIter = volSummaryMap_.find(volId);
-        if (volSummaryMap_.end() != volSummaryIter) {
-            volSummaryIter->second->objectCount.fetch_sub(truncateObjList.size());
-        }
+        objectsRemoved += truncateObjList.size();
+    }
+
+    // iterative calclation of the last byte is a bit silly. either this operation sets the last byte, or the value should remain untouched
+    if (reqLastOffset >= oldLastOffset || blobObjList->endOfBlob()) {
+        newLastByte = reqLastOffset + blobObjList->at(reqLastOffset).size;
     }
 
     // Is it possible to have an empty incoming metaList but with one or more offsets?
@@ -813,7 +901,8 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
     }
     blobMeta.desc.version += 1;
     blobMeta.desc.sequence_id = std::max(blobMeta.desc.sequence_id, seq_id);
-    blobMeta.desc.blob_size = newBlobSize;
+    blobMeta.desc.blob_size = newLastByte;
+
     if (newBlob) {
         blobMeta.desc.blob_name = blobName;
     }
@@ -825,20 +914,49 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         return rc;
     }
 
-    synchronized(lockVolSummaryMap_) {
-        DmVolumeSummaryMap_t::iterator volSummaryIter = volSummaryMap_.find(volId);
-        if (volSummaryMap_.end() != volSummaryIter) {
-            fds_uint64_t diff = 0;
-            if (newBlobSize >= oldBlobSize) {
-                diff = newBlobSize - oldBlobSize;
-                volSummaryIter->second->size.fetch_add(diff);
-            } else {
-                diff = oldBlobSize - newBlobSize;
-                volSummaryIter->second->size.fetch_sub(diff);
-            }
-            if (newBlob) {
-                volSummaryIter->second->blobCount.fetch_add(1);
-            }
+    /**
+     * We have a concern, before we apply these deltas, about whether the volume's
+     * stat cache has been initialized (although given that AM must confirm that
+     * all DM's within the volume's DM Redundancy group agree upon volume state before
+     * doing anything with the volume - see the Consistency Spec - and so, if
+     * implementation is according to spec - which, experience has shown that it may
+     * not be - it may not be a "real" concern). The stat cache will have been
+     * initialized if someone has called statVolumeLogical().
+     *
+     * To address the concern, we stat the volume ourselves if necessary. And doing so will capture
+     * the "deltas" we just applied so that we do not have to explicitly apply them seperately.
+     */
+    if (!vol->volSummaryInitialized()) {
+        fds_uint64_t size;
+        fds_uint64_t blobs;
+        fds_uint64_t objects;
+        rc = statVolumeLogical(volId, &size, &blobs, &objects);
+        if (!rc.ok()) {
+            LOGERROR << "Failed to stat volume: '" << volId << "' error: '" << rc << "'";
+            return rc;
+        } else {
+            LOGTRACE << "Initialized volume stats for volume ID <" << volId
+                     << "> as blob count <" << blobs
+                     << ">, logical data object count <" << objects
+                     << ">, and logical byte size <" << size
+                     << ">.";
+        }
+    } else {
+        rc = vol->applyStatDeltas(bytesAdded, bytesRemoved,
+                                  (newBlob ? 1 : 0) /* blobsAdded */, 0 /* blobsRemoved */,
+                                  objectsAdded, objectsRemoved);
+        if (!rc.ok()) {
+            LOGERROR << "Failed to update volume stats: '" << volId << "' error: '" << rc << "'";
+            return rc;
+        } else {
+            LOGTRACE << "Applied delta volume stats for volume ID <" << volId
+                     << "> blobs added <" << (newBlob ? 1 : 0)
+                     << "> blobs removed <" << 0
+                     << ">, logical data objects added <" << objectsAdded
+                     << ">, logical data objects removed <" << objectsRemoved
+                     << ">, logical bytes added <" << bytesAdded
+                     << ">, and logical bytes removed <" << bytesRemoved
+                     << ">.";
         }
     }
 
@@ -902,29 +1020,50 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         return rc;
     }
 
-    FDSGUARD(lockVolSummaryMap_);
-    DmVolumeSummaryMap_t::iterator volSummaryIter = volSummaryMap_.find(volId);
-    if (volSummaryMap_.end() != volSummaryIter) {
-        fds_uint64_t diff = 0;
-        if (newBlobSize >= oldBlobSize) {
-            diff = newBlobSize - oldBlobSize;
-            volSummaryIter->second->size.fetch_add(diff);
-        } else {
-            diff = oldBlobSize - newBlobSize;
-            volSummaryIter->second->size.fetch_sub(diff);
-        }
 
-        diff = 0;
-        if (newObjCount >= oldObjCount) {
-            diff = newObjCount - oldObjCount;
-            volSummaryIter->second->objectCount.fetch_add(diff);
+    /**
+     * We have a concern, before we apply these deltas, about whether the volume's
+     * stat cache has been initialized (although given that AM must confirm that
+     * all DM's within the volume's DM Redundancy group agree upon volume state before
+     * doing anything with the volume - see the Consistency Spec - and so, if
+     * implementation is according to spec - which, experience has shown that it may
+     * not be - it may not be a "real" concern). The stat cache will have been
+     * initialized if someone has called statVolumeLogical().
+     *
+     * To address the concern, we stat the volume ourselves if necessary. And doing so will capture
+     * the "deltas" we just applied so that we do not have to explicitly apply them seperately.
+     */
+    if (!vol->volSummaryInitialized()) {
+        fds_uint64_t size;
+        fds_uint64_t blobs;
+        fds_uint64_t objects;
+        rc = statVolumeLogical(volId, &size, &blobs, &objects);
+        if (!rc.ok()) {
+            LOGERROR << "Failed to stat volume: '" << volId << "' error: '" << rc << "'";
+            return rc;
         } else {
-            diff = oldObjCount - newObjCount;
-            volSummaryIter->second->objectCount.fetch_sub(diff);
+            LOGTRACE << "Initialized volume stats for volume ID <" << volId
+                     << "> as blob count <" << blobs
+                     << ">, logical data object count <" << objects
+                     << ">, and logical byte size <" << size
+                     << ">.";
         }
-
-        if (newBlob) {
-            volSummaryIter->second->blobCount.fetch_add(1);
+    } else {
+        rc = vol->applyStatDeltas(newBlobSize, oldBlobSize,
+                                  (newBlob ? 1 : 0) /* blobsAdded */, 0 /* blobsRemoved */,
+                                  newObjCount, oldObjCount);
+        if (!rc.ok()) {
+            LOGERROR << "Failed to update volume stats: '" << volId << "' error: '" << rc << "'";
+            return rc;
+        } else {
+            LOGTRACE << "Applied delta volume stats for volume ID <" << volId
+                     << "> blobs added <" << (newBlob ? 1 : 0)
+                     << "> blobs removed <" << 0
+                     << ">, logical data objects added <" << newObjCount
+                     << ">, logical data objects removed <" << oldObjCount
+                     << ">, logical bytes added <" << newBlobSize
+                     << ">, and logical bytes removed <" << oldBlobSize
+                     << ">.";
         }
     }
 
@@ -982,12 +1121,52 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volId, const std::string& blobName
             LOGWARN << "Failed to delete metadata for blob: '" << blobName << "'";
         }
 
-        synchronized(lockVolSummaryMap_) {
-            DmVolumeSummaryMap_t::iterator iter = volSummaryMap_.find(volId);
-            if (volSummaryMap_.end() != iter) {
-                iter->second->blobCount.fetch_sub(1);
-                iter->second->size.fetch_sub(blobMeta.desc.blob_size);
-                iter->second->objectCount.fetch_sub(expungeList.size());
+        fds_uint64_t bytesRemoved = ((objList.size() - 1) * vol->getObjSize()) + lastObjectSize;
+        fds_uint64_t objectsRemoved = objList.size();
+
+        /**
+         * We have a concern, before we apply these deltas, about whether the volume's
+         * stat cache has been initialized (although given that AM must confirm that
+         * all DM's within the volume's DM Redundancy group agree upon volume state before
+         * doing anything with the volume - see the Consistency Spec - and so, if
+         * implementation is according to spec - which, experience has shown that it may
+         * not be - it may not be a "real" concern). The stat cache will have been
+         * initialized if someone has called statVolumeLogical().
+         *
+         * To address the concern, we stat the volume ourselves if necessary. And doing so will capture
+         * the "deltas" we just applied so that we do not have to explicitly apply them seperately.
+         */
+        if (!vol->volSummaryInitialized()) {
+            fds_uint64_t size;
+            fds_uint64_t blobs;
+            fds_uint64_t objects;
+            rc = statVolumeLogical(volId, &size, &blobs, &objects);
+            if (!rc.ok()) {
+                LOGERROR << "Failed to stat volume: '" << volId << "' error: '" << rc << "'";
+                return rc;
+            } else {
+                LOGTRACE << "Initialized volume stats for volume ID <" << volId
+                << "> as blob count <" << blobs
+                << ">, logical data object count <" << objects
+                << ">, and logical byte size <" << size
+                << ">.";
+            }
+        } else {
+            rc = vol->applyStatDeltas(0, bytesRemoved,
+                                      0 /* blobsAdded */, 1 /* blobsRemoved */,
+                                      0, objectsRemoved);
+            if (!rc.ok()) {
+                LOGERROR << "Failed to update volume stats: '" << volId << "' error: '" << rc << "'";
+                return rc;
+            } else {
+                LOGTRACE << "Applied delta volume stats for volume ID <" << volId
+                << "> blobs added <" << 0
+                << "> blobs removed <" << 1
+                << ">, logical data objects added <" << 0
+                << ">, logical data objects removed <" << objectsRemoved
+                << ">, logical bytes added <" << 0
+                << ">, and logical bytes removed <" << bytesRemoved
+                << ">.";
             }
         }
     }

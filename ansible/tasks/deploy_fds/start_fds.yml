@@ -96,6 +96,9 @@
         status_code=200
     delegate_to: localhost
     register: auth_results
+    until: auth_results.status == 200
+    retries: 20
+    delay: 10
     when: fds_installed
     run_once: true
     sudo: no

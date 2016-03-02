@@ -12,6 +12,7 @@ user_build_dir :=      \
     util               \
     stor-mgr           \
     data-mgr           \
+    volume-checker     \
     svclayer
 endif
 

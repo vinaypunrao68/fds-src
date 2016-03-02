@@ -20,6 +20,7 @@ struct Counters : FdsCounters {
     SimpleNumericCounter compactorRunning;
     SimpleNumericCounter dataRemoved;
     SimpleNumericCounter dataCopied;
+    SimpleNumericCounter dmRefScanRequestSentAt;
   protected:
     std::map<fds_token_id, std::pair<SimpleNumericCounter* ,SimpleNumericCounter* > > scanvengedTokens;
 };

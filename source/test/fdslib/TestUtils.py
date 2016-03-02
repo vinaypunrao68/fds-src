@@ -599,7 +599,7 @@ def node_is_up(self,om_ip,node_id):
 
 def deploy_on_AWS(self, number_of_nodes, inventory_file):
     deploy_script = 'deploy_fds_ec2.sh'
-    deb_location = 'nightly'
+    deb_location = 'local'
     deploy_script_dir = os.path.join(self.rt_env.env_fdsSrc, '../ansible/scripts/')
     cur_dir = os.getcwd()
     os.chdir(deploy_script_dir)
@@ -614,16 +614,19 @@ def deploy_on_AWS(self, number_of_nodes, inventory_file):
     return True
 
 def core_hunter_aws(self,node_ip):
+    core_dir = '/fds/var/log/corefiles'
     connect_fabric(self, node_ip)
-    if exists('/fds/bin', use_sudo=True):
-        for dir in {'/fds/bin','/corefiles'}:
+    if exists(core_dir, use_sudo=True):
+        for dir in {'/fds/var/log/corefiles'}:
             with cd(dir):
                 files = run('ls').split()
                 for file in files:
                     if fnmatch.fnmatch(file, "*.core") or fnmatch.fnmatch(file, "*.hprof") or fnmatch.fnmatch(file,"*hs_err_pid*.log"):
-                        fabric.state.connections[node_ip].get_transport().close()
+                        disconnect_fabric()
                         self.log.error("Core file %s detected at node %s:%s"%(file,node_ip,dir))
                         return 0
+    else:
+        self.log.info("{0} dir doesnt exist".format(core_dir))
     disconnect_fabric()
     return 1
 
@@ -730,7 +733,7 @@ def generate_file(qualified_file_name=default_generated_file, size=1024, seed='s
         for next_content_block, block_size in sha1_generator(seed=seed):
             bytes_to_write = block_size
             if bytes_written + bytes_to_write > size:
-                bytes_to_write = size - bytes_to_write
+                bytes_to_write = size - bytes_written
 
             content_to_write = bytearray(buffer(next_content_block, 0, bytes_to_write))
             generated_file.write(content_to_write)
