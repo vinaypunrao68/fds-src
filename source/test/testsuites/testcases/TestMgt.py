@@ -829,11 +829,16 @@ def queue_up_scenario(suite, scenario, log_dir=None, install_done=None):
             expect_to_fail = False
 
         if action == "create":
+            if "snapshot_policy" in scenario.nd_conf_dict:
+                snapshot_policy = int(scenario.nd_conf_dict['snapshot_policy'])
+            else:
+                snapshot_policy = None
+
             found = False
             for volume in scenario.cfg_sect_volumes:
                 if '[' + volume.nd_conf_dict['vol-name'] + ']' == script:
                     found = True
-                    suite.addTest(TestFDSVolMgt.TestVolumeCreate(volume=volume))
+                    suite.addTest(TestFDSVolMgt.TestVolumeCreate(volume=volume, snapshot_policy = snapshot_policy))
                     break
 
             if found:

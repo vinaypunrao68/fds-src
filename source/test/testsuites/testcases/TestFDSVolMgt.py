@@ -32,13 +32,14 @@ import re
 # This class contains the attributes and methods to test
 # volume creation.
 class TestVolumeCreate(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, volume=None):
+    def __init__(self, parameters=None, volume=None, snapshot_policy=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_VolumeCreate,
                                              "Volume creation")
 
         self.passedVolume = volume
+        self.snapshot_policy = snapshot_policy
 
     def test_VolumeCreate(self):
         """
@@ -54,7 +55,7 @@ class TestVolumeCreate(TestCase.FDSTestCase):
         log_dir = fdscfg.rt_env.get_log_dir()
 
         volumes = fdscfg.rt_get_obj('cfg_volumes')
-        for vol_obj in volumes:
+        for volume in volumes:
             # If we were passed a volume, create that one and exit.
             if self.passedVolume is not None:
                 volume = self.passedVolume
@@ -65,10 +66,10 @@ class TestVolumeCreate(TestCase.FDSTestCase):
                           (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name']))
 
             vol_service = get_volume_service(self,om_node.nd_conf_dict['ip'])
-            status = vol_service.create_volume(self.set_vol_parameters(vol_obj))
+            status = vol_service.create_volume(self.set_vol_parameters(volume))
 
-            if 'snapshot_policy' in vol_obj.nd_conf_dict:
-                snapshot_policy_id = int(vol_obj.nd_conf_dict['snapshot_policy'])
+            if self.snapshot_policy is not None:
+                snapshot_policy_id = self.snapshot_policy
                 snapshot_policy_service = get_snapshot_policy_service(self, om_node.nd_conf_dict['ip'])
                 default_snap_policies = vol_service.get_data_protection_presets(preset_id=snapshot_policy_id)[0]._DataProtectionPolicyPreset__snapshot_policies
                 for each_snap_policy in default_snap_policies:
