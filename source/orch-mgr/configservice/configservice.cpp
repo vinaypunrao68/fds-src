@@ -24,6 +24,7 @@
 #include <convert.h>
 #include <orchMgr.h>
 #include <omutils.h>
+#include "fds_version.h"
 #include <util/stringutils.h>
 #include <util/timeutils.h>
 #include <net/PlatNetSvcHandler.h>
@@ -120,6 +121,11 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     void checkMasterDomain();
 
     // stubs to keep cpp compiler happy - BEGIN
+
+    void getVersion(Version& _return, const int64_t ignore) {}
+    void getVersionTable(std::vector<ServiceAPIVersion>& _return, const int64_t ignore) {}
+    void suggestVersion(Version& _return, const Version& stubVersion) {}
+
     int64_t createLocalDomain(const std::string& domainName, const std::string& domainSite) { return 0;}
     void listLocalDomains(std::vector<LocalDomainDescriptor> & _return, const int32_t ignore) {}
     void listLocalDomainsV07(std::vector<LocalDomainDescriptorV07> & _return, const int32_t ignore) {}
@@ -195,6 +201,44 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     virtual void getNodeInfo( ::FDS_ProtocolInterface::SvcInfo& _return, const  ::FDS_ProtocolInterface::SvcUuid& nodeUuid) {};
     virtual int64_t getDiskCapacityNode(const  ::FDS_ProtocolInterface::SvcUuid& nodeUuid) { return 0; };
     // stubs to keep cpp compiler happy - END
+
+    void getVersion(Version& _return, boost::shared_ptr<int64_t>& ignore) {
+
+        _return.major_version = 0;
+        _return.minor_version = 1;
+        _return.patch_version = 0;
+    }
+
+    void getVersionTable(std::vector<ServiceAPIVersion>& _return, boost::shared_ptr<int64_t>& ignore) {
+
+        // fds::apis::Version is a generated class with a virtual destructor.
+        // Can not use a brace-enclosed initializer list.
+
+        // Append to this initializer list as new API versions are added
+        static std::vector<fds::ServiceAPIVersion::Aggregate> versionTable = {
+            { "ConfigurationService", "ConfigurationService", "", { 0, 1, 0 } }
+        };
+        static std::vector<ServiceAPIVersion> v1;
+        if (v1.empty()) {
+            // Lazy initialization
+            for (size_t i = 0; i < versionTable.size(); ++i) {
+                v1.push_back(fds::ServiceAPIVersion(versionTable[i]).toThrift());
+            }
+        }
+        _return.clear();
+        _return = move(v1);
+        return;
+    }
+
+    void suggestVersion(Version& _return, boost::shared_ptr<Version>& stubVersion) {
+
+        // If major version for the client stub is in supported range, use
+        // suggestion.
+
+        // TODO: use an implementation shared with other handlers - consider
+        // putting it into fds_version.cpp
+        return;
+    }
 
     /**
     * Create a Local Domain.
