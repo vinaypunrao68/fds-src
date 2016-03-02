@@ -4,7 +4,7 @@
 #include <VolumeChecker.h>
 #include <VCSvcHandler.h>
 #include <boost/algorithm/string.hpp>
-
+#include "fdsp/common_constants.h"
 
 namespace fds {
 
@@ -35,7 +35,8 @@ VolumeChecker::init(int argc, char **argv, bool initAsModule)
                      "vc.log",
                      nullptr,
                      svc_handler,
-                     svc_processor);
+                     svc_processor,
+                     fpi::commonConstants().PLATNET_SERVICE_NAME);
 
     dmtMgr = MODULEPROVIDER()->getSvcMgr()->getDmtManager();
     dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();

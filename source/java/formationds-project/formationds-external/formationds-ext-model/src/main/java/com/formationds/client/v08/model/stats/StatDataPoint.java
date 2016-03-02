@@ -27,7 +27,7 @@ public class StatDataPoint implements Cloneable, Comparable<StatDataPoint>{
 	public static final String AGGREGATION_TYPE = "aggregationType";
 	
 	/**
-	 * This is the time the statistic was reported
+	 * This is the time the statistic was reported in milliseconds
 	 */
 	private Long reportTime = 0L;
 	

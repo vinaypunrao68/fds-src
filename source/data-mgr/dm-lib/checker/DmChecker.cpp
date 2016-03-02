@@ -20,6 +20,7 @@
 #include <net/PlatNetSvcHandler.h>
 #include "checker/LeveldbDiffer.h"
 #include "dm-vol-cat/DmPersistVolDB.h"
+#include "fdsp/common_constants.h"
 #include "fdsp/ConfigurationService.h"
 #include "net/SvcMgr.h"
 #include "util/stringutils.h"
@@ -43,7 +44,8 @@ int DMOfflineCheckerEnv::main() {
 
     /* Get volumes from config api */
     auto configSvc = allocRpcClient<fds::apis::ConfigurationServiceClient>(
-        "127.0.0.1", 9090, 4);
+        "127.0.0.1", 9090, 4, fpi::commonConstants().CONFIGURATION_SERVICE_NAME,
+        MODULEPROVIDER()->get_fds_config());
     std::vector<fds::apis::VolumeDescriptor> volDescs;
     configSvc->listVolumes(volDescs, "");
     for_each(volDescs.begin(), volDescs.end(),

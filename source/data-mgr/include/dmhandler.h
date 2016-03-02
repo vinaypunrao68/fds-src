@@ -53,7 +53,7 @@
 #define VOLUME_IO_VERSION_CHECK(io, helper)
 
 /* Ensure IO is ordered */
-#define ENSURE_IO_ORDER(io, helper) \
+#define ENSURE_IO_ORDER(bSequenceIdCheck, seqId, io, helper) \
 do { \
     if (!dataManager.features.isVolumegroupingEnabled()) { \
         break; \
@@ -66,6 +66,13 @@ do { \
         helper.err = ERR_IO_OPID_MISMATCH; \
         return; \
     } \
+    if (bSequenceIdCheck && seqId != volMeta->getSequenceId()+1) { \
+        LOGWARN << "volid: " << io->getVolId() << ". sequenceid mismatch.  Current sequenceid: " \
+            << volMeta->getSequenceId() << " incoming sequenceid: " << seqId; \
+        fds_assert(!"sequenceid mismatch"); \
+        helper.err = ERR_IO_SEQUENCEID_MISMATCH; \
+        return; \
+    } \
     /* Ideally we should increment this op id after write makes it to commit log \
      * In the current code base commit log is modified for non-coordinator issued \
      * io as well.  This makes it difficult do it there.  Since OpId is only \
@@ -74,6 +81,9 @@ do { \
      */ \
     volMeta->incrementOpId(); \
 } while (false)
+
+#define ENSURE_OPID_ORDER(io, helper) ENSURE_IO_ORDER(false, 0, io, helper)
+#define ENSURE_SEQUENCEID_ORDER(seqId, io, helper) ENSURE_IO_ORDER(true, seqId, io, helper)
 
 namespace fds {
 

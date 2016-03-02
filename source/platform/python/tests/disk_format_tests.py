@@ -360,39 +360,34 @@ class DiskTest (unittest.TestCase):
         self.assertFalse (d.format ())
 
     @mock.patch ('__builtin__.open', mock.mock_open (read_data=disk_format.DISK_MARKER), create=True)
-    @mock.patch ('disk_format.Disk.call_subproc')
     @mock.patch ('disk_format.subprocess.Popen')
-    def testDiskFormatDataDrive (self, mock_popen, mock_call_subproc):
+    def testDiskFormatDataDrive (self, mock_popen):
         process_mock = mock.Mock ()
         attrs = {'returncode': 0}
         process_mock.stdout.read.return_value = '33333'
         process_mock.configure (**attrs)
 
         mock_popen.return_value = process_mock
-        mock_call_subproc.return_value = process_mock
 
         d = disk_format.Disk (DiskTest.TEST_PATH, False, False, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
         d.format()
 
         mock_args_format = disk_format.Disk.MKFS_PART_1 + (DiskTest.TEST_PATH + '2').split() + disk_format.Disk.MKFS_PART_2
 
-        expected = [mock.call (mock_args_format)]
-
-        assert mock_call_subproc.call_args_list == expected
-        assert 1 == mock_call_subproc.call_count
+        expected = mock.call (mock_args_format)
+        assert mock_popen.call_args == expected
+        assert 2 == mock_popen.call_count # format + mkfs
 
 
     @mock.patch ('__builtin__.open', mock.mock_open (read_data=disk_format.DISK_MARKER), create=True)
-    @mock.patch ('disk_format.Disk.call_subproc')
     @mock.patch ('disk_format.subprocess.Popen')
-    def testDiskFormatIndexAndDataDrive (self, mock_popen, mock_call_subproc):
+    def testDiskFormatIndexAndDataDrive (self, mock_popen):
         process_mock = mock.Mock ()
         attrs = {'returncode': 0}
         process_mock.stdout.read.return_value = '33333'
         process_mock.configure (**attrs)
 
         mock_popen.return_value = process_mock
-        mock_call_subproc.return_value = process_mock
 
         d = disk_format.Disk (DiskTest.TEST_PATH, False, True, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
         d.format()
@@ -403,8 +398,11 @@ class DiskTest (unittest.TestCase):
             mock_args_format = disk_format.Disk.MKFS_PART_1 + (DiskTest.TEST_PATH + part).split() + disk_format.Disk.MKFS_PART_2
             expected.append(mock.call (mock_args_format))
 
-        assert mock_call_subproc.call_args_list == expected
-        assert 2 == mock_call_subproc.call_count
+        assert 3 == mock_popen.call_count # format + 2 mkfs calls
+        i = 1
+        for expected_args in expected:
+            assert mock_popen.call_args_list[i] == expected_args
+            i += 1
 
 
 
@@ -676,8 +674,14 @@ class testDiskManager (unittest.TestCase):
             i = i + 1
         assert self.manager.disk_list[5].formatted == True
 
+        mock_args = ['mkfs', DiskTest.TEST_PATH + '2'] + disk_format.Disk.MKFS_PART_2  # just a failing command
+
         self.manager.global_debug_on = True
-        self.manager.partition_and_format_disks()
+        p = subprocess.Popen(mock_args)
+        mock_format.return_value = [p]
+        with self.assertRaises (SystemExit) as cm:
+            self.manager.partition_and_format_disks()
+        self.assertEqual (cm.exception.code, 1)
         assert 3 == mock_format.call_count # 6 - 2(os) -1(formatted)
 
     def testDiskManagerBuildPartitionListsWExisting (self):
@@ -728,7 +732,7 @@ class testDiskManager (unittest.TestCase):
         process_mock.configure (**attrs)
 
         mock_partition.return_value = process_mock
-        mock_format.return_value = process_mock
+        mock_format.return_value = []
 
         self.manager.disk_config_file = 'test_data/disk_config.no-os-drives'
         self.manager.load_disk_config_file()

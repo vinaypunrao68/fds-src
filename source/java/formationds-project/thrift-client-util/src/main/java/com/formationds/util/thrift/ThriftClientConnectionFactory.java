@@ -7,6 +7,7 @@ import org.apache.commons.pool2.KeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.apache.thrift.protocol.TBinaryProtocol;
+import org.apache.thrift.protocol.TMultiplexedProtocol;
 import org.apache.thrift.protocol.TProtocol;
 import org.apache.thrift.transport.TFramedTransport;
 import org.apache.thrift.transport.TNonblockingSocket;
@@ -16,6 +17,7 @@ import org.apache.thrift.transport.TTransportException;
 
 import java.io.IOException;
 import java.util.function.Function;
+import java.util.Optional;
 
 public class ThriftClientConnectionFactory<T>
     implements KeyedPooledObjectFactory<ConnectionSpecification, ThriftClientConnection<T>> {
@@ -38,13 +40,18 @@ public class ThriftClientConnectionFactory<T>
     }
 
     private final Function<TProtocol, T> makeClient;
+    private final Optional<String> thriftServiceName;
 
     /**
      * Create connection factory for synchronous connections
      * @param makeClient
+     * @param thriftServiceName When not empty string, creates client stub using
+     *   a TMultiplexedProtocol. Otherwise, uses TBinaryProtocol.
      */
-    public ThriftClientConnectionFactory( Function<TProtocol, T> makeClient ) {
+    public ThriftClientConnectionFactory( Function<TProtocol, T> makeClient,
+                                          String thriftServiceName ) {
         this.makeClient = makeClient;
+        this.thriftServiceName = Optional.ofNullable(thriftServiceName);
     }
 
     @Override
@@ -56,7 +63,15 @@ public class ThriftClientConnectionFactory<T>
         } catch (TTransportException e) {
             throw new RuntimeException(e);
         }
-        T client = makeClient.apply(new TBinaryProtocol(transport));
+        T client;
+        String serviceName = this.thriftServiceName.orElse("");
+        if ( serviceName.equals("") ) {
+            // non-multiplexed
+            client = makeClient.apply(new TBinaryProtocol(transport));
+        } else {
+            // Conditionally create server.client using multiplexed protocol
+            client = makeClient.apply(new TMultiplexedProtocol(new TBinaryProtocol(transport), serviceName));
+        }
         ThriftClientConnection<T> connection =  new ThriftClientConnection<>(transport, client);
         return new DefaultPooledObject<>(connection);
     }
