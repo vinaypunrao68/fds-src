@@ -96,7 +96,7 @@ DmMigrationDest::checkVolmetaVersion(const int32_t version)
     Error err(ERR_OK);
     auto volMeta = dataMgr.getVolumeMeta(volumeUuid);
     if (volMeta == nullptr) {
-        err = ERR_INVALID_VOLUME_VERSION;
+        err = ERR_INVALID_VERSION;
     } else if (version == VolumeGroupConstants::VERSION_INVALID) {
         LOGDEBUG << "Received version: " << version;
         fds_assert(!"Source shouldn't send invalid version");
@@ -104,7 +104,7 @@ DmMigrationDest::checkVolmetaVersion(const int32_t version)
     } else if (volMeta->getVersion() != version) {
         LOGDEBUG << logString() << " invalid version mismatch: " << version <<
                 " expecting: " << volMeta->getVersion();
-        err = ERR_INVALID_VOLUME_VERSION;
+        err = ERR_INVALID_VERSION;
     }
     return err;
 }

@@ -10,7 +10,7 @@ import static org.junit.Assert.assertEquals;
 
 public class EvictingCacheTest {
     @Test
-    public void test() throws Exception {
+    public void testBasic() throws Exception {
         AtomicInteger loads = new AtomicInteger(0);
         AtomicInteger evictions = new AtomicInteger(0);
 

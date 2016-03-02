@@ -101,9 +101,6 @@
 -   name: Place core.sh in /bin
     copy: src=../files/core.sh dest=/bin/core.sh owner=root group=root mode=0755
 
--   name: Place coroner excludes
-    copy: src=../files/coroner.excludes dest=/fds/sbin/coroner.excludes owner=root group=root mode=0755
-
 -   name: push local fds-deps deb to cluster nodes
     when: (fds_deploy_local_deps is defined and fds_deploy_local_deps == "yes") and this_is_an_ec2_node is not defined
     copy: src={{ item }}

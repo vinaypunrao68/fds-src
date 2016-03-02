@@ -106,6 +106,7 @@ namespace fds
                 void determineDiskCapability();
 
                 bool waitPid (pid_t pid, uint64_t waitTimeoutNanoSeconds, bool monitoring = false);
+                bool waitOrphanPid(pid_t const pid, std::string const &procName, uint64_t waitTimeoutNanoSeconds);
                 void startProcess (int id);
                 void stopProcess (int id);
 

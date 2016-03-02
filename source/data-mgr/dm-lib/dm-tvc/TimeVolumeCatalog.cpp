@@ -252,74 +252,7 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc, fds_volid_t origSrcVolume) {
         return rc;
     }
 
-    if (dataManager_.amIPrimary(voldesc.srcVolumeId)) {
-        // Increment object references
-        std::set<ObjectID> objIds;
-        rc = volcat->getVolumeObjects(voldesc.srcVolumeId, objIds);
-        if (!rc.ok()) {
-            GLOGCRITICAL << "Failed to get object ids for volume '" << std::hex <<
-                    voldesc.srcVolumeId << std::dec << "'";
-            return rc;
-        }
-
-        std::map<fds_token_id, boost::shared_ptr<std::vector<fpi::FDS_ObjectIdType> > >
-                tokenOidMap;
-        for (auto oid : objIds) {
-            const DLT * dlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
-            fds_verify(dlt);
-
-            fds_token_id token = dlt->getToken(oid);
-            if (!tokenOidMap[token].get()) {
-                tokenOidMap[token].reset(new std::vector<fpi::FDS_ObjectIdType>());
-            }
-
-            fpi::FDS_ObjectIdType tmpId;
-            fds::assign(tmpId, oid);
-            tokenOidMap[dlt->getToken(oid)]->push_back(tmpId);
-        }
-
-#if 0
-    // disable the ObjRef count  login for now. will revisit this  once  we have complete
-    // design in place
-        for (auto it : tokenOidMap) {
-            incrObjRefCount(origSrcVolume, voldesc.volUUID, it.first, it.second);
-            // tp_.schedule(&DmTimeVolCatalog::incrObjRefCount, this, voldesc.srcVolumeId,
-            //         voldesc.volUUID, it.first, it.second);
-        }
-#endif
-    }
-
     return rc;
-}
-
-void
-DmTimeVolCatalog::incrObjRefCount(fds_volid_t srcVolId, fds_volid_t destVolId,
-                                  fds_token_id token,
-                                  boost::shared_ptr<std::vector<fpi::FDS_ObjectIdType> > objIds) {
-    // TODO(umesh): this code is similar to DataMgr::expungeObject() code.
-    // So it inherits all its limitations. Following things need to be considered in future:
-    // 1. what if volume association is removed for OID while snapshot is being taken
-    // 2. what if call to increment ref count fails
-    // 3. whether to do it in background/ foreground thread
-
-    // Create message
-    fpi::AddObjectRefMsgPtr addObjReq(new fpi::AddObjectRefMsg());
-    addObjReq->srcVolId = srcVolId.get();
-    addObjReq->destVolId = destVolId.get();
-    addObjReq->objIds = *objIds;
-
-    // for (auto it : *objIds) {
-    //     addObjReq->objIds.push_back(it);
-    // }
-
-    const DLT * dlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
-    fds_verify(dlt);
-
-    auto asyncReq = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(dlt->getNodes(token)));
-    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::AddObjectRefMsg), addObjReq);
-    asyncReq->setTimeoutMs(10000);
-    asyncReq->invoke();
 }
 
 Error

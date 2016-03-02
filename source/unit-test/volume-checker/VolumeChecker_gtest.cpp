@@ -27,12 +27,20 @@ using namespace fds::TestUtils;
  * 3. Run Volume checker on volume, should return consistent result.
  */
 TEST_F(VolumeGroupFixture, twoHappyDMs) {
+    LOGNORMAL << "TEST MARKER Starting twoHappyDMs";
 
     // Create 2 DMs
-    createCluster(2);
-    setupVolumeGroup(2);
+    unsigned clusterSize = 2;
+    createCluster(clusterSize);
+    setupVolumeGroup(clusterSize);
+
+    // Test Volume Checker svcmgr layer
+    initVolumeChecker();
+    addDMTToVC(getOmDMT(DMT_COMMITTED));
+    stopVolumeChecker();
 
     /* Do some io. After Io is done, every volume replica must have same state */
+#if 0
     for (uint32_t i = 0; i < 10; i++) {
         sendUpdateOnceMsg(*v1, blobName, waiter);
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
@@ -40,10 +48,10 @@ TEST_F(VolumeGroupFixture, twoHappyDMs) {
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
         doGroupStateCheck(v1Id);
     }
+#endif
 
-    // TODO(Neil) - implement volume checker phase 1 and run it here.
-    initVolumeChecker();
 
+    LOGNORMAL << "TEST MARKER Finished twoHappyDMs";
 }
 
 int main(int argc, char* argv[]) {

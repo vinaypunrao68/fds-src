@@ -63,8 +63,7 @@
 
 -   name: add fstab entry and mount cores sparse file system
     mount: name=/fds/var/log/corefiles src=/fds/var/log/sfs/loopmount_sparse_file_system_for_core_files state=mounted fstype=xfs opts=loop
-    when: created_sparse.changed == True and
-          fds_ft_platform_use_new_superblock is defined and
+    when: fds_ft_platform_use_new_superblock is defined and
           fds_ft_platform_use_new_superblock == "true"
 
 -   name: set local for error messages
@@ -244,6 +243,8 @@
     tags:
         - post-install
 
+-   name: Place coroner excludes
+    copy: src=../files/coroner.excludes dest=/fds/sbin/coroner.excludes owner=root group=root mode=0755
 
 -   name: add cron job to gzip logs
     cron: name="compress logs placed by ansible" minute=49 hour=*/4
