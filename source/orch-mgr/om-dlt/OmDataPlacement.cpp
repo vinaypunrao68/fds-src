@@ -553,11 +553,11 @@ DataPlacement::beginRebalance()
                 }
             }
 
-            // maybe here we need to say, if no source found, then look
-            // at committed to find sources that owned the tokens and see
-            // if they are still in the new. If so, sync from them.
-            // The getNewAndNewPrimary should be in there? Because we
-            // will still need to know what tokens require sync
+            // ToDo @meena FS-5284 here we need to say, if no source found, then look
+            // at committed dlt to find sources that owned the tokens and see
+            // if they are still in the new Dlt. If so, sync from them.
+            // Also in getNewAndNewPrimaryUuids, eliminate the check for existing
+            // SM that moves up in the rows.
 
             if (nosyncSm.uuid_get_val() > 0)
             {
