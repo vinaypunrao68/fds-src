@@ -48,7 +48,9 @@ struct RemoveErroredVolume {
         auto iter = dm->vol_meta_map.find(vol_uuid);
         if (iter != dm->vol_meta_map.end() && iter->second == NULL) {
             dm->vol_meta_map.erase(iter);
-            LOGERROR << "add volume failed for vol:" << vol_uuid;
+            LOGERROR << "vol:" << vol_uuid << " add volume failed";
+        } else {
+            LOGNORMAL << "vol:" << vol_uuid << "added successfully";
         }
     }
     DataMgr* dm;
@@ -553,28 +555,6 @@ Error DataMgr::addVolume(const std::string& vol_name,
         LOGWARN << "previously active vol:"<< vdesc->volUUID <<", but dbfile missing.. this should be either be a new Node or DM was down during previous addVolume";
     }
 
-    if (features.isVolumegroupingEnabled()) {
-        /* We only add the volume if the volume is owned by this DM */
-        bool fShouldBeHere = true;
-
-        if (vdesc->isSnapshot()) {
-            fShouldBeHere = amIinVolumeGroup(vdesc->srcVolumeId);
-        } else if (vdesc->isClone()) {
-            fShouldBeHere = fOldVolume ?
-                amIinVolumeGroup(vdesc->volUUID) :
-                amIinVolumeGroup(vdesc->srcVolumeId);
-        } else {
-            fShouldBeHere = amIinVolumeGroup(vdesc->volUUID);
-        }
-        if (!fShouldBeHere) {
-            FDSGUARD(vol_map_mtx);
-            vol_meta_map.erase(vol_uuid);
-            LOGNORMAL << "Ignoring add volume: " << vol_uuid
-                << " as volume doesn't belong in the group";
-            return ERR_OK;
-        }
-    }
-
     if (vdesc->isClone()) {
         // clone happens only on primary
         fPrimary = amIPrimary(vdesc->srcVolumeId);
@@ -585,13 +565,37 @@ Error DataMgr::addVolume(const std::string& vol_name,
         fPrimary = amIPrimary(vdesc->volUUID);
     }
 
-    LOGNORMAL << "vol:" << vol_name
+    /* We only add the volume if the volume is owned by this DM */
+    bool fShouldBeHere = false;
+
+    if (features.isVolumegroupingEnabled()) {
+        if (vdesc->isSnapshot()) {
+            fShouldBeHere = amIinVolumeGroup(vdesc->srcVolumeId);
+        } else if (vdesc->isClone()) {
+            // TODO(prem,rao) : dig deeper
+            fShouldBeHere = (amIinVolumeGroup(vdesc->volUUID) || 
+                             amIinVolumeGroup(vdesc->srcVolumeId));
+        } else {
+            fShouldBeHere = amIinVolumeGroup(vdesc->volUUID);
+        }
+    }
+
+    LOGNORMAL << "vol:" << vdesc->volUUID
               << " clone:" << vdesc->isClone()
               << " snap:" << vdesc->isSnapshot()
               << " state:" << vdesc->getState()
               << " old:" << fOldVolume
               << " primary:" << fPrimary
+              << " shouldbehere:" << fShouldBeHere
               << " name:" << vdesc->name;
+
+    if (features.isVolumegroupingEnabled() && !fShouldBeHere) {
+        FDSGUARD(vol_map_mtx);
+        vol_meta_map.erase(vol_uuid);
+        LOGNORMAL << "Ignoring add volume: " << vol_uuid
+                  << " as volume doesn't belong in the group";
+        return ERR_OK;
+    }
 
     if (vdesc->isSnapshot()) {
         if (!fPrimary) {
@@ -692,7 +696,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
         if (fActivated) {
             if (features.isVolumegroupingEnabled() &&
                 !(vdesc->isSnapshot())) {
-                volmeta->setPersistVolDB(getPersistDB(vol_uuid));
+                // volmeta->setPersistVolDB(getPersistDB(vol_uuid));
                 if (volmeta->isCoordinatorSet()) {
                     /* Coordinator is set. We can go through sync protocol */
                     fSyncRequired = true;
@@ -1644,7 +1648,7 @@ Error DataMgr::copyVolumeToOtherDMs(fds_volid_t volId) {
                 err = requestMgr->sendLoadFromArchiveRequest(nodes->get(i), volId, archiveFileName);
                 if (!err.ok()) {
                     failed++;
-                    LOGERROR << "could to send load from archive cmd to:" << nodes->get(i)
+                    LOGERROR << "loadfromarchive cmd failed to:" << nodes->get(i)
                              << " vol:" << volId
                              << " file:" << archiveFileName
                              << " error:" << err;
@@ -1664,6 +1668,125 @@ Error DataMgr::copyVolumeToOtherDMs(fds_volid_t volId) {
     return ERR_OK;
 }
 
+Error DataMgr::copyVolumeToTargetDM(fpi::SvcUuid dmUuid, fds_volid_t volId, bool archivePolicy) {
+    Error err;
+    LOGNORMAL << "copying vol:" << volId << " to other Target DM:" << dmUuid;
+
+    auto volDB = getPersistDB(volId);
+    if (volDB.get() == NULL) {
+        LOGWARN << "unable to get vol-db for vol:" << volId;
+        return ERR_VOL_NOT_FOUND;
+    }
+
+    const fpi::SvcUuid me (MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid());
+    const DmtColumnPtr nodes = MODULEPROVIDER()->getSvcMgr()->getDMTNodesForVolume(volId);
+    if (dmUuid == me) {
+        LOGDEBUG << "Nothing to do... both origin and target DM Uuids are the same";
+        return err;
+    }
+
+    /* Find the nodeId that matches the svcUuid */
+    uint nodeId;
+    for (nodeId = 0; nodeId < nodes->getLength(); nodeId++){
+        LOGDEBUG << "dmUuid:" << dmUuid << " // node[" << nodeId << "]:" << nodes->get(nodeId).toSvcUuid();
+        if (nodes->get(nodeId).toSvcUuid() == dmUuid){
+            break;
+        } else if (nodeId == (nodes->getLength()-1)) {
+            LOGDEBUG << "Cannot complete - destination dmUuid given does not exist.";
+            return ERR_VOL_NOT_FOUND;
+        }
+    }
+
+    LOGDEBUG << "Before archive policy";
+    /*
+     * If archive policy is on - then ask the target DM to tar up its volume before overwriting
+     * the old policy
+     * */
+    if (archivePolicy) {
+        err = requestMgr->sendArchiveVolumeRequest(nodes->get(nodeId), volId);
+        if (!err.ok()) {
+            LOGWARN << "Archiving on node " << nodes->get(nodeId) << " failed";
+            return ERR_ARCHIVE_SNAP_TAR_FAILED;
+        }
+    }
+
+    std::string archiveDir = dmutil::getTempDir();
+    std::string archiveFileName = util::strformat("%ld.tgz",volId.get());
+    std::string archiveFile =  archiveFileName;
+
+    err = getPersistDB(volId)->archive(archiveDir, archiveFile);
+    if (!err.ok()) {
+        LOGWARN << "archiving failed for vol:" << volId << " error:" << err;
+        return err;
+    }
+
+    archiveFile = archiveDir + std::string("/") + archiveFile;
+    if (!util::fileExists(archiveFile)) {
+        LOGWARN << "archive file missing : " << archiveFile;
+        return ERR_NOT_FOUND;
+    }
+
+    LOGDEBUG << "archive file:" << archiveFile << " volid:" <<volId;
+
+    auto transferCb = [&](fds::net::FileTransferService::Handle::ptr handle,const Error& err,
+                          SHPTR<concurrency::TaskStatus> taskStatus) {
+      taskStatus->error = err;
+      taskStatus->done();
+    };
+
+    SHPTR<concurrency::TaskStatus> taskStatus(new concurrency::TaskStatus());
+    LOGNORMAL << "copying vol:" << volId << " to node:" << nodes->get(nodeId);
+    fileTransfer->send(nodes->get(nodeId).toSvcUuid(), archiveFile, archiveFileName, std::bind(transferCb, PH_ARG1, PH_ARG2, taskStatus));
+    // 10 minutes
+    if (!taskStatus->await(10*60*1000)) {
+        LOGWARN << "filetransfer did not complete in expected time: [" << archiveFile
+                    << "] to:" << nodes->get(nodeId);
+    } else {
+        if (!taskStatus->error.ok()) {
+            LOGWARN << "filetransfer did not complete : [" << archiveFile
+                        << "] to:" << nodes->get(nodeId) << " error:" << taskStatus->error;
+        } else {
+            // send LOAD_FROM_ARCHIVE command to dm
+            err = requestMgr->sendLoadFromArchiveRequest(nodes->get(nodeId), volId, archiveFileName);
+            if (!err.ok()) {
+                LOGERROR << "could to send load from archive cmd to:" << nodes->get(nodeId)
+                            << " vol:" << volId
+                            << " file:" << archiveFileName
+                            << " error:" << err;
+            }
+        }
+    }
+    // remove archive file
+    boost::filesystem::remove(archiveFile);
+
+    return ERR_OK;
+}
+
+Error DataMgr::archiveTargetVolume(fds_volid_t volId) {
+    Error err;
+    auto persistDB = getPersistDB(volId);
+
+    /* Archive old volume */
+    std::string archiveDir = dmutil::getTempDir();
+    std::string archiveFileName = util::strformat("%ld.tgz",volId);
+    std::string archiveFile =  archiveFileName;
+
+    err = persistDB->archive(archiveDir, archiveFile);
+    if (!err.ok()) {
+        LOGWARN << "archiving failed for vol:" << volId << " error:" << err;
+        return err;
+    }
+
+    archiveFile = archiveDir + std::string("/") + archiveFile;
+    if (!util::fileExists(archiveFile)) {
+        LOGWARN << "archive file missing : " << archiveFile;
+        err = ERR_ARCHIVE_PUT_FAILED;
+    }
+
+    LOGDEBUG << "Archive of volume " << volId << " successful";
+    return err;
+}
+
 //************************************************************************//
 //   QOS Controller Functions                                             //
 //************************************************************************//
@@ -1676,12 +1799,20 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
     // Stop the queue latency timer.
     PerfTracer::tracePointEnd(io->opQoSWaitCtx);
 
-    // Get the key and vol type to use during serialization
-    // TODO(Andrew): Adding the sender's SvcUuid to the key
-    // would allow additional concurrency. Since we already
-    // don't ensure ordering with multiple senders we don't
-    // need to make them serialize.
-    SerialKey key(io->volId, io->blob_name);
+    // specifically pick what id to serialize/synchronize this request
+    auto scheduleOnId = io->volId;
+
+    // explicit background tasks
+    switch (io->io_type) {
+        case FDS_DM_RELOAD_VOLUME:
+        case FDS_DM_LOAD_FROM_ARCHIVE:
+            scheduleOnId = FdsDmSysTaskId;
+            break;
+        default:
+            break;
+    }
+
+    SerialKey key(scheduleOnId, io->blob_name);
     fpi::FDSP_VolType volType(fpi::FDSP_VOL_S3_TYPE);
     {
         fds_mutex::scoped_lock l(*(parentDm->vol_map_mtx));
@@ -1693,7 +1824,11 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
     GLOGDEBUG << "processing : " << io->log_string() << " volType: " << volType
               << " key: " << key.first << ":" << key.second;
     switch (io->io_type){
-        /* TODO(Rao): Add the new refactored DM messages types here */
+        /* TODO(Rao):
+         * 1. clean up unnecessary messages
+         * 2. Use DataMgr::dmQosCtrl::schedule() instead of fds_threadpool directly here.
+         *    Once we switch to volume grouping this clean up can be done.
+         */
         case FDS_DM_SNAP_VOLCAT:
         case FDS_DM_SNAPDELTA_VOLCAT:
             threadPool->schedule(&DataMgr::snapVolCat, parentDm, io);
@@ -1717,7 +1852,6 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_GET_VOLUME_METADATA:
         case FDS_DM_LIST_BLOBS_BY_PATTERN:
         case FDS_DM_MIGRATION:
-        case FDS_DM_MIG_TX_STATE:
             // Other (stats, etc...) handlers
         case FDS_DM_SYS_STATS:
         case FDS_DM_STAT_STREAM:
@@ -1727,17 +1861,17 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
             break;
         case FDS_RENAME_BLOB:
             if (parentDm->features.isVolumegroupingEnabled()) {
-                serialExecutor->scheduleOnHashKey(io->volId.get(),
-                                                  std::bind(&dm::Handler::handleQueueItem,
-                                                            parentDm->handlers.at(io->io_type),
-                                                            io));
+                schedule(scheduleOnId, true,
+                         std::bind(&dm::Handler::handleQueueItem,
+                                   parentDm->handlers.at(io->io_type),
+                                   io));
                 break;
             }
             // If serialization is enabled, serialize on both keys,
             // otherwise just schedule directly.
             if ((parentDm->features.isSerializeReqsEnabled())) {
                 auto renameReq = static_cast<DmIoRenameBlob*>(io);
-                SerialKey key2(io->volId, renameReq->message->destination_blob);
+                SerialKey key2(scheduleOnId, renameReq->message->destination_blob);
                 serialExecutor->scheduleOnHashKeys(keyHash(key),
                                                    keyHash(key2),
                                                    std::bind(&dm::Handler::handleQueueItem,
@@ -1754,19 +1888,19 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_DM_VOLUMEGROUP_UPDATE:
         {
             VOLUME_REQUEST_CHECK();
-            serialExecutor->scheduleOnHashKey(io->volId.get(),
-                                              std::bind(&VolumeMeta::handleVolumegroupUpdate,
-                                                        volMeta,
-                                                        io));
+            schedule(scheduleOnId, true,
+                     std::bind(&VolumeMeta::handleVolumegroupUpdate,
+                               volMeta,
+                               io));
             break;
         }
         case FDS_DM_MIG_FINISH_STATIC_MIGRATION:
         {
             VOLUME_REQUEST_CHECK();
-            serialExecutor->scheduleOnHashKey(io->volId.get(),
-                                              std::bind(&VolumeMeta::handleFinishStaticMigration,
-                                                        volMeta,
-                                                        io));
+            schedule(scheduleOnId, true,
+                     std::bind(&VolumeMeta::handleFinishStaticMigration,
+                               volMeta,
+                               io));
             break;
         }
         case FDS_DELETE_BLOB:
@@ -1786,11 +1920,12 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_DM_MIG_DELTA_BLOBDESC:
         case FDS_DM_MIG_FINISH_VOL_RESYNC:
         case FDS_DM_MIG_REQ_TX_STATE:
+        case FDS_DM_MIG_TX_STATE:
             if (parentDm->features.isVolumegroupingEnabled()) {
-                serialExecutor->scheduleOnHashKey(io->volId.get(),
-                                                  std::bind(&dm::Handler::handleQueueItem,
-                                                            parentDm->handlers.at(io->io_type),
-                                                            io));
+                schedule(scheduleOnId, true,
+                         std::bind(&dm::Handler::handleQueueItem,
+                                   parentDm->handlers.at(io->io_type),
+                                   io));
                 break;
             }
             // If serialization in enabled, serialize on the key
@@ -1828,8 +1963,9 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
                                                         io));
             break;
         case FDS_DM_FUNCTOR:
-            serialExecutor->scheduleOnHashKey(io->volId.get(),
-                                              std::bind(&DataMgr::handleDmFunctor, parentDm, io));
+            schedule(scheduleOnId, true,
+                     std::bind(&DataMgr::handleDmFunctor,
+                               parentDm, io));
             break;
         default:
             LOGWARN << "Unknown IO Type received";
@@ -1844,7 +1980,7 @@ DataMgr::dmQosCtrl::dmQosCtrl(DataMgr *_parent,
                               uint32_t _max_thrds,
                               dispatchAlgoType algo,
                               fds_log *log) :
-        FDS_QoSControl(_max_thrds, algo, log, "DM") {
+        FDS_QoSControl(_max_thrds, 2, algo, log, "DM") {
     parentDm = _parent;
     dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate,
                                       parentDm->qosOutstandingTasks,
