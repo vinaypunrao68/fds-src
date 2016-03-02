@@ -67,6 +67,12 @@ class TestVolumeCreate(TestCase.FDSTestCase):
             vol_service = get_volume_service(self,om_node.nd_conf_dict['ip'])
             status = vol_service.create_volume(self.set_vol_parameters(vol_obj))
 
+            if 'snapshot_policy' in vol_obj.nd_conf_dict:
+                snapshot_policy_id = int(vol_obj.nd_conf_dict['snapshot_policy'])
+                snapshot_policy_service = get_snapshot_policy_service(self, om_node.nd_conf_dict['ip'])
+                default_snap_policies = vol_service.get_data_protection_presets(preset_id=snapshot_policy_id)[0]._DataProtectionPolicyPreset__snapshot_policies
+                for each_snap_policy in default_snap_policies:
+                    op = snapshot_policy_service.create_snapshot_policy(status.id, each_snap_policy)
             if isinstance(status, FdsError) or type(status).__name__ == 'FdsError':
                 pattern = re.compile("500: The specified volume name (.*) already exists.")
                 if re.match(pattern, status.message):
@@ -81,8 +87,6 @@ class TestVolumeCreate(TestCase.FDSTestCase):
         return True
 
     def set_vol_parameters(self, vol_obj):
-        fdscfg = self.parameters["fdscfg"]
-
         new_volume = Volume()
         new_volume.name = vol_obj.nd_conf_dict['vol-name']
         new_volume.id = vol_obj.nd_conf_dict['id']
@@ -113,12 +117,11 @@ class TestVolumeCreate(TestCase.FDSTestCase):
         new_volume.settings = access
         if 'policy' in vol_obj.nd_conf_dict:
             # Set QOS policy which is defined in volume definition.
-            new_volume.qos_policy = self.get_volume_policy(vol_obj.nd_conf_dict['policy'])
+            new_volume.qos_policy = self.get_qos_policy(vol_obj.nd_conf_dict['policy'])
 
         return new_volume
 
-
-    def get_volume_policy(self, policy_id):
+    def get_qos_policy(self, policy_id):
         fdscfg = self.parameters["fdscfg"]
         qos_policy = QosPolicy()
         policies = fdscfg.rt_get_obj('cfg_vol_pol')
