@@ -381,7 +381,7 @@ class Disk (Base):
         file_handle.close()
 
         if self.os_disk:
-            return False
+            return []
 
         # format the remaining partions
         if self.index_disk:
@@ -389,9 +389,14 @@ class Disk (Base):
         else:
             partition_list = ['2']
 
+        proc_list = []
+
         for partition in partition_list:
             call_list =  Disk.MKFS_PART_1 + (self.path + partition).split() + Disk.MKFS_PART_2
-            self.call_subproc (call_list)
+            self.dbg_print_list (call_list)
+            proc_list.append(subprocess.Popen(call_list))
+       
+        return proc_list
 
     def print_disk (self):
         ''' print all the parsed fields '''
@@ -757,10 +762,10 @@ class DiskManager (Base):
         # Build a list of partitions that may need to be unmounted
         self.umount_list = self.data_partition_list + self.dm_index_partition_list
 
-
     def partition_and_format_disks (self):
         ''' Partition and format each disk that needs formatting'''
 
+        mkfs_proc_list = []
         for disk in self.disk_list:
             if disk.formatted == True:
                 self.dbg_print("Skipping formatted disk %s" % disk.path)
@@ -774,7 +779,17 @@ class DiskManager (Base):
                 print("Partitioning and formatting  disk %s" % disk.path)
 #            disk.partition (self.dm_index_MB, self.sm_index_MB / len (self.sm_index_partition_list))
             disk.partition (self.dm_index_MB, 0)
-            disk.format()
+            mkfs_proc_list += disk.format()
+
+        # wait for mkfs procs to finish
+        completed = True
+        for proc in mkfs_proc_list:
+            res = proc.wait()
+            if res != 0:
+                print "Error: mkfs failed with %d" % res
+                completed = False
+        if not completed:
+            sys.exit(1)
 
     def cleanup_fstab (self, uuid, mount_point):
         ''' cleanup stale entries for this mount point'''
