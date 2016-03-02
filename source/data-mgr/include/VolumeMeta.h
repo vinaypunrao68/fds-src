@@ -188,16 +188,6 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     }
 
     /**
-     * Same as above, but done on a system queue context
-     */
-    template<typename FunctionType>
-    Synchronized<FunctionType> makeSystemSynchronized(const FunctionType &f) {
-        return Synchronized<FunctionType>(*dataManager,
-                                          FdsSysTaskQueueId,
-                                          f);
-    }
-
-    /**
     * @brief Returns true if this function is invoked by the thread responsible executing
     * VolumeMeta tasks
     */
