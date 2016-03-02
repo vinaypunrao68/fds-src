@@ -617,8 +617,9 @@ VolumeMeta::createHashCalcContext(DmRequest *req,
             // For now, just set it offline... this needs another code path
             setState(fpi::Offline, " Volume hash operation requested.");
         } else {
-            auto req = std::bind(&VolumeMeta::doHashTaskOnContext, this);
-            dataManager->addToQueue(req, FdsDmSysTaskId);
+            makeSystemSynchronized(&VolumeMeta::doHashTaskOnContext);
+//            auto req = std::bind(&VolumeMeta::doHashTaskOnContext, this);
+//            dataManager->addToQueue(req, FdsDmSysTaskId);
         }
         return ERR_OK;
     }

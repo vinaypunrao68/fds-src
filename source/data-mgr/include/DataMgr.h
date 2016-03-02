@@ -55,7 +55,6 @@
 
 #include <timeline/timelinemanager.h>
 #include <refcount/refcountmanager.h>
-#include <VolumeCheckerMgr.h>
 
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)
