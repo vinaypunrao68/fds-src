@@ -174,6 +174,8 @@ fpi::FDSP_MgrIdType SvcMgr::mapToSvcType(const std::string &svcName)
         return fpi::FDSP_ORCH_MGR;
     } else if (svcName == "console") {
         return fpi::FDSP_CONSOLE;
+    } else if (svcName == "checker") {
+        return fpi::FDSP_CHECKER_TYPE;
     } else if (svcName == "test") {
         return fpi::FDSP_TEST_APP;
     } else {
@@ -197,6 +199,8 @@ std::string SvcMgr::mapToSvcName(const fpi::FDSP_MgrIdType &svcType)
         return "om";
     case fpi::FDSP_CONSOLE:
         return "console";
+    case fpi::FDSP_CHECKER_TYPE:
+        return "checker";
     case fpi::FDSP_TEST_APP:
         return "test";
     default:
@@ -347,6 +351,10 @@ bool SvcMgr::getSvcHandle_(const fpi::SvcUuid &svcUuid, SvcHandlePtr& handle) co
 void SvcMgr::sendAsyncSvcReqMessage(fpi::AsyncHdrPtr &header,
                                  StringPtr &payload)
 {
+    LOGTRACE << "ASYNC_REQUEST_SEND  ["
+             << static_cast<SvcRequestId>(header->msg_src_id) << "]: "
+             << fds::logString(*header);
+
     SvcHandlePtr svcHandle;
     fpi::SvcUuid &svcUuid = header->msg_dst_uuid;
 
@@ -374,6 +382,11 @@ void SvcMgr::sendAsyncSvcReqMessage(fpi::AsyncHdrPtr &header,
 void SvcMgr::sendAsyncSvcRespMessage(fpi::AsyncHdrPtr &header,
                                      StringPtr &payload)
 {
+
+    LOGTRACE << "ASYNC_RESPONSE_SEND  ["
+             << static_cast<SvcRequestId>(header->msg_src_id) << "]: "
+             << fds::logString(*header);
+
     SvcHandlePtr svcHandle;
     fpi::SvcUuid &svcUuid = header->msg_dst_uuid;
 

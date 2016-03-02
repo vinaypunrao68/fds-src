@@ -202,8 +202,10 @@ void SvcProcess::shutdown_modules()
     LOGNOTIFY << "Destroying cntrs mgr";
     cntrs_mgrPtr_->reset();
 
-    LOGNOTIFY << "Stopping threadpool";
-    proc_thrp->stop();
+    if (proc_thrp) {
+        LOGNOTIFY << "Stopping threadpool";
+        proc_thrp->stop();
+    }
 }
 
 void SvcProcess::registerSvcProcess()

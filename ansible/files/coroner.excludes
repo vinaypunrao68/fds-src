@@ -1,0 +1,8 @@
+var/log/sfs
+var/log/sfs/*
+var/logs/sfs
+var/logs/sfs/*
+var/log/corefiles
+var/log/corefiles/*
+var/logs/corefiles
+var/logs/corefiles/*

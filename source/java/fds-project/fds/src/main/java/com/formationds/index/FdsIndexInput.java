@@ -1,12 +1,12 @@
 package com.formationds.index;
 
 import com.formationds.nfs.Chunker;
-import com.formationds.nfs.FdsMetadata;
 import com.formationds.nfs.IoOps;
 import org.apache.lucene.store.IndexInput;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Map;
 import java.util.Optional;
 
 public class FdsIndexInput extends IndexInput {
@@ -30,11 +30,11 @@ public class FdsIndexInput extends IndexInput {
         this.objectSize = objectSize;
         this.offset = 0;
         this.position = 0;
-        Optional<FdsMetadata> fdsMetadata = io.readMetadata(domain, volume, blobName);
-        if (!fdsMetadata.isPresent()) {
+        Optional<Map<String, String>> opt = io.readMetadata(domain, volume, blobName);
+        if (!opt.isPresent()) {
             throw new FileNotFoundException("Volume=" + volume + ", blobName=" + blobName);
         }
-        this.length = fdsMetadata.get().lock(m -> Long.parseLong(m.mutableMap().get(FdsLuceneDirectory.SIZE)));
+        this.length = Long.parseLong(opt.get().get(FdsLuceneDirectory.SIZE));
     }
 
     private FdsIndexInput(IoOps io, String resourceName, String domain, String volume, String blobName, int objectSize, long offset, long length) {

@@ -121,22 +121,7 @@ public class Dispatcher extends HttpServlet {
 	            resource = new ErrorPage(t.getMessage(), t);
 	        }
 
-	        Arrays.stream(resource.cookies()).forEach( response::addCookie );
-	        response.addHeader("Access-Control-Allow-Origin", "*");
-	        response.setContentType(resource.getContentType());
-	        response.setStatus(resource.getHttpStatus());
-	        response.setHeader("Server", "Formation Data Systems");
-	        Multimap<String, String> extraHeaders = resource.extraHeaders();
-	        for (String headerName : extraHeaders.keySet()) {
-	            for (String value : extraHeaders.get(headerName)) {
-	                response.addHeader(headerName, value);
-	            }
-	        }
-
-	        ClosingInterceptor outputStream = new ClosingInterceptor(response.getOutputStream());
-	        resource.render(outputStream);
-	        outputStream.flush();
-	        outputStream.doCloseForReal();
+	        sendResponse( response, resource );
 
         } finally {
 	        long elapsed = System.currentTimeMillis() - then;
@@ -146,6 +131,33 @@ public class Dispatcher extends HttpServlet {
         	}
             Thread.currentThread().setName( threadBaseName );
         }
+    }
+
+    /**
+     * Utility method to send a resource to the specified response, closing the response
+     * upon completion.
+     *
+     * @param response
+     * @param resource
+     * @throws IOException
+     */
+    public static void sendResponse( HttpServletResponse response, Resource resource ) throws IOException {
+        Arrays.stream(resource.cookies()).forEach( response::addCookie );
+        response.addHeader("Access-Control-Allow-Origin", "*");
+        response.setContentType(resource.getContentType());
+        response.setStatus(resource.getHttpStatus());
+        response.setHeader("Server", "Formation Data Systems");
+        Multimap<String, String> extraHeaders = resource.extraHeaders();
+        for (String headerName : extraHeaders.keySet()) {
+            for (String value : extraHeaders.get(headerName)) {
+                response.addHeader(headerName, value);
+            }
+        }
+
+        ClosingInterceptor outputStream = new ClosingInterceptor(response.getOutputStream());
+        resource.render(outputStream);
+        outputStream.flush();
+        outputStream.doCloseForReal();
     }
 
     private Optional<CompletableFuture<Void>> tryExecuteAsyncApp(Request request, Response response) {

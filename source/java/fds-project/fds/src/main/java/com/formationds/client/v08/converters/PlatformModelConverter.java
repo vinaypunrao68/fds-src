@@ -429,7 +429,7 @@ public class PlatformModelConverter
     return internalState;
   }
 
-  private static byte[] htonl( long x )
+  public static byte[] htonl( long x )
   {
     byte[] res = new byte[ 4 ];
     for( int i = 0; i < 4; i++ )
