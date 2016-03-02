@@ -39,7 +39,8 @@ DataPlacement::DataPlacement()
           tokensSyncFrmThisNode(0),
           movedTokens(0),
           newOwnedTokenCount(0),
-          targetTokenList({0,{}})
+          targetTokenList({0,{}}),
+          movedTokenList({})
 {
     numOfPrimarySMs = 0;
 }
@@ -173,24 +174,15 @@ DataPlacement::computeDlt() {
     return err;
 }
 
-/*
- * Print out token ids that are being newly synced to a specific node
- * as well as other token counters
- */
-std::ostream& operator<<(std::ostream &oss, const DataPlacement &dp)
+
+void DataPlacement::printTokens(std::ostream &oss, std::vector<int32_t> tokList) const
 {
-    auto targetTList = dp.targetTokenList;
-    auto tokList     = targetTList.second;
-
-    oss << "\n\n     SM: " << std::hex << dp.targetTokenList.first << std:: dec << "\n";
-    oss << "-------------------------------\n";
-
-    oss << "NEW TOKEN IDs\n\n";
-
     if (tokList.size() == 0 )
     {
         oss << "None\n";
+        return;
     }
+
     // Copied the following code from dlt.cpp to print tokens in ranges
     bool fFirst             = true;
     size_t last             = tokList.size() - 1;
@@ -238,13 +230,34 @@ std::ostream& operator<<(std::ostream &oss, const DataPlacement &dp)
             }
         }
     }
+}
 
-     oss << "\nTOKEN COUNTERS\n";
-     oss << "\nTokens newly synced to this node:" << dp.newlySyncedTokens;
-     oss << "\nTokens synced from this node    :" << dp.tokensSyncFrmThisNode;
-     oss << "\nTokens moved from this node     :" << dp.movedTokens;
-     oss << "\nTotal tokens previously owned   :" << dp.prevOwnedTokens;
-     oss << "\nTotal tokens newly owned        :" << dp.newOwnedTokenCount << "\n";
+/*
+ * Print out token ids that are being newly synced to a specific node
+ * as well as tokens being moved from this node, other token counters
+ */
+std::ostream& operator<<(std::ostream &oss, const DataPlacement &dp)
+{
+    auto targetTList = dp.targetTokenList;
+    auto tokList     = targetTList.second;
+
+    oss << "\n\n     SM: " << std::hex << dp.targetTokenList.first << std:: dec << "\n";
+    oss << "-------------------------------\n";
+
+    oss << "NEW TOKEN IDs\n";
+
+    dp.printTokens(oss, tokList);
+
+    oss << "\nMOVED TOKEN IDs\n";
+
+    dp.printTokens(oss, dp.movedTokenList);
+
+    oss << "\nTOKEN COUNTERS\n";
+    oss << "\nTokens newly synced to this node:" << dp.newlySyncedTokens;
+    oss << "\nTokens synced from this node    :" << dp.tokensSyncFrmThisNode;
+    oss << "\nTokens moved from this node     :" << dp.movedTokens;
+    oss << "\nTotal tokens previously owned   :" << dp.prevOwnedTokens;
+    oss << "\nTotal tokens newly owned        :" << dp.newOwnedTokenCount << "\n";
 
     return oss;
 }
@@ -257,6 +270,8 @@ void DataPlacement::clearTokenCounters()
     tokensSyncFrmThisNode = 0;
     movedTokens           = 0;
     newOwnedTokenCount    = 0;
+
+    movedTokenList.clear();
 }
 
 /*
@@ -413,11 +428,30 @@ bool DataPlacement::verifyRebalance( MigrationMap startMigrMsgs, std::map<int64_
         //                 synced tokens reflect new token count
         // 2. Node remove: Here, all remaining nodes in the cluster are receiving new
         //                 tokens(and are targets). There is a possibility of existing tokens
-        //                being  moved. To handle & account for this is what the below logic is for
+        //                being  moved.To handle & account for this use below logic
         if ( summationList.size() > newDltTokList.size())
         {
-            // some tokens from this target uuid have moved
-            movedTokens = summationList.size() - newDltTokList.size();
+            // This is only valid if some token from previously owned list
+            // has moved. Make sure this is the case, and that it is not a problem
+            // with newly synced tokens
+
+            movedTokenList.clear(); // again just to be sure
+            std::set_difference(committedDltTokList.begin(), committedDltTokList.end(),
+                                newDltTokList.begin(), newDltTokList.end(),
+                                std::inserter(movedTokenList, movedTokenList.begin()));
+
+            uint64_t diff = summationList.size() - newDltTokList.size();
+
+            if (movedTokenList.size() == diff)
+            {
+                // some tokens from this target uuid have moved
+                movedTokens = diff;
+            } else {
+                // There was no difference between committed and new dlt tok lists, there
+                // is an incorrect value for newly synced tokens. Set movedToks to 0 so
+                // that verify fails
+                movedTokens = 0;
+            }
         }
 
         newOwnedTokenCount = prevOwnedTokens + newlySyncedTokens - movedTokens;

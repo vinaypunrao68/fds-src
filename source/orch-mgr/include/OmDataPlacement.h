@@ -490,6 +490,7 @@ namespace fds {
        fds_uint32_t rebalanceFailures;
 
        NodeTokenPair targetTokenList;
+       std::vector<int32_t> movedTokenList;
 
        /* Values that will hold various token counters
         * for nodes that are undergoing migrations.
@@ -564,6 +565,8 @@ namespace fds {
          * Clear all token counters
          */
         void clearTokenCounters();
+
+        void printTokens(std::ostream &oss, std::vector<int32_t> tokList) const;
 
         /**
          * Begins token rebalance between nodes in the
