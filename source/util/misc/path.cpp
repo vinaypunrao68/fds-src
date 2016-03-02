@@ -167,6 +167,17 @@ bool removePATH(const std::string& path) {
     return false;
 }
 
+void populateRootDirectories(std::vector<std::string> &roots, int numOfNodes)
+{
+    std::string homedir = boost::filesystem::path(getenv("HOME")).string();
+    std::string baseDir =  homedir + "/temp";
+
+    for (int i = 1; i <= numOfNodes; i++) {
+        roots.push_back(util::strformat("--fds-root=%s/node%d", baseDir.c_str(), i));
+    }
+}
+
+
 // get the binary location of the given command
 std::string which(const std::string& path) {
     SubProcess process;
