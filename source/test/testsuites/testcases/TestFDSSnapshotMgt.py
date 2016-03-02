@@ -18,7 +18,10 @@ from fdslib.TestUtils import get_volume_service
 from fdscli.model.volume.snapshot import Snapshot
 from fdscli.model.fds_error import FdsError
 from fdslib.TestUtils import create_fdsConf_file
-from fabric.api import local
+import datetime
+from fabric.contrib.files import *
+from fdslib.TestUtils import connect_fabric
+from fdslib.TestUtils import disconnect_fabric
 
 
 # This class contains the attributes and methods to test
@@ -64,6 +67,8 @@ class TestCreateSnapshot(TestCase.FDSTestCase):
                     # Passed a specific node so get out.
                     break
 
+        # added sleep so that we have have significant time between consecutive snapshots
+        time.sleep(5)
         return True
 
 
@@ -124,6 +129,7 @@ class TestListSnapshot(TestCase.FDSTestCase):
 
         return True
 
+
 # This class contains the attributes and methods to test
 # volume clone from timeline.
 class TestCreateVolClone(TestCase.FDSTestCase):
@@ -148,7 +154,7 @@ class TestCreateVolClone(TestCase.FDSTestCase):
         snapshot_list = vol_service.list_snapshots(passed_volume.id)
         timeline = None
 
-        # Case1: neither of snapshot1 and snapshot2 are passed -> snapshot_start < timeline < snapshot_end
+        # Case1: neither of snapshot1 and snapshot2 are passed -> timeline = now
         if self.passedSnapshort_start is None and self.passedSnapshort_end is None:
             # This time format is same as `snapshot.created` time format
             timeline = int(time.time())
@@ -162,7 +168,8 @@ class TestCreateVolClone(TestCase.FDSTestCase):
                 elif snapshot.name == self.passedSnapshort_end:
                     time_start = snapshot.created
             now = int(time.time())
-            timeline = random.randrange(time_start+2, now, 1)
+            # FIXME : fs-5171
+            timeline = random.randrange(time_start + 2, now, 1)
 
 
         # Case3:Two snapshots are passed -> snapshot_start < timeline < snapshot_end
@@ -175,13 +182,14 @@ class TestCreateVolClone(TestCase.FDSTestCase):
                 if str(snapshot.name) == self.passedSnapshort_end:
                     time_end = snapshot.created
             assert time_end > time_start
-            timeline = random.randrange(time_start+2, time_end, 1)
+            # FIXME : fs-5171
+            timeline = random.randrange(time_start + 2, time_end, 1)
 
         assert timeline is not None
         create_fdsConf_file(om_node.nd_conf_dict['ip'])
         cmd = 'fds volume clone -name {0} -volume_id {1} -time {2}'.format(self.passedClone_name,passed_volume.id, timeline)
-        status = local(cmd)
-        time.sleep(3) #let clone volume creation propogate
+        status = local(cmd, capture=True)
+        time.sleep(3)  # let clone volume creation propogate
         cloned_volume = vol_service.find_volume_by_name(self.passedClone_name)
 
         if type(cloned_volume).__name__ == 'FdsError':
@@ -191,6 +199,130 @@ class TestCreateVolClone(TestCase.FDSTestCase):
             return True
 
         return False
+
+
+# This class contains the attributes and methods to test
+# timeline. We change system dates to verify if weekly.daily and monthly snapshots do happen.
+class TestTimeline(TestCase.FDSTestCase):
+    def __init__(self, parameters=None):
+        """
+        When run by a qaautotest module test runner,
+        "parameters" will have been populated with
+        .ini configuration.
+        """
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_timeline,
+                                             "Test Time line with daily monthly and yearly snapshots")
+
+    def test_timeline(self):
+        # Get the FdsConfigRun object for this test.
+        fdscfg = self.parameters["fdscfg"]
+        nodes = fdscfg.rt_obj.cfg_nodes
+        om_node = fdscfg.rt_om_node
+
+        # For now , check only for daily,weekly,monthly and yearly snapshot creation
+        number_of_days = [1, 7, 30, 365]
+        patterns = ['daily', 'weekly', 'monthly', 'yearly']
+
+        vol_service = get_volume_service(self, om_node.nd_conf_dict['ip'])
+        volume_list = vol_service.list_volumes()
+        for idx, val in enumerate(number_of_days):
+            change_date(self, val)
+            if self.parameters['ansible_install_done']:
+                change_date(self, val, nodes)
+            for each_volume in volume_list:
+                pattern = 'snap.' + str(each_volume.name) + '.' + str(each_volume.id) + '_system_timeline_' + patterns[idx]
+                if snapshot_created(self, each_volume, pattern)is not True:
+                    self.log.error("Couldn't find {0} snapshot for vol {1} with id {2}".format(pattern, each_volume.name,each_volume.id))
+
+                    # Even if it's failure, sync up time on each node using ntp
+                    sync_time_with_ntp(self)
+                    if self.parameters['ansible_install_done']:
+                        sync_time_with_ntp(self, nodes)
+                    return False
+
+        # Before returning success, sync time on all nodes using network time protocol
+        if self.parameters['ansible_install_done']:
+            sync_time_with_ntp(self, nodes)
+        sync_time_with_ntp(self)
+        return True
+
+
+def get_date_from_node(self, node_ip=None):
+    if node_ip is None:
+        disconnect_fabric()
+        string_date = local("date +\"%Y-%m-%d %H:%M:%S\"", capture=True)
+        current_time = datetime.datetime.strptime(string_date, "%Y-%m-%d %H:%M:%S")
+        return current_time
+    else:
+        connect_fabric(self, node_ip)
+        string_date = run("date +\"%Y-%m-%d %H:%M:%S\"", quiet=True)
+        current_time = datetime.datetime.strptime(string_date, "%Y-%m-%d %H:%M:%S")
+        disconnect_fabric()
+        return current_time
+
+
+def change_date(self, number_of_days, nodes=None):
+    if nodes is None:  # all nodes running on same machine
+        new_date = get_date_from_node(self) + datetime.timedelta(days=number_of_days)
+        # set the date on local machine using below command
+        cmd = "sudo date --set=\"{0}\"  && date --rfc-3339=ns".format(new_date)
+        op = local(cmd, capture=True)
+        if op.stderr != "":
+            return False
+        else:
+            self.log.info("Changed date on local machine is {0}".format(get_date_from_node(self)))
+            return True
+
+    else:
+        for node in nodes:
+            connect_fabric(self, node.nd_host)
+            new_date = str(get_date_from_node(self, node.nd_host) + datetime.timedelta(days=number_of_days))
+
+            # set the date on remote node using below command
+            cmd = "date --set=\"{0}\"  && date --rfc-3339=ns".format(new_date)
+            op = sudo(cmd, quiet=True)
+
+            self.log.info("On machine {} date is {}".format(node.nd_host, get_date_from_node(self, node.nd_host)))
+            disconnect_fabric()
+        return True
+
+
+def snapshot_created(self, volume, pattern):
+    fdscfg = self.parameters["fdscfg"]
+    om_node = fdscfg.rt_om_node
+    vol_service = get_volume_service(self, om_node.nd_conf_dict['ip'])
+    snapshot_list = vol_service.list_snapshots(volume.id)
+    self.log.info(
+        'length of snapshots for volume {0} with id {1} is {2}'.format(volume.name, volume.id, len(snapshot_list)))
+    found_snapshot = False
+    for snapshot in snapshot_list:
+        snapshot_name = snapshot.name
+        if snapshot_name.startswith(pattern):
+            found_snapshot = True
+            self.log.info("{0} snapshot created for {1} with id {2}".format(pattern, volume.name, volume.id))
+            break
+
+    return found_snapshot
+
+
+def sync_time_with_ntp(self, nodes=None):
+    cmd = "sudo ntpdate ntp.ubuntu.com"
+    # local env
+    if nodes is None:
+        local(cmd, capture=True)
+        self.log.info("Sync time using ntp on local machine. Now date is {0}".format(get_date_from_node(self)))
+        return True
+    # AWS nodes
+    else:
+        for node in nodes:
+            connect_fabric(self, node.nd_host)
+            op = sudo(cmd, quiet=True)
+            self.log.info("Sync time using ntp on AWS node {0}. Now date is {1}".format(node.nd_host,get_date_from_node(self, node.nd_host)))
+            disconnect_fabric()
+        return True
+
 
 if __name__ == '__main__':
     TestCase.FDSTestCase.fdsGetCmdLineConfigs(sys.argv)
