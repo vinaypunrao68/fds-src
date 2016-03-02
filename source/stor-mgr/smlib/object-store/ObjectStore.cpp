@@ -1085,6 +1085,11 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
         return err;
     }
 
+    err = triggerReadOnlyIfPutWillfail(nullptr, objId, objData, toTier);
+    if (!err.ok()) {
+        return err;
+    }
+
     // write to object data store to toTier
     obj_phy_loc_t objPhyLoc;  // will be set by data store with new location
     err = dataStore->putObjectData(unknownVolId, objId, toTier, objData, objPhyLoc);
@@ -1243,6 +1248,11 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
                 // set flag in object metadata
                 updatedMeta->setObjCorrupted();
             }
+        }
+
+        err = triggerReadOnlyIfPutWillfail(nullptr, objId, objData, tier);
+        if (!err.ok()) {
+            return err;
         }
 
         // write to object data store (will automatically write to new file)

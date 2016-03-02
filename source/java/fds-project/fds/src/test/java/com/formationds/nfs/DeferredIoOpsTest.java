@@ -100,10 +100,7 @@ public class DeferredIoOpsTest {
         deferredIo.writeObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), FdsObject.wrap(bytes, OBJECT_SIZE));
         deferredIo.commitObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0));
         FdsObject fdsObject = backend.readCompleteObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), OBJECT_SIZE);
-        fdsObject.lock(o -> {
-            assertArrayEquals(bytes, o.toByteArray());
-            return null;
-        });
+        assertArrayEquals(bytes, fdsObject.toByteArray());
     }
 
     @Test
@@ -114,20 +111,15 @@ public class DeferredIoOpsTest {
         deferredIo.commitMetadata(DOMAIN, VOLUME, BLOB);
         byte[] bytes = ByteBufferUtility.randomBytes(OBJECT_SIZE).array();
         deferredIo.writeObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), FdsObject.wrap(bytes, OBJECT_SIZE));
-        deferredIo.readCompleteObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), OBJECT_SIZE).lock(o -> {
-            assertArrayEquals(bytes, o.toByteArray());
-            return null;
-        });
+        FdsObject fdsObject = deferredIo.readCompleteObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), OBJECT_SIZE);
+        assertArrayEquals(bytes, fdsObject.toByteArray());
 
         deferredIo.renameBlob(DOMAIN, VOLUME, BLOB, "schmoops");
-        backend.readCompleteObject(DOMAIN, VOLUME, "schmoops", new ObjectOffset(0), OBJECT_SIZE).lock(o -> {
-            assertArrayEquals(bytes, o.toByteArray());
-            return null;
-        });
-        backend.readCompleteObject(DOMAIN, VOLUME, "schmoops", new ObjectOffset(0), OBJECT_SIZE).lock(o -> {
-            assertArrayEquals(bytes, o.toByteArray());
-            return null;
-        });
+        fdsObject = backend.readCompleteObject(DOMAIN, VOLUME, "schmoops", new ObjectOffset(0), OBJECT_SIZE);
+        assertArrayEquals(bytes, fdsObject.toByteArray());
+
+        fdsObject = backend.readCompleteObject(DOMAIN, VOLUME, "schmoops", new ObjectOffset(0), OBJECT_SIZE);
+        assertArrayEquals(bytes, fdsObject.toByteArray());
     }
 
     @Test

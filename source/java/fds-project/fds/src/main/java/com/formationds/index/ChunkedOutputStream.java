@@ -13,12 +13,14 @@ public class ChunkedOutputStream extends OutputStream {
     private final Chunker chunker;
     private long position;
     private IoOps io;
+    private String luceneResourceName;
     private String domain;
     private String volume;
     private int objectSize;
 
     public ChunkedOutputStream(IoOps io, String luceneResourceName, String domain, String volume, String blobName, int objectSize) throws IOException {
         this.io = io;
+        this.luceneResourceName = luceneResourceName;
         this.domain = domain;
         this.volume = volume;
         this.objectSize = objectSize;
@@ -54,6 +56,7 @@ public class ChunkedOutputStream extends OutputStream {
     public void flush() throws IOException {
         Map<String, String> metadata = new HashMap<>();
         metadata.put(FdsLuceneDirectory.SIZE, Long.toString(position));
+        metadata.put(FdsLuceneDirectory.LUCENE_RESOURCE_NAME, luceneResourceName);
         io.writeMetadata(domain, volume, blobName, metadata);
         io.commitMetadata(domain, volume, blobName);
     }

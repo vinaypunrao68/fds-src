@@ -51,8 +51,17 @@ public enum FdsFeatureToggles implements Feature {
     @Label( "If enabled, use query results from experimental series per volume influxdb schema." )
     INFLUX_QUERY_SERIES_PER_VOLUME( "fds.feature_toggle.om.enable_influxdb_query_series_per_volume" ),
 
+    @Label( "Enable subscriptions" )
+    SUBSCRIPTIONS( "fds.feature_toggle.common.enable_subscriptions" ),
+
+    @Label( "Enable Thrift multiplexed services on any transport, protocol, and server." )
+    THRIFT_MULTIPLEXED_SERVICES( "fds.feature_toggle.common.enable_multiplexed_services" ),
+
     @Label( "If enabled, use a shared QueryHelper instance that caches results." )
     USE_SHARED_QUERY_HELPER( "fds.feature_toggle.om.use_shared_queryhelper" ),
+
+    @Label( "If enabled, use a web filter that checks the domain is up before contacting config service." )
+    ENABLE_DOMAIN_WEB_FILTER( "fds.feature_toggle.om.enable_domain_web_filter" ),
 
     @Label( "If enabled, volume grouping is n=being used." )
     USE_VOLUME_GROUPING( "fds.feature_toggle.common.enable_volumegrouping" );

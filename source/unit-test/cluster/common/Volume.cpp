@@ -33,7 +33,7 @@ namespace fds {
         if (getVersion() != volIo__->getVersion()) { \
             GLOGWARN << volIo__->logString() \
                     << "Version check failed.  Current version: " << getVersion(); \
-            volIo__->respStatus = ERR_INVALID_VOLUME_VERSION; \
+            volIo__->respStatus = ERR_INVALID_VERSION; \
             return; \
         } \
     } while (false)

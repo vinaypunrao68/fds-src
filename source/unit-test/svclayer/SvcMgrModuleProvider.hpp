@@ -9,6 +9,7 @@
 #include <fds_module_provider.h>
 #include <net/SvcMgr.h>
 #include <fdsp_utils.h>
+#include "fdsp/common_constants.h"
 
 namespace fds {
 
@@ -42,7 +43,7 @@ struct SvcMgrModuleProvider : CommonModuleProviderIf {
         svcInfo.ip = net::get_local_ip(configHelper_.get_abs<std::string>("fds.nic_if", "lo"));
         svcInfo.svc_port = configHelper_.get<int>("svc.port");
         svcInfo.incarnationNo = util::getTimeStampSeconds();
-        svcMgr_.reset(new SvcMgr(this, handler, processor, svcInfo));
+        svcMgr_.reset(new SvcMgr(this, handler, processor, svcInfo, fpi::commonConstants().PLATNET_SERVICE_NAME));
         svcMgr_->mod_init(nullptr);
     }
     ~SvcMgrModuleProvider() {

@@ -1,28 +1,23 @@
 topdir            := ../../
 user_target       := exe
-user_install_loc  := exe
 user_rtime_env    := user
 speedup           = -j $(threads)
-user_build_dir    :=
+user_build_dir    := vclib
 
-user_incl_dir     := \
-                     $(topdir) \
-                     ../include \
-                     include
-user_cpp_flags    :=
-user_fds_so_libs  :=
+user_incl_dir     := include \
+                     ../../include/util
+
+
 user_fds_ar_libs  :=  \
     fds-svc-request \
     fds-umod \
     fds-lib \
-    fds-util \
     fds-fdsp \
     fds-hash \
     fds-thread \
-    fds-osdep
-
-
-user_static_libs  := ev
+    fds-osdep \
+    fds-util \
+    fds-volume-checker
 
 user_non_fds_libs :=  \
     boost_log \
@@ -41,14 +36,13 @@ user_non_fds_libs :=  \
     rt \
     fiu \
     dl \
-    tcmalloc
+    jemalloc
 
 user_cc           :=
-user_cpp      := $(wildcard *.cpp)
+user_cpp          := $(wildcard *.cpp)
 
-user_no_style     := $(user_cc) $(wildcard com_*.h)
+user_no_style     := $(user_cc)
 user_bin_exe      := VolumeChecker
-user_ar_libs      := fds-volume-checker
-VolumeChecker     := VolumeChecker.cpp
+VolumeChecker     := $(user_cpp)
 
 include $(topdir)/Makefile.incl

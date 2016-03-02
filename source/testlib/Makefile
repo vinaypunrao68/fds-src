@@ -5,7 +5,8 @@ user_build_dir   :=
 user_incl_dir    := $(topdir) . \
         $(topdir)/platform/include \
 	    $(topdir)/net-service/include \
-        $(topdir)/util/volume-checker/include
+        $(topdir)/util/volume-checker/include \
+        $(topdir)/include/util
 user_cpp         := \
 	Deployer.cpp \
 	SvcMsgFactory.cpp \

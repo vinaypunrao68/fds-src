@@ -54,11 +54,8 @@ public class AsyncAmTest extends BaseAmTest {
         amOps.writeObject(domainName, volumeName, blobName, new ObjectOffset(0), FdsObject.allocate(10, OBJECT_SIZE));
         amOps.commitObject(domainName, volumeName, blobName, new ObjectOffset(0));
         FdsObject fdsObject = amOps.readCompleteObject(domainName, volumeName, blobName, new ObjectOffset(0), OBJECT_SIZE);
-        fdsObject.lock(o -> {
-            assertEquals(10, o.limit());
-            assertEquals(OBJECT_SIZE, o.maxObjectSize());
-            return null;
-        });
+        assertEquals(10, fdsObject.limit());
+        assertEquals(OBJECT_SIZE, fdsObject.maxObjectSize());
     }
 
     @Test
@@ -220,7 +217,7 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testAsyncStreamerWritesOneChunkOnly() throws Exception {
-        AsyncStreamer asyncStreamer = new AsyncStreamer(asyncAm, new ArrayByteBufferPool(), new XdiConfigurationApi(configService));
+        AsyncStreamer asyncStreamer = new AsyncStreamer(asyncAm, new XdiConfigurationApi(configService));
         HashMap<String, String> map = new HashMap<>();
         map.put("hello", "world");
         OutputStream outputStream = asyncStreamer.openForWriting(domainName, volumeName, blobName, map);
@@ -233,7 +230,7 @@ public class AsyncAmTest extends BaseAmTest {
 
     @Test
     public void testAsyncStreamer() throws Exception {
-        AsyncStreamer asyncStreamer = new AsyncStreamer(asyncAm, new ArrayByteBufferPool(), new XdiConfigurationApi(configService));
+        AsyncStreamer asyncStreamer = new AsyncStreamer(asyncAm, new XdiConfigurationApi(configService));
         OutputStream outputStream = asyncStreamer.openForWriting(domainName, volumeName, blobName, new HashMap<>());
         outputStream.write(new byte[42]);
         outputStream.write(new byte[42]);
@@ -245,27 +242,27 @@ public class AsyncAmTest extends BaseAmTest {
     @Test
     public void testVolumeContents() throws Exception {
         List<BlobDescriptor> contents = asyncAm.volumeContents(domainName,
-                                                               volumeName,
-                                                               Integer.MAX_VALUE,
-                                                               0,
-                                                               "",
-                                                               PatternSemantics.PCRE,
-                                                               "",
-                                                               BlobListOrder.UNSPECIFIED,
-                                                               false).get().getBlobs();
+                volumeName,
+                Integer.MAX_VALUE,
+                0,
+                "",
+                PatternSemantics.PCRE,
+                "",
+                BlobListOrder.UNSPECIFIED,
+                false).get().getBlobs();
         assertEquals(0, contents.size());
         Map<String, String> metadata = new HashMap<>();
         metadata.put("hello", "world");
         asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
         contents = asyncAm.volumeContents(domainName,
-                                          volumeName,
-                                          Integer.MAX_VALUE,
-                                          0,
-                                          "",
-                                          PatternSemantics.PCRE,
-                                          "",
-                                          BlobListOrder.UNSPECIFIED,
-                                          false).get().getBlobs();
+                volumeName,
+                Integer.MAX_VALUE,
+                0,
+                "",
+                PatternSemantics.PCRE,
+                "",
+                BlobListOrder.UNSPECIFIED,
+                false).get().getBlobs();
         assertEquals(1, contents.size());
     }
 
@@ -278,14 +275,14 @@ public class AsyncAmTest extends BaseAmTest {
         asyncAm.updateBlobOnce(domainName, volumeName, "/panda/foo/bar/hello", 1, ByteBuffer.allocate(0), 0, new ObjectOffset(0), new HashMap<>()).get();
         String filter = "^/[^/]+$";
         List<BlobDescriptor> descriptors = asyncAm.volumeContents(domainName,
-                                                                  volumeName,
-                                                                  Integer.MAX_VALUE,
-                                                                  0,
-                                                                  filter, 
-                                                                  PatternSemantics.PCRE,
-                                                                  "",
-                                                                  BlobListOrder.UNSPECIFIED,
-                                                                  false).get().getBlobs();
+                volumeName,
+                Integer.MAX_VALUE,
+                0,
+                filter,
+                PatternSemantics.PCRE,
+                "",
+                BlobListOrder.UNSPECIFIED,
+                false).get().getBlobs();
         assertEquals(1, descriptors.size());
     }
 
@@ -293,14 +290,14 @@ public class AsyncAmTest extends BaseAmTest {
     @Ignore
     public void testListVolumeContents() throws Exception {
         List<BlobDescriptor> descriptors = asyncAm.volumeContents(domainName,
-                                                                  "panda",
-                                                                  Integer.MAX_VALUE,
-                                                                  0,
-                                                                  "",
-                                                                  PatternSemantics.PCRE,
-                                                                  "",
-                                                                  BlobListOrder.UNSPECIFIED,
-                                                                  false).get().getBlobs();
+                "panda",
+                Integer.MAX_VALUE,
+                0,
+                "",
+                PatternSemantics.PCRE,
+                "",
+                BlobListOrder.UNSPECIFIED,
+                false).get().getBlobs();
         for (BlobDescriptor descriptor : descriptors) {
             System.out.println(descriptor.getName());
         }
@@ -392,7 +389,7 @@ public class AsyncAmTest extends BaseAmTest {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("clothing", "boot");
         asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, bigObject, OBJECT_SIZE, new ObjectOffset(0), metadata).get();
-        BlobDescriptor bd1 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName,blobName).get();
+        BlobDescriptor bd1 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get();
         assertEquals("boot", bd1.getMetadata().get("clothing"));
 
         // Rename the blob
@@ -410,7 +407,7 @@ public class AsyncAmTest extends BaseAmTest {
         // The new identical to the old
         BlobDescriptor bd2 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName2).get();
         assertEquals(OBJECT_SIZE, bd2.getByteCount());
-        assertEquals("boot",bd2.getMetadata().get("clothing"));
+        assertEquals("boot", bd2.getMetadata().get("clothing"));
 
         ByteBuffer byteBuffer = asyncAm.getBlob(FdsFileSystem.DOMAIN, volumeName, blobName2, OBJECT_SIZE, new ObjectOffset(0)).get();
         byte[] result = new byte[OBJECT_SIZE];
@@ -428,14 +425,14 @@ public class AsyncAmTest extends BaseAmTest {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("clothing", "hat");
         asyncAm.updateBlobOnce(domainName, volumeName, blobName, 1, smallObject, smallObjectLength, new ObjectOffset(0), metadata).get();
-        BlobDescriptor bd1 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName,blobName).get();
+        BlobDescriptor bd1 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName).get();
         assertEquals("hat", bd1.getMetadata().get("clothing"));
 
         metadata = new HashMap<>();
         metadata.put("clothing", "boot");
         asyncAm.updateBlobOnce(domainName, volumeName, blobName2, 1, bigObject, OBJECT_SIZE, new ObjectOffset(0), metadata).get();
         asyncAm.updateBlobOnce(domainName, volumeName, blobName2, 1, bigObject, OBJECT_SIZE, new ObjectOffset(1), metadata).get();
-        BlobDescriptor bd2 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName,blobName2).get();
+        BlobDescriptor bd2 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName2).get();
         assertEquals("boot", bd2.getMetadata().get("clothing"));
 
         // Rename the blob
@@ -453,7 +450,7 @@ public class AsyncAmTest extends BaseAmTest {
         // The new identical to the old (and truncated)
         BlobDescriptor bd3 = asyncAm.statBlob(FdsFileSystem.DOMAIN, volumeName, blobName2).get();
         assertEquals(smallObjectLength, bd3.getByteCount());
-        assertEquals("hat",bd3.getMetadata().get("clothing"));
+        assertEquals("hat", bd3.getMetadata().get("clothing"));
 
         ByteBuffer byteBuffer = asyncAm.getBlob(FdsFileSystem.DOMAIN, volumeName, blobName2, smallObjectLength, new ObjectOffset(0)).get();
         byte[] result = new byte[smallObjectLength];
@@ -530,14 +527,14 @@ public class AsyncAmTest extends BaseAmTest {
     public void testVolumeContentsOnMissingVolume() throws Exception {
         assertFdsError(ErrorCode.MISSING_RESOURCE,
                 () -> asyncAm.volumeContents(FdsFileSystem.DOMAIN,
-                                             "nonExistingVolume",
-                                             Integer.MAX_VALUE,
-                                             0,
-                                             "",
-                                             PatternSemantics.PCRE,
-                                             "",
-                                             BlobListOrder.LEXICOGRAPHIC,
-                                             false).get());
+                        "nonExistingVolume",
+                        Integer.MAX_VALUE,
+                        0,
+                        "",
+                        PatternSemantics.PCRE,
+                        "",
+                        BlobListOrder.LEXICOGRAPHIC,
+                        false).get());
     }
 
     private static ConfigurationService.Iface configService;
@@ -562,7 +559,7 @@ public class AsyncAmTest extends BaseAmTest {
         xdiCf = new XdiClientFactory();
         configService = xdiCf.remoteOmService(Fds.getFdsHost(), 9090);
 
-        if(USE_SVC_IMPL) {
+        if (USE_SVC_IMPL) {
             HostAndPort self = HostAndPort.fromParts(Fds.getFdsHost(), 10293);
             HostAndPort om = HostAndPort.fromParts(Fds.getFdsHost(), 7004);
             svc = new SvcState(self, om, 18923L);
@@ -577,7 +574,7 @@ public class AsyncAmTest extends BaseAmTest {
 
     @AfterClass
     public static void tearDownOnce() throws Exception {
-        if(svc != null) {
+        if (svc != null) {
             svc.close();
         }
     }

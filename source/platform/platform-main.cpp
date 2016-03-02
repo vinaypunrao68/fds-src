@@ -13,6 +13,7 @@
 #include "disk_plat_module.h"
 #include "platform/platform_manager.h"
 #include "platform/svc_handler.h"
+#include "fdsp/common_constants.h"
 
 namespace fds
 {
@@ -25,7 +26,12 @@ namespace fds
 
                 auto handler = boost::make_shared <fds::pm::SvcHandler> (this, platform);
                 auto processor = boost::make_shared <fpi::PlatNetSvcProcessor> (handler);
-                init (argc, argv, "platform.conf", "fds.pm.", "pm.log", nullptr, handler, processor);
+                // Note on Thrift service compatibility:
+                // If a backward incompatible change arises, pass additional pairs of
+                // processor and Thrift service name to SvcProcess::init(). Similarly,
+                // if the Thrift service API wants to be broken up.
+                init (argc, argv, "platform.conf", "fds.pm.", "pm.log", nullptr, handler, processor,
+                    fpi::commonConstants().PLATNET_SERVICE_NAME);
 
                 // init above calls setupSvcInfo_, so by the time we get here, data in platform should be set
                 gl_DiskPlatMod.set_node_uuid(platform->getUUID());

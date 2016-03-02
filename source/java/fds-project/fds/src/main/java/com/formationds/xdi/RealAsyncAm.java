@@ -1,8 +1,10 @@
 package com.formationds.xdi;
 
 import com.formationds.apis.*;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
+import com.formationds.protocol.commonConstants;
 import com.formationds.protocol.PatternSemantics;
 import com.formationds.protocol.VolumeAccessMode;
 import com.formationds.security.FastUUID;
@@ -51,9 +53,19 @@ public class RealAsyncAm implements AsyncAm {
 
             responseListener.start();
 
+            /**
+             * FEATURE TOGGLE: enable multiplexed services
+             * Tue Feb 23 15:04:17 MST 2016
+             */
+            String thriftServiceName = ""; // non-multiplexed by default
+            if ( FdsFeatureToggles.THRIFT_MULTIPLEXED_SERVICES.isActive() ) {
+                // Multiplexed server
+                thriftServiceName = commonConstants.ASYNC_XDI_SERVICE_REQUEST_SERVICE_NAME;
+            }
             ThriftClientFactory<AsyncXdiServiceRequest.Iface> factory = new ThriftClientFactory.Builder<>(AsyncXdiServiceRequest.Iface.class)
                     .withHostPort(amHost, amPort)
                     .withPoolConfig(100, 0, Integer.MAX_VALUE)
+                    .withThriftServiceName( thriftServiceName )
                     .withClientFactory(bp -> {
                         AsyncXdiServiceRequest.Client client = new AsyncXdiServiceRequest.Client(bp);
                         try {
