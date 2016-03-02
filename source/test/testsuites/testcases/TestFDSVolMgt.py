@@ -14,9 +14,19 @@ from fdslib.TestUtils import check_localhost
 # Module-specific requirements
 import sys
 from fdscli.services.fds_auth import *
-from fdslib.TestUtils import convertor
 from fdslib.TestUtils import get_volume_service
+from fdslib.TestUtils import get_snapshot_policy_service
+
 from fdscli.model.fds_error import FdsError
+from fdscli.model.volume.snapshot_policy import SnapshotPolicy
+from fdscli.model.volume.settings.object_settings import ObjectSettings
+from fdscli.model.volume.settings.block_settings import BlockSettings
+from fdscli.model.volume.settings.nfs_settings import NfsSettings
+from fdscli.model.common.size import Size
+from fdscli.model.volume.volume import Volume
+from fdscli.model.volume.qos_policy import QosPolicy
+
+
 import re
 
 # This class contains the attributes and methods to test
@@ -44,7 +54,7 @@ class TestVolumeCreate(TestCase.FDSTestCase):
         log_dir = fdscfg.rt_env.get_log_dir()
 
         volumes = fdscfg.rt_get_obj('cfg_volumes')
-        for volume in volumes:
+        for vol_obj in volumes:
             # If we were passed a volume, create that one and exit.
             if self.passedVolume is not None:
                 volume = self.passedVolume
@@ -55,8 +65,7 @@ class TestVolumeCreate(TestCase.FDSTestCase):
                           (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name']))
 
             vol_service = get_volume_service(self,om_node.nd_conf_dict['ip'])
-            newVolume = convertor(volume, fdscfg)
-            status = vol_service.create_volume(newVolume)
+            status = vol_service.create_volume(self.set_vol_parameters(vol_obj))
 
             if isinstance(status, FdsError) or type(status).__name__ == 'FdsError':
                 pattern = re.compile("500: The specified volume name (.*) already exists.")
@@ -71,6 +80,64 @@ class TestVolumeCreate(TestCase.FDSTestCase):
 
         return True
 
+    def set_vol_parameters(self, vol_obj):
+        fdscfg = self.parameters["fdscfg"]
+
+        new_volume = Volume()
+        new_volume.name = vol_obj.nd_conf_dict['vol-name']
+        new_volume.id = vol_obj.nd_conf_dict['id']
+
+        if 'media' not in vol_obj.nd_conf_dict:
+            media = 'hdd'
+        else:
+            media = vol_obj.nd_conf_dict['media']
+        new_volume.media_policy =media.upper()
+
+        if 'access' not in vol_obj.nd_conf_dict or vol_obj.nd_conf_dict['access'] == 'object':
+            # set default volume settings to ObjectSettings
+            access = ObjectSettings()
+        else:
+            # if its a block then set the size in BlockSettings
+            access = vol_obj.nd_conf_dict['access']
+            if access == 'block':
+                if 'size' not in vol_obj.nd_conf_dict:
+                    raise Exception('Volume section %s must have "size" keyword.' % vol_obj.nd_conf_dict['vol-name'])
+                access = BlockSettings()
+                access.capacity = Size(size=vol_obj.nd_conf_dict['size'], unit = 'B')
+            elif access == 'nfs':
+                if 'size' not in vol_obj.nd_conf_dict:
+                    raise Exception('Volume section %s must have "size" keyword.' % vol_obj.nd_conf_dict['vol-name'])
+                access = NfsSettings()
+                access.max_object_size = Size(size=vol_obj.nd_conf_dict['size'], unit = 'B')
+
+        new_volume.settings = access
+        if 'policy' in vol_obj.nd_conf_dict:
+            # Set QOS policy which is defined in volume definition.
+            new_volume.qos_policy = self.get_volume_policy(vol_obj.nd_conf_dict['policy'])
+
+        return new_volume
+
+
+    def get_volume_policy(self, policy_id):
+        fdscfg = self.parameters["fdscfg"]
+        qos_policy = QosPolicy()
+        policies = fdscfg.rt_get_obj('cfg_vol_pol')
+        for policy in policies:
+            if 'id' not in policy.nd_conf_dict:
+                print('Policy section must have an id')
+                sys.exit(1)
+
+            if policy.nd_conf_dict['id'] == policy_id:
+                if 'iops_min' in policy.nd_conf_dict:
+                    qos_policy.iops_min = policy.nd_conf_dict['iops_min']
+
+                if 'iops_max' in policy.nd_conf_dict:
+                    qos_policy.iops_max = policy.nd_conf_dict['iops_max']
+
+                if 'priority' in policy.nd_conf_dict:
+                    qos_policy.priority = policy.nd_conf_dict['priority']
+
+        return qos_policy
 
 # This class contains the attributes and methods to test
 # volume attachment.
