@@ -582,12 +582,13 @@ VolumeMeta::hashCalcContext::hashCalcContext(DmRequest *req,
         requesterUUID(_reqUUID),
         contextErr(ERR_OK),
         batchSize(_batchSize),
-        hashResult(0)
-{
-    typedRequest = static_cast<DmIoVolumeCheck*>(req);
-}
+        hashResult(0),
+        bdescr_list(nullptr),
+        typedRequest(static_cast<DmIoVolumeCheck*>(req))
+{}
 
 VolumeMeta::hashCalcContext::~hashCalcContext() {
+    delete bdescr_list;
     sendCb();
     // typedRequest gets deleted as callback of registerDmVolumeReqHandler<DmIoVolumeCheck>();
 }
@@ -607,15 +608,22 @@ VolumeMeta::createHashCalcContext(DmRequest *req,
         LOGERROR << "A hash request has already been sent and is processing.";
         return ERR_DUPLICATE;
     } else {
-        hashCalcContextPtr = new hashCalcContext (req,
-                                                  _reqUUID,
-                                                  batchSize);
+        // As part of development, execute this in an online fashion
+#if 0
         if (getState() != fpi::Offline) {
             LOGERROR << "Volume is not offline.";
 
             // For now, just set it offline... this needs another code path
             setState(fpi::Offline, " Volume hash operation requested.");
         }
+#endif
+
+        // Pass everything needed to hashCalcContext's constructor
+        hashCalcContextPtr = new hashCalcContext (req,
+                                                  _reqUUID,
+                                                  batchSize);
+
+
         auto req = std::bind(&VolumeMeta::doHashTaskOnContext, this);
         dataManager->addToQueue(req, FdsDmSysTaskId);
         return ERR_OK;
@@ -624,7 +632,51 @@ VolumeMeta::createHashCalcContext(DmRequest *req,
 
 void
 VolumeMeta::doHashTaskOnContext() {
-    // For now, this is just a test for async - delete and send cb to test vc side
-    delete hashCalcContextPtr;
+
+    fds_assert(hashCalcContextPtr);
+    if (hashCalcContextPtr == nullptr) {
+        LOGERROR << "Hash calculation error";
+        return;
+    }
+
+    switch (hashCalcContextPtr->progress) {
+        case hashCalcContext::HC_INIT:
+        {
+            // First we get a list of blobs descriptors that we'll be checking
+            fds_assert(hashCalcContextPtr->bdescr_list == nullptr);
+            hashCalcContextPtr->bdescr_list = new fpi::BlobDescriptorListType();
+            LOGDEBUG << "Start getting list of every blob";
+            // TODO(Neil) - iterative list blob
+            auto err = dataManager->timeVolCat_->queryIface()->listBlobs(vol_desc->volUUID,
+                                                                         hashCalcContextPtr->bdescr_list);
+            LOGDEBUG << "End getting list of every blob";
+            if (!err.OK()) {
+                LOGERROR << "Error: Unable to get a list of blobs to iterate";
+                hashCalcContextPtr->contextErr = ERR_INVALID;
+            }
+            hashCalcContextPtr->bl_citer = hashCalcContextPtr->bdescr_list->cbegin();
+
+            // Increment progress and schedule
+            hashCalcContextPtr->progress = hashCalcContext::HC_HASHING;
+            auto req = std::bind(&VolumeMeta::doHashTaskOnContext, this);
+            dataManager->addToQueue(req, FdsDmSysTaskId);
+            break;
+        }
+        case hashCalcContext::HC_HASHING:
+        {
+            int currentBatchCount(0);
+            while (hashCalcContextPtr->bl_citer != hashCalcContextPtr->bdescr_list->cend()) {
+
+
+            }
+
+            // For now, this is just a test for async - delete and send cb to test vc side
+            delete hashCalcContextPtr;
+            break;
+        }
+        default:
+            fds_verify(!"Unknown progress type");
+            break;
+    }
 }
 }  // namespace fds

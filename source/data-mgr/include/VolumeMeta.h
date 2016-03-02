@@ -360,6 +360,14 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
                                 int _batchSize);
         ~hashCalcContext();
 
+        enum progressE {
+            HC_INIT,            // Initialized
+            HC_GETTING_META,    // Getting a list of blobs metadata (i.e. iterative)
+            HC_HASHING,         // hashing things using the hasher
+            HC_ERROR
+        };
+        progressE progress;
+
         /**
          * The sha1 class related to this context.
          * Each batch pass, we update the sha1 calculation.
@@ -385,6 +393,10 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
         // Result to be sent back as part of the cb
         unsigned hashResult;
 
+        // A list of all the blobs that we'll need to get offsets for, and hash
+        fpi::BlobDescriptorListType *bdescr_list;
+        // Bookmark for whichever blob that we're currently hashing the offsets on
+        fpi::BlobDescriptorListType::const_iterator bl_citer;
     };
     // nullptr if no operation is ongoing, otherwise, we only allow 1 hashing op to occur
     // No need for locking since we require things to be done in synchronized context
