@@ -91,20 +91,6 @@ public class InfluxEventRepository extends InfluxRepository<Event, Long> impleme
         super( url, adminUser, adminCredentials, DEFAULT_EVENT_DB );
     }
 
-    /**
-     * @param properties the connection properties
-     */
-    @Override
-    synchronized public void open( Properties properties ) {
-        super.open( properties );
-
-        // command is silently ignored if the database already exists.
-        super.createDatabaseAsync( DEFAULT_EVENT_DB );
-    }
-
-    @Override
-    public String getInfluxDatabaseName() { return DEFAULT_EVENT_DB.getName(); }
-
     @Override
     public String getEntityName() {
         return EVENT_SERIES_NAME;

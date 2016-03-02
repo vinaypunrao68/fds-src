@@ -9,12 +9,12 @@ import java.util.Collection;
 public class StubExportResolver implements ExportResolver {
     public static final int EXPORT_ID = 1;
     private String volumeName;
-    private int objectSize;
+    private int maxObjectSize;
     private long maxVolumeCapacityInBytes;
 
-    public StubExportResolver(String volumeName, int objectSize, long maxVolumeCapacityInBytes) {
+    public StubExportResolver(String volumeName, int maxObjectSize, long maxVolumeCapacityInBytes) {
         this.volumeName = volumeName;
-        this.objectSize = objectSize;
+        this.maxObjectSize = maxObjectSize;
         this.maxVolumeCapacityInBytes = maxVolumeCapacityInBytes;
     }
 
@@ -24,7 +24,7 @@ public class StubExportResolver implements ExportResolver {
     }
 
     @Override
-    public int exportId(String volumeName) {
+    public int nfsExportId(String volumeName) {
         if (volumeName.equals(this.volumeName)) {
             return EXPORT_ID;
         } else {
@@ -33,8 +33,8 @@ public class StubExportResolver implements ExportResolver {
     }
 
     @Override
-    public String volumeName(int volumeId) {
-        if (volumeId == EXPORT_ID) {
+    public String volumeName(int nfsExportId) {
+        if (nfsExportId == EXPORT_ID) {
             return volumeName;
         } else {
             throw new RuntimeException("No such volume");
@@ -48,7 +48,7 @@ public class StubExportResolver implements ExportResolver {
 
     @Override
     public int objectSize(String volume) {
-        return objectSize;
+        return maxObjectSize;
     }
 
     @Override

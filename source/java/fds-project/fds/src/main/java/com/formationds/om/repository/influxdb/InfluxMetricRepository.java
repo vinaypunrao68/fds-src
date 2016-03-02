@@ -148,18 +148,6 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
         } );
     }
 
-    /**
-     * @param properties the connection properties
-     */
-    @Override
-    synchronized public void open( Properties properties ) {
-
-        super.open( properties );
-
-        // command is silently ignored if the database already exists.
-        super.createDatabaseAsync( super.getDatabase() );
-    }
-
     @Override
     public String getEntityName() {
         return VOL_SERIES_NAME;

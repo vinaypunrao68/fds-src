@@ -26,13 +26,14 @@ struct VolumeIoHdr {
 
 struct VolumeGroupInfo {
     1: required VolumeGroupId			groupId;
-    2: required VolumeGroupVersion		version;
+    2: svc_types.VolumeGroupCoordinatorInfo	coordinator;
     /* Current coordinator op id */
     3: i64					lastOpId;
     /* Current coordinator commit id */
     4: i64					lastCommitId;
     5: list<svc_types.SvcUuid>			functionalReplicas;
-    6: list<svc_types.SvcUuid>			nonfunctionalReplicas;
+    6: list<svc_types.SvcUuid>			syncingReplicas;
+    7: list<svc_types.SvcUuid>			nonfunctionalReplicas;
 }
 
 /* Message to update information about a replica group */
@@ -62,6 +63,11 @@ struct AddToVolumeGroupRespCtrlMsg {
 struct SetVolumeGroupCoordinatorMsg {
     1: svc_types.VolumeGroupCoordinatorInfo	coordinator;
     2: i64                          		volumeId;
+}
+
+/* Response for SetVolumeGroupCoordinatorMsg */
+struct SetVolumeGroupCoordinatorRspMsg {
+    1: i32				version;
 }
 
 /* BEGIN exposed for testing.  Will be removed */

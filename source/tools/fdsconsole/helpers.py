@@ -23,6 +23,8 @@ import itertools
 import time
 import autocorrect
 import os
+import subprocess
+import datetime
 
 def isFDSNode():
     if os.path.isfile('/fds/etc/platform.conf'): return True
@@ -38,6 +40,23 @@ def get_om_ip_from_conf():
                     return ips[0].split(',')[0]
 
     return None
+
+def get_timestamp_from_human_date(date, ago=False):
+    if date is None:
+        return 0
+    date = str(date)
+    date = date.strip()
+    if date.isdigit():
+        return int(date)
+
+    if ago:
+        if 'ago' not in date or '-' not in date:
+            date = date + ' ago'
+
+    return int(subprocess.check_output('date --date "{}" +%s'.format(date), shell=True))
+
+def get_date_from_timestamp(ts):
+    return datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
 
 def get_simple_re(pattern, flags=re.IGNORECASE):
     if pattern == None:

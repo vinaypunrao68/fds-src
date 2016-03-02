@@ -143,6 +143,13 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
                                                     dbConnectionProperties.getProperty( CP_USER ),
                                                     dbConnectionProperties.getProperty( CP_CRED ).toCharArray(),
                                                     getInfluxDatabaseName() );
+
+        // command is silently ignored if the database already exists.
+        try {
+            createDatabaseAsync( getDatabase() ).get();
+        } catch ( InterruptedException | ExecutionException e ) {
+            throw new IllegalStateException("Failed to create database " + getInfluxDatabaseName(), e);
+        }
     }
 
     /**

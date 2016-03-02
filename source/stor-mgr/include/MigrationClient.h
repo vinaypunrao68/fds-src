@@ -15,6 +15,7 @@
 #include <SmIo.h>
 #include <odb.h>
 #include <MigrationUtility.h>
+#include <MigrationTools.h>
 
 namespace fds {
 
@@ -54,7 +55,11 @@ class MigrationClient {
     typedef std::unique_ptr<MigrationClient> unique_ptr;
     typedef std::shared_ptr<MigrationClient> shared_ptr;
 
-    /**
+    typedef std::function<void()> continueWorkFn;
+    typedef std::vector<std::pair<ObjMetaData::ptr, fpi::ObjectMetaDataReconcileFlags>> ObjMetaDataSet;
+
+
+  /**
      * A simple routine to snapshot metadata associated with the token.
      */
     Error migClientSnapshotMetaData();
@@ -107,7 +112,8 @@ class MigrationClient {
      * Callback from the QoS
      */
     void migClientReadObjDeltaSetCb(const Error& error,
-                                    SmIoReadObjDeltaSetReq *req);
+                                    SmIoReadObjDeltaSetReq *req,
+                                    continueWorkFn nextWork);
 
     /**
      * Will set forwarding flag to true
@@ -131,6 +137,30 @@ class MigrationClient {
     void waitForIOReqsCompletion(fds_uint64_t executorId);
 
   private:
+    /*
+     * Builds delta sets for first phase until a levelDB iterator is exhausted.
+     * Takes a levelDB iterator pointer as a parameter. If this is nullptr we'll assume we were in error and delete
+     * the iterator.
+     */
+    void buildDeltaSetWorkerFirstPhase(leveldb::Iterator *iterDB,
+                                       leveldb::DB *db,
+                                       std::string &firstPhaseSnapDir,
+                                       leveldb::CopyEnv *env);
+
+    /*
+     * Builds delta sets for second phase until a levelDB iterator is exhausted.
+     * Takes a levelDB iterator pointer as a parameter. If this is nullptr we'll assume we were in error and delete
+     * the iterator.
+     */
+    void buildDeltaSetWorkerSecondPhase(metadata::metadata_diff_type::iterator start,
+                                        metadata::metadata_diff_type::iterator end,
+                                        bool cleanup);
+
+    // Cleans up some things after the second phase is complete
+    void migrationCleanup(leveldb::CopyEnv *env,
+                          std::string firstPhaseSnapDir,
+                          std::string secondPhaseSnapDir);
+
     /* Verify that set of DLT tokens belong to the same SM token.
      */
     bool migClientVerifyDestination(fds_token_id dltToken,
@@ -138,9 +168,8 @@ class MigrationClient {
 
     /* Add object meta data to the set to be sent to QoS.
      */
-    void migClientAddMetaData(std::vector<std::pair<ObjMetaData::ptr,
-                                                    fpi::ObjectMetaDataReconcileFlags>>& objMetaDataSet,
-                              fds_bool_t lastSet);
+    void migClientAddMetaData(std::shared_ptr<ObjMetaDataSet> objMetaDataSet,
+                              fds_bool_t lastSet, continueWorkFn nextWork);
 
     void fwdPutObjectCb(SmIoPutObjectReq* putReq,
                         EPSvcRequest* svcReq,
@@ -296,6 +325,11 @@ class MigrationClient {
      * still outstanding IO requests pending.
      */
     MigrationTrackIOReqs trackIOReqs;
+
+    /**
+     * Track the flow control filter sets
+     */
+    MigrationTrackIOReqs trackFlowControl;
 
     /**
      * Will this migration have single phase only?
