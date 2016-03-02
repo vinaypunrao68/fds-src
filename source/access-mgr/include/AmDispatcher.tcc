@@ -196,7 +196,7 @@ AmDispatcher::writeToSM(ReqPtr request, MsgPtr payload, CbMeth cb_func, uint32_t
                                                       const Error& error,
                                                       shared_str payload) mutable -> void {
                                      (this->*(cb_func))(request, svc, error, payload); });
-    quorumReq->setQuorumCnt(std::min(num_nodes, 2ul));
+    quorumReq->setQuorumCnt((num_nodes / 3) + 1);
     setSerialization(request, quorumReq);
     PerfTracer::tracePointBegin(request->sm_perf_ctx);
     LOGTRACE << "Writing object: " << objId;
