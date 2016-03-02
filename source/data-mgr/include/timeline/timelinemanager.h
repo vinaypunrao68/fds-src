@@ -23,7 +23,6 @@ struct TimelineManager {
     Error removeVolume(fds_volid_t volid);
     Error getSnapshotsForVolume(fds_volid_t volId, std::vector<fds_volid_t>& vecVolIds);
     SHPTR<TimelineDB> getDB();
-    float_t getUsedCapacityAsPct();
 
   private:
     fds::DataMgr* dm;
