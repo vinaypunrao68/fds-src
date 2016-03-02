@@ -52,10 +52,12 @@ void SetVolumeMetadataHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoSetVolumeMetaData* typedRequest = static_cast<DmIoSetVolumeMetaData*>(dmRequest);
     
-    ENSURE_IO_ORDER(typedRequest, helper);
+    ENSURE_SEQUENCEID_ORDER(static_cast<sequence_id_t>(typedRequest->msg->sequence_id), \
+                            typedRequest, helper);
 
     helper.err = dataManager.timeVolCat_->setVolumeMetadata(typedRequest->getVolId(),
-                                                            typedRequest->msg->metadataList, typedRequest->msg->sequence_id);
+                                                            typedRequest->msg->metadataList,
+                                                            typedRequest->msg->sequence_id);
 }
 
 void SetVolumeMetadataHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

@@ -905,6 +905,16 @@ SMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     fds_volid_t volumeId(vol_msg->vol_desc.volUUID);
     std::string volName  = vol_msg->vol_desc.vol_name;
 
+    StorMgrVolume * vol = objStorMgr->getVol(volumeId);
+    if (!vol) {
+        LOGERROR << "Received delete request for unknown volume "
+                 << "[" << std::hex << volumeId << std::dec << ", "
+                 << volName << "]";
+        hdr->msg_code = ERR_VOL_NOT_FOUND;
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolRemove), *vol_msg);
+        return;
+    }
+
     if (vol_msg->vol_flag == FDSP_NOTIFY_VOL_CHECK_ONLY) {
         GLOGNOTIFY << "Received del chk for vol "
                    << "[" << volumeId
@@ -949,7 +959,15 @@ SMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                << vdb->getName() << "]";
 
     StorMgrVolume * vol = objStorMgr->getVol(volumeId);
-    fds_assert(vol != NULL);
+    if (!vol) {
+        LOGERROR << "Received modifiy request for unknown volume "
+                 << "[" << std::hex << volumeId << std::dec << ", "
+                 << vdb->getName() << "]";
+        hdr->msg_code = ERR_VOL_NOT_FOUND;
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolMod), *vol_msg);
+        return;
+    }
+
     if (vol->voldesc->mediaPolicy != vdb->mediaPolicy) {
         // TODO(Rao): Total hack. This should go through some sort of synchronization.
         // I can't fina a better interface for doing this in the existing code

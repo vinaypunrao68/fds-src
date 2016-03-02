@@ -6,7 +6,7 @@
 #include <boost/algorithm/string.hpp>
 #include <fds_volume.h>
 #include <fdsp/vc_api_types.h>
-
+#include "fdsp/common_constants.h"
 
 namespace fds {
 
@@ -45,7 +45,8 @@ VolumeChecker::init(int argc, char **argv, bool initAsModule)
                      "vc.log",
                      nullptr,
                      svc_handler,
-                     svc_processor);
+                     svc_processor,
+                     fpi::commonConstants().PLATNET_SERVICE_NAME);
 
     dmtMgr = MODULEPROVIDER()->getSvcMgr()->getDmtManager();
     dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
