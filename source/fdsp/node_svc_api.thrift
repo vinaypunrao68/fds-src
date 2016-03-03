@@ -15,6 +15,7 @@ namespace java com.formationds.protocol.pm
 struct NotifyStartServiceMsg {
     1: list<svc_types.SvcInfo> services,
     2: bool isActionNodeStart;
+    3: optional bool force = false;
 }
 
 /**
