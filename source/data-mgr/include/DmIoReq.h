@@ -18,6 +18,7 @@
 #include <fds_typedefs.h>
 #include <blob/BlobTypes.h>
 #include <fdsp/dm_api_types.h>
+#include <fdsp/vc_api_types.h>
 #include <fdsp/fds_stream_types.h>
 #include <net/PlatNetSvcHandler.h>
 #include <net/volumegroup_extensions.h>
@@ -56,6 +57,7 @@ extern std::string logString(const FDS_ProtocolInterface::CtrlNotifyDMStartMigra
 extern std::string logString(const FDS_ProtocolInterface::CtrlNotifyInitialBlobFilterSetMsg& msg);
 extern std::string logString(const fpi::CtrlNotifyDeltaBlobDescMsg &msg);
 extern std::string logString(const fpi::CtrlNotifyFinishMigrationMsg &msg);
+extern std::string logString(const fpi::CheckVolumeMetaDataMsg &msg);
 // ======
 
 class DmRequest : public FDS_IOType {
@@ -932,7 +934,12 @@ struct DmVolumeReq : DmRequest {
     {
         reqMessageType = ReqTypeId;
         reqMessage = msg;
+        respMessageType = RespTypeId;
+        if (respMessageType != FDSP_MSG_TYPEID(fpi::EmptyMsg)) {
+            respMessage = boost::make_shared<RespT>();
+        }
     }
+
     std::string log_string() const
     {
         std::stringstream ss;
@@ -965,6 +972,11 @@ template <fds_io_op_t QosIoT,
           fpi::FDSPMsgTypeId RespTypeId>
 const fpi::FDSPMsgTypeId DmVolumeReq<QosIoT, ReqT, ReqTypeId, RespT, RespTypeId>::reqMsgTypeId;
 
+/**
+ * NOTE: For these handlers, see actual redirecting calls at:
+ * DataMgr::dmQosCtrl::processIO(FDS_IOType* _io)
+ */
+
 #define DECLARE_DM_VOLUMEREQ(QosIoT, ReqT, RespT) \
     DmVolumeReq<QosIoT, ReqT, FDSP_MSG_TYPEID(ReqT), RespT, FDSP_MSG_TYPEID(RespT)>
 using DmIoVolumegroupUpdate = DECLARE_DM_VOLUMEREQ(FDS_DM_VOLUMEGROUP_UPDATE, \
@@ -974,6 +986,10 @@ using DmIoVolumegroupUpdate = DECLARE_DM_VOLUMEREQ(FDS_DM_VOLUMEGROUP_UPDATE, \
 using DmIoFinishStaticMigration = DECLARE_DM_VOLUMEREQ(FDS_DM_MIG_FINISH_STATIC_MIGRATION, \
                                                    fpi::CtrlNotifyFinishMigrationMsg, \
                                                    fpi::EmptyMsg);
+
+using DmIoVolumeCheck = DECLARE_DM_VOLUMEREQ(FDS_DM_VOLUME_CHK_MSG, \
+                                             fpi::CheckVolumeMetaDataMsg, \
+                                             fpi::CheckVolumeMetaDataRspMsg);
 
 }  // namespace fds
 

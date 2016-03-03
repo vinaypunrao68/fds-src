@@ -293,6 +293,32 @@ void DataMgr::handleLocalStatStream(fds_uint64_t start_timestamp,
                                             slots);
 }
 
+void DataMgr::handleInitVolCheck(DmRequest *dmRequest) {
+    dm::QueueHelper helper(*this, dmRequest);
+
+    DmIoVolumeCheck *request = static_cast<DmIoVolumeCheck*>(dmRequest);
+    auto msgPtr = request->reqMessage;
+    fds_volid_t incomingVolId;
+    incomingVolId.v = msgPtr->volume_id;
+    fpi::SvcUuid checkerUuid(msgPtr->volCheckerNodeUuid);
+    int batchSize = msgPtr->batch_size;
+
+    LOGDEBUG << "Received initial checker message for volume " << incomingVolId.v;
+    // We do things now on the volumeMeta context
+    auto volMeta = getVolumeMeta(incomingVolId, false);
+    if (volMeta == nullptr) {
+        LOGERROR << "Volume Metadata not found for specified volume: "
+                << incomingVolId;
+        helper.err = ERR_VOL_NOT_FOUND;
+        return;
+    } else {
+        helper.skipImplicitCb = true;
+        helper.err = volMeta->createHashCalcContext(dmRequest,
+                                                    checkerUuid,
+                                                    batchSize);
+        helper.markIoDone();
+    }
+}
 /**
  * Is called on timer to finish forwarding for all volumes that
  * are still forwarding, send DMT close ack, and remove vcat/tcat
@@ -1966,6 +1992,12 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
             schedule(scheduleOnId, true,
                      std::bind(&DataMgr::handleDmFunctor,
                                parentDm, io));
+            break;
+        case FDS_DM_VOLUME_CHK_MSG:
+            serialExecutor->scheduleOnHashKey(io->volId.get(),
+                                              std::bind(&DataMgr::handleInitVolCheck,
+                                                        parentDm,
+                                                        io));
             break;
         default:
             LOGWARN << "Unknown IO Type received";

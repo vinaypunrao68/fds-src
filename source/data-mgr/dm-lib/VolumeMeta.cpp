@@ -575,4 +575,56 @@ void VolumeMeta::handleVolumegroupUpdate(DmRequest *dmRequest)
         return;
     }
 }
+
+VolumeMeta::hashCalcContext::hashCalcContext(DmRequest *req,
+                                             fpi::SvcUuid _reqUUID,
+                                             int _batchSize) :
+        requesterUUID(_reqUUID),
+        contextErr(ERR_OK),
+        batchSize(_batchSize),
+        hashResult(0)
+{
+    typedRequest = static_cast<DmIoVolumeCheck*>(req);
+}
+
+VolumeMeta::hashCalcContext::~hashCalcContext() {
+    sendCb();
+    // typedRequest gets deleted as callback of registerDmVolumeReqHandler<DmIoVolumeCheck>();
+}
+
+void
+VolumeMeta::hashCalcContext::sendCb() {
+    typedRequest->respStatus = contextErr;
+    typedRequest->respMessage->hash_result = hashResult;
+    typedRequest->cb(contextErr, typedRequest);
+}
+
+Error
+VolumeMeta::createHashCalcContext(DmRequest *req,
+                                  fpi::SvcUuid _reqUUID,
+                                  int batchSize) {
+    if (hashCalcContextPtr) {
+        LOGERROR << "A hash request has already been sent and is processing.";
+        return ERR_DUPLICATE;
+    } else {
+        hashCalcContextPtr = new hashCalcContext (req,
+                                                  _reqUUID,
+                                                  batchSize);
+        if (getState() != fpi::Offline) {
+            LOGERROR << "Volume is not offline.";
+
+            // For now, just set it offline... this needs another code path
+            setState(fpi::Offline, " Volume hash operation requested.");
+        }
+        auto req = std::bind(&VolumeMeta::doHashTaskOnContext, this);
+        dataManager->addToQueue(req, FdsDmSysTaskId);
+        return ERR_OK;
+    }
+}
+
+void
+VolumeMeta::doHashTaskOnContext() {
+    // For now, this is just a test for async - delete and send cb to test vc side
+    delete hashCalcContextPtr;
+}
 }  // namespace fds

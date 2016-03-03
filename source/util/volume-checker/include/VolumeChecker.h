@@ -14,6 +14,7 @@
 #include <net/SvcProcess.h>
 #include <fdsp_utils.h>
 #include <gtest/gtest_prod.h>
+#include <MigrationUtility.h>
 
 namespace fds {
 
@@ -41,12 +42,11 @@ public:
     enum StatusCode {
         VC_NOT_STARTED,     // First started
         VC_RUNNING,         // Finished initializing
-        VC_DM_HASHING          // VC has finished initializing and is running phase 1
+        VC_DM_HASHING       // VC has finished initializing and is running phase 1
     };
     // For the future, may return more than just status code, but progress as well
     using VcStatus = StatusCode;
     VcStatus getStatus();
-
 
     /**
      * UNIT TEST METHODS. Do not use anywhere else.
@@ -75,6 +75,9 @@ private:
     // Max retires for get - TODO needs to be organized later
     int maxRetries = 10;
 
+    // Batch size per levelDB iteration
+    int batchSize;
+
     // If volumeChecker initialization succeeded
     bool initCompleted;
 
@@ -92,16 +95,20 @@ private:
 
     struct DmCheckerMetaData {
         DmCheckerMetaData(fds_volid_t _volId,
-                          fpi::SvcUuid _svcUuid) :
+                          fpi::SvcUuid _svcUuid,
+                          int _batchSize) :
             volId(_volId),
             svcUuid(_svcUuid),
-            status(NS_NOT_STARTED)
+            status(NS_NOT_STARTED),
+            batchSize(_batchSize),
+            hashResult(0),
+            time_out(1000*10*60)    // 10 minutes
             {}
 
         ~DmCheckerMetaData() = default;
 
         // Sends the initial check message to the dm
-        void sendVolChkMsg(const EPSvcRequestRespCb &cb = nullptr);
+        void sendVolChkMsg(const EPSvcRequestRespCb &cb);
 
         // Cached id of what this checker meta-data is checking for
         fds_volid_t volId;
@@ -111,24 +118,49 @@ private:
 
         // Current node's status
         enum chkNodeStatus {
-            NS_NOT_STARTED,     // Just created
-            NS_CONTACTED,       // Volume list has been sent to the node
-            NS_WORKING          // Node has sent async resp saying it's churning
+            NS_NOT_STARTED,       // Just created
+            NS_CONTACTED,         // Volume list has been sent to the node and should be working
+            NS_FINISHED,          // The node has responded with a result
+            NS_ERROR              // Error state, idle
         };
         chkNodeStatus status;
+
+        // Local cached batchSize
+        int batchSize;
+
+        // stored result
+        unsigned hashResult;
+
+        // stored timeout
+        unsigned time_out;
     };
 
     // Map of volID -> set of metadata for DM quorum check
     using VolumeGroupTable = std::vector<std::pair<fds_volid_t, std::vector<DmCheckerMetaData>>>;
     VolumeGroupTable vgCheckerList;
 
+    // For keeping track of messages sent
+    MigrationTrackIOReqs *initialMsgTracker;
+
     // Prepares the accounting data structures
     void prepareDmCheckerMap();
 
     // Sends the volume check msgs to DMs();
-    Error sendVolChkMsgsToDMs();
+    void sendVolChkMsgsToDMs();
 
     void sendOneVolChkMsg(const EPSvcRequestRespCb &cb = nullptr);
+
+    /**
+     *  Wait for all the DMs to respond and see if we are all running w/o errors
+     *  Returns ERR_INVALID if at least one DM errored out.
+     */
+    Error waitForVolChkMsg();
+
+    /**
+     * If an error occurs during volume checking process, this will send out the
+     * abort message to everyone to stop churning through levelDBs and wasting resources
+     */
+    void handleVolumeCheckerError();
 };
 
 } // namespace fds
