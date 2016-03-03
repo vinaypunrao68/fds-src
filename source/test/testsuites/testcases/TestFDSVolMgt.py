@@ -74,6 +74,8 @@ class TestVolumeCreate(TestCase.FDSTestCase):
                 default_snap_policies = vol_service.get_data_protection_presets(preset_id=snapshot_policy_id)[0]._DataProtectionPolicyPreset__snapshot_policies
                 for each_snap_policy in default_snap_policies:
                     op = snapshot_policy_service.create_snapshot_policy(status.id, each_snap_policy)
+                self.log.info("Volume {0} created with preset snapshot policy id {1}".format(status.name, self.snapshot_policy))
+
             if isinstance(status, FdsError) or type(status).__name__ == 'FdsError':
                 pattern = re.compile("500: The specified volume name (.*) already exists.")
                 if re.match(pattern, status.message):

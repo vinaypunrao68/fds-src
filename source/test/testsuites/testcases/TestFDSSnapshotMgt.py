@@ -201,8 +201,8 @@ class TestCreateVolClone(TestCase.FDSTestCase):
         return False
 
 
-# This class contains the attributes and methods to test
-# timeline. We change system dates to verify if weekly.daily and monthly snapshots do happen.
+# This class contains the attributes and methods to test timeline.
+# We change system dates to verify if daily,weekly, monthly and yearly snapshots do happen.
 class TestTimeline(TestCase.FDSTestCase):
     def __init__(self, parameters=None):
         """
@@ -231,10 +231,14 @@ class TestTimeline(TestCase.FDSTestCase):
             change_date(self, val)
             if self.parameters['ansible_install_done']:
                 change_date(self, val, nodes)
+
+            # after changing dates sleep for 5 secs before checking if snapshots are available
+            time.sleep(5)
+
             for each_volume in volume_list:
                 pattern = 'snap.' + str(each_volume.name) + '.' + str(each_volume.id) + '_system_timeline_' + patterns[idx]
                 if snapshot_created(self, each_volume, pattern)is not True:
-                    self.log.error("Couldn't find {0} snapshot for vol {1} with id {2}".format(pattern, each_volume.name,each_volume.id))
+                    self.log.error("FAILED: couldn't find {0} snapshot for vol_name = {1} , vol_id = {2}".format(pattern[idx], each_volume.name,each_volume.id))
 
                     # Even if it's failure, sync up time on each node using ntp
                     sync_time_with_ntp(self)
@@ -248,13 +252,15 @@ class TestTimeline(TestCase.FDSTestCase):
         sync_time_with_ntp(self)
         return True
 
-
+# This method returns current date from node
+# @param node_ip: ip address of the node. If node_ip is passed then return date on that node
+# else date on local machine
 def get_date_from_node(self, node_ip=None):
     if node_ip is None:
-        disconnect_fabric()
-        string_date = local("date +\"%Y-%m-%d %H:%M:%S\"", capture=True)
-        current_time = datetime.datetime.strptime(string_date, "%Y-%m-%d %H:%M:%S")
-        return current_time
+        with hide('output','running'):
+            string_date = local("date +\"%Y-%m-%d %H:%M:%S\"", capture=True)
+            current_time = datetime.datetime.strptime(string_date, "%Y-%m-%d %H:%M:%S")
+            return current_time
     else:
         connect_fabric(self, node_ip)
         string_date = run("date +\"%Y-%m-%d %H:%M:%S\"", quiet=True)
@@ -263,17 +269,16 @@ def get_date_from_node(self, node_ip=None):
         return current_time
 
 
+# This method changes date to future date on all nodes in the domain.
+# @param nodes: change dates on each node of the domain.
+# @param number_of_days: change date to current date + number_of_days
 def change_date(self, number_of_days, nodes=None):
     if nodes is None:  # all nodes running on same machine
         new_date = get_date_from_node(self) + datetime.timedelta(days=number_of_days)
-        # set the date on local machine using below command
         cmd = "sudo date --set=\"{0}\"  && date --rfc-3339=ns".format(new_date)
-        op = local(cmd, capture=True)
-        if op.stderr != "":
-            return False
-        else:
-            self.log.info("Changed date on local machine is {0}".format(get_date_from_node(self)))
-            return True
+        with hide('output','running'):
+            op = local(cmd, capture=False)
+        self.log.info("Changed date on local node :{0}".format(get_date_from_node(self)))
 
     else:
         for node in nodes:
@@ -283,10 +288,9 @@ def change_date(self, number_of_days, nodes=None):
             # set the date on remote node using below command
             cmd = "date --set=\"{0}\"  && date --rfc-3339=ns".format(new_date)
             op = sudo(cmd, quiet=True)
-
-            self.log.info("On machine {} date is {}".format(node.nd_host, get_date_from_node(self, node.nd_host)))
+            self.log.info("Changed date on node {0} :{1}".format(node.nd_host, get_date_from_node(self, node.nd_host)))
             disconnect_fabric()
-        return True
+    return True
 
 
 def snapshot_created(self, volume, pattern):
@@ -295,26 +299,29 @@ def snapshot_created(self, volume, pattern):
     vol_service = get_volume_service(self, om_node.nd_conf_dict['ip'])
     snapshot_list = vol_service.list_snapshots(volume.id)
     self.log.info(
-        'length of snapshots for volume {0} with id {1} is {2}'.format(volume.name, volume.id, len(snapshot_list)))
+        'Found number_of_snapshots = {0}, vol_name = {1}, vol_id = {2}'.format(len(snapshot_list), volume.name, volume.id))
     found_snapshot = False
     for snapshot in snapshot_list:
         snapshot_name = snapshot.name
         if snapshot_name.startswith(pattern):
             found_snapshot = True
-            self.log.info("{0} snapshot created for {1} with id {2}".format(pattern, volume.name, volume.id))
+            self.log.info("OK: {0} is available for {1} , vol_id = {2}".format(snapshot_name, volume.name, volume.id))
             break
 
     return found_snapshot
 
 
+# This method syncs time using ntp. Irrespective of timeline testing usccess /failure sync time with ntp
+# making sure domain is in good state.
+# @param nodes: is none if all nodes in domain are running on same machine
+# @param nodes: is NOT none if every node in domain is running on different machine
 def sync_time_with_ntp(self, nodes=None):
-    cmd = "sudo ntpdate ntp.ubuntu.com"
-    # local env
+    cmd = "ntpdate ntp.ubuntu.com"
     if nodes is None:
-        local(cmd, capture=True)
-        self.log.info("Sync time using ntp on local machine. Now date is {0}".format(get_date_from_node(self)))
-        return True
-    # AWS nodes
+        with hide('output','running'):
+            local("sudo "+cmd, capture=True)
+            self.log.info("Sync time using ntp on local machine. Now date is {0}".format(get_date_from_node(self)))
+            return True
     else:
         for node in nodes:
             connect_fabric(self, node.nd_host)
