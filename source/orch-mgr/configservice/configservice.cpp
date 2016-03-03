@@ -5,6 +5,7 @@
 
 #include <fdsp/common_types.h>
 #include <fdsp/ConfigurationService.h>
+#include <thrift/processor/TMultiplexedProcessor.h>
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/server/TThreadedServer.h>
 #include <thrift/server/TSimpleServer.h>
@@ -2218,8 +2219,19 @@ template class ConfigurationServiceHandler<kvstore::ConfigDB>;
 }  // namespace apis
 
 std::thread* runConfigService(OrchMgr* om) {
+
     int port = MODULEPROVIDER()->get_conf_helper().get_abs<int>("fds.om.config_port", 9090);
     LOGDEBUG << "Starting Configuration Service, listening on port: " << port;
+
+    // The module provider might not supply the base path we want,
+    // so make our own config access. This is libConfig data, not
+    // to be confused with FDS configuration (platform.conf).
+    FdsConfigAccessor configAccess(MODULEPROVIDER()->get_fds_config(), "fds.feature_toggle.");
+    /**
+     * FEATURE TOGGLE: enable multiplexed services
+     * Tue Feb 23 15:04:17 MST 2016
+     */
+    bool enableMultiplexedServices = configAccess.get<bool>("common.enable_multiplexed_services", false);
 
     boost::shared_ptr<TServerTransport> serverTransport(
         new TServerSocket( port ) );  //NOLINT
@@ -2227,6 +2239,34 @@ std::thread* runConfigService(OrchMgr* om) {
         new TFramedTransportFactory( ) );
     boost::shared_ptr<TProtocolFactory> protocolFactory(
         new TBinaryProtocolFactory( ) );  //NOLINT
+
+    if (enableMultiplexedServices) {
+
+        // Use a multiplexed processor. Currently, multiplexed processor does not
+        // work with existing non-multiplexed TProtocol. TODO: Remedy this situation
+        // prior to making subscriptions generally available.
+
+        // A non backward-compatible change must be made to support true UUID for
+        // local domain id. Add a second processor for the new service instead
+        // of forcing upgrade of old ConfigurationService client stubs.
+        LOGDEBUG << "Using multiplexed processor for Configuration Service";
+        boost::shared_ptr<TMultiplexedProcessor> multiProcessor(new TMultiplexedProcessor());
+
+        boost::shared_ptr<apis::ConfigurationServiceHandler<kvstore::ConfigDB>> handler(
+            new apis::ConfigurationServiceHandler<kvstore::ConfigDB>(om)); // NOLINT
+        boost::shared_ptr<TProcessor> processor(
+            new apis::ConfigurationServiceProcessor( handler ) ); // NOLINT
+
+        multiProcessor->registerProcessor("ConfigurationService", processor);
+
+        TThreadedServer server( multiProcessor,
+                                serverTransport,
+                                transportFactory,
+                                protocolFactory );
+
+        server.serve();
+        return  nullptr;
+    }
 
     boost::shared_ptr<apis::ConfigurationServiceHandler<kvstore::ConfigDB> > handler(
         new apis::ConfigurationServiceHandler<kvstore::ConfigDB>( om ) ); // NOLINT

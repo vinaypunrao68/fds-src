@@ -1,4 +1,5 @@
-angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity_service', '$interval', '$authorization', '$authentication', '$stats_service', '$filter', '$timeout', '$byte_converter', '$time_converter', '$rootScope', '$state', function( $scope, $activity_service, $interval, $authorization, $authentication, $stats_service, $filter, $timeout, $byte_converter, $time_converter, $rootScope, $state ){
+angular.module( 'status' ).controller( 'statusController', ['$scope', '$activity_service', '$interval', '$authorization', '$authentication', '$stats_service', '$filter', '$timeout', '$byte_converter', '$time_converter', '$rootScope', '$state', '$toggle_service', function( $scope, $activity_service, $interval, $authorization, $authentication, $stats_service, $filter, $timeout, $byte_converter, $time_converter, $rootScope, $state,
+$toggle_service ){
 
     $scope.healthStatus = [{number: 'Excellent'}];
     

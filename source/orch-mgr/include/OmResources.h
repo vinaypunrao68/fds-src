@@ -407,6 +407,9 @@ class OM_AgentContainer : public AgentContainer
                               NodeList *rmNodes,
                               const NodeUuidSet& filter_nodes);
 
+    int32_t om_nodes_up();
+    int32_t om_nodes_down();
+
   protected:
     NodeList                                 node_up_pend;
     NodeList                                 node_down_pend;
