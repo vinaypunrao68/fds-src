@@ -11,8 +11,10 @@ then
     SYSTEM_TEST_SCENARIO_LIST="BuildSmokeTest_onpr"
 elif [[ "${1}" == "jenkins_build_on_master_commit" ]]
 then
+    # ActiveMigration is disabled for master merge because scenarios are not supported with VG enabled
+    # As of 03/03/2016 only ActiveIORestartTest runs for master merges
     # For master mergess, disable some tests
-    DISABLED_SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest RestartDataPersistence ActiveIORndKillTest MultiAMVolOpsTest RestartClusterKillServices StaticMigration BuildSmokeTest_onpr QosTest DmMigrationFailover"
+    DISABLED_SYSTEM_TEST_SCENARIO_LIST="RestartDataPersistence ActiveIORndKillTest MultiAMVolOpsTest RestartClusterKillServices BuildSmokeTest_onpr QosTest ActiveMigration DmMigrationFailover SnapshotTest"
 fi
 
 for test_case in ${DISABLED_SYSTEM_TEST_SCENARIO_LIST}
