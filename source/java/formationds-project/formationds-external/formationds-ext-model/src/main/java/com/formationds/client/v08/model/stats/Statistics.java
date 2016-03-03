@@ -4,6 +4,8 @@
 
 package com.formationds.client.v08.model.stats;
 
+import com.google.common.base.MoreObjects;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -108,5 +110,15 @@ private static final long serialVersionUID = 1565568840222449672L;
       this.metadata = new ArrayList<>();
     }
     this.metadata.add( metadata );
+  }
+
+  @Override
+  public String toString()
+  {
+    return MoreObjects.toStringHelper( getClass().getSimpleName() )
+                      .add( "Series", getSeries() )
+                      .add( "Calculated", getCalculated() )
+                      .add( "Metadata", getMetadata() )
+                      .toString( );
   }
 }
