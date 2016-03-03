@@ -21,6 +21,7 @@ import com.formationds.platform.svclayer.OmSvcHandler;
 import com.formationds.platform.svclayer.SvcMgr;
 import com.formationds.platform.svclayer.SvcServer;
 import com.formationds.protocol.ApiException;
+import com.formationds.protocol.commonConstants;
 import com.formationds.protocol.svc.types.FDSP_MgrIdType;
 import com.formationds.protocol.om.OMSvc.Iface;
 import com.formationds.security.Authenticator;
@@ -110,7 +111,19 @@ public class Main {
             int proxyPortOffset = platformConfig.defaultInt( "fds.om.java_svc_proxy_port_offset", 1900 );
             int proxyToPort = omPort + proxyPortOffset;  // 8904 by default
             logger.trace( "Starting OM Service Proxy {} -> {}", omPort, proxyToPort );
-            proxyServer = Optional.of( new SvcServer<>( omPort, new OmSvcHandler( "localhost", proxyToPort ) ) );
+            /**
+             * FEATURE TOGGLE: enable multiplexed services
+             * Tue Feb 23 15:04:17 MST 2016
+             */
+            if ( FdsFeatureToggles.THRIFT_MULTIPLEXED_SERVICES.isActive() ) {
+                // Multiplexed
+                proxyServer = Optional.of( new SvcServer<>( omPort,
+                                                 new OmSvcHandler( "localhost", proxyToPort, commonConstants.OM_SERVICE_NAME ),
+                                                 commonConstants.OM_SERVICE_NAME ) );
+            } else {
+                // Non-multiplexed
+                proxyServer = Optional.of( new SvcServer<>( omPort, new OmSvcHandler( "localhost", proxyToPort, "" ), "" ) );
+            }
             proxyServer.get().startAndWait( 5, TimeUnit.MINUTES );
 
         }
