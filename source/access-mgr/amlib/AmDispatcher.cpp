@@ -286,8 +286,8 @@ Error AmDispatcher::modifyVolumePolicy(const VolumeDesc& vdesc) {
         if (volumegroup_map.end() != it &&
             vdesc.getCoordinatorId() != MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() &&
             vdesc.getCoordinatorVersion() > it->second->getVersion()) {
-            // Give ownership of the volume handle to the handle itself, we're
-            // done with it
+            // Inform peers that they should not perform IO on this volume
+            // as another client is accessing it
             err = ERR_VOLUME_ACCESS_DENIED;
         }
     }

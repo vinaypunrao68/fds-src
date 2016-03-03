@@ -179,10 +179,9 @@ AmVolumeTable::stop() {
         for (auto const& vol_pair : volume_map) {
             auto const& vol = vol_pair.second;
             // Close the volume in case it was open
-            auto token = vol->getToken();
-            if (invalid_vol_token != token) {
+            if (vol->writable()) {
                 auto volReq = new DetachVolumeReq(vol->voldesc->volUUID, vol->voldesc->name, nullptr);
-                volReq->token = token;
+                volReq->token = vol->getToken();
                 volReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
                 AmDataProvider::closeVolume(volReq);
             }
@@ -243,8 +242,8 @@ Error AmVolumeTable::modifyVolumePolicy(const VolumeDesc& vdesc) {
                 << " (iops_assured=" << vdesc.iops_assured
                 << ", iops_throttle=" << vdesc.iops_throttle
                 << ", prio=" << vdesc.relativePrio << ")";
-        } else if (invalid_vol_token != vol->getToken()) {
-            // Uh-oh, let's close it any new IO will require a new open
+        } else if (vol->writable()) {
+            // Uh-oh, let's close it so any new IO will require a new open
             LOGNOTIFY << "Closing volume: " << vdesc.name << " due to lease transfer.";
             auto volReq = new DetachVolumeReq(vdesc.volUUID, vdesc.name, nullptr);
             volReq->token = vol->getToken();
@@ -423,7 +422,7 @@ AmVolumeTable::closeVolume(AmRequest *amReq) {
     // Check we're writable
     WriteGuard wg(map_rwlock);
     auto vol = getVolume(amReq->volume_name);
-    if (!vol || invalid_vol_token == vol->getToken()) {
+    if (!vol || !vol->writable()) {
         return AmDataProvider::closeVolumeCb(amReq, ERR_OK);
     }
 
