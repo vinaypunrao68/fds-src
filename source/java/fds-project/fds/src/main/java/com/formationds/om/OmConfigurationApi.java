@@ -78,6 +78,35 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     }
 
     /**
+     * Get API version used by service handler.
+     */
+    @Override
+    public Version getVersion(long nullarg) throws ApiException, TException {
+
+        return getConfig().getVersion(nullarg);
+    }
+
+    /**
+     * Get the API version table for the service.
+     */
+    @Override
+    public List<ServiceAPIVersion> getVersionTable(long nullarg) throws ApiException, TException {
+
+        return getConfig().getVersionTable(nullarg);
+    }
+
+    /**
+     * Handshake with the server to negotiate API version.
+     * @param stubVersion - Version: The API version suggested by the server.client stub
+     * @return Version: The API version acceptable to the server
+     */
+    @Override
+    public Version suggestVersion(Version stubVersion) throws ApiException, TException {
+
+        return getConfig().suggestVersion(stubVersion);
+    }
+
+    /**
      * Create a Local Domain with the provided name.
      *
      * @param domainName - String: The name of the new Local Domain. Must be unique within the Global Domain.

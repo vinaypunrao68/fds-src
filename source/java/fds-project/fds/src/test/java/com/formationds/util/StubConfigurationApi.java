@@ -76,6 +76,29 @@ public class StubConfigurationApi implements ConfigurationApi {
     }
 
     @Override
+    public Version getVersion(long nullarg) throws ApiException, TException {
+        return new Version();
+    }
+
+    /**
+     * Get the API version table for the service.
+     */
+    @Override
+    public List<ServiceAPIVersion> getVersionTable(long nullarg) throws ApiException, TException {
+        return null;
+    }
+
+    /**
+     * Handshake with the server to negotiate API version.
+     * @param stubVersion - Version: The API version suggested by the server.client stub
+     * @return Version: The API version acceptable to the server
+     */
+    @Override
+    public Version suggestVersion(Version stubVersion) throws ApiException, TException {
+        return new Version();
+    }
+
+    @Override
     public long createLocalDomain(String domainName, String domainSite) throws ApiException, TException {
         configurationVersion.incrementAndGet();
         LocalDomainDescriptor domain = new LocalDomainDescriptor(localDomainId.incrementAndGet(),

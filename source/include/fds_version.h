@@ -152,6 +152,15 @@ public:
     std::string getServiceFamily() const { return serviceFamily_; }
     std::string getServiceName() const { return serviceName_; }
     std::string getMajorAlias() const { return majorAlias_; }
+
+    /**
+     * @brief Negotiates version given server.client suggestion
+     * @detail
+     * This helper function can be used by every handler of a versioned API.
+     * @return
+     * The API version to use from the server.client stub perspective.
+     */
+    static Version handshake(const Version& versionHere, const Version& versionSuggested);
 };
 
 }  // namespace fds

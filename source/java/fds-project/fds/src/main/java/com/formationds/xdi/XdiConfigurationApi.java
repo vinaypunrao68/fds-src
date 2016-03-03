@@ -48,6 +48,35 @@ public class XdiConfigurationApi implements ConfigurationApi {
     }
 
     /**
+     * Get API version used by service handler.
+     */
+    @Override
+    public Version getVersion(long nullarg) throws ApiException, TException {
+
+        return config.getVersion(nullarg);
+    }
+
+    /**
+     * Get the API version table for the service.
+     */
+    @Override
+    public List<ServiceAPIVersion> getVersionTable(long nullarg) throws ApiException, TException {
+
+        return config.getVersionTable(nullarg);
+    }
+
+    /**
+     * Handshake with the server to negotiate API version.
+     * @param stubVersion - Version: The API version suggested by the server.client stub
+     * @return Version: The API version acceptable to the server
+     */
+    @Override
+    public Version suggestVersion(Version stubVersion) throws ApiException, TException {
+
+       return config.suggestVersion(stubVersion);
+    }
+
+    /**
      * Start the cache updater thread
      */
     public void startCacheUpdaterThread(long intervalMS) {

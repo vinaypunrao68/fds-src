@@ -232,11 +232,24 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     void suggestVersion(Version& _return, boost::shared_ptr<Version>& stubVersion) {
 
-        // If major version for the client stub is in supported range, use
-        // suggestion.
+        // This is a server side handler. Get the server API version.
+        fds::apis::Version serverVersion;
+        boost::shared_ptr<int64_t> notUsed = boost::make_shared<int64_t>(0);
+        getVersion(serverVersion, notUsed);
 
-        // TODO: use an implementation shared with other handlers - consider
-        // putting it into fds_version.cpp
+        // Negotiate an API version
+        fds::Version versionHere(serverVersion);
+        fds::Version versionSuggested(*stubVersion);
+
+        LOGNORMAL << "Configuration Service handler: Client suggested version <"
+            << versionSuggested.toString().c_str() << ">.";
+
+        fds::Version negotiated = fds::ServiceAPIVersion::handshake(versionHere, versionSuggested);
+
+        LOGNORMAL << "Configuration Service handler: Handshake version is <"
+            << negotiated.toString().c_str() << ">.";
+
+        _return = negotiated.toThrift();
         return;
     }
 

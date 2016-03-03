@@ -3,6 +3,10 @@
  */
 #include "fds_version.h"
 
+#include <iomanip>
+#include <string>
+#include <sstream>
+
 namespace fds {
 
 Version::Version() : majorVersion_(0), minorVersion_(1), patchVersion_(0) {
@@ -71,6 +75,24 @@ bool Version::operator!=(const Version& rhs) const {
     return true;
 }
 
+std::string Version::toString(bool showLeadingZeros) const {
+
+    auto lf = [&](int a, std::ostringstream& os) {
+        os.str("");
+        os.clear();
+        if (showLeadingZeros) {
+            os << std::setfill('0') << std::setw(2);
+        }
+        os << std::to_string(a);
+        return os.str();
+    };
+    std::ostringstream osa, osb;
+    osa << lf(getMajorVersion(), osb) << "."
+        << lf(getMinorVersion(), osb) << "."
+        << lf(getPatchVersion(), osb);
+    return osa.str();
+}
+
 // ============================================================================
 //  \/  \/  \/  \/  \/  \/  \/  \/  \/  \/  \/  \/  \/  \/  \/  \/  \/  \/  \/
 // ============================================================================
@@ -115,6 +137,37 @@ fds::apis::ServiceAPIVersion ServiceAPIVersion::toThrift() const {
     result.api_version.major_version = getVersion().getMajorVersion();
     result.api_version.minor_version = getVersion().getMinorVersion();
     result.api_version.patch_version = getVersion().getPatchVersion();
+    return result;
+}
+
+// Class static helper
+fds::Version ServiceAPIVersion::handshake(const Version& versionHere, const Version& versionSuggested) {
+
+    Version result;
+    if (versionHere == versionSuggested) {
+        // Server and requestor (service.client) APIs are same version
+        result = versionSuggested;
+    } else if (versionSuggested.getMajorVersion() > versionHere.getMajorVersion()) {
+        // Requestor (service.client) API is newer, use server API version
+        result = versionHere;
+    } else if (versionSuggested.getMajorVersion() < versionHere.getMajorVersion()) {
+        // Server API is newer, use requestor (service.client) API version
+        result = versionSuggested;
+    } else {
+        // Matched on major version.
+        if (versionSuggested.getMinorVersion() > versionHere.getMinorVersion()) {
+            result = versionHere;
+        } else if (versionSuggested.getMinorVersion() < versionHere.getMinorVersion()) {
+            result = versionSuggested;
+        } else {
+            // Matched on minor version
+            if (versionSuggested.getPatchVersion() < versionHere.getPatchVersion()) {
+                result = versionSuggested;
+            } else {
+                result = versionHere;
+            }
+        }
+    }
     return result;
 }
 
