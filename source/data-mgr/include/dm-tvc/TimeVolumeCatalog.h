@@ -17,6 +17,7 @@
 #include <util/Log.h>
 #include <util/timeutils.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>
+#include <gtest/gtest_prod.h>
 
 namespace fds {
 
@@ -103,6 +104,7 @@ class DmTimeVolCatalog : public HasModuleProvider,
      * @return none
      */
     void notifyVolCatalogSync(BlobTxList::const_ptr sycndTxList);
+
 
   protected:
     void createCommitLog(const VolumeDesc& voldesc);
@@ -351,12 +353,6 @@ class DmTimeVolCatalog : public HasModuleProvider,
     inline VolumeCatalogQueryIface::ptr queryIface() {
         return volcat;
     }
-
-    /**
-     * For unit testing certain things, we need to get the actual Catalog
-     * This is an interface that's used only for testing
-     */
-    DmPersistVolCat::ptr getVolumeForUnitTest(fds_volid_t volId);
 
     /**
      * Method to get % of utilized space for the DM's partition

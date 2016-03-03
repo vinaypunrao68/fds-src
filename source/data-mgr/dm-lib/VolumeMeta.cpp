@@ -664,12 +664,19 @@ VolumeMeta::doHashTaskOnContext() {
         }
         case hashCalcContext::HC_HASHING:
         {
+#if 0
             int currentBatchCount(0);
-            while (hashCalcContextPtr->bl_citer != hashCalcContextPtr->bdescr_list->cend()) {
+            while ((hashCalcContextPtr->bl_citer != hashCalcContextPtr->bdescr_list->cend()) ||
+                    (currentBatchCount > hashCalcContextPtr->batchSize)) {
+                auto blobName = hashCalcContextPtr->bl_citer->name;
 
 
+                // Increment stuffs
+                ++currentBatchCount;
+                hashCalcContextPtr->bl_citer++; // TODO: move
             }
 
+#endif
             // For now, this is just a test for async - delete and send cb to test vc side
             delete hashCalcContextPtr;
             break;
