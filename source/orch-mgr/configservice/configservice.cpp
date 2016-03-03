@@ -613,6 +613,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             std::vector<fpi::SvcInfo> svcInfos = start_svc_msg->services;
 
             bool startNode = start_svc_msg->isActionNodeStart;
+            bool force = start_svc_msg->force;
             for (fpi::SvcInfo svcInfo : svcInfos) {
                 if ( svcInfo.svc_type == fpi::FDSP_PLATFORM ) {
                     pmUuid = svcInfo.svc_id.svc_uuid;
@@ -620,7 +621,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             }
 
             bool domainRestart = false;
-            err = local->om_start_service(pmUuid, svcInfos, domainRestart, startNode);
+            err = local->om_start_service(pmUuid, svcInfos, domainRestart, startNode, force);
         }
         catch(...){
             LOGERROR <<"Orch Mgr encountered exception while "
