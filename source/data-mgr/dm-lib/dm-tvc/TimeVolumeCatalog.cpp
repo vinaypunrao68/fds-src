@@ -262,6 +262,11 @@ DmTimeVolCatalog::activateVolume(fds_volid_t volId) {
     return volcat->activateCatalog(volId);
 }
 
+DmPersistVolCat::ptr
+DmTimeVolCatalog::getVolumeForUnitTest(fds_volid_t volId) {
+    return volcat->getVolume(volId);
+}
+
 Error
 DmTimeVolCatalog::markVolumeDeleted(fds_volid_t volId) {
     auto vol = volcat->getVolume(volId);

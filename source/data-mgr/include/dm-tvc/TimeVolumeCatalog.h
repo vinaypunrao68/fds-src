@@ -353,6 +353,12 @@ class DmTimeVolCatalog : public HasModuleProvider,
     }
 
     /**
+     * For unit testing certain things, we need to get the actual Catalog
+     * This is an interface that's used only for testing
+     */
+    DmPersistVolCat::ptr getVolumeForUnitTest(fds_volid_t volId);
+
+    /**
      * Method to get % of utilized space for the DM's partition
      */
     float_t getUsedCapacityAsPct();
