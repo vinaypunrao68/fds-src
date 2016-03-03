@@ -109,7 +109,7 @@ public class MutateService implements RequestHandler {
                     amState = newState;
                 }
                 break;
-            case DM: dmState = newState;
+            case DM:
                 if ( checkState && dmState == newState ) {
                     throw new ApiException( "Service:DM is already in desired state",
                                             ErrorCode.BAD_REQUEST);
