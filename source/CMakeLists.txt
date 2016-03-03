@@ -154,6 +154,7 @@ set(SOURCE_FILES
     ./data-mgr/dm-lib/handlers/getbuckethandler.cpp
     ./data-mgr/dm-lib/handlers/getdmstatshandler.cpp
     ./data-mgr/dm-lib/handlers/getvolumemetadatahandler.cpp
+    ./data-mgr/dm-lib/handlers/loadfromarchivehandler.cpp
     ./data-mgr/dm-lib/handlers/migrationhandler.cpp
     ./data-mgr/dm-lib/handlers/querycataloghandler.cpp
     ./data-mgr/dm-lib/handlers/reloadvolumehandler.cpp
@@ -357,46 +358,42 @@ set(SOURCE_FILES
     ./include/fdsp_utils.h
     ./include/graphite_client.h
     ./include/has_state.h
-    ./include/hash/Bitvec.h
-    ./include/hash/Hashes.h
-    ./include/hash/MurmurHash1.h
-    ./include/hash/MurmurHash2.h
-    ./include/hash/MurmurHash3.h
-    ./include/hash/PMurHash.h
-    ./include/hash/Platform.h
-    ./include/hash/Random.h
-    ./include/hash/SpeedTest.h
-    ./include/hash/Spooky.h
-    ./include/hash/Types.h
-    ./include/hash/base64.h
-    ./include/hash/md5.h
-    ./include/hash/sha1.h
-    ./include/json/json-forwards.h
-    ./include/json/json.h
-    ./include/kvstore/configdb.h
-    ./include/kvstore/configdbmodule.h
-    ./include/kvstore/kvstore.h
-    ./include/kvstore/platformdb.h
-    ./include/kvstore/redis.h
-    ./include/kvstore/tokenstatedb.h
-    ./include/leveldb/cat_journal.h
-    ./include/leveldb/copy_env.h
-
-    ./include/net/fdssocket.h
-    ./include/net/filetransferservice.h
-    ./include/net/MockSvcHandler.h
-    ./include/net/net-service.h
-    ./include/net/net-service-tmpl.hpp
-    ./include/net/net_utils.h
-    ./include/net/PlatNetSvcHandler.h
-    ./include/net/SvcMgr.h
-    ./include/net/SvcProcess.h
-    ./include/net/SvcRequest.h
-    ./include/net/SvcRequestPool.h
-    ./include/net/SvcRequestTracker.h
-    ./include/net/SvcServer.h
-    ./include/net/volumegroup_extensions.h
-    ./include/net/VolumeGroupHandle.h
+./include/hash/Bitvec.h
+./include/hash/Hashes.h
+./include/hash/MurmurHash1.h
+./include/hash/MurmurHash2.h
+./include/hash/MurmurHash3.h
+./include/hash/PMurHash.h
+./include/hash/Platform.h
+./include/hash/Random.h
+./include/hash/SpeedTest.h
+./include/hash/Spooky.h
+./include/hash/Types.h
+./include/hash/base64.h
+./include/hash/md5.h
+./include/hash/sha1.h
+./include/json/json-forwards.h
+./include/json/json.h
+./include/kvstore/configdb.h
+./include/kvstore/configdbmodule.h
+./include/kvstore/kvstore.h
+./include/kvstore/platformdb.h
+./include/kvstore/redis.h
+./include/kvstore/tokenstatedb.h
+./include/leveldb/cat_journal.h
+./include/leveldb/copy_env.h
+./include/net/MockSvcHandler.h
+./include/net/PlatNetSvcHandler.h
+./include/net/SvcRequest.h
+./include/net/SvcRequestPool.h
+./include/net/SvcRequestTracker.h
+./include/net/fdssocket.h
+./include/net/net-service.h
+./include/net/net_utils.h
+./include/net/SvcMgr.h
+./include/net/SvcProcess.h
+./include/net/filetransferservice.h
+./include/net/volumegroup_extensions.h
 
 ./include/odb.h
 ./include/orch-mgr/om-service.h
@@ -590,7 +587,6 @@ set(SOURCE_FILES
     ./orch-mgr/include/snapshot/schedulertask.h
     ./orch-mgr/include/snapshot/svchandler.h
     ./orch-mgr/include/convert.h
-    ./orch-mgr/include/deletescheduler.h
     ./orch-mgr/include/om-discovery.h
     ./orch-mgr/include/om-node-workflow.h
     ./orch-mgr/include/om-platform.h
@@ -609,7 +605,6 @@ set(SOURCE_FILES
     ./orch-mgr/include/orchMgr.h
     ./orch-mgr/om-common/om-service.cpp
     ./orch-mgr/om-common/om-svc-handler.cpp
-    ./orch-mgr/om-dlt/deletescheduler.cpp
     ./orch-mgr/om-dlt/OmClusMap.cpp
     ./orch-mgr/om-dlt/OmDataPlacement.cpp
     ./orch-mgr/om-dlt/OmDeploy.cpp
@@ -620,13 +615,13 @@ set(SOURCE_FILES
     ./orch-mgr/om-dlt/OmVolPlacementAlgo.cpp
     ./orch-mgr/om-dlt/OmVolume.cpp
     ./orch-mgr/om-dlt/OmVolumePlacement.cpp
+    ./orch-mgr/om-dlt/volumedeletescheduler.cpp
     ./orch-mgr/om-lib/OmAdminCtrl.cpp
     ./orch-mgr/om-lib/OMMonitorWellKnownPMs.cpp
     ./orch-mgr/om-lib/omutils.cpp
     ./orch-mgr/om-lib/OmVolPolicy.cpp
     ./orch-mgr/om-lib/orchMgr.cpp
     ./orch-mgr/snapshot/deletedispatcher.cpp
-    ./orch-mgr/snapshot/deletescheduler.cpp
     ./orch-mgr/snapshot/deleteschedulertask.cpp
     ./orch-mgr/snapshot/manager.cpp
     ./orch-mgr/snapshot/policydispatcher.cpp
@@ -1046,6 +1041,6 @@ osdep/umod-linux/fds_osdep.cpp
     ./util/misc/stringutils.cpp
     ./util/misc/timeutils.cpp
     ./util/misc/type.cpp
-)
+        include/concurrency/flow_control.h umod-lib/concurrency/flow_control.cpp)
 
 add_executable(source ${SOURCE_FILES})

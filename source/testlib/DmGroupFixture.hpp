@@ -11,6 +11,7 @@
 #include <testlib/TestAm.hpp>
 #include <testlib/TestUtils.h>
 #include <net/VolumeGroupHandle.h>
+#include <path.h>
 
 #define MAX_OBJECT_SIZE 1024 * 1024 * 2
 
@@ -22,20 +23,30 @@ struct DmGroupFixture : BaseTestFixture {
     using OmHandle = ProcessHandle<TestOm>;
     using AmHandle = ProcessHandle<TestAm>;
 
-    void createCluster(int numDms) {
-        std::string fdsSrcPath;
-        auto findRet = findFdsSrcPath(fdsSrcPath);
-        fds_verify(findRet);
+    DmGroupFixture() :
+        sequenceId(0),
+        numOfNodes(0)
+    {}
 
-        std::string homedir = boost::filesystem::path(getenv("HOME")).string();
-        std::string baseDir =  homedir + "/temp";
-        setupDmClusterEnv(fdsSrcPath, baseDir);
+    std::vector<std::string> &getRootDirectories() {
+        if (!roots.size()) {
+            std::string fdsSrcPath;
+            auto findRet = findFdsSrcPath(fdsSrcPath);
+            fds_verify(findRet);
 
-        std::vector<std::string> roots;
-        for (int i = 1; i <= numDms; i++) {
-            roots.push_back(util::strformat("--fds-root=%s/node%d", baseDir.c_str(), i));
+            std::string homedir = boost::filesystem::path(getenv("HOME")).string();
+            std::string baseDir =  homedir + "/temp";
+
+            fds::util::populateTempRootDirectories(roots, numOfNodes);
+            setupDmClusterEnv(fdsSrcPath, baseDir);
         }
+        return roots;
+    }
 
+    void createCluster(int numDms) {
+        numOfNodes = numDms;
+
+        auto roots = getRootDirectories();
         omHandle.start({"am",
                        roots[0],
                        "--fds.pm.platform_uuid=1024",
@@ -54,8 +65,8 @@ struct DmGroupFixture : BaseTestFixture {
 
         int uuid = 2048;
         int port = 9850;
-        dmGroup.resize(numDms);
-        for (int i = 0; i < numDms; i++) {
+        dmGroup.resize(numOfNodes);
+        for (int i = 0; i < numOfNodes; i++) {
             dmGroup[i].reset(new DmHandle);
             std::string platformUuid = util::strformat("--fds.pm.platform_uuid=%d", uuid);
             std::string platformPort = util::strformat("--fds.pm.platform_port=%d", port);
@@ -112,6 +123,10 @@ struct DmGroupFixture : BaseTestFixture {
         /* open should succeed */
         openVolume(*v1, waiter);
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+    }
+
+    DMTPtr getOmDMT(DMTType type) {
+        return omHandle.proc->getSvcMgr()->getDmtManager()->getDMT(type);
     }
 
     SHPTR<VolumeDesc> generateVolume(const fds_volid_t &volId) {
@@ -252,6 +267,8 @@ struct DmGroupFixture : BaseTestFixture {
     SHPTR<VolumeGroupHandle>                v1;
     SHPTR<VolumeDesc>                       v1Desc;
     DMTPtr                                  dmt;
+    int                                     numOfNodes;
+    std::vector<std::string>                roots;
 };
 
 

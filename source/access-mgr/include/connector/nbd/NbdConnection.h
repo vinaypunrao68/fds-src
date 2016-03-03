@@ -67,6 +67,8 @@ struct NbdConnection : public BlockOperations::ResponseIFace {
     void attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) override;
     void terminate() override;
 
+    void startShutdown();
+
   private:
     template<typename T>
     using unique = std::unique_ptr<T>;

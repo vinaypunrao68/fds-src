@@ -8,6 +8,7 @@ import org.joda.time.Duration;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 
 public class RecoveryHandler implements IoOps {
@@ -23,12 +24,12 @@ public class RecoveryHandler implements IoOps {
     }
 
     @Override
-    public Optional<FdsMetadata> readMetadata(String domain, String volumeName, String blobName) throws IOException {
+    public Optional<Map<String, String>> readMetadata(String domain, String volumeName, String blobName) throws IOException {
         return attempt(() -> ops.readMetadata(domain, volumeName, blobName));
     }
 
     @Override
-    public void writeMetadata(String domain, String volumeName, String blobName, FdsMetadata metadata) throws IOException {
+    public void writeMetadata(String domain, String volumeName, String blobName, Map<String, String> metadata) throws IOException {
         attempt(() -> {
             ops.writeMetadata(domain, volumeName, blobName, metadata);
             return null;
@@ -95,7 +96,7 @@ public class RecoveryHandler implements IoOps {
 
     @Override
     public void onVolumeDeletion(String domain, String volumeName) throws IOException {
-
+        ops.onVolumeDeletion(domain, volumeName);
     }
 
     private <T> T attempt(IoSupplier<T> supplier) throws IOException {

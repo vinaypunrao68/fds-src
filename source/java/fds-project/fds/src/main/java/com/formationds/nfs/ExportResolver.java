@@ -8,8 +8,9 @@ import java.util.Collection;
 public interface ExportResolver {
     Collection<String> exportNames();
 
-    public int exportId(String volumeName);
-    public String volumeName(int volumeId);
+    public int nfsExportId(String volumeName);
+
+    public String volumeName(int nfsExportId);
     public boolean exists(String volumeName);
     public int objectSize(String volume);
 

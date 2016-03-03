@@ -68,3 +68,13 @@
     set_fact:
         om_influxdb_url: "{{ fds_om_influxdb_url if fds_om_influxdb_url is defined else 'http://'+fds_om_host+':8086' }}"
     tags: local_check
+
+-   name: check if installed with new partitioning scheme
+    shell: grep "use_new_superblock = true" /fds/etc/platform.conf
+    register: using_new_superblock
+    ignore_errors: True
+ 
+-   name: check for backward compatiblity 
+    fail:
+        msg: "This system has been installed with the new partitioning scheme, but you don't have fds_ft_platform_use_new_superblock set"
+    when: (fds_ft_platform_use_new_superblock is not defined or fds_ft_platform_use_new_superblock == "false") and (using_new_superblock is defined and using_new_superblock.rc == 0)

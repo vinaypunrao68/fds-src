@@ -4,6 +4,7 @@
 #include <string>
 #include <fdsp/svc_types_types.h>
 #include <boost/filesystem.hpp>
+#include <util/stringutils.h>
 #include <TestUtils.h>
 
 namespace fds { namespace TestUtils {

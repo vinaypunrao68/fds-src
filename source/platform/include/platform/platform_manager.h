@@ -106,8 +106,9 @@ namespace fds
                 void determineDiskCapability();
 
                 bool waitPid (pid_t pid, uint64_t waitTimeoutNanoSeconds, bool monitoring = false);
+                bool waitOrphanPid(pid_t const pid, std::string const &procName, uint64_t waitTimeoutNanoSeconds);
                 void startProcess (int id);
-                void stopProcess (int id);
+                void stopProcess (int id, bool force = false);
 
                 DiskMountMap                        diskMountMap;
 
@@ -162,6 +163,11 @@ namespace fds
                 void loadEnvironmentVariables();
                 void notifyDiskMapChange();
                 void waitForKilledProcesses();
+                bool servicePresent(fpi::FDSP_MgrIdType svc_type);
+                bool serviceRunning(fpi::FDSP_MgrIdType svc_type);
+                void stopService(fpi::FDSP_MgrIdType svc_type, bool force = false);
+                void startService(fpi::FDSP_MgrIdType svc_type);
+
         };
     }  // namespace pm
 }  // namespace fds

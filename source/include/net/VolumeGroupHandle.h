@@ -273,6 +273,7 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     inline bool isFunctional() const { return state_ == fpi::ResourceState::Active; }
     inline int64_t getGroupId() const { return groupId_; }
     inline int32_t getDmtVersion() const { return dmtVersion_; }
+    inline int32_t getVersion() const { return version_; }
     inline int32_t size() const {
         return functionalReplicas_.size() +
             nonfunctionalReplicas_.size() +
@@ -326,6 +327,8 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     fpi::VolumeGroupInfo getGroupInfoForExternalUse_();
     VolumeReplicaHandleItr getVolumeReplicaHandle_(const fpi::SvcUuid &svcUuid);
     VolumeReplicaHandleList& getVolumeReplicaHandleList_(const fpi::ResourceState& s);
+    void scheduleCheckOnNonfunctionalReplicas_();
+    void checkOnNonFunctaionalReplicas_();
 
     SynchronizedTaskExecutor<uint64_t>  *taskExecutor_;
     SvcRequestPool                      *requestMgr_;
@@ -361,6 +364,8 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
      * VolumeGroupHandle is zero
      */
     VoidCb                              closeCb_;
+    /* Whether check on non-functional replicas is in progress */
+    bool                                checkOnNonFunctionalScheduled_;
 
     static const uint32_t               WRITEOPS_BUFFER_SZ = 1024;
 
@@ -408,8 +413,7 @@ void VolumeGroupHandle::sendCommitMsg(const fpi::FDSPMsgTypeId &msgTypeId,
 
         opSeqNo_++;
         commitNo_++;
-        // TODO(Rao): We should set sequence_id here
-        fds_assert(msg->sequence_id == commitNo_);
+        msg->sequence_id = commitNo_;
         sendWriteReq_<MsgT, VolumeGroupBroadcastRequest>(msgTypeId, msg, cb);
     });
 }

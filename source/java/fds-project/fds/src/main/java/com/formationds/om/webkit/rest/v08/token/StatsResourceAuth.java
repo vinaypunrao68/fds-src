@@ -24,6 +24,7 @@ public class StatsResourceAuth implements RequestHandler {
 	private static final String WRITE = "write";
 	private static final String QUEUE = "queue";
 	private static final String EXCHANGE = "exchange";
+	private static final String AMQ_GEN = "amq.gen";
 	
 	@Override
 	public Resource handle(Request request, Map<String, String> routeParameters)
@@ -118,6 +119,10 @@ public class StatsResourceAuth implements RequestHandler {
 			else if ( name.equals( "stats.aggregation" ) ) {
 				
 				perms.add( READ );
+				perms.add( CONFIGURE );
+				perms.add( WRITE );
+			}
+			else if ( name.startsWith( AMQ_GEN ) ){
 				perms.add( CONFIGURE );
 				perms.add( WRITE );
 			}

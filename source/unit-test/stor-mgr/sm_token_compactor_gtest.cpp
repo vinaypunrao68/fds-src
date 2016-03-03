@@ -321,12 +321,11 @@ TEST_F(SmTokenCompactorTest, normal_operation) {
         err = tokenCompactor->startCompaction(tokId, diskId, tier, false, std::bind(
             &SmTokenCompactorTest::compactionDoneCb, this,
             std::placeholders::_1, std::placeholders::_2));
-        EXPECT_TRUE(err.ok());
 
         // wait on condition variable to get notified
         // when compaction is done
         std::unique_lock<std::mutex> lk(cond_mutex);
-        if (done_cond.wait_for(lk, std::chrono::milliseconds(10000),
+        if (done_cond.wait_for(lk, std::chrono::milliseconds(40000),
                                [this](){return atomic_load(&compaction_done);})) {
            GLOGNOTIFY << "Finished waiting on compaction done condition!";
         } else {
