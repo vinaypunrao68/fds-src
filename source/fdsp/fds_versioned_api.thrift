@@ -8,12 +8,25 @@ include "common.thrift"
 namespace cpp fds.apis
 namespace java com.formationds.apis
 
+/**
+ * See the Semantic Versioning Specification (SemVer) http://semver.org.
+ *
+ *  - Major: Incremented for backward incompatible changes. An example would
+ *           be changes to the number or disposition of method arguments.
+ *  - Minor: Incremented for backward compatible changes. An example would
+ *           be the addition of a new (optional) method.
+ *  - Patch: Incremented for bug fixes. The patch level should be increased
+ *           for every edit that doesn't result in a change to major/minor.
+ */
 struct Version {
   1: i32 major_version;
   2: i32 minor_version;
   3: i32 patch_version;
 }
 
+/**
+ * The API version (NOT the product version).
+ */
 struct ServiceAPIVersion {
   1: string service_family;
   2: string service_name;
@@ -22,24 +35,38 @@ struct ServiceAPIVersion {
 }
 
 /**
- * Base service for FDS versioned service.
- * Development rules for extensions of this service: 
+ * @brief Base service for FDS versioned service.
+ *
+ * @detail
+ * Each FDS Thrift service can be independently versioned.
+ * Provides a consistent interface for versioned services.
+ *
+ * See development rules and guidelines:
+ *
  *   https://formationds.atlassian.net/wiki/display/ENG/Thrift+API+Versions
  */
 service VersionedService {
 
+  /**
+   * @brief Gets the API version for the service handler
+   */
   Version getVersion(1: i64 nullarg) throws (1: common.ApiException e);
 
   /**
-   * Get the version table for the service. Enables user of client stubs to feed
-   * service names to a client stub factory in decreasing version number order.
+   * @brief Gets the version table for the service.
+   * @detail
+   * The table will have a row for every major API version.
    */
   list<ServiceAPIVersion> getVersionTable(1: i64 nullarg) throws (1: common.ApiException e);
 
   /**
-   * @param stubVersion: The service version suggested by the client stub
+   * @brief Given a suggested API version, returns an acceptable version.
+   *        This enables the client and server to negotiate an API version
+   *        in which to communicate.
+   *
+   * @param suggestedVersion: The service version suggested by the client stub
    *
    * @returns Version: The service version acceptable to the endpoint server
    */
-  Version suggestVersion(1: required Version stubVersion) throws (1: common.ApiException e);
+  Version suggestVersion(1: required Version suggestedVersion) throws (1: common.ApiException e);
 }
