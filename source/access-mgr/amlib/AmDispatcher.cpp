@@ -309,12 +309,12 @@ AmDispatcher::commitBlobTx(AmRequest* amReq) {
      * FEATURE TOGGLE: VolumeGrouping
      * Thu Jan 14 10:39:09 2016
      */
-    auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
     if (!volume_grouping_support) {
+        auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
         message->dmt_version = amReq->dmt_version;
         writeToDM(blobReq, message, &AmDispatcher::commitBlobTxCb);
     } else {
-        volumeGroupCommit(blobReq, message, &AmDispatcher::_commitBlobTxCb, std::move(vLock));
+        volumeGroupCommit(blobReq, message, &AmDispatcher::_commitBlobTxCb);
     }
 }
 
@@ -535,13 +535,13 @@ AmDispatcher::updateCatalog(AmRequest* amReq) {
      * FEATURE TOGGLE: VolumeGrouping
      * Thu Jan 14 10:39:09 2016
      */
-    auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
     if (!volume_grouping_support) {
+        auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
         blobReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
         message->dmt_version = blobReq->dmt_version;
         writeToDM(blobReq, message, &AmDispatcher::updateCatalogCb, message_timeout_io);
     } else {
-        volumeGroupCommit(blobReq, message, &AmDispatcher::_updateCatalogCb, std::move(vLock));
+        volumeGroupCommit(blobReq, message, &AmDispatcher::_updateCatalogCb);
     }
 }
 
@@ -567,13 +567,13 @@ AmDispatcher::renameBlob(AmRequest* amReq) {
      * FEATURE TOGGLE: VolumeGrouping
      * Thu Jan 14 10:39:09 2016
      */
-    auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
     if (!volume_grouping_support) {
+        auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
         blobReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
         message->dmt_version = blobReq->dmt_version;
         writeToDM(blobReq, message, &AmDispatcher::renameBlobCb, message_timeout_io);
     } else {
-        volumeGroupCommit(blobReq, message, &AmDispatcher::_renameBlobCb, std::move(vLock));
+        volumeGroupCommit(blobReq, message, &AmDispatcher::_renameBlobCb);
     }
 }
 
@@ -622,12 +622,12 @@ AmDispatcher::setVolumeMetadata(AmRequest* amReq) {
      * FEATURE TOGGLE: VolumeGrouping
      * Thu Jan 14 10:39:09 2016
      */
-    auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
     if (!volume_grouping_support) {
+        auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
         volReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
         writeToDM(volReq, message, &AmDispatcher::setVolumeMetadataCb);
     } else {
-        volumeGroupCommit(volReq, message, &AmDispatcher::_setVolumeMetadataCb, std::move(vLock));
+        volumeGroupCommit(volReq, message, &AmDispatcher::_setVolumeMetadataCb);
     }
 }
 

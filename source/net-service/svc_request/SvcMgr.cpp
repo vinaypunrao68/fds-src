@@ -393,6 +393,10 @@ bool SvcMgr::getSvcHandle_(const fpi::SvcUuid &svcUuid, SvcHandlePtr& handle) co
 void SvcMgr::sendAsyncSvcReqMessage(fpi::AsyncHdrPtr &header,
                                  StringPtr &payload)
 {
+    LOGTRACE << "ASYNC_REQUEST_SEND  ["
+             << static_cast<SvcRequestId>(header->msg_src_id) << "]: "
+             << fds::logString(*header);
+
     SvcHandlePtr svcHandle;
     fpi::SvcUuid &svcUuid = header->msg_dst_uuid;
 
@@ -420,6 +424,11 @@ void SvcMgr::sendAsyncSvcReqMessage(fpi::AsyncHdrPtr &header,
 void SvcMgr::sendAsyncSvcRespMessage(fpi::AsyncHdrPtr &header,
                                      StringPtr &payload)
 {
+
+    LOGTRACE << "ASYNC_RESPONSE_SEND  ["
+             << static_cast<SvcRequestId>(header->msg_src_id) << "]: "
+             << fds::logString(*header);
+
     SvcHandlePtr svcHandle;
     fpi::SvcUuid &svcUuid = header->msg_dst_uuid;
 

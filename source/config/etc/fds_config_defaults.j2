@@ -165,6 +165,8 @@
 {% set ft_configsvc_rest_client_proxy_v08         = fds_ft_configsvc_rest_client_proxy_v08         if fds_ft_configsvc_rest_client_proxy_v08         is defined else 'true'  %}
 {% set ft_use_shared_queryhelper                  = fds_ft_use_shared_queryhelper                  if fds_ft_use_shared_queryhelper                  is defined else 'true'  %}
 {% set ft_send_to_new_stats_service               = fds_ft_send_to_new_stats_service               if fds_ft_send_to_new_stats_service               is defined else 'false' %}
+{% set ft_enable_stats_service_query = fds_ft_enable_stats_service_query if fds_ft_enable_stats_service_query is defined else 'false' %}
+{% set ft_enable_influx_persistence = fds_ft_enable_influx_persistence if fds_ft_enable_influx_persistence is defined else 'true' %}
 {% set ft_enable_domain_web_filter                = fds_ft_enable_domain_web_filter                if fds_ft_enable_domain_web_filter                is defined else 'false'  %}
 {#
     Java Options -- not stored in platform.conf, but rather in formation_env and ultimately in environment variables
