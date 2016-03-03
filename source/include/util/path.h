@@ -41,7 +41,7 @@ bool removePATH(const std::string& path);
 std::string which(const std::string& path);
 
 // used by test and drivers to populate root directories
-void populateRootDirectories(std::vector<std::string> &roots, int numOfNodes);
+void populateTempRootDirectories(std::vector<std::string> &roots, int numOfNodes);
 }  // namespace util
 }  // namespace fds
 

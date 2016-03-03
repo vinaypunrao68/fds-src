@@ -39,8 +39,8 @@ void NbdConnector::start(std::weak_ptr<AmProcessor> processor) {
 }
 
 void NbdConnector::stop() {
-    if (instance_ && instance_->asyncWatcher) {
-       instance_->asyncWatcher->send();
+    if (instance_) {
+        instance_->startShutdown();
     }
 }
 
@@ -51,6 +51,15 @@ NbdConnector::NbdConnector(std::weak_ptr<AmProcessor> processor,
           amProcessor(processor) {
     LOGDEBUG << "Initialized server with: " << followers << " followers.";
     initialize();
+}
+
+void NbdConnector::startShutdown() {
+    std::lock_guard<std::mutex> g(connection_lock);
+    stopping = true;
+    for (auto& connection_pair : connection_map) {
+        connection_pair.second->startShutdown();
+    }
+    asyncWatcher->send();
 }
 
 void NbdConnector::initialize() {
@@ -158,6 +167,7 @@ void NbdConnector::configureSocket(int fd) const {
 
 void
 NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
+    if (stopping) return;
     if (EV_ERROR & revents) {
         LOGERROR << "Got invalid libev event";
         return;
