@@ -19,6 +19,8 @@ struct NbdConnection;
 struct NbdConnector
     : public LeaderFollower
 {
+    NbdConnector(NbdConnector const& rhs) = delete;
+    NbdConnector& operator=(NbdConnector const& rhs) = delete;
     ~NbdConnector() = default;
 
     static void start(std::weak_ptr<AmProcessor> processor);
@@ -43,6 +45,10 @@ struct NbdConnector
 
     using map_type = std::map<int, connection_ptr>;
 
+    static std::unique_ptr<NbdConnector> instance_;
+
+    bool stopping {false};
+
     std::mutex connection_lock;
     map_type connection_map;
 
@@ -51,20 +57,15 @@ struct NbdConnector
     std::unique_ptr<ev::async> asyncWatcher;
     std::weak_ptr<AmProcessor> amProcessor;
 
+    NbdConnector(std::weak_ptr<AmProcessor> processor,
+                 size_t const followers);
+
     int createNbdSocket();
     void configureSocket(int fd) const;
     void initialize();
     void reset();
     void nbdAcceptCb(ev::io &watcher, int revents);
-
-    NbdConnector(std::weak_ptr<AmProcessor> processor,
-                 size_t const followers);
-    NbdConnector(NbdConnector const& rhs) = delete;
-    NbdConnector& operator=(NbdConnector const& rhs) = delete;
-
-    static std::unique_ptr<NbdConnector> instance_;
-
-  public:
+    void startShutdown();
 };
 
 }  // namespace fds

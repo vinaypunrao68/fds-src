@@ -77,6 +77,9 @@ public class ExternalModelConverter {
     private static final String OBJECT_SIZE_NOT_SET =
         "Maximum object size was either not set, or outside the bounds of 4KB-8MB so it is being " +
         "set to the default of 2MB";
+    private static final String NFS_SIZE_NOT_SET =
+        "Maximum object size was either not set, or outside the bounds of 4KB-1MB so it is being " +
+        "set to the default of 1MB";
     private static final String BLOCK_SIZE_NOT_SET =
         "Block size was either not set, or outside the bounds of 4KB-8MB so it is being set to " +
         "the default of 128KB";
@@ -84,6 +87,7 @@ public class ExternalModelConverter {
     private static ConfigurationApi configApi;
     private static final Integer DEF_BLOCK_SIZE  = (1024 * 128);
     private static final Integer DEF_OBJECT_SIZE = ((1024 * 1024) * 2);
+    private static final Integer DEF_NFS_SIZE = ((1024 * 1024) * 1);
     private static final Logger  logger          = LoggerFactory.getLogger( ExternalModelConverter.class );
 
     public static Domain convertToExternalDomain( LocalDomainDescriptor internalDomain ) {
@@ -1204,7 +1208,7 @@ public class ExternalModelConverter {
                  maxObjSize.getValue( SizeUnit.B ).longValue() >= Size.of( 4, SizeUnit.KB )
                                                                       .getValue( SizeUnit.B )
                                                                       .longValue() &&
-                 maxObjSize.getValue( SizeUnit.B ).longValue() <= Size.of( 8, SizeUnit.MB )
+                 maxObjSize.getValue( SizeUnit.B ).longValue() <= Size.of( 1, SizeUnit.MB )
                                                                       .getValue( SizeUnit.B )
                                                                       .longValue() )
             {
@@ -1213,8 +1217,8 @@ public class ExternalModelConverter {
             }
             else
             {
-                logger.warn( OBJECT_SIZE_NOT_SET );
-                internalSettings.setMaxObjectSizeInBytes( DEF_OBJECT_SIZE );
+                logger.warn( NFS_SIZE_NOT_SET );
+                internalSettings.setMaxObjectSizeInBytes( DEF_NFS_SIZE );
             }
 
             final NfsOption options = new NfsOption( );

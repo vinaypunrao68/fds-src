@@ -4,7 +4,7 @@
 
 
 # For long system test, disable only DmMigrationFailover
-DISABLED_SYSTEM_TEST_SCENARIO_LIST="DmMigrationFailover"
+DISABLED_SYSTEM_TEST_SCENARIO_LIST="DmMigrationFailover ActiveMigration"
 
 if [[ "${1}" == "smoke_test_only" ]]
 then

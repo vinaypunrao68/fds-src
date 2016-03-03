@@ -516,8 +516,8 @@ Error DmTimeVolCatalog::updateFwdCommittedBlob(fds_volid_t volid,
 
         if (objList.size() > 0) {
             BlobObjList::ptr olist(new(std::nothrow) BlobObjList(objList));
-            // TODO(anna) pass truncate op, for now always truncate
-            olist->setEndOfBlob();
+            // never trunctating is less bad than always truncating. hopefully forwarding is going away soon.
+            //olist->setEndOfBlob();
 
             if (metaList.size() > 0) {
                 MetaDataList::ptr mlist(new(std::nothrow) MetaDataList(metaList));
@@ -596,14 +596,9 @@ DmTimeVolCatalog::getUsedCapacityAsPct() {
               << DISK_CAPACITY_WARNING_THRESHOLD + 1; \
               return DISK_CAPACITY_WARNING_THRESHOLD + 1; );
 
-    // Get fds root dir
-    const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
-    // Get sys-repo dir
-    DiskUtils::CapacityPair cap = DiskUtils::getDiskConsumedSize(root->dir_sys_repo_dm());
-
-    // Calculate pct
-    float_t result = ((1. * cap.usedCapacity) / cap.totalCapacity) * 100;
-    GLOGDEBUG << "Found DM disk capacity of (" << cap.usedCapacity << "/" << cap.totalCapacity << ") = " << result;
+    // Calculate disk usage capacity pct
+    float_t result = dmutil::getUsedCapacityOfSysRepo(MODULEPROVIDER()->proc_fdsroot());
+    GLOGDEBUG << "Found DM sys-repo disk capacity of " << result;
 
     return result;
 }
