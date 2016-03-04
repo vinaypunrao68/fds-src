@@ -30,10 +30,10 @@ TEST_F(VolumeGroupFixture, scannerInitialization) {
     auto catalogPtr = dmGroup[0]->proc->getDataMgr()->getPersistDB(v1Id)->getCatalog();
     auto threadpoolPtr = dmGroup[0]->proc->getDataMgr()->qosCtrl->threadPool;
 
-    std::list<leveldb::Slice> batchSlice;
+    std::list<CatalogKVPair> batchSlice;
     CatalogScanner::progress scannerProgress;
 
-    auto batchCb = [&batchSlice](std::list<leveldb::Slice> &batchSlice) {
+    auto batchCb = [&batchSlice](std::list<CatalogKVPair> &batchSlice) {
         // TODO
     };
 
@@ -45,6 +45,13 @@ TEST_F(VolumeGroupFixture, scannerInitialization) {
                            10,
                            batchCb,
                            scannerCb);
+
+    ASSERT_TRUE(scanner.getProgress() == CatalogScanner::progress::CS_INIT);
+
+    scanner.start();
+    sleep(1);
+
+    ASSERT_TRUE(scanner.getProgress() == CatalogScanner::progress::CS_DONE);
 
 }
 

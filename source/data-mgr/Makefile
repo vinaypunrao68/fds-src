@@ -5,7 +5,10 @@ speedup           = -j $(threads)
 user_rtime_env    := user
 user_build_dir    := include dm-lib utils
 
-user_incl_dir     := include $(topdir)
+user_incl_dir     := include \
+                     $(topdir)/include \
+                     $(topdir)/lib \
+                     $(topdir)
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \

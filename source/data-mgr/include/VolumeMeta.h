@@ -24,6 +24,7 @@
 #include <DmMigrationSrc.h>
 #include <VolumeInitializer.h>
 #include <dm-vol-cat/DmPersistVolDB.h>
+#include <CatalogScanner.h>
 
 #include <FdsCrypto.h>
 
@@ -354,16 +355,16 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
 
     // Context for requests that ask for hash calculations, such as volume checker
     // Everything done here must be synchronized on FdsSysTaskQueueId
-    struct hashCalcContext {
-        explicit hashCalcContext(DmRequest *req,
+    struct HashCalcContext {
+        explicit HashCalcContext(DmRequest *req,
                                 fpi::SvcUuid _reqUUID,
                                 int _batchSize);
-        ~hashCalcContext();
+        ~HashCalcContext();
 
         enum progressE {
             HC_INIT,            // Initialized
-            HC_GETTING_META,    // Getting a list of blobs metadata (i.e. iterative)
             HC_HASHING,         // hashing things using the hasher
+            HC_DONE,            // Done hashing and the value is legit
             HC_ERROR
         };
         progressE progress;
@@ -391,19 +392,28 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
         int batchSize;
 
         // Result to be sent back as part of the cb
-        unsigned hashResult;
+        uint8_t hashResult;
 
         // A list of all the blobs that we'll need to get offsets for, and hash
         fpi::BlobDescriptorListType *bdescr_list;
         // Bookmark for whichever blob that we're currently hashing the offsets on
         fpi::BlobDescriptorListType::const_iterator bl_citer;
+
+        // Given a slice, hash the data
+        void hashThisSlice(CatalogKVPair &pair);
+
+        // Computes the hash and store the result in hashResult
+        void computeCompleteHash();
     };
     // nullptr if no operation is ongoing, otherwise, we only allow 1 hashing op to occur
     // No need for locking since we require things to be done in synchronized context
-    hashCalcContext *hashCalcContextPtr;
+    HashCalcContext *hashCalcContextPtr;
+
+    // Used to iteratively get all the data for hashing
+    CatalogScanner *scannerPtr;
 
     /**
-     * Given a hashCalcContext that's been established, execute the next step.
+     * Given a HashCalcContext that's been established, execute the next step.
      * Either do the initial hash, continue hash, or send result back
      */
     void doHashTaskOnContext();
