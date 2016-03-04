@@ -310,6 +310,7 @@ def snapshot_created(self, volume, pattern):
     found_snapshot = False
     for snapshot in snapshot_list:
         snapshot_name = snapshot.name
+        # TODO pooja: after fs-5246 is fixed put check on number of snapshots created.
         if snapshot_name.startswith(pattern):
             found_snapshot = True
             self.log.info("OK: {0} is available for {1} , vol_id = {2}".format(snapshot_name, volume.name, volume.id))
