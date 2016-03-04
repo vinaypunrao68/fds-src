@@ -255,9 +255,9 @@ function startApp() {
                         ;;
                     om)
                         if [[ ! -z "${OM_DEBUG_PORT}" ]]; then
-                            params="--fds.feature_toggle.common.volumegrouping_dm_cluster_size=1 --debug-port=${OM_DEBUG_PORT}"
+                            params="--fds.feature_toggle.common.volumegrouping_dm_cluster_size=1 --debug-port=${OM_DEBUG_PORT} --fds.om.replica_factor=1"
                         else
-                            params="--fds.feature_toggle.common.volumegrouping_dm_cluster_size=1"
+                            params="--fds.feature_toggle.common.volumegrouping_dm_cluster_size=1 --fds.om.replica_factor=1"
                         fi
                         ;;
                     xdi)
