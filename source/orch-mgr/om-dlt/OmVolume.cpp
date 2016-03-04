@@ -1434,7 +1434,6 @@ Error VolumeContainer::getVolumeStatus(const std::string& volumeName) {
     VolumeInfo::pointer  vol = get_volume(volumeName);
     if (vol == NULL
         || vol->isDeletePending()
-        || vol->isStateOffline()
         || vol->isStateDeleted()
         || vol->isStateMarkedForDeletion()) {
         return ERR_NOT_FOUND;
