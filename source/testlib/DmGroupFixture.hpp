@@ -37,7 +37,7 @@ struct DmGroupFixture : BaseTestFixture {
             std::string homedir = boost::filesystem::path(getenv("HOME")).string();
             std::string baseDir =  homedir + "/temp";
 
-            fds::util::populateRootDirectories(roots, numOfNodes);
+            fds::util::populateTempRootDirectories(roots, numOfNodes);
             setupDmClusterEnv(fdsSrcPath, baseDir);
         }
         return roots;

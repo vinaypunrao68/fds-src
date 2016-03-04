@@ -41,9 +41,12 @@ DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManage
     REGISTER_FDSP_MSG_HANDLER(fpi::ArchiveMsg, handleArchive);
     REGISTER_FDSP_MSG_HANDLER(fpi::ArchiveRespMsg, handleArchiveResp);
 
+    /* Volume Group messages */
     registerDmVolumeReqHandler<DmIoVolumegroupUpdate>();
     registerDmVolumeReqHandler<DmIoFinishStaticMigration>();
 
+    /* Volume Checker messages */
+    registerDmVolumeReqHandler<DmIoVolumeCheck>();
 }
 
 // notifySvcChange

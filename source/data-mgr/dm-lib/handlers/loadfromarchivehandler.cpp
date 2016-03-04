@@ -65,7 +65,7 @@ void LoadFromArchiveHandler::handleQueueItem(DmRequest* dmRequest) {
 
     const VolumeDesc * voldesc = dataManager.getVolumeDesc(volId);
     if (!voldesc) {
-        LOGERROR << "Volume entry not found in descriptor map for volume '" << volId << "'";
+        LOGERROR << "Volume entry not found in descriptor map for vol:" << volId;
         helper.err = ERR_VOL_NOT_FOUND;
     } else {
         
@@ -97,6 +97,19 @@ void LoadFromArchiveHandler::handleQueueItem(DmRequest* dmRequest) {
             LOGDEBUG << "removing db-archive: " << archiveFile;
             boost::filesystem::remove(archiveFile);
         }        
+    }
+
+    if (helper.err.ok()) {
+        LOGNORMAL << "initing seqid and stuff";
+        auto volMeta = dataManager.getVolumeMeta(volId);
+        if (volMeta != nullptr) {
+            Error err = volMeta->initState();
+            if (!err.ok()) {
+                LOGERROR << "vol:" << volId << " init vol state failed";
+            }
+        } else {
+            LOGERROR << "vol:" << volId << " unable to locate volMeta";
+        }
     }
 
     if (!helper.err.ok()) {
