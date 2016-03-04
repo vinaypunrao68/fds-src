@@ -37,8 +37,6 @@ import org.apache.log4j.Logger;
 import org.apache.thrift.server.TNonblockingServer;
 import org.apache.thrift.transport.TNonblockingServerSocket;
 import org.apache.thrift.transport.TTransportException;
-import org.eclipse.jetty.io.ArrayByteBufferPool;
-import org.eclipse.jetty.io.ByteBufferPool;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -236,7 +234,7 @@ public class Main {
                 s3MaxConcurrentRequests).start(), "S3 service thread").start();
 
         // Experimental: XDI server
-        SvcState svc = new SvcState(HostAndPort.fromParts("*", amResponsePort), HostAndPort.fromParts(omHost, 7004), UUID.randomUUID().getLeastSignificantBits());
+        SvcState svc = new SvcState(HostAndPort.fromParts("*", amResponsePort + 1), HostAndPort.fromParts(omHost, 7004), UUID.randomUUID().getLeastSignificantBits());
         svc.openAndRegister();
         SvcAsyncAm svcLayer = new SvcAsyncAm(svc);
         IoOps ioOps = new DeferredIoOps(new AmOps(svcLayer), v -> {
