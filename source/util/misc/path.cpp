@@ -167,7 +167,7 @@ bool removePATH(const std::string& path) {
     return false;
 }
 
-void populateRootDirectories(std::vector<std::string> &roots, int numOfNodes)
+void populateTempRootDirectories(std::vector<std::string> &roots, int numOfNodes)
 {
     std::string homedir = boost::filesystem::path(getenv("HOME")).string();
     std::string baseDir =  homedir + "/temp";

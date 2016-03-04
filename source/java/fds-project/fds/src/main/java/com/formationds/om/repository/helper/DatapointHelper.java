@@ -4,10 +4,10 @@
 
 package com.formationds.om.repository.helper;
 
-import com.formationds.commons.model.Datapoint;
-import com.formationds.commons.model.builder.DatapointBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.formationds.commons.model.Datapoint;
 
 import java.util.Collections;
 import java.util.Comparator;
@@ -56,9 +56,12 @@ public class DatapointHelper {
         long epoch = start;
         for( int i = 0; i < count; i++ ) {
 
-            datapoints.add( i, new DatapointBuilder().withX( new Double( epoch ) )
-                                                     .withY( 0.0 )
-                                                     .build() );
+            Datapoint dp = new Datapoint();
+            dp.setX(  new Double( epoch ) );
+            dp.setY(  0.0 );
+            
+            datapoints.add( i, dp );
+            
             epoch += interval;
         }
     }

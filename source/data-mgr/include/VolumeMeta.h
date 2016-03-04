@@ -25,6 +25,8 @@
 #include <VolumeInitializer.h>
 #include <dm-vol-cat/DmPersistVolDB.h>
 
+#include <FdsCrypto.h>
+
 namespace fds {
 
 struct EPSvcRequest;
@@ -176,7 +178,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     };
 
     /**
-    * @brief Returns wrapper function around f that exectues f in volume synchronized
+    * @brief Returns wrapper function around f that executes f in volume synchronized
     * context
     */
     template<typename FunctionType>
@@ -248,6 +250,20 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     VolumeInitializerPtr                    initializer;
     uint32_t                                initializerTriesCnt;
     uint32_t                                maxInitializerTriesCnt;
+
+    /**
+     * Hash context public methods
+     */
+    Error createHashCalcContext(DmRequest *req,
+                                fpi::SvcUuid _reqUUID,
+                                int batchSize);
+
+    /**
+     * For unit testing
+     */
+    inline bool hashCalcContextExists() {
+        return (hashCalcContextPtr != nullptr);
+    }
 
  private:
     friend class DmMigrationMgr;
@@ -336,6 +352,50 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
      * Stores the hook for Callback to the volume group manager
      */
     StatusCb cbToVGMgr;
+
+    // Context for requests that ask for hash calculations, such as volume checker
+    // Everything done here must be synchronized on FdsSysTaskQueueId
+    struct hashCalcContext {
+        explicit hashCalcContext(DmRequest *req,
+                                fpi::SvcUuid _reqUUID,
+                                int _batchSize);
+        ~hashCalcContext();
+
+        /**
+         * The sha1 class related to this context.
+         * Each batch pass, we update the sha1 calculation.
+         * Once the last batch is processed, we call final on it.
+         */
+        hash::Sha1 hasher;
+
+        // Sends the callback with an error code
+        void sendCb();
+
+        // Node (could be self) that requested the operation
+        fpi::SvcUuid requesterUUID;
+
+        // typedRequest to send back to the requester
+        DmIoVolumeCheck *typedRequest;
+
+        // Current context error code
+        Error contextErr;
+
+        // Max entries of levelDB walk before looping back to another system queue req
+        int batchSize;
+
+        // Result to be sent back as part of the cb
+        unsigned hashResult;
+
+    };
+    // nullptr if no operation is ongoing, otherwise, we only allow 1 hashing op to occur
+    // No need for locking since we require things to be done in synchronized context
+    hashCalcContext *hashCalcContextPtr;
+
+    /**
+     * Given a hashCalcContext that's been established, execute the next step.
+     * Either do the initial hash, continue hash, or send result back
+     */
+    void doHashTaskOnContext();
 };
 
 using VolumeMetaPtr = SHPTR<VolumeMeta>;

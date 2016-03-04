@@ -15,6 +15,8 @@ private static final long serialVersionUID = 7313793869030172350L;
   private Double x;         // x-axis data point
   private Double y;         // y-axis time point
 
+  public Datapoint(){}
+  
   /**
    * @return Returns the {@link Long} representing the x-axis
    */
