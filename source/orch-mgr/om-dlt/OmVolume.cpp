@@ -1074,6 +1074,15 @@ VolumeInfo::vol_modify(const boost::shared_ptr<VolumeDesc>& vdesc_ptr)
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     FdsAdminCtrl        *admin = local->om_get_admin_ctrl();
 
+    if ( vdesc_ptr->isStateMarkedForDeletion() )
+    {
+        // If this volume marked for deletion do not bcast; we are here
+        // when clearing coordinator info for all volumes, skip
+        GLOGDEBUG << "vol_modify for vol " << vdesc_ptr->name
+                  << " will return without taking any action, vol is marked for deletion";
+        return err;
+    }
+
     // Check if this volume can go through admission control with modified policy info
     //
     err = admin->checkVolModify(vol_get_properties(), vdesc_ptr.get());
