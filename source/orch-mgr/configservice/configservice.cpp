@@ -939,8 +939,10 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         VolumeInfo::pointer vol = volContainer->get_volume(*volumeName);
         Error err = volContainer->getVolumeStatus(*volumeName);
-        if (err == ERR_OK)
-        {
+        if (err == ERR_OK) {
+            if (0 == strcmp("DetachPend" , vol->vol_current_state())) {
+                apiException( "Existing volume ( " + *volumeName + " ) is being detached from AMs.. please try again", fpi::RESOURCE_ALREADY_EXISTS);
+            }
             apiException( "Volume ( " + *volumeName + " ) already exists", fpi::RESOURCE_ALREADY_EXISTS);
         }
 
@@ -951,8 +953,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                                          *domainName, *volumeName, *volumeSettings);
         request->vol_info.tennantId = *tenantId;
         err = volContainer->om_create_vol(header, request);
-        if ( err != ERR_OK )
-        {
+        if ( err != ERR_OK ) {
             apiException( "Error creating volume ( " + *volumeName + " ) - " + err.GetErrstr() );
         }
 
@@ -963,13 +964,13 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             usleep(500000);  // 0.5s
             vol = volContainer->get_volume(*volumeName);
             count--;
-        } while (count > 0 && vol && !vol->isStateActive());
+        } while (count > 0 && vol && !(vol->isStateActive() || vol->isStateMarkedForDeletion()) );
 
-        if (!vol || !vol->isStateActive())
-        {
-            std::string emsg = "Error creating volume ( " + *volumeName + " ) - Timeout waiting for volume to become ACTIVE";
-            LOGERROR << emsg;
-            apiException( emsg );
+        if (!vol || !vol->isStateActive()) {
+            if (vol && vol->isStateMarkedForDeletion()) {
+                apiException( "Volume creation failed for ( " + *volumeName + " )");
+            }
+            apiException( "Error creating volume ( " + *volumeName + " ) - Timeout waiting for volume to become ACTIVE" );
         }
     }
 
@@ -1065,8 +1066,15 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         Error err = volContainer->getVolumeStatus(*volumeName);
+        VolumeInfo::pointer vol = volContainer->get_volume(*volumeName);
 
-        if (err != ERR_OK) apiException("volume ( " + *volumeName + " ) does NOT exist", fpi::MISSING_RESOURCE);
+        if (err != ERR_OK) {
+            apiException("volume ( " + *volumeName + " ) does NOT exist", fpi::MISSING_RESOURCE);
+        } else {
+            if (0 == strcmp("DetachPend" , vol->vol_current_state())) {
+                apiException( "Volume ( " + *volumeName + " ) is already being deleted");
+            }
+        }
 
         fpi::FDSP_MsgHdrTypePtr header;
         apis::FDSP_DeleteVolTypePtr request;
@@ -1387,10 +1395,13 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         if (!om->enableTimeline) {
             apiException("attempting to clone volume but feature disabled");
         }
-
+        Error err = volContainer->getVolumeStatus(*clonedVolumeName);
         vol = volContainer->get_volume(*clonedVolumeName);
-        if (vol != NULL) {
+        if (err.ok()) {
             LOGWARN << "volume with same name already exists : " << *clonedVolumeName;
+            if (0 == strcmp("DetachPend" , vol->vol_current_state())) {
+                apiException( "Existing volume ( " + *clonedVolumeName + " ) is being deleted.. please try again", fpi::RESOURCE_ALREADY_EXISTS);
+            }
             apiException("volume with same name already exists");
         }
 
