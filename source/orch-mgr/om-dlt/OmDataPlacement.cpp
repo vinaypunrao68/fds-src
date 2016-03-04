@@ -1050,11 +1050,20 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services,
             return err;
         }
     } else {
-        // we got > 0 nodes from configDB but there is no DLT
-        // going to throw away persistent state, because there is a mismatch
-        LOGWARN << "No current DLT even though we persisted "
-                << sm_services.size() << " nodes";
-        return Error(ERR_PERSIST_STATE_MISMATCH);
+
+        if ( deployed_sm_services.size() < curDltDepth )
+        {
+            LOGNOTIFY << "Only " << deployed_sm_services.size() << " known SMs"
+                      << " in the domain. No committed DLT yet which is OK";
+            return Error(ERR_OK);
+
+        } else {
+            // we got >= curDltDepth(replica_factor) nodes from configDB but there is no DLT
+            // going to throw away persistent state, because there is a mismatch
+            LOGWARN << "No current DLT even though we persisted "
+                    << sm_services.size() << " nodes";
+            return Error(ERR_PERSIST_STATE_MISMATCH);
+        }
     }
 
     // If we saved target DLT version, we were in the middle of migration
