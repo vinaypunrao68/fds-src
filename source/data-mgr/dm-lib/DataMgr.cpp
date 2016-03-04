@@ -50,7 +50,7 @@ struct RemoveErroredVolume {
             dm->vol_meta_map.erase(iter);
             LOGERROR << "vol:" << vol_uuid << " add volume failed";
         } else {
-            LOGNORMAL << "vol:" << vol_uuid << "added successfully";
+            LOGNORMAL << "vol:" << vol_uuid << " added successfully";
         }
     }
     DataMgr* dm;
@@ -578,7 +578,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
     }
 
     if (fOldVolume && !fDbExists) {
-        LOGWARN << "previously active vol:"<< vdesc->volUUID <<", but dbfile missing.. this should be either be a new Node or DM was down during previous addVolume";
+        LOGWARN << "previously active vol:"<< vdesc->volUUID <<" but dbfile missing.. this should be either be a new Node or DM was down during previous addVolume";
     }
 
     if (vdesc->isClone()) {
@@ -657,9 +657,8 @@ Error DataMgr::addVolume(const std::string& vol_name,
     }
 
     if (!err.ok()) {
-        LOGERROR << "Failed to " << (vdesc->isSnapshot() ? "create snapshot"
-                                     : (vdesc->isClone() ? "create clone" : "add volume")) << " "
-                 << std::hex << vol_uuid << std::dec;
+        LOGERROR << "vol:" << vol_uuid << " failed to " << (vdesc->isSnapshot() ? "create snapshot"
+                                                            : (vdesc->isClone() ? "create clone" : "add volume"));
         return err;
     }
 
@@ -749,40 +748,23 @@ Error DataMgr::addVolume(const std::string& vol_name,
 
     if (!err.ok()) {
         // cleanup volmeta and deregister queue
-        LOGERROR << "Cleaning up volume queue and vol meta because of error "
-                 << " volid 0x" << std::hex << vol_uuid << std::dec;
+        LOGERROR << "vol:" << vol_uuid << " cleaning up volume queue and vol meta because of error";
         qosCtrl->deregisterVolume(vdesc->isSnapshot() ? vdesc->qosQueueId : vol_uuid);
         volmeta->dmVolQueue.reset();
-        return  err;
+        return err;
     }
 
     if (vdesc->isSnapshot()) {
         return err;
     }
 
-    // Primary is responsible for persisting the latest seq number.
     // latest seq_number is provided to AM on volume open.
-    // TODO(Neil) - if VG mode, then do the sequenceId during openVolume
     if (fActivated) {
-        sequence_id_t seq_id;
-        err = timeVolCat_->queryIface()->getVolumeSequenceId(vol_uuid, seq_id);
-
-        if (!err.ok()) {
-            LOGERROR << "failed to read persisted sequence id for vol: " << vol_uuid << " error: " << err;
-            return err;
-        }else{
-            volmeta->setSequenceId(seq_id);
-            LOGNORMAL << volmeta->logString() << " - sequence id read and set";
+        Error err1;
+        err1 = volmeta->initState();
+        if (!err1.ok()) {
+            LOGERROR << " volume state init failed .. ignoring err:" << err1;
         }
-        /* Set version */
-        int32_t version;
-        err = timeVolCat_->queryIface()->getVersion(vol_uuid, version);
-        if (!err.ok()) {
-            LOGERROR << "Failed to get version for volume id: "
-                     << std::hex << vol_uuid << std::dec;
-            return err;
-        }
-        volmeta->setVersion(version);
     }
 
     if (err.ok() && amIPrimary(vol_uuid)) {
@@ -798,6 +780,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
     if (fOldVolume) {
         timelineMgr->loadSnapshot(vol_uuid);
     }
+
     if (fSyncRequired) {
         volmeta->scheduleInitializer(true);
     }
