@@ -438,10 +438,10 @@ function run_coroner
 function run_aws_test_scenarios
 {
     message "Packaging fds-platform"
-    make package fds-platform BUILD_TYPE=debug || deployment_error
+    sudo make package fds-platform BUILD_TYPE=debug || deployment_error
 
     message "Packaging fds-deps"
-    make package fds-deps || deployment_error
+    sudo make package fds-deps || deployment_error
 
     start_time=$(date +%s)
 
