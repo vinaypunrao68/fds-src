@@ -40,7 +40,7 @@ DmMigrationDest::start()
     }
 
     // true - volumeGroupMode
-    processInitialBlobFilterSet();
+    err = processInitialBlobFilterSet();
 
     auto timer = dataMgr.getModuleProvider()->getTimer();
     auto task = [this] () {

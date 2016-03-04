@@ -397,7 +397,6 @@ OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
     om_req->setTimeoutMs(300000);  // huge, but need to handle timeouts in resp
     om_req->invoke();
 
-    curDlt->dump();
     LOGNORMAL << "OM: Send dlt info (version " << curDlt->getVersion()
               << ") to " << get_node_name() << " uuid 0x"
               << std::hex << (get_uuid()).uuid_get_val() << std::dec;
@@ -1243,7 +1242,7 @@ OM_PmAgent::send_add_service
     if ( (node_state() != FDS_ProtocolInterface::FDS_Node_Discovered) &&
          (node_state() != FDS_ProtocolInterface::FDS_Node_Up) &&
          (node_state() != FDS_ProtocolInterface::FDS_Node_Standby) ) {
-        LOGERROR << "Node is in invalid state";
+        LOGERROR << "Node is in invalid state:" << node_state();
         return Error(ERR_INVALID_ARG);
     }
 
@@ -1419,7 +1418,8 @@ OM_PmAgent::send_start_service
     const fpi::SvcUuid svc_uuid,
     std::vector<fpi::SvcInfo> svcInfos,
     bool domainRestart, // set if the domain is being restarted
-    bool startNode      // set if the call is from a req to start all services on node
+    bool startNode,      // set if the call is from a req to start all services on node
+    bool force           // set if current service state should be ignored
     )
 {
     TRACEFUNC;
@@ -1570,7 +1570,7 @@ OM_PmAgent::send_start_service
     std::vector<fpi::SvcInfo>& svcInfoVector = startServiceMsg->services;
 
     svcInfoVector = svcInfos;
-
+    startServiceMsg->force = force;
     auto req =  gSvcRequestPool->newEPSvcRequest(svc_uuid);
     req->setPayload(FDSP_MSG_TYPEID(fpi::NotifyStartServiceMsg), startServiceMsg);
     req->invoke();
@@ -2741,6 +2741,16 @@ OM_AgentContainer::om_splice_nodes_pend(NodeList *addNodes,
     rs_mtx.unlock();
 }
 
+int32_t OM_AgentContainer::om_nodes_up()
+{
+    return node_up_pend.size();
+}
+
+int32_t OM_AgentContainer::om_nodes_down()
+{
+    return node_down_pend.size();
+}
+
 // --------------------------------------------------------------------------------------
 // OM DM NodeAgent Container
 // --------------------------------------------------------------------------------------
@@ -2988,7 +2998,8 @@ OM_NodeContainer::om_start_service
     const fpi::SvcUuid& svc_uuid,
     std::vector<fpi::SvcInfo> svcInfos,
     bool domainRestart,
-    bool startNode
+    bool startNode,
+    bool force
     )
 {
     TRACEFUNC;
@@ -3007,7 +3018,7 @@ OM_NodeContainer::om_start_service
        return Error(ERR_NOT_FOUND);
     }
 
-    return agent->send_start_service(svc_uuid, svcInfos, domainRestart, startNode);
+    return agent->send_start_service(svc_uuid, svcInfos, domainRestart, startNode, force);
 }
 
 /**
@@ -3637,6 +3648,12 @@ OM_NodeContainer::om_bcast_dlt(const DLT* curDlt,
 {
     TRACEFUNC;
     fds_uint32_t count = 0;
+
+    LOGNOTIFY << "Will broadcast DLT version:" << curDlt->getVersion()
+              << " to all SM, DM, AM svcs in domain";
+
+    curDlt->dump();
+
     if (to_sm) {
         count = dc_sm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
         LOGDEBUG << "Sent dlt to SM nodes successfully";
