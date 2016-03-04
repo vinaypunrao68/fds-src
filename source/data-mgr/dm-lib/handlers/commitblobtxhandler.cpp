@@ -76,7 +76,7 @@ void CommitBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoCommitBlobTx* typedRequest = static_cast<DmIoCommitBlobTx*>(dmRequest);
 
-    ENSURE_IO_ORDER(typedRequest, helper);
+    ENSURE_OPID_ORDER(typedRequest, helper);
 
     LOGDEBUG << "Will commit blob " << *typedRequest;
     helper.err = dataManager

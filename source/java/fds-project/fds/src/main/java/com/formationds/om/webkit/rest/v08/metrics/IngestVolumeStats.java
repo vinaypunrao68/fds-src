@@ -53,6 +53,11 @@ public class IngestVolumeStats implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters)
             throws Exception {
+    	
+    	if ( !FdsFeatureToggles.INFLUX_WRITE_METRICS.isActive() ){
+    		logger.warn( "The toggle to write metrics to InfluxDB is turned off so no metrics will be sent to that persistent store." );
+    		return new JsonResource(new JSONObject().put("status", "OK"));
+    	}
 
         HttpServletRequest httpRequest = (HttpServletRequest)request;
         if ( FdsFeatureToggles.WEB_LOGGING_REQUEST_WRAPPER.isActive() ) {
@@ -78,7 +83,8 @@ public class IngestVolumeStats implements RequestHandler {
 
                     volid = SingletonConfigAPI.instance().api().getVolumeId( vdp.getVolumeName() );
                 } catch (Exception e) {
-                    throw new IllegalStateException( "Volume does not have an ID associated with the name." );
+                    throw new IllegalStateException( "Volume " + vdp.getVolumeName() + " does not " +
+                            "have an ID associated with the name." );
                 }
 
                 vdp.setVolumeId( String.valueOf( volid ) );

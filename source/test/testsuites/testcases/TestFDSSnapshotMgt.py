@@ -19,7 +19,7 @@ from fdscli.model.volume.snapshot import Snapshot
 from fdscli.model.fds_error import FdsError
 from fdslib.TestUtils import create_fdsConf_file
 from fabric.api import local
-
+from fdslib.TestUtils import verify_disk_free
 
 # This class contains the attributes and methods to test
 # create snapshot
@@ -48,6 +48,9 @@ class TestCreateSnapshot(TestCase.FDSTestCase):
                 vol_snapshot.volume_id = each_volume.id
                 vol_snapshot.name = self.passedSnapshot_name
                 vol_snapshot.retention = self.passedRetention
+                # from fs-4999 when the disk space reaches 75%, snapshots should NOT happen.
+                # Threshhold might change in future
+                assert verify_disk_free(self,75) is True
                 status = vol_service.create_snapshot(vol_snapshot)
 
                 snapshot_list = vol_service.list_snapshots(vol_snapshot.volume_id)
@@ -180,7 +183,7 @@ class TestCreateVolClone(TestCase.FDSTestCase):
         assert timeline is not None
         create_fdsConf_file(om_node.nd_conf_dict['ip'])
         cmd = 'fds volume clone -name {0} -volume_id {1} -time {2}'.format(self.passedClone_name,passed_volume.id, timeline)
-        status = local(cmd)
+        status = local(cmd, capture=False)
         time.sleep(3) #let clone volume creation propogate
         cloned_volume = vol_service.find_volume_by_name(self.passedClone_name)
 

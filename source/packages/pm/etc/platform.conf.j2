@@ -11,7 +11,7 @@
 # Ansible managed: /root/fds-src/source/config/etc/platform.conf.j2 modified on 2016-02-08 08:51:46 by root on nate-dev
 fds: {
     /* Network interface that all fds nodes should have */
-    nic_if="lo"
+    nic_if="{{nic}}"
 
     /* Use genkey to generate a new one */
     aes_key="005ecbcf2a3ddf8fc634a43b8adb44cc"
@@ -33,6 +33,7 @@ fds: {
             enable_timeline = true
             periodic_expunge = true
             enable_multi_om_support = true
+            enable_multiplexed_services = false
             enable_subscriptions = false
             all_ssd = false
             volume_open_support = true
@@ -85,6 +86,12 @@ fds: {
 
            /** if enabled, query from new series per volume implementation */
            enable_influxdb_query_series_per_volume = false
+
+           /** if enabled, stats queries will now go to the stats service instead of influx **/
+           enable_stats_service_query = false
+
+           /** if enabled, om will write metrics into influx db **/
+           enable_influx_persistence = true
 
            ignore_failed_svcs = true
         }

@@ -10,6 +10,7 @@
 #include <net/SvcProcess.h>
 #include <net/PlatNetSvcHandler.h>
 #include <DMSvcHandler.h>
+#include "fdsp/common_constants.h"
 #include <fdsp/DMSvc.h>
 #include <DataMgr.h>
 
@@ -35,7 +36,7 @@ TestDm::TestDm(int argc, char *argv[], bool initAsModule)
     auto processor = boost::make_shared<fpi::DMSvcProcessor>(handler);
 
     init(argc, argv, initAsModule, "platform.conf",
-         "fds.dm.", "dm.log", dmVec, handler, processor);
+         "fds.dm.", "dm.log", dmVec, handler, processor, fpi::commonConstants().DM_SERVICE_NAME);
 
 }
 
