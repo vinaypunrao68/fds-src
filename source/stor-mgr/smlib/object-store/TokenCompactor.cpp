@@ -128,7 +128,7 @@ void TokenCompactor::enqSnapDbWork()
     snap_req.token_id = token_id;
     err = data_store->enqueueMsg(FdsSysTaskQueueId, &snap_req);
     if (!err.ok()) {
-        LOGERROR << "Failed to enqueue take index db snapshot message ;" << err;
+        LOGERROR << "Failed to enqueue snapshot request ;" << err;
         // We already created shadow file
         // TODO(anna) should we just retry here? reschedule timer?
         handleCompactionDone(err);
