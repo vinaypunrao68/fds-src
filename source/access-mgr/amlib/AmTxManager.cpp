@@ -184,15 +184,6 @@ AmTxManager::abortOnError(AmRequest *amReq, Error const error) {
     }
 }
 
-Error
-AmTxManager::commitTx(const BlobTxId &txId, fds_uint64_t const blobSize)
-{
-    if (auto descriptor = pop_descriptor(txId)) {
-        return static_cast<AmCache*>(getNextInChain())->putTxDescriptor(descriptor, blobSize);
-    }
-    return ERR_NOT_FOUND;
-}
-
 void
 AmTxManager::startBlobTx(AmRequest *amReq) {
     auto blobReq = static_cast<StartBlobTxReq*>(amReq);
@@ -282,17 +273,29 @@ void
 AmTxManager::commitBlobTxCb(AmRequest * amReq, Error const error) {
     auto blobReq = static_cast<CommitBlobTxReq*>(amReq);
     // Push the committed update to the cache and remove from manager
-    if (error.ok()) {
-        // Already written via putObjectCb...updateCatalogCb...
-        if (!all_atomic_ops) {
-            updateStagedBlobDesc(*(blobReq->tx_desc), blobReq->final_meta_data);
-            commitTx(*(blobReq->tx_desc), blobReq->final_blob_size);
+    auto descriptor = pop_descriptor(*(blobReq->tx_desc));
+    auto err = error;
+    if (descriptor) {
+        // tx was a success or we were deleting a missing blob; commit to cache
+        if (err.ok()
+            || (ERR_CAT_ENTRY_NOT_FOUND == err && FDS_DELETE_BLOB == descriptor->opType))
+        {
+            // Already written via putObjectCb...updateCatalogCb...
+            if (!all_atomic_ops || FDS_DELETE_BLOB == descriptor->opType) {
+                for (auto const & meta : blobReq->final_meta_data) {
+                    descriptor->stagedBlobDesc->addKvMeta(meta.key, meta.value);
+                }
+                static_cast<AmCache*>(getNextInChain())->putTxDescriptor(descriptor, blobReq->final_blob_size);
+            }
+            err = ERR_OK;
+        } else {
+            LOGERROR << "Transaction failed to commit: " << err;
+            abortOnError(blobReq, err);
         }
     } else {
-        LOGERROR << "Transaction failed to commit: " << error;
-        abortOnError(blobReq, error);
+        LOGWARN << "Missing descriptor for tx commit. Ignoring";
     }
-    AmDataProvider::commitBlobTxCb(blobReq, error);
+    AmDataProvider::commitBlobTxCb(blobReq, err);
 }
 
 void
