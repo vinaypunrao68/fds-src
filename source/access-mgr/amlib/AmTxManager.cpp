@@ -236,29 +236,35 @@ AmTxManager::commitBlobTx(AmRequest *amReq) {
         AmDataProvider::commitBlobTxCb(blobReq, err);
     }
 
-    SCOPEDREAD(txMapLock);
-    TxMap::iterator txMapIt = txMap.find(txId);
-    if (txMapIt == txMap.end()) {
+    descriptor_ptr_type descriptor;
+    {
+        SCOPEDREAD(txMapLock);
+        TxMap::iterator txMapIt = txMap.find(txId);
+        if (txMapIt != txMap.end()) {
+            descriptor = txMapIt->second;
+        }
+    }
+    if (!descriptor) {
         AmDataProvider::commitBlobTxCb(blobReq, ERR_INVALID_ARG);
         return;
     }
-    blobReq->is_delete = (FDS_DELETE_BLOB == txMapIt->second->opType);
+    blobReq->is_delete = (FDS_DELETE_BLOB == descriptor->opType);
 
     if (!all_atomic_ops) {
         AmDataProvider::commitBlobTx(blobReq);
     } else {
         if (!blobReq->is_delete) {
             auto catUpdateReq = new UpdateCatalogReq(blobReq);
-            catUpdateReq->blob_mode = txMapIt->second->blob_mode;
-            for (auto const& offset_pair : txMapIt->second->stagedBlobOffsets) {
+            catUpdateReq->blob_mode = descriptor->blob_mode;
+            for (auto const& offset_pair : descriptor->stagedBlobOffsets) {
                 auto const& obj_id = offset_pair.second.first;
                 auto const data_length = offset_pair.second.second;
                 catUpdateReq->object_list.emplace(obj_id,
                                    std::make_pair(offset_pair.first.getOffset(), data_length));
             }
 
-            for (auto kvIt = txMapIt->second->stagedBlobDesc->kvMetaBegin();
-                 txMapIt->second->stagedBlobDesc->kvMetaEnd() != kvIt;
+            for (auto kvIt = descriptor->stagedBlobDesc->kvMetaBegin();
+                 descriptor->stagedBlobDesc->kvMetaEnd() != kvIt;
                  ++kvIt) {
                 catUpdateReq->metadata->emplace(kvIt->first, kvIt->second);
             }
