@@ -32,7 +32,7 @@ ScavControl::ScavControl(const std::string &modName,
           dataStoreReqHandler(data_store),
           persistStoreGcHandler(persist_store),
           noPersistScavStats(false),
-          verifyData(false),
+          verifyData(true),
           scav_timer(new FdsTimer()),
           scav_timer_task(new ScavTimerTask(*scav_timer, this))
 {
