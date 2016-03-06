@@ -59,7 +59,6 @@ struct ScstConnector
 
     static unique<ScstConnector> instance_;
 
-    size_t threads {1};
     bool stopping {false};
 
     std::mutex target_lock_;

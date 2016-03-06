@@ -28,7 +28,6 @@
 
 #include "connector/scst/ScstAdmin.h"
 #include "connector/scst/ScstCommon.h"
-#include "concurrency/LeaderFollower.h"
 #include "fds_volume.h"
 
 namespace fds {
@@ -41,18 +40,16 @@ struct ScstDevice;
  * ScstTarget contains a list of devices (LUNs) and configures the Scst target
  */
 struct ScstTarget
-    : public LeaderFollower
 {
     enum State { STOPPED, RUNNING, REMOVED };
 
     ScstTarget(ScstConnector* parent_connector,
                std::string const& name,
-               size_t const followers,
                std::weak_ptr<AmProcessor> processor);
     ScstTarget(ScstTarget const& rhs) = delete;
     ScstTarget& operator=(ScstTarget const& rhs) = delete;
 
-    ~ScstTarget() override;
+    ~ScstTarget();
 
     void disable() { toggle_state(false); }
     void enable() { toggle_state(true); }
@@ -67,7 +64,7 @@ struct ScstTarget
     void shutdown();
 
  protected:
-    void lead() override;
+    void lead();
 
  private:
     template<typename T>
