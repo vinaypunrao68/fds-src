@@ -6,7 +6,8 @@ package com.formationds.am;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.commons.libconfig.Assignment;
 import com.formationds.commons.libconfig.ParsedConfig;
-import com.formationds.nfs.*;
+import com.formationds.nfs.NfsServer;
+import com.formationds.nfs.XdiStaticConfiguration;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
@@ -23,7 +24,6 @@ import com.formationds.xdi.contracts.transport.ConnectorConfigMessageHandler;
 import com.formationds.xdi.contracts.transport.ConnectorDataMessageHandler;
 import com.formationds.xdi.contracts.transport.TransportServer;
 import com.formationds.xdi.contracts.transport.pipe.NamedPipeServer;
-import com.formationds.xdi.experimental.XdiConnector;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.formationds.xdi.swift.SwiftEndpoint;
 import com.nurkiewicz.asyncretry.AsyncRetryExecutor;
@@ -34,15 +34,11 @@ import org.apache.log4j.Logger;
 import org.apache.thrift.server.TNonblockingServer;
 import org.apache.thrift.transport.TNonblockingServerSocket;
 import org.apache.thrift.transport.TTransportException;
-import org.eclipse.jetty.io.ArrayByteBufferPool;
-import org.eclipse.jetty.io.ByteBufferPool;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-import java.io.IOException;
 import java.net.ConnectException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -232,22 +228,25 @@ public class Main {
                 s3MaxConcurrentRequests).start(), "S3 service thread").start();
 
         // Experimental: XDI server
-        IoOps ioOps = new DeferredIoOps(new AmOps(asyncAm), v -> {
-            try {
-                return configCache.statVolume(XdiVfs.DOMAIN, v).getPolicy().getMaxObjectSizeInBytes();
-            } catch (Exception e) {
-                throw new IOException(e);
-            }
-        });
-        // ioOps = new MemoryIoOps();
-        XdiConnector connector = new XdiConnector(configCache, ioOps);
-
-        // start XDI connector servers -- add this to config?
-        TransportServer xdiConfigServer = createXdiConfigServer(connector, Executors.newFixedThreadPool(4));
-        monitorNamedPipePath(xdiConfigServer, Paths.get("/tmp/xdi/config"));
-
-        TransportServer xdiDataServer = createXdiDataServer(connector, Executors.newFixedThreadPool(16));
-        monitorNamedPipePath(xdiDataServer, Paths.get("/tmp/xdi/data"));
+//        SvcState svc = new SvcState(HostAndPort.fromParts("*", amResponsePort + 1), HostAndPort.fromParts(omHost, 7004), UUID.randomUUID().getLeastSignificantBits());
+//        svc.openAndRegister();
+//        SvcAsyncAm svcLayer = new SvcAsyncAm(svc);
+//        IoOps ioOps = new DeferredIoOps(new AmOps(svcLayer), v -> {
+//            try {
+//                return configCache.statVolume(XdiVfs.DOMAIN, v).getPolicy().getMaxObjectSizeInBytes();
+//            } catch (Exception e) {
+//                throw new IOException(e);
+//            }
+//        });
+//
+//        XdiConnector connector = new XdiConnector(configCache, ioOps);
+//
+//        // start XDI connector servers -- add this to config?
+//        TransportServer xdiConfigServer = createXdiConfigServer(connector, Executors.newFixedThreadPool(4));
+//        monitorNamedPipePath(xdiConfigServer, Paths.get("/tmp/xdi/config"));
+//
+//        TransportServer xdiDataServer = createXdiDataServer(connector, Executors.newFixedThreadPool(16));
+//        monitorNamedPipePath(xdiDataServer, Paths.get("/tmp/xdi/data"));
 
         // Default NFS port is 2049, or 7000 - 4951
         new NfsServer().start(xdiStaticConfig, configCache, asyncAm, pmPort - 4951);

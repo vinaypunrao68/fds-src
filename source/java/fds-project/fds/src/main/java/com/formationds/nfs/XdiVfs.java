@@ -34,6 +34,7 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
     private SimpleIdMap idMap;
     private Chunker chunker;
     private final Counters counters;
+    private StripedLock dirLock;
 
     public static final String DOMAIN = "nfs";
     public static final long MIN_FILE_ID = 256;
@@ -58,6 +59,7 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
         idMap = new SimpleIdMap();
         chunker = new Chunker(ops);
         this.counters = counters;
+        dirLock = new StripedLock();
     }
 
     @Override
@@ -300,34 +302,37 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
 
     @Override
     public void remove(Inode parentInode, String path) throws IOException {
-        counters.increment(Counters.Key.remove);
-        Optional<InodeMetadata> parent = inodeMap.stat(parentInode);
-        if (!parent.isPresent()) {
-            throw new NoEntException();
-        }
+        dirLock.lock(parentInode, () -> {
+            counters.increment(Counters.Key.remove);
+            Optional<InodeMetadata> parent = inodeMap.stat(parentInode);
+            if (!parent.isPresent()) {
+                throw new NoEntException();
+            }
 
-        Optional<InodeMetadata> link = inodeIndex.lookup(parentInode, path);
-        if (!link.isPresent()) {
-            throw new NoEntException();
-        }
+            Optional<InodeMetadata> link = inodeIndex.lookup(parentInode, path);
+            if (!link.isPresent()) {
+                throw new NoEntException();
+            }
 
-        InodeMetadata updatedParent = parent.get().withUpdatedTimestamps();
+            InodeMetadata updatedParent = parent.get().withUpdatedTimestamps();
 
-        InodeMetadata updatedLink = link.get()
-                .withoutLink(inodeMap.fileId(parentInode), path);
+            InodeMetadata updatedLink = link.get()
+                    .withoutLink(inodeMap.fileId(parentInode), path);
 
 
-        inodeIndex.unlink(parentInode.exportIndex(), parent.get().getFileId(), path);
-        if (updatedLink.refCount() == 0) {
-            inodeMap.remove(updatedLink.asInode(parentInode.exportIndex()));
-            inodeIndex.remove(parentInode.exportIndex(), updatedLink);
-        } else {
-            inodeMap.update(parentInode.exportIndex(), updatedLink);
-            inodeIndex.index(parentInode.exportIndex(), true, updatedLink);
-        }
+            inodeIndex.unlink(parentInode.exportIndex(), parent.get().getFileId(), path);
+            if (updatedLink.refCount() == 0) {
+                inodeMap.remove(updatedLink.asInode(parentInode.exportIndex()));
+                inodeIndex.remove(parentInode.exportIndex(), updatedLink);
+            } else {
+                inodeMap.update(parentInode.exportIndex(), updatedLink);
+                inodeIndex.index(parentInode.exportIndex(), true, updatedLink);
+            }
 
-        inodeMap.update(parentInode.exportIndex(), updatedParent);
-        inodeIndex.index(parentInode.exportIndex(), true, updatedParent);
+            inodeMap.update(parentInode.exportIndex(), updatedParent);
+            inodeIndex.index(parentInode.exportIndex(), true, updatedParent);
+            return null;
+        });
     }
 
     @Override
