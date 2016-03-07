@@ -576,17 +576,17 @@ public class QueryHelper {
         final Double ubytes =
             SingletonRepositoryManager.instance()
                                       .getMetricsRepository()
-                                      .sumUsedBytes();
+                                      .calculatePBytes();
 
         final CapacityDeDupRatio dedup = new CapacityDeDupRatio();
         final Double d = Calculation.ratio( lbytes, ubytes );
 
-        logger.trace( "DE-DUP: LBYTES:{} UBYTES:{} Ratio:{} ( {} )",
+        logger.trace( "DE-DUP: LBYTES:{} PBYTES(calculated):{} Ratio:{} ( {} )",
                       Size.of( lbytes, SizeUnit.B ).getValue( SizeUnit.MB ),
                       Size.of( ubytes, SizeUnit.B ).getValue( SizeUnit.MB ),
-                      d, ( ( d < 0 ) ? 1.0 : d ) );
+                      d, ( ( d < 0.0 ) ? 1.0 : d ) );
 
-        dedup.setRatio( ( ( d < 0 ) ? 1.0 : d ) );
+        dedup.setRatio( ( ( d < 0.0 ) ? 1.0 : d ) );
         return dedup;
     }
 
