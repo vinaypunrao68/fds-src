@@ -148,6 +148,7 @@ namespace fds
                 std::mutex                          m_killedProcessesMutex;
                 std::vector <pid_t>                 m_killedProcesses;             // pids of previously killed processes to harvest the exit codes
 
+                int                                 ackCounter;
                 void loadRedisKeyId();
                 void childProcessMonitor();
                 void startQueueMonitor();

@@ -2194,7 +2194,7 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
 Error
 OM_PmAgent::send_heartbeat_check(fpi::SvcUuid svcuuid)
 {
-    LOGNORMAL << "Sending heartbeat check to Active PM: "
+    LOGNORMAL << "Sending heartbeat check to PM: "
               << std::hex << svcuuid.svc_uuid << std::dec;
 
     fpi::HeartbeatMessagePtr heartbeatMsg =

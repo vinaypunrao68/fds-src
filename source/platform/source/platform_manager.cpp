@@ -57,7 +57,8 @@ namespace fds
                                              m_inShutdownState { true },
                                              m_startupAuditComplete (false),
                                              m_nodeRedisKeyId (""),
-                                             m_diskUuidToDeviceMap()
+                                             m_diskUuidToDeviceMap(),
+                                             ackCounter(6)
         {
         }
 
@@ -1218,9 +1219,18 @@ namespace fds
 
         void PlatformManager::heartbeatCheck (fpi::HeartbeatMessagePtr const &heartbeatMsg)
         {
-            LOGDEBUG << "Sending heartbeatMessage ack from PM uuid: "
-                     << std::hex << heartbeatMsg->svcUuid.uuid << std::dec
-                     << " [ " << usedDiskCapacity << " ]";
+            // Print this message for a heartbeat ack once every 5 minutes.
+            // This counter should suffice since OM sends a heartbeatCheck
+            // once every minute
+            if ( ackCounter > 5 )
+            {
+                LOGNORMAL << "Sending heartbeatMessage ack from PM uuid: "
+                          << std::hex << heartbeatMsg->svcUuid.uuid << std::dec
+                          << " [ UsedDiskCapacity:" << usedDiskCapacity << " ]";
+                ackCounter = 0;
+            }
+
+            ++ackCounter;
 
             auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
             auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
