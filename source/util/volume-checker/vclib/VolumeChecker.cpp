@@ -195,6 +195,8 @@ VolumeChecker::sendVolChkMsgsToDMs() {
 Error
 VolumeChecker::waitForVolChkMsg() {
     Error err(ERR_OK);
+    std::string prev;
+
     fds_assert(initialMsgTracker);
     initialMsgTracker->waitForTrackIOReqs();
 
@@ -203,6 +205,23 @@ VolumeChecker::waitForVolChkMsg() {
             if (oneDMtoCheck.status == DmCheckerMetaData::NS_ERROR) {
                 err = ERR_INVALID;
                 break;
+            } else {
+                // Record this in hashQuorumCheckMap
+                ++hashQuorumCheckMap.left[oneDMtoCheck.hashResult];
+                LOGNOTIFY << "Received checker status " <<  oneDMtoCheck.status
+                          << " from  " << oneDMtoCheck.svcUuid << " with hash result: "
+                          << oneDMtoCheck.hashResult << " "
+                          << hashQuorumCheckMap.left[oneDMtoCheck.hashResult] << " times";
+
+                if (prev.empty()) {
+                    prev = oneDMtoCheck.hashResult;
+                } else {
+                    if (prev != oneDMtoCheck.hashResult) {
+                        oneDMtoCheck.status = DmCheckerMetaData::NS_OUT_OF_SYNC;
+                        LOGERROR << "Hash mismatch";
+                        err = ERR_INVALID;
+                    }
+                }
             }
         }
     }
@@ -237,7 +256,6 @@ VolumeChecker::DmCheckerMetaData::sendVolChkMsg(const EPSvcRequestRespCb &cb) {
     status = NS_CONTACTED;
 }
 
-
 /** Unit test implementations */
 size_t
 VolumeChecker::testGetVgCheckerListSize() {
@@ -260,6 +278,18 @@ VolumeChecker::testVerifyCheckerListStatus(unsigned castCode) {
         }
     }
     return ret;
+}
+
+Error
+VolumeChecker::checkDMHashQuorum() {
+    Error err(ERR_OK);
+    fds_assert(hashQuorumCheckMap.size() > 0);
+    if (hashQuorumCheckMap.size() > 1) {
+        // All the DMs did not return the same hash
+        err = ERR_INVALID;
+        // TODO - figure out who is wrong (FS-5340)
+    }
+    return err;
 }
 
 } // namespace fds

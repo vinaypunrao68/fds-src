@@ -13,6 +13,7 @@
 #include <util/stringutils.h>
 #include <dmhandler.h>
 #include <json/json.h>
+#include <ObjectId.h>
 
 namespace fds {
 
@@ -576,44 +577,49 @@ void VolumeMeta::handleVolumegroupUpdate(DmRequest *dmRequest)
     }
 }
 
-VolumeMeta::HashCalcContext::HashCalcContext(DmRequest *req,
-                                             fpi::SvcUuid _reqUUID,
+VolumeMeta::HashCalcContext::HashCalcContext(fpi::SvcUuid _reqUUID,
                                              int _batchSize) :
         requesterUUID(_reqUUID),
         contextErr(ERR_OK),
-        batchSize(_batchSize),
-        hashResult(0),
-        bdescr_list(nullptr),
-        typedRequest(static_cast<DmIoVolumeCheck*>(req))
-{}
+        batchSize(_batchSize)
+{
+    hashResult[0] = '\0';
+}
 
 VolumeMeta::HashCalcContext::~HashCalcContext() {
-    delete bdescr_list;
-    sendCb();
     // typedRequest gets deleted as callback of registerDmVolumeReqHandler<DmIoVolumeCheck>();
 }
 
 void
-VolumeMeta::HashCalcContext::sendCb() {
-    typedRequest->respStatus = contextErr;
-    typedRequest->respMessage->hash_result = hashResult;
-    typedRequest->cb(contextErr, typedRequest);
+VolumeMeta::printDebugSlice(CatalogKVPair &pair) {
+
+    auto keyType = reinterpret_cast<CatalogKeyType const*>(pair.first.data());
+    int type = ((unsigned char)(*keyType) - (unsigned char)CatalogKeyType::ERROR);
+    auto objID = ObjIdGen::genObjectId((const char*)&pair, sizeof(pair));
+    LOGDEBUG << "Hashing one KV pair type: " << type << " with hash: " << objID.ToString();
 }
 
 void
 VolumeMeta::HashCalcContext::hashThisSlice(CatalogKVPair &pair) {
-    hasher.update((const fds_byte_t *)&pair, sizeof(pair));
+    auto keyType = reinterpret_cast<CatalogKeyType const*>(pair.first.data());
+    int type = ((unsigned char)(*keyType) - (unsigned char)CatalogKeyType::ERROR);
+    // We do a whitelist type of hashing.
+    if ((*keyType == CatalogKeyType::BLOB_METADATA) ||
+        (*keyType == CatalogKeyType::BLOB_OBJECTS)) {
+        hasher.update((const fds_byte_t *)&pair, sizeof(pair));
+    }
 }
 
 void
 VolumeMeta::HashCalcContext::computeCompleteHash() {
-    hasher.final(&hashResult);
+    hasher.final(hashResult);
 }
 
 Error
 VolumeMeta::createHashCalcContext(DmRequest *req,
                                   fpi::SvcUuid _reqUUID,
                                   int batchSize) {
+    std::unique_lock<fds_mutex> l(testMutex);
     if (hashCalcContextPtr) {
         LOGERROR << "A hash request has already been sent and is processing.";
         return ERR_DUPLICATE;
@@ -628,15 +634,24 @@ VolumeMeta::createHashCalcContext(DmRequest *req,
         }
 #endif
 
-        // Pass everything needed to HashCalcContext's constructor
-        hashCalcContextPtr = new HashCalcContext (req,
-                                                  _reqUUID,
-                                                  batchSize);
+        scanReq = static_cast<DmIoVolumeCheck*>(req);
 
+        // Pass everything needed to HashCalcContext's constructor
+        hashCalcContextPtr = new HashCalcContext (_reqUUID,
+                                                  batchSize);
 
         auto req = std::bind(&VolumeMeta::doHashTaskOnContext, this);
         dataManager->addToQueue(req, FdsDmSysTaskId);
         return ERR_OK;
+    }
+}
+void
+VolumeMeta::cleanupHashOnContext() {
+    if (hashCalcContextPtr != nullptr) {
+        scanReq->respStatus = hashCalcContextPtr->contextErr;
+        scanReq->respMessage->hash_result = std::string(reinterpret_cast<char*>(hashCalcContextPtr->hashResult));
+        scanReq->cb(scanReq->respStatus, scanReq);
+        delete hashCalcContextPtr;
     }
 }
 
@@ -648,83 +663,46 @@ VolumeMeta::doHashTaskOnContext() {
         LOGERROR << "Hash calculation error";
         return;
     }
+    // We first init the CatalogScanner
+    auto catalogPtr = dataManager->getPersistDB(vol_desc->volUUID)->getCatalog();
+    auto threadPoolPtr = dataManager->qosCtrl->threadPool;
 
-    switch (hashCalcContextPtr->progress) {
-        case HashCalcContext::HC_INIT:
-        {
-            // We first init the CatalogScanner
-            auto catalogPtr = dataManager->getPersistDB(vol_desc->volUUID)->getCatalog();
-            auto threadPoolPtr = dataManager->qosCtrl->threadPool;
-
-            // For each batch, what do we do?
-            auto batchCb = [this](std::list<CatalogKVPair> &batchSlice) {
-                for (auto &kvPair : batchSlice) {
-                    if (*reinterpret_cast<CatalogKeyType const*>(kvPair.first.data()) ==
-                            CatalogKeyType::JOURNAL_TIMESTAMP) {
-                        // Skip Jounrnal Timestamp key since they are different across DMs
-                        continue;
-                    }
-                    hashCalcContextPtr->hashThisSlice(kvPair);
-                }
-            };
-
-            // For the last batch, batchCb ALWAYS gets called before scannerCb
-            auto scannerCb = [this](CatalogScanner::progress scannerProgress) {
-                switch (scannerProgress) {
-                    case (CatalogScanner::CS_DONE):
-                    {
-                        hashCalcContextPtr->computeCompleteHash();
-                        hashCalcContextPtr->progress = HashCalcContext::HC_DONE;
-                        break;
-                    }
-                    case (CatalogScanner::CS_ERROR):
-                    {
-                        hashCalcContextPtr->progress = HashCalcContext::HC_ERROR;
-                        break;
-                    }
-                    default:
-                    {
-                        fds_assert(!"We shouldn't hit this in dev.");
-                        LOGERROR << "This is a weird case.";
-                        hashCalcContextPtr->progress = HashCalcContext::HC_ERROR;
-                        break;
-                    }
-                }
-                delete scannerPtr;
-            };
-
-            scannerPtr = new CatalogScanner(*catalogPtr,
-                                         threadPoolPtr,
-                                         static_cast<unsigned>(hashCalcContextPtr->batchSize),
-                                         batchCb,
-                                         scannerCb);
-
-            hashCalcContextPtr->progress = HashCalcContext::HC_HASHING;
-            scannerPtr->start();
-            break;
+    // For each batch, what do we do?
+    auto batchCb = [this](std::list<CatalogKVPair> &batchSlice) {
+        for (auto &kvPair : batchSlice) {
+            printDebugSlice(kvPair);
+            hashCalcContextPtr->hashThisSlice(kvPair);
         }
-        case HashCalcContext::HC_HASHING:
-        {
-#if 0
-            int currentBatchCount(0);
-            while ((hashCalcContextPtr->bl_citer != hashCalcContextPtr->bdescr_list->cend()) ||
-                    (currentBatchCount > hashCalcContextPtr->batchSize)) {
-                auto blobName = hashCalcContextPtr->bl_citer->name;
+    };
 
-
-                // Increment stuffs
-                ++currentBatchCount;
-                hashCalcContextPtr->bl_citer++; // TODO: move
+    // For the last batch, batchCb ALWAYS gets called before scannerCb
+    auto scannerCb = [this](CatalogScanner::progress scannerProgress) {
+        switch (scannerProgress) {
+            case (CatalogScanner::CS_DONE):
+            {
+                hashCalcContextPtr->computeCompleteHash();
+                break;
             }
-
-#endif
-            // For now, this is just a test for async - delete and send cb to test vc side
-            delete hashCalcContextPtr;
-            break;
+            case (CatalogScanner::CS_ERROR):
+            {
+                break;
+            }
+            default:
+            {
+                fds_assert(!"We shouldn't hit this in dev.");
+                LOGERROR << "This is a weird case.";
+                break;
+            }
         }
-        default:
-            fds_verify(!"Unknown progress type");
-            break;
-    }
+        cleanupHashOnContext();
+    };
+
+    scannerPtr = new CatalogScanner(*catalogPtr,
+                                 threadPoolPtr,
+                                 static_cast<unsigned>(hashCalcContextPtr->batchSize),
+                                 batchCb,
+                                 scannerCb);
+
+    scannerPtr->start();
 }
 }  // namespace fds

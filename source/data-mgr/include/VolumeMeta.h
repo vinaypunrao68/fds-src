@@ -25,7 +25,6 @@
 #include <VolumeInitializer.h>
 #include <dm-vol-cat/DmPersistVolDB.h>
 #include <CatalogScanner.h>
-
 #include <FdsCrypto.h>
 
 namespace fds {
@@ -356,18 +355,9 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     // Context for requests that ask for hash calculations, such as volume checker
     // Everything done here must be synchronized on FdsSysTaskQueueId
     struct HashCalcContext {
-        explicit HashCalcContext(DmRequest *req,
-                                fpi::SvcUuid _reqUUID,
+        explicit HashCalcContext(fpi::SvcUuid _reqUUID,
                                 int _batchSize);
         ~HashCalcContext();
-
-        enum progressE {
-            HC_INIT,            // Initialized
-            HC_HASHING,         // hashing things using the hasher
-            HC_DONE,            // Done hashing and the value is legit
-            HC_ERROR
-        };
-        progressE progress;
 
         /**
          * The sha1 class related to this context.
@@ -376,14 +366,8 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
          */
         hash::Sha1 hasher;
 
-        // Sends the callback with an error code
-        void sendCb();
-
         // Node (could be self) that requested the operation
         fpi::SvcUuid requesterUUID;
-
-        // typedRequest to send back to the requester
-        DmIoVolumeCheck *typedRequest;
 
         // Current context error code
         Error contextErr;
@@ -392,12 +376,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
         int batchSize;
 
         // Result to be sent back as part of the cb
-        uint8_t hashResult;
-
-        // A list of all the blobs that we'll need to get offsets for, and hash
-        fpi::BlobDescriptorListType *bdescr_list;
-        // Bookmark for whichever blob that we're currently hashing the offsets on
-        fpi::BlobDescriptorListType::const_iterator bl_citer;
+        unsigned char hashResult[SHA_DIGEST_LENGTH];
 
         // Given a slice, hash the data
         void hashThisSlice(CatalogKVPair &pair);
@@ -412,11 +391,22 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     // Used to iteratively get all the data for hashing
     CatalogScanner *scannerPtr;
 
+    // Used to hold the cb info
+    DmIoVolumeCheck *scanReq;
+
+    void sendHashCalcContextCb();
+
+    void printDebugSlice(CatalogKVPair &pair);
+
     /**
      * Given a HashCalcContext that's been established, execute the next step.
      * Either do the initial hash, continue hash, or send result back
      */
     void doHashTaskOnContext();
+
+    void cleanupHashOnContext();
+
+    fds_mutex testMutex;
 };
 
 using VolumeMetaPtr = SHPTR<VolumeMeta>;

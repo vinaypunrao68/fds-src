@@ -27,7 +27,7 @@ using namespace fds::TestUtils;
  * 3. Run Volume checker on volume, should return consistent result.
  */
 TEST_F(VolumeGroupFixture, twoHappyDMs) {
-    g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
+    g_fdslog->setSeverityFilter(fds_log::severity_level::trace);
     LOGNORMAL << "TEST MARKER Starting twoHappyDMs";
 
     // Create 2 DMs
