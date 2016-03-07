@@ -1054,7 +1054,9 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services,
         if ( deployed_sm_services.size() < curDltDepth )
         {
             LOGNOTIFY << "Only " << deployed_sm_services.size() << " known SMs"
-                      << " in the domain. No committed DLT yet which is OK";
+                      << " in the domain. No committed DLT yet which is expected."
+                      << " DLT will be committed only when at least " << curDltDepth
+                      << " SMs are present in the domain";
             return Error(ERR_OK);
 
         } else {
