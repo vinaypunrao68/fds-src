@@ -174,8 +174,8 @@ namespace fds {
     /* File Errors */ \
     ADD(ERR_FILE_DOES_NOT_EXIST,= 3100 ,"  "),      \
     ADD(ERR_CHECKSUM_MISMATCH, ,"  "),      \
-    ADD(ERR_FILE_READ_BEYOND_EOF, "  "),   \
-    ADD(ERR_TOO_MANY_FILE_READ_RETRIES, "  "),  \
+    ADD(ERR_FILE_READ_BEYOND_EOF, ,"  "),       \
+    ADD(ERR_TOO_MANY_FILE_READ_RETRIES, ,"  "), \
     \
     /* SVC Request realted */   \
     ADD(ERR_SVC_REQUEST_FAILED,= 4000," "), \

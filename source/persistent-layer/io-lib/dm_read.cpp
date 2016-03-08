@@ -36,14 +36,14 @@ diskio::FilePersisDataIO::disk_do_read(DiskRequest *req)
 
     off = phyloc->obj_stor_offset << DataIO::disk_io_blk_shift();
     fds_uint32_t retry_cnt=0;
-    size_t read_len = buf->getSize(); 
+    size_t read_len = buf->getSize();
     char *buffer = (char *)(buf->data)->c_str();
-    while (retry_cnt++ < 3 && read_len > 0) { 
+    while (retry_cnt++ < 3 && read_len > 0) {
       len = pread64(fi_fd, (void *)buffer, read_len, off);
       if (len == buf->getSize()) {
          break;
-      } 
-      if (len > 0 && len < buf->getSize()) { 
+      }
+      if (len > 0 && len < buf->getSize()) {
           read_len -= len;
           buffer += len;
           off += len;
@@ -54,13 +54,14 @@ diskio::FilePersisDataIO::disk_do_read(DiskRequest *req)
         perror("read Error");
         err = fds::ERR_DISK_READ_FAILED;
     } else if ( len == 0 ) {
-        fprintf(STDERR, "read beyond EOF\n");
+        fprintf(stderr, "read beyond EOF\n");
         err = fds::ERR_FILE_READ_BEYOND_EOF;
     } else if ( retry_cnt > 3 ) {
-        fprintf(STDERR, "exhausted retries when trying to read\n");
+        fprintf(stderr, "exhausted retries when trying to read\n");
         err = fds::ERR_TOO_MANY_FILE_READ_RETRIES;
     }
-    return err; 
+
+    return err;
 }
 
 }  // namespace diskio
