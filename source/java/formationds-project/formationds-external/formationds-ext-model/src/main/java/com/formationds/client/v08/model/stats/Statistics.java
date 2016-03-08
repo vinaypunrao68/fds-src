@@ -9,6 +9,8 @@ import com.google.common.base.MoreObjects;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.formationds.client.v08.model.stats.query.QueryCriteria;
+
 /**
  * @author ptinius
  */
@@ -19,6 +21,7 @@ private static final long serialVersionUID = 1565568840222449672L;
   private List<Series> series;
   private List<Calculated> calculated;    // de-dup ratio/% consumer/etc.
   private List<Metadata> metadata;        // query details
+  private QueryCriteria query;
 
   /**
    * default constructor
@@ -53,6 +56,22 @@ private static final long serialVersionUID = 1565568840222449672L;
     }
 
     this.series.add( series );
+  }
+  
+  /**
+   * 
+   * @param query set the query that was used {@link QueryCriteria}
+   */
+  public void setQuery( QueryCriteria query ){
+	  this.query = query;
+  }
+  
+  /**
+   * 
+   * @return the query that was used {@link QueryCriteria}
+   */
+  public QueryCriteria getQuery(){
+	  return this.query;
   }
 
   /**
