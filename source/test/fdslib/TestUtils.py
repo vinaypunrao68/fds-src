@@ -11,7 +11,6 @@ import logging.handlers
 import errno
 
 from optparse import OptionParser
-
 if sys.version_info[0] < 3:
     import ConfigParser as configparser
 else:
@@ -20,14 +19,10 @@ else:
 import BringUpCfg as fdscfg
 import socket
 from fdscli.services.fds_auth import *
-from fdscli.model.volume.settings.object_settings import ObjectSettings
-from fdscli.model.volume.settings.block_settings import BlockSettings
-from fdscli.model.volume.settings.nfs_settings import NfsSettings
-from fdscli.model.common.size import Size
-from fdscli.model.volume.volume import Volume
 from fdscli.services.volume_service import VolumeService
-from fdscli.model.volume.qos_policy import QosPolicy
 from fdscli.services.node_service import NodeService
+from fdscli.services.snapshot_policy_service import SnapshotPolicyService
+
 from fdscli.services.local_domain_service import LocalDomainService
 from fabric.contrib.files import *
 from fabric.context_managers import cd
@@ -455,42 +450,6 @@ def create_fdsConf_file(om_ip):
     file.close()
 
 
-def convertor(volume, fdscfg):
-    new_volume = Volume()
-    new_volume.name = volume.nd_conf_dict['vol-name']
-    new_volume.id = volume.nd_conf_dict['id']
-
-    if 'media' not in volume.nd_conf_dict:
-        media = 'hdd'
-    else:
-        media = volume.nd_conf_dict['media']
-    new_volume.media_policy = media.upper()
-
-    if 'access' not in volume.nd_conf_dict or volume.nd_conf_dict['access'] == 'object':
-        # set default volume settings to ObjectSettings
-        access = ObjectSettings()
-    else:
-        # if its a block then set the size in BlockSettings
-        access = volume.nd_conf_dict['access']
-        if access == 'block':
-            if 'size' not in volume.nd_conf_dict:
-                raise Exception('Volume section %s must have "size" keyword.' % volume.nd_conf_dict['vol-name'])
-            access = BlockSettings()
-            access.capacity = Size(size=volume.nd_conf_dict['size'], unit='B')
-        elif access == 'nfs':
-            if 'size' not in volume.nd_conf_dict:
-                raise Exception('Volume section %s must have "size" keyword.' % volume.nd_conf_dict['vol-name'])
-            access = NfsSettings()
-            access.max_object_size = Size(size=volume.nd_conf_dict['size'], unit='B')
-
-    new_volume.settings = access
-    if 'policy' in volume.nd_conf_dict:
-        # Set QOS policy which is defined is volume definition.
-        new_volume.qos_policy = get_volume_policy(volume.nd_conf_dict['policy'], fdscfg)
-
-    return new_volume
-
-
 def get_inventory_value(inventory_file, key_name, log):
     '''
     Parse the given Ansible inventory file given as argument to this
@@ -538,27 +497,9 @@ def get_volume_service(self, om_ip):
     getAuth(self, om_ip)
     return VolumeService(self.__om_auth)
 
-
-def get_volume_policy(policy_id, fdscfg):
-    qos_policy = QosPolicy()
-    policies = fdscfg.rt_get_obj('cfg_vol_pol')
-    for policy in policies:
-        if 'id' not in policy.nd_conf_dict:
-            print('Policy section must have an id')
-            sys.exit(1)
-
-        if policy.nd_conf_dict['id'] == policy_id:
-            if 'iops_min' in policy.nd_conf_dict:
-                qos_policy.iops_min = policy.nd_conf_dict['iops_min']
-
-            if 'iops_max' in policy.nd_conf_dict:
-                qos_policy.iops_max = policy.nd_conf_dict['iops_max']
-
-            if 'priority' in policy.nd_conf_dict:
-                qos_policy.priority = policy.nd_conf_dict['priority']
-
-    return qos_policy
-
+def get_snapshot_policy_service(self,om_ip):
+    getAuth(self, om_ip)
+    return SnapshotPolicyService(self.__om_auth)
 
 def get_node_service(self, om_ip):
     getAuth(self, om_ip)
@@ -784,6 +725,7 @@ def remove_file(qualified_file_name=default_generated_file):
 # then returns false or else returns true.
 #
 # @param thresh_hold to compare disk used
+# TODO pooja: Fix this to check only user-repo and sys-repo
 def verify_disk_free(self, thresh_hold):
     stdout = local("df", capture=True)
     lines = stdout.split('\n')
