@@ -51,18 +51,18 @@ public class XdiConfigurationApi implements ConfigurationApi {
      * Get API version used by service handler.
      */
     @Override
-    public Version getVersion(long nullarg) throws ApiException, TException {
+    public Version getVersion() throws ApiException, TException {
 
-        return config.getVersion(nullarg);
+        return config.getVersion();
     }
 
     /**
      * Get the API version table for the service.
      */
     @Override
-    public List<ServiceAPIVersion> getVersionTable(long nullarg) throws ApiException, TException {
+    public List<ServiceAPIVersion> getVersionTable() throws ApiException, TException {
 
-        return config.getVersionTable(nullarg);
+        return config.getVersionTable();
     }
 
     /**

@@ -50,14 +50,16 @@ service VersionedService {
   /**
    * @brief Gets the API version for the service handler
    */
-  Version getVersion(1: i64 nullarg) throws (1: common.ApiException e);
+  Version getVersion() throws (1: common.ApiException e);
 
   /**
    * @brief Gets the version table for the service.
    * @detail
    * The table will have a row for every major API version.
+   *
+   * @returns A list of service API versions or the empty list
    */
-  list<ServiceAPIVersion> getVersionTable(1: i64 nullarg) throws (1: common.ApiException e);
+  list<ServiceAPIVersion> getVersionTable() throws (1: common.ApiException e);
 
   /**
    * @brief Given a suggested API version, returns an acceptable version.

@@ -16,6 +16,7 @@ import com.google.common.collect.Multimap;
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -76,7 +77,7 @@ public class StubConfigurationApi implements ConfigurationApi {
     }
 
     @Override
-    public Version getVersion(long nullarg) throws ApiException, TException {
+    public Version getVersion() throws ApiException, TException {
         return new Version();
     }
 
@@ -84,8 +85,9 @@ public class StubConfigurationApi implements ConfigurationApi {
      * Get the API version table for the service.
      */
     @Override
-    public List<ServiceAPIVersion> getVersionTable(long nullarg) throws ApiException, TException {
-        return null;
+    public List<ServiceAPIVersion> getVersionTable() throws ApiException, TException {
+        List<ServiceAPIVersion> emptyList = Collections.emptyList();
+        return emptyList;
     }
 
     /**

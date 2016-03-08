@@ -147,8 +147,6 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     // stubs to keep cpp compiler happy - BEGIN
 
-    void getVersion(Version& _return, const int64_t ignore) {}
-    void getVersionTable(std::vector<ServiceAPIVersion>& _return, const int64_t ignore) {}
     void suggestVersion(Version& _return, const Version& stubVersion) {}
 
     int64_t createLocalDomain(const std::string& domainName, const std::string& domainSite) { return 0;}
@@ -227,14 +225,14 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     virtual int64_t getDiskCapacityNode(const  ::FDS_ProtocolInterface::SvcUuid& nodeUuid) { return 0; };
     // stubs to keep cpp compiler happy - END
 
-    void getVersion(Version& _return, boost::shared_ptr<int64_t>& ignore) {
+    void getVersion(Version& _return) {
 
         _return.major_version = 0;
         _return.minor_version = 1;
         _return.patch_version = 0;
     }
 
-    void getVersionTable(std::vector<ServiceAPIVersion>& _return, boost::shared_ptr<int64_t>& ignore) {
+    void getVersionTable(std::vector<ServiceAPIVersion>& _return) {
 
         // fds::apis::Version is a generated class with a virtual destructor.
         // Can not use a brace-enclosed initializer list.
@@ -259,8 +257,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         // This is a server side handler. Get the server API version.
         fds::apis::Version serverVersion;
-        boost::shared_ptr<int64_t> notUsed = boost::make_shared<int64_t>(0);
-        getVersion(serverVersion, notUsed);
+        getVersion(serverVersion);
 
         // Negotiate an API version
         fds::Version versionHere(serverVersion);

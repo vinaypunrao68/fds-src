@@ -81,18 +81,18 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      * Get API version used by service handler.
      */
     @Override
-    public Version getVersion(long nullarg) throws ApiException, TException {
+    public Version getVersion() throws ApiException, TException {
 
-        return getConfig().getVersion(nullarg);
+        return getConfig().getVersion();
     }
 
     /**
      * Get the API version table for the service.
      */
     @Override
-    public List<ServiceAPIVersion> getVersionTable(long nullarg) throws ApiException, TException {
+    public List<ServiceAPIVersion> getVersionTable() throws ApiException, TException {
 
-        return getConfig().getVersionTable(nullarg);
+        return getConfig().getVersionTable();
     }
 
     /**
