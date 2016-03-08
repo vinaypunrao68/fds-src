@@ -734,9 +734,6 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
          * Currently (3/18/2015) only support for one Local Domain.
          * So the specified name is ignored. Also, we should be using Domain UUID.
          */
-
-        LOGDEBUG << "!!!!LISTLOCALDOMAINSVCs";
-
         std::vector<fpi::SvcInfo> svcinfos;
         if ( configDB->getSvcMap( svcinfos ) )
         {
@@ -752,17 +749,6 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                 LOGNORMAL << "No persisted local domain ( "
                           << domainName
                           << " ) services found.";
-            }
-
-            for ( auto svcInfo : svcinfos )
-            {
-                LOGDEBUG << "!!ConfigDB returned Service info:"
-                         << " type: " << svcInfo.svc_type
-                         << " uuid: " << std::hex << svcInfo.svc_id.svc_uuid.svc_uuid << std::dec
-                         << " ip: " << svcInfo.ip
-                         << " port: " << svcInfo.svc_port
-                         << " incarnation: " << svcInfo.incarnationNo
-                         << " status: " << OmExtUtilApi::printSvcStatus(svcInfo.svc_status);
             }
         }
 
@@ -2105,7 +2091,6 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     void getAllNodeInfo(std::vector< ::FDS_ProtocolInterface::SvcInfo> & _return) {
 
-        LOGDEBUG << "!!GETALLLLNODEINFO";
         std::vector<fpi::SvcInfo> svcInfos;
         bool success = configDB->getSvcMap( svcInfos );
         if (success && svcInfos.size() > 0) {
@@ -2123,8 +2108,6 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     void getNodeInfo( ::FDS_ProtocolInterface::SvcInfo& _return,
                       boost::shared_ptr< ::FDS_ProtocolInterface::SvcUuid>& nodeUuid) {
-
-        LOGDEBUG << "!!GETNODEINFO";
 
         std::vector<fpi::SvcInfo> svcInfos;
         getAllNodeInfo(svcInfos);

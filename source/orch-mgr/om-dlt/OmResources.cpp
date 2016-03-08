@@ -3569,7 +3569,7 @@ OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap(boost::shared_ptr<fpi::Sv
     updateSvcMaps( configDB, svcInfo->svc_id.svc_uuid.svc_uuid,
                    status, svcType, true, false, *svcInfo );
 
-    om_locDomain->om_bcast_svcmap();
+    //om_locDomain->om_bcast_svcmap();
 }
 
 void

@@ -1258,6 +1258,12 @@ OM_PmAgent::send_add_service
     if (iter != svcInfos.end())
         add_am = true;
 
+    std::string pmIp = "";
+
+    iter = fds::isServicePresent(svcInfos, fpi::FDSP_PLATFORM);
+    if (iter != svcInfos.end())
+        pmIp = (*iter).ip;
+
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
 
     if (configDB->getNodeServices(node_uuid, services)) {
@@ -1347,8 +1353,10 @@ OM_PmAgent::send_add_service
                 svcId->svc_uuid = svcuuid;
                 item.__set_svc_id(*svcId);
                 item.__set_svc_status(fpi::SVC_STATUS_ADDED);
+                item.ip = pmIp;
                 updateSvcMaps(configDB, svcId->svc_uuid.svc_uuid,
-                              fpi::SVC_STATUS_ADDED,fpi::FDSP_STOR_MGR);
+                              fpi::SVC_STATUS_ADDED, fpi::FDSP_STOR_MGR,
+                              true, false, item);
                 break;
             case fpi::FDSP_DATA_MGR:
                 fds::retrieveSvcId(svc_uuid.svc_uuid, svcuuid, fpi::FDSP_DATA_MGR);
@@ -1357,8 +1365,10 @@ OM_PmAgent::send_add_service
                 svcId->svc_uuid = svcuuid;
                 item.__set_svc_id(*svcId);
                 item.__set_svc_status(fpi::SVC_STATUS_ADDED);
+                item.ip = pmIp;
                 updateSvcMaps(configDB, svcId->svc_uuid.svc_uuid,
-                             fpi::SVC_STATUS_ADDED,fpi::FDSP_DATA_MGR);
+                             fpi::SVC_STATUS_ADDED, fpi::FDSP_DATA_MGR,
+                             true, false, item);
                 break;
             case fpi::FDSP_ACCESS_MGR:
                 fds::retrieveSvcId(svc_uuid.svc_uuid, svcuuid,fpi::FDSP_ACCESS_MGR);
@@ -1367,8 +1377,10 @@ OM_PmAgent::send_add_service
                 svcId->svc_uuid = svcuuid;
                 item.__set_svc_id(*svcId);
                 item.__set_svc_status(fpi::SVC_STATUS_ADDED);
+                item.ip = pmIp;
                 updateSvcMaps(configDB, svcId->svc_uuid.svc_uuid,
-                              fpi::SVC_STATUS_ADDED, fpi::FDSP_ACCESS_MGR);
+                              fpi::SVC_STATUS_ADDED, fpi::FDSP_ACCESS_MGR,
+                              true, false, item);
                 break;
             default:
                 LOGDEBUG << "Bad service type entered";

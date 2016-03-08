@@ -360,8 +360,6 @@ namespace fds
 
         if (handlerUpdate || registration)
         {
-
-
             /*
              * ======================================================
              *  Setting up svcInfo objects from configDB and svcLayer
@@ -376,6 +374,11 @@ namespace fds
             bool dbRecordFound = false;
 
 
+            if (incomingSvcInfo.incarnationNo == 0) // Can only be the case if a service is being added
+            {
+                LOGDEBUG << "Updating zero incarnation number!";
+                incomingSvcInfo.incarnationNo = util::getTimeStampSeconds();
+            }
             /*
              * ======================================================
              *  Retrieve svcLayer record
@@ -415,6 +418,30 @@ namespace fds
                 dbInfoPtr = boost::make_shared<fpi::SvcInfo>(dbInfoUpdate);
             }
 
+
+            // The only time both incarnationNos can be zero is when a service is getting added
+            // into the cluster for the very first time. The ADDED, STARTED status is set prior to even
+            // sending the start to PM, so the service processes aren't running yet. In these cases
+            // the svcInfo is not fully populated yet so if this condition is true we will NOT
+            // update the svcLayer svcMap because that can end up with broken pipes because of
+            // invalid port numbers. SvcLayer svcmap will get updated as always when the svc
+            // registers.
+            bool svcAddition = false;
+
+            if ( (svcLayerInfoUpdate.incarnationNo == 0 && dbInfoUpdate.incarnationNo == 0) )
+            {
+                if ( !(svc_status == fpi::SVC_STATUS_ADDED || svc_status == fpi::SVC_STATUS_STARTED) )
+                {
+                    LOGWARN << "!!No record for svc found in SvcLayer or ConfigDB!! Will not "
+                            << "make any updates, returning..";
+                    return;
+
+                } else {
+                    svcAddition = true;
+                }
+            } else if ((svc_status == fpi::SVC_STATUS_ADDED || svc_status == fpi::SVC_STATUS_STARTED)) {
+                svcAddition = true;
+            }
 
             /*
              * ========================================================
@@ -465,7 +492,11 @@ namespace fds
                 // 3. Broadcast svcMap
 
                 configDB->changeStateSvcMap( dbInfoPtr );
-                MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {svcLayerInfoUpdate} );
+
+                if ( !svcAddition )
+                {
+                    MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {svcLayerInfoUpdate} );
+                }
                 //OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
 
             } else if ( !svcLayerRecordFound && dbRecordFound ) {
@@ -481,7 +512,11 @@ namespace fds
                     // 3. Broadcast svcMap
                     fpi::SvcInfoPtr incomingSvcInfoPtr = boost::make_shared<fpi::SvcInfo>(incomingSvcInfo);
                     configDB->changeStateSvcMap( incomingSvcInfoPtr );
-                    MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {incomingSvcInfo} );
+
+                    if ( !svcAddition )
+                    {
+                        MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {incomingSvcInfo} );
+                    }
                    // OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
 
                 } else {
@@ -489,7 +524,10 @@ namespace fds
                     // 1. No update to DB
                     // 2. Update svcLayer to DB
                     // 3. Broadcast svcMap
-                    MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {dbInfoUpdate} );
+                    if ( !svcAddition )
+                    {
+                        MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {dbInfoUpdate} );
+                    }
                    // OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
                 }
 
@@ -505,7 +543,10 @@ namespace fds
                     // 2. Update svcLayer to incoming
                     // 3. Broadcast svcMap
                     configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(incomingSvcInfo) );
-                    MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {incomingSvcInfo} );
+                    ///if ( !svcAddition )
+                    {
+                        MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {incomingSvcInfo} );
+                    }
                     //OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
 
                 } else {
@@ -579,8 +620,10 @@ namespace fds
             LOGNORMAL << "!!Releasing update map lock";
             updateLock.unlock();
 
-            LOGNORMAL << "!!Updating svcMgr svcmap !!";
-            OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
+            if ( !svcAddition )
+            {
+                OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
+            }
 
         } else {
 
@@ -659,16 +702,19 @@ namespace fds
             // Could be that svcLayer is unaware of the svc too
             bool svcAddition = false;
 
-            if ( svcLayerInfoUpdate.incarnationNo == 0 && dbInfoUpdate.incarnationNo == 0 )
+            if ( (svcLayerInfoUpdate.incarnationNo == 0 && dbInfoUpdate.incarnationNo == 0) )
             {
-                if (!(svc_status == fpi::SVC_STATUS_ADDED || svc_status == fpi::SVC_STATUS_STARTED))
+                if ( !(svc_status == fpi::SVC_STATUS_ADDED || svc_status == fpi::SVC_STATUS_STARTED) )
                 {
-                    LOGWARN << "!!No record for svc found in SvcLayer or ConfigDB!! Will not make any updates, returning..";
-
+                    LOGWARN << "!!No record for svc found in SvcLayer or ConfigDB!! Will not "
+                            << "make any updates, returning..";
                     return;
+
                 } else {
                     svcAddition = true;
                 }
+            } else if ((svc_status == fpi::SVC_STATUS_ADDED || svc_status == fpi::SVC_STATUS_STARTED)) {
+                svcAddition = true;
             }
 
             /*
