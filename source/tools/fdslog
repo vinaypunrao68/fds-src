@@ -5,15 +5,41 @@ import sys
 import os
 import os.path
 import datetime
+import time
 import pprint
 import gzip
-import functools
+import subprocess
+import copy
+import errno
+
+# --- logging init
+import logging
+logging.basicConfig(format="%(levelname)-7s: %(message)s")
+log = logging.getLogger('installer')
+log.setLevel(logging.INFO)
+# ----
+
+def get_timestamp_from_human_date(date):
+    if date is None:
+        return 0
+    date = str(date)
+    date = date.strip()
+    if date.isdigit():
+        return int(date)
+
+    if False:
+        if 'ago' not in date:
+            date = date + ' ago'
+
+    return int(subprocess.check_output('date --date "{}" +%s'.format(date), shell=True))
+
 
 class Record:
     def __init__(self, app, filename, parser):
-        self.elapsed = 0
+        self.elapsed = None
         self.time = None
-        self.level = 'normal'
+        self.level = 'NORMAL'
+        self.levelnum = 50
         self.threadid = ''
         self.srcinfo = None
         self.message = ''
@@ -23,15 +49,40 @@ class Record:
         self.app = app
         self.parser = parser
 
+    def format(self , fmt=None):
+        if fmt == None: fmt = self.parser.args.outputformat
+        return fmt.format(
+            elapsed=self.elapsed,
+            app=self.app,
+            time=self.time,
+            timestamp= self.time.strftime("%s.%f") if self.time != None else 0,
+            level=self.level,
+            thread=self.threadid,
+            src=self.srcinfo,
+            msg=self.message,
+            line=self.line,
+            num=self.linenum,
+            file=self.filename
+        )
+
     def setLineInfo(self, linenum, line, group):
         self.linenum = linenum
         self.line = line
         if group == None: return
-        self.time = datetime.datetime.strptime(group[0],self.parser.appInfos[self.app].dateformat)
-        self.level = group[1].lower()
-        self.threadid = group[2]
-        self.srcinfo = group[3]
-        self.message = group[4]
+        if self.app in ['web','xdi'] :
+            # [:-5] is because, we are stripping utc offset because of python issue
+            self.time = datetime.datetime.strptime(group[0][:-5], self.parser.appInfos[self.app].dateformat)
+            self.level = group[1]
+            self.srcinfo = group[2]
+            self.threadid = group[3]
+            self.message = group[4]
+        else:
+            self.time = datetime.datetime.strptime(group[0],self.parser.appInfos[self.app].dateformat)
+            self.level = group[1]
+            self.threadid = group[2]
+            self.srcinfo = group[3]
+            self.message = group[4]
+        self.levelnum = self.parser.getLogLevelNum(self.level)
 
     def append(self, message):
         self.message += '\n' + message
@@ -39,13 +90,20 @@ class Record:
 class AppInfo:
     def __init__(self, name):
         self.name = name
-        # [time] [level] [thread] - [file] - message
-        # srcinfo - \[([^:]+):(\d+):([^\]]+)\]
-        self.linepattern = re.compile('\[([^\]]+)\] \[([^\]]+)\] \[([^\]]+)\] - \[([^\]]+)\] -(.*)')
-        # 23.02.2016 17:30:34.461230
-        self.dateformat = '%d.%m.%Y %H:%M:%S.%f'
-        # dm.log_1.log
-        self.filenameformat = re.compile('{}.log_([0-9]+)\.log'.format(name))
+        if name in ['web','xdi'] :
+            # time - level srcinfo thread message
+            self.linepattern = re.compile('^([^ ]+) - *([^ ]+) ([^ ]+) ([^ ]+) - (.*)')
+            # 2016-02-26T19:44:25.000851-0800 -- ignoring utcoffset for now because of python error
+            self.dateformat='%Y-%m-%dT%H:%M:%S.%f'
+            if name == 'web' : name='om-xdi'
+            self.filenameformat = re.compile('^{}-?([0-9]+)?\.log'.format(name))
+        else:
+            # [time] [level] [thread] - [file] - message
+            self.linepattern = re.compile('\[([^\]]+)\] \[([^\]]+)\] \[([^\]]+)\] - \[([^\]]+)\] -(.*)')
+            # 23.02.2016 17:30:34.461230
+            self.dateformat = '%d.%m.%Y %H:%M:%S.%f'
+            # dm.log_1.log
+            self.filenameformat = re.compile('^{}.log_([0-9]+)\.log'.format(name))
 
     def isLogFile(self, filename):
         return self.filenameformat.search(filename) != None
@@ -54,17 +112,42 @@ class LogParser:
     '''
     Parse Fds Logs
     '''
-    apps = ['om', 'sm', 'am', 'pm', 'dm']
+    apps = ['om', 'sm', 'am', 'pm', 'dm', 'xdi', 'web']
     def __init__(self, args):
         self.args = args
-        self.logdir = '{}/var/logs'.format(self.args.fdsroot)
+        self.logdir = ['{}/var/logs'.format(f) for f in self.args.fdsroot]
+        self.logdir.extend(['{}/var/logs/archive'.format(f) for f in self.args.fdsroot])
         self.files = []
         self.firstTime = None
         self.appInfos={}
+        self.oElapsed = '{elapsed}' in self.args.outputformat
         for app in LogParser.apps:
             self.appInfos[app] = AppInfo(app)
 
+        self.logLevels = {
+            'FATAL':100,
+            'CRITICAL':90,
+            'ERROR':80,
+            'WARN':70,
+            'WARNING':70,
+            'NOTIFY':60,
+            'NOTIFICATION':60,
+            'INFO':50,
+            'NORMAL':50,
+            'DEBUG':40,
+            'TRACE':20
+        }
+
+        # set time
+        self.fromtime = args.fromtime
+        self.totime = args.totime
+
         self.getFileList()
+
+        # set the times to datetime format
+        self.fromtime = None if self.fromtime == 0 else datetime.datetime.fromtimestamp(self.fromtime)
+        self.totime = None if self.totime == 0 else datetime.datetime.fromtimestamp(self.totime)
+
         self.keyaliases=[]
         self.keyaliases.append(['vol','volume','volid','volume id','vol id'])
         self.keyaliases.append(['snap','snapid','snapshot id','snap id'])
@@ -74,18 +157,36 @@ class LogParser:
         self.keyaliases.append(['seq','seqid','sequence','sequenceid'])
         self.keyaliases.append(['uuid','svc_uuid','svcuuid','svc','node','nodeid','nodeuuid'])
 
-        self.levels=[l.lower() for l in self.args.level.split(',')]
-        
+        self.onlyLevel = False
+        self.level = 51 # default higher than normal
+        args.level = args.level.upper() if args.level != None else ''
+        if args.level.startswith('='):
+            self.onlyLevel = True
+            args.level=args.level[1:]
+
+        if args.level in ['*', 'all']:
+            self.level = 100
+        else:
+            for l in self.logLevels.keys():
+                if l.startswith(args.level):
+                    self.level = self.logLevels[l]
+                    break
+
+        log.info('log level is {}'.format(self.level))
         # for printing only when needed
         self.processedfileset=set()
         self.setSearchPattern()
+
+    def getLogLevelNum(self, level):
+        if level==None: return 50
+        return self.logLevels.get(level.upper(), 50)
 
     def setSearchPattern(self):
         keys=[]
         pattern = ''
         if self.args.key != None:
             for alias in self.keyaliases:
-                if self.args.key in alias: 
+                if self.args.key in alias:
                     keys.extend(alias)
                     break
             if len(keys) == 0:
@@ -93,10 +194,10 @@ class LogParser:
             pattern = '(' + '|'.join(keys) + ')[ :=]+'
 
         pattern += self.args.match
-        print 'pattern = [{}]'.format(pattern)
+        log.info('search pattern = [{}]'.format(pattern))
         self.searchpattern = re.compile(pattern,re.IGNORECASE)
 
-    def getLogFileType(self, filename):
+    def getAppFromLogFile(self, filename):
         filename=filename.split('/')[-1]
         for app in self.appInfos:
             if self.appInfos[app].isLogFile(filename): return app
@@ -104,7 +205,7 @@ class LogParser:
 
     def getLogFileNum(self,filename):
         filename=filename.split('/')[-1]
-        app = self.getLogFileType(filename)
+        app = self.getAppFromLogFile(filename)
         num=self.appInfos[app].filenameformat.findall(filename)
         if num:
             try:
@@ -115,33 +216,132 @@ class LogParser:
 
     def getFileList(self):
         self.files=[]
-        for f in os.listdir(self.logdir):
-            fn=os.path.join(self.logdir, f)
-            if not os.path.isfile(fn): continue
-            app = self.getLogFileType(f)
-            if app != None and getattr(self.args, app):
-                self.files.append(fn)
-                
-        def numeric_file_comparator(self, x):
-            return '{}-{:0>10}'.format(self.getLogFileType(x), self.getLogFileNum(x))
+        files={}
+        log.debug('log dirs: {}'.format(self.logdir))
+        dirs=set()
+        for d in self.logdir:
+            if d not in dirs and os.path.isdir(d):
+                dirs.add(d)
+            else:
+                continue
+            log.debug('processing log dir: {}'.format(d))
+            for f in os.listdir(d):
+                fn=os.path.join(d, f)
+                if not os.path.isfile(fn): continue
+                app = self.getAppFromLogFile(f)
+                if app != None and getattr(self.args, app):
+                    if app not in files: files[app]=[]
+                    try :
+                        # filename, starttime, endtime
+                        files[app].append([fn,0, os.stat(fn).st_mtime])
+                    except:
+                        pass
 
-        # sort the files numerically
-        self.files.sort(key=functools.partial(numeric_file_comparator,self))
+        totalAppFiles = sum([len(f) for f in files.values()])
+        if totalAppFiles == 0:
+            log.error("no log files found in : {}".format(self.logdir))
+            return self.files
+        origfiles = copy.deepcopy(files)
+        log.info('from:{} to:{}'.format(self.fromtime, self.totime))
+        log.debug('all files = {}'.format(files))
+        if self.totime > 0:
+            # find the first file with endtime >= self.totime and then remove the rest
+            for app in files:
+                # first sort the list on endtime
+                flist=files[app]
+                flist.sort(key=lambda x: x[2])
+                pos=0
+                # find the first file with endtime >= self.totime
+                for f in flist:
+                    if f[2] >= self.totime:
+                        break
+                    pos += 1
+
+                # remove the rest
+                del flist[pos+1:]
+            log.debug('files after totime filter = {}'.format(files))
+
+        if self.fromtime > 0:
+            # get the first time
+            for app in files:
+                # first get the start time
+                flist=files[app]
+                for f in flist:
+                    f[1] = int(self.getFirstTime(f[0]).strftime('%s'))
+
+                # sort the list based on start time
+                flist.sort(key=lambda x: x[1])
+
+                pos=0
+                # find the first file with starttime <= self.fromtime
+                for f in flist:
+                    if f[1] >= self.fromtime:
+                        break
+                    pos += 1
+                if pos > 0 : del flist[0:pos-1]
+                # if there is only one file also check the endtime
+                if len(flist) == 1 and self.fromtime > flist[0][2]:
+                    del flist[0]
+            log.debug('files after fromtime filter = {}'.format(files))
+
+        totalFilesWithinTime = sum([len(f) for f in files.values()])
+        maxfiles = self.args.maxlogs
+        if totalFilesWithinTime == 0 :
+            files = origfiles
+            maxfiles = 1
+            self.fromtime=0
+            self.totime=0
+            log.warn('no files within time ... selecting last {} automatically'.format(maxfiles))
+
+        for app in files: files[app].sort(key=lambda x: x[2])
+
+        # select files only upto max num per app
+        app = None
+        count=0
+
+        for app in files:
+            if maxfiles > 0 and len(files[app])>maxfiles: del files[app][0:-1*maxfiles]
+            self.files.extend([f[0] for f in files[app]])
+
+        finalcount = sum([len(f) for f in files.values()])
+        log.info('file selection: total:{} within-time:{} within-maxlogs:{}'.format(totalAppFiles, totalFilesWithinTime, finalcount))
+        if len(self.files) == 0: log.error('no files matched .. from:{}, to:{}, count:{} args:{}'.format(self.fromtime, self.totime, maxfiles, self.args))
+        log.debug('final list of files = {}'.format(self.files))
         return self.files
 
-    def processFile(self,filename):
+    def getFirstTime(self,filename, maxlines=10):
         linenum = 0
-        record = None
-        app = self.getLogFileType(filename)
+        app = self.getAppFromLogFile(filename)
         appInfo=self.appInfos[app]
+        log.debug('fetching first time from {}'.format(filename))
         with gzip.open(filename,'r') if filename.endswith('.gz') else open(filename,'r')  as f:
             for line in f:
                 line=line.strip()
                 linenum += 1
                 stdline = appInfo.linepattern.match(line)
                 if stdline:
+                    record = Record(app, filename, self)
+                    g = stdline.groups()
+                    record.setLineInfo(linenum, line, g)
+                    return record.time
+                if linenum > maxlines:
+                    break
+        return None
+
+    def processFile(self,filename):
+        linenum = 0
+        record = None
+        app = self.getAppFromLogFile(filename)
+        appInfo=self.appInfos[app]
+        log.info('processing file: {}'.format(filename))
+        with gzip.open(filename,'r') if filename.endswith('.gz') else open(filename,'r')  as f:
+            for line in f:
+                line=line.rstrip()
+                linenum += 1
+                stdline = appInfo.linepattern.match(line)
+                if stdline:
                     if record and self.isMatch(record):
-                        self.output(record)
+                        self.printRecord(record)
                     record = Record(app, filename, self)
                     g = stdline.groups()
                     record.setLineInfo(linenum, line, g)
@@ -150,64 +350,147 @@ class LogParser:
                         record.append(line)
         # last record may not have been checked
         if record and self.isMatch(record):
-            self.output(record)
-
+            self.printRecord(record)
 
     def isMatch(self, record):
-        matched = False
-        for level in self.levels:
-            if record.level.startswith(level):
-                matched = True
-                break
+        # log level match
+        matched = record.levelnum == self.level if self.onlyLevel else record.levelnum >= self.level
 
-        if matched and self.args.thread != None:
-            matched = matched and record.threadid.endswith(self.args.thread)
-            
-        return matched and self.searchpattern.search(record.message)
+        if not matched: return False
+        if self.args.thread != None and not record.threadid.endswith(self.args.thread): return False
+        if self.fromtime != None and not record.time >= self.fromtime: return False
+        if self.totime != None and not record.time <= self.totime: return False
 
-    def output(self, record):
-        if self.firstTime == None: self.firstTime = record.time
-        record.elapsed = record.time - self.firstTime
+        matched = self.searchpattern.search(record.message)
+        if not matched and self.args.fullmatch and record.srcinfo != None:
+            matched = self.searchpattern.search(record.srcinfo)
+        return matched
+
+    def printRecord(self, record):
+        if self.oElapsed:
+            # this is to avoid calulating elapsed time , when not needed
+            if self.firstTime == None: self.firstTime = record.time
+            record.elapsed = (record.time - self.firstTime).total_seconds()
 
         if record.filename not in self.processedfileset:
-            print '\n{} from [{}] {}'.format('-'*10,record.filename, '-'*10)
+            # if filename is printed on every line , dont print it separately
+            if '{file}' not in self.args.outputformat:
+                print '\n{} from [{}] {}'.format('-'*10,record.filename, '-'*10)
             self.processedfileset.add(record.filename)
 
-        if args.compact:
-            print '[{}] [{}] - {}'.format(record.elapsed,
-                                          record.srcinfo,
-                                          record.message.strip())
-        else:
-            print '[{}] [{}] [{}] [{}] - [{}] - [{}]'.format(record.elapsed,
-                                                             record.time,
-                                                             record.level,
-                                                             record.threadid,
-                                                             record.srcinfo,
-                                                             record.message)
+        # print the record to the specified format
+        print record.format(self.args.outputformat)
 
+    # process all files one by one
     def process(self):
         for f in self.files:
-            #print 'processing - [{}]'.format(f)
             self.processFile(f)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='parse fds logs',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('-f', '--fds-root', dest='fdsroot',default='/fds',help='fds root dir')
-    parser.add_argument('--ofull', dest='compact',action='store_false',help='output full line')
-    parser.add_argument('-k', '--key', dest='key',default=None,help='key for the value to grep -  will have aliases')
-    parser.add_argument('-l','--level', dest='level',default='',help='error,warn,crit,notify')
-    parser.add_argument('-t','--thread', dest='thread',default=None,help='thread id - matches ending')
-    
-    parser.set_defaults(compact=True)
+
+    # this is to track only one level parameter is set
+    previousLevels = []
+    def setLevel(level):
+        class LevelSetter(argparse.Action):
+            def __call__(self, parser, args, values, option):
+                global previousLevels
+                #print 'level:{}\nparser:{}\nargs:{}\nvalues:{}\noption:{}\ndest:{}'.format(level,parser,args,values,option,self.dest)
+                previousLevels.append(option)
+                #sys.exit(0)
+                setattr(args, self.dest, level)
+        return LevelSetter
+
+
+    parser = argparse.ArgumentParser(description='parse fds logs',formatter_class=argparse.ArgumentDefaultsHelpFormatter,prefix_chars='-@')
+    parser.add_argument('-f', '-fdsroot', dest='fdsroot',default=[], action='append' ,help='fds root dir')
+    parser.add_argument('-compact', dest='compact',action='store_true',help='output in compact format')
+    parser.add_argument('-format', dest='outputformat',default='{timestamp} {app} [{time}] [{level}] [{thread}] - [{src}] - [{msg}]',help='output format..')
+    parser.add_argument('-full', dest='fullmatch',action='store_true', default=False,help='match full line')
+    parser.add_argument('-dry',dest='dryrun',action='store_true',default=False, help='dryrun - no searching')
+    parser.add_argument('-a', '-attr', dest='key',default=None,help='attribute for the value to grep -  will have aliases')
+    parser.add_argument('-t','-thread', dest='thread',default=None,help='thread id - matches ending')
+    parser.add_argument('-m','-maxlogs', dest='maxlogs',default=3,help='max no.of log files per app to process')
+    parser.add_argument('-from', dest='fromtime',  help='from time - def:last 1 hour')
+    parser.add_argument('-to', dest='totime',  help='to time - def: current time')
+    parser.add_argument('-around', dest='around', help='around from/to : def 1 hour')
+    parser.add_argument('-v', dest='verbose', action='count', default=0, help='debug verbosity')
+
+    # these options will kick in for <= level
+    for level in ['fatal','error','warn','info','debug','trace']:
+        parser.add_argument('-'+level, dest='level', action=setLevel(level),help='logs with level <= ' + level, nargs=0)
+
+    # these options will kick in for = level
+    for level in ['fatal','error','warn','info','debug','trace']:
+        parser.add_argument('@'+level, dest='level', action=setLevel('='+level),help='logs with level == ' + level, nargs=0)
+
+    # specify which apps to parse
     for app in LogParser.apps:
-        parser.add_argument('--'+app, dest=app, action='store_true'   ,help='grep %s logs' % (app) )
-        parser.add_argument('--no'+app, dest=app, action='store_false',help='skip %s logs' % (app) )
+        parser.add_argument('-'+app, dest=app, action='store_true'   ,help='grep %s logs' % (app) )
+    
+    # specify which apps to skip
+    for app in LogParser.apps:
+        parser.add_argument('-no'+app, dest=app, action='store_false',help='skip %s logs' % (app) )
         eval('parser.set_defaults(' + app + '=None)')
 
-    #parser.add_argument('-p','--port',dest='ports', action='append' ,type=int ,help="other ports to be monitored", default=[])
+    parser.set_defaults(compact=False)
+    parser.set_defaults(web=False)
+
+    # remaining one argument is the search term .. it need not be specified
     parser.add_argument('match',default='', nargs='?' ,help="Matching regex", type=str)
-    args = parser.parse_args()
     
+    # parse the arguments
+    args = parser.parse_args()
+
+    # set verbosity for printing more details .. for within the tool
+    # only 3 levels WARN/INFO/DEBUG - ERROR by default
+    levels = [logging.ERROR, logging.WARN, logging.INFO, logging.DEBUG]
+    if args.verbose > 3 : args.verbose = 3
+    log.setLevel(levels[args.verbose])
+
+
+    # check for multiple levels specified in command line.. only one makes sense
+    if len(previousLevels) > 1:
+        log.error('multiple levels specified .. [{}] will override : [{}]'.format(previousLevels[-1],'/'.join(previousLevels[:-1])))
+
+    # set the time ranges properly with around
+    currentTime = int(time.time())
+    aroundTime = abs(currentTime - get_timestamp_from_human_date(args.around)) if args.around != None and len(args.around)>0 else 0
+    args.fromtime = get_timestamp_from_human_date(args.fromtime) if args.fromtime!=None and len(args.fromtime) > 0 else None
+    args.totime = get_timestamp_from_human_date(args.totime) if args.totime!=None and len(args.totime) > 0 else None
+
+    if args.fromtime == None and args.totime == None:
+        # if both from and to were not specified set from to around ago and totime to currentime
+        if aroundTime == 0 : aroundTime = 3600 # 1hr before
+        args.fromtime = currentTime - aroundTime
+        args.totime   = currentTime
+    elif args.fromtime == None:
+        if aroundTime > 0 :
+            args.fromtime  = get_timestamp_from_human_date(args.totime) - aroundTime/2
+            args.totime += aroundTime/2
+        else:
+            args.fromtime = 0
+    elif args.totime == None:
+        if aroundTime > 0 :
+            args.totime  = get_timestamp_from_human_date(args.fromtime) + aroundTime/2
+            args.fromtime -= aroundTime/2
+        else:
+            args.totime = currentTime
+
+    if args.fromtime > currentTime:
+        # may be the user forgot to add 'ago' or is in a time warp.
+        args.fromtime = currentTime - (args.fromtime - currentTime)
+
+    if args.totime > currentTime:
+        # may be the user forgot to add 'ago' or is in a time warp.
+        args.totime = currentTime - (args.totime - currentTime)
+
+    if args.totime < args.fromtime:
+        args.fromtime, args.totime = args.totime , args.fromtime
+
+    # if we are doing a dryrun , set high verbosity
+    if args.dryrun:
+        args.verbose = 3
+
     numtrue = 0
     for proc in LogParser.apps:
         val = getattr(args, proc)
@@ -217,17 +500,44 @@ if __name__ == "__main__":
     val = True
     if numtrue > 0:
         val = False
-    
+
     for proc in LogParser.apps:
-        if getattr(args, proc) == None:            
+        if getattr(args, proc) == None:
             setattr(args, proc, val)
 
     if len(args.match) == 0 and args.key == None and args.level == '':
-        args.level='error,warn,crit'
+        args.level='info'
 
-    print args
+    log.debug('args = {}'.format(args))
+
+    if len(args.fdsroot) == 0:
+        args.fdsroot.append('/fds')
+
+    #format
+    if args.compact:
+        args.outputformat='{timestamp} {app} [{src}] - {msg}'
+
+    if args.outputformat == None:
+        args.outputformat = '{timestamp} {app} [{time}] [{level}] [{thread}] - [{src}] - [{msg}]'
+
+    # check the format
+    try:
+        Record(None,None,None).format(args.outputformat)
+    except Exception as e:
+        log.error('{} ... please check the output format : `{}`'.format(e,args.outputformat))
+        log.error(' -- allowed keys: timestamp,time,app,level,thread,src,msg,line,num,file')
+        log.error(" -- format  '{key} ..' ")
+        sys.exit(1)
 
     parser = LogParser(args)
-    #pprint.pprint(parser.getFileList())
-    parser.process()
 
+    if not args.dryrun:
+        try:
+            parser.process()
+        except KeyboardInterrupt:
+            pass
+        except IOError as e:
+            if e.errno != errno.EPIPE:
+                try:
+                    sys.stderr.write('unexpected io error: {}\n'.format(e.errno))
+                except: pass
