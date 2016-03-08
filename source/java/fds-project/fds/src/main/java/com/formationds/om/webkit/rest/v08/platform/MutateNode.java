@@ -11,8 +11,8 @@ import java.util.List;
 import javax.servlet.http.HttpServletResponse;
 
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.formationds.client.v08.model.Node;
 import com.formationds.client.v08.model.Service;
@@ -37,7 +37,7 @@ public class MutateNode implements RequestHandler {
     private static final String NODE_ARG = "node_id";
 
     private static final Logger logger =
-            LoggerFactory.getLogger( AddNode.class );
+            LogManager.getLogger( AddNode.class );
 
     private ConfigurationApi configApi;
 

@@ -7,8 +7,8 @@ import java.util.Map;
 
 
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.formationds.client.v08.model.User;
 import com.formationds.om.webkit.rest.v08.users.GetUser;
@@ -18,7 +18,7 @@ import com.formationds.web.toolkit.TextResource;
 
 public class StatsResourceAuth implements RequestHandler {
 
-	private static final Logger logger = LoggerFactory.getLogger( StatsResourceAuth.class );
+	private static final Logger logger = LogManager.getLogger( StatsResourceAuth.class );
 	
 	private static final String READ = "read";
 	private static final String CONFIGURE = "configure";

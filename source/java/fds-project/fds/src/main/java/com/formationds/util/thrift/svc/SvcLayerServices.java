@@ -10,8 +10,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  * @author ptinius
@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
 public class SvcLayerServices {
 
     private static final Logger logger =
-        LoggerFactory.getLogger( SvcLayerServices.class );
+        LogManager.getLogger( SvcLayerServices.class );
 
     private static final Map<Long, List<SvcLayerClient>> SERVICES =
         new HashMap<>();

@@ -1,5 +1,5 @@
 name "fdsutil"
-default_version "0.3.9"
+default_version "0.3.10"
 
 dependency "pip"
 dependency "python-readline"

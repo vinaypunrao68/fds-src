@@ -11,8 +11,8 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.Map;
 
@@ -20,7 +20,7 @@ public class DeleteSnapshotPolicy
   implements RequestHandler {
 
   private static final Logger logger =
-    LoggerFactory.getLogger( DeleteSnapshotPolicy.class );
+    LogManager.getLogger( DeleteSnapshotPolicy.class );
 
   private static final String REQ_PARAM_POLICY_ID = "policyId";
   private ConfigurationApi config;

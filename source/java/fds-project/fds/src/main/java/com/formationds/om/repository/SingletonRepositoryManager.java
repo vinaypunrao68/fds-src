@@ -11,8 +11,8 @@ import com.formationds.om.repository.influxdb.InfluxMetricSeriesPerVolumeRepo;
 import com.formationds.om.repository.influxdb.InfluxRepository;
 import com.google.common.base.Preconditions;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
@@ -35,7 +35,7 @@ public class SingletonRepositoryManager {
 
     private SingletonRepositoryManager() {}
 
-    public static final Logger logger = LoggerFactory.getLogger( SingletonRepositoryManager.class );
+    public static final Logger logger = LogManager.getLogger( SingletonRepositoryManager.class );
 
     /**
      * singleton instance of SingletonMetricsRepository

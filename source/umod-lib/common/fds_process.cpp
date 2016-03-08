@@ -168,7 +168,7 @@ void FdsProcess::init(int argc, char *argv[],
 
     proc_thrp    = NULL;
     proc_id = argv[0];
-    
+
     /* Initialize process wide globals */
     g_fdsprocess = this;
     /* Set up the signal handler.  We should do this before creating any threads */
@@ -204,7 +204,7 @@ void FdsProcess::init(int argc, char *argv[],
         }
 
         syslog(LOG_NOTICE, "FDS service %s started.",
-               SERVICE_NAME_FROM_ID((g_fdsprocess != nullptr) ? g_fdsprocess->getProcId().c_str() : "unknown"));
+               SERVICE_NAME_FROM_ID());
 
         /*
          * Create a global logger.  Logger is created here because we need the file
@@ -475,7 +475,7 @@ FdsProcess::fds_catch_signal(int sig) {
     const char* signalNotificationTmplt = "FDS service %s caught signal ";
     char signalNotification[64];
     snprintf(signalNotification, sizeof(signalNotification), signalNotificationTmplt,
-             SERVICE_NAME_FROM_ID((g_fdsprocess != nullptr) ? g_fdsprocess->getProcId().c_str() : "unknown"));
+             SERVICE_NAME_FROM_ID());
 
     /* Find our signal for reporting. */
     std::string sigName(": unknown");
@@ -500,7 +500,7 @@ FdsProcess::fds_catch_signal(int sig) {
         const char* normalSignOffTmplt = "FDS service %s exiting normally.";
         char normalSignOff[64];
         snprintf(normalSignOff, sizeof(normalSignOff), normalSignOffTmplt,
-                 SERVICE_NAME_FROM_ID((g_fdsprocess != nullptr) ? g_fdsprocess->getProcId().c_str() : "unknown"));
+                 SERVICE_NAME_FROM_ID());
 
         if (g_fdsprocess) {
             g_fdsprocess->interrupt_cb(sig);
@@ -516,7 +516,7 @@ FdsProcess::fds_catch_signal(int sig) {
     const char* abnormalSignOffTmplt = "FDS service %s exiting abnormally.";
     char abnormalSignOff[64];
     snprintf(abnormalSignOff, sizeof(abnormalSignOff), abnormalSignOffTmplt,
-             SERVICE_NAME_FROM_ID((g_fdsprocess != nullptr) ? g_fdsprocess->getProcId().c_str() : "unknown"));
+             SERVICE_NAME_FROM_ID());
 
     GLOGERROR << abnormalSignOff;
     g_fdslog->flush();
@@ -679,8 +679,7 @@ void FdsProcess::setup_sig_handler()
                         char currentHandlerBuf[32];
                         snprintf(currentHandlerBuf, 32, "%p", currentHandler);
                         syslog(LOG_NOTICE, "FDS service %s restored signal handler %s for signal %s.",
-                               SERVICE_NAME_FROM_ID(
-                                       (g_fdsprocess != nullptr) ? g_fdsprocess->getProcId().c_str() : "unknown"),
+                               SERVICE_NAME_FROM_ID(),
                                (currentHandler == SIG_ERR) ? "SIG_ERR" :
                                (currentHandler == SIG_IGN) ? "SIG_IGN" : currentHandlerBuf,
                                sigp.signame.c_str());
@@ -691,7 +690,7 @@ void FdsProcess::setup_sig_handler()
     } else {
         // Our logging is not set up yet.
         syslog(LOG_NOTICE, "FDS service %s left with default signal handling.",
-               SERVICE_NAME_FROM_ID((g_fdsprocess != nullptr) ? g_fdsprocess->getProcId().c_str() : "unknown"));
+               SERVICE_NAME_FROM_ID());
     }
 }
 

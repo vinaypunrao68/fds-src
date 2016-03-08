@@ -15,15 +15,15 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.InputStreamReader;
 import java.util.Map;
 
 public class CloneVolumeFromSnapshot implements RequestHandler {
 
-    private static final Logger logger = LoggerFactory.getLogger( CloneVolumeFromSnapshot.class );
+    private static final Logger logger = LogManager.getLogger( CloneVolumeFromSnapshot.class );
     private static final String VOLUME_ARG = "volume_id";
     private static final String SNAPSHOT_ARG = "snapshot_id";
 

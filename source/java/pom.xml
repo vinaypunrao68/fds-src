@@ -59,7 +59,7 @@
     <apache.commons.pool2.version>2.3</apache.commons.pool2.version>
     <apache.hadoop.version>2.6.0</apache.hadoop.version>
     <apache.httpcomponents.version>4.4.1</apache.httpcomponents.version>
-    <apache.log4j.v2.version>2.3</apache.log4j.v2.version>
+    <apache.log4j.v2.version>2.5</apache.log4j.v2.version>
     <asyncretry.version>0.0.7</asyncretry.version>
     <!-- issue with latest version, junit security failure -->
     <aws.version>1.7.9</aws.version>
@@ -81,7 +81,6 @@
     <logback.version>1.1.2</logback.version>
     <protonpack.version>1.4</protonpack.version>
     <redisson.version>1.2.1</redisson.version>
-    <slf4j.version>1.7.12</slf4j.version>
     <snmp4j.version>2.3.3_1</snmp4j.version>
     <thrift.version>0.9.3</thrift.version>
     <togglz.version>2.2.0.Final</togglz.version>
@@ -400,7 +399,7 @@
         <groupId>com.formationds</groupId>
         <artifactId>influxdb-java</artifactId>
         <version>1.6.1-SNAPSHOT</version>
-        
+
       </dependency>
 
       <dependency>
@@ -419,12 +418,6 @@
         <groupId>org.redisson</groupId>
         <artifactId>redisson</artifactId>
         <version>${redisson.version}</version>
-      </dependency>
-
-      <dependency>
-        <groupId>org.slf4j</groupId>
-        <artifactId>slf4j-api</artifactId>
-        <version>${slf4j.version}</version>
       </dependency>
 
       <dependency>

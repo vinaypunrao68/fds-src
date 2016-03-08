@@ -16,8 +16,8 @@ import com.formationds.web.toolkit.Resource;
 import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -27,7 +27,7 @@ public class AddNode
     implements RequestHandler {
 
     private static final Logger logger =
-        LoggerFactory.getLogger( AddNode.class );
+        LogManager.getLogger( AddNode.class );
 
     private final ConfigurationService.Iface client;
 

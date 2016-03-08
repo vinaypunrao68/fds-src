@@ -16,8 +16,8 @@ import com.formationds.web.toolkit.TextResource;
 
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.InputStreamReader;
 import java.util.Map;
@@ -25,7 +25,7 @@ import java.util.Map;
 public class CreateLocalDomain implements RequestHandler {
 
     private static final Logger logger =
-            LoggerFactory.getLogger( CreateLocalDomain.class );
+            LogManager.getLogger( CreateLocalDomain.class );
 
     private ConfigurationApi configApi;
 

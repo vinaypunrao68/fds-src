@@ -1218,9 +1218,9 @@ namespace fds
 
         void PlatformManager::heartbeatCheck (fpi::HeartbeatMessagePtr const &heartbeatMsg)
         {
-            LOGDEBUG << "Sending heartbeatMessage ack from PM uuid: "
-                     << std::hex << heartbeatMsg->svcUuid.uuid << std::dec
-                     << " [ " << usedDiskCapacity << " ]";
+            LOGNORMAL << "Sending heartbeatMessage ack from PM uuid: "
+                      << std::hex << heartbeatMsg->svcUuid.uuid << std::dec
+                      << " [ UsedDiskCapacity:" << usedDiskCapacity << " ]";
 
             auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
             auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());

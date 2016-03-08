@@ -17,8 +17,8 @@ import com.formationds.protocol.pm.types.NodeInfo;
 import com.formationds.protocol.svc.types.FDSP_MgrIdType;
 import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
 import com.formationds.protocol.svc.types.SvcInfo;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
  */
 public class Redis
 {
-    private static final Logger logger = LoggerFactory.getLogger( Redis.class );
+    private static final Logger logger = LogManager.getLogger( Redis.class );
 
     private final JedisPool pool;
 

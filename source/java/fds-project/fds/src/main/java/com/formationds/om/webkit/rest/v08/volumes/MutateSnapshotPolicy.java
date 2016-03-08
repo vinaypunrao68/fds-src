@@ -9,8 +9,8 @@ import java.util.Map;
 
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.SnapshotPolicy;
@@ -24,7 +24,7 @@ import com.formationds.web.toolkit.TextResource;
 
 public class MutateSnapshotPolicy implements RequestHandler{
 
-    private static final Logger logger = LoggerFactory.getLogger( MutateSnapshotPolicy.class );
+    private static final Logger logger = LogManager.getLogger( MutateSnapshotPolicy.class );
     private static final String VOLUME_ARG = "volume_id";
     private static final String POLICY_ARG = "policy_id";
 

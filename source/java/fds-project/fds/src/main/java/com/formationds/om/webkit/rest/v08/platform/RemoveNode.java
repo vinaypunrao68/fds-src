@@ -28,8 +28,8 @@ import com.formationds.web.toolkit.Resource;
 
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -44,7 +44,7 @@ public class RemoveNode
 	private static final String NODE_ARG = "node_id";
 	
     private static final Logger logger =
-        LoggerFactory.getLogger( RemoveNode.class );
+        LogManager.getLogger( RemoveNode.class );
 
     private ConfigurationApi configApi;
 

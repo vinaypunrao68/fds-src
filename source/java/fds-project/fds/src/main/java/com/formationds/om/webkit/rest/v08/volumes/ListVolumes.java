@@ -18,15 +18,15 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 public class ListVolumes implements RequestHandler {
-    private static final Logger logger = LoggerFactory.getLogger( ListVolumes.class );
+    private static final Logger logger = LogManager.getLogger( ListVolumes.class );
     
     public static final String SHOW_SYSTEM_VOLUMES = "system-volumes"; 
 
