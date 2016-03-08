@@ -50,7 +50,7 @@ diskio::FilePersisDataIO::disk_do_read(DiskRequest *req)
       }
     }
     disk_read_done(req);
-    if ( len < 0 ) {
+    if ( len <= 0 || retry_cnt > 3) {
 	perror("read Error");
 	err = fds::ERR_DISK_READ_FAILED;
     }
