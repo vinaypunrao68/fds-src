@@ -244,10 +244,9 @@ public class CreateVolume implements RequestHandler
         }
     }
 
-    private static final Size MAX_VOL_SIZE_GB = Size.gb( ( long ) Math.pow( 2, ( 32 + 17 ) - 30 ) );
     private static final long TWO_TO_32DN = ( long ) Math.pow( 2, 32 );
     private static final String VOL_SIZE_ERR =
-        "Volume size is to large %d GB, please specify volume less than %d GB.";
+        "Volume size is to large %s, please specify volume less than %s.";
 
     /**
      * @param volume the {@link Volume} representing the external model object
@@ -256,7 +255,8 @@ public class CreateVolume implements RequestHandler
     public void validateVolumeSize( final Volume volume )
         throws ApiException
     {
-        Size size;
+        long blockSize;
+        long volumeSize;
         switch( volume.getSettings().getVolumeType() )
         {
             /*
@@ -264,32 +264,25 @@ public class CreateVolume implements RequestHandler
              */
             case ISCSI:
                 final VolumeSettingsISCSI settingsISCSI = ( VolumeSettingsISCSI ) volume.getSettings();
-                size = Size.of( ( TWO_TO_32DN *
-                                  settingsISCSI.getBlockSize()
-                                               .getValue( SizeUnit.B )
-                                               .longValue( ) ),
-                                SizeUnit.B );
+                blockSize = settingsISCSI.getBlockSize().getValue( SizeUnit.B ).longValue();
+                volumeSize = settingsISCSI.getCapacity().getValue( SizeUnit.B ).longValue();
                 break;
             case BLOCK:
                 final VolumeSettingsBlock settingsBlock = ( VolumeSettingsBlock ) volume.getSettings( );
-                size = Size.of( ( TWO_TO_32DN *
-                                  settingsBlock.getBlockSize()
-                                               .getValue( SizeUnit.B )
-                                               .longValue( ) ),
-                                SizeUnit.B );
+                blockSize = settingsBlock.getBlockSize().getValue( SizeUnit.B ).longValue();
+                volumeSize = settingsBlock.getCapacity().getValue( SizeUnit.B ).longValue();
                 break;
 
             default:
                 return;
         }
 
-        if( ( size.getValue( SizeUnit.GB )
-                  .longValue( ) > MAX_VOL_SIZE_GB.getValue( SizeUnit.GB )
-                                                 .longValue( ) ) )
+        final long requestedVolumeSize = blockSize * TWO_TO_32DN;
+        if( requestedVolumeSize > volumeSize )
         {
             throw new ApiException( String.format( VOL_SIZE_ERR,
-                                                   size.getValue( SizeUnit.GB ).longValue(),
-                                                   MAX_VOL_SIZE_GB.getValue().longValue() ),
+                                                   Size.of( requestedVolumeSize, SizeUnit.B ).getValue( SizeUnit.GB ),
+                                                   Size.of( volumeSize, SizeUnit.B ).getValue( SizeUnit.GB ) ),
                                     ErrorCode.BAD_REQUEST );
         }
     }
