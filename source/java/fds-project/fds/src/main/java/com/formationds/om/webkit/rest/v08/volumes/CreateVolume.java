@@ -7,8 +7,11 @@ package com.formationds.om.webkit.rest.v08.volumes;
 import com.formationds.apis.FDSP_ModifyVolType;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.client.v08.converters.ExternalModelConverter;
+import com.formationds.client.v08.model.Size;
+import com.formationds.client.v08.model.SizeUnit;
 import com.formationds.client.v08.model.SnapshotPolicy;
 import com.formationds.client.v08.model.Volume;
+import com.formationds.client.v08.model.VolumeSettingsBlock;
 import com.formationds.client.v08.model.VolumeSettingsISCSI;
 import com.formationds.client.v08.model.VolumeSettingsNfs;
 import com.formationds.commons.model.helper.ObjectModelHelper;
@@ -85,6 +88,8 @@ public class CreateVolume implements RequestHandler
             throw new ApiException( "Badly formatted volume, name cannot contain spaces",
                                     ErrorCode.BAD_REQUEST );
         }
+
+        validateVolumeSize( newVolume );
 
         VolumeDescriptor internalVolume =
                 ExternalModelConverter.convertToInternalVolumeDescriptor( newVolume );
@@ -236,6 +241,56 @@ public class CreateVolume implements RequestHandler
                 .getSnapshotPolicies( ) )
         {
             createEndpoint.createSnapshotPolicy( externalVolume.getId( ), policy );
+        }
+    }
+
+    private static final Size MAX_VOL_SIZE_GB = Size.gb( ( long ) Math.pow( 2, ( 32 + 17 ) - 30 ) );
+    private static final long TWO_TO_32DN = ( long ) Math.pow( 2, 32 );
+    private static final String VOL_SIZE_ERR =
+        "Volume size is to large %d GB, please specify volume less than %d GB.";
+
+    /**
+     * @param volume the {@link Volume} representing the external model object
+     * @throws ApiException if the Volume size is not valid
+     */
+    public void validateVolumeSize( final Volume volume )
+        throws ApiException
+    {
+        Size size;
+        switch( volume.getSettings().getVolumeType() )
+        {
+            /*
+             * this validation only applies to block based volume types
+             */
+            case ISCSI:
+                final VolumeSettingsISCSI settingsISCSI = ( VolumeSettingsISCSI ) volume.getSettings();
+                size = Size.of( ( TWO_TO_32DN *
+                                  settingsISCSI.getBlockSize()
+                                               .getValue( SizeUnit.B )
+                                               .longValue( ) ),
+                                SizeUnit.B );
+                break;
+            case BLOCK:
+                final VolumeSettingsBlock settingsBlock = ( VolumeSettingsBlock ) volume.getSettings( );
+                size = Size.of( ( TWO_TO_32DN *
+                                  settingsBlock.getBlockSize()
+                                               .getValue( SizeUnit.B )
+                                               .longValue( ) ),
+                                SizeUnit.B );
+                break;
+
+            default:
+                return;
+        }
+
+        if( ( size.getValue( SizeUnit.GB )
+                  .longValue( ) > MAX_VOL_SIZE_GB.getValue( SizeUnit.GB )
+                                                 .longValue( ) ) )
+        {
+            throw new ApiException( String.format( VOL_SIZE_ERR,
+                                                   size.getValue( SizeUnit.GB ).longValue(),
+                                                   MAX_VOL_SIZE_GB.getValue().longValue() ),
+                                    ErrorCode.BAD_REQUEST );
         }
     }
 

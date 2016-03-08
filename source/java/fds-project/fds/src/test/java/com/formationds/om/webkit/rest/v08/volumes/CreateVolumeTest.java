@@ -111,16 +111,109 @@ public class CreateVolumeTest
         final String volumeName = "This Volume Has Spaces in the name";
         Assert.assertTrue( CharMatcher.WHITESPACE.matchesAnyOf( volumeName ) );
     }
+
     @Test
     public void testVolumeNameWithoutSpacesRegEx()
     {
         final String volumeName = "TestVolume_Name";
         Assert.assertFalse( CharMatcher.WHITESPACE.matchesAnyOf( volumeName ) );
     }
+
     @Test
     public void testVolumeNameWithDNSStyleNamesRegEx()
     {
         final String volumeName = "c3po.s3.formationds.com";
         Assert.assertFalse( CharMatcher.WHITESPACE.matchesAnyOf( volumeName ) );
+    }
+
+    @Test
+    public void testVolumeSize4kBlock()
+        throws Exception
+    {
+        final Volume volume = new Volume.Builder( "DummyVolume" )
+                                        .settings( new VolumeSettingsISCSI.Builder( )
+                                                                          .withBlockSize( Size.kb( 4L ) )
+                                                                          .withCapacity( Size.tb( 1 ) )
+                                                                          .build() )
+                                        .create();
+        ( new CreateVolume( null, null ) ).validateVolumeSize( volume );
+    }
+
+    @Test
+    public void testVolumeSize8kBlock()
+        throws Exception
+    {
+        final Volume volume = new Volume.Builder( "DummyVolume" )
+            .settings( new VolumeSettingsISCSI.Builder( )
+                           .withBlockSize( Size.kb( 8L ) )
+                           .withCapacity( Size.tb( 1 ) )
+                           .build() )
+            .create();
+        ( new CreateVolume( null, null ) ).validateVolumeSize( volume );
+    }
+
+    @Test
+    public void testVolumeSize16kBlock()
+        throws Exception
+    {
+        final Volume volume = new Volume.Builder( "DummyVolume" )
+            .settings( new VolumeSettingsISCSI.Builder( )
+                           .withBlockSize( Size.kb( 16L ) )
+                           .withCapacity( Size.tb( 1 ) )
+                           .build() )
+            .create();
+        ( new CreateVolume( null, null ) ).validateVolumeSize( volume );
+    }
+
+    @Test
+    public void testVolumeSize32kBlock()
+        throws Exception
+    {
+        final Volume volume = new Volume.Builder( "DummyVolume" )
+            .settings( new VolumeSettingsISCSI.Builder( )
+                           .withBlockSize( Size.kb( 32L ) )
+                           .withCapacity( Size.tb( 1 ) )
+                           .build() )
+            .create();
+        ( new CreateVolume( null, null ) ).validateVolumeSize( volume );
+    }
+
+    @Test
+    public void testVolumeSize64kBlock()
+        throws Exception
+    {
+        final Volume volume = new Volume.Builder( "DummyVolume" )
+            .settings( new VolumeSettingsISCSI.Builder( )
+                           .withBlockSize( Size.kb( 64L ) )
+                           .withCapacity( Size.tb( 1 ) )
+                           .build() )
+            .create();
+        ( new CreateVolume( null, null ) ).validateVolumeSize( volume );
+    }
+
+    @Test
+    public void testVolumeSize128kBlock()
+        throws Exception
+    {
+        final Volume volume = new Volume.Builder( "DummyVolume" )
+            .settings( new VolumeSettingsISCSI.Builder( )
+                           .withBlockSize( Size.kb( 128L ) )
+                           .withCapacity( Size.tb( 1 ) )
+                           .build() )
+            .create();
+        ( new CreateVolume( null, null ) ).validateVolumeSize( volume );
+    }
+
+    @Test( expected = ApiException.class )
+    public void testVolumeSizeBad()
+        throws Exception
+    {
+        final Volume volume = new Volume.Builder( "DummyVolume" )
+            .settings( new VolumeSettingsISCSI.Builder( )
+                           .withBlockSize( Size.kb( 256L ) )
+                           .withCapacity( Size.tb( 1 ) )
+                           .build() )
+            .create();
+        ( new CreateVolume( null, null ) ).validateVolumeSize( volume );
     }
 }
