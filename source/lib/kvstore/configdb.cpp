@@ -2645,7 +2645,7 @@ bool ConfigDB::changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr)
                        << " to [incarnation:" << svcInfoPtr->incarnationNo << ", status:"
                        << OmExtUtilApi::printSvcStatus(svcInfoPtr->svc_status) << "]";
         } else {
-            LOGNOTIFY << "!!ConfigDB updated map with new record:"
+            LOGNOTIFY << "!!ConfigDB updated map with new record,"
                        << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid << std::dec
                        << " status:" << OmExtUtilApi::printSvcStatus(svcInfoPtr->svc_status);
         }
@@ -2800,7 +2800,7 @@ bool ConfigDB::isPresentInSvcMap( const int64_t svc_uuid )
 
 bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
 {
-    LOGDEBUG << "!!ScopedRead svcMapLock";
+    LOGDEBUG << "!!getSvcMap ScopedRead svcMapLock";
     SCOPEDREAD(svcMapLock);
 
     try 
@@ -2821,6 +2821,15 @@ bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
                 ( svcInfo.svc_type == FDS_ProtocolInterface::FDSP_ACCESS_MGR ) ||
                 ( svcInfo.svc_type == FDS_ProtocolInterface::FDSP_ORCH_MGR ) )
             {
+
+                LOGDEBUG << "!!ConfigDB has Service info:"
+                         << " type: " << svcInfo.svc_type
+                         << " uuid: " << std::hex << svcInfo.svc_id.svc_uuid.svc_uuid << std::dec
+                         << " ip: " << svcInfo.ip
+                         << " port: " << svcInfo.svc_port
+                         << " incarnation: " << svcInfo.incarnationNo
+                         << " status: " << OmExtUtilApi::printSvcStatus(svcInfo.svc_status);
+
                 svcMap.push_back( svcInfo );
             }
         }

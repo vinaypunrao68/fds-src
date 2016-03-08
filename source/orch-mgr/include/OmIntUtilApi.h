@@ -44,14 +44,16 @@ namespace fds
                                                   std::vector<fpi::SvcInfo> svcInfos,
                                                   kvstore::ConfigDB* configDB);
 
-    void                     updateSvcMaps(kvstore::ConfigDB* configDB,
-                                           const fds_uint64_t svc_uuid,
+    void                     updateSvcMaps(kvstore::ConfigDB*       configDB,
+                                           const fds_uint64_t       svc_uuid,
                                            const fpi::ServiceStatus svc_status,
-                                           bool  handlerUpdate = false,
-                                           bool registering = false,
-                                           fpi::SvcInfo registeringSvcInfo = fpi::SvcInfo());
+                                           fpi::FDSP_MgrIdType      svcType,
+                                           bool                     handlerUpdate = false,
+                                           bool                     registering = false,
+                                           fpi::SvcInfo             registeringSvcInfo = fpi::SvcInfo());
 
     bool                    dbRecordNeedsUpdate(fpi::SvcInfo svcLayerInfo, fpi::SvcInfo dbInfo);
+
 }  // namespace fds
 
 #endif  // SOURCE_ORCH_MGR_INCLUDE_OMINTUTILAPI_H_

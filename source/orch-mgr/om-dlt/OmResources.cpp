@@ -2110,11 +2110,12 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
          */
         // Can we afford to remove this call? This map will get updated and
         // broadcasted when svcmaps get updated at the end of setupnewnode
-        MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
-        om_locDomain->om_bcast_svcmap();
+        // MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
+        // om_locDomain->om_bcast_svcmap();
 
         if (svcInfo->svc_type == fpi::FDSP_PLATFORM) {
-            updateSvcMaps(configDB, svcInfo->svc_id.svc_uuid.svc_uuid, svcInfo->svc_status, false, true , *svcInfo);
+            updateSvcMaps( configDB, svcInfo->svc_id.svc_uuid.svc_uuid,
+                           svcInfo->svc_status, fpi::FDSP_PLATFORM, false, true , *svcInfo );
         }
     }
     catch(const Exception& e)
@@ -2363,7 +2364,8 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                      svc.svc_status == fpi::SVC_STATUS_INACTIVE_STOPPED ||
                      svc.svc_status == fpi::SVC_STATUS_STANDBY) ) )
             {
-                updateSvcMaps(configDB, svc.svc_id.svc_uuid.svc_uuid, fpi::SVC_STATUS_ACTIVE);
+                updateSvcMaps( configDB, svc.svc_id.svc_uuid.svc_uuid,
+                               fpi::SVC_STATUS_ACTIVE, fpi::FDSP_PLATFORM );
             }
 
             spoofed.push_back( svc );
@@ -3088,7 +3090,8 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
                       << infoPtr->svc_id.svc_uuid.svc_uuid
                       << std::dec;
 
-            updateSvcMaps(configDB, infoPtr->svc_id.svc_uuid.svc_uuid, infoPtr->svc_status, false, true, *infoPtr);
+            updateSvcMaps( configDB, infoPtr->svc_id.svc_uuid.svc_uuid,
+                           infoPtr->svc_status, infoPtr->svc_type, false, true, *infoPtr);
 
             // Now erase the svc from the the local tracking vector
             removeRegisteredSvc(infoPtr->svc_id.svc_uuid.svc_uuid);
@@ -3563,7 +3566,8 @@ OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap(boost::shared_ptr<fpi::Sv
 {
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
     // Not sure whether passing this reference to the object managed by the shared ptr is safe
-    updateSvcMaps( configDB, svcInfo->svc_id.svc_uuid.svc_uuid, status, true, false, *svcInfo);
+    updateSvcMaps( configDB, svcInfo->svc_id.svc_uuid.svc_uuid,
+                   status, svcType, true, false, *svcInfo );
 
     om_locDomain->om_bcast_svcmap();
 }

@@ -196,7 +196,16 @@ std::string OmExtUtilApi::printSvcStatus( fpi::ServiceStatus svcStatus )
 
 /*
  * This function ensures that an incoming transition from a given state to another
- * is a valid one (following the table allowedStateTransitions
+ * is a valid one (following the table allowedStateTransitions)
+ *
+ * Disclaimer : this function is called currently (3/7/2016) ONLY from the below
+ * isIncomingUpdateValid. The places where that function is called ensure that there
+ * is in fact a valid current record (ie the record exists), so there isn't a scope
+ * for this function to be called for brand new services. As per code in OmIntUtilApi.cpp:
+ * if (!svcLayerRecordFound && !dbRecordFound).
+ * If this changes, then the allowedStateTransition table will have to be modified
+ * to hold values that indicate "svc not present" for incoming values of ADDED,
+ * DISCOVERED so this check will pass
  */
 bool OmExtUtilApi::isTransitionAllowed( fpi::ServiceStatus incoming,
                                          fpi::ServiceStatus current )
@@ -237,8 +246,8 @@ bool OmExtUtilApi::isTransitionAllowed( fpi::ServiceStatus incoming,
  * This function verifies that an incoming update to svcMaps is valid
  * taking into account (1) incarnationNo (2) valid state transition
  */
-bool OmExtUtilApi::isIncomingUpdateValid( fpi::SvcInfo incomingSvcInfo,
-                                           fpi::SvcInfo currentInfo )
+bool OmExtUtilApi::isIncomingUpdateValid( fpi::SvcInfo& incomingSvcInfo,
+                                          fpi::SvcInfo currentInfo )
 {
     bool ret = false;
 
@@ -282,7 +291,7 @@ bool OmExtUtilApi::isIncomingUpdateValid( fpi::SvcInfo incomingSvcInfo,
         }
     }
 
-    LOGNOTIFY << "isIncomingUpdateValid ? " << ret;
+    LOGNOTIFY << "!!isIncomingUpdateValid ? " << ret;
     return ret;
 }
 

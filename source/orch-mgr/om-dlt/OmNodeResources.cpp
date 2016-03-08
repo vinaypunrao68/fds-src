@@ -101,7 +101,8 @@ OM_NodeAgent::handle_service_deployed()
 
     updateSvcMaps( configDB,
                    rs_get_uuid().uuid_get_val(),
-                   fpi::SVC_STATUS_ACTIVE );
+                   fpi::SVC_STATUS_ACTIVE,
+                   node_get_svc_type() );
 }
 
 // ----------------
@@ -1017,7 +1018,8 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
                 // in case of a PM re-registration
                 updateSvcMaps( configDB,
                                ( activeSmAgent->get_uuid() ).uuid_get_val(),
-                               fpi::SVC_STATUS_INACTIVE_FAILED );
+                               fpi::SVC_STATUS_INACTIVE_FAILED,
+                               fpi::FDSP_STOR_MGR );
 
                 activeSmAgent = nullptr;
             }
@@ -1037,7 +1039,8 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
 
                 updateSvcMaps( configDB,
                                ( activeDmAgent->get_uuid() ).uuid_get_val(),
-                               fpi::SVC_STATUS_INACTIVE_FAILED );
+                               fpi::SVC_STATUS_INACTIVE_FAILED,
+                               fpi::FDSP_DATA_MGR );
 
                 activeDmAgent = nullptr;
             }
@@ -1057,7 +1060,8 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
 
                 updateSvcMaps( configDB,
                                ( activeAmAgent->get_uuid() ).uuid_get_val(),
-                               fpi::SVC_STATUS_INACTIVE_FAILED );
+                               fpi::SVC_STATUS_INACTIVE_FAILED,
+                               fpi::FDSP_ACCESS_MGR );
 
                 activeAmAgent = nullptr;
             }
@@ -1143,23 +1147,27 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
                 case fpi::FDS_Node_Up:
                     updateSvcMaps( configDB,
                                    get_uuid().uuid_get_val(),
-                                   fpi::SVC_STATUS_ACTIVE );
+                                   fpi::SVC_STATUS_ACTIVE,
+                                   fpi::FDSP_PLATFORM );
                     break;
                 case fpi::FDS_Start_Migration:
                     updateSvcMaps( configDB,
                                    get_uuid().uuid_get_val(),
-                                   fpi::SVC_STATUS_INVALID );
+                                   fpi::SVC_STATUS_INVALID,
+                                   fpi::FDSP_PLATFORM );
                     break;
                 case fpi::FDS_Node_Down:
                 case fpi::FDS_Node_Rmvd:
                     updateSvcMaps( configDB,
                                    get_uuid().uuid_get_val(),
-                                   fpi::SVC_STATUS_INACTIVE_STOPPED );
+                                   fpi::SVC_STATUS_INACTIVE_STOPPED,
+                                   fpi::FDSP_PLATFORM );
                     break;
                 case fpi::FDS_Node_Standby:
                     updateSvcMaps( configDB,
                                    get_uuid().uuid_get_val(),
-                                   fpi::SVC_STATUS_STANDBY );
+                                   fpi::SVC_STATUS_STANDBY,
+                                   fpi::FDSP_PLATFORM );
                     break;
             }
 
@@ -1292,23 +1300,27 @@ OM_PmAgent::send_add_service
         case fpi::FDS_Node_Up:
             updateSvcMaps( configDB,
                            get_uuid().uuid_get_val(),
-                           fpi::SVC_STATUS_ACTIVE );
+                           fpi::SVC_STATUS_ACTIVE,
+                           fpi::FDSP_PLATFORM );
             break;
         case fpi::FDS_Start_Migration:
             updateSvcMaps( configDB,
                            get_uuid().uuid_get_val(),
-                           fpi::SVC_STATUS_INVALID );
+                           fpi::SVC_STATUS_INVALID,
+                           fpi::FDSP_PLATFORM );
             break;
         case fpi::FDS_Node_Down:
         case fpi::FDS_Node_Rmvd:
             updateSvcMaps( configDB,
                            get_uuid().uuid_get_val(),
-                           fpi::SVC_STATUS_INACTIVE_STOPPED );
+                           fpi::SVC_STATUS_INACTIVE_STOPPED,
+                           fpi::FDSP_PLATFORM );
             break;
         case fpi::FDS_Node_Standby:
             updateSvcMaps( configDB,
                            get_uuid().uuid_get_val(),
-                           fpi::SVC_STATUS_STANDBY );
+                           fpi::SVC_STATUS_STANDBY,
+                           fpi::FDSP_PLATFORM );
             break;
     }
 
@@ -1335,7 +1347,8 @@ OM_PmAgent::send_add_service
                 svcId->svc_uuid = svcuuid;
                 item.__set_svc_id(*svcId);
                 item.__set_svc_status(fpi::SVC_STATUS_ADDED);
-                updateSvcMaps(configDB, svcId->svc_uuid.svc_uuid, fpi::SVC_STATUS_ADDED);
+                updateSvcMaps(configDB, svcId->svc_uuid.svc_uuid,
+                              fpi::SVC_STATUS_ADDED,fpi::FDSP_STOR_MGR);
                 break;
             case fpi::FDSP_DATA_MGR:
                 fds::retrieveSvcId(svc_uuid.svc_uuid, svcuuid, fpi::FDSP_DATA_MGR);
@@ -1344,16 +1357,18 @@ OM_PmAgent::send_add_service
                 svcId->svc_uuid = svcuuid;
                 item.__set_svc_id(*svcId);
                 item.__set_svc_status(fpi::SVC_STATUS_ADDED);
-                updateSvcMaps(configDB, svcId->svc_uuid.svc_uuid, fpi::SVC_STATUS_ADDED);
+                updateSvcMaps(configDB, svcId->svc_uuid.svc_uuid,
+                             fpi::SVC_STATUS_ADDED,fpi::FDSP_DATA_MGR);
                 break;
             case fpi::FDSP_ACCESS_MGR:
-                fds::retrieveSvcId(svc_uuid.svc_uuid, svcuuid, fpi::FDSP_ACCESS_MGR);
+                fds::retrieveSvcId(svc_uuid.svc_uuid, svcuuid,fpi::FDSP_ACCESS_MGR);
                 svcId = new fpi::SvcID();
                 svcId->svc_name = "am";
                 svcId->svc_uuid = svcuuid;
                 item.__set_svc_id(*svcId);
                 item.__set_svc_status(fpi::SVC_STATUS_ADDED);
-                updateSvcMaps(configDB, svcId->svc_uuid.svc_uuid, fpi::SVC_STATUS_ADDED);
+                updateSvcMaps(configDB, svcId->svc_uuid.svc_uuid,
+                              fpi::SVC_STATUS_ADDED, fpi::FDSP_ACCESS_MGR);
                 break;
             default:
                 LOGDEBUG << "Bad service type entered";
@@ -1428,8 +1443,9 @@ OM_PmAgent::send_start_service
                 (services.am.uuid_get_val() == 0))
             {
                 updateSvcMaps( configDB,
-                                get_uuid().uuid_get_val(),
-                                fpi::SVC_STATUS_STANDBY );
+                               get_uuid().uuid_get_val(),
+                               fpi::SVC_STATUS_STANDBY,
+                               fpi::FDSP_PLATFORM );
 
                 set_node_state(fpi::FDS_Node_Standby);
 
@@ -1452,7 +1468,8 @@ OM_PmAgent::send_start_service
 
     updateSvcMaps( configDB,
                    get_uuid().uuid_get_val(),
-                   fpi::SVC_STATUS_ACTIVE );
+                   fpi::SVC_STATUS_ACTIVE,
+                   fpi::FDSP_PLATFORM );
 
     set_node_state(fpi::FDS_Node_Up);
 
@@ -1514,7 +1531,8 @@ OM_PmAgent::send_start_service
                     // it can lead to some weird behavior
                     LOGNORMAL << "Starting svc:" << std::hex << svcuuid.svc_uuid << std::dec;
 
-                    updateSvcMaps(configDB, svcuuid.svc_uuid, fpi::SVC_STATUS_STARTED);
+                    updateSvcMaps(configDB, svcuuid.svc_uuid,
+                                  fpi::SVC_STATUS_STARTED, existingItem.svc_type);
                     break;
                 }
             }
@@ -1582,7 +1600,8 @@ void OM_PmAgent::send_start_service_resp
                 // Update the service state to active
                 updateSvcMaps( configDB,
                                svcUuid.svc_uuid,
-                               fpi::SVC_STATUS_ACTIVE );
+                               fpi::SVC_STATUS_ACTIVE,
+                               item.svcType);
             } else {
                 LOGDEBUG <<"PM started new processes, service registrations to follow";
             }
@@ -1628,7 +1647,8 @@ OM_PmAgent::send_stop_service
         LOGDEBUG << "No services present to stop, setting node to down";
         updateSvcMaps( configDB,
                        get_uuid().uuid_get_val(),
-                       fpi::SVC_STATUS_INACTIVE_STOPPED );
+                       fpi::SVC_STATUS_INACTIVE_STOPPED,
+                       fpi::FDSP_PLATFORM );
 
         set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
         return Error(ERR_OK);
@@ -1695,7 +1715,8 @@ OM_PmAgent::send_stop_service
 
             updateSvcMaps( configDB,
                            smSvcId.svc_uuid,
-                           fpi::SVC_STATUS_STOPPED );
+                           fpi::SVC_STATUS_STOPPED,
+                           fpi::FDSP_STOR_MGR );
         } else {
             if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
             {
@@ -1743,7 +1764,8 @@ OM_PmAgent::send_stop_service
 
              updateSvcMaps( configDB,
                             dmSvcId.svc_uuid,
-                            fpi::SVC_STATUS_STOPPED );
+                            fpi::SVC_STATUS_STOPPED,
+                            fpi::FDSP_DATA_MGR );
          } else {
 
              if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
@@ -1780,7 +1802,8 @@ OM_PmAgent::send_stop_service
 
              updateSvcMaps( configDB,
                             amSvcId.svc_uuid,
-                            fpi::SVC_STATUS_STOPPED );
+                            fpi::SVC_STATUS_STOPPED,
+                            fpi::FDSP_ACCESS_MGR );
          } else {
              if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
              {
@@ -1807,7 +1830,8 @@ OM_PmAgent::send_stop_service
      LOGDEBUG << "Changing PM state to STOPPED";
      updateSvcMaps( configDB,
                     get_uuid().uuid_get_val(),
-                    fpi::SVC_STATUS_STOPPED );
+                    fpi::SVC_STATUS_STOPPED,
+                    fpi::FDSP_PLATFORM );
      }
 
 
@@ -1868,7 +1892,8 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
             {
                 updateSvcMaps( configDB,
                                smSvcId.svc_uuid,
-                               fpi::SVC_STATUS_INACTIVE_STOPPED );
+                               fpi::SVC_STATUS_INACTIVE_STOPPED,
+                               fpi::FDSP_STOR_MGR );
             } else {
                 LOGDEBUG << "SM svc:" << smSvcId.svc_uuid << " already progressed to removed state"
                          << ", will not set to inactive_stopped";
@@ -1885,7 +1910,8 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
              {
                  updateSvcMaps( configDB,
                                 dmSvcId.svc_uuid,
-                                fpi::SVC_STATUS_INACTIVE_STOPPED );
+                                fpi::SVC_STATUS_INACTIVE_STOPPED,
+                                fpi::FDSP_DATA_MGR );
              } else {
                  LOGDEBUG << "DM svc:" << dmSvcId.svc_uuid << " already progressed to removed state"
                           << ", will not set to inactive_stopped";
@@ -1903,7 +1929,8 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
                  {
                      updateSvcMaps( configDB,
                                     amSvcId.svc_uuid,
-                                    fpi::SVC_STATUS_INACTIVE_STOPPED );
+                                    fpi::SVC_STATUS_INACTIVE_STOPPED,
+                                    fpi::FDSP_ACCESS_MGR );
                  } else {
                      LOGDEBUG << "AM svc:" << amSvcId.svc_uuid << " already progressed to removed state"
                               << ", will not set to inactive_stopped";
@@ -1950,7 +1977,8 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
                LOGDEBUG << "Changing PM state to INACTIVE";
                updateSvcMaps( configDB,
                               get_uuid().uuid_get_val(),
-                              fpi::SVC_STATUS_INACTIVE_STOPPED );
+                              fpi::SVC_STATUS_INACTIVE_STOPPED,
+                              fpi::FDSP_PLATFORM );
 
                // Also explicitly set the state to down
                set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
@@ -2126,7 +2154,8 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
 
                     updateSvcMaps( configDB,
                                    get_uuid().uuid_get_val(),
-                                   fpi::SVC_STATUS_DISCOVERED );
+                                   fpi::SVC_STATUS_DISCOVERED,
+                                   fpi::FDSP_PLATFORM );
                 } else {
                     LOGERROR << "Could not find node in the configuration DB!";
                 }
@@ -2138,7 +2167,8 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
                 set_node_state(FDS_ProtocolInterface::FDS_Node_Standby);
                 updateSvcMaps( configDB,
                                get_uuid().uuid_get_val(),
-                               fpi::SVC_STATUS_STANDBY);
+                               fpi::SVC_STATUS_STANDBY,
+                               fpi::FDSP_PLATFORM );
             }
         } else {
             LOGDEBUG <<"Removed service from node: "
