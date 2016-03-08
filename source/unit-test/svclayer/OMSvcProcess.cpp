@@ -96,9 +96,24 @@ void OMSvcProcess::init(int argc, char *argv[])
     boost::shared_ptr<OMSvcHandler2> handler = boost::make_shared<OMSvcHandler2>(this);
     boost::shared_ptr<fpi::OMSvcProcessor> processor = boost::make_shared<fpi::OMSvcProcessor>(handler);
 
+    /**
+     * Note on Thrift service compatibility:
+     * Because asynchronous service requests are routed manually, any new
+     * PlatNetSvc version MUST extend a previous PlatNetSvc version.
+     * Only ONE version of PlatNetSvc API can be included in the list of
+     * multiplexed services.
+     *
+     * For other new major service API versions (not PlatNetSvc), pass
+     * additional pairs of processor and Thrift service name.
+     */
+    TProcessorMap processors;
+    processors.insert(std::make_pair<std::string,
+        boost::shared_ptr<apache::thrift::TProcessor>>(
+            fpi::commonConstants().OM_SERVICE_NAME, processor));
+
     /* Set up process related services such as logger, timer, etc. */
     SvcProcess::init(argc, argv, "platform.conf", "fds.om.",
-        "om.log", nullptr, handler, processor, fpi::commonConstants().OM_SERVICE_NAME);
+        "om.log", nullptr, handler, processors);
 }
 
 void OMSvcProcess::registerSvcProcess()

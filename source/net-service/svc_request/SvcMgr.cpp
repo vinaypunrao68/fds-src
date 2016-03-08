@@ -69,7 +69,7 @@ std::string logDetailedString(const FDS_ProtocolInterface::SvcInfo &info)
 template<class ClientT>
 boost::shared_ptr<ClientT> allocRpcClient(const std::string &ip, const int &port,
     const int &retryCnt,
-    const std::string &strThriftServiceName,
+    const std::string &thriftServiceName,
     const boost::shared_ptr<FdsConfig> plc)
 {
     auto sock = bo::make_shared<net::Socket>(ip, port);
@@ -88,7 +88,7 @@ boost::shared_ptr<ClientT> allocRpcClient(const std::string &ip, const int &port
         bool enableSubscriptions = configAccess.get<bool>("common.enable_multiplexed_services", false);
         if (enableSubscriptions) {
             boost::shared_ptr<::apache::thrift::protocol::TMultiplexedProtocol> multiproto =
-                boost::make_shared<tp::TMultiplexedProtocol>(proto, strThriftServiceName);
+                boost::make_shared<tp::TMultiplexedProtocol>(proto, thriftServiceName);
             client = bo::make_shared<ClientT>(multiproto);
         }
     }
@@ -138,10 +138,9 @@ std::size_t SvcUuidHash::operator()(const fpi::SvcUuid& svcId) const {
 }
 
 SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
-               PlatNetSvcHandlerPtr handler,
-               fpi::PlatNetSvcProcessorPtr processor,
-               const fpi::SvcInfo &svcInfo,
-               const std::string &strServiceName)
+               PlatNetSvcHandlerPtr asyncHandler,
+               TProcessorMap& processors,
+               const fpi::SvcInfo &svcInfo)
     : HasModuleProvider(moduleProvider),
     Module("SvcMgr")
 {
@@ -161,7 +160,7 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
     fds_assert(omSvcUuid_.svc_uuid != 0);
     fds_assert(omPort_ != 0);
 
-    svcRequestHandler_ = handler;
+    svcRequestHandler_ = asyncHandler;
     svcInfo_ = svcInfo;
 
     /* Create the server */
@@ -189,11 +188,11 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
     LOGNOTIFY << "Initializing Service Layer server for " << SvcMgr::mapToSvcName( svcInfo_.svc_type ) <<
             "[" << svcInfo_.ip << ":" << svcInfo_.svc_port << "]";
 
-    svcServer_ = boost::make_shared<SvcServer>(port, processor, strServiceName, moduleProvider);
+    svcServer_ = boost::make_shared<SvcServer>(port, processors, moduleProvider);
 
     taskExecutor_ = new SynchronizedTaskExecutor<uint64_t>(*MODULEPROVIDER()->proc_thrpool());
 
-    svcRequestMgr_ = new SvcRequestPool(MODULEPROVIDER(), getSelfSvcUuid(), handler);
+    svcRequestMgr_ = new SvcRequestPool(MODULEPROVIDER(), getSelfSvcUuid(), asyncHandler);
     gSvcRequestPool = svcRequestMgr_;
 
     dltMgr_.reset(new DLTManager());

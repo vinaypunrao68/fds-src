@@ -4,6 +4,7 @@
 #ifndef SOURCE_INCLUDE_NET_SVCMGR_H_
 #define SOURCE_INCLUDE_NET_SVCMGR_H_
 
+#include <string>
 #include <vector>
 #include <unordered_map>
 #include <fds_module.h>
@@ -96,6 +97,8 @@ using OmUpdateRespCbType = std::function<void (const Error&)> ;
 // Callback for DMT close
 typedef std::function<void(Error &err)> DmtCloseCb;
 
+typedef std::unordered_map<std::string, boost::shared_ptr<apache::thrift::TProcessor>> TProcessorMap;
+
 /*--------------- Floating functions --------------*/
 std::string logString(const FDS_ProtocolInterface::SvcInfo &info);
 std::string logDetailedString(const FDS_ProtocolInterface::SvcInfo &info);
@@ -136,10 +139,9 @@ using SvcHandleMap = std::unordered_map<fpi::SvcUuid, SvcHandlePtr, SvcUuidHash>
 */
 struct SvcMgr : HasModuleProvider, Module, StateProvider {
     SvcMgr(CommonModuleProviderIf *moduleProvider,
-           PlatNetSvcHandlerPtr handler,
-           fpi::PlatNetSvcProcessorPtr processor,
-           const fpi::SvcInfo &svcInfo,
-           const std::string &strServiceName);
+           PlatNetSvcHandlerPtr asyncHandler,
+           TProcessorMap& processors,
+           const fpi::SvcInfo &svcInfo);
     virtual ~SvcMgr();
 
     /* Module overrides */

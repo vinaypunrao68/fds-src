@@ -26,12 +26,22 @@ namespace fds
 
                 auto handler = boost::make_shared <fds::pm::SvcHandler> (this, platform);
                 auto processor = boost::make_shared <fpi::PlatNetSvcProcessor> (handler);
-                // Note on Thrift service compatibility:
-                // If a backward incompatible change arises, pass additional pairs of
-                // processor and Thrift service name to SvcProcess::init(). Similarly,
-                // if the Thrift service API wants to be broken up.
-                init (argc, argv, "platform.conf", "fds.pm.", "pm.log", nullptr, handler, processor,
-                    fpi::commonConstants().PLATNET_SERVICE_NAME);
+                /**
+                 * Note on Thrift service compatibility:
+                 * Because asynchronous service requests are routed manually, any new
+                 * PlatNetSvc version MUST extend a previous PlatNetSvc version.
+                 * Only ONE version of PlatNetSvc API can be included in the list of
+                 * multiplexed services.
+                 *
+                 * For other new major service API versions (not PlatNetSvc), pass
+                 * additional pairs of processor and Thrift service name.
+                 */
+                TProcessorMap processors;
+                processors.insert(std::make_pair<std::string,
+                    boost::shared_ptr<apache::thrift::TProcessor>>(
+                        fpi::commonConstants().PLATNET_SERVICE_NAME, processor));
+
+                init (argc, argv, "platform.conf", "fds.pm.", "pm.log", nullptr, handler, processors);
 
                 // init above calls setupSvcInfo_, so by the time we get here, data in platform should be set
                 gl_DiskPlatMod.set_node_uuid(platform->getUUID());

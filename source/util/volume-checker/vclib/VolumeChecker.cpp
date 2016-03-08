@@ -24,6 +24,10 @@ VolumeChecker::init(int argc, char **argv, bool initAsModule)
     auto svc_handler = boost::make_shared<VCSvcHandler>(this);
     auto svc_processor = boost::make_shared<fpi::PlatNetSvcProcessor>(svc_handler);
 
+    TProcessorMap processors;
+    processors.insert(std::make_pair<std::string, boost::shared_ptr<apache::thrift::TProcessor>>(
+        fpi::commonConstants().PLATNET_SERVICE_NAME, svc_processor));
+
     /**
      * Init service process
      */
@@ -35,8 +39,7 @@ VolumeChecker::init(int argc, char **argv, bool initAsModule)
                      "vc.log",
                      nullptr,
                      svc_handler,
-                     svc_processor,
-                     fpi::commonConstants().PLATNET_SERVICE_NAME);
+                     processors);
 
     dmtMgr = MODULEPROVIDER()->getSvcMgr()->getDmtManager();
     dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
