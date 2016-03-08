@@ -1,14 +1,14 @@
 [tinius_vm]
-10.2.10.150
-10.2.10.159
-10.2.10.198
-10.2.10.199
+10.2.10.231
+10.2.10.217
+10.2.10.158
+10.2.10.211
 
 [tinius_vm:vars]
 clean_fds=yes
 force=yes
 
-fds_om_host=10.2.10.150
+fds_om_host=10.2.10.231
 
 fds_build=debug
 fds_default_nic=eth0
