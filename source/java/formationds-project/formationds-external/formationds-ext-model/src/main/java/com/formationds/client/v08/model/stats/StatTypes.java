@@ -63,6 +63,11 @@ public enum StatTypes {
     PBYTES( "Physical Bytes" ),
     
     /**
+     * The amount of physical bytes used in the system
+     */
+    UBYTES( "Used Bytes" ),
+    
+    /**
      * 
      */
     STC_SIGMA( "Short Term Capacity Sigma" ),
@@ -112,7 +117,7 @@ public enum StatTypes {
     HDD_GETS( "HDD Gets" );
 
 
-    public static final EnumSet<StatTypes> CAPACITY = EnumSet.of( StatTypes.PBYTES,
+    public static final EnumSet<StatTypes> CAPACITY = EnumSet.of( StatTypes.UBYTES,
     															  StatTypes.LBYTES);
 
     public static final EnumSet<StatTypes> PERFORMANCE_BREAKDOWN = EnumSet.of( StatTypes.PUTS,
