@@ -246,7 +246,7 @@ public class CreateVolume implements RequestHandler
 
     private static final long TWO_TO_32DN = ( long ) Math.pow( 2, 32 );
     private static final String VOL_SIZE_ERR =
-        "Volume size is to large %s, please specify volume less than %s.";
+        "The specified volume size is too large %s, please specify volume less than %s.";
 
     /**
      * @param volume the {@link Volume} representing the external model object
@@ -256,7 +256,7 @@ public class CreateVolume implements RequestHandler
         throws ApiException
     {
         long blockSize;
-        long volumeSize;
+        long requestedVolumeSize;
         switch( volume.getSettings().getVolumeType() )
         {
             /*
@@ -265,24 +265,24 @@ public class CreateVolume implements RequestHandler
             case ISCSI:
                 final VolumeSettingsISCSI settingsISCSI = ( VolumeSettingsISCSI ) volume.getSettings();
                 blockSize = settingsISCSI.getBlockSize().getValue( SizeUnit.B ).longValue();
-                volumeSize = settingsISCSI.getCapacity().getValue( SizeUnit.B ).longValue();
+                requestedVolumeSize = settingsISCSI.getCapacity().getValue( SizeUnit.B ).longValue();
                 break;
             case BLOCK:
                 final VolumeSettingsBlock settingsBlock = ( VolumeSettingsBlock ) volume.getSettings( );
                 blockSize = settingsBlock.getBlockSize().getValue( SizeUnit.B ).longValue();
-                volumeSize = settingsBlock.getCapacity().getValue( SizeUnit.B ).longValue();
+                requestedVolumeSize = settingsBlock.getCapacity().getValue( SizeUnit.B ).longValue();
                 break;
 
             default:
                 return;
         }
 
-        final long requestedVolumeSize = blockSize * TWO_TO_32DN;
-        if( requestedVolumeSize > volumeSize )
+        final long maxCalculated = blockSize * TWO_TO_32DN;
+        if( requestedVolumeSize > maxCalculated )
         {
             throw new ApiException( String.format( VOL_SIZE_ERR,
                                                    Size.of( requestedVolumeSize, SizeUnit.B ).getValue( SizeUnit.GB ),
-                                                   Size.of( volumeSize, SizeUnit.B ).getValue( SizeUnit.GB ) ),
+                                                   Size.of( maxCalculated, SizeUnit.B ).getValue( SizeUnit.GB ) ),
                                     ErrorCode.BAD_REQUEST );
         }
     }

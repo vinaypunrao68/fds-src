@@ -133,7 +133,7 @@ public class CreateVolumeTest
         final Volume volume = new Volume.Builder( "DummyVolume" )
                                         .settings( new VolumeSettingsISCSI.Builder( )
                                                                           .withBlockSize( Size.kb( 4L ) )
-                                                                          .withCapacity( Size.gb( 524288 ) )
+                                                                          .withCapacity( Size.tb( 16 ) )
                                                                           .build() )
                                         .create();
         ( new CreateVolume( null, null ) ).validateVolumeSize( volume );
@@ -146,7 +146,7 @@ public class CreateVolumeTest
         final Volume volume = new Volume.Builder( "DummyVolume" )
             .settings( new VolumeSettingsISCSI.Builder( )
                            .withBlockSize( Size.kb( 8L ) )
-                           .withCapacity( Size.gb( 524288 ) )
+                           .withCapacity( Size.tb( 32 ) )
                            .build() )
             .create();
         ( new CreateVolume( null, null ) ).validateVolumeSize( volume );
@@ -159,7 +159,7 @@ public class CreateVolumeTest
         final Volume volume = new Volume.Builder( "DummyVolume" )
             .settings( new VolumeSettingsISCSI.Builder( )
                            .withBlockSize( Size.kb( 16L ) )
-                           .withCapacity( Size.gb( 524288 ) )
+                           .withCapacity( Size.tb( 64 ) )
                            .build() )
             .create();
         ( new CreateVolume( null, null ) ).validateVolumeSize( volume );
@@ -172,7 +172,7 @@ public class CreateVolumeTest
         final Volume volume = new Volume.Builder( "DummyVolume" )
             .settings( new VolumeSettingsISCSI.Builder( )
                            .withBlockSize( Size.kb( 32L ) )
-                           .withCapacity( Size.gb( 524288 ) )
+                           .withCapacity( Size.tb( 128 ) )
                            .build() )
             .create();
         ( new CreateVolume( null, null ) ).validateVolumeSize( volume );
@@ -185,7 +185,7 @@ public class CreateVolumeTest
         final Volume volume = new Volume.Builder( "DummyVolume" )
             .settings( new VolumeSettingsISCSI.Builder( )
                            .withBlockSize( Size.kb( 64L ) )
-                           .withCapacity( Size.gb( 524288 ) )
+                           .withCapacity( Size.tb( 256 ) )
                            .build() )
             .create();
         ( new CreateVolume( null, null ) ).validateVolumeSize( volume );
@@ -198,7 +198,7 @@ public class CreateVolumeTest
         final Volume volume = new Volume.Builder( "DummyVolume" )
             .settings( new VolumeSettingsISCSI.Builder( )
                            .withBlockSize( Size.kb( 128L ) )
-                           .withCapacity( Size.gb( 524288 ) )
+                           .withCapacity( Size.tb( 512 ) )
                            .build() )
             .create();
         ( new CreateVolume( null, null ) ).validateVolumeSize( volume );
@@ -210,8 +210,8 @@ public class CreateVolumeTest
     {
         final Volume volume = new Volume.Builder( "DummyVolume" )
             .settings( new VolumeSettingsISCSI.Builder( )
-                           .withBlockSize( Size.kb( 256L ) )
-                           .withCapacity( Size.tb( 1 ) )
+                           .withBlockSize( Size.kb( 128L ) )
+                           .withCapacity( Size.tb( 600 ) )
                            .build() )
             .create();
         ( new CreateVolume( null, null ) ).validateVolumeSize( volume );
