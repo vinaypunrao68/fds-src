@@ -3,9 +3,11 @@
  */
 #include <DataMgr.h>
 #include <fdsp_utils.h>
+#include <util/path.h>
 #include <DMSvcHandler.h>
 #include <StatStreamAggregator.h>
 #include <fdsp/dm_api_types.h>
+#include <err.h>
 
 namespace fds {
 DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManager)
@@ -35,9 +37,16 @@ DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManage
 
     /* DM Debug messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::DbgForceVolumeSyncMsg, handleDbgForceVolumeSyncMsg);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CopyVolumeMsg, handleCopyVolume);
+    REGISTER_FDSP_MSG_HANDLER(fpi::ArchiveMsg, handleArchive);
+    REGISTER_FDSP_MSG_HANDLER(fpi::ArchiveRespMsg, handleArchiveResp);
 
+    /* Volume Group messages */
     registerDmVolumeReqHandler<DmIoVolumegroupUpdate>();
     registerDmVolumeReqHandler<DmIoFinishStaticMigration>();
+
+    /* Volume Checker messages */
+    registerDmVolumeReqHandler<DmIoVolumeCheck>();
 }
 
 // notifySvcChange
@@ -69,26 +78,29 @@ DMSvcHandler::notifySvcChange(boost::shared_ptr<fpi::AsyncHdr>    &hdr,
 //
 void
 DMSvcHandler::NotifyAddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
-                           boost::shared_ptr<fpi::CtrlNotifyVolAdd> &vol_msg)
+                           boost::shared_ptr<fpi::CtrlNotifyVolAdd> &msg)
 {
-    DBG(GLOGDEBUG << logString(*hdr) << "Vol Add");  // logString(*vol_msg));
-    fds_verify(vol_msg->__isset.vol_desc);
-    fds_volid_t vol_uuid (vol_msg->vol_desc.volUUID);
+    DBG(GLOGDEBUG << logString(*hdr) << "Vol Add");  // logString(*msg));
+    fds_verify(msg->__isset.vol_desc);
+    auto func = [this, hdr, msg]() {
+        fds_volid_t vol_uuid (msg->vol_desc.volUUID);
+        Error err(ERR_OK);
+        VolumeDesc desc(msg->vol_desc);
 
-    fds_volid_t volumeId (vol_msg->vol_desc.volUUID);
+        GLOGNOTIFY << "rcvd create for vol:"
+        << msg->vol_desc.volUUID
+        << " name:" << desc.getName();
 
-    Error err(ERR_OK);
-    VolumeDesc desc(vol_msg->vol_desc);
+        err = this->dataManager_.addVolume(dataManager_.getPrefix() + std::to_string(vol_uuid.get()),
+                                     vol_uuid,
+                                     &desc);
 
-    GLOGNOTIFY << "Received create for vol "
-               << "[" << volumeId << ", "
-               << desc.getName() << "]";
+        hdr->msg_code = err.GetErrno();
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolAdd), *msg);
+    };
 
-    err = dataManager_.addVolume(dataManager_.getPrefix() + std::to_string(vol_uuid.get()),
-                                 vol_uuid,
-                                 &desc);
-    hdr->msg_code = err.GetErrno();
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolAdd), *vol_msg);
+    dataManager_.addToQueue(func);
+
 }
 
 // NotifyRmVol
@@ -96,50 +108,39 @@ DMSvcHandler::NotifyAddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 //
 void
 DMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
-                          boost::shared_ptr<fpi::CtrlNotifyVolRemove> &vol_msg)
+                          boost::shared_ptr<fpi::CtrlNotifyVolRemove> &msg)
 {
-    DBG(GLOGDEBUG << logString(*hdr) << "Vol Remove");  // logString(*vol_msg));
-    fds_verify(vol_msg->__isset.vol_desc);
-    fds_volid_t vol_uuid (vol_msg->vol_desc.volUUID);
-    Error err(ERR_OK);
-    bool fCheck = (vol_msg->vol_flag == fpi::FDSP_NOTIFY_VOL_CHECK_ONLY);
-    auto volDesc = dataManager_.getVolumeDesc(vol_uuid);
-    if (!volDesc) {
-        LOGERROR << "Volume NOT found vol:" << vol_uuid;
-        err = ERR_VOL_NOT_FOUND;
-    } else {
-        LOGNOTIFY << "will delete volume : " << vol_uuid << ":" << volDesc->name;
-        if (vol_msg->vol_desc.fSnapshot) {
-            if (fCheck) {
-                err =  dataManager_.timelineMgr->deleteSnapshot(volDesc->srcVolumeId, volDesc->volUUID);
-            } else {
-                err = dataManager_.process_rm_vol(vol_uuid, fCheck);
-            }
+    DBG(GLOGDEBUG << logString(*hdr) << "Vol Remove");  // logString(*msg));
+    fds_verify(msg->__isset.vol_desc);
+    auto func = [this, hdr, msg]() {
+        fds_volid_t vol_uuid (msg->vol_desc.volUUID);
+        Error err(ERR_OK);
+        bool fCheck = (msg->vol_flag == fpi::FDSP_NOTIFY_VOL_CHECK_ONLY);
+        auto volDesc = this->dataManager_.getVolumeDesc(vol_uuid);
+        if (!volDesc) {
+            LOGERROR << "Volume NOT found vol:" << vol_uuid;
+            err = ERR_VOL_NOT_FOUND;
         } else {
-            if (fCheck) {
-                //delete all the snapshots
-                err =  dataManager_.timelineMgr->deleteSnapshot(volDesc->volUUID);
-                // delete the volume blobs
-                err = dataManager_.deleteVolumeContents(vol_uuid);
-                err = dataManager_.process_rm_vol(vol_uuid, fCheck);
-
-                // If timeline is disabled, then the remove volume check is
-                // simply going to return with err = FEATUER_DISABLED.
-                // When this err gets propagated back to the OM it causes volume
-                // delete not to clean up properly. So only removeVol against timelineMgr
-                // if the feature is enabled
-                if (dataManager_.features.isTimelineEnabled())
-                {
-                    // remove volume from timelineDB
-                    err = dataManager_.timelineMgr->removeVolume(vol_uuid);
+            LOGNOTIFY << "will delete volume:" << vol_uuid << ":" << volDesc->name;
+            if (msg->vol_desc.fSnapshot) {
+                if (fCheck) {
+                    err = ERR_OK;
+                } else {
+                    err = this->dataManager_.timelineMgr->deleteSnapshot(volDesc->srcVolumeId, volDesc->volUUID);
                 }
             } else {
-                err = dataManager_.process_rm_vol(vol_uuid, fCheck);
+                if (fCheck) {
+                    err = this->dataManager_.removeVolume(vol_uuid, true);
+                } else {
+                    err = this->dataManager_.removeVolume(vol_uuid, false);
+                }
             }
         }
-    }
-    hdr->msg_code = err.GetErrno();
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolRemove), *vol_msg);
+        hdr->msg_code = err.GetErrno();
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolRemove), *msg);
+    };
+
+    dataManager_.addToQueue(func, fds_volid_t(msg->vol_desc.volUUID));
 }
 
 // ------------
@@ -192,9 +193,9 @@ void DMSvcHandler::deleteSnapshot(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
      * invoke the deleteSnapshot DM function
      */
     fds_volid_t vol_uuid (deleteSnapshot->snapshotId);
-    err = dataManager_.process_rm_vol(vol_uuid, true);
+    err = dataManager_.removeVolume(vol_uuid, true);
     if (err.ok()) {
-        err = dataManager_.process_rm_vol(vol_uuid, false);
+        err = dataManager_.removeVolume(vol_uuid, false);
     }
 
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
@@ -427,9 +428,9 @@ void DMSvcHandler::NotifyDMTCloseCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 
     // When DMT is closed, then delete unowned volumes iff DM Migration is active
     if (dataManager_.dmMigrationMgr->isMigrationEnabled()) {
-    	dataManager_.deleteUnownedVolumes();
+        dataManager_.deleteUnownedVolumes();
     } else {
-    	LOGNOTIFY << "DM Migration feature is disabled. Skipping removing unowned volumes.";
+        LOGNOTIFY << "DM Migration feature is disabled. Skipping removing unowned volumes.";
     }
 
     hdr->msg_code = err.GetErrno();
@@ -474,9 +475,17 @@ void DMSvcHandler::NotifyDMAbortMigration(boost::shared_ptr<fpi::AsyncHdr>& hdr,
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMAbortMigration), *msg);
 }
 
+/**
+* Debug only command
+* Only inovke this call when you are certain volume doesn't have
+* any oustanding jobs/operations running.
+*
+* @param hdr
+* @param queryMsg
+*/
 void
 DMSvcHandler::handleDbgForceVolumeSyncMsg(SHPTR<fpi::AsyncHdr>& hdr,
-                                           SHPTR<fpi::DbgForceVolumeSyncMsg> &queryMsg)
+                                          SHPTR<fpi::DbgForceVolumeSyncMsg> &queryMsg)
 {
     auto volMeta = dataManager_.getVolumeMeta(fds_volid_t(queryMsg->volId));
     auto cb = [this, hdr](const Error &e) {
@@ -486,30 +495,61 @@ DMSvcHandler::handleDbgForceVolumeSyncMsg(SHPTR<fpi::AsyncHdr>& hdr,
 
     if (volMeta == nullptr) {
         LOGWARN << "Failed to debug force volume sync.  volid: "
-            << queryMsg->volId << " not found";
+                << queryMsg->volId << " not found";
         cb(ERR_VOL_NOT_FOUND);
         return;
     }
 
     /* Execute under synchronized context */
     auto func = volMeta->makeSynchronized([volMeta, cb]() {
-        if (volMeta->getState() != fpi::Offline) {
-            LOGWARN << "Force sync failed.  Volume is not offline." << volMeta->logString();
-            cb(ERR_INVALID);
-            return;
-        } else if (!volMeta->isCoordinatorSet()) {
-            LOGWARN << "Force sync failed.  Volume coordinator is not set."
+            if (!volMeta->isCoordinatorSet()) {
+                LOGWARN << "Force sync failed.  Volume coordinator is not set."
                 << volMeta->logString();
-            cb(ERR_INVALID);
-            return;
-        } else if (volMeta->isInitializerInProgress()) {
-            LOGWARN << "Force sync failed. Volume sync is in progress" << volMeta->logString();
-            cb(ERR_INVALID);
-            return;
-        }
-        volMeta->startInitializer();
-        cb(ERR_OK);
-    });
+                cb(ERR_INVALID);
+                return;
+            } else if (volMeta->isInitializerInProgress()) {
+                LOGWARN << "Force sync failed. Volume sync is in progress" << volMeta->logString();
+                cb(ERR_INVALID);
+                return;
+            }
+
+            LOGNORMAL << "Doing a force sync volume.  Current state: " << volMeta->logString();
+
+            volMeta->setState(fpi::Offline, "force sync message");
+            volMeta->scheduleInitializer(true);
+            cb(ERR_OK);
+        });
     func();
 }
+
+void
+DMSvcHandler::handleCopyVolume(SHPTR<fpi::AsyncHdr> &hdr, SHPTR<fpi::CopyVolumeMsg> &copyMsg) {
+    Error err;
+
+    auto volId = fds_volid_t(copyMsg->volId);
+    fpi::SvcUuid svcId;
+    svcId.__set_svc_uuid(copyMsg->destDmUuid);
+    err = dataManager_.copyVolumeToTargetDM(svcId,volId, copyMsg->archivePolicy);
+
+    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    hdr->msg_type_id = fpi::EmptyMsgTypeId;
+    sendAsyncResp(*hdr,fpi::EmptyMsgTypeId, fpi::EmptyMsg());
+}
+
+void
+DMSvcHandler::handleArchive(SHPTR<fpi::AsyncHdr> &hdr, SHPTR<fpi::ArchiveMsg> &archiveMsg) {
+    Error err;
+    auto volId = fds_volid_t(archiveMsg->volId);
+
+    err = dataManager_.archiveTargetVolume(volId);
+
+    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+    hdr->msg_type_id = fpi::ArchiveRespMsgTypeId;
+    sendAsyncResp(*hdr,fpi::ArchiveRespMsgTypeId,fpi::ArchiveRespMsg());
+}
+
+
+void DMSvcHandler::handleArchiveResp(SHPTR<fpi::AsyncHdr> &hdr, SHPTR<fpi::ArchiveRespMsg> &archiveMsg) {
+}
+
 }  // namespace fds

@@ -158,6 +158,21 @@ service PlatNetSvc {
      * @return
      */
     list<svc_types.SvcInfo> getSvcMap(1: i64 nullarg);
+
+    /**
+    * @brief Called by other managers to pull the DMT
+    *
+    * @param NULL
+    */
+    CtrlNotifyDMTUpdate getDMT(1: i64 nullarg) throws (1: common.ApiException e);
+
+    /**
+    * @brief Called by other managers to pull the DLT
+    *
+    * @param NULL
+    */
+    CtrlNotifyDLTUpdate getDLT(1: i64 nullarg) throws (1: common.ApiException e);
+
     oneway void notifyNodeActive(1: svc_types.FDSP_ActivateNodeType info);
 
     list<svc_types.NodeInfoMsg> notifyNodeInfo(1: svc_types.NodeInfoMsg info, 2: bool bcast);

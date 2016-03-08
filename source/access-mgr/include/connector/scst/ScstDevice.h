@@ -22,6 +22,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <boost/shared_ptr.hpp>
 #include <boost/lockfree/queue.hpp>
 
@@ -29,8 +30,8 @@
 #include "connector/scst/scst_user.h"
 
 #undef COPY
-#include "connector/BlockOperations.h"
 
+#include "fds_volume.h"
 
 struct scst_user_get_cmd;
 
@@ -43,7 +44,7 @@ struct ScstTask;
 struct InquiryHandler;
 struct ModeHandler;
 
-struct ScstDevice : public BlockOperations::ResponseIFace {
+struct ScstDevice {
     ScstDevice(VolumeDesc const& vol_desc,
                ScstTarget* target,
                std::shared_ptr<AmProcessor> processor);
@@ -51,11 +52,7 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     ScstDevice(ScstDevice const&& rhs) = delete;
     virtual ~ScstDevice();
 
-    // implementation of BlockOperations::ResponseIFace
-    void respondTask(BlockTask* response) override;
-    void attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) override;
     void shutdown();
-    void terminate() override;
 
     std::string getName() const { return volumeName; }
 
@@ -63,15 +60,21 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
     void start(std::shared_ptr<ev::dynamic_loop> loop);
 
   protected:
+    enum class ConnectionState { RUNNING,
+                                 DRAINING,
+                                 DRAINED,
+                                 STOPPED,
+                                 NOCHANGE };
+
     template<typename T>
     using unique = std::unique_ptr<T>;
 
-    BlockOperations::shared_ptr scstOps;
     boost::lockfree::queue<ScstTask*> readyResponses;
 
     scst_user_get_cmd cmd {};
     scst_user_reply_cmd fast_reply {};
-    uint32_t logical_block_size;
+
+    std::shared_ptr<AmProcessor> amProcessor;
 
     // Utility functions to build Inquiry Pages...etc
     unique<InquiryHandler> inquiry_handler;
@@ -85,6 +88,8 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
         cmd.preply = 0ull;
     }
 
+    void devicePoke(ConnectionState const state = ConnectionState::NOCHANGE);
+
     void fastReply() {
         fast_reply.cmd_h = cmd.cmd_h;
         fast_reply.subcode = cmd.subcode;
@@ -97,17 +102,11 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
 
     bool standalone_mode { false };
 
-    enum class ConnectionState { RUNNING,
-                                 DRAINING,
-                                 DRAINED,
-                                 STOPPED };
-
     ConnectionState state_ { ConnectionState::RUNNING };
 
     std::string const volumeName;
     int scstDev {-1};
 
-    std::shared_ptr<AmProcessor> amProcessor;
     ScstTarget* scst_target;
     uint64_t reservation_session_id {invalid_session_id};
 
@@ -126,13 +125,15 @@ struct ScstDevice : public BlockOperations::ResponseIFace {
 
     void execAllocCmd();
     void execMemFree();
-    void execSessionCmd();
     void execUserCmd();
     void execCompleteCmd();
     void execTaskMgmtCmd();
     void execParseCmd();
+    virtual void execSessionCmd() = 0;
     virtual void execDeviceCmd(ScstTask* task) = 0;
     virtual void respondDeviceTask(ScstTask* task) = 0;
+    virtual void startShutdown() = 0;
+    virtual void stopped() = 0;
 };
 
 }  // namespace fds

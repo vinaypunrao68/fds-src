@@ -1,0 +1,42 @@
+[fre_dev_cluster]
+fre-dev-node1
+fre-dev-node2
+fre-dev-node3
+fre-dev-node4
+
+[fre_dev_cluster:vars]
+deploy_artifact=beta
+fds_build=debug
+fds_deploy_local_deps=no
+fds_default_nic=em1
+fds_om_host=fre-dev-node1
+fds_metrics_enables=false
+fds_metricsdb_ip=127.0.0.1
+fds_log_severity=normal
+fds_am_cache_max_volume_data=400
+fds_am_cache_max_metadata_entries=26214400
+fds_sm_data_verify=false
+fds_sm_data_verify_background=false
+fds_ft_restart_failed_children_processes=true
+fds_ft_common_enable_volume_open_support=false
+fds_ft_enable_timeline=true
+
+#credential
+fds_ssh_user=root
+fds_ssh_password=passwd
+ansible_ssh_user=root
+ansible_ssh_pass=passwd
+clean_fds=yes
+force=yes
+skip_stats=yes
+clean_logs=yes
+
+#fds scst
+fds_ft_am_nbd_enabled=false
+fds_ft_am_scst_enabled=true
+
+# install from local node
+#fds_uninstall_local_deps=no
+
+# new superblock
+fds_ft_platform_use_new_superblock=true

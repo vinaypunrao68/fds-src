@@ -536,11 +536,18 @@ VolumePlacement::undoTargetDmtCommit() {
             }
             rollBackNeeded = true;
         } else {
-            OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
 
-            if (domain->isDomainShuttingDown()) {
-                LOGDEBUG << "Domain is shutting down, unset target DMT for correct state on startup";
-                dmtMgr->unsetTarget(false);
+            LOGNOTIFY << "Clearing target DMT";
+
+            // Remove it from DMT manager
+            // Unless we remove the version from the DMT map,
+            // on the next DMT computation, on doing an addDMT,
+            // could return with an ERR_DUPLICATE
+            dmtMgr->unsetTarget(true);
+
+            // clear out the targetDmt in the persistent store as well
+            if (!configDB->setDmtType(0, "target")) {
+                LOGWARN << "unable to store target dmt type to config db";
             }
         }
     }

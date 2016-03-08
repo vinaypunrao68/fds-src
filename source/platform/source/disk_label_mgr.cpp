@@ -269,14 +269,9 @@ namespace fds
     //
     bool DiskLabelMgr::dsk_rec_label_map(PmDiskObj::pointer disk, int idx)
     {
-        if ((dl_map != NULL) && !disk->dsk_get_mount_point().empty())
+        if ((dl_map != NULL) && !disk->dsk_get_mount_point().empty()) // OS devices will have no mount points
         {
             char const *const    name = disk->rs_get_name();
-
-            if (0 == strcmp(name, "/dev/sda")) //TODO: identify OS devices
-            {
-                return false;
-            }
 
             *dl_map << disk->rs_get_name() << " " << idx << " " << std::hex <<
             disk->rs_get_uuid().uuid_get_val() << std::dec << " " <<

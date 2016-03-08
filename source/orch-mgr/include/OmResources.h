@@ -251,7 +251,7 @@ class OM_PmAgent : public OM_NodeAgent
      * Send 'start service' message to Platform
      */
     Error send_start_service(const fpi::SvcUuid svc_uuid, std::vector<fpi::SvcInfo> svcInfos,
-                             bool domainRestart, bool startNode);
+                             bool domainRestart, bool startNode, bool force = false);
 
     void send_start_service_resp(fpi::SvcUuid pmSvcUuid, fpi::SvcChangeInfoList changeList);
     /**
@@ -406,6 +406,9 @@ class OM_AgentContainer : public AgentContainer
     void om_splice_nodes_pend(NodeList *addNodes,
                               NodeList *rmNodes,
                               const NodeUuidSet& filter_nodes);
+
+    int32_t om_nodes_up();
+    int32_t om_nodes_down();
 
   protected:
     NodeList                                 node_up_pend;
@@ -687,7 +690,8 @@ class OM_NodeContainer : public DomainContainer
     virtual Error om_start_service(const fpi::SvcUuid& svc_uuid,
                                    std::vector<fpi::SvcInfo> svcInfos,
                                    bool domainRestart,
-                                   bool startNode);
+                                   bool startNode,
+                                   bool force = false);
 
     virtual Error om_stop_service(const fpi::SvcUuid& svc_uuid,
                                   std::vector<fpi::SvcInfo> svcInfos,
@@ -1129,9 +1133,7 @@ class OM_NodeDomainMod : public Module
 
     void removeNodeComplete(NodeUuid uuid);
 
-    inline fds_bool_t dmClusterPresent() {
-        return volumeGroupDMTFired;
-    }
+    fds_bool_t dmClusterPresent();
 
     // used for unit test
     inline void setDmClusterSize(uint32_t size) {
@@ -1181,10 +1183,11 @@ class OM_NodeDomainMod : public Module
     std::vector<int64_t>          shuttingDownNodes;
     uint32_t                      dmClusterSize;
 
-    bool volumeGroupDMTFired;
     std::mutex                    taskMapMutex;
     std::unordered_map<int64_t, FdsTimerTaskPtr> setupNewNodeTaskMap;
     fds_mutex                     dbLock;
+
+    fds_bool_t                    dmClusterPresent_;
 };
 
 }  // namespace fds

@@ -1,12 +1,12 @@
 package com.formationds.index;
 
 import com.formationds.nfs.Chunker;
-import com.formationds.nfs.FdsMetadata;
 import com.formationds.nfs.IoOps;
 import org.apache.lucene.store.IndexInput;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Map;
 import java.util.Optional;
 
 public class FdsIndexInput extends IndexInput {
@@ -20,27 +20,27 @@ public class FdsIndexInput extends IndexInput {
     private int objectSize;
     private IoOps io;
 
-    public FdsIndexInput(IoOps io, String resourceName, String domain, String volume, String blobName, int objectSize) throws IOException {
+    public FdsIndexInput(Chunker chunker, IoOps io, String resourceName, String domain, String volume, String blobName, int objectSize) throws IOException {
         super(resourceName);
         this.io = io;
-        chunker = new Chunker(io);
+        this.chunker = chunker;
         this.domain = domain;
         this.volume = volume;
         this.blobName = blobName;
         this.objectSize = objectSize;
         this.offset = 0;
         this.position = 0;
-        Optional<FdsMetadata> fdsMetadata = io.readMetadata(domain, volume, blobName);
-        if (!fdsMetadata.isPresent()) {
+        Optional<Map<String, String>> opt = io.readMetadata(domain, volume, blobName);
+        if (!opt.isPresent()) {
             throw new FileNotFoundException("Volume=" + volume + ", blobName=" + blobName);
         }
-        this.length = fdsMetadata.get().lock(m -> Long.parseLong(m.mutableMap().get(FdsLuceneDirectory.SIZE)));
+        this.length = Long.parseLong(opt.get().get(FdsLuceneDirectory.SIZE));
     }
 
-    private FdsIndexInput(IoOps io, String resourceName, String domain, String volume, String blobName, int objectSize, long offset, long length) {
+    private FdsIndexInput(Chunker chunker, IoOps io, String resourceName, String domain, String volume, String blobName, int objectSize, long offset, long length) {
         super(resourceName);
         this.io = io;
-        chunker = new Chunker(io);
+        this.chunker = chunker;
         this.domain = domain;
         this.volume = volume;
         this.blobName = blobName;
@@ -52,7 +52,7 @@ public class FdsIndexInput extends IndexInput {
 
     @Override
     public IndexInput clone() {
-        FdsIndexInput indexInput = new FdsIndexInput(io, toString(), domain, volume, blobName, objectSize, offset, length);
+        FdsIndexInput indexInput = new FdsIndexInput(chunker, io, toString(), domain, volume, blobName, objectSize, offset, length);
         indexInput.position = this.position;
         return indexInput;
     }
@@ -78,7 +78,7 @@ public class FdsIndexInput extends IndexInput {
 
     @Override
     public IndexInput slice(String name, long offset, long length) throws IOException {
-        return new FdsIndexInput(io, name, domain, volume, blobName, objectSize, offset + this.offset, length);
+        return new FdsIndexInput(chunker, io, name, domain, volume, blobName, objectSize, offset + this.offset, length);
     }
 
     @Override

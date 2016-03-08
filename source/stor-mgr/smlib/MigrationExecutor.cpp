@@ -202,10 +202,10 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
         omd.syncObjectMetaData(omdFilter);
 
         if (omdFilter.objRefCnt > 0) {
-            LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
-                       << " FilterSet add ObjId=" << id << ", dltToken=" << dltTokId
-                       << " refcnt=" << omdFilter.objRefCnt << " to thrift msg to source SM "
-                       << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+            LOGTRACE << "Executor " << std::hex << executorId << std::dec
+                     << " FilterSet add ObjId=" << id << ", dltToken=" << dltTokId
+                     << " refcnt=" << omdFilter.objRefCnt << " to thrift msg to source SM "
+                     << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
             perTokenMsgs[dltTokId]->objectsToFilter.push_back(omdFilter);
             objAddedToFilterSet = true;
         }
@@ -357,10 +357,10 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         omd.syncObjectMetaData(omdFilter);
 
         if (omdFilter.objRefCnt > 0) {
-            LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
-                       << " FilterSet add ObjId=" << id << ", dltToken=" << dltTokId
-                       << " refcnt=" << omdFilter.objRefCnt << " to thrift msg to source SM "
-                       << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+            LOGTRACE << "Executor " << std::hex << executorId << std::dec
+                     << " FilterSet add ObjId=" << id << ", dltToken=" << dltTokId
+                     << " refcnt=" << omdFilter.objRefCnt << " to thrift msg to source SM "
+                     << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
             perTokenMsgs[dltTokId]->objectsToFilter.push_back(omdFilter);
             objAddedToFilterSet = true;
         }
@@ -921,6 +921,7 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
 
     // notify the requester that this executor done with migration
     if (migrDoneHandler) {
+        LOGMIGRATE << "Calling migration done handler for executor " << executorId << " and SM token " << smTokenId;
         migrDoneHandler(executorId, smTokenId, dltTokens, roundNum, error);
     }
 }
@@ -952,7 +953,7 @@ MigrationExecutor::finishResyncResp(EPSvcRequest* req,
                                     const Error& error,
                                     boost::shared_ptr<std::string> payload)
 {
-    LOGMIGRATE << "Received finish resync response from client for executor " << std::hex
+    LOGMIGRATE << "Received finish resync response from client for executor: " << std::hex
                << executorId << std::dec << " SM token " << smTokenId << " " << error;
 
     trackIOReqs.finishTrackIOReqs();
@@ -961,7 +962,7 @@ MigrationExecutor::finishResyncResp(EPSvcRequest* req,
     // we can do on destination since we already either finished sync or
     // aborted with error
     if (!error.ok()) {
-        LOGWARN << "Received error for finish resync from client "  << std::hex
+        LOGWARN << "Received error for finish resync from client for executor: "  << std::hex
                 << executorId << std::dec << " SM token " << smTokenId << " " << error
                 << ", not changing any state, source should be able to deal with it";
     }

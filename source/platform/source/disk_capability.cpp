@@ -29,7 +29,7 @@ DiskCapability::dsk_capability_read() {
 
     if (0 < dc_owner->dsk_read(buf, 0, 1, true)) {
         if (0 == memcmp(DISK_MARKER, buf, sizeof(DISK_MARKER))) {
-            LOGNORMAL << "Found FDS disk [" << dc_owner->dsk_get_mount_point()
+            LOGNORMAL << "Found FDS disk [" << dc_owner->rs_get_name()
                       << "] type: " << buf[30] << buf[31];
             initialized = true;
             if (DISK_TYPE_HDD == buf[30])

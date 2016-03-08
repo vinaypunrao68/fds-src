@@ -52,8 +52,7 @@ ObjectDataCache::putObjectData(fds_volid_t volId,
                                const ObjectID &objId,
                                boost::shared_ptr<const std::string> &objData) {
     if (maxEntries > 0) {
-           boost::shared_ptr<const std::string> evictedData
-                 = dataCache->add(objId, objData);
+        dataCache->add(objId, objData);
     }
 }
 

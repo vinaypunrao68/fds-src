@@ -25,8 +25,6 @@ bool SvcRequestTracker::addForTracking(const SvcRequestId& id,
 {
     DBG(GLOGDEBUG << req->logString());
 
-    SVCPERF(req->ts.rqStartTs = util::getTimeStampNanos());
-
     fds_scoped_lock l(svcReqMaplock_);
     auto pair = std::make_pair(id, req);
     auto ret = svcReqMap_.insert(pair);

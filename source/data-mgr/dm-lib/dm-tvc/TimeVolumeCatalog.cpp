@@ -252,74 +252,7 @@ DmTimeVolCatalog::copyVolume(VolumeDesc & voldesc, fds_volid_t origSrcVolume) {
         return rc;
     }
 
-    if (dataManager_.amIPrimary(voldesc.srcVolumeId)) {
-        // Increment object references
-        std::set<ObjectID> objIds;
-        rc = volcat->getVolumeObjects(voldesc.srcVolumeId, objIds);
-        if (!rc.ok()) {
-            GLOGCRITICAL << "Failed to get object ids for volume '" << std::hex <<
-                    voldesc.srcVolumeId << std::dec << "'";
-            return rc;
-        }
-
-        std::map<fds_token_id, boost::shared_ptr<std::vector<fpi::FDS_ObjectIdType> > >
-                tokenOidMap;
-        for (auto oid : objIds) {
-            const DLT * dlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
-            fds_verify(dlt);
-
-            fds_token_id token = dlt->getToken(oid);
-            if (!tokenOidMap[token].get()) {
-                tokenOidMap[token].reset(new std::vector<fpi::FDS_ObjectIdType>());
-            }
-
-            fpi::FDS_ObjectIdType tmpId;
-            fds::assign(tmpId, oid);
-            tokenOidMap[dlt->getToken(oid)]->push_back(tmpId);
-        }
-
-#if 0
-    // disable the ObjRef count  login for now. will revisit this  once  we have complete
-    // design in place
-        for (auto it : tokenOidMap) {
-            incrObjRefCount(origSrcVolume, voldesc.volUUID, it.first, it.second);
-            // tp_.schedule(&DmTimeVolCatalog::incrObjRefCount, this, voldesc.srcVolumeId,
-            //         voldesc.volUUID, it.first, it.second);
-        }
-#endif
-    }
-
     return rc;
-}
-
-void
-DmTimeVolCatalog::incrObjRefCount(fds_volid_t srcVolId, fds_volid_t destVolId,
-                                  fds_token_id token,
-                                  boost::shared_ptr<std::vector<fpi::FDS_ObjectIdType> > objIds) {
-    // TODO(umesh): this code is similar to DataMgr::expungeObject() code.
-    // So it inherits all its limitations. Following things need to be considered in future:
-    // 1. what if volume association is removed for OID while snapshot is being taken
-    // 2. what if call to increment ref count fails
-    // 3. whether to do it in background/ foreground thread
-
-    // Create message
-    fpi::AddObjectRefMsgPtr addObjReq(new fpi::AddObjectRefMsg());
-    addObjReq->srcVolId = srcVolId.get();
-    addObjReq->destVolId = destVolId.get();
-    addObjReq->objIds = *objIds;
-
-    // for (auto it : *objIds) {
-    //     addObjReq->objIds.push_back(it);
-    // }
-
-    const DLT * dlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
-    fds_verify(dlt);
-
-    auto asyncReq = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr()->newQuorumSvcRequest(
-        boost::make_shared<DltObjectIdEpProvider>(dlt->getNodes(token)));
-    asyncReq->setPayload(FDSP_MSG_TYPEID(fpi::AddObjectRefMsg), addObjReq);
-    asyncReq->setTimeoutMs(10000);
-    asyncReq->invoke();
 }
 
 Error
@@ -336,35 +269,30 @@ DmTimeVolCatalog::markVolumeDeleted(fds_volid_t volId) {
     if (vol == NULL)
        return ERR_VOL_NOT_FOUND;                                   \
 
-    if (!vol->isSnapshot() && isPendingTx(volId, 0)) return ERR_VOL_NOT_EMPTY;
+    // if (!vol->isSnapshot() && isPendingTx(volId, 0)) return ERR_VOL_NOT_EMPTY;
     Error err = volcat->markVolumeDeleted(volId);
     if (err.ok()) {
         // TODO(Anna) @Umesh we should mark commit log as
         // deleted and reject all tx to this commit log
         // only mark log as deleted if no pending tx, otherwise
         // return error
-        LOGDEBUG << "Marked volume as deleted, vol "
-                 << std::hex << volId << std::dec;
+        LOGDEBUG << "Marked volume as deleted, vol:" << volId;
     }
     return err;
 }
 
 Error
-DmTimeVolCatalog::deleteEmptyVolume(fds_volid_t volId) {
-    Error err = volcat->deleteEmptyCatalog(volId);
+DmTimeVolCatalog::deleteVolume(fds_volid_t volId) {
+    Error err = volcat->deleteCatalog(volId);
     if (err.ok()) {
-        {
-            fds_scoped_lock l(commitLogLock_);
-            if (commitLogs_.count(volId) > 0) {
-                // found commit log
-                commitLogs_.erase(volId);
-            }
+        fds_scoped_lock l(commitLogLock_);
+        if (commitLogs_.count(volId) > 0) {
+            // found commit log
+            commitLogs_.erase(volId);
+            LOGNOTIFY << "removed commit logs for vol:" << volId;
         }
-
-        auto volDir = dmutil::getVolumeDir(MODULEPROVIDER()->proc_fdsroot(), volId);
-        const std::string rmCmd = "rm -rf  " + volDir;
-        int retcode = std::system((const char *)rmCmd.c_str());
-        LOGNOTIFY << "Removed leveldb dir, retcode " << retcode;
+    } else {
+        LOGERROR << "will not remove commit logs for vol:" << volId << " err:" << err;
     }
     return err;
 }
@@ -588,8 +516,8 @@ Error DmTimeVolCatalog::updateFwdCommittedBlob(fds_volid_t volid,
 
         if (objList.size() > 0) {
             BlobObjList::ptr olist(new(std::nothrow) BlobObjList(objList));
-            // TODO(anna) pass truncate op, for now always truncate
-            olist->setEndOfBlob();
+            // never trunctating is less bad than always truncating. hopefully forwarding is going away soon.
+            //olist->setEndOfBlob();
 
             if (metaList.size() > 0) {
                 MetaDataList::ptr mlist(new(std::nothrow) MetaDataList(metaList));
@@ -668,14 +596,9 @@ DmTimeVolCatalog::getUsedCapacityAsPct() {
               << DISK_CAPACITY_WARNING_THRESHOLD + 1; \
               return DISK_CAPACITY_WARNING_THRESHOLD + 1; );
 
-    // Get fds root dir
-    const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
-    // Get sys-repo dir
-    DiskUtils::CapacityPair cap = DiskUtils::getDiskConsumedSize(root->dir_sys_repo_dm());
-
-    // Calculate pct
-    float_t result = ((1. * cap.usedCapacity) / cap.totalCapacity) * 100;
-    GLOGDEBUG << "Found DM disk capacity of (" << cap.usedCapacity << "/" << cap.totalCapacity << ") = " << result;
+    // Calculate disk usage capacity pct
+    float_t result = dmutil::getUsedCapacityOfSysRepo(MODULEPROVIDER()->proc_fdsroot());
+    GLOGDEBUG << "Found DM sys-repo disk capacity of " << result;
 
     return result;
 }

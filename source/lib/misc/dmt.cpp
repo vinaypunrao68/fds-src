@@ -208,7 +208,7 @@ Error DMT::verify(const NodeUuidSet& expectedUuidSet) const {
     Error err(ERR_OK);
 
     // we should not have more rows than nodes
-    if (getDepth() > expectedUuidSet.size()) {
+    if (getDepth() >  (expectedUuidSet.size() + DltDmtUtil::getInstance()->getPendingNodeRemoves(fpi::FDSP_DATA_MGR))){
         LOGERROR << "DMT has more rows (" << depth
                  << ") than nodes (" << expectedUuidSet.size() << ")";
         return ERR_INVALID_DLT;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 Formation Data Systems, Inc.
+ * Copyright 2013-2016 Formation Data Systems, Inc.
  */
 
 /*
@@ -49,7 +49,7 @@
 #include <dm-tvc/TimeVolumeCatalog.h>
 #include <StatStreamAggregator.h>
 #include <DataMgrIf.h>
-
+#include <dmutil.h>
 #include <DmMigrationMgr.h>
 #include "util/ExecutionGate.h"
 
@@ -79,23 +79,21 @@ class DmMigrationMgr;
 struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     static void InitMsgHdr(const fpi::FDSP_MsgHdrTypePtr& msg_hdr);
 
-    /*
-     * TODO: Move to STD shared or unique pointers. That's
-     * safer.
-     */
-    std::unordered_map<fds_volid_t, VolumeMeta*> vol_meta_map;
+    std::unordered_map<fds_volid_t, VolumeMetaPtr> vol_meta_map;
     /**
      * Catalog sync manager
      */
     CatalogSyncMgrPtr catSyncMgr;  // sending vol meta
     CatSyncReceiverPtr catSyncRecv;  // receiving vol meta
     void initHandlers();
-    VolumeMeta* getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked = false);
+    VolumeMetaPtr getVolumeMeta(fds_volid_t volId, bool fMapAlreadyLocked = false);
     /**
     * Callback for DMT close
     */
     DmtCloseCb sendDmtCloseCb;
-
+    SHPTR<dm::Handler> requestHandler;
+    void addToQueue(DmRequest*);
+    void addToQueue(std::function<void()>&& func, fds_volid_t volId = FdsDmSysTaskId);
     /**
      * DmIoReqHandler method implementation
      */
@@ -107,9 +105,9 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     fds_bool_t amIPrimary(fds_volid_t volUuid);
 
     /**
-     * If this DM, given the volume, is within the Primary group.
+     * If this DM, given the volume, is within the volume group.
      */
-    fds_bool_t amIPrimaryGroup(fds_volid_t volUuid);
+    fds_bool_t amIinVolumeGroup(fds_volid_t volUuid);
 
 
     inline StatStreamAggregator::ptr statStreamAggregator() {
@@ -161,7 +159,7 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
      */
     Error getAllVolumeDescriptors();
 
-    Error process_rm_vol(fds_volid_t vol_uuid, fds_bool_t check_only);
+    Error removeVolume(fds_volid_t vol_uuid, fds_bool_t check_only);
 
     /**
     * @brief Detach in any in memory state for the volume
@@ -197,6 +195,7 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
         DEF_FEATURE(Expunge      , true);
         DEF_FEATURE(Volumegrouping, false);
         DEF_FEATURE(RealTimeStatSampling, false);
+        DEF_FEATURE(SendToNewStatsService, false);
     } features;
 
     dm::Counters* counters;
@@ -245,6 +244,19 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
         Error markIODone(const FDS_IOType& _io);
         Error processIO(FDS_IOType* _io);
         virtual ~dmQosCtrl();        
+
+        template<class F>
+        void schedule(const fds_volid_t &volId, bool bSynchronize, F &&f) {
+            fds_threadpool *executor = threadPool;
+            if (volId == FdsDmSysTaskId) {
+                executor = lowpriThreadPool;
+            }
+            if (bSynchronize) {
+                executor->scheduleWithAffinity(volId.get(), std::forward<F>(f));
+            } else {
+                executor->schedule(std::forward<F>(f));
+            }
+        }
     };
 
     FDS_VolumeQueue*  sysTaskQueue;
@@ -323,6 +335,9 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     fds_bool_t testUturnStartTx;
     fds_bool_t testUturnSetMeta;
 
+    // DM user-repo disk fullness threshold to stop creating snapshots
+    fds_uint32_t dmFullnessThreshold = 75;
+
     /* Overrides from Module */
     virtual int  mod_init(SysParams const *const param) override;
     virtual void mod_startup() override;
@@ -349,8 +364,11 @@ struct DataMgr : HasModuleProvider, Module, DmIoReqHandler, DataMgrIf {
     void handleForwardComplete(DmRequest *io);
     void handleStatStream(DmRequest *io);
     void handleDmFunctor(DmRequest *io);
+    void handleInitVolCheck(DmRequest *io);
     Error copyVolumeToOtherDMs(fds_volid_t volId);
     Error processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete);
+    Error copyVolumeToTargetDM(fpi::SvcUuid dmUuid, fds_volid_t volId, bool ArchivePolicy);
+    Error archiveTargetVolume(fds_volid_t volId);
 
     /**
      * Timeout to send DMT close ack if not sent yet and stop forwarding
@@ -446,27 +464,6 @@ class CloseDMTTimerTask : public FdsTimerTask {
   private:
     cbType timeout_cb;
 };
-
-namespace dmutil {
-// location of volume
-std::string getVolumeDir(const FdsRootDir* root,
-                         fds_volid_t volId, fds_volid_t snapId = invalid_vol_id);
-std::string getTempDir(const FdsRootDir* root = NULL, fds_volid_t volId = invalid_vol_id);
-// location of all snapshots for a volume
-std::string getSnapshotDir(const FdsRootDir* root, fds_volid_t volId);
-std::string getVolumeMetaDir(const FdsRootDir* root, fds_volid_t volId);
-std::string getLevelDBFile(const FdsRootDir* root, fds_volid_t volId, fds_volid_t snapId = invalid_vol_id);
-
-/**
-* @brief Returns list of volume id in dm catalog under FdsRootDir root
-*
-* @param root
-* @param vecVolumes
-*/
-void getVolumeIds(const FdsRootDir* root, std::vector<fds_volid_t>& vecVolumes);
-
-std::string getTimelineDBPath(const FdsRootDir* root);
-}  // namespace dmutil
 
 }  // namespace fds
 

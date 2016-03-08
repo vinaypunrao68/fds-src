@@ -75,16 +75,16 @@ main(int argc, char** argv) {
     fds_uint32_t k2 = 2;
     fds_uint32_t k3 = 3;
     fds_uint32_t k4 = 4;
-    boost::shared_ptr<fds_uint32_t> evictEntry1 = cacheManager.add(k1, k1);
-    if (!evictEntry1) {
+    auto evicted = cacheManager.add(k1, k1);
+    if (!evicted) {
         GLOGNORMAL << "Didn't evict anything";
     }
 
     cacheManager.add(k2, k2);
     cacheManager.add(k3, k3);
-    boost::shared_ptr<fds_uint32_t> evictEntry4 = cacheManager.add(k4, k4);
-    if (evictEntry4) {
-        GLOGNORMAL << "Evicted " << *evictEntry4;
+    evicted = cacheManager.add(k4, k4);
+    if (evicted) {
+        GLOGNORMAL << "Evicted.";
     }
 
     decltype(cacheManager)::value_type getV2;
@@ -93,9 +93,9 @@ main(int argc, char** argv) {
     GLOGNORMAL << "Read out value " << *getV2;
 
     fds_uint32_t k5 = 5;
-    boost::shared_ptr<fds_uint32_t> evictEntry5 = cacheManager.add(k5, k5);
-    if (evictEntry5) {
-        GLOGNORMAL << "Evicted " << *evictEntry5;
+    evicted = cacheManager.add(k5, k5);
+    if (evicted) {
+        GLOGNORMAL << "Evicted.";
     }
 
     // Test KvCache with by_value semantics

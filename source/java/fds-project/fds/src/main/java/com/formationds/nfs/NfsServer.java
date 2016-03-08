@@ -81,6 +81,7 @@ public class NfsServer {
         OncRpcSvc nfsSvc = new OncRpcSvcBuilder()
                 .withPort(serverPort)
                 .withTCP()
+                .withUDP()
                 .withAutoPublish()
                 .withWorkerThreadIoStrategy()
                 .withWorkerThreadExecutionService(executor)

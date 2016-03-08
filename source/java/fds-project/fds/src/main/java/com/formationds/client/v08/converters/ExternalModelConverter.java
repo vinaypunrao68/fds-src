@@ -1,13 +1,17 @@
 package com.formationds.client.v08.converters;
 
-import com.formationds.apis.FDSP_GetVolInfoReqType;
-import com.formationds.apis.LocalDomainDescriptor;
-import com.formationds.apis.VolumeDescriptor;
+import com.formationds.apis.*;
 import com.formationds.apis.VolumeType;
 import com.formationds.client.ical.RecurrenceRule;
 import com.formationds.client.v08.model.*;
 import com.formationds.client.v08.model.Domain.DomainState;
+import com.formationds.client.v08.model.MediaPolicy;
+import com.formationds.client.v08.model.SnapshotPolicy;
 import com.formationds.client.v08.model.SnapshotPolicy.SnapshotPolicyType;
+import com.formationds.client.v08.model.Tenant;
+import com.formationds.client.v08.model.User;
+import com.formationds.client.v08.model.VolumeSettings;
+import com.formationds.client.v08.model.VolumeStatus;
 import com.formationds.client.v08.model.iscsi.Credentials;
 import com.formationds.client.v08.model.iscsi.Initiator;
 import com.formationds.client.v08.model.iscsi.LUN;
@@ -23,6 +27,7 @@ import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.om.redis.RedisSingleton;
 import com.formationds.om.redis.VolumeDesc;
 import com.formationds.om.repository.MetricRepository;
@@ -31,6 +36,8 @@ import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.FirebreakHelper.VolumeDatapointPair;
 import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria.QueryType;
+import com.formationds.om.util.AsyncAmClientFactory;
+import com.formationds.om.util.AsyncAmMap;
 import com.formationds.protocol.IScsiTarget;
 import com.formationds.protocol.LogicalUnitNumber;
 import com.formationds.protocol.NfsOption;
@@ -38,17 +45,30 @@ import com.formationds.protocol.svc.types.FDSP_MediaPolicy;
 import com.formationds.protocol.svc.types.FDSP_VolType;
 import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
 import com.formationds.protocol.svc.types.ResourceState;
+import com.formationds.protocol.svc.types.SvcUuid;
+import com.formationds.protocol.svc.types.VolumeGroupCoordinatorInfo;
 import com.formationds.util.thrift.ConfigurationApi;
+import com.formationds.xdi.AsyncAm;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.net.UnknownHostException;
 import java.text.ParseException;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 @SuppressWarnings("unused")
@@ -57,6 +77,9 @@ public class ExternalModelConverter {
     private static final String OBJECT_SIZE_NOT_SET =
         "Maximum object size was either not set, or outside the bounds of 4KB-8MB so it is being " +
         "set to the default of 2MB";
+    private static final String NFS_SIZE_NOT_SET =
+        "Maximum object size was either not set, or outside the bounds of 4KB-1MB so it is being " +
+        "set to the default of 1MB";
     private static final String BLOCK_SIZE_NOT_SET =
         "Block size was either not set, or outside the bounds of 4KB-8MB so it is being set to " +
         "the default of 128KB";
@@ -64,6 +87,7 @@ public class ExternalModelConverter {
     private static ConfigurationApi configApi;
     private static final Integer DEF_BLOCK_SIZE  = (1024 * 128);
     private static final Integer DEF_OBJECT_SIZE = ((1024 * 1024) * 2);
+    private static final Integer DEF_NFS_SIZE = ((1024 * 1024) * 1);
     private static final Logger  logger          = LoggerFactory.getLogger( ExternalModelConverter.class );
 
     public static Domain convertToExternalDomain( LocalDomainDescriptor internalDomain ) {
@@ -265,46 +289,127 @@ public class ExternalModelConverter {
                                                                  EnumMap<FirebreakType, ?> fbResults ) {
         VolumeState volumeState = convertToExternalVolumeState( internalVolume.getState() );
 
-        final Optional<com.formationds.apis.VolumeStatus> optionalStatus =
-            SingletonRepositoryManager.instance()
-                                      .getMetricsRepository().getLatestVolumeStatus( internalVolume.getName() );
+        Optional<Size> extUsage = Optional.empty();
 
-        Size extUsage = Size.of( 0L, SizeUnit.B );
-
-        /**
-         * We used to do the following in an attempt to get current usage. It seems to try to
-         * make use of collected volume stats.
-         */
-        //if ( optionalStatus.isPresent() ) {
-        //    com.formationds.apis.VolumeStatus internalStatus = optionalStatus.get();
-        //
-        //    extUsage = Size.of( internalStatus.getCurrentUsageInBytes(), SizeUnit.B );
-        //}
-        /**
-         * But currently (01/07/2016) there seems to be some difficulty with this method.
-         * Most likely, given the delay in reporting volume stats, the difficulty is in the
-         * user not waiting long enough to see stats appear. However, should the user have to
-         * wait for stats that are delayed a number of minutes from present to get a count
-         * of bytes currently used by a volume?
-         */
-        com.formationds.apis.VolumeStatus volumeStatus;
-        try {
-            volumeStatus = SingletonAmAPI.instance().api().volumeStatus("" /* TODO: Dummy domain name. */,
-                                                                        internalVolume.getName()).get();
-        } catch (Exception e) {
-            logger.warn("Unknown Exception requesting volume status for " + internalVolume.getName() + ": " + e.getMessage());
-            return new VolumeStatus(VolumeState.Unknown, Size.ZERO);
+        FDSP_VolumeDescType volDescType = null;
+        try
+        {
+            volDescType = getConfigApi().GetVolInfo( new FDSP_GetVolInfoReqType( internalVolume.getName( ),
+                                                                                 0 /* Local Domain Id */ ) );
+        }
+        catch ( Exception e )
+        {
+            logger.warn( "The specified volume {}:{} encountered an error, reason {}.",
+                         internalVolume.getName(),
+                         internalVolume.getVolId(),
+                         e.getMessage() != null ? e.getMessage() : "none reported" );
+            logger.debug( "", e );
         }
 
-        extUsage = Size.of(volumeStatus.getCurrentUsageInBytes(), SizeUnit.B);
-        if (logger.isTraceEnabled()) { 
-            logger.trace("Determined extUsage for " + internalVolume.getName() + " to be " + extUsage + ".");
+        if( volDescType != null )
+        {
+            if( FdsFeatureToggles.USE_VOLUME_GROUPING.isActive() )
+            {
+                final Optional<VolumeGroupCoordinatorInfo> coordinatorInfo = Optional.ofNullable(
+                    volDescType.getCoordinator( ) );
+                if ( coordinatorInfo.isPresent( ) && ( coordinatorInfo.get( )
+                                                                      .getId( )
+                                                                      .getSvc_uuid( ) != 0 ) )
+                {
+                    try
+                    {
+                        logger.trace(
+                            "Requesting volume status for {}:{} from Volume group coordinator {}",
+                            internalVolume.getVolId( ), internalVolume.getName( ), coordinatorInfo.get( )
+                                                                                                  .getId( )
+                                                                                                  .getSvc_uuid( ) );
+
+                        final AsyncAm am = AsyncAmMap.get( coordinatorInfo.get( )
+                                                                          .getId( )
+                                                                          .getSvc_uuid( ) );
+
+                        if ( am != null )
+                        {
+                            CompletableFuture<com.formationds.apis.VolumeStatus> completableFuture =
+                                am.volumeStatus( "" /* Local Domain Name */, internalVolume.getName( ) );
+
+                            final com.formationds.apis.VolumeStatus vstatus = completableFuture.get( );
+                            if ( vstatus != null )
+                            {
+                                extUsage = Optional.of(
+                                    Size.of( vstatus.getCurrentUsageInBytes( ), SizeUnit.B ) );
+
+                            }
+                        }
+                    }
+                    catch ( IOException | InterruptedException | ExecutionException e )
+                    {
+                        logger.warn( "Failed to retrieve volume description for {}:{} - reason: {}.",
+                                     internalVolume.getVolId( ), internalVolume.getName( ),
+                                     e.getMessage( ) != null ? e.getMessage( ) : "none reported" );
+                        logger.debug( "", e );
+
+                        // force a new client to be created.
+                        AsyncAmMap.failed( coordinatorInfo.get( )
+                                                          .getId( )
+                                                          .getSvc_uuid( ) );
+                    }
+                }
+                else
+                {
+                    logger.trace(
+                        "Volume Coordinator isn't set for {}:{}, will attempt retrieving usage from stats",
+                        internalVolume.getVolId( ), internalVolume.getName( ) );
+                }
+            }
+            else // volume grouping is disabled!, use platform.conf resource 'fds.xdi.am_host'
+            {
+                com.formationds.apis.VolumeStatus volumeStatus;
+                try {
+                    volumeStatus = SingletonAmAPI.instance()
+                                                 .api()
+                                                 .volumeStatus( "" /* TODO: Dummy domain name. */,
+                                                                internalVolume.getName()).get();
+                    extUsage = Optional.of( Size.of( volumeStatus.getCurrentUsageInBytes(),
+                                                     SizeUnit.B ) );
+                } catch (Exception e)
+                {
+                    logger.warn( "Failed to retrieve volume description for {}:{} - reason: {}.",
+                                 internalVolume.getVolId( ), internalVolume.getName( ),
+                                 e.getMessage( ) != null ? e.getMessage( ) : "none reported" );
+                    logger.debug( "", e );
+                }
+            }
         }
+
+        if( !extUsage.isPresent() )
+        {
+            final Optional<com.formationds.apis.VolumeStatus> optionalStatus =
+                SingletonRepositoryManager.instance()
+                                          .getMetricsRepository()
+                                          .getLatestVolumeStatus( internalVolume.getName() );
+            if( optionalStatus.isPresent() )
+            {
+                extUsage =
+                    Optional.of( Size.of( optionalStatus.get().getCurrentUsageInBytes(),
+                                          SizeUnit.B ) );
+            }
+        }
+
+        if( !extUsage.isPresent() )
+        {
+            extUsage = Optional.of( Size.of( 0L, SizeUnit.B ) );
+        }
+
+        logger.info( "Determined extUsage for {}:{} to be {}.",
+                     internalVolume.getVolId( ),
+                     internalVolume.getName(),
+                     extUsage );
 
         Instant[] instants = {Instant.EPOCH, Instant.EPOCH};
         extractTimestamps( fbResults, instants );
 
-        return new VolumeStatus( volumeState, extUsage, instants[0], instants[1] );
+        return new VolumeStatus( volumeState, extUsage.get(), instants[0], instants[1] );
     }
 
     /**
@@ -421,43 +526,90 @@ public class ExternalModelConverter {
         return internalPolicy;
     }
 
-    public static DataProtectionPolicy convertToExternalProtectionPolicy( VolumeDescriptor internalVolume ) {
+    /**
+     * Extract the internal volume descriptor policy definitions to the external model representation
+     * of data protection policies
+     *
+     * @param internalVolume
+     * @param volDescType
+     *
+     * @return the external model data protection policy representation
+     */
+    protected static DataProtectionPolicy convertToExternalProtectionPolicy( VolumeDescriptor internalVolume, Optional<FDSP_VolumeDescType> volDescType  ) {
 
-        Duration extCommitRetention = Duration.ofDays( 1L );
-
-        try {
-            FDSP_VolumeDescType volDescType =
-                getConfigApi().GetVolInfo( new FDSP_GetVolInfoReqType( internalVolume.getName(), 0 ) );
-
-            long clRetention = volDescType.getContCommitlogRetention();
-
-            extCommitRetention = Duration.ofSeconds( clRetention );
-        } catch ( TException e ) {
-
-            logger.warn( "Error occurred while trying to retrieve volume: " + internalVolume.getVolId() );
-            logger.debug( "Exception: ", e );
-        }
+        Duration extCommitRetention = getCommitLogRetention( volDescType );
 
         // snapshot policies
-        List<SnapshotPolicy> extPolicies = new ArrayList<>();
-
-        try {
-            final List<com.formationds.apis.SnapshotPolicy> internalPolicies =
-                getConfigApi().listSnapshotPoliciesForVolume( internalVolume.getVolId() );
-
-            for ( com.formationds.apis.SnapshotPolicy internalPolicy : internalPolicies ) {
-
-                SnapshotPolicy externalPolicy = convertToExternalSnapshotPolicy( internalPolicy );
-                extPolicies.add( externalPolicy );
-            }
-        } catch ( TException e ) {
-
-            logger.warn( "Error occurred while trying to retrieve snapshot policies for volume: " +
-                         internalVolume.getVolId() );
-            logger.debug( "Exception: ", e );
-        }
-
+        List<SnapshotPolicy> extPolicies = getExternalSnapshotPoliciesForVolume( internalVolume,
+                                                                                 volDescType );
         return new DataProtectionPolicy( extCommitRetention, extPolicies );
+    }
+
+    /**
+     *
+     * @param internalVolume
+     * @param volDescType an optional volume descriptor type. if present it indicates the volume exists.
+     *
+     * @return the list of snapshot policies for the volume, if it exists as indicated by presence of the volDescType.
+     */
+    static List<SnapshotPolicy> getExternalSnapshotPoliciesForVolume( VolumeDescriptor internalVolume,
+                                                                      Optional<FDSP_VolumeDescType> volDescType) {
+        List<SnapshotPolicy> extPolicies = new ArrayList<>();
+        if (volDescType.isPresent()) {
+            try {
+                final List<com.formationds.apis.SnapshotPolicy> internalPolicies =
+                    getConfigApi().listSnapshotPoliciesForVolume( internalVolume.getVolId() );
+
+                for ( com.formationds.apis.SnapshotPolicy internalPolicy : internalPolicies ) {
+
+                    SnapshotPolicy externalPolicy = convertToExternalSnapshotPolicy( internalPolicy );
+                    extPolicies.add( externalPolicy );
+                }
+            } catch ( TException e ) {
+
+                logger.warn( "Error occurred while trying to retrieve snapshot policies for volume: " +
+                             internalVolume.getVolId() );
+                logger.debug( "Exception: ", e );
+            }
+        }
+        return extPolicies;
+    }
+
+    /**
+     * @param internalVolume
+     * @return the volume description type if the volume exists, Optional.empty if the volume does not exist or cannot be retrieved.
+     */
+    static Optional<FDSP_VolumeDescType> getVolumeInfo( VolumeDescriptor internalVolume ) {
+
+        if ( internalVolume.getVolId() != 0 ) {
+            try {
+                FDSP_VolumeDescType volDescType =
+                        getConfigApi().GetVolInfo( new FDSP_GetVolInfoReqType( internalVolume.getName(), 0 ) );
+                return Optional.of(volDescType);
+            } catch ( TException te ) {
+                // typically volume not found/deleted
+                logger.warn( "Error occurred while trying to retrieve volume: {}({}): {}", internalVolume.getName(), internalVolume.getVolId(), te.getMessage());
+                logger.debug( "Exception: ", te );
+                return Optional.empty();
+            }
+        } else {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * @param volDescType
+     *
+     * @return if the volume descriptor is present, return its commit log retention period.  Otherwise return
+     * the default commit log retention of 1 day
+     */
+    static Duration getCommitLogRetention(Optional<FDSP_VolumeDescType> volDescType) {
+        if (volDescType.isPresent()) {
+            long clRetention = volDescType.get().getContCommitlogRetention();
+            return Duration.ofSeconds( clRetention );
+        } else {
+            return Duration.ofDays( 1 );
+        }
     }
 
     /**
@@ -488,13 +640,123 @@ public class ExternalModelConverter {
         return ext;
     }
 
-    private static Volume convertToExternalVolume( VolumeDescriptor internalVolume, VolumeStatus extStatus ) {
+    /**
+     * Convert the internal VolumeDescriptor to the external v08 Volume representation.
+     *
+     * If the volume descriptor's volume id is zero (undefined), we assume that this is
+     * a conversion for the purposes of creating a new volume and will skip filling in
+     * certain pieces of information including current state.
+     *
+     * @param internalVolume
+     * @param extStatus
+     *
+     * @return
+     */
+    public static Volume convertToExternalVolume( VolumeDescriptor internalVolume, VolumeStatus extStatus ) {
+
         String extName = internalVolume.getName();
         Long volumeId = internalVolume.getVolId();
+
+        // if the volume id is null or 0, then lets assume this is a conversion in
+        // preparation for volume creation (rather than mistake).  We could also use
+        // the extStatus for this (i.e extStatus == null || extStatus.getState() == unknown
+        boolean create = volumeId == null || volumeId == 0;
 
         com.formationds.apis.VolumeSettings settings = internalVolume.getPolicy();
         MediaPolicy extPolicy = convertToExternalMediaPolicy( settings.getMediaPolicy() );
 
+        // makes external call to redis for nfs/iscsi settings.
+        Optional<VolumeDesc> redisVolumeDesc = RedisSingleton.INSTANCE.api( ).getVolume( volumeId );
+
+        // get the internal volume descriptor type if available (i.e. existing volume)
+        // that is used for getting the policies associated with the volume
+        Optional<FDSP_VolumeDescType> volDescType = getVolumeInfo( internalVolume );
+
+        VolumeSettings extSettings = convertToExternalVolumeSettings( internalVolume,
+                                                                      settings,
+                                                                      redisVolumeDesc,
+                                                                      extName,
+                                                                      volumeId );
+
+        QosPolicy extQosPolicy = getExternalQosPolicyForVolume( volDescType );
+        Optional<Tenant> extTenant = findExternalTenantForVolume( internalVolume );
+        VolumeAccessPolicy extAccessPolicy = VolumeAccessPolicy.exclusiveRWPolicy();
+        DataProtectionPolicy extProtectionPolicy = convertToExternalProtectionPolicy( internalVolume,
+                                                                                      volDescType );
+
+        Instant extCreation = Instant.ofEpochMilli( internalVolume.getDateCreated() );
+
+        return new Volume( volumeId,
+                           extName,
+                           extTenant.orElse( null ),
+                           "Application",
+                           extStatus,
+                           extSettings,
+                           extPolicy,
+                           extProtectionPolicy,
+                           extAccessPolicy,
+                           extQosPolicy,
+                           extCreation,
+                           null );
+    }
+
+    /**
+     * @param volDescType
+     * @return
+     */
+    protected static QosPolicy getExternalQosPolicyForVolume( Optional<FDSP_VolumeDescType> volDescType ) {
+
+        if (volDescType.isPresent()) {
+            FDSP_VolumeDescType vdt = volDescType.get();
+            QosPolicy extQosPolicy = new QosPolicy( vdt.getRel_prio(),
+                                                    (int) vdt.getIops_assured(),
+                                                    (int) vdt.getIops_throttle() );
+            return extQosPolicy;
+        } else {
+            return QosPolicy.defaultPolicy();
+        }
+    }
+
+    /**
+     * For the internal volume descriptor find the internal tenant and convert it to the
+     * external model tenant representation.
+     *
+     * @param internalVolume
+     *
+     * @return an optional containing the external tenant representation for the tenant the
+     * volume is assigned to, or Optional.empty if not found
+     */
+    static Optional<Tenant> findExternalTenantForVolume( VolumeDescriptor internalVolume ) {
+
+        try {
+            List<com.formationds.apis.Tenant> internalTenants = getConfigApi().listTenants( 0 );
+
+            for ( com.formationds.apis.Tenant internalTenant : internalTenants ) {
+
+                if ( internalTenant.getId() == internalVolume.getTenantId() ) {
+                    return Optional.of( convertToExternalTenant( internalTenant ) );
+                }
+            }
+        } catch ( TException e ) {
+
+            logger.warn( "Error occurred while trying to retrieve a list of tenants." );
+            logger.debug( "Exception: ", e );
+        }
+
+        return Optional.empty();
+    }
+    /**
+     * @param internalVolume
+     * @param settings
+     * @param extName
+     * @param volumeId
+     * @return
+     */
+    protected static VolumeSettings convertToExternalVolumeSettings( VolumeDescriptor internalVolume,
+                                                                     com.formationds.apis.VolumeSettings settings,
+                                                                     Optional<VolumeDesc> redisVolume,
+                                                                     String extName,
+                                                                     Long volumeId ) {
         VolumeSettings extSettings = null;
 
         if ( settings.getVolumeType().equals( VolumeType.BLOCK ) ) {
@@ -508,10 +770,9 @@ public class ExternalModelConverter {
             if( internalVolume.getPolicy().getIscsiTarget() == null ||
                 internalVolume.getPolicy().getIscsiTarget().isSetLuns() )
             {
-                final Optional<VolumeDesc> optional = RedisSingleton.INSTANCE.api( ).getVolume( volumeId );
-                if( optional.isPresent( ) )
+                if( redisVolume.isPresent( ) )
                 {
-                    final VolumeDesc desc = optional.get( );
+                    final VolumeDesc desc = redisVolume.get( );
                     if( desc.settings( ).getIscsiTarget() != null &&
                         desc.settings( ).getIscsiTarget().isSetLuns( ) )
                     {
@@ -557,10 +818,9 @@ public class ExternalModelConverter {
             if ( !internalVolume.getPolicy( )
                                 .isSetNfsOptions( ) )
             {
-                final Optional<VolumeDesc> optional = RedisSingleton.INSTANCE.api( ).getVolume( volumeId );
-                if( optional.isPresent( ) )
+                if( redisVolume.isPresent( ) )
                 {
-                    final VolumeDesc desc = optional.get( );
+                    final VolumeDesc desc = redisVolume.get( );
                     if( desc.settings( ).getNfsOptions() != null )
                     {
                         nfsOptions = desc.settings().getNfsOptions( );
@@ -607,60 +867,7 @@ public class ExternalModelConverter {
 
             extSettings = new VolumeSettingsObject( maxObjectSize );
         }
-
-        // need to get a different volume object for the other stuff...
-        // NOTE:  This won't work when we have multiple domains.
-        // TODO: Fix for multiple days
-        QosPolicy extQosPolicy = null;
-
-        try {
-            FDSP_VolumeDescType volDescType = getConfigApi().GetVolInfo( new FDSP_GetVolInfoReqType( extName, 0 ) );
-
-            extQosPolicy = new QosPolicy( volDescType.getRel_prio(),
-                                          (int) volDescType.getIops_assured(),
-                                          (int) volDescType.getIops_throttle() );
-        } catch ( Exception e ) {
-
-            logger.warn( "Error occurred while trying to get VolInfo type for volume: " + internalVolume.getVolId() );
-            logger.debug( "Exception: ", e );
-        }
-
-        Tenant extTenant = null;
-
-        try {
-            List<com.formationds.apis.Tenant> internalTenants = getConfigApi().listTenants( 0 );
-
-            for ( com.formationds.apis.Tenant internalTenant : internalTenants ) {
-
-                if ( internalTenant.getId() == internalVolume.getTenantId() ) {
-                    extTenant = convertToExternalTenant( internalTenant );
-                    break;
-                }
-            }
-        } catch ( TException e ) {
-
-            logger.warn( "Error occurred while trying to retrieve a list of tenants." );
-            logger.debug( "Exception: ", e );
-        }
-
-        VolumeAccessPolicy extAccessPolicy = VolumeAccessPolicy.exclusiveRWPolicy();
-
-        DataProtectionPolicy extProtectionPolicy = convertToExternalProtectionPolicy( internalVolume );
-
-        Instant extCreation = Instant.ofEpochMilli( internalVolume.getDateCreated() );
-
-        return new Volume( volumeId,
-                           extName,
-                           extTenant,
-                           "Application",
-                           extStatus,
-                           extSettings,
-                           extPolicy,
-                           extProtectionPolicy,
-                           extAccessPolicy,
-                           extQosPolicy,
-                           extCreation,
-                           null );
+        return extSettings;
     }
 
     public static NfsOption convertToInternalNfsOptions( final String nfs, final String client )
@@ -868,6 +1075,23 @@ public class ExternalModelConverter {
             internalDescriptor.setVolId( externalVolume.getId() );
         }
 
+        com.formationds.apis.VolumeSettings internalSettings =
+                extractInternalVolumeSettings( externalVolume );
+
+        internalDescriptor.setPolicy( internalSettings );
+
+        return internalDescriptor;
+    }
+
+    /**
+     * Extract and convert the internal volume settings from the external volume representation.
+     *
+     * @param externalVolume
+     *
+     * @return the internal volume settings
+     */
+    protected static com.formationds.apis.VolumeSettings extractInternalVolumeSettings( Volume externalVolume ) {
+
         com.formationds.apis.VolumeSettings internalSettings = new com.formationds.apis.VolumeSettings();
         if ( externalVolume.getSettings() instanceof VolumeSettingsISCSI )
         { // iSCSI volume
@@ -984,7 +1208,7 @@ public class ExternalModelConverter {
                  maxObjSize.getValue( SizeUnit.B ).longValue() >= Size.of( 4, SizeUnit.KB )
                                                                       .getValue( SizeUnit.B )
                                                                       .longValue() &&
-                 maxObjSize.getValue( SizeUnit.B ).longValue() <= Size.of( 8, SizeUnit.MB )
+                 maxObjSize.getValue( SizeUnit.B ).longValue() <= Size.of( 1, SizeUnit.MB )
                                                                       .getValue( SizeUnit.B )
                                                                       .longValue() )
             {
@@ -993,8 +1217,8 @@ public class ExternalModelConverter {
             }
             else
             {
-                logger.warn( OBJECT_SIZE_NOT_SET );
-                internalSettings.setMaxObjectSizeInBytes( DEF_OBJECT_SIZE );
+                logger.warn( NFS_SIZE_NOT_SET );
+                internalSettings.setMaxObjectSizeInBytes( DEF_NFS_SIZE );
             }
 
             final NfsOption options = new NfsOption( );
@@ -1048,10 +1272,7 @@ public class ExternalModelConverter {
         internalSettings.setMediaPolicy( convertToInternalMediaPolicy( externalVolume.getMediaPolicy() ) );
         internalSettings.setContCommitlogRetention( externalVolume.getDataProtectionPolicy().getCommitLogRetention()
                                                                   .getSeconds() );
-
-        internalDescriptor.setPolicy( internalSettings );
-
-        return internalDescriptor;
+        return internalSettings;
     }
 
     public static FDSP_VolumeDescType convertToInternalVolumeDescType( Volume externalVolume ) {
@@ -1094,8 +1315,28 @@ public class ExternalModelConverter {
         volumeType.setRel_prio( externalVolume.getQosPolicy().getPriority() );
         volumeType.setVolUUID( externalVolume.getId() );
         volumeType.setVol_name( externalVolume.getName() );
-        VolumeSettings settings = externalVolume.getSettings();
 
+        VolumeSettings settings = externalVolume.getSettings();
+        applyVolumeSettings( settings, volumeType );
+
+        if ( externalVolume.getStatus() != null && externalVolume.getStatus().getState() != null ) {
+            volumeType.setState( convertToInternalVolumeState( externalVolume.getStatus().getState() ) );
+        }
+
+        if ( externalVolume.getTenant() != null ) {
+            volumeType.setTennantId( externalVolume.getTenant().getId().intValue() );
+        }
+
+        return volumeType;
+    }
+
+    /**
+     * Apply the volume settings to the internal Volume Type descriptor.
+     *
+     * @param settings
+     * @param volumeType
+     */
+    protected static void applyVolumeSettings( VolumeSettings settings, FDSP_VolumeDescType volumeType ) {
         if( settings instanceof VolumeSettingsISCSI )
         {
             VolumeSettingsISCSI iscsi = ( VolumeSettingsISCSI ) settings;
@@ -1178,16 +1419,6 @@ public class ExternalModelConverter {
 
             volumeType.setVolType( FDSP_VolType.FDSP_VOL_S3_TYPE );
         }
-
-        if ( externalVolume.getStatus() != null && externalVolume.getStatus().getState() != null ) {
-            volumeType.setState( convertToInternalVolumeState( externalVolume.getStatus().getState() ) );
-        }
-
-        if ( externalVolume.getTenant() != null ) {
-            volumeType.setTennantId( externalVolume.getTenant().getId().intValue() );
-        }
-
-        return volumeType;
     }
 
     /**

@@ -5,15 +5,17 @@
 #define SOURCE_DATA_MGR_INCLUDE_STATSTREAMAGGREGATOR_H_
 
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
-#include <util/Log.h>
-#include <fds_error.h>
-#include <concurrency/RwLock.h>
-#include <fds_module.h>
-#include <PerfHistory.h>
-#include <fdsp/fds_stream_types.h>
+#include "StatDataPoint.h"
+
+#include "concurrency/RwLock.h"
+#include "fdsp/fds_stream_types.h"
+#include "util/Log.h"
+#include "fds_error.h"
+#include "fds_module.h"
+#include "PerfHistory.h"
 
 namespace fds {
 
@@ -43,6 +45,13 @@ class StatStreamTimerTask : public FdsTimerTask {
     fpi::StatStreamRegistrationMsgPtr reg_;
     StatStreamAggregator & statStreamAggr_;
     std::unordered_map<fds_volid_t, fds_uint64_t> vol_last_rel_sec_;
+
+    static StatDataPoint newStatDataPoint (int64_t timestamp,
+                                           std::string const& name,
+                                           double value,
+                                           int64_t slotSeconds,
+                                           int64_t volumeId,
+                                           AggregationType aggregation);
 };
 
 /**
@@ -187,14 +196,15 @@ class StatHelper {
     static fds_bool_t getQueueFull(const StatSlot& slot);
     static fds_uint64_t getQueueBacklog(const StatSlot& slot);
     static fds_uint64_t getQueueWaitTime(const StatSlot& slot);
-    static fds_uint64_t getTotalLogicalBytes(const StatSlot& slot);
-    static fds_uint64_t getTotalPhysicalBytes(const StatSlot& slot);
-    static fds_uint64_t getTotalDomainDedupBytesFrac(const StatSlot &slot);
-    static fds_uint64_t getTotalDedupBytes(const StatSlot &slot);
-    static fds_uint64_t getTotalBlobs(const StatSlot& slot);
-    static fds_uint64_t getTotalLogicalObjects(const StatSlot &slot);
-    static fds_uint64_t getTotalPhysicalObjects(const StatSlot &slot);
-    static fds_uint64_t getTotalMetadataBytes(const StatSlot& slot);
+    static fds_uint64_t getTotalWithDriftSupport(FdsVolStatType type, StatSlot &slot, VolumePerfHistory::ptr hist);
+    static fds_uint64_t getTotalLogicalBytes(StatSlot& slot, const VolumePerfHistory::ptr hist);
+    static fds_uint64_t getTotalPhysicalBytes(StatSlot& slot, const VolumePerfHistory::ptr hist);
+    static fds_uint64_t getTotalDomainDedupBytesFrac(StatSlot &slot, const VolumePerfHistory::ptr hist);
+    static fds_uint64_t getTotalDedupBytes(StatSlot &slot, const VolumePerfHistory::ptr hist);
+    static fds_uint64_t getTotalBlobs(StatSlot& slot, const VolumePerfHistory::ptr hist);
+    static fds_uint64_t getTotalLogicalObjects(StatSlot& slot, const VolumePerfHistory::ptr hist);
+    static fds_uint64_t getTotalPhysicalObjects(StatSlot& slot, const VolumePerfHistory::ptr hist);
+    static fds_uint64_t getTotalMetadataBytes(StatSlot& slot, const VolumePerfHistory::ptr hist);
     static double getAverageBytesInBlob(const StatSlot& slot);
     static double getAverageObjectsInBlob(const StatSlot& slot);
     static fds_uint64_t getTotalSsdGets(const StatSlot& slot);
@@ -338,6 +348,8 @@ class StatStreamAggregator : public HasModuleProvider, Module {
     StatStreamRegistrationMap_t statStreamRegistrations_;
     std::unordered_map<fds_uint32_t, FdsTimerTaskPtr> statStreamTaskMap_;
     fds_rwlock lockStatStreamRegsMap;
+
+    int new_stats_service_port_;
 
     friend StatStreamTimerTask;
 };

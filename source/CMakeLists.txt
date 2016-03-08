@@ -154,6 +154,7 @@ set(SOURCE_FILES
     ./data-mgr/dm-lib/handlers/getbuckethandler.cpp
     ./data-mgr/dm-lib/handlers/getdmstatshandler.cpp
     ./data-mgr/dm-lib/handlers/getvolumemetadatahandler.cpp
+    ./data-mgr/dm-lib/handlers/loadfromarchivehandler.cpp
     ./data-mgr/dm-lib/handlers/migrationhandler.cpp
     ./data-mgr/dm-lib/handlers/querycataloghandler.cpp
     ./data-mgr/dm-lib/handlers/reloadvolumehandler.cpp
@@ -231,27 +232,13 @@ set(SOURCE_FILES
     ./data-mgr/dm-main.cpp
     ./data-mgr/DmCheckerMain.cpp
 
-    ./include/BitSet.h
-    ./include/EclipseWorkarounds.h
-    ./include/FdsCrypto.h
-    ./include/FdsRandom.h
-    ./include/HashedArray.hpp
-    ./include/Histogram.h
-    ./include/MigrationUtility.h
-    ./include/ObjectId.h
-    ./include/ObjectLogger.h
-    ./include/PerfHistory.h
-    ./include/PerfTrace.h
-    ./include/PerfTypes.h
-    ./include/S3Client.h
-    ./include/StatTypes.h
-    ./include/Tracebuffer.h
-
     ./include/blob/BlobTypes.h
+
     ./include/cache/KvCache.h
     ./include/cache/SharedKvCache.h
     ./include/cache/VolumeKvCache.h
     ./include/cache/VolumeSharedKvCache.h
+
     ./include/catalogKeys/BlobMetadataKey.h
     ./include/catalogKeys/BlobObjectKey.h
     ./include/catalogKeys/CatalogKey.h
@@ -279,12 +266,199 @@ set(SOURCE_FILES
     ./include/concurrency/Thread.h
     ./include/concurrency/ThreadPool.h
 
+    ./include/fdsp/AMSvc.cpp
+    ./include/fdsp/AMSvc.h
+    ./include/fdsp/AMSvc_server.skeleton.cpp
+    ./include/fdsp/DMSvc.cpp
+    ./include/fdsp/DMSvc.h
+    ./include/fdsp/DMSvc_server.skeleton.cpp
+    ./include/fdsp/FDSP_Service.cpp
+    ./include/fdsp/FDSP_Service.h
+    ./include/fdsp/FDSP_Service_server.skeleton.cpp
+    ./include/fdsp/FDSP_constants.cpp
+    ./include/fdsp/FDSP_constants.h
+    ./include/fdsp/FDSP_types.cpp
+    ./include/fdsp/FDSP_types.h
+    ./include/fdsp/PlatNetSvc.cpp
+    ./include/fdsp/PlatNetSvc.h
+    ./include/fdsp/PlatNetSvc_server.skeleton.cpp
+    ./include/fdsp/SMSvc.cpp
+    ./include/fdsp/SMSvc.h
+    ./include/fdsp/SMSvc_server.skeleton.cpp
+    ./include/fdsp/Streaming.cpp
+    ./include/fdsp/Streaming.h
+    ./include/fdsp/Streaming_server.skeleton.cpp
+    ./include/fdsp/TestAMSvc.cpp
+    ./include/fdsp/TestAMSvc.h
+    ./include/fdsp/TestAMSvc_server.skeleton.cpp
+    ./include/fdsp/TestDMSvc.cpp
+    ./include/fdsp/TestDMSvc.h
+    ./include/fdsp/TestDMSvc_server.skeleton.cpp
+    ./include/fdsp/TestSMSvc.cpp
+    ./include/fdsp/TestSMSvc.h
+    ./include/fdsp/TestSMSvc_server.skeleton.cpp
+    ./include/fdsp/common_constants.cpp
+    ./include/fdsp/common_constants.h
+    ./include/fdsp/common_types.cpp
+    ./include/fdsp/common_types.h
+    ./include/fdsp/fds_stream_constants.cpp
+    ./include/fdsp/fds_stream_constants.h
+    ./include/fdsp/fds_stream_types.cpp
+    ./include/fdsp/fds_stream_types.h
+
+./include/hash/Bitvec.h
+./include/hash/Hashes.h
+./include/hash/MurmurHash1.h
+./include/hash/MurmurHash2.h
+./include/hash/MurmurHash3.h
+./include/hash/PMurHash.h
+./include/hash/Platform.h
+./include/hash/Random.h
+./include/hash/SpeedTest.h
+./include/hash/Spooky.h
+./include/hash/Types.h
+./include/hash/base64.h
+./include/hash/md5.h
+./include/hash/sha1.h
+
+./include/json/json-forwards.h
+./include/json/json.h
+
+./include/kvstore/configdb.h
+./include/kvstore/configdbmodule.h
+./include/kvstore/kvstore.h
+./include/kvstore/platformdb.h
+./include/kvstore/redis.h
+./include/kvstore/tokenstatedb.h
+
+./include/leveldb/cat_journal.h
+./include/leveldb/copy_env.h
+./include/net/MockSvcHandler.h
+./include/net/PlatNetSvcHandler.h
+./include/net/SvcRequest.h
+./include/net/SvcRequestPool.h
+./include/net/SvcRequestTracker.h
+./include/net/fdssocket.h
+./include/net/net-service.h
+./include/net/net_utils.h
+./include/net/SvcMgr.h
+./include/net/SvcProcess.h
+./include/net/filetransferservice.h
+./include/net/volumegroup_extensions.h
+
+    ./include/orch-mgr/om-service.h
+
+    ./include/persistent-layer/dm_io.h
+    ./include/persistent-layer/dm_metadata.h
+    ./include/persistent-layer/dm_service.h
+    ./include/persistent-layer/persistentdata.h
+    ./include/persistent-layer/pm_unit_test.h
+    ./include/persistent-layer/tokFileMgr.h
+
+    ./include/platform/agent_container.h
+    ./include/platform/am_agent.h
+    ./include/platform/am_container.h
+    ./include/platform/am_svc_ep.h
+    ./include/platform/dm_agent.h
+    ./include/platform/dm_container.h
+    ./include/platform/dm_svc_ep.h
+    ./include/platform/domain_agent.h
+    ./include/platform/domain_cluster_map.h
+    ./include/platform/domain_container.h
+    ./include/platform/domain_resources.h
+    ./include/platform/fds_service.h
+    ./include/platform/fds_shmem.h
+    ./include/platform/flags_map.h
+    ./include/platform/fpi_namespace.h
+    ./include/platform/net_plat_svc.h
+    ./include/platform/node_agent.h
+    ./include/platform/node_agent_evt.h
+    ./include/platform/node_agent_iter.h
+    ./include/platform/node_data.h
+    ./include/platform/node_deploy.h
+    ./include/platform/node_deploy_evt.h
+    ./include/platform/node_down.h
+    ./include/platform/node_down_evt.h
+    ./include/platform/node_functional.h
+    ./include/platform/node_functional_evt.h
+    ./include/platform/node_info_evt.h
+    ./include/platform/node_info_shm_iter.h
+    ./include/platform/node_integrate.h
+    ./include/platform/node_integrate_evt.h
+    ./include/platform/node_inventory.h
+    ./include/platform/node_qualify.h
+    ./include/platform/node_qualify_evt.h
+    ./include/platform/node_rollback.h
+    ./include/platform/node_services.h
+    ./include/platform/node_shm_ctrl.h
+    ./include/platform/node_shm_inventory.h
+    ./include/platform/node_shm_queue.h
+    ./include/platform/node_shm_queue_item.h
+    ./include/platform/node_started.h
+    ./include/platform/node_stor_cap.h
+    ./include/platform/node_upgrade.h
+    ./include/platform/node_upgrade_evt.h
+    ./include/platform/node_work_event.h
+    ./include/platform/node_work_flow.h
+    ./include/platform/node_work_item.h
+    ./include/platform/node_work_item_evt.h
+    ./include/platform/node_work_type.h
+    ./include/platform/om_agent.h
+    ./include/platform/om_container.h
+    ./include/platform/om_node_agent_evt.h
+    ./include/platform/om_svc_ep.h
+    ./include/platform/plat_net_ep_ptr.h
+    ./include/platform/plat_net_plugin.h
+    ./include/platform/plat_node_data.h
+    ./include/platform/platform.h
+    ./include/platform/platform_process.h
+    ./include/platform/platform_shm_typedefs.h
+    ./include/platform/pm_agent.h
+    ./include/platform/pm_container.h
+    ./include/platform/pm_om_svc_ep.h
+    ./include/platform/pm_svc_ep.h
+    ./include/platform/sm_agent.h
+    ./include/platform/sm_container.h
+    ./include/platform/sm_svc_ep.h
+    ./include/platform/typedefs.h
+
+    ./include/shared/bitutil.h
+    ./include/shared/dlist.h
+    ./include/shared/fds-constants.h
+    ./include/shared/fds_types.h
+
+    ./include/util/always_call.h
+    ./include/util/bloomfilter.h
+    ./include/util/color.h
+    ./include/util/counter.h
+    ./include/util/disk_utils.h
+    ./include/util/enum_util.h
+    ./include/util/EventTracker.h
+    ./include/util/ExecutionGate.h
+    ./include/util/fds_stat.h
+    ./include/util/fiu_util.h
+    ./include/util/hash-util.h
+    ./include/util/Log.h
+    ./include/util/math-util.h
+    ./include/util/path.h
+    ./include/util/process.h
+    ./include/util/properties.h
+    ./include/util/stats.h
+    ./include/util/stringutils.h
+    ./include/util/timeutils.h
+    ./include/util/TraceBuffer.h
+    ./include/util/type.h
+
+    ./include/BitSet.h
+    ./include/BufferReplay.h
     ./include/cpplist.h
     ./include/data_mgr.h
     ./include/debughelpers.h
     ./include/dlt.h
+    ./include/DltDmtUtil.h
     ./include/dynamic_machine_arch.h
     ./include/dynamic_vers.h
+    ./include/EclipseWorkarounds.h
     ./include/fds-aio.h
     ./include/fds-fsm.h
     ./include/fds-shmobj.h
@@ -315,191 +489,26 @@ set(SOURCE_FILES
     ./include/fds_uuid.h
     ./include/fds_value_type.h
     ./include/fds_volume.h
-./include/fdsp/AMSvc.cpp
-./include/fdsp/AMSvc.h
-./include/fdsp/AMSvc_server.skeleton.cpp
-./include/fdsp/DMSvc.cpp
-./include/fdsp/DMSvc.h
-./include/fdsp/DMSvc_server.skeleton.cpp
-./include/fdsp/FDSP_Service.cpp
-./include/fdsp/FDSP_Service.h
-./include/fdsp/FDSP_Service_server.skeleton.cpp
-./include/fdsp/FDSP_constants.cpp
-./include/fdsp/FDSP_constants.h
-./include/fdsp/FDSP_types.cpp
-./include/fdsp/FDSP_types.h
-./include/fdsp/PlatNetSvc.cpp
-./include/fdsp/PlatNetSvc.h
-./include/fdsp/PlatNetSvc_server.skeleton.cpp
-./include/fdsp/SMSvc.cpp
-./include/fdsp/SMSvc.h
-./include/fdsp/SMSvc_server.skeleton.cpp
-./include/fdsp/Streaming.cpp
-./include/fdsp/Streaming.h
-./include/fdsp/Streaming_server.skeleton.cpp
-./include/fdsp/TestAMSvc.cpp
-./include/fdsp/TestAMSvc.h
-./include/fdsp/TestAMSvc_server.skeleton.cpp
-./include/fdsp/TestDMSvc.cpp
-./include/fdsp/TestDMSvc.h
-./include/fdsp/TestDMSvc_server.skeleton.cpp
-./include/fdsp/TestSMSvc.cpp
-./include/fdsp/TestSMSvc.h
-./include/fdsp/TestSMSvc_server.skeleton.cpp
-./include/fdsp/common_constants.cpp
-./include/fdsp/common_constants.h
-./include/fdsp/common_types.cpp
-./include/fdsp/common_types.h
-./include/fdsp/fds_stream_constants.cpp
-./include/fdsp/fds_stream_constants.h
-./include/fdsp/fds_stream_types.cpp
-./include/fdsp/fds_stream_types.h
+    ./include/FdsCrypto.h
     ./include/fdsp_utils.h
+    ./include/FdsRandom.h
     ./include/graphite_client.h
     ./include/has_state.h
-    ./include/hash/Bitvec.h
-    ./include/hash/Hashes.h
-    ./include/hash/MurmurHash1.h
-    ./include/hash/MurmurHash2.h
-    ./include/hash/MurmurHash3.h
-    ./include/hash/PMurHash.h
-    ./include/hash/Platform.h
-    ./include/hash/Random.h
-    ./include/hash/SpeedTest.h
-    ./include/hash/Spooky.h
-    ./include/hash/Types.h
-    ./include/hash/base64.h
-    ./include/hash/md5.h
-    ./include/hash/sha1.h
-    ./include/json/json-forwards.h
-    ./include/json/json.h
-    ./include/kvstore/configdb.h
-    ./include/kvstore/configdbmodule.h
-    ./include/kvstore/kvstore.h
-    ./include/kvstore/platformdb.h
-    ./include/kvstore/redis.h
-    ./include/kvstore/tokenstatedb.h
-    ./include/leveldb/cat_journal.h
-    ./include/leveldb/copy_env.h
-
-    ./include/net/fdssocket.h
-    ./include/net/filetransferservice.h
-    ./include/net/MockSvcHandler.h
-    ./include/net/net-service.h
-    ./include/net/net-service-tmpl.hpp
-    ./include/net/net_utils.h
-    ./include/net/PlatNetSvcHandler.h
-    ./include/net/SvcMgr.h
-    ./include/net/SvcProcess.h
-    ./include/net/SvcRequest.h
-    ./include/net/SvcRequestPool.h
-    ./include/net/SvcRequestTracker.h
-    ./include/net/SvcServer.h
-    ./include/net/volumegroup_extensions.h
-    ./include/net/VolumeGroupHandle.h
-
-./include/odb.h
-./include/orch-mgr/om-service.h
-./include/persistent-layer/dm_io.h
-./include/persistent-layer/dm_metadata.h
-./include/persistent-layer/dm_service.h
-./include/persistent-layer/persistentdata.h
-./include/persistent-layer/pm_unit_test.h
-./include/persistent-layer/tokFileMgr.h
-./include/platform/agent_container.h
-./include/platform/am_agent.h
-./include/platform/am_container.h
-./include/platform/am_svc_ep.h
-./include/platform/dm_agent.h
-./include/platform/dm_container.h
-./include/platform/dm_svc_ep.h
-./include/platform/domain_agent.h
-./include/platform/domain_cluster_map.h
-./include/platform/domain_container.h
-./include/platform/domain_resources.h
-./include/platform/fds_service.h
-./include/platform/fds_shmem.h
-./include/platform/flags_map.h
-./include/platform/fpi_namespace.h
-./include/platform/net_plat_svc.h
-./include/platform/node_agent.h
-./include/platform/node_agent_evt.h
-./include/platform/node_agent_iter.h
-./include/platform/node_data.h
-./include/platform/node_deploy.h
-./include/platform/node_deploy_evt.h
-./include/platform/node_down.h
-./include/platform/node_down_evt.h
-./include/platform/node_functional.h
-./include/platform/node_functional_evt.h
-./include/platform/node_info_evt.h
-./include/platform/node_info_shm_iter.h
-./include/platform/node_integrate.h
-./include/platform/node_integrate_evt.h
-./include/platform/node_inventory.h
-./include/platform/node_qualify.h
-./include/platform/node_qualify_evt.h
-./include/platform/node_rollback.h
-./include/platform/node_services.h
-./include/platform/node_shm_ctrl.h
-./include/platform/node_shm_inventory.h
-./include/platform/node_shm_queue.h
-./include/platform/node_shm_queue_item.h
-./include/platform/node_started.h
-./include/platform/node_stor_cap.h
-./include/platform/node_upgrade.h
-./include/platform/node_upgrade_evt.h
-./include/platform/node_work_event.h
-./include/platform/node_work_flow.h
-./include/platform/node_work_item.h
-./include/platform/node_work_item_evt.h
-./include/platform/node_work_type.h
-./include/platform/om_agent.h
-./include/platform/om_container.h
-./include/platform/om_node_agent_evt.h
-./include/platform/om_svc_ep.h
-./include/platform/plat_net_ep_ptr.h
-./include/platform/plat_net_plugin.h
-./include/platform/plat_node_data.h
-./include/platform/platform.h
-./include/platform/platform_process.h
-./include/platform/platform_shm_typedefs.h
-./include/platform/pm_agent.h
-./include/platform/pm_container.h
-./include/platform/pm_om_svc_ep.h
-./include/platform/pm_svc_ep.h
-./include/platform/sm_agent.h
-./include/platform/sm_container.h
-./include/platform/sm_svc_ep.h
-./include/platform/typedefs.h
-./include/qos_ctrl.h
-./include/serialize.h
+    ./include/HashedArray.hpp
+    ./include/Histogram.h
+    ./include/MigrationUtility.h
+    ./include/ObjectId.h
+    ./include/ObjectLogger.h
+    ./include/odb.h
+    ./include/PerfHistory.h
+    ./include/PerfTrace.h
+    ./include/PerfTypes.h
+    ./include/qos_ctrl.h
+    ./include/S3Client.h
+    ./include/serialize.h
     ./include/state_machine.hpp
-./include/shared/bitutil.h
-./include/shared/dlist.h
-./include/shared/fds-constants.h
-./include/shared/fds_types.h
-    ./include/util/always_call.h
-    ./include/util/bloomfilter.h
-    ./include/util/color.h
-    ./include/util/counter.h
-    ./include/util/disk_utils.h
-    ./include/util/enum_util.h
-    ./include/util/EventTracker.h
-    ./include/util/ExecutionGate.h
-    ./include/util/fds_stat.h
-    ./include/util/fiu_util.h
-    ./include/util/hash-util.h
-    ./include/util/Log.h
-    ./include/util/math-util.h
-    ./include/util/path.h
-    ./include/util/process.h
-    ./include/util/properties.h
-    ./include/util/stats.h
-    ./include/util/stringutils.h
-    ./include/util/timeutils.h
-    ./include/util/TraceBuffer.h
-    ./include/util/type.h
+    ./include/StatTypes.h
+    ./include/Tracebuffer.h
 
     ./lib/blob/BlobTypes.cpp
     ./lib/catalogKeys/BlobMetadataKey.cpp
@@ -590,7 +599,6 @@ set(SOURCE_FILES
     ./orch-mgr/include/snapshot/schedulertask.h
     ./orch-mgr/include/snapshot/svchandler.h
     ./orch-mgr/include/convert.h
-    ./orch-mgr/include/deletescheduler.h
     ./orch-mgr/include/om-discovery.h
     ./orch-mgr/include/om-node-workflow.h
     ./orch-mgr/include/om-platform.h
@@ -609,7 +617,6 @@ set(SOURCE_FILES
     ./orch-mgr/include/orchMgr.h
     ./orch-mgr/om-common/om-service.cpp
     ./orch-mgr/om-common/om-svc-handler.cpp
-    ./orch-mgr/om-dlt/deletescheduler.cpp
     ./orch-mgr/om-dlt/OmClusMap.cpp
     ./orch-mgr/om-dlt/OmDataPlacement.cpp
     ./orch-mgr/om-dlt/OmDeploy.cpp
@@ -620,13 +627,13 @@ set(SOURCE_FILES
     ./orch-mgr/om-dlt/OmVolPlacementAlgo.cpp
     ./orch-mgr/om-dlt/OmVolume.cpp
     ./orch-mgr/om-dlt/OmVolumePlacement.cpp
+    ./orch-mgr/om-dlt/volumedeletescheduler.cpp
     ./orch-mgr/om-lib/OmAdminCtrl.cpp
     ./orch-mgr/om-lib/OMMonitorWellKnownPMs.cpp
     ./orch-mgr/om-lib/omutils.cpp
     ./orch-mgr/om-lib/OmVolPolicy.cpp
     ./orch-mgr/om-lib/orchMgr.cpp
     ./orch-mgr/snapshot/deletedispatcher.cpp
-    ./orch-mgr/snapshot/deletescheduler.cpp
     ./orch-mgr/snapshot/deleteschedulertask.cpp
     ./orch-mgr/snapshot/manager.cpp
     ./orch-mgr/snapshot/policydispatcher.cpp
@@ -821,6 +828,7 @@ osdep/umod-linux/fds_osdep.cpp
     ./stor-mgr/smlib/ObjStats.cpp
     ./stor-mgr/smlib/SmIo.cpp
     ./stor-mgr/smlib/SMSvcHandler.cpp
+    ./stor-mgr/smlib/SmUtils.cpp
     ./stor-mgr/smlib/SMCheck.cpp
     ./stor-mgr/smlib/SMCheckCtrl.cpp
     ./stor-mgr/smlib/StorMgr.cpp

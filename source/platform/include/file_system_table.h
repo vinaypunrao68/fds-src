@@ -8,12 +8,15 @@
 extern "C"
 {
     #include <mntent.h>
+    #include <sys/mount.h>
 }
 
 #include <string>
 
 namespace fds
 {
+    typedef std::unordered_map<std::string, long> MountOptionMap;
+
     class FileSystemTable
     {
         public:
@@ -35,6 +38,7 @@ namespace fds
             void loadTab();
             void findNoneMountedFileSystems (const FileSystemTable &mtab, std::vector <std::string> &fileSystemsToMount);
             const struct TabEntry *findByDeviceName (std::string const deviceName);
+            static unsigned long parseMountOptions(std::string mountOptions, std::string& fsMountOptions);
 
         protected:
 
@@ -43,6 +47,8 @@ namespace fds
             std::vector <struct TabEntry> m_entries;
 
             bool findByMountPoint (const std::string mountPoint) const;
+
+            static MountOptionMap mountOptionMap;
     };
 
 }  // namespace fds

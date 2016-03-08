@@ -116,7 +116,10 @@ void PlatNetSvcHandler::asyncReqt(const FDS_ProtocolInterface::AsyncHdr& header,
 void PlatNetSvcHandler::asyncReqt(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                                      boost::shared_ptr<std::string>& payload)
 {
-    SVCPERF(header->rqRcvdTs = util::getTimeStampNanos());
+    LOGTRACE << "ASYNC_REQUEST_RCVD   ["
+             << static_cast<SvcRequestId>(header->msg_src_id) << "]: "
+             << fds::logString(*header);
+
     fiu_do_on("svc.uturn.asyncreqt", header->msg_code = ERR_INVALID;
               sendAsyncResp(*header, fpi::EmptyMsgTypeId, fpi::EmptyMsg()); return; );
 
@@ -175,33 +178,38 @@ void PlatNetSvcHandler::asyncResp(const FDS_ProtocolInterface::AsyncHdr& header,
 void PlatNetSvcHandler::asyncResp(boost::shared_ptr<FDS_ProtocolInterface::AsyncHdr>& header,
                                     boost::shared_ptr<std::string>& payload)
 {
-    SVCPERF(header->rspRcvdTs = util::getTimeStampNanos());
+    LOGTRACE << "ASYNC_RESPONSE_RCVD  ["
+             << static_cast<SvcRequestId>(header->msg_src_id) << "]: "
+             << fds::logString(*header);
+
     fiu_do_on("svc.disable.schedule", asyncRespHandler(\
     MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker(), header, payload); return; );
     // fiu_do_on("svc.use.lftp", asyncResp2(header, payload); return; );
 
-
-//    GLOGDEBUG << logString(*header);
-
     fds_assert(header->msg_type_id != fpi::UnknownMsgTypeId);
+
+    // Handle in non-debug builds.  Otherwise we pass this on into handlers
+    // who may or may not know what to do with it
+    if (header->msg_type_id == fpi::UnknownMsgTypeId) {
+        LOGWARN << "Skipping unknown Message type id in response: "
+                << fds::logString(*header);
+        return;
+    }
 
     /* Execute on synchronized task executor so that handling for requests
      * with same task id or executor id gets serialized
      */
     auto reqTracker = MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker();
     auto asyncReq = reqTracker->getSvcRequest(static_cast<SvcRequestId>(header->msg_src_id));
-    if (asyncReq && asyncReq->taskExecutorIdIsSet()) {
-        taskExecutor_->scheduleOnHashKey(asyncReq->getTaskExecutorId(),
-                                         std::bind(&PlatNetSvcHandler::asyncRespHandler,
-                                                   MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker(),
-                                                   header,
-                                                   payload));
-    } else {
-        taskExecutor_->scheduleOnHashKey(header->msg_src_id,
-                                         std::bind(&PlatNetSvcHandler::asyncRespHandler,
-                                                   MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker(),
-                                                   header, payload));
-    }
+    auto key = (asyncReq && asyncReq->taskExecutorIdIsSet()) ?
+                    asyncReq->getTaskExecutorId() :
+                    header->msg_src_id;
+
+    taskExecutor_->scheduleOnHashKey(key,
+                                     std::bind(&PlatNetSvcHandler::asyncRespHandler,
+                                               MODULEPROVIDER()->getSvcMgr()->getSvcRequestTracker(),
+                                               header,
+                                               payload));
 }
 
 
@@ -225,11 +233,9 @@ void PlatNetSvcHandler::asyncRespHandler(SvcRequestTracker* reqTracker,
          return;
      }
 
-     SVCPERF(asyncReq->ts.rqRcvdTs = header->rqRcvdTs);
-     SVCPERF(asyncReq->ts.rqHndlrTs = header->rqHndlrTs);
-     SVCPERF(asyncReq->ts.rspSerStartTs = header->rspSerStartTs);
-     SVCPERF(asyncReq->ts.rspSendStartTs = header->rspSendStartTs);
-     SVCPERF(asyncReq->ts.rspRcvdTs = header->rspRcvdTs);
+     LOGTRACE << "ASYNC_RESPONSE_HANDLER ["
+              << static_cast<SvcRequestId>(header->msg_src_id) << "]: "
+              << fds::logString(*header);
 
      asyncReq->handleResponse(header, payload);
 }
@@ -238,6 +244,7 @@ void PlatNetSvcHandler::asyncRespHandler(SvcRequestTracker* reqTracker,
                      const fpi::FDSPMsgTypeId &msgTypeId,
                      StringPtr &payload)
 {
+     // NOTE: tracing the SEND in SvcMgr
      auto respHdr = boost::make_shared<fpi::AsyncHdr>(
           std::move(SvcRequestPool::swapSvcReqHeader(reqHdr)));
      respHdr->msg_type_id = msgTypeId;
@@ -274,6 +281,41 @@ void PlatNetSvcHandler::getSvcMap(std::vector<fpi::SvcInfo> & _return,
 {
     LOGDEBUG << "Service map request";
     MODULEPROVIDER()->getSvcMgr()->getSvcMap(_return);
+}
+
+void PlatNetSvcHandler::getDLT(fpi::CtrlNotifyDLTUpdate& dlt, SHPTR<int64_t>& nullarg)
+{
+    auto dtp = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
+    if (!dtp) {
+		LOGDEBUG << "Not sending DLT, because no " << " committed DLT yet";
+        dlt.__set_dlt_version(DLT_VER_INVALID);
+
+	} else {
+        std::string data_buffer;
+        fpi::FDSP_DLT_Data_Type dlt_val;
+
+		dtp->getSerialized(data_buffer);
+		dlt.__set_dlt_version(dtp->getVersion());
+		dlt_val.__set_dlt_data(data_buffer);
+		dlt.__set_dlt_data(dlt_val);
+	}
+}
+
+void PlatNetSvcHandler::getDMT(fpi::CtrlNotifyDMTUpdate& dmt, SHPTR<int64_t>& nullarg)
+{
+    DMTPtr dp = MODULEPROVIDER()->getSvcMgr()->getCurrentDMT();
+    if (!dp) {
+        LOGDEBUG << "Not sending DMT, because no committed DMT yet";
+        dmt.__set_dmt_version(DMT_VER_INVALID);
+    } else {
+    	fpi::FDSP_DMT_Data_Type fdt;
+        std::string data_buffer;
+
+    	dp->getSerialized(data_buffer);
+    	fdt.__set_dmt_data(data_buffer);
+    	dmt.__set_dmt_version(dp->getVersion());
+    	dmt.__set_dmt_data(fdt);
+    }
 }
 
 void PlatNetSvcHandler::allUuidBinding(const fpi::UuidBindMsg& mine)

@@ -41,6 +41,8 @@ public:
     void turnOnForwarding() override;
     void turnOffForwarding() override;
     fds_bool_t shouldForwardIO(fds_uint64_t dmtVersionIn) override;
+private:
+    NodeUuid    myUuid;
 };
 
 

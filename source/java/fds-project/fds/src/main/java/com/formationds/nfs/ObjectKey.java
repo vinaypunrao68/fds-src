@@ -20,7 +20,17 @@ public class ObjectKey extends SortableKey<ObjectKey> {
 
     public ObjectKey(String domain, String volume) {
         super(domain, volume);
+        this.domain = domain;
+        this.volume = volume;
         this.blobName = "";
+        this.objectOffset = 0;
+    }
+
+    public ObjectKey(String domain, String volume, String blobName) {
+        super(domain, volume, blobName);
+        this.domain = domain;
+        this.volume = volume;
+        this.blobName = blobName;
         this.objectOffset = 0;
     }
 

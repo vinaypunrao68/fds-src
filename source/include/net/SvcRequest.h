@@ -19,8 +19,6 @@
 #include <fds_counters.h>
 #include <fds_module_provider.h>
 
-#define SVCPERF(statement) statement
-
 namespace fds {
 /* Forward declarations */
 struct EPSvcRequest;
@@ -81,16 +79,6 @@ class SvcRequestCounters : public FdsCounters
     NumericCounter      appsuccess;
     /* Number of responses that resulted in app rejections */
     NumericCounter      apperrors;
-
-    /* Serialization latency */
-    LatencyCounter      serializationLat;
-    /* Deserialization latency */
-    LatencyCounter      deserializationLat;
-    /* Send latency */
-    LatencyCounter      sendLat;
-    LatencyCounter      sendPayloadLat;
-    /* Request latency */
-    LatencyCounter      reqLat;
 };
 
 template <class ReqT, class RespMsgT>
@@ -263,7 +251,6 @@ struct SvcRequestIf : TrackableRequest {
     {
         boost::shared_ptr<std::string>buf;
         /* NOTE: Doing the serialization on calling thread */
-        SVCPERF(util::StopWatch sw; sw.start());
         fds::serializeFdspMsg(*payload, buf);
         setPayloadBuf(msgTypeId, buf);
     }
@@ -298,18 +285,6 @@ struct SvcRequestIf : TrackableRequest {
     inline const StringPtr& responsePayload() const { return respPayload_; }
 
  public:
-    struct SvcReqTs {
-        /* Request latency stop watch */
-        mutable uint64_t        rqStartTs;
-        mutable uint64_t        rqSendStartTs;
-        mutable uint64_t        rqSendEndTs;
-        mutable uint64_t        rqRcvdTs;
-        mutable uint64_t        rqHndlrTs;
-        mutable uint64_t        rspSerStartTs;
-        mutable uint64_t        rspSendStartTs;
-        mutable uint64_t        rspRcvdTs;
-        mutable uint64_t        rspHndlrTs;
-    } ts;
 
     /* DLT Version (if applicable) */
     fds_uint64_t dlt_version_ { DLT_VER_INVALID };

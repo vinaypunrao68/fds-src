@@ -8,6 +8,7 @@ user_incl_dir     += \
     $(topdir)/data-mgr/include \
     $(topdir)/lib \
     $(topdir)/util \
+    $(topdir)/util/volume-checker/include \
     $(topdir)
 
 user_cpp_flags    +=
@@ -18,11 +19,14 @@ user_fds_ar_libs  +=  \
     fds-dsk-mgnt \
     fds-net-svc \
     fds-fdsp \
+    fds-volume-checker \
     fds-dm-lib
 
 user_non_fds_libs +=  \
     boost_timer \
-    crypt crypto \
+    crypt \
+    crypto \
+    statsclient \
     z \
     ssl \
     gmock \

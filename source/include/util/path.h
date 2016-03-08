@@ -27,6 +27,21 @@ std::string getFileChecksum(const std::string& filename);
 
 // get bytes from human readable string - 1KB, 2MB, 3G ...
 fds_uint64_t getBytesFromHumanSize(const std::string& strFileSize);
+
+// get the PATH env variable
+void getPATH(std::vector<std::string>& paths);
+
+// add the given path to the PATH env variable
+bool addPATH(const std::string& path);
+
+// remove the given path from the PATH env variable
+bool removePATH(const std::string& path);
+
+// get the binary location of the given command
+std::string which(const std::string& path);
+
+// used by test and drivers to populate root directories
+void populateTempRootDirectories(std::vector<std::string> &roots, int numOfNodes);
 }  // namespace util
 }  // namespace fds
 

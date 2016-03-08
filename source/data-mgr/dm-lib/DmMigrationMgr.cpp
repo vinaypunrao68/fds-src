@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Formation Data Systems, Inc.
+ * Copyright 2015-2016 Formation Data Systems, Inc.
  */
 
 #include <DataMgr.h>
@@ -42,7 +42,6 @@ DmMigrationMgr::DmMigrationMgr(DataMgr &_dataMgr)
                           get<int32_t>("fds.dm.testing.test_delay_start"));
 
     /* 3 hours for idle timeout */
-    idleTimeoutSecs = 3*3600;
     auto timer = modProvider->getTimer();
     auto task = [this] () {
         /* Immediately post to threadpool so we don't hold up timer thread */
@@ -51,7 +50,7 @@ DmMigrationMgr::DmMigrationMgr(DataMgr &_dataMgr)
 
     };
     auto idleTimeouTask = SHPTR<FdsTimerTask>(new FdsTimerFunctionTask(task));
-    timer->scheduleRepeated(idleTimeouTask, std::chrono::seconds(idleTimeoutSecs));
+    timer->scheduleRepeated(idleTimeouTask, std::chrono::seconds(getidleTimeoutSecs()));
 }
 
 
@@ -718,31 +717,33 @@ DmMigrationMgr::finishActiveMigration(NodeUuid destUuid, fds_volid_t volId, int6
 }
 
 // process the TxState request
+// This is used for both VG and non-VG
 Error
 DmMigrationMgr::applyTxState(DmIoMigrationTxState* txStateReq) {
     fpi::CtrlNotifyTxStateMsgPtr txStateMsg = txStateReq->txStateMsg;
     fds_volid_t volId(txStateMsg->volume_id);
+    Error err(ERR_OK);
+
     auto uniqueId = std::make_pair(txStateReq->destUuid, volId);
     SCOPEDREAD(migrExecutorLock);
     DmMigrationExecutor::shared_ptr executor = getMigrationExecutor(uniqueId);
     if (executor == nullptr) {
-    	if (isMigrationAborted()) {
-			LOGMIGRATE << "Unable to find executor for volume " << volId << " during migration abort";
-    	} else {
-			LOGERROR << "Unable to find executor for volume " << volId;
-			// this is an race cond error that needs to be fixed in dev env.
-			// Only panic in debug build.
-			// fds_assert(0);
-    	}
+        if (isMigrationAborted()) {
+            LOGMIGRATE << "Unable to find executor for volume " << volId << " during migration abort";
+        } else {
+            LOGERROR << "Unable to find executor for volume " << volId;
+            // this is an race cond error that needs to be fixed in dev env.
+            // Only panic in debug build.
+            // fds_assert(0);
+        }
         return ERR_NOT_FOUND;
     }
 
-    Error err(ERR_OK);
     err = executor->processTxState(txStateMsg);
 
     if (!err.ok()) {
         LOGERROR << "Error applying migrated commit log: " << err;
-    	abortMigration();
+        abortMigration();
     }
 
     return (err);

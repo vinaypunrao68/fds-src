@@ -94,7 +94,9 @@ struct BlockTask {
     /**
      * \return true if all responses were received or operation error
      */
-    void handleReadResponse(std::vector<buffer_ptr_type>& buffers, uint32_t len);
+    void handleReadResponse(std::vector<buffer_ptr_type>& buffers,
+                            buffer_ptr_type& empty_buffer,
+                            uint32_t len);
 
     /**
      * \return true if all responses were received

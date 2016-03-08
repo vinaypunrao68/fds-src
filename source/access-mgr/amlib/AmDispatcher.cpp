@@ -151,35 +151,7 @@ AmDispatcher::stop() {
 }
 
 void
-AmDispatcher::registerVolume(VolumeDesc const& volDesc) {
-    auto& vol_id = volDesc.volUUID;
-    if (volume_grouping_support) {
-        WriteGuard wg(volumegroup_lock);
-        auto it = volumegroup_map.find(vol_id);
-        if (volumegroup_map.end() != it) {
-            return;
-        }
-        volumegroup_map[vol_id].reset(new VolumeGroupHandle(MODULEPROVIDER(), vol_id, numPrimaries));
-        volumegroup_map[vol_id]->setListener(volumegroup_handler.get());
-    }
-}
-
-void
 AmDispatcher::removeVolume(VolumeDesc const& volDesc) {
-    auto& vol_id = volDesc.volUUID;
-    /**
-     * FEATURE TOGGLE: Enable/Disable volume grouping support
-     * Thu Jan 14 10:45:14 2016
-     */
-    if (volume_grouping_support) {
-        WriteGuard wg(volumegroup_lock);
-        auto it = volumegroup_map.find(vol_id);
-        // Give ownership of the volume handle to the handle itself, we're
-        // done with it
-        std::shared_ptr<VolumeGroupHandle> vg = std::move(it->second);
-        volumegroup_map.erase(it);
-        vg->close([this, vg] () mutable -> void { });
-    }
     // We need to remove any barriers for this volume as we don't expect to
     // see any aborts/commits for them now
     std::lock_guard<std::mutex> g(tx_map_lock);
@@ -304,6 +276,24 @@ AmDispatcher::closeVolume(AmRequest * amReq) {
     return AmDataProvider::closeVolumeCb(amReq, ERR_OK);
 }
 
+Error AmDispatcher::modifyVolumePolicy(const VolumeDesc& vdesc) {
+    auto err = AmDataProvider::modifyVolumePolicy(vdesc);
+
+    if (volume_grouping_support) {
+        // Check to see if another AM has claimed ownership of coordinating the volume
+        ReadGuard rg(volumegroup_lock);
+        auto it = volumegroup_map.find(vdesc.GetID());
+        if (volumegroup_map.end() != it &&
+            vdesc.getCoordinatorId() != MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() &&
+            vdesc.getCoordinatorVersion() > it->second->getVersion()) {
+            // Inform peers that they should not perform IO on this volume
+            // as another client is accessing it
+            err = ERR_VOLUME_ACCESS_DENIED;
+        }
+    }
+    return err;
+}
+
 void
 AmDispatcher::commitBlobTx(AmRequest* amReq) {
     fiu_do_on("am.uturn.dispatcher", return AmDataProvider::commitBlobTxCb(amReq, ERR_OK););
@@ -319,12 +309,12 @@ AmDispatcher::commitBlobTx(AmRequest* amReq) {
      * FEATURE TOGGLE: VolumeGrouping
      * Thu Jan 14 10:39:09 2016
      */
-    auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
     if (!volume_grouping_support) {
+        auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
         message->dmt_version = amReq->dmt_version;
         writeToDM(blobReq, message, &AmDispatcher::commitBlobTxCb);
     } else {
-        volumeGroupCommit(blobReq, message, &AmDispatcher::_commitBlobTxCb, std::move(vLock));
+        volumeGroupCommit(blobReq, message, &AmDispatcher::_commitBlobTxCb);
     }
 }
 
@@ -437,18 +427,29 @@ AmDispatcher::openVolume(AmRequest* amReq) {
         return;
     } else {
         WriteGuard wg(volumegroup_lock);
-        auto it = volumegroup_map.find(amReq->io_vol_id);
-        if (volumegroup_map.end() != it) {
-            volMDMsg->volume_id = amReq->io_vol_id.get();
-            it->second->open(volMDMsg,
-                             [volReq, this] (Error const& e, fpi::OpenVolumeRspMsgPtr const& p) mutable -> void {
-                                _openVolumeCb(volReq, e, p);
-                                });
-            return;
+        auto& vol_id = amReq->io_vol_id;
+        bool happened {false};
+        auto it = volumegroup_map.end();
+        std::tie(it, happened) = volumegroup_map.emplace(vol_id, nullptr);
+        if (happened) {
+            auto quorum = std::max(MODULEPROVIDER()->getSvcMgr()->getCurrentDMT()->getDepth() - 1,
+                                   static_cast<uint32_t>(1));
+            it->second.reset(new VolumeGroupHandle(MODULEPROVIDER(), vol_id, quorum));
+            if (!it->second) {
+                LOGERROR << "Could not create a volume group handle for this volume: " << vol_id;
+                AmDataProvider::openVolumeCb(amReq, ERR_VOLUME_ACCESS_DENIED);
+                return;
+            }
+            it->second->setListener(volumegroup_handler.get());
         }
+
+        volMDMsg->volume_id = vol_id.get();
+        it->second->open(volMDMsg,
+                         [volReq, this] (Error const& e, fpi::OpenVolumeRspMsgPtr const& p) mutable -> void {
+                            _openVolumeCb(volReq, e, p);
+                            });
+        return;
     }
-    LOGERROR << "Unknown volume to AmDispatcher: " << amReq->io_vol_id;
-    AmDataProvider::openVolumeCb(amReq, ERR_VOLUME_ACCESS_DENIED);
 }
 
 void
@@ -534,13 +535,13 @@ AmDispatcher::updateCatalog(AmRequest* amReq) {
      * FEATURE TOGGLE: VolumeGrouping
      * Thu Jan 14 10:39:09 2016
      */
-    auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
     if (!volume_grouping_support) {
+        auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
         blobReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
         message->dmt_version = blobReq->dmt_version;
         writeToDM(blobReq, message, &AmDispatcher::updateCatalogCb, message_timeout_io);
     } else {
-        volumeGroupCommit(blobReq, message, &AmDispatcher::_updateCatalogCb, std::move(vLock));
+        volumeGroupCommit(blobReq, message, &AmDispatcher::_updateCatalogCb);
     }
 }
 
@@ -566,13 +567,13 @@ AmDispatcher::renameBlob(AmRequest* amReq) {
      * FEATURE TOGGLE: VolumeGrouping
      * Thu Jan 14 10:39:09 2016
      */
-    auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
     if (!volume_grouping_support) {
+        auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
         blobReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
         message->dmt_version = blobReq->dmt_version;
         writeToDM(blobReq, message, &AmDispatcher::renameBlobCb, message_timeout_io);
     } else {
-        volumeGroupCommit(blobReq, message, &AmDispatcher::_renameBlobCb, std::move(vLock));
+        volumeGroupCommit(blobReq, message, &AmDispatcher::_renameBlobCb);
     }
 }
 
@@ -621,12 +622,12 @@ AmDispatcher::setVolumeMetadata(AmRequest* amReq) {
      * FEATURE TOGGLE: VolumeGrouping
      * Thu Jan 14 10:39:09 2016
      */
-    auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
     if (!volume_grouping_support) {
+        auto vLock = dispatchTable.getAndLockVolumeSequence(amReq->io_vol_id, message->sequence_id);
         volReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
         writeToDM(volReq, message, &AmDispatcher::setVolumeMetadataCb);
     } else {
-        volumeGroupCommit(volReq, message, &AmDispatcher::_setVolumeMetadataCb, std::move(vLock));
+        volumeGroupCommit(volReq, message, &AmDispatcher::_setVolumeMetadataCb);
     }
 }
 
@@ -1175,30 +1176,26 @@ AmDispatcher::_getQueryCatalogCb(GetBlobReq* amReq, const Error& error, shared_s
 {
     PerfTracer::tracePointEnd(amReq->dm_perf_ctx);
 
-    Error err = error;
-    if (err != ERR_OK && err != ERR_BLOB_OFFSET_INVALID) {
-        // TODO(Andrew): We should consider logging this error at a
-        // higher level when the volume is not block
-        LOGDEBUG << "blob name: " << amReq->getBlobName() << " offset: "
-                 << amReq->blob_offset << " Error: " << error;
-        err = (err == ERR_CAT_ENTRY_NOT_FOUND ? ERR_BLOB_NOT_FOUND : err);
+    Error err { ERR_OK };
+    switch (error.GetErrno()) {
+    case ERR_CAT_ENTRY_NOT_FOUND:
+        err = ERR_BLOB_NOT_FOUND;
+        break;;
+    case ERR_BLOB_OFFSET_INVALID:
+        // This is fine, return OK
+        break;;
+    default:
+        err = error;
     }
 
     auto qryCatRsp = deserializeFdspMsg<fpi::QueryCatalogMsg>(err, payload);
-
-    if (err.ok()) {
-        // Copy the metadata into the callback, if needed
-        if (true == amReq->get_metadata) {
-            auto cb = std::dynamic_pointer_cast<GetObjectWithMetadataCallback>(amReq->cb);
-            // Fill in the data here
-            cb->blobDesc = boost::make_shared<BlobDescriptor>();
-            cb->blobDesc->setBlobName(amReq->getBlobName());
-            cb->blobDesc->setBlobSize(qryCatRsp->byteCount);
-            for (const auto& meta : qryCatRsp->meta_list) {
-                cb->blobDesc->addKvMeta(meta.key,  meta.value);
-            }
+    if (ERR_OK == err) {
+        amReq->blobDesc = boost::make_shared<BlobDescriptor>();
+        amReq->blobDesc->setBlobName(amReq->getBlobName());
+        amReq->blobDesc->setBlobSize(qryCatRsp->byteCount);
+        for (const auto& meta : qryCatRsp->meta_list) {
+            amReq->blobDesc->addKvMeta(meta.key,  meta.value);
         }
-
 
         for (fpi::FDSP_BlobObjectList::const_iterator it = qryCatRsp->obj_list.cbegin();
              it != qryCatRsp->obj_list.cend();

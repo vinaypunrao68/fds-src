@@ -30,12 +30,7 @@ SvcRequestCounters::SvcRequestCounters(const std::string &id, FdsCountersMgr *mg
     timedout("timedout", this),
     invokeerrors("invokeerrors", this),
     appsuccess("appsuccess", this),
-    apperrors("apperrors", this),
-    serializationLat("serializationLat", this),
-    deserializationLat("deserializationLat", this),
-    sendPayloadLat("sendPayloadLat", this),
-    sendLat("sendLat", this),
-    reqLat("reqLat", this)
+    apperrors("apperrors", this)
 {
     (new SimpleNumericCounter("service.start.timestamp",this))->set(util::getTimeStampSeconds());
 }
@@ -333,10 +328,7 @@ void EPSvcRequest::invokeWork_()
     // TODO(Rao): Determine endpoint is healthy or not
     state_ = INVOCATION_PROGRESS;
 
-    SVCPERF(util::StopWatch sw; sw.start());
     sendPayload_();
-    SVCPERF(MODULEPROVIDER()->getSvcMgr()->getSvcRequestCntrs()->\
-            sendPayloadLat.update(sw.getElapsedNanos()));
 }
 
 /**
@@ -368,7 +360,6 @@ void EPSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
 
     /* Invoke response callback */
     if (respCb_) {
-        SVCPERF(ts.rspHndlrTs = util::getTimeStampNanos());
         respCb_(this, header->msg_code, payload);
     }
 
@@ -661,7 +652,6 @@ void FailoverSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header
     if (bSuccess) {
         complete(ERR_OK);
         if (respCb_) {
-            SVCPERF(ts.rspHndlrTs = util::getTimeStampNanos());
             /* NOTE: We are using last failure code in this case */
             respCb_(this, header->msg_code, payload);
         }
@@ -922,7 +912,6 @@ void QuorumSvcRequest::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& header,
     /* Take action based on the ack counts */
     if (successAckd_ == quorumCnt_) {
         if (respCb_ && !waitForAllResponses_) {
-            SVCPERF(ts.rspHndlrTs = util::getTimeStampNanos());
             respCb_(this, ERR_OK, payload);
             respCb_ = nullptr;
         }

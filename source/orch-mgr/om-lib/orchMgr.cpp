@@ -15,6 +15,7 @@
 #include <OmVolumePlacement.h>
 #include <orch-mgr/om-service.h>
 #include <fdsp/OMSvc.h>
+#include "fdsp/common_constants.h"
 #include <om-svc-handler.h>
 #include <net/SvcMgr.h>
 
@@ -46,8 +47,12 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule, bool initAsModule,
         node_id_to_name[i] = "";
     }
 
+    // Note on Thrift service compatibility:
+    // If a backward incompatible change arises, pass additional pairs of
+    // processor and Thrift service name to SvcProcess::init(). Similarly,
+    // if the Thrift service API wants to be broken up.
     init<fds::OmSvcHandler, fpi::OMSvcProcessor>(argc, argv, initAsModule, "platform.conf",
-                                                 "fds.om.", "om.log", omVec);
+        "fds.om.", "om.log", omVec, fpi::commonConstants().OM_SERVICE_NAME);
 
     enableTimeline = get_fds_config()->get<bool>(
             "fds.feature_toggle.common.enable_timeline", true);
@@ -147,7 +152,7 @@ void OrchMgr::proc_pre_startup()
 
 void OrchMgr::proc_pre_service()
 {
-    if ( enableTimeline ) 
+    if ( !test_mode && enableTimeline )
     {
         snapshotMgr->init();
     }
@@ -206,9 +211,9 @@ int OrchMgr::run()
         deleteScheduler.start();
         runConfigService(this);
     } else {
-        // not in test mode but need to spin
+        // just sleep for the duration of the test
         while (true) {
-            sleep(1000);
+            sleep(60);
         }
     }
     return 0;
@@ -602,7 +607,7 @@ bool OrchMgr::loadFromConfigDB() {
     OM_Module::om_singleton()->om_volplace_mod()->setConfigDB(getConfigDB());
 
     // load the snapshot policies
-    if (enableTimeline) {
+    if (!test_mode && enableTimeline) {
         snapshotMgr->loadFromConfigDB();
     }
 

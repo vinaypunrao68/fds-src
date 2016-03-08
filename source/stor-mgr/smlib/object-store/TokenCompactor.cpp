@@ -12,11 +12,6 @@
 #include <StorMgr.h>
 namespace fds {
 
-// TODO(Sean):
-// Why is the offset 32bit?
-typedef std::map<fds_uint32_t, ObjectID> offset_oid_map_t;
-typedef std::map<fds_uint32_t, offset_oid_map_t> loc_oid_map_t;
-
 TokenCompactor::TokenCompactor(SmIoReqHandler *_data_store,
                                SmPersistStoreHandler* persist_store)
         : token_id(0),
@@ -86,7 +81,7 @@ Error TokenCompactor::startCompaction(fds_token_id tok_id,
     // start garbage collection for this token -- tell persistent layer
     // to start routing requests to shadow (new) file to which we will
     // copy non-garbage objects
-    persistGcHandler->notifyStartGc(token_id, cur_tier);
+    persistGcHandler->notifyStartGc(cur_disk_id, token_id, cur_tier);
 
     /*
     // we may have writes currently in flight that are writing to old file.
@@ -133,7 +128,7 @@ void TokenCompactor::enqSnapDbWork()
     snap_req.token_id = token_id;
     err = data_store->enqueueMsg(FdsSysTaskQueueId, &snap_req);
     if (!err.ok()) {
-        LOGERROR << "Failed to enqueue take index db snapshot message ;" << err;
+        LOGERROR << "Failed to enqueue snapshot request ;" << err;
         // We already created shadow file
         // TODO(anna) should we just retry here? reschedule timer?
         handleCompactionDone(err);
@@ -143,7 +138,7 @@ void TokenCompactor::enqSnapDbWork()
 /**
  * Enqueue request for objects copy/delete
  */
-Error TokenCompactor::enqCopyWork(std::vector<ObjectID>* obj_list)
+Error TokenCompactor::enqCopyWork(std::vector<ObjectID>* obj_list, ContinueWorkFn nextWork)
 {
     Error err(ERR_OK);
     SmIoCompactObjects* copy_req = new SmIoCompactObjects();
@@ -153,7 +148,7 @@ Error TokenCompactor::enqCopyWork(std::vector<ObjectID>* obj_list)
     copy_req->verifyData = verifyData;
     copy_req->smio_compactobj_resp_cb = std::bind(
         &TokenCompactor::objsCompactedCb, this,
-        std::placeholders::_1, std::placeholders::_2);
+        std::placeholders::_1, std::placeholders::_2, nextWork);
 
     // enqueue to qos queue, copy_req will be delete after it's dequeued
     // and processed
@@ -180,8 +175,6 @@ void TokenCompactor::snapDoneCb(const Error& error,
                                 std::shared_ptr<leveldb::DB> db)
 {
     Error err(ERR_OK);
-    ObjMetaData omd;
-    fds_uint32_t offset = 0;
 
     LOGDEBUG << "snapshot done for token:" << token_id
              << " received with result:" << error;
@@ -200,9 +193,13 @@ void TokenCompactor::snapDoneCb(const Error& error,
     }
 
     // iterate over snapshot of index db and create work items to work with
-    std::vector<ObjectID> obj_list;
-    loc_oid_map_t loc_oid_map;
     leveldb::Iterator* it = db->NewIterator(options);
+
+    ObjMetaData omd;
+    std::shared_ptr<loc_oid_map_t> loc_oid_map = std::make_shared<loc_oid_map_t>();
+
+    LOGDEBUG << "Building object list to compact... it valid? " << it->Valid();
+
     for (it->SeekToFirst(); it->Valid(); it->Next()) {
         ObjectID id(it->key().ToString());
 
@@ -219,11 +216,11 @@ void TokenCompactor::snapDoneCb(const Error& error,
         // filter out objects that are already in shadow file --
         // this could happen between times we started writing objs
         // to shadow file and we took this db snapshot
-        if (persistGcHandler->isShadowLocation(loc, token_id)) {
+        if (persistGcHandler->isShadowLocation(cur_disk_id, loc, token_id)) {
             LOGDEBUG << id << " already in shadow file (disk_id "
-                     << loc->obj_stor_loc_id << " file_id "
-                     << loc->obj_file_id << " tok " << token_id
-                     << " tier " << (fds_int16_t)loc->obj_tier << ")";
+                << loc->obj_stor_loc_id << " file_id "
+                << loc->obj_file_id << " tok " << token_id
+                << " tier " << (fds_int16_t)loc->obj_tier << ")";
             continue;
         }
 
@@ -232,82 +229,88 @@ void TokenCompactor::snapDoneCb(const Error& error,
         fds_uint32_t loc_fid = loc->obj_stor_loc_id;
         loc_fid |= (loc->obj_file_id << 16);
         LOGDEBUG << "Object " << id << " loc_id " << loc->obj_stor_loc_id
-                 << " fileId " << loc->obj_file_id << "("
-                 << loc_fid << ") offset " << loc->obj_stor_offset
-                 << " tier " << (fds_int16_t)loc->obj_tier
-                 << " tok " << token_id;
+            << " fileId " << loc->obj_file_id << "("
+            << loc_fid << ") offset " << loc->obj_stor_offset
+            << " tier " << (fds_int16_t)loc->obj_tier
+            << " tok " << token_id;
 
-        fds_assert(!(loc_oid_map.count(loc_fid)
-                     && loc_oid_map[loc_fid].count(loc->obj_stor_offset)));
-        if (loc_oid_map.count(loc_fid)
-                     && loc_oid_map[loc_fid].count(loc->obj_stor_offset)) {
+        fds_assert(!(loc_oid_map->count(loc_fid)
+            && (*loc_oid_map)[loc_fid].count(loc->obj_stor_offset)));
+        if (loc_oid_map->count(loc_fid)
+            && (*loc_oid_map)[loc_fid].count(loc->obj_stor_offset)) {
             LOGWARN << "Entry for object " << id << " already exists in the shadow file.";
         }
 
-        (loc_oid_map[loc_fid])[loc->obj_stor_offset] = id;
+        ((*loc_oid_map)[loc_fid])[loc->obj_stor_offset] = id;
     }
 
     // calculate total_objs before enqueueing copy work into QoS queue,
     // to make sure that total_objs is correct when we get copy done cb
-    for (loc_oid_map_t::const_iterator cit = loc_oid_map.cbegin();
-         cit != loc_oid_map.cend();
+    for (loc_oid_map_t::const_iterator cit = loc_oid_map->cbegin();
+         cit != loc_oid_map->cend();
          ++cit) {
         total_objs += (cit->second).size();
     }
 
+    delete it;
+    db->ReleaseSnapshot(options.snapshot);
+
+    loc_oid_map_t::const_iterator cit = loc_oid_map->cbegin();
+    offset_oid_map_t::const_iterator cit2 = (cit->second).cbegin();
+    compactionWorker(loc_oid_map, cit, cit2, false);
+}
+
+void TokenCompactor::compactionWorker(std::shared_ptr<loc_oid_map_t> loc_oid_map,
+                                      loc_oid_map_t::const_iterator cit,
+                                      offset_oid_map_t::const_iterator cit2,
+                                      bool last_run) {
+
+    if (last_run) {
+        loc_oid_map.reset();
+
+        if (total_objs == 0) {
+            handleCompactionDone(Error(ERR_OK));
+        }
+        return;
+    }
+
+    fds_uint32_t offset = 0;
+    std::vector<ObjectID> obj_list;
+
+    Error err(ERR_OK);
+
     // create copy work items
-    for (loc_oid_map_t::const_iterator cit = loc_oid_map.cbegin();
-         cit != loc_oid_map.cend();
-         ++cit) {
-        for (offset_oid_map_t::const_iterator cit2 = (cit->second).cbegin();
-             cit2 != (cit->second).cend();
-             ++cit2) {
+    for (cit; cit != loc_oid_map->cend(); ++cit) {
+        for (cit2; cit2 != (cit->second).cend() && obj_list.size() <= GC_COPY_WORKLIST_SIZE; ++cit2) {
+
+            LOGDEBUG << "Pushing " << cit2->second;
             obj_list.push_back(cit2->second);
+        }
+        // if we collected enough oids, create copy req and put it to qos queue
+        if (obj_list.size() >= GC_COPY_WORKLIST_SIZE) {
 
-            // if we collected enough oids, create copy req and put it to qos queue
-            if (obj_list.size() >= GC_COPY_WORKLIST_SIZE) {
-                LOGDEBUG << "Enqueue copy work for " << obj_list.size() << " objects";
-                err = enqCopyWork(&obj_list);
-                if (!err.ok()) {
-                    // TODO(anna): most likely queue is full, we need to save the
-                    // work and try again later
+            ContinueWorkFn nextWork = std::bind(&TokenCompactor::compactionWorker, this,
+                                                loc_oid_map, cit, cit2, false);
 
-                    // cleanup
-                    delete it;
-                    db->ReleaseSnapshot(options.snapshot);
-                    handleCompactionDone(err);
-                    return;
-                }
-                obj_list.clear();
-            }
+            LOGDEBUG << "Enqueue copy work for " << obj_list.size() << " objects";
+            err = enqCopyWork(&obj_list, nextWork);
+
+            return;
         }
     }
 
     // send copy request for the remaining objects
     if (obj_list.size() > 0) {
-        LOGDEBUG << "Enqueue copy work for " << obj_list.size() << " objects";
-        err = enqCopyWork(&obj_list);
-        if (!err.ok()) {
-            // TODO(anna): most likely queue is full, we need to save the
-            // work and try again later
+        LOGDEBUG << "Enqueue copy work for " << obj_list.size() << " objects (this should be < "
+                    << GC_COPY_WORKLIST_SIZE << " )";
 
-            // cleanup
-            delete it;
-            db->ReleaseSnapshot(options.snapshot);
-            handleCompactionDone(err);
-            return;
-        }
-    }
-
-    // cleanup
-    delete it;
-    db->ReleaseSnapshot(options.snapshot);
-
-    if (total_objs == 0) {
-        // there are no objects in index db, we are done
-        handleCompactionDone(Error(ERR_OK));
+        ContinueWorkFn nextWork = std::bind(&TokenCompactor::compactionWorker, this, loc_oid_map, cit, cit2, true);
+        err = enqCopyWork(&obj_list, nextWork);
+    } else {
+        compactionWorker(loc_oid_map, cit, cit2, true);
     }
 }
+
 
 //
 // Notification that set of objects were compacted
@@ -315,7 +318,8 @@ void TokenCompactor::snapDoneCb(const Error& error,
 // if we finished compaction of all objects
 //
 void TokenCompactor::objsCompactedCb(const Error& error,
-                                     SmIoCompactObjects* req)
+                                     SmIoCompactObjects* req,
+                                     ContinueWorkFn nextWork)
 {
     fds_assert(req != nullptr);
     fds_uint32_t done_before, total_done;
@@ -330,7 +334,7 @@ void TokenCompactor::objsCompactedCb(const Error& error,
                  << " tier " << (fds_uint16_t)cur_tier
                  << " disk_id " << cur_disk_id
                  << " with error " << error;
-        delete req;
+        if (req) {  delete req; }
         handleCompactionDone(error);
         return;
     }
@@ -352,6 +356,7 @@ void TokenCompactor::objsCompactedCb(const Error& error,
         return;
     }
 
+    if (req) {  delete req; }
     LOGDEBUG << "Finished compaction of " << work_objs_done << " objects"
              << ", done so far " << total_done << " out of " << total_objs
              << " (tok " << token_id << " tier " << (fds_uint16_t)cur_tier
@@ -368,9 +373,9 @@ void TokenCompactor::objsCompactedCb(const Error& error,
         }
         */
         handleTimerEvent();
+    } else {
+        nextWork();
     }
-
-    delete req;
 }
 
 Error TokenCompactor::handleCompactionDone(const Error& tc_error)
@@ -393,7 +398,7 @@ Error TokenCompactor::handleCompactionDone(const Error& tc_error)
                   << " error:" << err;
         if (err.ok()) {
             // tell persistent layer we are done copying -- remove the old file
-            persistGcHandler->notifyEndGc(token_id, cur_tier);
+            persistGcHandler->notifyEndGc(cur_disk_id, token_id, cur_tier);
         }
 
         // notify the requester about the completion
@@ -476,5 +481,4 @@ void CompactorTimerTask::runTimerTask()
     fds_assert(tok_compactor);
     if (tok_compactor) { tok_compactor->handleTimerEvent(); }
 }
-
 }  // namespace fds

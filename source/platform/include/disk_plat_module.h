@@ -19,6 +19,9 @@ namespace fds
 
     class DiskPlatModule : public Module
     {
+        private:
+            bool is_data_mount_point(const char* mount_point);
+
         protected:
             static constexpr ssize_t FD_COUNT = 2; // udev and inotify
             static constexpr ssize_t FD_UDEV_IDX = 0;

@@ -53,6 +53,11 @@ public class IngestVolumeStats implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters)
             throws Exception {
+    	
+    	if ( !FdsFeatureToggles.INFLUX_WRITE_METRICS.isActive() ){
+    		logger.warn( "The toggle to write metrics to InfluxDB is turned off so no metrics will be sent to that persistent store." );
+    		return new JsonResource(new JSONObject().put("status", "OK"));
+    	}
 
         HttpServletRequest httpRequest = (HttpServletRequest)request;
         if ( FdsFeatureToggles.WEB_LOGGING_REQUEST_WRAPPER.isActive() ) {
@@ -78,7 +83,8 @@ public class IngestVolumeStats implements RequestHandler {
 
                     volid = SingletonConfigAPI.instance().api().getVolumeId( vdp.getVolumeName() );
                 } catch (Exception e) {
-                    throw new IllegalStateException( "Volume does not have an ID associated with the name." );
+                    throw new IllegalStateException( "Volume " + vdp.getVolumeName() + " does not " +
+                            "have an ID associated with the name." );
                 }
 
                 vdp.setVolumeId( String.valueOf( volid ) );
@@ -96,25 +102,29 @@ public class IngestVolumeStats implements RequestHandler {
              *  The stat stream is per volume; we need to have used bytes (UBYTES) included with every
              *  volume, we divide the used capacity across all volumes so when we sum it later we should
              *  have a total used capacity be correct, well at least close.
+             *
+             *  Also, make sure that UBYTES is added to all time series data points
              */
             final Double usedCapacity = RedisSingleton.INSTANCE.api( )
                     .getDomainUsedCapacity( )
                     .getValue( SizeUnit.B )
                     .doubleValue( ) / volumeNames.size();
+
+            List<IVolumeDatapoint> newList = new ArrayList<>( );
             for( final IVolumeDatapoint vdp : volumeDatapoints )
             {
-                if( vdp.getKey().equalsIgnoreCase( Metrics.LBYTES.key() ) )
+                newList.add( vdp );
+                if( Metrics.LBYTES.matches( vdp.getKey() ) )
                 {
-                    volumeDatapoints.add( new VolumeDatapoint( vdp.getTimestamp(),
-                                                               vdp.getVolumeId( ),
-                                                               vdp.getVolumeName( ),
-                                                               Metrics.UBYTES.key( ),
-                                                               usedCapacity ) );
-                    break;
-                }
+                    newList.add( new VolumeDatapoint( vdp.getTimestamp(),
+                                                      vdp.getVolumeId( ),
+                                                      vdp.getVolumeName( ),
+                                                      Metrics.UBYTES.key( ),
+                                                      usedCapacity ) );
+               }
             }
 
-            SingletonRepositoryManager.instance().getMetricsRepository().save(volumeDatapoints);
+            SingletonRepositoryManager.instance().getMetricsRepository().save( newList );
         }
 
         return new JsonResource(new JSONObject().put("status", "OK"));

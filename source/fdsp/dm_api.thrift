@@ -161,6 +161,7 @@ struct OpenVolumeMsg {
   2: required common.VolumeAccessMode   mode;
   /** Existing token */
   3: optional i64                       token = 0;
+  4: i32                                coordinatorVersion = 0;
 }
 
 /**
@@ -597,6 +598,8 @@ struct CtrlNotifyFinishMigrationMsg {
   2: i32                     status;
   /* Version of the volume stored in volumeMeta */
   3: i64                     version;
+  /* For logging purposes */
+  4: svc_types.SvcUuid       srcUuid;
 }
 
 /**
@@ -604,9 +607,11 @@ struct CtrlNotifyFinishMigrationMsg {
  */
 struct CtrlNotifyTxStateMsg {
   1: i64                     volume_id;
-  2: i64                     DMT_version;
+  2: i64                     migration_id;
   3: i64                     version;
-  4: list<string>            transactions;
+  4: i64                     lowest_op_id;
+  5: i64                     highest_op_id;
+  6: list<string>            transactions;
 }
 
 struct CtrlNotifyTxStateRspMsg {
@@ -758,6 +763,20 @@ struct DbgForceVolumeSyncMsg  {
 struct LoadFromArchiveMsg {
     1: i64                      volId;
     2: string                   filename;
+}
+
+struct CopyVolumeMsg {
+    1: i64                      volId;
+    2: i64                      destDmUuid;
+    3: bool                     archivePolicy;
+
+}
+
+struct ArchiveMsg {
+    1: i64                      volId;
+}
+
+struct ArchiveRespMsg {
 }
 
 /* ------------------------------------------------------------

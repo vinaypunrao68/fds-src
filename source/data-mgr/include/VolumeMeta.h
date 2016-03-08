@@ -16,6 +16,7 @@
 #include <fds_error.h>
 #include <fds_counters.h>
 #include <util/Log.h>
+#include <future>
 
 #include <concurrency/Mutex.h>
 #include <fds_volume.h>
@@ -23,6 +24,8 @@
 #include <DmMigrationSrc.h>
 #include <VolumeInitializer.h>
 #include <dm-vol-cat/DmPersistVolDB.h>
+
+#include <FdsCrypto.h>
 
 namespace fds {
 
@@ -87,7 +90,8 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     * @param highestOpId
     * @param txs
     */
-    Error applyActiveTxState(const int64_t &highestOpId, const std::vector<std::string> &txs);
+    Error applyActiveTxState(const int64_t &highestOpId,
+                             const std::vector<std::string> &txs);
 
     /**
     * @return  Returns base directory path for the volume
@@ -117,7 +121,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     inline bool isActive() const { return vol_desc->state == fpi::Active; }
     inline bool isSyncing() const { return vol_desc->state == fpi::Syncing; }
 
-    void startInitializer();
+    void startInitializer(bool force = false);
     void notifyInitializerComplete(const Error &completionError);
     void scheduleInitializer(bool fNow);
     inline bool isInitializerInProgress() const {
@@ -134,6 +138,10 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
         vol_desc->setCoordinatorId(svcUuid);
     }
     inline fpi::SvcUuid getCoordinatorId() const { return vol_desc->getCoordinatorId(); }
+    inline void setCoordinatorVersion(int32_t version) {
+        vol_desc->setCoordinatorVersion(version);
+    }
+    inline int32_t getCoordinatorVersion() const { return vol_desc->getCoordinatorVersion(); }
     inline bool isCoordinatorSet() const { return vol_desc->isCoordinatorSet(); }
 
     std::string logString() const;
@@ -143,8 +151,42 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     }
 
     void setPersistVolDB(DmPersistVolDB::ptr dbPtr);
+    Error initState();
 
     void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
+
+    /* Helper only added to avoid having to include DataMgr.h in this file */
+    static void enqueDmIoReq(DataMgr &dataManager, DmRequest *dmReq);
+    /**
+    * Helper wrapper class for synchornizing function objects to be run under
+    * volume synchronized context
+    */
+    template<typename FunctionType>
+    struct Synchronized {
+        DataMgr         &dataManager;
+        fds_volid_t     volId;
+        FunctionType    f;
+
+        Synchronized(DataMgr &d, const fds_volid_t &vId, const FunctionType &f_)
+            : dataManager(d), volId(vId), f(f_) {}
+
+        template<typename... Args>
+        void operator() (Args&&... args) {
+            auto ioReq = new DmFunctor(volId, std::bind(f, std::forward<Args>(args)...));
+            enqueDmIoReq(dataManager, ioReq);
+        }
+    };
+
+    /**
+    * @brief Returns wrapper function around f that executes f in volume synchronized
+    * context
+    */
+    template<typename FunctionType>
+    Synchronized<FunctionType> makeSynchronized(const FunctionType &f) {
+        return Synchronized<FunctionType>(*dataManager,
+                                          vol_desc->volUUID,
+                                          f);
+    }
 
     /**
     * @brief Returns true if this function is invoked by the thread responsible executing
@@ -153,20 +195,6 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     inline bool isSynchronized() const {
         return std::this_thread::get_id() == threadId;
     }
-    /**
-    * @brief Returns wrapper function around f that exectues f in volume synchronized
-    * context
-    */
-    std::function<void()> makeSynchronized(const std::function<void()> &f);
-    std::function<void(EPSvcRequest*,const Error &e, StringPtr)>
-    makeSynchronized(const std::function<void(EPSvcRequest*,const Error &e, StringPtr)> &f);
-
-    StatusCb makeSynchronized(const StatusCb &f);
-    /* NOTE: Should be overloaded as makeSynchronized.  I was getting compiler errors I named it
-     * makeSynchronized.  I ended up renaming as a quick fix
-     */
-    BufferReplay::ProgressCb synchronizedProgressCb(const BufferReplay::ProgressCb &f);
-
 
     /**
      * DM Migration related
@@ -179,6 +207,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     Error handleMigrationDeltaBlobDescs(DmRequest *dmRequest);
     Error handleMigrationDeltaBlobs(DmRequest *dmRequest);
     void handleFinishStaticMigration(DmRequest *dmRequest);
+    Error handleMigrationActiveTx(DmRequest *dmRequest);
 
 
     /**
@@ -211,9 +240,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     /* Handlers */
     void handleVolumegroupUpdate(DmRequest *dmRequest);
 
-
     VolumeDesc *vol_desc;
-
 
     /*
      * per volume queue
@@ -222,8 +249,24 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     /* For runinng the sync protocol */
     VolumeInitializerPtr                    initializer;
     uint32_t                                initializerTriesCnt;
+    uint32_t                                maxInitializerTriesCnt;
+
+    /**
+     * Hash context public methods
+     */
+    Error createHashCalcContext(DmRequest *req,
+                                fpi::SvcUuid _reqUUID,
+                                int batchSize);
+
+    /**
+     * For unit testing
+     */
+    inline bool hashCalcContextExists() {
+        return (hashCalcContextPtr != nullptr);
+    }
 
  private:
+    friend class DmMigrationMgr;
     /*
      * This class is non-copyable.
      * Disable copy constructor/assignment operator.
@@ -309,7 +352,53 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
      * Stores the hook for Callback to the volume group manager
      */
     StatusCb cbToVGMgr;
+
+    // Context for requests that ask for hash calculations, such as volume checker
+    // Everything done here must be synchronized on FdsSysTaskQueueId
+    struct hashCalcContext {
+        explicit hashCalcContext(DmRequest *req,
+                                fpi::SvcUuid _reqUUID,
+                                int _batchSize);
+        ~hashCalcContext();
+
+        /**
+         * The sha1 class related to this context.
+         * Each batch pass, we update the sha1 calculation.
+         * Once the last batch is processed, we call final on it.
+         */
+        hash::Sha1 hasher;
+
+        // Sends the callback with an error code
+        void sendCb();
+
+        // Node (could be self) that requested the operation
+        fpi::SvcUuid requesterUUID;
+
+        // typedRequest to send back to the requester
+        DmIoVolumeCheck *typedRequest;
+
+        // Current context error code
+        Error contextErr;
+
+        // Max entries of levelDB walk before looping back to another system queue req
+        int batchSize;
+
+        // Result to be sent back as part of the cb
+        unsigned hashResult;
+
+    };
+    // nullptr if no operation is ongoing, otherwise, we only allow 1 hashing op to occur
+    // No need for locking since we require things to be done in synchronized context
+    hashCalcContext *hashCalcContextPtr;
+
+    /**
+     * Given a hashCalcContext that's been established, execute the next step.
+     * Either do the initial hash, continue hash, or send result back
+     */
+    void doHashTaskOnContext();
 };
+
+using VolumeMetaPtr = SHPTR<VolumeMeta>;
 
 }  // namespace fds
 

@@ -249,7 +249,7 @@ TEST_F(DmVolumeCatalogTest, all_ops) {
         rc = volcat->markVolumeDeleted(vdesc->volUUID);
         EXPECT_TRUE(rc.ok());
 
-        rc = volcat->deleteEmptyCatalog(vdesc->volUUID);
+        rc = volcat->deleteCatalog(vdesc->volUUID);
         EXPECT_TRUE(rc.ok());
     }
 

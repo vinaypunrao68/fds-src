@@ -10,8 +10,6 @@ import re
 
 # Module-specific requirements
 import sys
-import os
-import random
 from TestFDSServiceMgt import TestAMKill, TestSMKill, TestDMKill, TestOMKill, TestPMKill
 from fdslib.TestUtils import get_node_service
 from fdscli.model.platform.service import Service
@@ -79,7 +77,7 @@ class TestDomainActivateServices(TestCase.FDSTestCase):
 # This class contains the attributes and methods to test
 # the kill the services of an FDS node.
 class TestNodeKill(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, node=None):
+    def __init__(self, parameters=None, node=None, sig="SIGKILL"):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_NodeKill,
@@ -87,6 +85,7 @@ class TestNodeKill(TestCase.FDSTestCase):
                                              True)  # Always run.
 
         self.passedNode = node
+        self.passedSig = sig
 
     def test_NodeKill(self, ansibleBoot=False):
         """
@@ -110,7 +109,7 @@ class TestNodeKill(TestCase.FDSTestCase):
             self.log.info("Kill node %s." % n.nd_conf_dict['node-name'])
 
             # First kill PM to prevent respawn of other services
-            killPM = TestPMKill(node=n)
+            killPM = TestPMKill(node=n, sig=self.passedSig)
             killSuccess = killPM.test_PMKill()
 
             if not killSuccess:
@@ -120,7 +119,7 @@ class TestNodeKill(TestCase.FDSTestCase):
 
             # Then kill AM if on this node.
             if (n.nd_services.count("am") > 0) or ansibleBoot:
-                killAM = TestAMKill(node=n)
+                killAM = TestAMKill(node=n, sig=self.passedSig)
                 killSuccess = killAM.test_AMKill()
 
                 if not killSuccess and not ansibleBoot:
@@ -129,7 +128,7 @@ class TestNodeKill(TestCase.FDSTestCase):
 
             # SM and DM next.
             if (n.nd_services.count("sm") > 0) or ansibleBoot:
-                killSM = TestSMKill(node=n)
+                killSM = TestSMKill(node=n, sig=self.passedSig)
                 killSuccess = killSM.test_SMKill()
 
                 if not killSuccess and not ansibleBoot:
@@ -137,7 +136,7 @@ class TestNodeKill(TestCase.FDSTestCase):
                     return False
 
             if (n.nd_services.count("dm") > 0) or ansibleBoot:
-                killDM = TestDMKill(node=n)
+                killDM = TestDMKill(node=n, sig=self.passedSig)
                 killSuccess = killDM.test_DMKill()
 
                 if not killSuccess and not ansibleBoot:
@@ -146,7 +145,7 @@ class TestNodeKill(TestCase.FDSTestCase):
 
             # Lastly, kill OM if on this node.
             if (fdscfg.rt_om_node.nd_conf_dict['node-name'] == n.nd_conf_dict['node-name']) or ansibleBoot:
-                killOM = TestOMKill(node=n)
+                killOM = TestOMKill(node=n, sig=self.passedSig)
                 killSuccess = killOM.test_OMKill()
 
                 if not killSuccess and not ansibleBoot:
@@ -463,45 +462,6 @@ class TestDomainCreate(TestCase.FDSTestCase):
             return False
         else:
             return True
-
-#This class removes a disk-map entry randomly
-class TestRemoveDisk(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, diskMapPath=None, diskType=None):
-        super(self.__class__, self).__init__(parameters,
-                                             self.__class__.__name__,
-                                             self.test_diskRemoval,
-                                             "Testing disk removal")
-
-        self.diskMapPath = diskMapPath
-        self.diskType = diskType
-
-    def test_diskRemoval(self):
-        """
-        Test Case:
-        Remove a hdd/ssd chosen randomly from a given disk-map.
-        """
-        if (self.diskMapPath is None or self.diskType is None):
-            self.log.error("Some parameters missing values {} {}".format(self.diskMapPath, self.diskType))
-        self.log.info(" {} {} ".format(self.diskMapPath, self.diskType))
-        if not os.path.isfile(self.diskMapPath):
-            self.log.error("File {} not found".format(self.diskMapPath))
-            return False
-        diskMapFile = open(self.diskMapPath, "r+")
-        diskEntries = diskMapFile.readlines()
-        chosenDisks = filter(lambda x: self.diskType in x, diskEntries)
-        chosenDisk = random.choice(chosenDisks)
-        self.log.info("Disk to be removed {}".format(chosenDisk))
-        diskMapFile.seek(0)
-        for disk in diskEntries:
-            if disk != chosenDisk:
-                self.log.info(disk)
-                diskMapFile.write(disk)
-        diskMapFile.truncate()
-        diskMapFile.seek(0)
-        reRead = diskMapFile.readlines()
-        self.log.info("Updated disk-map file {} \n".format(reRead))
-        diskMapFile.close()
-        return True
 
 
 # This class contains the attributes and methods to test

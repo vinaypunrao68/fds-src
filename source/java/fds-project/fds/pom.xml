@@ -62,6 +62,11 @@
         <version>${formationds.stats.client.version}</version>
     </dependency>
 
+    <dependency>
+      <groupId>com.formationds</groupId>
+      <artifactId>xdi-contracts</artifactId>
+      <version>${formationds.xdi.contracts.version}</version>
+    </dependency>
     <!-- third party dependencies -->
     <dependency>
       <groupId>com.amazonaws</groupId>

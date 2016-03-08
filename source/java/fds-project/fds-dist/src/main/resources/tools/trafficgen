@@ -1,11 +1,47 @@
 #!/bin/bash
 
-for i in /fds/lib/java/\* ; do {
+##
+# this script is used for testing only, should not be used in production
+# environment
+
+ORIGINAL_ARGS=("${@}")
+
+echo original args: ${ORIGINAL_ARGS[@]} > ./trafficgen.out
+
+declare -a NEW_ARGS
+for i in "${ORIGINAL_ARGS[@]}"
+do
+  case $i in
+    --fds-root=*)
+      trafficgen_fds_root="${i#*=}"
+      # This is used manually below, don't pass the original.
+      ;;
+
+    *)
+      # Pass this arg on to OM.
+      NEW_ARGS+=("${i}")
+      ;;
+  esac
+done
+
+# if --fds-root provided set the fds_root env which is used
+# by formation_env
+if [ -z "${trafficgen_fds_root}" ]; then
+    fds_root=/fds
+else
+    fds_root=${trafficgen_fds_root}
+fi
+export fds_root
+
+echo fds_root: ${fds_root} >> ./trafficgen.out
+echo trafficgen args: ${NEW_ARGS[@]} >> ./trafficgen.out
+
+for i in ${fds_root}/lib/java/\* ; do {
     CLASSPATH=$CLASSPATH:$i;
 } done
 
 CLASSPATH=$CLASSPATH
 
 /opt/fds-deps/embedded/jre/bin/java -classpath $CLASSPATH \
-     com.formationds.util.TrafficGen $*
+     com.formationds.util.TrafficGen "${NEW_ARGS[@]}"
 

@@ -18,6 +18,9 @@ struct JournalFileInfo {
     TimeStamp startTime;
     std::string journalFile;
 };
+
+static const std::string journalTableHole("HOLE_IN_JOURNAL_TABLE");
+
 /**
  * NOTE: All TimeStamps in micros
  */

@@ -40,7 +40,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     private StatStreamRegistrationHandler statStreamRegistrationHandler;
 
-    public OmConfigurationApi( ThriftClientFactory<Iface> configClientFactory ) throws Exception {
+    public OmConfigurationApi( ThriftClientFactory<Iface> configClientFactory ) throws TException {
         this.configClientFactory = configClientFactory;
 
         cache = new CachedConfiguration( configClientFactory.getClient() );
@@ -92,6 +92,14 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         long id = getConfig().createLocalDomain( domainName, domainSite );
         EventManager.notifyEvent( OmEvents.CREATE_LOCAL_DOMAIN, domainName, domainSite );
         return id;
+    }
+
+    /* (non-Javadoc)
+     * @see com.formationds.apis.ConfigurationService.Iface#isLocalDomainUp()
+     */
+    @Override
+    public boolean isLocalDomainUp() throws TException {
+        return getConfig().isLocalDomainUp();
     }
 
     /**
@@ -590,8 +598,6 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         long maxSize = (VolumeType.BLOCK.equals( vt ) ?
                         volumeSettings.getBlockDeviceSizeInBytes() :
                         volumeSettings.getMaxObjectSizeInBytes());
-
-        getCache().loadVolume( domainName, volumeName );
 
         // load the new volume into the cache
         getCache().loadVolume( domainName, volumeName );

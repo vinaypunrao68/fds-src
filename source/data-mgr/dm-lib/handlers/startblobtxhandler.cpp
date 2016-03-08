@@ -65,7 +65,7 @@ void StartBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
     QueueHelper helper(dataManager, dmRequest);
     DmIoStartBlobTx* typedRequest = static_cast<DmIoStartBlobTx*>(dmRequest);
 
-    ENSURE_IO_ORDER(typedRequest, helper);
+    ENSURE_OPID_ORDER(typedRequest, helper);
 
     LOGDEBUG << "Will start transaction " << *typedRequest;
 
@@ -74,7 +74,7 @@ void StartBlobTxHandler::handleQueueItem(DmRequest* dmRequest) {
     dataManager.vol_map_mtx->lock();
     auto volMetaIter = dataManager.vol_meta_map.find(typedRequest->volId);
     if (dataManager.vol_meta_map.end() != volMetaIter) {
-        VolumeMeta* vol_meta = volMetaIter->second;
+        auto vol_meta = volMetaIter->second;
         if (!dataManager.features.isVolumegroupingEnabled() &&
             (!vol_meta->isForwarding() || vol_meta->isForwardFinishing()) &&
             (typedRequest->dmt_version != dataManager.getModuleProvider()->getSvcMgr()->getDMTVersion())) {

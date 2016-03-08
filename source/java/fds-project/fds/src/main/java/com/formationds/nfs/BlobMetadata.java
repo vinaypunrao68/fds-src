@@ -1,10 +1,12 @@
 package com.formationds.nfs;
 
+import java.util.Map;
+
 public class BlobMetadata {
     private String blobName;
-    private FdsMetadata metadata;
+    private Map<String, String> metadata;
 
-    public BlobMetadata(String blobName, FdsMetadata metadata) {
+    public BlobMetadata(String blobName, Map<String, String> metadata) {
         this.blobName = blobName;
         this.metadata = metadata;
     }
@@ -13,7 +15,7 @@ public class BlobMetadata {
         return blobName;
     }
 
-    public FdsMetadata getMetadata() {
+    public Map<String, String> getMetadata() {
         return metadata;
     }
 }

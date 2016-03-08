@@ -9,7 +9,6 @@
 #include <fiu-control.h>
 #include <fiu-local.h>
 #include <include/util/disk_utils.h>
-#include <stor-mgr/include/SmTypes.h>
 extern "C" {
 #include <sys/mount.h>
 #include <fcntl.h>
@@ -73,6 +72,22 @@ DiskUtils::isDiskUnreachable(const std::string& diskPath,
     umount2(mountPnt.c_str(), MNT_FORCE);
   }
   return (retVal | false);
+}
+
+/*
+ * A function that returns the difference between the diskSet 1 and diskSet 2.
+ * The difference is defined as element(s) in diskSet1, but not in diskSet2.
+ */
+DiskIdSet
+DiskUtils::diffDiskSet(const DiskIdSet& diskSet1,
+                       const DiskIdSet& diskSet2) {
+    DiskIdSet deltaDiskSet;
+
+    std::set_difference(diskSet1.begin(), diskSet1.end(),
+                        diskSet2.begin(), diskSet2.end(),
+                        std::inserter(deltaDiskSet, deltaDiskSet.begin()));
+
+    return deltaDiskSet;
 }
 
 }  // namespace fds

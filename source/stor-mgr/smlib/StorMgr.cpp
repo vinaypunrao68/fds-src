@@ -116,7 +116,8 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
                                                           std::bind(&ObjectStorMgr::handleDiskChanges, this,
                                                                     std::placeholders::_1,
                                                                     std::placeholders::_2,
-                                                                    std::placeholders::_3),
+                                                                    std::placeholders::_3,
+                                                                    std::placeholders::_4),
                                                           std::bind(&ObjectStorMgr::changeTokensState, this,
                                                                     std::placeholders::_1)));
 
@@ -135,10 +136,23 @@ void ObjectStorMgr::changeTokensState(const std::set<fds_token_id>& dltTokens) {
     }
 }
 
-void ObjectStorMgr::handleDiskChanges(const DiskId& removedDiskId,
+void ObjectStorMgr::handleNewDiskMap() {
+
+    auto tokens = objectStore->getSmTokens();
+    std::vector<nullary_always> token_locks;
+    for (auto& token: tokens) {
+        token_locks.push_back(getTokenLock(token, true));
+    }
+
+    objStorMgr->objectStore->handleNewDiskMap();
+}
+
+void ObjectStorMgr::handleDiskChanges(const bool &added,
+                                      const DiskId& diskId,
                                       const diskio::DataTier& tierType,
                                       const TokenDiskIdPairSet& tokenDiskPairs) {
-    objStorMgr->objectStore->handleDiskChanges(removedDiskId, tierType, tokenDiskPairs);
+    objStorMgr->objectStore->handleDiskChanges(added, diskId,
+                                               tierType, tokenDiskPairs);
 }
 
 void ObjectStorMgr::handleResyncDoneOrPending(fds_bool_t startResync, fds_bool_t resyncDone) {
@@ -146,8 +160,7 @@ void ObjectStorMgr::handleResyncDoneOrPending(fds_bool_t startResync, fds_bool_t
 
     if (resyncDone) {
         if (objStorMgr->migrationMgr->primaryTokensReady(curDlt, getUuid())) {
-            LOGNOTIFY << "Resync on restart completed SUCCESSFULLY! All DLT tokens for which "
-                      << " this SM is primary synced successfully";
+            LOGNOTIFY << "Resync completed SUCCESSFULLY!";
         } else {
             LOGWARN << "At least one DLT token for which this SM is primary did not sync "
                     << " successfully; Since we don't have fine-grained handling of this in OM,"
@@ -216,7 +229,7 @@ void ObjectStorMgr::mod_enable_service()
         auto svcmgr = MODULEPROVIDER()->getSvcMgr();
         totalRate = static_cast<uint32_t>(atoi(
                 svcmgr->getSvcProperty(modProvider_->getSvcMgr()->getMappedSelfPlatformUuid(),
-                                       "node_iops_min").c_str()));
+                                       "node_iops_min", "400").c_str()));
         fds_assert(totalRate > 0);
     }
 
@@ -1087,6 +1100,9 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
                                           },
                                           snapReq);
         }
+        /* Mark the request as complete */
+        qosCtrl->markIODone(*snapReq, diskio::diskTier);
+
         snapReq->smio_snap_resp_cb(err, snapReq, options, db, snapReq->retryReq, snapReq->unique_id);
     } else {
         std::string snapDir;
@@ -1103,10 +1119,12 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
                                           snapReq);
         }
 
+        /* Mark the request as complete */
+        qosCtrl->markIODone(*snapReq, diskio::diskTier);
+
         snapReq->smio_persist_snap_resp_cb(err, snapReq, snapDir, env);
     }
-    /* Mark the request as complete */
-    qosCtrl->markIODone(*snapReq, diskio::diskTier);
+
 }
 
 void
@@ -1199,6 +1217,8 @@ ObjectStorMgr::applyRebalanceDeltaSet(SmIoReq* ioReq)
             // we will stop applying object metadata/data and report error to migr mgr
             LOGERROR << "Failed to apply object metadata/data " << objId
                      << ", " << err;
+
+            delete rebalReq;
             break;
         }
     }
@@ -1222,8 +1242,10 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
               exit(1));
 
     SmIoReadObjDeltaSetReq *readDeltaSetReq = static_cast<SmIoReadObjDeltaSetReq *>(ioReq);
-    fds_verify(NULL != readDeltaSetReq);
-
+    if (!readDeltaSetReq) {
+        LOGWARN << "Invalid read delta set request";
+        return;
+    }
     LOGMIGRATE << "Filling DeltaSet:"
                << " destinationSmId " << readDeltaSetReq->destinationSmId
                << " executorID=" << std::hex << readDeltaSetReq->executorId << std::dec
@@ -1246,6 +1268,8 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
 
         const ObjectID objID(objMetaDataPtr->obj_map.obj_id.metaDigest);
 
+        LOGDEBUG << "Object ptr = " << objMetaDataPtr << " flag = " << reconcileFlag << " Object ID = " << objID;
+
         fpi::CtrlObjectMetaDataPropagate objMetaDataPropagate;
 
         /* copy metadata to object propagation message. */
@@ -1264,10 +1288,16 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
             /* TODO(sean): For now, just panic. Need to know why
              * object read failed.
              */
-            fds_verify(err.ok());
-
-            /* Copy the object data */
-            objMetaDataPropagate.objectData = *dataPtr;
+            if (!err.ok()) {
+                LOGERROR << "getObjectData failed for read delta set"
+                         << " destinationSmId: " << readDeltaSetReq->destinationSmId
+                         << " executorID: " << std::hex << readDeltaSetReq->executorId << std::dec
+                         << " object: " << objID;
+                         continue;
+            } else {
+                /* Copy the object data */
+                objMetaDataPropagate.objectData = *dataPtr;
+            }
         }
 
         /* Add metadata and data to the delta set */
@@ -1641,5 +1671,41 @@ ObjectStorMgr::getAllVolumeDescriptors()
 bool
 ObjectStorMgr::haveAllObjectSets() const {
     return objectStore->haveAllObjectSets();
+}
+
+void ObjectStorMgr::startRefscanOnDMs() {
+    static fds_mutex lock("refscan request check");
+    static auto timegap = 30*60;
+    synchronized(lock) {
+        // send only once every 30 m
+        if (counters->dmRefScanRequestSentAt.value() + timegap >= util::getTimeStampSeconds()) {
+            LOGDEBUG << "will not send dm refscan request. last sent @ "
+                     << util::getLocalTimeString(counters->dmRefScanRequestSentAt.value());
+            return;
+        }
+        counters->dmRefScanRequestSentAt.set(util::getTimeStampSeconds());
+    }    
+
+    LOGNORMAL << "sending refscan message to all DMs, will also set force expunge";
+    fds::objDelCountThresh = 1;
+    SvcInfo info = MODULEPROVIDER()->getSvcMgr()->getSelfSvcInfo();
+
+    fpi::StartRefScanMsgPtr msg(new fpi::StartRefScanMsg());
+
+    auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+
+    // For each DM in the DMT we send the message
+    const DLT *curDlt = getDLT();
+    const auto dmt = MODULEPROVIDER()->getSvcMgr()->getCurrentDMT();
+    std::set<fds_uint64_t> nodes;
+    dmt->getUniqueNodes(&nodes);
+    for (auto node: nodes) {
+        fpi::SvcUuid svcUUID;
+        assign(svcUUID, node);
+        auto request = svcMgr->newEPSvcRequest(svcUUID);
+        request->setPayload(FDSP_MSG_TYPEID(fpi::StartRefScanMsg), msg);
+        request->invoke();
+    }
+
 }
 }  // namespace fds

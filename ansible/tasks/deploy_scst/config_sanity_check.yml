@@ -9,7 +9,6 @@
         -  /opt/fds-deps/embedded/usr/share/perl5/Debian/Debhelper/Sequence/dkms.pm
     ignore_errors: True
     register: dkms_installed
-    tags:
 
 -   name: check_dkms_configured
     stat: path={{ item }}
@@ -20,4 +19,3 @@
         - /usr/share/perl5/Debian/Debhelper/Sequence/dkms.pm
     ignore_errors: True
     register: dkms_configured
-    tags:

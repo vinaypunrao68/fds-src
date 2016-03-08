@@ -107,7 +107,7 @@
       apt: name=fds-stats-deps force=yes state=latest update_cache=yes cache_valid_time=600
    
     - name: install latest fds-stats-service package
-      apt: name=fds-stats-service-1.0.0 force=yes state=latest update_cache=yes cache_valid_time=600
+      apt: name=fds-stats-service-2.0.0 force=yes state=latest update_cache=yes cache_valid_time=600
 
     - name: install latest rabbitmq-c package
       apt: name=rabbitmq-c-0.7.1 force=yes state=latest update_cache=yes cache_valid_time=600
@@ -116,7 +116,7 @@
       apt: name=simpleamqpclient-0.7.1 force=yes state=latest update_cache=yes cache_valid_time=600
 
     - name: install latest fds-stats-client-c package
-      apt: name=fds-stats-client-c-1.0.0 force=yes state=latest update_cache=yes cache_valid_time=600
+      apt: name=fds-stats-client-c-2.0.0 force=yes state=latest update_cache=yes cache_valid_time=600
 
     - name: install latest java package
       apt: name=oracle-java8-installer force=yes state=latest update_cache=yes cache_valid_time=600
@@ -247,14 +247,15 @@
         - python-iptables
         - retry
         - humanize
+        - numpy
 
     - name: install fdscli from Artifactory
       pip: name={{item}}
         state=present
         extra_args="--extra-index-url=https://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/pypi/formation-pip/simple"
       with_items:
-        - "fdscli==0.1.17"
-        - "fdsutil==0.3.7"
+        - "fdscli==0.1.19"
+        - "fdsutil==0.3.9"
 
     - name: install perl modules
       cpanm: name={{ item }} mirror=http://cpan.mirror.vexxhost.com notest=true

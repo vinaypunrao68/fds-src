@@ -24,7 +24,7 @@
  }
  
  TARGET_DRIVER iscsi {
- 	enabled 1
+-	enabled 1
 -	TARGET iqn.2012-04.com.ubuntu:tgt1 {
 -		LUN 0 disk1
 -		LUN 1 disk2
@@ -34,4 +34,5 @@
 -		LUN 0 disk3
 -		enabled 1
 -	}
++       enabled 0
  }

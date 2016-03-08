@@ -283,6 +283,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      }
 
      bool haveAllObjectSets() const;
+     void startRefscanOnDMs();
 
      /**
       * A callback from stats collector to sample SM specific stats
@@ -316,9 +317,11 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void handleResyncDoneOrPending(fds_bool_t startResync, fds_bool_t resyncDone);
 
      void changeTokensState(const std::set<fds_token_id>& dltTokens);
-     void handleDiskChanges(const DiskId& dId,
-                            const diskio::DataTier& tierType,
-                            const TokenDiskIdPairSet& tokenDiskPairs);
+     void handleDiskChanges(const bool &added,
+                            const DiskId &diskId,
+                            const diskio::DataTier &tierType,
+                            const TokenDiskIdPairSet &tokenDiskPairs);
+     void handleNewDiskMap();
      Error handleDltUpdate();
 
      void storeCurrentDLT();

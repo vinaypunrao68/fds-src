@@ -32,6 +32,13 @@ service ConfigurationService {
       throws (1: common.ApiException e);
 
   /**
+   * Check if the local domain is currently up
+   * 
+   * @return true if the local domain is currently up.  False if it is down
+   */
+  bool isLocalDomainUp();
+  
+  /**
    * Lists currently defined Local Domains.
    *
    * @return Returns the list of Local Domain.

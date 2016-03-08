@@ -41,12 +41,14 @@ public abstract class PlatNetSvcHandlerBase<S extends PlatNetSvc.Iface> implemen
      * @see #newClientFactory(Class, Function, String, Integer, int, int, int)
      */
     public static <F extends PlatNetSvc.Iface> ThriftClientFactory<F> newClientFactory( Class<F> serviceClass,
-                                                                                        Function<TProtocol, F> clientFactory ) {
+                                                                                        Function<TProtocol, F> clientFactory,
+                                                                                        String thriftServiceName ) {
         return newClientFactory( serviceClass, clientFactory,
                                  null, null,
                                  ThriftClientFactory.DEFAULT_MAX_POOL_SIZE,
                                  ThriftClientFactory.DEFAULT_MIN_IDLE,
-                                 ThriftClientFactory.DEFAULT_MIN_EVICTION_IDLE_TIME_MS );
+                                 ThriftClientFactory.DEFAULT_MIN_EVICTION_IDLE_TIME_MS,
+                                 thriftServiceName );
     }
 
     /**
@@ -54,11 +56,13 @@ public abstract class PlatNetSvcHandlerBase<S extends PlatNetSvc.Iface> implemen
      */
     public static <F extends PlatNetSvc.Iface> ThriftClientFactory<F> newClientFactory( Class<F> serviceClass,
                                                                                         Function<TProtocol, F> clientFactory,
+                                                                                        String thriftServiceName,
                                                                                         String host, Integer port ) {
         return newClientFactory( serviceClass, clientFactory, host, port,
                                  ThriftClientFactory.DEFAULT_MAX_POOL_SIZE,
                                  ThriftClientFactory.DEFAULT_MIN_IDLE,
-                                 ThriftClientFactory.DEFAULT_MIN_EVICTION_IDLE_TIME_MS );
+                                 ThriftClientFactory.DEFAULT_MIN_EVICTION_IDLE_TIME_MS,
+                                 thriftServiceName );
     }
 
     /**
@@ -72,6 +76,7 @@ public abstract class PlatNetSvcHandlerBase<S extends PlatNetSvc.Iface> implemen
      * @param maxPoolSize                   the max client pool size
      * @param minIdle                       the minimum number of connection to keep in the pool
      * @param softMinEvictionIdleTimeMillis the idle client eviction time.
+     * @param thriftServiceName             empty string if non-multiplexed server, otherwise a Thrift service name
      *
      * @return a ThriftClientFactory for the PlatNetSvc.Iface with the specified default host and port.
      */
@@ -81,11 +86,13 @@ public abstract class PlatNetSvcHandlerBase<S extends PlatNetSvc.Iface> implemen
                                                                                         Integer port,
                                                                                         int maxPoolSize,
                                                                                         int minIdle,
-                                                                                        int softMinEvictionIdleTimeMillis ) {
+                                                                                        int softMinEvictionIdleTimeMillis,
+                                                                                        String thriftServiceName ) {
         return new ThriftClientFactory.Builder<>( serviceClass )
                    .withHostPort( host, port )
                    .withPoolConfig( maxPoolSize, minIdle, softMinEvictionIdleTimeMillis )
                    .withClientFactory( clientFactory )
+                   .withThriftServiceName( thriftServiceName )
                    .build();
     }
 

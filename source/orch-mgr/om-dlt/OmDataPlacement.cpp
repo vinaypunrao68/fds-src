@@ -17,7 +17,7 @@
 #include <fdsp/svc_types_types.h>
 #include <net/SvcRequestPool.h>
 #include <list>
-#include "fdsp/sm_api_types.h"
+#include <ostream>
 
 namespace fds {
 
@@ -32,7 +32,15 @@ DataPlacement::DataPlacement()
           prevDlt(NULL),
           commitedDlt(NULL),
           newDlt(NULL),
-          numOfFailures(0)
+          numOfMigrationFailures(0),
+          rebalanceFailures(0),
+          prevOwnedTokens (0),
+          newlySyncedTokens(0),
+          tokensSyncFrmThisNode(0),
+          movedTokens(0),
+          newOwnedTokenCount(0),
+          targetTokenList({0,{}}),
+          movedTokenList({})
 {
     numOfPrimarySMs = 0;
 }
@@ -166,12 +174,333 @@ DataPlacement::computeDlt() {
     return err;
 }
 
+
+void DataPlacement::printTokens(std::ostream &oss, std::vector<int32_t> tokList) const
+{
+    if (tokList.size() == 0 )
+    {
+        oss << "None\n";
+        return;
+    }
+
+    // Copied the following code from dlt.cpp to print tokens in ranges
+    bool fFirst             = true;
+    size_t last             = tokList.size() - 1;
+    fds_uint32_t prevToken  = 0;
+    fds_uint32_t firstToken = 0;
+    fds_uint32_t token      = 0;
+    uint count              = 0;
+
+    std::vector<int32_t>::iterator tokenIter;
+
+    for (tokenIter = tokList.begin(); tokenIter != tokList.end(); ++tokenIter, ++count)
+    {
+        // This cast should be fine, we don't expect negative token IDs
+        token = static_cast<fds_uint32_t>(*tokenIter);
+
+        if (fFirst)
+        {
+            firstToken = token;
+            oss << token;
+            fFirst = false;
+
+        } else if (token == (prevToken + 1)) {
+            // do nothing .. this is a range
+        } else {
+            if (prevToken != firstToken)
+            {
+                // this is a range
+                oss << "-" << prevToken;
+            }
+            oss << "," << token;
+            firstToken = token;
+        }
+
+        prevToken = token;
+
+        if (count == last)
+        {
+            // end of loop
+            if (prevToken != firstToken)
+            {
+                // this is a range
+                oss << "-" << prevToken << "\n";
+            } else {
+                oss << "\n";
+            }
+        }
+    }
+}
+
+/*
+ * Print out token ids that are being newly synced to a specific node
+ * as well as tokens being moved from this node, other token counters
+ */
+std::ostream& operator<<(std::ostream &oss, const DataPlacement &dp)
+{
+    auto targetTList = dp.targetTokenList;
+    auto tokList     = targetTList.second;
+
+    oss << "\n\n     SM: " << std::hex << dp.targetTokenList.first << std:: dec << "\n";
+    oss << "-------------------------------\n";
+
+    oss << "NEW TOKEN IDs\n";
+
+    dp.printTokens(oss, tokList);
+
+    oss << "\nMOVED TOKEN IDs\n";
+
+    dp.printTokens(oss, dp.movedTokenList);
+
+    oss << "\nTOKEN COUNTERS\n";
+    oss << "\nTokens newly synced to this node:" << dp.newlySyncedTokens;
+    oss << "\nTokens synced from this node    :" << dp.tokensSyncFrmThisNode;
+    oss << "\nTokens moved from this node     :" << dp.movedTokens;
+    oss << "\nTotal tokens previously owned   :" << dp.prevOwnedTokens;
+    oss << "\nTotal tokens newly owned        :" << dp.newOwnedTokenCount << "\n";
+
+    return oss;
+}
+
+
+void DataPlacement::clearTokenCounters()
+{
+    prevOwnedTokens       = 0;
+    newlySyncedTokens     = 0;
+    tokensSyncFrmThisNode = 0;
+    movedTokens           = 0;
+    newOwnedTokenCount    = 0;
+
+    movedTokenList.clear();
+}
+
+/*
+ * The main purpose of this function is to verify that the computations
+ * related to migration account for all the tokens(256) and the replicas
+ *
+ * Returns : True  - If computation is valid
+ *           False - If computation is invalid. This will cause us to clean up &
+ *                   recompute (a maximum of 3 times)
+ */
+bool DataPlacement::verifyRebalance( MigrationMap startMigrMsgs, std::map<int64_t,
+                                     std::bitset<256>> tokBitmap )
+{
+
+    if (commitedDlt == NULL || newDlt == NULL) // Should NEVER be the case at this point
+    {
+        LOGWARN << "Finding a NULL value for either committed or new DLT value, should not be the case!";
+        return false;
+
+    }
+
+    bool correctRebalance = false;
+
+    std::vector<NodeUuid> oldNodeList = commitedDlt->getAllNodes();
+    std::vector<NodeUuid> newNodeList = newDlt->getAllNodes();
+
+    int64_t oldNodeCount = oldNodeList.size();
+    int64_t newNodeCount = newNodeList.size();
+
+    /*==========================================================================
+     * Determine depth of the current DLT, and the total expected token count
+     ===========================================================================
+     */
+
+    int64_t depth    = curDltDepth; // curDltDepth = replica_factor = 3
+
+    if (curClusterMap->getNumMembers(fpi::FDSP_STOR_MGR) < curDltDepth)
+    {
+        depth = curClusterMap->getNumMembers(fpi::FDSP_STOR_MGR);
+    }
+
+    uint64_t expectedTotalTokenCount = 256 * depth;
+
+    /*==========================================================================
+     * For each of the migration messages, calculate the total number of new
+     * tokens that are going to be synced to each node
+     ===========================================================================
+     */
+    uint64_t totalTokenCount = 0;
+
+    for ( auto entry : startMigrMsgs )
+    {
+        uint64_t targetUuid = entry.first;
+
+        // Check if the current target node was present in the old DLT
+        bool previouslyPresent = false;
+        for (NodeUuid node : oldNodeList)
+        {
+            if (node.uuid_get_val() == targetUuid)
+            {
+                previouslyPresent = true;
+                break;
+            }
+        }
+
+        fpi::CtrlNotifySMStartMigrationPtr startMigrMsg = entry.second;
+        std::vector<int32_t> tokList;
+
+        /*==========================================================================
+         * Gather all new & unique tokens being synced from all sources for this tgt
+         ===========================================================================
+         */
+        for (fds_uint64_t index = 0; index < (startMigrMsg->migrations).size(); ++index)
+        {
+            int64_t sourceUuid = startMigrMsg->migrations[index].source.svc_uuid;
+
+            auto migrList = (startMigrMsg->migrations)[index].tokens;
+
+            // We will form one single list of ALL new tokens being synced
+            tokList.insert(tokList.end(), migrList.begin(), migrList.end() );
+        }
+
+        // If a node was previously present in the committed dlt, it means
+        // some tokens were already owned by it. There is a chance of overlap
+        // (as observed from the logic) between already owned tokens and new
+        // tokens syncing from other nodes. Filter this out so we get an accurate
+        // count of new tokens
+        if (previouslyPresent)
+        {
+            auto tmpList = tokList;
+
+            tokList.clear();
+
+            std::sort(tmpList.begin(), tmpList.end());
+
+            auto oldTokList = commitedDlt->getTokens(NodeUuid(targetUuid));
+
+            // Filter out tokens that are unique to tmpList, in comparison
+            // with the list of previously owned tokens by this target node and
+            // put those into the tokList vector
+            std::set_difference(tmpList.begin(), tmpList.end(),
+                                oldTokList.begin(), oldTokList.end(),
+                                std::inserter(tokList, tokList.begin()));
+        }
+
+        targetTokenList = std::make_pair(targetUuid, tokList);
+
+        /*==========================================================================
+         * Set the values for:
+         * - Total new tokens to sync from other nodes
+         * - Total tokens synced from this node
+         * - Total tokens moved from this node
+         * - Previously owned tokens for this node
+         * - Newly owned token count for this node
+         ===========================================================================
+         */
+
+        newlySyncedTokens = tokList.size();
+
+        // This bitset should tell us, for how many tokens(if any) the node with this
+        // uuid acted as a source. This is so we get an accurate count of tokens
+        // being synced from this node. BitSet is used so we eliminate potential overlap of
+        // token IDs being synced to 2 different destinations SMs.
+        std::bitset<256> tokSet = tokBitmap[targetUuid];
+        tokensSyncFrmThisNode = tokSet.count(); // gets all bits set to 1
+
+
+        /*==========================================================================
+         * Main, crucial calculation of newOwnedTokenCount
+         ===========================================================================
+         */
+
+        std::vector<int32_t> summationList;
+
+        auto committedDltTokList = commitedDlt->getTokens(NodeUuid(targetUuid));
+        auto newDltTokList       = newDlt->getTokens(NodeUuid(targetUuid));
+
+        // This value can either be 0 (for a new node) or non-zero if this target
+        // already exists in the committed dlt
+        prevOwnedTokens = committedDltTokList.size();
+
+        // Combine the previously owned, and newly synced tokens (according to re-balance)
+        std::set_union(committedDltTokList.begin(), committedDltTokList.end(),
+                       tokList.begin(), tokList.end(),
+                       std::back_inserter(summationList));
+
+        // Essentially, what we are doing is comparing what we have gathered
+        // from the migration messages to be the newTokenCount using the logic that
+        // newly owned tokens = previously owned + newly synced to what newDlt says
+        // should be the new token count
+        // Two Scenarios:
+        // 1. Node add   : In this case, the new node is the only node to be a
+        //                 target. It will likely have no previously owned tokens, newly
+        //                 synced tokens reflect new token count
+        // 2. Node remove: Here, all remaining nodes in the cluster are receiving new
+        //                 tokens(and are targets). There is a possibility of existing tokens
+        //                being  moved.To handle & account for this use below logic
+        if ( summationList.size() > newDltTokList.size())
+        {
+            // This is only valid if some token from previously owned list
+            // has moved. Make sure this is the case, and that it is not a problem
+            // with newly synced tokens
+
+            movedTokenList.clear(); // again just to be sure
+            std::set_difference(committedDltTokList.begin(), committedDltTokList.end(),
+                                newDltTokList.begin(), newDltTokList.end(),
+                                std::inserter(movedTokenList, movedTokenList.begin()));
+
+            uint64_t diff = summationList.size() - newDltTokList.size();
+
+            if (movedTokenList.size() == diff)
+            {
+                // some tokens from this target uuid have moved
+                movedTokens = diff;
+            } else {
+                // There was no difference between committed and new dlt tok lists, there
+                // is an incorrect value for newly synced tokens. Set movedToks to 0 so
+                // that verify fails
+                movedTokens = 0;
+            }
+        }
+
+        newOwnedTokenCount = prevOwnedTokens + newlySyncedTokens - movedTokens;
+
+        LOGNORMAL << (*this);
+
+        totalTokenCount += newOwnedTokenCount;
+
+        // Erase this node from the new dlt node list
+        newNodeList.erase(std::remove(newNodeList.begin(), newNodeList.end(), NodeUuid(targetUuid)), newNodeList.end());
+
+        clearTokenCounters();
+    }
+
+    // If there are any remaining nodes in the new node list, add those token counts to the total
+    // number. Since every new node need not have a migration message associated with it
+    for (NodeUuid node : newNodeList)
+    {
+        totalTokenCount += (newDlt->getTokens(node)).size();
+    }
+
+    if (totalTokenCount != expectedTotalTokenCount)
+    {
+        LOGWARN << "Incorrect Re-balance! Total tokens distributed between " << newNodeCount
+                << " nodes:" << totalTokenCount << " is not equal to the expected value:"
+                << expectedTotalTokenCount;
+
+        correctRebalance = false;
+
+    } else {
+        LOGNOTIFY << "Re-balance verified successfully. Total tokens distributed between " << newNodeCount
+                << " nodes:" << totalTokenCount << " is expected value:"
+                << expectedTotalTokenCount;
+
+        correctRebalance = true;
+    }
+
+    return correctRebalance;
+}
+
+
+
 /**
  * Begins a rebalance command between the nodes affect
  * in the current DLT change.
  */
 Error
-DataPlacement::beginRebalance() {
+DataPlacement::beginRebalance()
+{
     Error err(ERR_OK);
 
     fds_mutex::scoped_lock l(placementMutex);
@@ -191,15 +520,25 @@ DataPlacement::beginRebalance() {
     NodeUuidSet rmSMs = curClusterMap->getRemovedServices(fpi::FDSP_STOR_MGR);
     NodeUuidSet failedSMs = curClusterMap->getFailedServices(fpi::FDSP_STOR_MGR);
     // NodeUuid.uuid_get_val() for source SM to CtrlNotifySMStartMigrationPtr msg
-    std::unordered_map<fds_uint64_t, fpi::CtrlNotifySMStartMigrationPtr> startMigrMsgs;
-    for (fds_token_id tokId = 0; tokId < newDlt->getNumTokens(); ++tokId) {
+
+    MigrationMap startMigrMsgs;
+
+    std::map<int64_t, std::bitset<256>> tokBitmap;
+
+    for (fds_token_id tokId = 0; tokId < newDlt->getNumTokens(); ++tokId)
+    {
         DltTokenGroupPtr cmtCol = commitedDlt->getNodes(tokId);
         DltTokenGroupPtr tgtCol = newDlt->getNodes(tokId);
 
         // find all SMs in target column that need re-sync: either they
         // got a new responsibility for a DLT token or became a primary
         NodeUuidSet destSms = tgtCol->getNewAndNewPrimaryUuids(*cmtCol, getNumOfPrimarySMs());
-        if (destSms.size() == 0) continue;
+
+        if (destSms.size() == 0)
+        {
+            continue;
+        }
+
         LOGDEBUG << "Found " << destSms.size() << " SMs that need to sync token " << tokId;
 
         // get list of candidates to sync from
@@ -217,7 +556,8 @@ DataPlacement::beginRebalance() {
 
         // if all SMs need re-sync, this means that we moved a secondary to be
         // a primary (both primaries failed)
-        if (destSms.size() == tgtCol->getLength()) {
+        if (destSms.size() == tgtCol->getLength())
+        {
             // this should not happen if number of primary SMs == 0 (this config
             // means original implementation where we do not re-sync when promoting secondaries)
             // If that happens, it means that DLT calculation algorithm managed to
@@ -227,11 +567,16 @@ DataPlacement::beginRebalance() {
             // there must be one SM that is in committed and target column
             // and in a primary row. Otherwise all SMs failed in that column
             NodeUuidSet intersectSMs = tgtCol->getIntersection(*cmtCol);
+
             NodeUuid nosyncSm;
-            for (auto sm: intersectSMs) {
+
+            for (auto sm: intersectSMs)
+            {
                 int index = tgtCol->find(sm);
-                if ((index >= 0) && (index < (int)getNumOfPrimarySMs())) {
-                    if (nosyncSm.uuid_get_val() == 0) {
+                if ((index >= 0) && (index < (int)getNumOfPrimarySMs()))
+                {
+                    if (nosyncSm.uuid_get_val() == 0)
+                    {
                         nosyncSm = sm;
                     } else {
                         // if we are here, means the whole column fail
@@ -241,7 +586,15 @@ DataPlacement::beginRebalance() {
                     }
                 }
             }
-            if (nosyncSm.uuid_get_val() > 0) {
+
+            // ToDo @meena FS-5284 here we need to say, if no source found, then look
+            // at committed dlt to find sources that owned the tokens and see
+            // if they are still in the new Dlt. If so, sync from them.
+            // Also in getNewAndNewPrimaryUuids, eliminate the check for existing
+            // SM that moves up in the rows.
+
+            if (nosyncSm.uuid_get_val() > 0)
+            {
                 // secondary SM survived, but both primaries didn't
                 // do not sync to this SM
                 destSms.erase(nosyncSm);
@@ -262,10 +615,12 @@ DataPlacement::beginRebalance() {
 
 //        fds_verify(srcCandidates.size() > 0);
 
-        for (auto smUuid: destSms) {
+        for (auto smUuid: destSms)
+        {
             // see if we already have a startMigration msg prepared for this source
             fpi::CtrlNotifySMStartMigrationPtr startMigrMsg;
-            if (startMigrMsgs.count(smUuid.uuid_get_val()) == 0) {
+            if (startMigrMsgs.count(smUuid.uuid_get_val()) == 0)
+            {
                 // create start migration msg for this source SM
                 fpi::CtrlNotifySMStartMigrationPtr msg(new fpi::CtrlNotifySMStartMigration());
                 startMigrMsgs[smUuid.uuid_get_val()] = msg;
@@ -284,62 +639,87 @@ DataPlacement::beginRebalance() {
 
 //            fds_verify(sourceUuid.uuid_get_val() !=0);
             fds_bool_t found = false;
-            if ( sourceUuid.uuid_get_val() > 0 ) {
+            if ( sourceUuid.uuid_get_val() > 0 )
+            {
+                int64_t sourceId = sourceUuid.uuid_get_val();
+
                 LOGMIGRATE << "Destination " << std::hex << smUuid.uuid_get_val()
-                << " Source " << sourceUuid.uuid_get_val() << std::dec
-                << " token " << tokId;
+                << " Source " << sourceId << std::dec << " token " << tokId;
+
+                std::bitset<256> tokSet = tokBitmap[sourceId];
+                // Set the bit for the specific token
+                tokSet.set(tokId);
+                // Update the map entry with latest info
+                tokBitmap[sourceId] = tokSet;
 
                 // find if there is already a migration group created for this src SM
 
-                for (fds_uint32_t index = 0; index < (startMigrMsg->migrations).size(); ++index) {
-                    if ((startMigrMsg->migrations)[index].source == sourceUuid.toSvcUuid()) {
+                for (fds_uint32_t index = 0; index < (startMigrMsg->migrations).size(); ++index)
+                {
+                    if ((startMigrMsg->migrations)[index].source == sourceUuid.toSvcUuid())
+                    {
                         found = true;
                         (startMigrMsg->migrations)[index].tokens.push_back(tokId);
+
                         LOGTRACE << "Found group for destination: " << std::hex << smUuid.uuid_get_val()
-                        << ", source: " << sourceUuid.uuid_get_val() << std::dec
+                        << ", source: " << sourceId << std::dec
                         << ", adding token " << tokId;
                         break;
                     }
                 }
             }
 
-            if (!found) {
+            if (!found)
+            {
                 fpi::SMTokenMigrationGroup grp;
                 grp.source = sourceUuid.toSvcUuid();
                 grp.tokens.push_back(tokId);
                 startMigrMsg->migrations.push_back(grp);
+
                 LOGTRACE << "Starting new group for destination: " << std::hex << smUuid.uuid_get_val()
-                         << ", source: " << std::hex<< sourceUuid.uuid_get_val()
-                         << ", adding token " << tokId;
+                         << ", source: " << std::hex << sourceUuid.uuid_get_val()
+                         << ", adding token " << std::dec << tokId;
             }
         }
     }
 
-    // actually send start migration messages
-    for (auto entry: startMigrMsgs) {
-        NodeUuid uuid(entry.first);
-        fpi::CtrlNotifySMStartMigrationPtr msg = entry.second;
+    bool isRebalanceCorrect = verifyRebalance(startMigrMsgs, tokBitmap);
 
-        auto om_req =  gSvcRequestPool->newEPSvcRequest(uuid.toSvcUuid());
+    if (isRebalanceCorrect)
+    {
+        // actually send start migration messages
+        for (auto entry: startMigrMsgs)
+        {
+            NodeUuid uuid(entry.first);
+            fpi::CtrlNotifySMStartMigrationPtr msg = entry.second;
 
-        msg->DLT_version = newDlt->getVersion();
+            auto om_req =  gSvcRequestPool->newEPSvcRequest(uuid.toSvcUuid());
 
-        om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifySMStartMigration), msg);
-        om_req->onResponseCb(std::bind(&DataPlacement::startMigrationResp, this, uuid,
-                                       newDlt->getVersion(),
-                                       std::placeholders::_1, std::placeholders::_2,
-                                       std::placeholders::_3));
-        // really long timeout for migration = 10 hours
-        om_req->setTimeoutMs(10*60*60*1000);
-        om_req->invoke();
+            msg->DLT_version = newDlt->getVersion();
 
-        LOGNOTIFY << "Sending the DLT migration request to node 0x"
-                  << std::hex << uuid.uuid_get_val() << std::dec;
+            om_req->setPayload(FDSP_MSG_TYPEID(fpi::CtrlNotifySMStartMigration), msg);
+            om_req->onResponseCb(std::bind(&DataPlacement::startMigrationResp, this, uuid,
+                                           newDlt->getVersion(),
+                                           std::placeholders::_1, std::placeholders::_2,
+                                           std::placeholders::_3));
+            // really long timeout for migration = 10 hours
+            om_req->setTimeoutMs(10*60*60*1000);
+            om_req->invoke();
 
-        rebalanceNodes.insert(uuid);
+            LOGNOTIFY << "Sending the DLT migration request to node 0x"
+                      << std::hex << uuid.uuid_get_val() << std::dec;
+
+            rebalanceNodes.insert(uuid);
+        }
+
+        LOGNOTIFY << "Sent DLT migration event to " << rebalanceNodes.size() << " nodes";
+
+    } else {
+        LOGWARN << "Rebalancing appears to have been done incorrectly! Will not send out migration messages to SMs";
+        markRebalanceFailure();
+        err = ERR_INVALID;
     }
 
-    LOGNOTIFY << "Sent DLT migration event to " << rebalanceNodes.size() << " nodes";
     newDlt->dump();
     return err;
 }
@@ -407,9 +787,10 @@ fds_bool_t DataPlacement::hasCommitedNotPersistedTarget() const {
  */
 void
 DataPlacement::commitDlt() {
-    commitDlt( false );
+    bool committed = commitDlt( false );
+    LOGNOTIFY << "Committed DLT ? " << committed;
 }
-void
+bool
 DataPlacement::commitDlt( const bool unsetTarget ) {
 
     fds_mutex::scoped_lock l(placementMutex);
@@ -417,7 +798,7 @@ DataPlacement::commitDlt( const bool unsetTarget ) {
     if ( newDlt == NULL )
     {
         LOGWARN << "Target/New DLT value is NULL, nothing to commit, return";
-        return;
+        return false;
     }
 
     fds_uint64_t oldVersion = -1;
@@ -439,6 +820,8 @@ DataPlacement::commitDlt( const bool unsetTarget ) {
         }
         newDlt = NULL;
     }
+
+    return true;
 }
 
 ///  only reverts if we did not persist it..
@@ -724,7 +1107,7 @@ fds_bool_t DataPlacement::canRetryMigration()
 
     // For now, maximize retries at 3. Keeping consistent with DM retries
 
-    if (numOfFailures < 4)
+    if (numOfMigrationFailures < 4)
     {
         ret = true;
     }

@@ -12,6 +12,7 @@
 #include <net/SvcMgr.h>
 #include <net/SvcRequestPool.h>
 #include <net/SvcProcess.h>
+#include "fdsp/common_constants.h"
 #include <fdsp_utils.h>
 
 
@@ -33,6 +34,7 @@ struct TestOm : SvcProcess {
     void addVolume(const fds_volid_t &volId,
                    const SHPTR<VolumeDesc>& volume,
                    bool broadcast = false);
+    void addDmt(const DMTPtr &dmt);
 
     /* Messages invoked by handler */
     void registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo);
@@ -40,7 +42,7 @@ struct TestOm : SvcProcess {
     void getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& _return, const int64_t nullarg);
     void getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& _return, const int64_t nullarg);
     void getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return, const int64_t nullarg);
-    Error setVolumeGroupCoordinator(const fpi::SetVolumeGroupCoordinatorMsg &msg);
+    Error setVolumeGroupCoordinator(const fpi::SetVolumeGroupCoordinatorMsg &msg, int32_t &version);
 
  protected:
     /**
@@ -84,7 +86,19 @@ struct TestOmHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler {
     void getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& _return, boost::shared_ptr<int64_t>& nullarg) {
     }
 
-    void getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& _return, boost::shared_ptr<int64_t>& nullarg) {
+    void getDMT(fpi::CtrlNotifyDMTUpdate& dmt, boost::shared_ptr<int64_t>& nullarg) {
+        std::string data_buffer;
+    	DMTPtr dp = om_->getSvcMgr()->getCurrentDMT();
+        if (!dp) {
+            LOGWARN << "No dmt available";
+            return;
+        }
+    	(*dp).getSerialized(data_buffer);
+
+    	fpi::FDSP_DMT_Data_Type fdt;
+    	fdt.__set_dmt_data(data_buffer);
+    	dmt.__set_dmt_data(fdt);
+    	dmt.__set_dmt_version(dp->getVersion());
     }
 
     void getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return,
@@ -100,8 +114,9 @@ struct TestOmHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler {
     void setVolumeGroupCoordinator(SHPTR<fpi::AsyncHdr> &hdr,
                                    SHPTR<fpi::SetVolumeGroupCoordinatorMsg> &msg)
     {
-        hdr->msg_code = om_->setVolumeGroupCoordinator(*msg).GetErrno();
-        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+        auto resp = MAKE_SHARED<fpi::SetVolumeGroupCoordinatorRspMsg>();
+        hdr->msg_code = om_->setVolumeGroupCoordinator(*msg, resp->version).GetErrno();
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::SetVolumeGroupCoordinatorRspMsg), *resp); 
     }
 
 
@@ -126,7 +141,7 @@ void TestOm::init(int argc, char *argv[], bool initAsModule)
 
     /* Set up process related services such as logger, timer, etc. */
     SvcProcess::init(argc, argv, initAsModule, "platform.conf", "fds.om.",
-                     "om.log", nullptr, handler, processor);
+        "om.log", nullptr, handler, processor, fpi::commonConstants().OM_SERVICE_NAME);
 }
 
 void TestOm::registerSvcProcess()
@@ -209,6 +224,16 @@ void TestOm::addVolume(const fds_volid_t &volId,
     fds_assert(!broadcast); // broadcast not supported
 }
 
+void TestOm::addDmt(const DMTPtr &dmt)
+{
+    std::string dmtData;
+    dmt->getSerialized(dmtData);
+    Error e = getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
+                                                             nullptr,
+                                                             DMT_COMMITTED);
+    fds_verify(e == ERR_OK);
+}
+
 void TestOm::getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return,
                                      const int64_t nullarg)
 {
@@ -220,7 +245,8 @@ void TestOm::getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return,
     }
 }
 
-Error TestOm::setVolumeGroupCoordinator(const fpi::SetVolumeGroupCoordinatorMsg &msg)
+Error TestOm::setVolumeGroupCoordinator(const fpi::SetVolumeGroupCoordinatorMsg &msg,
+                                        int32_t &version)
 {
     fds_scoped_lock l(volumeLock);
     auto itr = volumeTbl.find(fds_volid_t(msg.volumeId));
@@ -230,10 +256,13 @@ Error TestOm::setVolumeGroupCoordinator(const fpi::SetVolumeGroupCoordinatorMsg 
     }
     auto &volDescPtr = itr->second;
     auto &volCoordinatorInfo = msg.coordinator;
+    version = volDescPtr->getCoordinatorVersion();
+    version++;
     volDescPtr->setCoordinatorId(volCoordinatorInfo.id);
-    volDescPtr->setCoordinatorVersion(volCoordinatorInfo.version);
+    volDescPtr->setCoordinatorVersion(version);
     LOGNOTIFY << "Set volume coordinator for volid: " << msg.volumeId
         << " coordinator: " << volCoordinatorInfo.id.svc_uuid;
+
     return ERR_OK;
 }
 }  // namespace fds

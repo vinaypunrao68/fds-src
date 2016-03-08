@@ -55,12 +55,29 @@ def suiteConstruction(self, action="kill-uninst"):
             # Verify operational DBs are down.
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisDown())
             suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBDown())
+    elif action.count("term") > 0:
+        # One test case to shutdown the domain.
+        suite.addTest(testcases.TestFDSSysMgt.TestNodeKill(sig="SIGTERM"))
+
+        # Shutdown Redis and InfluxDB.
+        suite.addTest(testcases.TestFDSEnvMgt.TestShutdownRedis())
+        suite.addTest(testcases.TestFDSEnvMgt.TestShutdownInfluxDB())
+
+        # Verify down unless requested not to.
+        if action.count("term_noverify") == 0:
+            # Verify that all nodes are down.
+            nodeDownSuite = NodeVerifyDownSuite.suiteConstruction(self=None)
+            suite.addTest(nodeDownSuite)
+
+            # Verify operational DBs are down.
+            suite.addTest(testcases.TestFDSEnvMgt.TestVerifyRedisDown())
+            suite.addTest(testcases.TestFDSEnvMgt.TestVerifyInfluxDBDown())
 
     if action.count("uninst") > 0:
         if fdscfg.rt_om_node.nd_cmd_line_options['reusecluster'] is not True:
             # if [kill-uninst] scenario is present then, for local env DELETE installation dir.
             # For remote env if --reusecluster is NOT passed then DELETE installation dir
-            # For remot env if --reusecluster is passed then  DON'T DELETE installation dir, just clean the nodes
+            # For remote env if --reusecluster is passed then  DON'T DELETE installation dir, just clean the nodes
             suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())
         # This one will take care of other product artifacts such as SHM files.
         suite.addTest(testcases.TestFDSEnvMgt.TestFDSSelectiveInstDirClean())
@@ -85,5 +102,5 @@ if __name__ == '__main__':
     #runner = xmlrunner.XMLTestRunner(output=log_dir, failfast=failfast)
     runner = xmlrunner.XMLTestRunner(output=log_dir)
 
-    test_suite = suiteConstruction(self=None)
+    test_suite = suiteConstruction(self=None, action='kill')
     runner.run(test_suite)

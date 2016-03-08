@@ -49,8 +49,6 @@ void DmMigrationBase::asyncMsgPassed()
 
 void DmMigrationBase::asyncMsgFailed()
 {
-
-
     LOGDEBUG << logString() << " trackIO count-- is now: " << trackIOReqs.debugCount();
     LOGERROR << logString() << " Async migration message failed, aborting";
     routeAbortMigration();
@@ -71,5 +69,4 @@ void DmMigrationBase::waitForAsyncMsgs()
 {
     trackIOReqs.waitForTrackIOReqs();
 }
-
 } // namespace fds

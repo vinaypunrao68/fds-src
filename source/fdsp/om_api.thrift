@@ -89,20 +89,6 @@ service OMSvc extends svc_api.PlatNetSvc {
   svc_types.SvcInfo getSvcInfo(1: svc_types.SvcUuid svcUuid) throws (1: om_types.SvcLookupException e);
 
   /**
-  * @brief Called by other managers to pull the DMT
-  *
-  * @param NULL
-  */
-  svc_api.CtrlNotifyDMTUpdate getDMT(1: i64 nullarg) throws (1: common.ApiException e);
-
-  /**
-  * @brief Called by other managers to pull the DLT
-  *
-  * @param NULL
-  */
-  svc_api.CtrlNotifyDLTUpdate getDLT(1: i64 nullarg) throws (1: common.ApiException e);
-
-  /**
    * @brief Called to get the volume descriptors
    * @param NULL
    */

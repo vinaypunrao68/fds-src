@@ -24,6 +24,7 @@
 #include <OmClusterMap.h>
 #include <dlt.h>
 #include <kvstore/configdb.h>
+#include "fdsp/sm_api_types.h"
 
 namespace fds {
 
@@ -38,6 +39,9 @@ namespace fds {
      */
     typedef std::unordered_map<NodeUuid, NodeTokCountMap, UuidHash> L2GroupTokCountMap;
     typedef std::unordered_map<fds_uint64_t, int> NodesetTokDiffMap;
+
+    typedef std::unordered_map<fds_uint64_t, fpi::CtrlNotifySMStartMigrationPtr> MigrationMap;
+    typedef std::pair<int64_t, std::vector<int32_t>> NodeTokenPair;
 
     /**
      * PlacementMetrics is a helper class that calculates optimal number of tokens per node
@@ -481,7 +485,23 @@ namespace fds {
         * Resets to 0 on success
         */
 
-       fds_uint32_t numOfFailures;
+       fds_uint32_t numOfMigrationFailures;
+
+       fds_uint32_t rebalanceFailures;
+
+       NodeTokenPair targetTokenList;
+       std::vector<int32_t> movedTokenList;
+
+       /* Values that will hold various token counters
+        * for nodes that are undergoing migrations.
+        * For now, making these values members was
+        * the only way to cleanly log them.
+        */
+       uint64_t prevOwnedTokens;
+       uint64_t newlySyncedTokens;
+       uint64_t tokensSyncFrmThisNode;
+       uint64_t movedTokens;
+       uint64_t newOwnedTokenCount;
 
   public:
         DataPlacement();
@@ -536,6 +556,19 @@ namespace fds {
         Error computeDlt();
 
         /**
+         * Verify the token rebalance calculation performed
+         * for migration
+         */
+        bool verifyRebalance(MigrationMap startMigrMsgs, std::map<int64_t, std::bitset<256>> tokBitmap);
+
+        /*
+         * Clear all token counters
+         */
+        void clearTokenCounters();
+
+        void printTokens(std::ostream &oss, std::vector<int32_t> tokList) const;
+
+        /**
          * Begins token rebalance between nodes in the
          * cluster map. We are async notified of completion
          * at a later time.
@@ -546,7 +579,7 @@ namespace fds {
          * Commits the current DLT as an 'official' copy
          */
         void commitDlt();
-        void commitDlt( const bool unsetTarget );
+        bool commitDlt( const bool unsetTarget );
 
         /**
          * Stores commited DLT to the permanent DLT history
@@ -620,15 +653,15 @@ namespace fds {
         /**
          * If a SM migration fails, track it here
          */
-        inline void markFailure() {
-            ++numOfFailures;
+        inline void markMigrFailure() {
+            ++numOfMigrationFailures;
         }
 
         /**
          * If a migration succeeds, this gets called
          */
-        inline void markSuccess() {
-            numOfFailures = 0;
+        inline void markMigrSuccess() {
+            numOfMigrationFailures = 0;
         }
 
         /**
@@ -639,9 +672,31 @@ namespace fds {
         /**
          * Getter for number of failed migrations
          */
-        inline fds_uint32_t failedAttempts() {
-            return numOfFailures;
+        inline fds_uint32_t failedMigrAttempts() {
+            return numOfMigrationFailures;
         }
+
+
+        /*
+         * Functions related to re-balance failures
+         */
+        inline void markRebalanceFailure() {
+            ++rebalanceFailures;
+        }
+
+        inline void clearRebalanceFailures() {
+            rebalanceFailures = 0;
+        }
+
+        inline fds_uint32_t getRebalanceFailures() {
+            return rebalanceFailures;
+        }
+
+        inline bool canRetryRebalance() {
+            return (rebalanceFailures < 4);
+        }
+
+        friend std::ostream& operator<<(std::ostream &out, const DataPlacement &dp);
 
   private:  // methods
         /**

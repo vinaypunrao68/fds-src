@@ -197,6 +197,9 @@ class DmMigrationClient : public DmMigrationBase {
     Error sendDeltaBlobs(fpi::CtrlNotifyDeltaBlobsMsgPtr& blobsMsg);
     Error sendDeltaBlobDescs(fpi::CtrlNotifyDeltaBlobDescMsgPtr& blobDescMsg);
 
+    // Sends the activeTxMap after a snapshot has been taken
+    Error sendActiveTx();
+
     /**
      * sequence number apis for blobs.
      * When getSeqNumBlobs() is called, it will automatically increment.
@@ -238,6 +241,9 @@ class DmMigrationClient : public DmMigrationBase {
 	migrationCb cleanUp;
 
 	bool volumeGroupMode;
+
+	// ActiveTransactions to be sent
+	std::vector<std::string> transactions;
 };  // DmMigrationClient
 
 

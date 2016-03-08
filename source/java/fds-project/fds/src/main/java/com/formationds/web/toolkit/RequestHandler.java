@@ -85,6 +85,16 @@ public interface RequestHandler {
         return value == null ? Optional.empty() : Optional.of(value);
     }
 
+    public default boolean optionalBoolean(Request request, String name, boolean defaultValue) throws UsageException {
+        String value = request.getParameter(name);
+
+        try {
+            return Boolean.parseBoolean(value);
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
     default String readBody( final InputStream inputStream )
         throws UsageException
     {

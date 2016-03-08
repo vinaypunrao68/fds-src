@@ -24,48 +24,60 @@ DltDmtUtil* DltDmtUtil::getInstance() {
     return m_instance;
 }
 
-void DltDmtUtil::addToRemoveList(int64_t uuid) {
-    removedNodes.push_back(uuid);
+void DltDmtUtil::addToRemoveList(int64_t uuid, fpi::FDSP_MgrIdType type) {
+
+    if (!isMarkedForRemoval(uuid))
+    {
+        removedNodes.push_back(std::make_pair(uuid, type));
+    } else {
+        LOGNOTIFY << "Svc:" << std::hex << uuid << std::dec
+                  << " already in toRemove list";
+    }
 }
 
-bool DltDmtUtil::isMarkedForRemoval(int64_t nodeUuid) {
-    std::vector<fds_int64_t>::iterator iter;
-    iter = std::find_if(removedNodes.begin(), removedNodes.end(),
-                        [nodeUuid](fds_int64_t id)->bool
-                        {
-                        return nodeUuid == id;
-                       });
-    if (iter == removedNodes.end())
+bool DltDmtUtil::isMarkedForRemoval(int64_t uuid) {
+    bool found = false;
+    for (const std::pair<int64_t, fpi::FDSP_MgrIdType> elem : removedNodes)
+    {
+        if (elem.first == uuid)
+        {
+            found = true;
+            break;
+        }
+    }
+
+    if (found)
         return true;
 
     return false;
 }
 
-void DltDmtUtil::clearFromRemoveList(int64_t nodeUuid)
+void DltDmtUtil::clearFromRemoveList(int64_t uuid)
 {
-    std::vector<fds_int64_t>::iterator iter;
+    std::vector<std::pair<int64_t, fpi::FDSP_MgrIdType>>::iterator iter;
     iter = std::find_if(removedNodes.begin(), removedNodes.end(),
-                        [nodeUuid](fds_int64_t id)->bool
+                        [uuid](std::pair<int64_t,fpi::FDSP_MgrIdType> mem)->bool
                         {
-                        return nodeUuid == id;
+                        return uuid == mem.first;
                        });
 
     if (iter != removedNodes.end()) {
-        LOGDEBUG << "Erasing SM/DM:" << std::hex << nodeUuid << std::dec
+        LOGDEBUG << "Erasing SM/DM:" << std::hex << uuid << std::dec
                  << " from the remove list";
         removedNodes.erase(iter);
     }
 }
 
-bool DltDmtUtil::isAnyRemovalPending(fds_int64_t& nodeUuid)
+int DltDmtUtil::getPendingNodeRemoves(fpi::FDSP_MgrIdType svc_type)
 {
-    if (removedNodes.size() != 0) {
-        nodeUuid = removedNodes.back();
-        return true;
+    int size = 0;
+    for (auto item : removedNodes)
+    {
+        if (item.second == svc_type) {
+            ++size;
+        }
     }
-
-    return false;
-
+    return size;
 }
 
 void DltDmtUtil::setSMAbortParams(bool abort, fds_uint64_t version)

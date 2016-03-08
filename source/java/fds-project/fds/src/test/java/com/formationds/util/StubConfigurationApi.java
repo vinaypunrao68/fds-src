@@ -5,7 +5,6 @@ import com.formationds.protocol.svc.types.FDSP_PolicyInfoType;
 import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
 import com.formationds.protocol.svc.types.FDSP_VolumeDescType;
 import com.formationds.protocol.svc.types.ResourceState;
-import com.formationds.protocol.svc.types.Snapshot;
 import com.formationds.protocol.svc.types.SvcInfo;
 import com.formationds.protocol.svc.types.SvcUuid;
 import com.formationds.protocol.*;
@@ -17,8 +16,6 @@ import com.google.common.collect.Multimap;
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -57,7 +54,7 @@ public class StubConfigurationApi implements ConfigurationApi {
     private AtomicLong volumeId;
 
     private List<SvcInfo> services;
-    
+
     private AtomicLong configurationVersion;
 
     public StubConfigurationApi() {
@@ -92,6 +89,11 @@ public class StubConfigurationApi implements ConfigurationApi {
     }
 
     @Override
+    public boolean isLocalDomainUp() throws TException {
+        return true;
+    }
+
+    @Override
     public List<LocalDomainDescriptor> listLocalDomains(int ignore) throws TException {
         return localDomains;
     }
@@ -105,17 +107,17 @@ public class StubConfigurationApi implements ConfigurationApi {
     public void updateLocalDomainName(String oldDomainName, String newDomainName) throws TException {
         return;
     }
-    
+
     @Override
     public void updateLocalDomainSite(String domainName, String newSiteName) throws TException {
         return;
     }
-    
+
     @Override
     public void setThrottle(String domainName, double throttleLevel) throws TException {
         return;
     }
-    
+
     @Override
     public void setScavenger(String domainName, String scavengerAction) throws TException {
         return;
@@ -133,7 +135,7 @@ public class StubConfigurationApi implements ConfigurationApi {
             throws TException {
         return 0;
     }
-    
+
     @Override
     public void deleteLocalDomain(String domainName) throws TException {
         return;
@@ -150,25 +152,25 @@ public class StubConfigurationApi implements ConfigurationApi {
             throws TException {
         return 0;
     }
-    
+
     @Override
     public int AddService(com.formationds.protocol.pm.NotifyAddServiceMsg add_svc_req)
             throws TException {
         return 0;
     }
-    
+
     @Override
     public int StartService(com.formationds.protocol.pm.NotifyStartServiceMsg start_svc_req)
             throws TException {
         return 0;
     }
-    
+
     @Override
     public int StopService(com.formationds.protocol.pm.NotifyStopServiceMsg stop_svc_req)
             throws TException {
         return 0;
     }
-    
+
     @Override
     public int RemoveService(com.formationds.protocol.pm.NotifyRemoveServiceMsg rm_svc_req)
             throws TException {

@@ -50,7 +50,7 @@ class DmMigrationMgr {
      */
     enum MigrationRole {
     	MIGR_EXECUTOR,
-		MIGR_CLIENT
+		MIGR_CLIENT,
     };
 
     enum MigrationType {
@@ -240,6 +240,11 @@ class DmMigrationMgr {
      */
     inline uint32_t getIdleTimeout() {
         return idleTimeoutSecs;
+    }
+
+    inline uint32_t getidleTimeoutSecs() {
+        // 15 minutes
+        return 60*15;
     }
 
     /**

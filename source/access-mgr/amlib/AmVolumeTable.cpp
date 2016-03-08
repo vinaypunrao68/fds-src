@@ -179,10 +179,9 @@ AmVolumeTable::stop() {
         for (auto const& vol_pair : volume_map) {
             auto const& vol = vol_pair.second;
             // Close the volume in case it was open
-            auto token = vol->getToken();
-            if (invalid_vol_token != token) {
+            if (vol->writable()) {
                 auto volReq = new DetachVolumeReq(vol->voldesc->volUUID, vol->voldesc->name, nullptr);
-                volReq->token = token;
+                volReq->token = vol->getToken();
                 volReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
                 AmDataProvider::closeVolume(volReq);
             }
@@ -227,24 +226,36 @@ AmVolumeTable::registerVolume(VolumeDesc const& volDesc)
 }
 
 Error AmVolumeTable::modifyVolumePolicy(const VolumeDesc& vdesc) {
+    Error err {ERR_VOL_NOT_FOUND};
     WriteGuard wg(map_rwlock);
     auto vol = getVolume(vdesc.volUUID);
     if (vol)
     {
-        /* update volume descriptor */
-        (vol->voldesc)->modifyPolicyInfo(vdesc.iops_assured,
-                                         vdesc.iops_throttle,
-                                         vdesc.relativePrio);
-
-        LOGNOTIFY << "AmVolumeTable - modify policy info for volume "
-            << vdesc.name
-            << " (iops_assured=" << vdesc.iops_assured
-            << ", iops_throttle=" << vdesc.iops_throttle
-            << ", prio=" << vdesc.relativePrio << ")";
-        return AmDataProvider::modifyVolumePolicy(vdesc);
+        err = AmDataProvider::modifyVolumePolicy(vdesc);
+        /* update volume descriptor if everyone is happy with it */
+        if (ERR_OK == err) {
+            (vol->voldesc)->modifyPolicyInfo(vdesc.iops_assured,
+                                             vdesc.iops_throttle,
+                                             vdesc.relativePrio);
+            LOGNOTIFY << "Modify policy info for volume "
+                << vdesc.name
+                << " (iops_assured=" << vdesc.iops_assured
+                << ", iops_throttle=" << vdesc.iops_throttle
+                << ", prio=" << vdesc.relativePrio << ")";
+        } else if (vol->writable()) {
+            // Uh-oh, let's close it so any new IO will require a new open
+            LOGNOTIFY << "Closing volume: " << vdesc.name << " due to lease transfer.";
+            auto volReq = new DetachVolumeReq(vdesc.volUUID, vdesc.name, nullptr);
+            volReq->token = vol->getToken();
+            volReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
+            fpi::VolumeAccessMode ro;
+            ro.can_write = false; ro.can_cache = false;
+            vol->setToken(AmVolumeAccessToken(ro, invalid_vol_token));
+            AmDataProvider::closeVolume(volReq);
+        }
     }
 
-    return ERR_VOL_NOT_FOUND;
+    return err;
 }
 
 /*
@@ -411,7 +422,7 @@ AmVolumeTable::closeVolume(AmRequest *amReq) {
     // Check we're writable
     WriteGuard wg(map_rwlock);
     auto vol = getVolume(amReq->volume_name);
-    if (!vol || invalid_vol_token == vol->getToken()) {
+    if (!vol || !vol->writable()) {
         return AmDataProvider::closeVolumeCb(amReq, ERR_OK);
     }
 
@@ -434,7 +445,8 @@ AmVolumeTable::renewTokens() {
         auto& vol = vol_pair.second;
         if (vol->writable() && vol->startOpen()) {
             fpi::VolumeAccessMode rw;
-            auto volReq = new AttachVolumeReq(vol_pair.first, "", rw, nullptr);
+            auto volReq = new AttachVolumeReq(vol_pair.first, vol->voldesc->name, rw, nullptr);
+            volReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
             volReq->token = vol->getToken();
             AmDataProvider::openVolume(volReq);
         }

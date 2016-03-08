@@ -184,9 +184,9 @@ namespace fds
     {
         SCOPEDWRITE(pmMapLock);
 
-        LOGDEBUG << "Removing PM:" << std::hex
-                 << (*iter).first.svc_uuid << std::dec
-                 << " from OM's wellKnownPMs map";
+        LOGNOTIFY << "Removing PM:" << std::hex
+                  << (*iter).first.svc_uuid << std::dec
+                  << " from OM's wellKnownPMs map";
 
         wellKnownPMsMap.erase(iter);
 
@@ -235,12 +235,13 @@ namespace fds
                 OM_NodeContainer *local         = OM_NodeDomainMod::om_loc_domain_ctrl();
                 OM_PmContainer::pointer pmNodes = local->om_pm_nodes();
 
-                auto pm = OM_PmAgent::agt_cast_ptr(pmNodes->agent_info(uuid.svc_uuid));
+                auto pm = OM_PmAgent::agt_cast_ptr(pmNodes->agent_info(NodeUuid(uuid.svc_uuid)));
 
                 if ( pm != NULL ) {
                     pm->set_node_state(fpi::FDS_Node_Up);
                 } else {
-                    LOGWARN << "Unable to retrieve PM node agent, could not set node to up";
+                    LOGWARN << "Unable to retrieve PM node agent, could not set node to up, uuid:"
+                            << std::hex << uuid.svc_uuid << std::dec;
                 }
 
             }
@@ -264,7 +265,7 @@ namespace fds
         if ( (retryMap[svcUuid.svc_uuid] < 3 )  && (removedPMsMap[svcUuid] != 0) )
         {
 
-            LOGDEBUG << "Will re-check heartbeat of PM:"
+            LOGNORMAL << "Will re-check heartbeat of PM:"
                      << std::hex << svcUuid.svc_uuid << std::dec;
 
             retryMap[svcUuid.svc_uuid] += 1;
@@ -293,7 +294,7 @@ namespace fds
                 retryMap[svcUuid.svc_uuid] = 0;
 
             } else {
-                LOGDEBUG << "Retry threshold exceeded, will not re-check PM heartbeart for now:"
+                LOGWARN << "Retry threshold exceeded, will back-off heartbeat check for 12 minutes:"
                          << std::hex << svcUuid.svc_uuid << std::dec;
             }
         }
@@ -305,8 +306,8 @@ namespace fds
         fpi::SvcUuid svcUuid
         )
     {
-		LOGDEBUG << "Handling stale PM entry:"
-                 << std::hex << svcUuid.svc_uuid << std::dec;
+		LOGNORMAL << "Handling stale PM entry:"
+                  << std::hex << svcUuid.svc_uuid << std::dec;
 
         // Update service state in the configDB, svclayer Map
         {
@@ -368,6 +369,8 @@ namespace fds
             {
                 // It has been more than a minute since we heard from the PM,
                 // treat it as a stale map entry
+                LOGWARN << "Over 1.5 minutes since we heard from PM:"
+                        << std::hex << svc_uuid << std::dec << " treating it as stale";
                handleStaleEntry(svcUuid);
 
             }

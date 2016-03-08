@@ -32,10 +32,12 @@ class TestTrafficGen(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
         src_dir = fdscfg.rt_env.get_fds_source()
         self.om_node = fdscfg.rt_om_node
-
+        self.fds_root = self.om_node.nd_conf_dict['fds_root']
         self.traffic_gen_dir = os.path.join(src_dir, 'Build/linux-x86_64.debug/tools/')
         self.traffic_gen_cmd = ['./trafficgen']
         self.traffic_gen_expect_failure = False
+
+        self.traffic_gen_cmd.append('--fds-root=' + self.fds_root)
 
         if exp_fail is not None:
             self.traffic_gen_expect_failure = True

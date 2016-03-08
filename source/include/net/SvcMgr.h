@@ -17,13 +17,13 @@
 #define NET_SVC_RPC_CALL(eph, rpc, rpc_fn, ...)                                         \
             fds_panic("not supported...use svcmgr api");
 
-#define EpInvokeRpc(SendIfT, func, ip, port, ...)                                       \
+#define EpInvokeRpc(SendIfT, func, ip, port, svcName, plc, ...)                         \
     do {                                                                                \
         /* XXX: Reconnecting with each call. This needs to be changed with              \
          * Stat Streaming refactoring. Considering current frequency is                 \
          * 2 to 5 minutes, making connection every time is temp solution                \
          */                                                                             \
-        auto eph = allocRpcClient<SendIfT>(ip, port, SvcMgr::MAX_CONN_RETRIES);         \
+        auto eph = allocRpcClient<SendIfT>(ip, port, SvcMgr::MAX_CONN_RETRIES, svcName, plc);    \
         if (!eph) {                                                                     \
             GLOGERROR << "Failed to get the end point handle for ip: " << ip            \
                     << ", port: " << port;                                              \
@@ -83,6 +83,7 @@ using StringPtr = boost::shared_ptr<std::string>;
 class PlatNetSvcHandler;
 struct DLT;
 struct DLTManager;
+struct DMT;
 struct DMTManager;
 using DLTManagerPtr = boost::shared_ptr<DLTManager>;
 using DMTManagerPtr = boost::shared_ptr<DMTManager>;
@@ -98,9 +99,16 @@ typedef std::function<void(Error &err)> DmtCloseCb;
 /*--------------- Floating functions --------------*/
 std::string logString(const FDS_ProtocolInterface::SvcInfo &info);
 std::string logDetailedString(const FDS_ProtocolInterface::SvcInfo &info);
+
+/**
+ * @brief Factory method for Thrift client
+ */
 template<class T>
-extern boost::shared_ptr<T> allocRpcClient(const std::string &ip, const int &port,
-                                           const int &retryCnt);
+extern boost::shared_ptr<T> allocRpcClient(const std::string &ip,
+    const int &port,
+    const int &retryCnt,
+    const std::string &strServiceName,
+    const boost::shared_ptr<FdsConfig> pLibConfig);
 
 /*--------------- Utility classes --------------*/
 struct SvcUuidHash {
@@ -130,7 +138,8 @@ struct SvcMgr : HasModuleProvider, Module, StateProvider {
     SvcMgr(CommonModuleProviderIf *moduleProvider,
            PlatNetSvcHandlerPtr handler,
            fpi::PlatNetSvcProcessorPtr processor,
-           const fpi::SvcInfo &svcInfo);
+           const fpi::SvcInfo &svcInfo,
+           const std::string &strServiceName);
     virtual ~SvcMgr();
 
     /* Module overrides */
@@ -332,6 +341,11 @@ struct SvcMgr : HasModuleProvider, Module, StateProvider {
     * @brief Return current dlt
     */
     const DLT* getCurrentDLT();
+
+    /**
+    * @brief Return current dlt
+    */
+    SHPTR<DMT> getCurrentDMT();
 
     /**
     * @brief Returns dlt manager

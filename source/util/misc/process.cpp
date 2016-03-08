@@ -265,7 +265,12 @@ bool SubProcess::readLine(std::string& data) {
 }
 
 bool SubProcess::close() {
-    return -1 != pclose(fp);
+    if (fp) {
+        auto ret = pclose(fp);
+        fp = NULL;
+        return -1 != ret;
+    }
+    return true;
 }
 
 SubProcess::~SubProcess() {

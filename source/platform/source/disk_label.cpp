@@ -107,9 +107,9 @@ namespace fds
     //
     bool DiskLabel::dsk_label_valid_for_node(NodeUuid node_uuid)
     {
-        if (!dsk_label_valid())
+        if (!m_use_new_superblock || !dsk_label_valid())
         {
-            return true;  // return true if there is no label
+            return true;  // only verify if new_superblock and there is a label
         }
         if (node_uuid.uuid_get_val() <= 0)
         {
@@ -301,6 +301,8 @@ namespace fds
         {
             memset(buf, 0, DL_PAGE_SZ);
         }
+
+        dl_owner->dsk_set_fds_disk(m_use_new_superblock);
     }
 
     // dsk_label_write

@@ -17,6 +17,13 @@ struct AmTxDescriptor;
 struct GetBlobReq;
 struct GetObjectReq;
 
+// We'll count the data cache in bytes, not objects
+template<>
+struct size_calc<AmAsyncDataApi::shared_string_type> {
+    size_t operator()(AmAsyncDataApi::shared_string_type const& data)
+    { return (data ? data->size() : 0); }
+};
+
 /**
  * A client-side cache of blob metadata and data. The cache
  * multiplexes different volumes and allows for different
@@ -64,13 +71,11 @@ class AmCache :
     void getBlobCb(AmRequest * amReq, Error const error) override;
     void getOffsetsCb(AmRequest * amReq, Error const error) override;
     void getObjectCb(AmRequest * amReq, Error const error) override;
-    void commitBlobTxCb(AmRequest * amReq, Error const error) override;
     void openVolumeCb(AmRequest * amReq, Error const error) override;
     void putObjectCb(AmRequest * amReq, Error const error) override;
     void renameBlobCb(AmRequest * amReq, Error const error) override;
     void statBlobCb(AmRequest * amReq, Error const error) override;
     void updateCatalogCb(AmRequest * amReq, Error const error) override;
-    void volumeContentsCb(AmRequest * amReq, Error const error) override;
 
   private:
     descriptor_cache_type descriptor_cache;
@@ -80,6 +85,12 @@ class AmCache :
     typedef std::unique_ptr<std::deque<GetObjectReq*>> queue_type;  // NOLINT
     std::unordered_map<ObjectID, queue_type, ObjectHash> obj_get_queue;
     std::mutex obj_get_lock;
+
+    /**
+     * FEATURE TOGGLE: Cache missing catalog entries
+     * Sat Jan 30 11:37:00 2016
+     */
+    bool cache_missing_cat { false };
 
     /// Cache maximums
     size_t max_volume_data;
@@ -93,20 +104,13 @@ class AmCache :
      * the cache can properly pin/refcnt elements, we can consider
      * returning a direct pointer to the cache's memory.
      */
-    BlobDescriptor::ptr getBlobDescriptor(fds_volid_t volId,
-                                          const std::string &blobName,
-                                          Error &error);
+    BlobDescriptor::ptr getBlobDescriptor(AmRequest* amReq, Error &error);
 
     /**
      * Retrieves object ID from cache for given volume, blob,
      * and offset. If blob offset is not found, returns error.
      */
-    Error getBlobOffsetObjects(fds_volid_t volId,
-                               const std::string &blobName,
-                               fds_uint64_t const obj_offset,
-                               fds_uint64_t const obj_offset_end,
-                               size_t const obj_size,
-                               std::vector<ObjectID::ptr>& obj_ids);
+    Error getBlobOffsetObjects(GetBlobReq* amReq);
 
     /**
      * Retrieves object data from cache for given volume and object ids.

@@ -24,6 +24,8 @@
 
 #include "connector/scst/ScstDevice.h"
 
+#include "connector/BlockOperations.h"
+
 namespace fds
 {
 
@@ -31,22 +33,32 @@ struct AmProcessor;
 struct ScstTarget;
 struct ScstTask;
 
-struct ScstDisk : public ScstDevice {
+struct ScstDisk : public ScstDevice,
+                  public BlockOperations::ResponseIFace {
     ScstDisk(VolumeDesc const& vol_desc, ScstTarget* target, std::shared_ptr<AmProcessor> processor);
     ScstDisk(ScstDisk const& rhs) = delete;
     ScstDisk(ScstDisk const&& rhs) = delete;
     ScstDisk operator=(ScstDisk const& rhs) = delete;
     ScstDisk operator=(ScstDisk const&& rhs) = delete;
 
-  private:
-    void setupModePages(size_t const lba_size, size_t const pba_size, size_t const volume_size);
+    // implementation of BlockOperations::ResponseIFace
+    void respondTask(BlockTask* response) override;
+    void attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) override;
+    void terminate() override;
 
+  private:
     size_t volume_size {0};
     uint32_t logical_block_size {0};
     uint32_t physical_block_size {0};
+    BlockOperations::shared_ptr scstOps;
 
+    void setupModePages(size_t const lba_size, size_t const pba_size, size_t const volume_size);
+
+    void execSessionCmd() override;
     void execDeviceCmd(ScstTask* task) override;
     void respondDeviceTask(ScstTask* task) override;
+    void startShutdown() override;
+    void stopped() override;
 };
 
 }  // namespace fds

@@ -20,27 +20,43 @@ def suiteConstruction(self):
     """
     suite = unittest.TestSuite()
 
-    # Check that all nodes are up.
-    nodeUpSuite = NodeWaitSuite.suiteConstruction(self=None)
-    suite.addTest(nodeUpSuite)
-
     # Create iSCSI volume
     suite.addTest(testcases.TestISCSIIntFace.TestISCSICrtVolume())
 
     # Test a list volumes
     suite.addTest(testcases.TestISCSIIntFace.TestISCSIListVolumes(None, 'volISCSI'))
 
+    # Test cases can run local or on an initiator node named in the FdsConfigFile.
+    # This suite specifies an initiator.
+    initiator_name = 'initiator1'
     # Save target name to fixture
-    suite.addTest(testcases.TestISCSIIntFace.TestISCSIDiscoverVolume())
+    suite.addTest(testcases.TestISCSIIntFace.TestISCSIDiscoverVolume(None,
+            initiator_name, 'volISCSI'))
 
     # Attach iSCSI device
-    suite.addTest(testcases.TestISCSIIntFace.TestISCSIAttachVolume(None, None, 'volISCSI'))
+    suite.addTest(testcases.TestISCSIIntFace.TestISCSIAttachVolume(None,
+            initiator_name, None, 'volISCSI'))
 
     # Need a file system...
-    suite.addTest(testcases.TestISCSIIntFace.TestISCSIMakeFilesystem(None, None, 'volISCSI'))
+    suite.addTest(testcases.TestISCSIIntFace.TestISCSIMakeFilesystem(None,
+            initiator_name, None, 'volISCSI'))
 
     # Use the char device interface
-    suite.addTest(testcases.TestISCSIIntFace.TestISCSIUnitReady(None, None, 'volISCSI'))
+    suite.addTest(testcases.TestISCSIIntFace.TestISCSIUnitReady(None, 
+            initiator_name, None, 'volISCSI'))
+
+
+    # Diversion: Create 7 more devices, discover them
+    for volname in ['vol1', 'vol2', 'vol3', 'vol4', 'vol5', 'vol6', 'vol7']:
+
+        suite.addTest(testcases.TestISCSIIntFace.TestISCSICrtVolume(None, volname))
+        suite.addTest(testcases.TestISCSIIntFace.TestISCSIListVolumes(None, volname))
+        suite.addTest(testcases.TestISCSIIntFace.TestISCSIDiscoverVolume(None,
+                initiator_name, volname))
+        suite.addTest(testcases.TestISCSIIntFace.TestISCSIAttachVolume(None,
+                initiator_name, None, volname))
+        suite.addTest(testcases.TestISCSIIntFace.TestISCSIMakeFilesystem(None,
+                initiator_name, None, volname))
 
     # This is where we will add char device interface tests, if they make sense,
     # for all of:
@@ -63,8 +79,14 @@ def suiteConstruction(self):
     # WRITE_12
     # WRITE_16
 
+
+    # Use the char device interface
+    suite.addTest(testcases.TestISCSIIntFace.TestStandardInquiry(None, 
+            initiator_name, None, 'volISCSI'))
+
     # Run an fio sequential write workload
-    suite.addTest(testcases.TestISCSIIntFace.TestISCSIFioSeqW(None, None, 'volISCSI'))
+    suite.addTest(testcases.TestISCSIIntFace.TestISCSIFioSeqW(None,
+            initiator_name, None, 'volISCSI'))
 
     # Run an fio random write workload
 #    suite.addTest(testcases.TestISCSIIntFace.TestBlockFioRandW())
@@ -77,7 +99,17 @@ def suiteConstruction(self):
 
     # Detach iSCSI volume by logging out of iSCSI node record.
     # Also cleans up by deleting iSCSI node record.
-    suite.addTest(testcases.TestISCSIIntFace.TestISCSIDetachVolume(None, None, 'volISCSI'))
+    suite.addTest(testcases.TestISCSIIntFace.TestISCSIDetachVolume(None,
+            initiator_name, None, 'volISCSI'))
+
+    # Are all other devices still alive?
+    for volname in ['vol1', 'vol2', 'vol3', 'vol4', 'vol5', 'vol6', 'vol7']:
+        suite.addTest(testcases.TestISCSIIntFace.TestStandardInquiry(None,
+                initiator_name, None, volname))
+
+    for volname in ['vol1', 'vol2', 'vol3', 'vol4', 'vol5', 'vol6', 'vol7']:
+        suite.addTest(testcases.TestISCSIIntFace.TestISCSIDetachVolume(None,
+                initiator_name, None, volname))
 
     return suite
 

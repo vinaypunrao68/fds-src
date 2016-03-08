@@ -22,7 +22,8 @@ import testcases.TestFDSSysVerify
 import testcases.TestFDSVolMgt
 import testcases.TestMgt
 import logging
-
+import testcases.TestS3IntFace
+import testcases.TestFDSSnapshotMgt
 log_dir = None
 
 def suiteConstruction(self, install):

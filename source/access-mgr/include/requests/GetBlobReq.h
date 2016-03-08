@@ -18,6 +18,8 @@ struct GetBlobReq: public AmMultiReq {
 
     fds_bool_t metadata_cached;
 
+    BlobDescriptor::ptr blobDesc;
+
     // IDs used to provide a consistent read across objects
     std::vector<ObjectID::ptr> object_ids;
 

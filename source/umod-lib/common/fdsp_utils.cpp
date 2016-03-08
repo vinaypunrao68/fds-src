@@ -7,6 +7,7 @@
 #include <fdsp/am_types_types.h>
 #include <fdsp/dm_api_types.h>
 #include <fdsp/sm_api_types.h>
+#include <fdsp/vc_api_types.h>
 #include <fds_resource.h>
 #include <net/SvcMgr.h>
 #include <net/SvcRequest.h>
@@ -264,7 +265,8 @@ std::string logString(const fpi::UpdateCatalogOnceMsg& updCat)
     std::ostringstream oss;
     oss << " UpdateCatalogOnceMsg TxId:" << updCat.txId
         << " volume_id" << updCat.volume_id << " blob_name: "<< updCat.blob_name
-        << " opid: " << updCat.opId;
+        << " opid: " << updCat.opId
+        << " sequenceid: " << updCat.sequence_id;
     return oss.str();
 }
 
@@ -289,7 +291,8 @@ std::string logString(const fpi::CommitBlobTxMsg& commitBlbTx)
     std::ostringstream oss;
     oss << " CommitBlobTxMs TxId:" << commitBlbTx.txId
         << " volume_id" << commitBlbTx.volume_id << " blob_name: "<< commitBlbTx.blob_name
-        << " opid: " << commitBlbTx.opId;
+        << " opid: " << commitBlbTx.opId
+        << " sequenceid: " << commitBlbTx.sequence_id;
     return oss.str();
 }
 
@@ -357,7 +360,9 @@ std::string logString(const fpi::GetBlobMetaDataMsg& message)
 std::string logString(const fpi::RenameBlobMsg& message)
 {
     std::ostringstream oss;
-    oss << "RenameBlobMsg " << " opid: " << message.opId;
+    oss << " RenameBlobMsg"
+        << " opid: " << message.opId
+        << " sequenceid: " << message.sequence_id;
     return oss.str();
 }
 
@@ -367,7 +372,11 @@ std::string logString(const fpi::RenameBlobRespMsg& message)
 }
 
 std::string logString(const fpi::SetVolumeMetadataMsg& msg) {
-    return "SetVolumeMetadataMsg";
+    std::ostringstream oss;
+    oss << "SetVolumeMetadataMsg "
+        << " opid: " << msg.opId
+        << " sequenceid: " << msg.sequence_id;
+    return oss.str();
 }
 
 std::string logString(const fpi::GetVolumeMetadataMsgRsp& msg) {
@@ -406,6 +415,14 @@ std::string logString(const fpi::GetVolumeMetadataMsg& msg) {
     std::ostringstream oss;
     oss << " GetVolumeMetadataMsg "
         << " volume_id: " << msg.volumeId;
+    return oss.str();
+}
+
+std::string logString(const fpi::CheckVolumeMetaDataMsg& msg) {
+    std::ostringstream oss;
+    oss << " GetVolumeMetadataMsg "
+        << " from node " << msg.volCheckerNodeUuid
+        << " volume_id: " << msg.volume_id;
     return oss.str();
 }
 

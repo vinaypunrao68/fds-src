@@ -21,6 +21,7 @@ import com.formationds.platform.svclayer.OmSvcHandler;
 import com.formationds.platform.svclayer.SvcMgr;
 import com.formationds.platform.svclayer.SvcServer;
 import com.formationds.protocol.ApiException;
+import com.formationds.protocol.commonConstants;
 import com.formationds.protocol.svc.types.FDSP_MgrIdType;
 import com.formationds.protocol.om.OMSvc.Iface;
 import com.formationds.security.Authenticator;
@@ -110,7 +111,19 @@ public class Main {
             int proxyPortOffset = platformConfig.defaultInt( "fds.om.java_svc_proxy_port_offset", 1900 );
             int proxyToPort = omPort + proxyPortOffset;  // 8904 by default
             logger.trace( "Starting OM Service Proxy {} -> {}", omPort, proxyToPort );
-            proxyServer = Optional.of( new SvcServer<>( omPort, new OmSvcHandler( "localhost", proxyToPort ) ) );
+            /**
+             * FEATURE TOGGLE: enable multiplexed services
+             * Tue Feb 23 15:04:17 MST 2016
+             */
+            if ( FdsFeatureToggles.THRIFT_MULTIPLEXED_SERVICES.isActive() ) {
+                // Multiplexed
+                proxyServer = Optional.of( new SvcServer<>( omPort,
+                                                 new OmSvcHandler( "localhost", proxyToPort, commonConstants.OM_SERVICE_NAME ),
+                                                 commonConstants.OM_SERVICE_NAME ) );
+            } else {
+                // Non-multiplexed
+                proxyServer = Optional.of( new SvcServer<>( omPort, new OmSvcHandler( "localhost", proxyToPort, "" ), "" ) );
+            }
             proxyServer.get().startAndWait( 5, TimeUnit.MINUTES );
 
         }
@@ -203,22 +216,33 @@ public class Main {
 
         EnsureAdminUser.bootstrapAdminUser( configCache );
 
-        // TODO: should there be an OM property for the am host?
-        String amHost = platformConfig.defaultString("fds.xdi.am_host", "localhost");
+        /**
+         * if volume grouping is disabled, use the statVolume call against the am host defined in
+         * the platform.conf file.
+         */
+        if( !FdsFeatureToggles.USE_VOLUME_GROUPING.isActive() )
+        {
+            // TODO: should there be an OM property for the am host?
+            String amHost = platformConfig.defaultString( "fds.xdi.am_host", "localhost" );
 
-        int xdiServicePortOffset = platformConfig.defaultInt("fds.am.xdi_service_port_offset", 1899);
-        int xdiServicePort = pmPort + xdiServicePortOffset;
+            int xdiServicePortOffset = platformConfig.defaultInt( "fds.am.xdi_service_port_offset",
+                                                                  1899 );
+            int xdiServicePort = pmPort + xdiServicePortOffset;
 
-        int xdiResponsePortOffset = platformConfig.defaultInt("fds.om.xdi_response_port_offset", 2988);
-        int xdiResponsePort = new ServerPortFinder().findPort("Async XDI response port", pmPort + xdiResponsePortOffset);
+            int xdiResponsePortOffset = platformConfig.defaultInt( "fds.om.xdi_response_port_offset", 2988 );
+            int xdiResponsePort = new ServerPortFinder( ).findPort( "Async XDI response port",
+                                                                    pmPort + xdiResponsePortOffset );
 
-        XdiStaticConfiguration xdiStaticConfig = configuration.getXdiStaticConfig( pmPort );
+            XdiStaticConfiguration xdiStaticConfig = configuration.getXdiStaticConfig( pmPort );
 
-        boolean useFakeAm = platformConfig.defaultBoolean( "fds.am.memory_backend", false );
-        AsyncAm asyncAm = useFakeAm ?
-                new FakeAsyncAm() :
-                new RealAsyncAm(amHost, xdiServicePort, xdiResponsePort, xdiStaticConfig.getAmTimeout());
-        SingletonAmAPI.instance().api( asyncAm );
+            boolean useFakeAm = platformConfig.defaultBoolean( "fds.am.memory_backend", false );
+            AsyncAm asyncAm = useFakeAm ? new FakeAsyncAm( ) : new RealAsyncAm( amHost,
+                                                                                xdiServicePort,
+                                                                                xdiResponsePort,
+                                                                                xdiStaticConfig.getAmTimeout( ) );
+            SingletonAmAPI.instance( )
+                          .api( asyncAm );
+        }
 
         /*
          * TODO(Tinius) currently we only support a single OM

@@ -181,7 +181,8 @@ class VolumeDesc : public HasState {
         return coordinator.id.svc_uuid != 0;
     }
     void clearCoordinatorInfo();
-};
+
+};  // end VolumeDesc
 
 /**
  * Basic volume descriptor class

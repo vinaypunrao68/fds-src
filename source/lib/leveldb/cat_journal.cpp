@@ -77,10 +77,32 @@ CatJournalIterator::CatJournalIterator(const std::string & file) : file_(file),
         return;
     }
 
+    static const std::string ending=".gz";
+    bool fUnzipped = false;
+    if  (0 == file_.compare(file_.length() - ending.length(), ending.length(), ending)) {
+        LOGDEBUG << "input file is a compressed file, will unzip to tmp file";
+        file_ += std::string(".tmp.") + std::to_string(util::getTimeStampMicros());
+        std::string unzipCmd = "gzip --keep --decompress --stdout " + file + " > " + file_;
+        LOGNORMAL << "running command: [" << unzipCmd << "]";
+        auto rc = std::system(unzipCmd.c_str());
+        fUnzipped = true;
+        if (!rc) {
+            LOGDEBUG << "unzipped to : " << file_;
+        } else {
+            LOGERROR << "unzipping failed with error:" << rc << ":" << strerror(rc);
+            unlink(file_.c_str());
+            return;
+        }
+    }
+
     Status s = env_->NewSequentialFile(file_, &sfile_);
     if (!s.ok()) {
-        LOGWARN << "Failed to open file '" << file_ << "'";
+        LOGERROR << "Failed to open file '" << file_ << "'";
         return;
+    }
+
+    if (fUnzipped) {
+        unlink(file_.c_str());
     }
 
     reader_.reset(new log::Reader(sfile_, &reporter_, true, 0));

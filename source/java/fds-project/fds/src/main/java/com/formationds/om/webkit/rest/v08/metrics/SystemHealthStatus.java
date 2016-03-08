@@ -22,14 +22,12 @@ import com.formationds.commons.model.calculated.capacity.CapacityToFull;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.helper.ObjectModelHelper;
 import com.formationds.commons.model.type.Metrics;
-import com.formationds.commons.model.type.StatOperation;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.om.redis.RedisSingleton;
 import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.QueryHelper;
-import com.formationds.om.repository.helper.SeriesHelper;
 import com.formationds.om.repository.query.MetricQueryCriteria;
 import com.formationds.om.repository.query.QueryCriteria.QueryType;
 import com.formationds.om.repository.query.builder.MetricQueryCriteriaBuilder;
@@ -294,28 +292,28 @@ public class SystemHealthStatus implements RequestHandler {
         SystemHealth status = new SystemHealth();
         status.setCategory(CATEGORY.CAPACITY.name());
 
-        // query that stats to get raw capacity data
-        MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder(QueryType.SYSHEALTH_CAPACITY);
-
-        // TODO: for capacity time-to-full we need enough history to calculate the regression
-        // This was previously querying from 0 for all possible datapoints.  I think reducing to
-        // the last 30 days is sufficient, but will need to validate that.
-        DateRange range = DateRange.last( 30L, com.formationds.client.v08.model.TimeUnit.DAYS );
-        MetricQueryCriteria query = queryBuilder.withContexts(volumes)
-                .withSeriesType(Metrics.UBYTES)
-                .withRange(range)
-                .build();
-
-        query.setColumns( new ArrayList<>() );
-
-        final MetricRepository metricsRepository = SingletonRepositoryManager.instance()
-                .getMetricsRepository();
-
-        @SuppressWarnings("unchecked")
-        final List<IVolumeDatapoint> queryResults = (List<IVolumeDatapoint>) metricsRepository.query( query );
+//        // query that stats to get raw capacity data
+//        MetricQueryCriteriaBuilder queryBuilder = new MetricQueryCriteriaBuilder(QueryType.SYSHEALTH_CAPACITY);
+//
+//        // TODO: for capacity time-to-full we need enough history to calculate the regression
+//        // This was previously querying from 0 for all possible datapoints.  I think reducing to
+//        // the last 30 days is sufficient, but will need to validate that.
+//        DateRange range = DateRange.last( 30L, com.formationds.client.v08.model.TimeUnit.DAYS );
+//        MetricQueryCriteria query = queryBuilder.withContexts(volumes)
+//                .withSeriesType(Metrics.UBYTES)
+//                .withRange(range)
+//                .build();
+//
+//        query.setColumns( new ArrayList<>() );
+//
+//        final MetricRepository metricsRepository = SingletonRepositoryManager.instance()
+//                .getMetricsRepository();
+//
+//        @SuppressWarnings("unchecked")
+//        final List<IVolumeDatapoint> queryResults = (List<IVolumeDatapoint>) metricsRepository.query( query );
 
         // has some helper functions we can use for calculations
-        QueryHelper qh = new QueryHelper();
+        QueryHelper qh = QueryHelper.instance();
 
         /*
          * NOTE!!
@@ -353,10 +351,11 @@ public class SystemHealthStatus implements RequestHandler {
                              .longValue(),
                              SizeUnit.B );
 
-            logger.trace( "Total Capacity: {} ( {} ) Total Used Capacity: {}",
+            logger.trace( "Total Capacity: {} ( {} ) Total Used Capacity: {} ( {} )",
                           systemCapacity.getValue( SizeUnit.B ),
                           _systemCapacity,
-                          systemCapacityUsed.toString() );
+                          systemCapacityUsed.getValue( SizeUnit.B ),
+                          systemCapacityUsed.getValue( SizeUnit.GB ));
         } catch (TException te) {
             throw new IllegalStateException( "Failed to retrieve system capacity", te );
         }
@@ -364,16 +363,17 @@ public class SystemHealthStatus implements RequestHandler {
         final CapacityConsumed consumed = new CapacityConsumed();
         consumed.setTotal( systemCapacityUsed.getValue().doubleValue() );
 
-        List<Series> series = SeriesHelper.getRollupSeries( queryResults,
-                                                            query.getRange(),
-                                                            query.getSeriesType(),
-                                                            StatOperation.SUM );
+//        List<Series> series = SeriesHelper.getRollupSeries( queryResults,
+//                                                            query.getRange(),
+//                                                            query.getSeriesType(),
+//                                                            StatOperation.SUM );
 
         // use the helper to get the key metrics we'll use to ascertain the stat of our capacity
         CapacityFull capacityFull =
                 qh.percentageFull( consumed, systemCapacity.getValue( SizeUnit.B ).doubleValue() );
         CapacityToFull timeToFull =
-                qh.toFull( series.get ( 0 ), systemCapacity.getValue( SizeUnit.B ).doubleValue() );
+            qh.secondsToFullThirtyDays( volumes, systemCapacity );
+//                qh.toFull( series.get ( 0 ), systemCapacity.getValue( SizeUnit.B ).doubleValue() );
 
         Long daysToFull = TimeUnit.SECONDS.toDays( timeToFull.getToFull() );
 

@@ -7,6 +7,7 @@
 #include <fds_types.h>
 #include <kvstore/kvstore.h>
 #include <kvstore/configdb.h>
+#include <DltDmtUtil.h>
 
 
 namespace fds 
@@ -67,6 +68,11 @@ namespace fds
                             std::vector<fpi::SvcInfo>& svcInfoList);
     void retrieveSvcId(int64_t pmID, fpi::SvcUuid& svcUuid,
                        FDS_ProtocolInterface::FDSP_MgrIdType type);
+
+    void populateAndRemoveSvc(fpi::SvcUuid serviceTypeId,
+                              fpi::FDSP_MgrIdType type,
+                              std::vector<fpi::SvcInfo> svcInfos,
+                              kvstore::ConfigDB* configDB);
 
 }  // namespace fds
 

@@ -30,14 +30,6 @@ void LoadFromArchiveHandler::handleRequest(SHPTR<fpi::AsyncHdr>& asyncHdr,
     // Handle U-turn
     HANDLE_U_TURN();
 
-    fds_volid_t volId(message->volId);
-    auto err = dataManager.validateVolumeIsActive(volId);
-    if (!err.OK()) {
-        auto dummyResponse = boost::make_shared<fpi::LoadFromArchiveMsg>();
-        handleResponse(asyncHdr, dummyResponse, err, nullptr);
-        return;
-    }
-
     auto dmReq = new DmIoLoadFromArchive(message);
     dmReq->cb = BIND_MSG_CALLBACK(LoadFromArchiveHandler::handleResponse, asyncHdr, message);
 
@@ -51,9 +43,29 @@ void LoadFromArchiveHandler::handleQueueItem(DmRequest* dmRequest) {
     LOGDEBUG << "Will reload volume " << *typedRequest;
 
     fds_volid_t volId(typedRequest->message->volId);
+
+    // wait for the volume to be active upto 5 minutes
+    // This is done here , because LFA request could come in for a clone even before 
+    // an addVolume could reach the DM ..
+    int count = 600;
+    bool fVolumeReady = false;
+    while (count > 0 && !fVolumeReady) {
+        const auto vol = dataManager.getVolumeDesc(volId);
+        if (vol != nullptr) {
+            fVolumeReady = (vol->isStateActive() || vol->isStateOffline());
+        }
+        if (!fVolumeReady) {
+            if (count % 60 == 0) {
+                LOGWARN << "vol:" << volId << " not ready yet";
+            }
+            usleep(500000);  // 0.5s
+        }
+        count --;
+    }
+
     const VolumeDesc * voldesc = dataManager.getVolumeDesc(volId);
     if (!voldesc) {
-        LOGERROR << "Volume entry not found in descriptor map for volume '" << volId << "'";
+        LOGERROR << "Volume entry not found in descriptor map for vol:" << volId;
         helper.err = ERR_VOL_NOT_FOUND;
     } else {
         
@@ -85,6 +97,19 @@ void LoadFromArchiveHandler::handleQueueItem(DmRequest* dmRequest) {
             LOGDEBUG << "removing db-archive: " << archiveFile;
             boost::filesystem::remove(archiveFile);
         }        
+    }
+
+    if (helper.err.ok()) {
+        LOGNORMAL << "initing seqid and stuff";
+        auto volMeta = dataManager.getVolumeMeta(volId);
+        if (volMeta != nullptr) {
+            Error err = volMeta->initState();
+            if (!err.ok()) {
+                LOGERROR << "vol:" << volId << " init vol state failed";
+            }
+        } else {
+            LOGERROR << "vol:" << volId << " unable to locate volMeta";
+        }
     }
 
     if (!helper.err.ok()) {

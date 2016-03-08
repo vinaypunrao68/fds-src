@@ -2,11 +2,11 @@ package com.formationds.index;
 
 import com.formationds.hadoop.OwnerGroupInfo;
 import com.formationds.nfs.*;
-import com.formationds.nfs.deferred.CacheEntry;
-import com.formationds.nfs.deferred.EvictingCache;
 import com.formationds.util.ServerPortFinder;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.RealAsyncAm;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import org.apache.log4j.Logger;
 import org.apache.lucene.store.*;
 import org.joda.time.Duration;
@@ -15,11 +15,8 @@ import org.junit.Ignore;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
 
 @Ignore
 public class FdsLuceneDirectory extends Directory {
@@ -31,44 +28,45 @@ public class FdsLuceneDirectory extends Directory {
     private String domain;
     private String volume;
     private int objectSize;
-    private EvictingCache<SimpleKey, MemoryLock> locks;
+    private Cache<SimpleKey, MemoryLock> locks;
     private IoOps io;
+    private final Chunker chunker;
 
 
     public FdsLuceneDirectory(IoOps ops, String domain, String volume, int objectSize) {
         init(domain, volume, objectSize);
         io = ops;
+        chunker = new Chunker(ops);
     }
 
     private void init(String domain, String volume, int objectSize) {
         this.domain = domain;
         this.volume = volume;
         this.objectSize = objectSize;
-        locks = new EvictingCache<>(
-                (key, value) -> value.invalidate(),
-                "Lucene-FDS locks",
-                1000000, 1, TimeUnit.HOURS);
-        locks.start();
+        locks = CacheBuilder
+                .newBuilder()
+                .maximumSize(1000000)
+                .build();
     }
 
-    public FdsLuceneDirectory(String domain, String volume, int objectSize, String amHost, int amPort) throws IOException {
-        init(domain, volume, objectSize);
+    public FdsLuceneDirectory(String domain, String volume, int maxObjectSize, String amHost, int amPort) throws IOException {
+        init(domain, volume, maxObjectSize);
         int serverPort = new ServerPortFinder().findPort("FdsLuceneDirectory AM client", 10000);
         AsyncAm asyncAm = new RealAsyncAm(amHost, amPort, serverPort, Duration.standardSeconds(30));
         asyncAm.start();
-        Counters counters = new Counters();
-        AmOps amOps = new AmOps(asyncAm, counters);
-        DeferredIoOps deferredIo = new DeferredIoOps(amOps, counters);
+        AmOps amOps = new AmOps(asyncAm);
+        DeferredIoOps deferredIo = new DeferredIoOps(amOps, v -> maxObjectSize);
         deferredIo.start();
         io = deferredIo;
+        chunker = new Chunker(io);
     }
 
     @Override
     public String[] listAll() throws IOException {
         Collection<BlobMetadata> bms = io.scan(domain, volume, INDEX_FILE_PREFIX);
-        List<String> result = new ArrayList<>(bms.size());
+        List<String> result = new ArrayList<>();
         for (BlobMetadata bm : bms) {
-            result.add(bm.getMetadata().lock(m -> m.mutableMap().get(LUCENE_RESOURCE_NAME)));
+            result.add(bm.getMetadata().get(LUCENE_RESOURCE_NAME));
         }
         return result.toArray(new String[0]);
     }
@@ -81,11 +79,11 @@ public class FdsLuceneDirectory extends Directory {
     @Override
     public long fileLength(String s) throws IOException {
         String indexFile = blobName(s);
-        Optional<FdsMetadata> ofm = io.readMetadata(domain, volume, indexFile);
+        Optional<Map<String, String>> ofm = io.readMetadata(domain, volume, indexFile);
         if (!ofm.isPresent()) {
             return 0;
         } else {
-            return ofm.get().lock(m -> Long.parseLong(m.mutableMap().get(SIZE)));
+            return Long.parseLong(ofm.get().getOrDefault(SIZE, "0"));
         }
     }
 
@@ -103,7 +101,7 @@ public class FdsLuceneDirectory extends Directory {
 
     @Override
     public void sync(Collection<String> collection) throws IOException {
-        io.flush();
+        io.commitAll();
     }
 
     @Override
@@ -111,17 +109,16 @@ public class FdsLuceneDirectory extends Directory {
         LOG.debug("Rename file " + from + " " + to);
         String blobName = blobName(from);
 
-        Optional<FdsMetadata> ofm = io.readMetadata(domain, volume, blobName);
+        Optional<Map<String, String>> ofm = io.readMetadata(domain, volume, blobName);
         if (!ofm.isPresent()) {
             throw new FileNotFoundException("Volume=" + volume + ", blobName=" + blobName);
         }
 
-        ofm.get().lock(m -> {
-            m.mutableMap().put(LUCENE_RESOURCE_NAME, to);
-            io.writeMetadata(domain, volume, blobName, m.fdsMetadata(), false);
-            io.renameBlob(domain, volume, blobName(from), blobName(to));
-            return null;
-        });
+        Map<String, String> metadata = new HashMap<>(ofm.get());
+        metadata.put(LUCENE_RESOURCE_NAME, to);
+        io.writeMetadata(domain, volume, blobName, metadata);
+        io.commitMetadata(domain, volume, blobName);
+        io.renameBlob(domain, volume, blobName(from), blobName(to));
     }
 
     private String blobName(String indexFile) {
@@ -131,18 +128,26 @@ public class FdsLuceneDirectory extends Directory {
     @Override
     public IndexInput openInput(String indexFile, IOContext ioContext) throws IOException {
         LOG.debug("open input " + indexFile);
-        return new FdsIndexInput(io, indexFile, domain, volume, blobName(indexFile), objectSize);
+        return new FdsIndexInput(chunker, io, indexFile, domain, volume, blobName(indexFile), objectSize);
     }
 
     @Override
     public Lock obtainLock(String name) throws IOException {
         SimpleKey key = new SimpleKey(name);
-        return locks.lock(key, c -> c.computeIfAbsent(key, k -> new CacheEntry<>(new MemoryLock(), true))).value;
+        try {
+            return locks.get(key, () -> new MemoryLock(() -> locks.asMap().remove(key)));
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof IOException) {
+                throw (IOException) e.getCause();
+            } else {
+                throw new IOException(e);
+            }
+        }
     }
 
     @Override
     public void close() throws IOException {
-        io.flush();
+        io.commitAll();
     }
 
 }

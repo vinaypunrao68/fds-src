@@ -44,7 +44,13 @@ public:
      * this is the same version as the one undergoing migration.
      */
     Error checkVolmetaVersion(const int32_t version);
+
+    // Checks if sender is dead
+    void migrationIdleTimeoutCheck();
+
+    void cancelIdleTimer();
 private:
+    FdsTimerTaskPtr idleTimeoutTaskPtr;
 };
 
 

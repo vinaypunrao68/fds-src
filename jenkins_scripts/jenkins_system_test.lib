@@ -11,9 +11,8 @@ PYTHON_UNITTEST_DISCOVERY_DIRECTORIES="source/tools"
 
 # This list of tests to be run
 # The list of system test scenarios, do not include the .ini"
-SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest RestartDataPersistence ActiveIORndKillTest MultiAMVolOpsTest RestartClusterKillServices StaticMigration BuildSmokeTest_onpr QosTest ActiveMigration DmMigrationFailover VolumeGroupMode"
+SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest RestartDataPersistence ActiveIORndKillTest MultiAMVolOpsTest RestartClusterKillServices BuildSmokeTest_onpr QosTest ActiveMigration DmMigrationFailover SnapshotTest"
 # Jenkins job runs tests on AWS nodes
-AWS_TEST_SCENARIO_LIST = "AWS_tests MultiAMVolOpsTest"
 function performance_report
 {
     unit=${1}
@@ -121,8 +120,8 @@ function configure_limits
     message "CONFIGURE ulimit and core file settings"
 
     ulimit -c unlimited
-    [[ ! -d /corefiles ]] && mkdir -p /corefiles
-    sysctl -w "kernel.core_pattern=/corefiles/%e-%p-%u-%t.core"
+    [[ ! -d /fds/var/log/corefiles ]] && mkdir -p /fds/var/log/corefiles
+    sysctl -w "kernel.core_pattern=/fds/var/log/corefiles/%e-%p-%u-%t.core"
     ulimit -n 400000
 
     message "CURRENT ulimit settings"
@@ -151,10 +150,20 @@ function clean_up_environment
 
    message "CLEAN existing core files (prebuild)"
    #  This could be improved by looking in more places and for specific core files (e.g., from FDS processes and test tools)
-   find /corefiles -type f -name "*.core" -print -delete
-   find /corefiles -type f -name "*.hprof" -print -delete
-   find /corefiles -type f -name "*hs_err_pid*.log" -print -delete
-        
+
+   for dir in /corefiles /fds/var/log/corefiles
+   do
+       if [[ ! -e ${dir} ]]
+       then
+           continue
+       fi
+
+       for mask in '*.core' '*.hprof' '*hs_err_pid*.log'
+       do
+           echo find ${dir} -type f -name "${mask}" -delete
+       done
+   done
+
    capture_process_list ${FUNCNAME}
 }
 
@@ -213,7 +222,7 @@ function check_for_cores
         echo "OHHHHH NO, an ERROR has occurred return_code = ${return_code}"
         echo ""
         echo "Build aborted due to the presence of core files on the builder following a system test scenario:"
-        ls -la /corefiles
+        ls -la /fds/var/log/corefiles
         run_coroner 1
     fi
 }
@@ -264,7 +273,7 @@ function run_python_unit_tests
 
 function run_cpp_unit_tests
 {
-    message "IIIII RUNNING C++ unit tests"
+    message "IIIII RUNNING unit tests"
 
     # Run Unit Test
     do_pushd jenkins_scripts
@@ -273,7 +282,7 @@ function run_cpp_unit_tests
 
     if [[ $? -ne 0 ]]
     then
-        message "EEEEE C++ unit test problem(s) detected"
+        message "EEEEE Unit test problem(s) detected"
         run_coroner 1
     fi
 
@@ -296,9 +305,19 @@ function check_xunit_errors
     [[ $? -eq 0 ]] && system_test_error ${scenario}
 }
 
+function deployment_error
+{
+    message "Problem(s) detected in packaging fds-platform/deb or deployment"
+    run_coroner 1
+}
 function system_test_error
 {
-    message "EEEEE System Test problem(s) detected running ${1}"
+    scenario=${1}
+    message "EEEEE System Test problem(s) detected running ${scenario}"
+
+    check_xunit_errors ${scenario}
+    check_xunit_failures ${scenario}
+
     run_coroner 1
 }
 
@@ -315,15 +334,6 @@ function system_test_scenario_wrapper
     do_popd
 
     capture_process_list SysTest.${scenario}
-
-    # Fix for fs-3698
-    if [[ "${scenario}" == 'ActiveIORestart' ]]
-    then
-          rm -rf ../../cit/*.xml
-    fi
-    check_xunit_errors ${scenario}
-    check_xunit_failures ${scenario}
-
     check_for_cores
 }
 
@@ -369,6 +379,11 @@ function run_node_cleanup
 
 function run_coroner
 {
+    # TODO pooja: write/modify this method run coroner against deployed env
+    excludes_dest="/fds/sbin"
+
+    [[ ! -e ${excludes_dest} ]] && mkdir -p ${excludes_dest}
+
     start_time=$(date +%s)
 
     if [[ ${#JENKINS_URL} -gt 0 ]]
@@ -386,6 +401,7 @@ function run_coroner
 
     do_pushd ${TEST_WORKSPACE}
 
+    cp ansible/files/coroner.excludes ${excludes_dest}/.
     source/tools/coroner.py collect --refid $REFID --buildermode \
       --collect-dirs build_debug_bin:source/Build/linux-x86_64.debug/bin        \
                      build_release_bin:source/Build/linux-x86_64.release/bin    \
@@ -409,7 +425,7 @@ function run_coroner
     do_popd
 
     rm -rf /tmp/fdscoroner*
-    rm -f /corefiles/*
+    rm -f fds/var/log/corefiles/*
     rm -f /fds/var/cores/*
 
     end_time=$(date +%s)
@@ -421,11 +437,23 @@ function run_coroner
 
 function run_aws_test_scenarios
 {
+    message "Packaging fds-platform"
+    make package fds-platform BUILD_TYPE=debug || deployment_error
+
+    message "Packaging fds-deps"
+    make package fds-deps || deployment_error
+
     start_time=$(date +%s)
 
-    for scenario in ${AWS_TEST_SCENARIO_LIST}
-    do
-        aws_test_scenario_wrapper ${scenario}
+    INVENTORY=$1; shift
+    AWS_LST_TEST_SCENARIO_LIST=( "$@" )
+
+    # --reusecluster arg indicates same aws nodes are used for each test.so deploy fds before running tests.
+    message "Deploying local build on 4 aws nodes"
+    ansible/scripts/deploy_fds_ec2.sh $INVENTORY 4 local || deployment_error
+
+    for scenario in ${AWS_LST_TEST_SCENARIO_LIST[@]}; do
+        aws_test_scenario_wrapper $INVENTORY $scenario
     done
 
     end_time=$(date +%s)
@@ -435,20 +463,16 @@ function run_aws_test_scenarios
 
 function aws_test_scenario_wrapper
 {
-    scenario=${1}
+    INVENTORY=$1
+    scenario=$2
 
     do_pushd source/test/testsuites
-    # For now hard code variable values e.g. log, inventory name TODO pooja
-    message " *** RUNNING System Test Scenario: ${scenario} on AWS nodes"
-    ./ScenarioDriverSuite.py -q ./${scenario}.ini -d dummy --verbose -l ../../cit/ --install -z aws_long_system_test --reusecluster || system_test_error ${scenario}
+    # TODO pooja: fix  fs-4375
+    message " *** In AWS environment: RUNNING System Test: ${scenario}"
+    ./ScenarioDriverSuite.py -q ./${scenario}.ini -d dummy --verbose -l ../../cit/ --install -z $INVENTORY --reusecluster || system_test_error $scenario
     echo " *** Scenario completed :  ${scenario} passed"
-/
     do_popd
 
     capture_process_list SysTest.${scenario}
-
-    check_xunit_errors ${scenario}
-    check_xunit_failures ${scenario}
     check_for_cores
 }
-

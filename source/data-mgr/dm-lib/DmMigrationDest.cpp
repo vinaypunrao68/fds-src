@@ -20,7 +20,8 @@ DmMigrationDest::DmMigrationDest(int64_t _migrId,
                       _migrId,
                       false,
                       cleanUp,
-                      _timeout)
+                      _timeout),
+                      idleTimeoutTaskPtr(nullptr)
 {
     logStr = util::strformat("[DmMigrationDest volId: %ld]", volumeUuid.get());
     version = VolumeGroupConstants::VERSION_INVALID;
@@ -39,7 +40,17 @@ DmMigrationDest::start()
     }
 
     // true - volumeGroupMode
-    processInitialBlobFilterSet();
+    err = processInitialBlobFilterSet();
+
+    auto timer = dataMgr.getModuleProvider()->getTimer();
+    auto task = [this] () {
+        /* Immediately post to threadpool so we don't hold up timer thread */
+        MODULEPROVIDER()->proc_thrpool()->schedule(
+                &DmMigrationDest::migrationIdleTimeoutCheck, this);
+    };
+    idleTimeoutTaskPtr = SHPTR<FdsTimerTask>(new FdsTimerFunctionTask(task));
+    timer->scheduleRepeated(idleTimeoutTaskPtr,
+            std::chrono::seconds(dataMgr.dmMigrationMgr->getidleTimeoutSecs()));
 
     return err;
 }
@@ -49,20 +60,12 @@ DmMigrationDest::testStaticMigrationComplete()
 {
     {
         fds_scoped_lock lock(progressLock);
-        fds_verify(migrationProgress == STATICMIGRATION_IN_PROGRESS &&
-                   deltaBlobDescsSeqNum.isSeqNumComplete());
-
-        migrationProgress = MIGRATION_COMPLETE;
+        fds_verify(migrationProgress == STATICMIGRATION_IN_PROGRESS);
+        if (deltaBlobDescsSeqNum.isSeqNumComplete()) {
+            migrationProgress = MIGRATION_COMPLETE;
+            cancelIdleTimer();
+        }
     }
-
-#if 0
-    if (migrDoneCb) {
-        dataMgr.getModuleProvider()->proc_thrpool()->schedule(migrDoneCb,
-                                                              srcDmSvcUuid,
-                                                              volDesc.volUUID,
-                                                              ERR_OK);
-    }
-#endif
 }
 
 void DmMigrationDest::routeAbortMigration()
@@ -77,6 +80,7 @@ DmMigrationDest::abortMigration()
     {
         fds_scoped_lock lock(progressLock);
         migrationProgress = MIGRATION_ABORTED;
+        cancelIdleTimer();
     }
     // TODO(Rao): Handle this properly
     if (migrDoneCb) {
@@ -92,7 +96,7 @@ DmMigrationDest::checkVolmetaVersion(const int32_t version)
     Error err(ERR_OK);
     auto volMeta = dataMgr.getVolumeMeta(volumeUuid);
     if (volMeta == nullptr) {
-        err = ERR_INVALID_VOLUME_VERSION;
+        err = ERR_INVALID_VERSION;
     } else if (version == VolumeGroupConstants::VERSION_INVALID) {
         LOGDEBUG << "Received version: " << version;
         fds_assert(!"Source shouldn't send invalid version");
@@ -100,9 +104,25 @@ DmMigrationDest::checkVolmetaVersion(const int32_t version)
     } else if (volMeta->getVersion() != version) {
         LOGDEBUG << logString() << " invalid version mismatch: " << version <<
                 " expecting: " << volMeta->getVersion();
-        err = ERR_INVALID_VOLUME_VERSION;
+        err = ERR_INVALID_VERSION;
     }
     return err;
+}
+
+void
+DmMigrationDest::migrationIdleTimeoutCheck()
+{
+    if (isMigrationIdle(util::getTimeStampSeconds())) {
+        abortMigration();
+    }
+}
+
+void
+DmMigrationDest::cancelIdleTimer() {
+    if (idleTimeoutTaskPtr != nullptr) {
+        dataMgr.getModuleProvider()->getTimer()->cancel(idleTimeoutTaskPtr);
+        idleTimeoutTaskPtr.reset();
+    }
 }
 
 } // namespace fds

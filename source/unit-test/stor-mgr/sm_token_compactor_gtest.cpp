@@ -192,21 +192,24 @@ class TestPersistStorHandler: public SmPersistStoreHandler {
     virtual ~TestPersistStorHandler() {}
 
     // not used by TokenCompactor
-    virtual void getSmTokenStats(fds_token_id smTokId,
+    virtual void getSmTokenStats(DiskId diskId,
+                                 fds_token_id smTokId,
                                  diskio::DataTier tier,
                                  diskio::TokenStat* retStat) {
         fds_panic("should not be used by TokenCompactor");
     }
 
     //  Notify about start garbage collection for given token id 'tok_id'
-    virtual void notifyStartGc(fds_token_id smTokId,
+    virtual void notifyStartGc(DiskId diskId,
+                               fds_token_id smTokId,
                                diskio::DataTier tier) {
         GLOGNORMAL << "Will start GC for SM token " << smTokId
                    << " tier " << tier;
     }
 
     //  Notify about end of garbage collection for a given token id
-    virtual Error notifyEndGc(fds_token_id smTokId,
+    virtual Error notifyEndGc(DiskId diskId,
+                              fds_token_id smTokId,
                               diskio::DataTier tier) {
         GLOGNORMAL << "Will finish GC for SM token " << smTokId
                    << " tier " << tier;
@@ -214,7 +217,8 @@ class TestPersistStorHandler: public SmPersistStoreHandler {
     }
 
      // Returns true if a given location is a shadow file
-    virtual fds_bool_t isShadowLocation(obj_phy_loc_t* loc,
+    virtual fds_bool_t isShadowLocation(DiskId diskId,
+                                        obj_phy_loc_t* loc,
                                         fds_token_id smTokId) {
         return (loc->obj_file_id == shadowFileId);
     }
@@ -317,12 +321,11 @@ TEST_F(SmTokenCompactorTest, normal_operation) {
         err = tokenCompactor->startCompaction(tokId, diskId, tier, false, std::bind(
             &SmTokenCompactorTest::compactionDoneCb, this,
             std::placeholders::_1, std::placeholders::_2));
-        EXPECT_TRUE(err.ok());
 
         // wait on condition variable to get notified
         // when compaction is done
         std::unique_lock<std::mutex> lk(cond_mutex);
-        if (done_cond.wait_for(lk, std::chrono::milliseconds(10000),
+        if (done_cond.wait_for(lk, std::chrono::milliseconds(40000),
                                [this](){return atomic_load(&compaction_done);})) {
            GLOGNOTIFY << "Finished waiting on compaction done condition!";
         } else {

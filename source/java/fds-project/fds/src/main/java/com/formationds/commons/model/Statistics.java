@@ -7,6 +7,7 @@ package com.formationds.commons.model;
 import com.formationds.commons.model.abs.Calculated;
 import com.formationds.commons.model.abs.Metadata;
 import com.formationds.commons.model.abs.ModelBase;
+import com.formationds.om.repository.query.QueryCriteria;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +22,7 @@ public class Statistics
   private List<Series> series;
   private List<Calculated> calculated;    // de-dup ratio/% consumer/etc.
   private List<Metadata> metadata;        // query details
+  private QueryCriteria query;
 
   /**
    * default constructor
@@ -55,6 +57,22 @@ public class Statistics
     }
 
     this.series.add( series );
+  }
+  
+  /**
+   * 
+   * @param query add the query into the stats return {@link QueryCriteria}
+   */
+  public void setQuery( QueryCriteria query ){
+	  this.query = query;
+  }
+  
+  /**
+   * 
+   * @return retrieve the query that was used to generate these statistics {@link QueryCriteria}
+   */
+  public QueryCriteria getQuery(){
+	  return this.query;
   }
 
   /**

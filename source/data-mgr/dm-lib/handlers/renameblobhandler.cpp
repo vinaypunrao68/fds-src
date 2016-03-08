@@ -76,7 +76,7 @@ void RenameBlobHandler::handleQueueItem(DmRequest* dmRequest) {
     typedRequest->commitReq->orig_request = false;
     QueueHelper helper(dataManager, typedRequest->commitReq);
 
-    ENSURE_IO_ORDER(typedRequest, helper);
+    ENSURE_OPID_ORDER(typedRequest, helper);
 
     // This isn't the _real_ request, do not confuse QoS
     helper.ioIsMarkedAsDone = true;
