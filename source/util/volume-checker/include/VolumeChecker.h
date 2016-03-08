@@ -106,9 +106,7 @@ private:
             status(NS_NOT_STARTED),
             batchSize(_batchSize),
             time_out(1000*10*60)    // 10 minutes
-            {
-//                hashResult[0] = '\0';
-            }
+            {}
 
         ~DmCheckerMetaData() = default;
 
@@ -135,7 +133,6 @@ private:
         int batchSize;
 
         // stored result
-//        unsigned char hashResult[SHA_DIGEST_LENGTH];
         std::string hashResult;
 
         // stored timeout

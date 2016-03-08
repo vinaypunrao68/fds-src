@@ -195,7 +195,6 @@ VolumeChecker::sendVolChkMsgsToDMs() {
 Error
 VolumeChecker::waitForVolChkMsg() {
     Error err(ERR_OK);
-    std::string prev;
 
     fds_assert(initialMsgTracker);
     initialMsgTracker->waitForTrackIOReqs();
@@ -212,16 +211,6 @@ VolumeChecker::waitForVolChkMsg() {
                           << " from  " << oneDMtoCheck.svcUuid << " with hash result: "
                           << oneDMtoCheck.hashResult << " "
                           << hashQuorumCheckMap.left[oneDMtoCheck.hashResult] << " times";
-
-                if (prev.empty()) {
-                    prev = oneDMtoCheck.hashResult;
-                } else {
-                    if (prev != oneDMtoCheck.hashResult) {
-                        oneDMtoCheck.status = DmCheckerMetaData::NS_OUT_OF_SYNC;
-                        LOGERROR << "Hash mismatch";
-                        err = ERR_INVALID;
-                    }
-                }
             }
         }
     }
