@@ -36,6 +36,9 @@ $toggle_service ){
     $scope.capacityLabels = [ $filter( 'translate' )( 'common.l_yesterday' ), $filter( 'translate' )( 'common.l_today' )];
     $scope.performanceLabels = [ $filter( 'translate' )( 'common.l_1_hour' ), $filter( 'translate' )( 'common.l_now' )];
     
+    $scope.capacityMinTime = 0;
+    $scope.capacityMaxTime = 0;
+    
     $scope.goToDebug = function(){
         
         $state.transitionTo( 'homepage.debug' );
@@ -120,9 +123,115 @@ $toggle_service ){
     $scope.perfBreakdownReturned = function( response ){
         var data = response;
         $scope.performanceBreakdownStats = data;
-        $scope.performanceBreakdownItems = [{number: data.calculated[0].average, description: $filter( 'translate' )( 'status.desc_performance' )}];
+        
+        $toggle_service.getToggles().then( function( rToggles ){
+            
+            var avg = 0.0;
+            
+            if ( rToggles[$toggle_service.STATS_QUERY_TOGGLE] === true ){
+                avg = parseFloat( data.calculated[0].value );
+            }
+            else {
+                avg = parseFloat( data.calculated[0].average );
+            }
+            
+            $scope.performanceBreakdownItems = [{number: avg, description: $filter( 'translate' )( 'status.desc_performance' )}];
+        });
         
         perfBreakdownInterval = $timeout( startPerformanceBreakdownSummary, 60000 );
+    };
+    
+    /**
+    * Build the capacity items for the chart
+    **/
+    var buildCapacityItems = function( data ){
+         $toggle_service.getToggles().then( function( rToggles ){
+            
+            var calculatedValues = data.calculated;
+            var secondsToFull = 0;
+            var totalCapacity = 0; 
+            var capacityUsed = 0;
+            var percentUsed = 0;
+            var dedupRatio = 0;
+
+            
+            for ( var i = 0; i < calculatedValues.length; i++ ){
+                
+                var values = calculatedValues[i];    
+                
+                if ( rToggles[$toggle_service.STATS_QUERY_TOGGLE] === true ){
+
+                    if ( values.key == 'ratio' ){
+                        dedupRatio = parseFloat( calculatedValues[i].value );
+                    }
+                    else if ( values.key == 'toFull' ){
+                        secondsToFull = parseFloat( calculatedValues[i].value );
+                    }
+                    else if ( values.key == 'total' ){
+                        capacityUsed = parseFloat( calculatedValues[i].value );
+                    }
+                    else if ( values.key == 'totalCapacity' ){
+                        totalCapacity = parseFloat( calculatedValues[i].value );
+                    }
+                }
+                else {
+
+                    if ( angular.isDefined( values['toFull'] ) ){
+                        secondsToFull = values['toFull'];
+                    }
+                    else if ( angular.isDefined( values['ratio'] ) ){
+                        dedupRatio = values['ratio'];
+                    }
+                    else if ( angular.isDefined( values['total'] )){
+                        capacityUsed = values['total'];
+                    }
+                    else if ( angular.isDefined( values['totalCapacity'] )){
+                        totalCapacity = values['totalCapacity'];
+                    }
+                }
+            }
+    
+//          var parts = $byte_converter.convertBytesToString( data.calculated[1].total );
+            $scope.capacityItems = [];
+
+            if ( data.series.length > 1 ){
+                var parts = $byte_converter.convertBytesToString( data.series[1].datapoints[ data.series[1].datapoints.length - 1 ].y );
+                parts = parts.split( ' ' );
+
+                var num = parseFloat( parts[0] );
+                var percentage = ( capacityUsed / totalCapacity * 100 ).toFixed( 0 );
+
+                if ( isNaN( percentage ) ){
+                    percentage = 0;
+                }
+
+                $scope.capacityItems = [
+                    {number: percentage, description: '(' + $byte_converter.convertBytesToString( capacityUsed ) + ' / ' + 
+                        $byte_converter.convertBytesToString( totalCapacity ) + ')', suffix: '% ' + $filter( 'translate' )( 'status.l_used' ) + '  '},
+                    {number: dedupRatio, description: $filter( 'translate' )( 'status.desc_dedup_ratio' ), separator: ':'}
+                ];
+            }
+
+            if ( angular.isDefined( secondsToFull )){
+
+                var convertedStr = $time_converter.convertToTime( secondsToFull*1000 );
+                var parts = convertedStr.split( ' ' );
+
+                var fullInfo = {
+                    number: parseFloat( parts[0] ), 
+                    description: $filter( 'translate' )( 'status.desc_time_to_full' ), 
+                    suffix: parts[1].toLowerCase() 
+                };
+
+                // longer than 3 years
+                if ( secondsToFull > (3*365*24*60*60) ){
+                    fullInfo.number = '>3';
+                }
+
+                $scope.capacityItems.push( fullInfo );
+                $scope.capacityLimit = totalCapacity;
+            }
+         });
     };
     
     $scope.capacityReturned = function( response ){
@@ -139,65 +248,11 @@ $toggle_service ){
         
         $scope.capacityStats = data;
         
-        var calculatedValues = data.calculated;
-        var secondsToFull = 0;
-        var totalCapacity = 0; 
-        var capacityUsed = 0;
-        var percentUsed = 0;
-        var dedupRatio = 0;
+        buildCapacityItems( data );
         
-        for ( var i = 0; i < calculatedValues.length; i++ ){
-            var values = calculatedValues[i];
-            
-            if ( angular.isDefined( values['toFull'] ) ){
-                secondsToFull = values['toFull'];
-            }
-            else if ( angular.isDefined( values['ratio'] ) ){
-                dedupRatio = values['ratio'];
-            }
-            else if ( angular.isDefined( values['total'] )){
-                capacityUsed = values['total'];
-            }
-            else if ( angular.isDefined( values['totalCapacity'] )){
-                totalCapacity = values['totalCapacity'];
-            }
-        }
-        
-//        var parts = $byte_converter.convertBytesToString( data.calculated[1].total );
-        var parts = $byte_converter.convertBytesToString( data.series[1].datapoints[ data.series[1].datapoints.length - 1 ].y );
-        parts = parts.split( ' ' );
-        
-        var num = parseFloat( parts[0] );
-        var percentage = ( capacityUsed / totalCapacity * 100 ).toFixed( 0 );
-        
-        if ( isNaN( percentage ) ){
-            percentage = 0;
-        }
-        
-        $scope.capacityItems = [
-            {number: percentage, description: '(' + $byte_converter.convertBytesToString( capacityUsed ) + ' / ' + $byte_converter.convertBytesToString( totalCapacity ) + ')', suffix: '% ' + $filter( 'translate' )( 'status.l_used' ) + '  '},
-            {number: dedupRatio, description: $filter( 'translate' )( 'status.desc_dedup_ratio' ), separator: ':'}
-        ];
-        
-        if ( angular.isDefined( secondsToFull )){
-            
-            var convertedStr = $time_converter.convertToTime( secondsToFull*1000 );
-            var parts = convertedStr.split( ' ' );
-            
-            var fullInfo = {
-                number: parseFloat( parts[0] ), 
-                description: $filter( 'translate' )( 'status.desc_time_to_full' ), 
-                suffix: parts[1].toLowerCase() 
-            };
-            
-            // longer than 3 years
-            if ( secondsToFull > (3*365*24*60*60) ){
-                fullInfo.number = '>3';
-            }
-
-            $scope.capacityItems.push( fullInfo );
-            $scope.capacityLimit = totalCapacity;
-        }
+        // set the mins and maxs
+        $scope.capacityMinTime = data.query.range.start;
+        $scope.capacityMaxTime = data.query.range.end;
         
         capacityInterval = $timeout( startCapacitySummary, 60000 );
     };

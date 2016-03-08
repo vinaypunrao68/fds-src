@@ -770,7 +770,7 @@ public class FirebreakHelper extends QueryHelper {
         try {
             return Metrics.FIREBREAK.contains( Metrics.lookup( vdp.getKey() ) );
         } catch( UnsupportedMetricException e ) {
-            logger.debug( "Unsupported metric '" + vdp.getKey() + "' in VolumeDatapoint [" + vdp + "]. Ignoring." );
+//            logger.debug( "Unsupported metric '" + vdp.getKey() + "' in VolumeDatapoint [" + vdp + "]. Ignoring." );
             return false;
         }
     }

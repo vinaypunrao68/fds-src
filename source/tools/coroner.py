@@ -105,7 +105,8 @@ class FDSCoroner(object):
 
             logging.info("Collecting %s" % path)
             # If you change this command, fix the insert below so it is always before the "-cvhzf" entry
-            cmd = ["/bin/tar", "-C", path_base, "--exclude-from", path_base + "/sbin/coroner.excludes", "-chzf",
+            # jenkins_system_test.lib/run_coroner method copies coroner.excludes to /fds/sbin/
+            cmd = ["/bin/tar", "-C", path_base, "--exclude-from", self.fdsroot + "/sbin/coroner.excludes", "-chzf",
                    mydir + '/' + basename + '.tar.gz', basename]
             subprocess.call(cmd)
 

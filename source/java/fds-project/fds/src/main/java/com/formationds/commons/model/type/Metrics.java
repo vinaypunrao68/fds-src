@@ -46,7 +46,9 @@ public enum Metrics {
     /**
      * Gets from just HDD
      */
-    HDD_GETS( "HDD Gets" );
+    HDD_GETS( "HDD Gets" ),
+    DOMAIN_DEDUP_BYTES_FRACTION( "Domain Dedup Bytes Fraction" ),
+    DEDUP_BYTES( "Dedup Bytes" );
 
     public static EnumSet<Metrics> FIREBREAK = EnumSet.of(Metrics.STC_SIGMA,
                                                           Metrics.LTC_SIGMA,

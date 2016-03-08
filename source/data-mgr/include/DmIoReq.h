@@ -255,7 +255,8 @@ class DmIoCommitBlobTx : public DmRequest {
         return out << "DmIoCommitBlobTx vol " << std::hex << io.volId << std::dec
                    << " blob " << io.blob_name
                    << ", dmt_version " << io.dmt_version << " TxId: " << *(io.ioBlobTxDesc)
-                   << " opid: " << io.opId;
+                   << " opid: " << io.opId
+                   << " sequenceid: " << io.sequence_id;
     }
 
     virtual std::string log_string() const override {
@@ -488,7 +489,8 @@ class DmIoUpdateCatOnce : public DmRequest {
     friend std::ostream& operator<<(std::ostream& out, const DmIoUpdateCatOnce& io) {
         return out << "DmIoUpdateCatOnce vol " << std::hex << io.volId << std::dec
                    << " blob " << io.blob_name <<  " TxId: " << *(io.ioBlobTxDesc)
-                   << " opid: " << io.opId;
+                   << " opid: " << io.opId
+                   << " sequenceid: " << io.updcatMsg->sequence_id;
     }
     virtual std::string log_string() const override {
         std::stringstream ret;
@@ -620,7 +622,8 @@ class DmIoRenameBlob : public DmRequest {
             << std::hex << volId << std::dec
             << " old name: " << blob_name
             << " new name: " << message->destination_blob
-            << " opid: " << opId;
+            << " opid: " << opId
+            << " sequenceid: " << message->sequence_id;
         return ret.str();
     }
     DmIoCommitBlobOnce<DmIoRenameBlob> *commitReq;

@@ -151,6 +151,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     }
 
     void setPersistVolDB(DmPersistVolDB::ptr dbPtr);
+    Error initState();
 
     void dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol);
 
