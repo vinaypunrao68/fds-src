@@ -114,6 +114,31 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         }
     }
 
+    void checkVolumeNameForCreation(const std::string& volumeName, const std::string& path) {
+        checkDomainStatus();
+        OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+        VolumeContainer::pointer volContainer = local->om_vol_mgr();
+        VolumeInfo::pointer vol = volContainer->get_volume(volumeName);
+        Error err = volContainer->getVolumeStatus(volumeName);
+
+        if (vol != nullptr) {
+            LOGDEBUG << "path:" << path
+                     << " fsmstate:" << vol->vol_current_state()
+                     << " vol:" << *(vol->vol_get_properties());
+        }
+
+        if (vol != nullptr && 0 == strcmp("DetachPend" , vol->vol_current_state())) {
+            apiException(
+                util::strformat("path:%s Existing volume (%s) is being detached from AMs.. please try again", path.c_str(), volumeName.c_str()),
+                fpi::RESOURCE_ALREADY_EXISTS);
+        }
+
+        if (err == ERR_OK) {
+            apiException(util::strformat("path:%s Volume (%s) already exists", path.c_str(), volumeName.c_str()),
+                         fpi::RESOURCE_ALREADY_EXISTS);
+        }
+    }
+
     /**
      * Use this to detmerine whether we are the Master Domain as some commands
      * may only be executed in the Master Domain.
@@ -671,6 +696,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             std::vector<fpi::SvcInfo> svcInfos = start_svc_msg->services;
 
             bool startNode = start_svc_msg->isActionNodeStart;
+            bool force = start_svc_msg->force;
             for (fpi::SvcInfo svcInfo : svcInfos) {
                 if ( svcInfo.svc_type == fpi::FDSP_PLATFORM ) {
                     pmUuid = svcInfo.svc_id.svc_uuid;
@@ -678,7 +704,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             }
 
             bool domainRestart = false;
-            err = local->om_start_service(pmUuid, svcInfos, domainRestart, startNode);
+            err = local->om_start_service(pmUuid, svcInfos, domainRestart, startNode, force);
         }
         catch(...){
             LOGERROR <<"Orch Mgr encountered exception while "
@@ -972,9 +998,9 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                   << " tenant: " << *tenantId;
 
         checkDomainStatus();
+        checkVolumeNameForCreation(*volumeName,"volcreate");
 
-        switch ( volumeSettings->volumeType )
-        {
+        switch ( volumeSettings->volumeType ) {
             case apis::BLOCK:
                 break;
             case apis::ISCSI:
@@ -994,13 +1020,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
-        VolumeInfo::pointer vol = volContainer->get_volume(*volumeName);
-        Error err = volContainer->getVolumeStatus(*volumeName);
-        if (err == ERR_OK)
-        {
-            apiException( "Volume ( " + *volumeName + " ) already exists", fpi::RESOURCE_ALREADY_EXISTS);
-        }
-
+        Error err;
+        VolumeInfo::pointer vol;
         fpi::FDSP_MsgHdrTypePtr header;
         FDSP_CreateVolTypePtr request;
 
@@ -1008,9 +1029,8 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                                          *domainName, *volumeName, *volumeSettings);
         request->vol_info.tennantId = *tenantId;
         err = volContainer->om_create_vol(header, request);
-        if ( err != ERR_OK )
-        {
-            apiException( "Error creating volume ( " + *volumeName + " ) - " + err.GetErrstr() );
+        if ( err != ERR_OK ) {
+            apiException( "path:volcreate Error creating volume ( " + *volumeName + " ) - " + err.GetErrstr() );
         }
 
         // wait for the volume to be active upto 5 minutes
@@ -1020,13 +1040,13 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
             usleep(500000);  // 0.5s
             vol = volContainer->get_volume(*volumeName);
             count--;
-        } while (count > 0 && vol && !vol->isStateActive());
+        } while (count > 0 && vol && !(vol->isStateActive() || vol->isStateMarkedForDeletion()) );
 
-        if (!vol || !vol->isStateActive())
-        {
-            std::string emsg = "Error creating volume ( " + *volumeName + " ) - Timeout waiting for volume to become ACTIVE";
-            LOGERROR << emsg;
-            apiException( emsg );
+        if (!vol || !vol->isStateActive()) {
+            if (vol && vol->isStateMarkedForDeletion()) {
+                apiException( "path:volcreate Volume creation failed for ( " + *volumeName + " )");
+            }
+            apiException( "path:volcreate Error creating volume ( " + *volumeName + " ) - Timeout waiting for volume to become ACTIVE" );
         }
     }
 
@@ -1122,14 +1142,21 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         Error err = volContainer->getVolumeStatus(*volumeName);
+        VolumeInfo::pointer vol = volContainer->get_volume(*volumeName);
 
-        if (err != ERR_OK) apiException("volume ( " + *volumeName + " ) does NOT exist", fpi::MISSING_RESOURCE);
+        if (err != ERR_OK) {
+            apiException("path:voldelete volume ( " + *volumeName + " ) does NOT exist", fpi::MISSING_RESOURCE);
+        } else {
+            if (vol && 0 == strcmp("DetachPend" , vol->vol_current_state())) {
+                apiException( "path:voldelete Volume ( " + *volumeName + " ) is already being deleted");
+            }
+        }
 
         fpi::FDSP_MsgHdrTypePtr header;
         apis::FDSP_DeleteVolTypePtr request;
         convert::getFDSPDeleteVolRequest(header, request, *domainName, *volumeName);
         err = volContainer->om_delete_vol(header, request);
-        LOGNOTIFY << "delete volume processed for :" << *volumeName << " " << err;
+        LOGNOTIFY << "path:voldelete delete volume processed for :" << *volumeName << " " << err;
     }
 
     void statVolume(VolumeDescriptor& volDescriptor,
@@ -1158,7 +1185,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                      << " ] state [ " << vol->vol_get_properties()->getStateName() << " ] ";
 
             if (!vol->vol_get_properties()->isSnapshot()) {
-                if (vol->getState() == fpi::Active) {
+                if (vol->getState() == fpi::Active && (0 != strcmp("DetachPend" , vol->vol_current_state()))) {
                     VolumeDescriptor volDescriptor;
                     convert::getVolumeDescriptor(volDescriptor, vol);
                     vec.push_back(volDescriptor);
@@ -1308,15 +1335,15 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     }
 
     /**
-    * Create a QoS Policy.
-    *
-    * @param _return - Output create QoS Policy details.
-    * @param policyName - Name of the new QoS Policy. Must be unique within Global Domain.
-    * @param domainSite - Name of the new Local Domain's site.
-    */
+     * Create a QoS Policy.
+     *
+     * @param _return - Output create QoS Policy details.
+     * @param policyName - Name of the new QoS Policy. Must be unique within Global Domain.
+     * @param domainSite - Name of the new Local Domain's site.
+     */
     void createQoSPolicy(fpi::FDSP_PolicyInfoType& _return, boost::shared_ptr<std::string>& policyName,
-                           boost::shared_ptr<int64_t>& minIops, boost::shared_ptr<int64_t>& maxIops,
-                           boost::shared_ptr<int32_t>& relPrio ) {
+                         boost::shared_ptr<int64_t>& minIops, boost::shared_ptr<int64_t>& maxIops,
+                         boost::shared_ptr<int32_t>& relPrio ) {
         LOGNOTIFY << "Received CreatePolicy  Msg for policy "
                   << policyName;
 
@@ -1437,32 +1464,39 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
                         boost::shared_ptr<std::string>& clonedVolumeName,
                         boost::shared_ptr<int64_t>& timelineTime) {
         checkDomainStatus();
+        checkVolumeNameForCreation(*clonedVolumeName,"volcreate.clone");
+
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         VolPolicyMgr      *volPolicyMgr = om->om_policy_mgr();
         VolumeInfo::pointer  parentVol, vol;
         if (!om->enableTimeline) {
-            apiException("attempting to clone volume but feature disabled");
-        }
-
-        vol = volContainer->get_volume(*clonedVolumeName);
-        if (vol != NULL) {
-            LOGWARN << "volume with same name already exists : " << *clonedVolumeName;
-            apiException("volume with same name already exists");
+            apiException("path:volcreate.clone attempting to clone volume but feature disabled");
         }
 
         parentVol = VolumeInfo::vol_cast_ptr(volContainer->rs_get_resource(*volumeId));
         if (parentVol == NULL) {
-            LOGWARN << "unable to locate source volume info : " << *volumeId;
-            apiException("unable to locate source volume info");
+            LOGWARN << "path:volcreate.clone unable to locate source volume info : " << *volumeId;
+            apiException("path:volcreate.clone unable to locate source volume info");
+        }
+
+        // check the state of the parent volume
+        if (parentVol->isDeletePending() ||
+            parentVol->isStateDeleted() ||
+            parentVol->isStateMarkedForDeletion() ||
+            (0 == strcmp("DetachPend" , parentVol->vol_current_state()))) {
+            LOGWARN << "path:volcreate.clone srcvol:" << *volumeId
+                    << " not in a state to be cloned - "
+                    << *(parentVol->vol_get_properties());
+            apiException("path:volcreate.clone - source vol:" + std::to_string(*volumeId) + " not in a state to be cloned");
         }
 
         VolumeDesc desc(*(parentVol->vol_get_properties()));
 
         desc.volUUID = configDB->getNewVolumeId();
         if (invalid_vol_id == desc.volUUID) {
-            LOGWARN << "unable to generate a new vol id";
-            apiException("unable to generate a new vol id");
+            LOGWARN << "path:volcreate.clone unable to generate a new vol id";
+            apiException("path:volcreate.clone unable to generate a new vol id");
         }
         desc.name = *clonedVolumeName;
         if (*volPolicyId > 0) {
@@ -1483,21 +1517,28 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
         desc.qosQueueId = invalid_vol_id;
         volPolicyMgr->fillVolumeDescPolicy(&desc);
-        LOGDEBUG << "adding a clone request..";
+        LOGDEBUG << "path:volcreate.clone srcvol:" << *volumeId << " adding a clone request..";
         desc.setState(fpi::ResourceState::Loading);
         volContainer->addVolume(desc);
 
-        // wait for the volume to be active upto 30 seconds
-        int count = 60;
+        // wait for the volume to be active upto 5 minutes
+        int count = 600;
         do {
             usleep(500000);  // 0.5s
             vol = volContainer->get_volume(*clonedVolumeName);
             count--;
-        } while (count > 0 && vol && !vol->isStateActive());
+        } while (count > 0 && vol && !(vol->isStateActive() || vol->isStateMarkedForDeletion()));
 
         if (!vol || !vol->isStateActive()) {
-            LOGERROR << "some issue in volume cloning";
-            apiException("error creating volume");
+            if (vol) {
+                LOGNORMAL << "path:volcreate.clone srcvol:" << *volumeId
+                          << " vol:" << desc.volUUID
+                          << " cloning not complete : " << *(vol->vol_get_properties());
+            }
+            LOGERROR << "path:volcreate.clone  srcvol:" << *volumeId
+                     << " vol:" << desc.volUUID
+                     << " some issue in volume cloning";
+            apiException("path:volcreate.clone srcvol:error cloning volume");
         } else {
             // volume created successfully ,
             // now create a base snapshot. [FS-471]
@@ -1523,13 +1564,14 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         if (!om->enableTimeline) {
             apiException("attempting to create snapshot but feature disabled");
         }
+        checkVolumeNameForCreation(*snapshotName, "volcreate.snap");
         fpi::Snapshot snapshot;
         snapshot.snapshotName = util::strlower(*snapshotName);
         snapshot.volumeId = *volumeId;
         auto snapshotId = configDB->getNewVolumeId();
         if (invalid_vol_id == snapshotId) {
-            LOGWARN << "unable to generate a new snapshot id";
-            apiException("unable to generate a new snapshot id");
+            LOGWARN << "path:volcreate.snap unable to generate a new snapshot id";
+            apiException("path:volcreate.snap unable to generate a new snapshot id");
         }
         snapshot.snapshotId = snapshotId.get();
         snapshot.snapshotPolicyId = 0;
@@ -1538,15 +1580,17 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         snapshot.timelineTime = *timelineTime;
 
         snapshot.state = fpi::ResourceState::Loading;
-        LOGDEBUG << "snapshot request for volume id:" << snapshot.volumeId
+        LOGDEBUG << "path:volcreate.snap "
+                 << " snapshot request for vol:" << snapshot.volumeId
                  << " name:" << snapshot.snapshotName;
 
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         fds::Error err = volContainer->addSnapshot(snapshot);
         if ( !err.ok() ) {
-            LOGWARN << "snapshot add failed : " << err;
-            apiException(err.GetErrstr());
+            LOGWARN << "path:volcreate.snap snapshot add failed : " << err;
+            apiException(util::strformat("path:volcreate.snap vol:%ld snap:%ld - %s",
+                                         snapshot.volumeId, snapshot.snapshotId, err.GetErrstr().c_str()));
         }
         om->snapshotMgr->deleteScheduler->addSnapshot(snapshot);
     }
@@ -1557,13 +1601,13 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         VolumeContainer::pointer volContainer = local->om_vol_mgr();
         fpi::Snapshot snapshot;
         if (!om->enableTimeline) {
-            apiException("attempting to delete snapshot but feature disabled");
+            apiException("path:snapdelete attempting to delete snapshot but feature disabled");
         }
 
         snapshot.volumeId = *volumeId;
         snapshot.snapshotId = *snapshotId;
         if (!configDB->getSnapshot(snapshot)) {
-            apiException(util::strformat("snapshot not found for [vol:%ld] - [snap:%ld]",*volumeId, *snapshotId));
+            apiException(util::strformat("path:snapdelete snapshot not found for vol:%ld snap:%ld",*volumeId, *snapshotId));
         }
         snapshot.state = fpi::ResourceState::MarkedForDeletion;
         // mark the snapshot for deletion

@@ -59,6 +59,20 @@ void ReloadVolumeHandler::handleQueueItem(DmRequest* dmRequest) {
         helper.err = dataManager.timeVolCat_->queryIface()->reloadCatalog(*voldesc);
     }
 
+    if (helper.err.ok()) {
+        LOGNORMAL << "initing seqid and stuff";
+        auto volMeta = dataManager.getVolumeMeta(volId);
+        if (volMeta != nullptr) {
+            Error err = volMeta->initState();
+            if (!err.ok()) {
+                LOGERROR << "vol:" << volId << " init vol state failed";
+            }
+        } else {
+            LOGERROR << "vol:" << volId << " unable to locate volMeta";
+        }
+    }
+
+
     if (!helper.err.ok()) {
         PerfTracer::incr(typedRequest->opReqFailedPerfEventType,
                          typedRequest->getVolId());

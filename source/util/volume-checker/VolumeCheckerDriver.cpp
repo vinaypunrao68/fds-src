@@ -140,7 +140,7 @@ int main(int argc, char **argv) {
 
     // Set up internal args to pass to checker
     std::vector<std::string> roots;
-    fds::util::populateRootDirectories(roots, 1);
+    fds::util::populateTempRootDirectories(roots, 1);
 
     populateInternalArgs(argc, argv, &internal_argc, &internal_argv, roots[0]);
 
