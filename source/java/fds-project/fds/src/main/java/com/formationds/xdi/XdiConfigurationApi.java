@@ -67,13 +67,15 @@ public class XdiConfigurationApi implements ConfigurationApi {
 
     /**
      * Handshake with the server to negotiate API version.
-     * @param stubVersion - Version: The API version suggested by the server.client stub
+     * @param suggestedVersion - Version: The API version suggested by the client.
+     *  Using Thrift, the client is the code using a Thrift generated service.client
+     *  instance.
      * @return Version: The API version acceptable to the server
      */
     @Override
-    public Version suggestVersion(Version stubVersion) throws ApiException, TException {
+    public Version suggestVersion(Version suggestedVersion) throws ApiException, TException {
 
-       return config.suggestVersion(stubVersion);
+       return config.suggestVersion(suggestedVersion);
     }
 
     /**

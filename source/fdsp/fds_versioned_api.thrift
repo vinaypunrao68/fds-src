@@ -66,9 +66,11 @@ service VersionedService {
    *        This enables the client and server to negotiate an API version
    *        in which to communicate.
    *
-   * @param suggestedVersion: The service version suggested by the client stub
+   * @param suggestedVersion: The service API version suggested by the client.
+   *    Using Thrift, the client is the code using a Thrift generated service.client
+   *    instance.
    *
-   * @returns Version: The service version acceptable to the endpoint server
+   * @returns Version: The API version acceptable to the server
    */
   Version suggestVersion(1: required Version suggestedVersion) throws (1: common.ApiException e);
 }

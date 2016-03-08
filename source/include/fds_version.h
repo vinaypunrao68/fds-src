@@ -154,11 +154,13 @@ public:
     std::string getMajorAlias() const { return majorAlias_; }
 
     /**
-     * @brief Negotiates version given server.client suggestion
+     * @brief Negotiates API version given client suggested version.
      * @detail
-     * This helper function can be used by every handler of a versioned API.
-     * @return
-     * The API version to use from the server.client stub perspective.
+     * Using Thrift, the client is the code that uses a Thrift generated
+     * service.client instance.
+     * @param versionHere The API version for the service handler
+     * @param versionSuggested The API version suggested by the client
+     * @return Version An API version acceptable to the server
      */
     static Version handshake(const Version& versionHere, const Version& versionSuggested);
 };

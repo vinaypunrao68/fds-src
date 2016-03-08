@@ -1,4 +1,3 @@
-
 /*
  * Copyright (c) 2015 Formation Data Systems. All rights Reserved.
  */
@@ -97,13 +96,15 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     /**
      * Handshake with the server to negotiate API version.
-     * @param stubVersion - Version: The API version suggested by the server.client stub
+     * @param suggestedVersion - Version: The API version suggested by the client.
+     *  Using Thrift, the client is the code using a Thrift generated service.client
+     *  instance.
      * @return Version: The API version acceptable to the server
      */
     @Override
-    public Version suggestVersion(Version stubVersion) throws ApiException, TException {
+    public Version suggestVersion(Version suggestedVersion) throws ApiException, TException {
 
-        return getConfig().suggestVersion(stubVersion);
+        return getConfig().suggestVersion(suggestedVersion);
     }
 
     /**

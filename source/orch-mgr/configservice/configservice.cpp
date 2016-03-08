@@ -225,8 +225,13 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
     virtual int64_t getDiskCapacityNode(const  ::FDS_ProtocolInterface::SvcUuid& nodeUuid) { return 0; };
     // stubs to keep cpp compiler happy - END
 
+    /**
+     * Get API version used by service handler.
+     * Always equal to the latest version of the service API.
+     */
     void getVersion(Version& _return) {
 
+        // We are in our first revision!
         _return.major_version = 0;
         _return.minor_version = 1;
         _return.patch_version = 0;
