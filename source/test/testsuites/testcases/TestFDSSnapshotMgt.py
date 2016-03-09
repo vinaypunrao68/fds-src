@@ -195,8 +195,6 @@ class TestCreateVolClone(TestCase.FDSTestCase):
         cmd = 'fds volume clone -name {0} -volume_id {1} -time {2}'.format(self.passedClone_name, passed_volume.id, timeline)
         status = local(cmd, capture=True)
         time.sleep(3)  # let clone volume creation propogate
-        status = local(cmd, capture=False)
-        time.sleep(3) #let clone volume creation propogate
         cloned_volume = vol_service.find_volume_by_name(self.passedClone_name)
 
         if type(cloned_volume).__name__ == 'FdsError':
@@ -204,6 +202,8 @@ class TestCreateVolClone(TestCase.FDSTestCase):
         elif type(cloned_volume).__name__ == 'Volume':
             self.log.info("Created clone {0} of volume {1} with time line {2}".format(self.passedClone_name, self.passedVolume_name, timeline))
             return True
+
+        self.log.error("Creating %s clone from timeline failed" %self.passedVolume_name)
 
         return False
 
