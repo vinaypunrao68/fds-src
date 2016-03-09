@@ -22,6 +22,7 @@
 #include <boost/log/sinks/sync_frontend.hpp>
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
+#include <boost/log/attributes/named_scope.hpp>
 #include <boost/log/sinks/text_ostream_backend.hpp>
 #include <boost/log/sources/logger.hpp>
 #include <boost/log/sources/severity_logger.hpp>
@@ -71,6 +72,11 @@
 #define GLOGCRITICAL GLEVELCHECK(critical)     FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::critical)     _ATLINE_
 
 // #define FUNCTRACING
+
+/*
+ * Adds a thread local attribute to be printed at the log level
+ * */
+#define SCOPEDATTR(key,value) BOOST_LOG_NAMED_SCOPE((key ":" value))
 
 #ifdef FUNCTRACING
 #define TRACEFUNC fds::__TRACER__ __tt__(__PRETTY_FUNCTION__, __FILE__, __LINE__);

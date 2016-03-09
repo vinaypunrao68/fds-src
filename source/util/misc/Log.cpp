@@ -9,6 +9,7 @@
 #include <boost/log/support/date_time.hpp>
 #include <boost/log/attributes/current_process_name.hpp>
 #include <boost/log/attributes/current_process_id.hpp>
+#include <boost/log/expressions/formatters/named_scope.hpp>
 #include <boost/algorithm/string.hpp>
 #include <util/Log.h>
 #include <fds_process.h>
@@ -186,15 +187,14 @@ void fds_log::init(const std::string& logfile,
     boost::log::core::get()->add_global_attribute("RecordID", RecordID);
     boost::log::attributes::local_clock TimeStamp;
     boost::log::core::get()->add_global_attribute("TimeStamp", TimeStamp);
-    boost::log::core::get()->add_global_attribute(
-        "ProcessName",
-        boost::log::attributes::current_process_name());
-    boost::log::core::get()->add_global_attribute(
-        "ProcessID",
-        boost::log::attributes::current_process_id());
-    boost::log::core::get()->add_global_attribute(
-        "ThreadID",
-        boost::log::attributes::current_thread_id());
+    boost::log::core::get()->add_global_attribute("ProcessName",
+                                                  boost::log::attributes::current_process_name());
+    boost::log::core::get()->add_global_attribute("ProcessID",
+                                                  boost::log::attributes::current_process_id());
+    boost::log::core::get()->add_global_attribute("ThreadID",
+                                                  boost::log::attributes::current_thread_id());
+    boost::log::core::get()->add_global_attribute("Context",
+                                                  boost::log::attributes::named_scope());
 
     /*
      * Set the format
@@ -206,6 +206,11 @@ void fds_log::init(const std::string& logfile,
                         << "] ["
                         << boost::log::expressions::attr< boost::log::attributes::current_thread_id::value_type >("ThreadID")
                         << "] - "
+                        << boost::log::expressions::format_named_scope("Context",
+                                                                boost::log::keywords::format = "%n",
+                                                                boost::log::keywords::delimiter = " ",
+                                                                boost::log::keywords::iteration = boost::log::expressions::reverse)
+                        << " "
                         << boost::log::expressions::smessage);
 
     /*
