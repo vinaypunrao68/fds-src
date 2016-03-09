@@ -20,6 +20,7 @@ import com.formationds.om.webkit.WebKitImpl;
 import com.formationds.platform.svclayer.OmSvcHandler;
 import com.formationds.platform.svclayer.SvcMgr;
 import com.formationds.platform.svclayer.SvcServer;
+import com.formationds.platform.svclayer.ThriftServiceDescriptor;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.commonConstants;
 import com.formationds.protocol.svc.types.FDSP_MgrIdType;
@@ -38,6 +39,8 @@ import com.formationds.xdi.FakeAsyncAm;
 import com.formationds.xdi.RealAsyncAm;
 import com.nurkiewicz.asyncretry.AsyncRetryExecutor;
 import org.apache.commons.codec.binary.Hex;
+import org.apache.thrift.TMultiplexedProcessor;
+import org.apache.thrift.TProcessor;
 import org.apache.thrift.transport.TTransportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,6 +48,8 @@ import org.slf4j.LoggerFactory;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.net.ConnectException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -111,18 +116,34 @@ public class Main {
             int proxyPortOffset = platformConfig.defaultInt( "fds.om.java_svc_proxy_port_offset", 1900 );
             int proxyToPort = omPort + proxyPortOffset;  // 8904 by default
             logger.trace( "Starting OM Service Proxy {} -> {}", omPort, proxyToPort );
+
+            // Empty, unless the server is multiplexed
+            Map<String, TProcessor> processors = new HashMap<String, TProcessor>();
+
             /**
              * FEATURE TOGGLE: enable multiplexed services
              * Tue Feb 23 15:04:17 MST 2016
              */
             if ( FdsFeatureToggles.THRIFT_MULTIPLEXED_SERVICES.isActive() ) {
                 // Multiplexed
-                proxyServer = Optional.of( new SvcServer<>( omPort,
-                                                 new OmSvcHandler( "localhost", proxyToPort, commonConstants.OM_SERVICE_NAME ),
-                                                 commonConstants.OM_SERVICE_NAME ) );
+                OmSvcHandler handler = new OmSvcHandler( "localhost", proxyToPort, commonConstants.OM_SERVICE_NAME );
+                ThriftServiceDescriptor serviceDescriptor = ThriftServiceDescriptor.newDescriptor(
+                    handler.getClass().getInterfaces()[0].getEnclosingClass() );
+                TProcessor processor = (TProcessor) serviceDescriptor.getProcessorFactory().apply( handler );
+                // For other new major service API versions (not PlatNetSvc), add
+                // additional pairs of processor and Thrift service name.
+                processors.put( commonConstants.OM_SERVICE_NAME, processor );
+
+                // The type variable of SvcServer will be a class or interface
+                // that extends PlatNetSvc.Iface. This fact may not make sense
+                // for a multiplexed server, but we will not redesign SvcServer
+                // at this time.
+                proxyServer = Optional.of( new SvcServer<>( omPort, handler, processors, true ) );
             } else {
                 // Non-multiplexed
-                proxyServer = Optional.of( new SvcServer<>( omPort, new OmSvcHandler( "localhost", proxyToPort, "" ), "" ) );
+                proxyServer = Optional.of( new SvcServer<>( omPort,
+                                                new OmSvcHandler( "localhost", proxyToPort, "" ),
+                                                processors, false ) );
             }
             proxyServer.get().startAndWait( 5, TimeUnit.MINUTES );
 
