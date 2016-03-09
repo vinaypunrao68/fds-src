@@ -9,6 +9,8 @@ include "common.thrift"
 include "node_svc_api.thrift"
 include "svc_types.thrift"
 
+include "fds_versioned_api.thrift"
+
 namespace cpp fds.apis
 namespace java com.formationds.apis
 
@@ -19,7 +21,7 @@ namespace java com.formationds.apis
 /**
  * Configuration Service
  */
-service ConfigurationService {
+service ConfigurationService extends fds_versioned_api.VersionedService {
   /**
    * Create a new Local Domain.
    *

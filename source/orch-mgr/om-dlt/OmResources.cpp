@@ -1629,8 +1629,8 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         bool unsetTarget = !(OmExtUtilApi::getInstance()->isSMAbortAfterRestartTrue());
         bool committed = dp->commitDlt( unsetTarget );
 
-        LOGNOTIFY << "OM deployed DLT with "
-                  << deployed_sm_services.size() << " nodes, committedDlt? " << committed;
+        LOGNOTIFY << "OM has persisted "
+                  << deployed_sm_services.size() << " SM nodes, committedDlt? " << committed;
 
         // Same reasoning as above
         unsetTarget = !(OmExtUtilApi::getInstance()->isDMAbortAfterRestartTrue());

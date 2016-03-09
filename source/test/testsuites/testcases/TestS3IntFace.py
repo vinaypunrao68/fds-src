@@ -491,6 +491,7 @@ class TestS3LoadFBLOB(TestCase.FDSTestCase):
 # and created a bucket and stored it in self.parameters["s3"].bucket1.
 #
 # You must also have successfully executed test case TestS3LoadFBLOB,
+# This method takes parameter keys (seperated by ,) This class verifies all passed keys are present in given bucket.
 class TestS3VerifyFBLOB(TestCase.FDSTestCase):
     def __init__(self, parameters=None, bucket=None, key=None, comparefile=None):
         super(self.__class__, self).__init__(parameters,
@@ -498,7 +499,7 @@ class TestS3VerifyFBLOB(TestCase.FDSTestCase):
                                              self.test_S3VerifyFBLOB,
                                              "Verify the 'largish' (<= 2MiB) BLOB")
         self.passedBucket = bucket
-        self.passedKey = key
+        self.passedKeys = key
         self.passedCompareFile = comparefile
 
     def test_S3VerifyFBLOB(self):
@@ -534,28 +535,34 @@ class TestS3VerifyFBLOB(TestCase.FDSTestCase):
         # Get a Key/Value object for the bucket.
         k = Key(s3.bucket1)
 
-        # Set the key.
-        lkey = "largish"
-        if self.passedKey is not None:
-            lkey = self.passedKey
+        # Set keys
+        keys = "largish"
 
-        s3.keys.append(lkey)
-        k.key = lkey
+        if self.passedKeys is not None:
+            keys = self.passedKeys
 
-        self.log.info("Comparing %s of size %d bytes with key %s with "
+        keys_list = keys.split(',')
+        test_passed = False
+
+        for each_key in keys_list:
+            s3.keys.append(each_key)
+            k.key = each_key
+
+            self.log.info("Comparing %s of size %d bytes with key [%s] with "
                       "Boto's Key.get_contents_to_filename() interface." %
-                      (compare_path, compare_size, lkey))
+                      (compare_path, compare_size, each_key))
 
-        # Read it back to a file and then compare.
-        dest_path = bin_dir + "/TestS3VerifyFBLOB-loadedfile.dump"
+            # Read it back to a file and then compare.
+            dest_path = bin_dir + "/TestS3VerifyFBLOB-loadedfile.dump"
 
-        k.get_contents_to_filename(dest_path)
+            k.get_contents_to_filename(dest_path)
 
-        test_passed = filecmp.cmp(compare_path, dest_path, shallow=False)
-        if not test_passed:
-            self.log.error("File mis-match")
+            test_passed = filecmp.cmp(compare_path, dest_path, shallow=False)
+            if not test_passed:
+                self.log.error("File mis-match with key {0}".format(each_key))
+                return test_passed
 
-        os.remove(dest_path)
+            os.remove(dest_path)
 
         return test_passed
 
@@ -1413,6 +1420,8 @@ class TestS3DelKey(TestCase.FDSTestCase):
         try:
             k = Key(s3.bucket1, self.passedKey)
             k.delete()
+            available_keys = [str(key.name) for key in s3.bucket1.list()]
+            self.log.info("Now [{}] key_set is present in bucket [{}]".format(available_keys, self.passedBucket))
         except:
             if self.passedVerify:
                 self.log.error('Delete failed for key [{}]'.format(self.passedKey))
@@ -1421,9 +1430,48 @@ class TestS3DelKey(TestCase.FDSTestCase):
         return True
 
 
+class TestS3verifyKeyPresent(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, bucket=None, key=None, expect_failure="false"):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_S3VerifyKeyPresent,
+                                             "Verify a specific key if it is present in S3 bucket")
+
+        self.passedBucket = bucket
+        self.passedKey = key
+        if expect_failure == "true":
+            self.passedExpect_failure = True
+        else:
+            self.passedExpect_failure = False
+
+    def test_S3VerifyKeyPresent(self):
+        """
+        Test Case:
+        Confirm if specified keys are available in given S3 Bucket.
+        """
+        passed_keys_set = set(self.passedKey.split(','))
+        if not Helper.checkS3Info(self, self.passedBucket):
+            return False
+
+        s3 = self.parameters["s3"]
+        self.log.info("Check if key [{0}] is present in bucket [{1}]".format(self.passedKey, self.passedBucket))
+        available_keys_set = set([str(key.name) for key in s3.bucket1.list()])
+
+        if self.passedExpect_failure is True:
+            # Unexpected keys are present in bucket mark test as Failed
+            if passed_keys_set.issubset(available_keys_set) is True:
+                self.log.error("Failed: passed_key set{0} SHOULD NOT be subset of present_key set {1} in bucket {2}".format(passed_keys_set, available_keys_set, self.passedBucket))
+                return False
+        else:
+            # Expected keys are NOT present in bucket mark test as Failed
+            if passed_keys_set.issubset(available_keys_set) is not True:
+                self.log.error("Failed: passed_key set {0} is NOT subset of present_key_set {1} in bucket {2}".format(passed_keys_set, available_keys_set, self.passedBucket))
+
+        return True
+
 
 # This class contains the attributes and methods to test
-# the FDS S3 interface to delete all the keys of a bucket.
+# the FDS S3 interface to delete ALL the keys of a bucket.
 #
 # You must have successfully created an S3 connection
 # and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)

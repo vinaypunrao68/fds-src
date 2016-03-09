@@ -81,6 +81,16 @@ public interface MetricRepository extends CRUDRepository<IVolumeDatapoint, Long>
     Double sumUsedBytes();
 
     /**
+     * @return the total number of de-duped bytes.
+     */
+    Double sumDomainDedupBytesFraction();
+
+    /**
+     * @return calculate pbytes using summed up logical bytes + summed up domain dedup fraction bytes.
+     */
+    Double calculatePBytes( );
+
+    /**
      *
      * @param volumeName the volume to query
      * @param metrics the list of metrics to query.  If null or empty, all metrics are returned.

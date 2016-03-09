@@ -1414,7 +1414,8 @@ OM_PmAgent::send_start_service
     const fpi::SvcUuid svc_uuid,
     std::vector<fpi::SvcInfo> svcInfos,
     bool domainRestart, // set if the domain is being restarted
-    bool startNode      // set if the call is from a req to start all services on node
+    bool startNode,      // set if the call is from a req to start all services on node
+    bool force           // set if current service state should be ignored
     )
 {
     TRACEFUNC;
@@ -1569,7 +1570,7 @@ OM_PmAgent::send_start_service
     std::vector<fpi::SvcInfo>& svcInfoVector = startServiceMsg->services;
 
     svcInfoVector = svcInfos;
-
+    startServiceMsg->force = force;
     auto req =  gSvcRequestPool->newEPSvcRequest(svc_uuid);
     req->setPayload(FDSP_MSG_TYPEID(fpi::NotifyStartServiceMsg), startServiceMsg);
     req->invoke();
@@ -3007,7 +3008,8 @@ OM_NodeContainer::om_start_service
     const fpi::SvcUuid& svc_uuid,
     std::vector<fpi::SvcInfo> svcInfos,
     bool domainRestart,
-    bool startNode
+    bool startNode,
+    bool force
     )
 {
     TRACEFUNC;
@@ -3026,7 +3028,7 @@ OM_NodeContainer::om_start_service
        return Error(ERR_NOT_FOUND);
     }
 
-    return agent->send_start_service(svc_uuid, svcInfos, domainRestart, startNode);
+    return agent->send_start_service(svc_uuid, svcInfos, domainRestart, startNode, force);
 }
 
 /**

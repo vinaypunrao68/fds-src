@@ -4,26 +4,41 @@ LOG_FILE=/tmp/loghelper.${UID}.log
 COLOR_BEGIN="\e[0;"
 BOLD_BEGIN="\e[1;"
 COLOR_END="\e[0m"
-CODE_BLACK=30
-CODE_RED=31
-CODE_GREEN=32
-CODE_YELLOW=33
-CODE_BLUE=34
-CODE_MAGENTA=35
-CODE_CYAN=36
-CODE_WHITE=37
+CODE_BLACK=30m
+CODE_RED=31m
+CODE_GREEN=32m
+CODE_YELLOW=33m
+CODE_BLUE=34m
+CODE_MAGENTA=35m
+CODE_CYAN=36m
+CODE_WHITE=37m
 
-function green()      { echo -e "${COLOR_BEGIN}${CODE_GREEN}m$*${COLOR_END}"  ; }
-function blue()       { echo -e "${COLOR_BEGIN}${CODE_BLUE}m$*${COLOR_END}"   ; }
-function red()        { echo -e "${COLOR_BEGIN}${CODE_RED}m$*${COLOR_END}"    ; }
-function yellow()     { echo -e "${COLOR_BEGIN}${CODE_YELLOW}m$*${COLOR_END}" ; }
-function white()      { echo -e "${COLOR_BEGIN}${CODE_WHITE}m$*${COLOR_END}"  ; }
+# disable colors on a non terminal output
+if [[ ! -t 1 ]]; then
+    COLOR_BEGIN=
+    BOLD_BEGIN=
+    COLOR_END=
+    CODE_BLACK=
+    CODE_RED=
+    CODE_GREEN=
+    CODE_YELLOW=
+    CODE_BLUE=
+    CODE_MAGENTA=
+    CODE_CYAN=
+    CODE_WHITE=
+fi
 
-function boldgreen()  { echo -e "${BOLD_BEGIN}${CODE_GREEN}m$*${COLOR_END}"   ; }
-function boldblue()   { echo -e "${BOLD_BEGIN}${CODE_BLUE}m$*${COLOR_END}"    ; }
-function boldred()    { echo -e "${BOLD_BEGIN}${CODE_RED}m$*${COLOR_END}"     ; }
-function boldyellow() { echo -e "${BOLD_BEGIN}${CODE_YELLOW}m$*${COLOR_END}"  ; }
-function boldwhite()  { echo -e "${BOLD_BEGIN}${CODE_WHITE}m$*${COLOR_END}"   ; }
+function green()      { echo -e "${COLOR_BEGIN}${CODE_GREEN}$*${COLOR_END}"  ; }
+function blue()       { echo -e "${COLOR_BEGIN}${CODE_BLUE}$*${COLOR_END}"   ; }
+function red()        { echo -e "${COLOR_BEGIN}${CODE_RED}$*${COLOR_END}"    ; }
+function yellow()     { echo -e "${COLOR_BEGIN}${CODE_YELLOW}$*${COLOR_END}" ; }
+function white()      { echo -e "${COLOR_BEGIN}${CODE_WHITE}$*${COLOR_END}"  ; }
+
+function boldgreen()  { echo -e "${BOLD_BEGIN}${CODE_GREEN}$*${COLOR_END}"   ; }
+function boldblue()   { echo -e "${BOLD_BEGIN}${CODE_BLUE}$*${COLOR_END}"    ; }
+function boldred()    { echo -e "${BOLD_BEGIN}${CODE_RED}$*${COLOR_END}"     ; }
+function boldyellow() { echo -e "${BOLD_BEGIN}${CODE_YELLOW}$*${COLOR_END}"  ; }
+function boldwhite()  { echo -e "${BOLD_BEGIN}${CODE_WHITE}$*${COLOR_END}"   ; }
 
 function log() {
     echo "$@"

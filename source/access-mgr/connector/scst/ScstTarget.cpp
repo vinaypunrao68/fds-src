@@ -34,9 +34,7 @@ namespace fds {
 
 ScstTarget::ScstTarget(ScstConnector* parent_connector,
                        std::string const& name,
-                       size_t const followers,
                        std::weak_ptr<AmProcessor> processor) :
-    LeaderFollower(followers, false), 
     connector(parent_connector),
     amProcessor(processor),
     target_name(name)
@@ -61,7 +59,7 @@ ScstTarget::ScstTarget(ScstConnector* parent_connector,
     asyncWatcher->start();
 
     // Spawn a leader thread to start this target handling requests
-    auto t = std::thread(&ScstTarget::follow, this);
+    auto t = std::thread(&ScstTarget::lead, this);
     t.detach();
 }
 

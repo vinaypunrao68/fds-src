@@ -194,8 +194,6 @@ StatSlot& StatSlot::operator +=(const StatSlot & rhs) {
                 stat_map[cit->first] = cit->second;
             } else {
                 switch (cit->first) {
-                    case STAT_SM_CUR_DOMAIN_DEDUP_BYTES_FRAC:
-                    case STAT_SM_CUR_DEDUP_BYTES:
                     case STAT_DM_CUR_LBYTES:
                     case STAT_DM_CUR_PBYTES:
                     case STAT_DM_CUR_LOBJECTS:
@@ -208,7 +206,21 @@ StatSlot& StatSlot::operator +=(const StatSlot & rhs) {
                         stat_map[cit->first].updateTotal(cit->second);
                         break;
                     default:
-                        // remaining type of stats are simple addition
+                        /**
+                         * Remaining type of stats are simple addition
+                         *
+                         * Note regarding the following stats:
+                         * STAT_SM_CUR_DOMAIN_DEDUP_BYTES_FRAC:
+                         * STAT_SM_CUR_DEDUP_BYTES:
+                         * Even though these "counters" are "monitors" as
+                         * described above, we will likely get values for a given
+                         * volume from multiple SM services since it is likely
+                         * the multiple SM services are managing the data objects
+                         * for a given volume. Therefore, we need to *add* the
+                         * counters from each of these different SMs. We rely
+                         * upon the SMs to *not* resend counters that were
+                         * previously successfully sent.
+                         */
                         stat_map[cit->first] += cit->second;
                 };
             }

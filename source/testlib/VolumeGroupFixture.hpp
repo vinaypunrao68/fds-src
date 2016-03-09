@@ -26,13 +26,14 @@ struct VolumeGroupFixture : DmGroupFixture {
         ASSERT_TRUE(svcUuidVector.size() == clusterSize);
     }
 
-    void initVolumeChecker(std::vector<unsigned> volIdList, unsigned clusterSize) {
+    void runVolumeChecker(std::vector<unsigned> volIdList, unsigned clusterSize) {
         auto roots = getRootDirectories();
 
         std::string volListString = "-v=";
 
         // For now, we only have one volume
         volListString += std::to_string(volIdList[0]);
+        fds_volid_t volId0(volIdList[0]);
 
         // As volume checker, we init as an AM
         vcHandle.start({"checker",
@@ -42,9 +43,9 @@ struct VolumeGroupFixture : DmGroupFixture {
                        volListString
                        });
 
-        ASSERT_FALSE(vcHandle.proc->getStatus() == fds::VolumeChecker::VC_NOT_STARTED);
 
         // Phase 1 test
+        ASSERT_FALSE(vcHandle.proc->getStatus() == fds::VolumeChecker::VC_NOT_STARTED);
         ASSERT_TRUE(vcHandle.proc->getStatus() == fds::VolumeChecker::VC_DM_HASHING);
 
         // vgCheckerList should have 1 volume element in it
@@ -52,9 +53,16 @@ struct VolumeGroupFixture : DmGroupFixture {
         // That one should have "clusterSize" in it
         ASSERT_TRUE(vcHandle.proc->testGetVgCheckerListSize(0) == clusterSize);
 
-        // The checker should have sent msgs to all the volumes
-        // See the chkNodeStatus code for match
-        ASSERT_TRUE(vcHandle.proc->testVerifyCheckerListStatus(1));
+        // Sleep for a second for msgs to be sent
+        sleep(1);
+
+        // Each DM in the cluster should have received the command
+//        for (auto &dmHandlePtr : dmGroup) {
+//            auto volMeta = dmHandlePtr->proc->dm->getVolumeMeta(volId0, false);
+//            ASSERT_TRUE(volMeta->hashCalcContextExists());
+//        }
+        // Check if all DMs have responded (NS_FINISHED)
+        ASSERT_TRUE(vcHandle.proc->testVerifyCheckerListStatus(2));
     }
 
     void stopVolumeChecker() {
