@@ -296,10 +296,20 @@ AmVolumeTable::continueRequest(AmRequest* amReq,
 
 void
 AmVolumeTable::read(AmRequest* amReq, void (AmDataProvider::*func)(AmRequest*)) {
+    /***
+     * Enabled until VG support added for R/O open
+     */
+    if (volume_grouping_support) {
+        write(amReq, func);
+        return;
+    }
+
     ReadGuard rg(map_rwlock);
     auto vol = getVolume(amReq->volume_name);
     if (vol) {
         // We need to open the volume in R/O mode if VG is enabled
+        /***
+         * Disabled until VG support added
         if (volume_grouping_support && !vol->isOpen()) {
             if (ERR_VOL_NOT_FOUND == read_queue->delay(amReq) && vol->startOpen()) {
                 // Otherwise implicitly attach and delay till open response
@@ -314,7 +324,8 @@ AmVolumeTable::read(AmRequest* amReq, void (AmDataProvider::*func)(AmRequest*)) 
             }
         } else {
             continueRequest(amReq, vol, func);
-        }
+        } */
+        continueRequest(amReq, vol, func);
     } else {
         // We do not know about this volume, delay it and try and look up the
         // required VolDesc to continue the operation.
