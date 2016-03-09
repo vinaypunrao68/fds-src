@@ -95,6 +95,8 @@ VolumeChecker::getDLT()
 
 int
 VolumeChecker::run() {
+    int retCode = ERR_OK;
+
     if (!initCompleted) {
         return ERR_INVALID;
     } else {
@@ -110,12 +112,17 @@ VolumeChecker::run() {
     LOGNORMAL << "Running volume checker DM check (phase 1)";
     runPhase1();
 
+    if (currentStatusCode == VC_ERROR) {
+        LOGERROR << "Volume Checker experienced data inconsistency!";
+        retCode = ERR_CHECKSUM_MISMATCH;
+    }
+
     readyWaiter.done();
     if (waitForShutdown) {
         shutdownGate_.waitUntilOpened();
     }
     LOGNORMAL << "Shutting down volume checker";
-    return 0;
+    return retCode;
 }
 
 VolumeChecker::VcStatus
@@ -133,6 +140,12 @@ VolumeChecker::runPhase1() {
     sendVolChkMsgsToDMs();
     if (!waitForVolChkMsg().OK()) {
         handleVolumeCheckerError();
+    }
+    if (!checkDMHashQuorum().OK()) {
+        handleVolumeCheckerError();
+    } else {
+        currentStatusCode = VC_DM_DONE;
+        LOGNORMAL << "DM checks all succeeded";
     }
     delete initialMsgTracker;
 
@@ -219,7 +232,8 @@ VolumeChecker::waitForVolChkMsg() {
 
 void
 VolumeChecker::handleVolumeCheckerError() {
-    // TODO
+    // All we have to do now is to set the error code. More to come?
+    currentStatusCode = VC_ERROR;
 }
 
 void
@@ -272,11 +286,29 @@ VolumeChecker::testVerifyCheckerListStatus(unsigned castCode) {
 Error
 VolumeChecker::checkDMHashQuorum() {
     Error err(ERR_OK);
+    bool noQuorum(false);
     fds_assert(hashQuorumCheckMap.size() > 0);
+
     if (hashQuorumCheckMap.size() > 1) {
+        // The 0th element of the map should be the one with the most count
+        auto firstIt = hashQuorumCheckMap.left.begin();
+        if (firstIt->second == 1) {
+            LOGERROR << "No quorum found";
+            noQuorum = true;
+        }
+
         // All the DMs did not return the same hash
         err = ERR_INVALID;
-        // TODO - figure out who is wrong (FS-5340)
+        for (auto dmChecker : vgCheckerList) {
+            for (auto oneDMtoCheck : dmChecker.second) {
+                if (noQuorum) {
+                    oneDMtoCheck.status = DmCheckerMetaData::chkNodeStatus::NS_ERROR;
+                } else if (oneDMtoCheck.hashResult != firstIt->first) {
+                    LOGERROR << "Node: " << oneDMtoCheck.svcUuid << " is out of sync";
+                    oneDMtoCheck.status = DmCheckerMetaData::chkNodeStatus::NS_OUT_OF_SYNC;
+                }
+            }
+        }
     }
     return err;
 }

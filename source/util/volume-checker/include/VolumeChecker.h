@@ -46,7 +46,9 @@ public:
     enum StatusCode {
         VC_NOT_STARTED,     // First started
         VC_RUNNING,         // Finished initializing
-        VC_DM_HASHING       // VC has finished initializing and is running phase 1
+        VC_DM_HASHING,      // VC has finished initializing and is running phase 1
+        VC_DM_DONE,         // VC has finished running phase 1
+        VC_ERROR            // VC has seen some errors
     };
     // For the future, may return more than just status code, but progress as well
     using VcStatus = StatusCode;

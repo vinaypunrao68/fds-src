@@ -14,6 +14,9 @@
 #include <dmhandler.h>
 #include <json/json.h>
 #include <ObjectId.h>
+#include <catalogKeys/BlobObjectKey.h>
+#include <catalogKeys/BlobMetadataKey.h>
+#include <catalogKeys/VolumeMetadataKey.h>
 
 namespace fds {
 
@@ -633,9 +636,36 @@ VolumeMeta::HashCalcContext::hashThisSlice(CatalogKVPair &pair) {
     auto keyType = reinterpret_cast<CatalogKeyType const*>(pair.first.data());
     int type = ((unsigned char)(*keyType) - (unsigned char)CatalogKeyType::ERROR);
     // We do a whitelist type of hashing.
-    if ((*keyType == CatalogKeyType::BLOB_METADATA) ||
-        (*keyType == CatalogKeyType::BLOB_OBJECTS)) {
-        hasher.update((const fds_byte_t *)&pair, sizeof(pair));
+    switch (*keyType) {
+        case CatalogKeyType::BLOB_METADATA:
+        {
+            BlobMetadataKey key {pair.first};
+            hasher.update(reinterpret_cast<const unsigned char *>(key.toString().c_str()),
+                          sizeof(key.toString()));
+            std::string value {pair.second.data()};
+            hasher.update(reinterpret_cast<const unsigned char *>(value.c_str()), sizeof(value.c_str()));
+            break;
+        }
+        case CatalogKeyType::BLOB_OBJECTS:
+        {
+            BlobObjectKey key {pair.first};
+            hasher.update(reinterpret_cast<const unsigned char *>(key.toString().c_str()),
+                          sizeof(key.toString()));
+            ObjectID value {pair.second.data()};
+            hasher.update(reinterpret_cast<const unsigned char *>(value.ToString().c_str()),
+                          sizeof(value.ToString()));
+            break;
+        }
+        case CatalogKeyType::VOLUME_METADATA:
+        {
+            // Volume Metadata Key is simply just the key type of VOLUME_METADATA
+            std::string value {pair.second.data()};
+            hasher.update(reinterpret_cast<const unsigned char *>(value.c_str()), sizeof(value.c_str()));
+            break;
+        }
+        default:
+            // Skip anything else
+            break;
     }
 }
 

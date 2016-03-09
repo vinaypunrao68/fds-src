@@ -27,7 +27,7 @@ using namespace fds::TestUtils;
  * 3. Run Volume checker on volume, should return consistent result.
  */
 TEST_F(VolumeGroupFixture, twoHappyDMs) {
-    g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
+    g_fdslog->setSeverityFilter(fds_log::severity_level::trace);
     LOGNORMAL << "TEST MARKER Starting twoHappyDMs";
 
     // Create 2 DMs
@@ -39,11 +39,8 @@ TEST_F(VolumeGroupFixture, twoHappyDMs) {
     // For now only one volume
     std::vector<unsigned> volIdList;
     volIdList.push_back(v1Id.v);
-    runVolumeChecker(volIdList, clusterSize);
-    stopVolumeChecker();
 
     /* Do some io. After Io is done, every volume replica must have same state */
-#if 0
     for (uint32_t i = 0; i < 10; i++) {
         sendUpdateOnceMsg(*v1, blobName, waiter);
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
@@ -51,8 +48,10 @@ TEST_F(VolumeGroupFixture, twoHappyDMs) {
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
         doGroupStateCheck(v1Id);
     }
-#endif
 
+    // Volume checker run should be consistent
+    runVolumeChecker(volIdList, clusterSize, true);
+    stopVolumeChecker();
 
     LOGNORMAL << "TEST MARKER Finished twoHappyDMs";
 }
