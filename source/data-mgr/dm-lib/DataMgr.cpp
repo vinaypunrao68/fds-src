@@ -247,7 +247,9 @@ void DataMgr::sampleDMStatsForVol(fds_volid_t volume_id,
                                                        &total_blobs,
                                                        &total_lobjects);
     if (!err.ok()) {
-        LOGERROR << "Failed to get logical usage for vol " << volume_id << " " << err;
+        if (err.GetErrno() != ERR_VOL_NOT_FOUND) {
+            LOGERROR << "Failed to get logical usage for vol " << volume_id << " " << err;
+        }
         return;
     }
 
@@ -255,7 +257,9 @@ void DataMgr::sampleDMStatsForVol(fds_volid_t volume_id,
     //                                                    &total_pbytes,
     //                                                    &total_pobjects);
     if (!err.ok()) {
-        LOGERROR << "Failed to get physical usage for vol " << volume_id << " " << err;
+        if (err.GetErrno() != ERR_VOL_NOT_FOUND) {
+            LOGERROR << "Failed to get physical usage for vol " << volume_id << " " << err;
+        }
         return;
     }
 

@@ -32,7 +32,7 @@ std::string cleanNameFromPrettyFunc(const std::string& prettyFunction, bool fCla
     return prettyFunction.substr(begin,end);
 }
 
-__TRACER__::__TRACER__(const std::string& _prettyName, const std::string& _filename, int _lineno) 
+__TRACER__::__TRACER__(const std::string& _prettyName, const std::string& _filename, int _lineno)
         : prettyName(cleanNameFromPrettyFunc(_prettyName)),filename(_filename),lineno(_lineno) {
     GLOGDEBUG << "enter : " << prettyName << ":" << filename << ":" << lineno;
 }
@@ -88,9 +88,8 @@ void writeHeader(boost::log::sinks::text_file_backend::stream_type& file) {
     if (g_fdsprocess == nullptr) {
         snprintf(buildStr, sizeof(buildStr), buildStrTmpl, "?", versDate, versRev, machineArch);
     } else {
-        std::string unknownManager = "Unknown Manager(" + g_fdsprocess->getProcId() + ")";
         snprintf(buildStr, sizeof(buildStr), buildStrTmpl,
-                 SERVICE_NAME_FROM_ID(unknownManager.c_str()), versDate, versRev, machineArch);
+                 SERVICE_NAME_FROM_ID(), versDate, versRev, machineArch);
     }
 
     file << buildStr << std::endl;

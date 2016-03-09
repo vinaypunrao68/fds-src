@@ -16,6 +16,7 @@ user_thrift      := \
 	sm_types.thrift \
 	pm_types.thrift \
 	config_types.thrift \
+    fds_versioned_api.thrift \
 	fds_stream.thrift \
 	svc_api.thrift \
 	pm_service.thrift \

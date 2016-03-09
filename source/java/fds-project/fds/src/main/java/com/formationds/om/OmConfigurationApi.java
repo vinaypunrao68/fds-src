@@ -1,4 +1,3 @@
-
 /*
  * Copyright (c) 2015 Formation Data Systems. All rights Reserved.
  */
@@ -75,6 +74,37 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         apisPolicy.setTimelineTime( timelineTime );
 
         return createSnapshotPolicy( apisPolicy );
+    }
+
+    /**
+     * Get API version used by service handler.
+     */
+    @Override
+    public Version getVersion() throws ApiException, TException {
+
+        return getConfig().getVersion();
+    }
+
+    /**
+     * Get the API version table for the service.
+     */
+    @Override
+    public List<ServiceAPIVersion> getVersionTable() throws ApiException, TException {
+
+        return getConfig().getVersionTable();
+    }
+
+    /**
+     * Handshake with the server to negotiate API version.
+     * @param suggestedVersion - Version: The API version suggested by the client.
+     *  Using Thrift, the client is the code using a Thrift generated service.client
+     *  instance.
+     * @return Version: The API version acceptable to the server
+     */
+    @Override
+    public Version suggestVersion(Version suggestedVersion) throws ApiException, TException {
+
+        return getConfig().suggestVersion(suggestedVersion);
     }
 
     /**

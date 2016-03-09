@@ -1250,11 +1250,6 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
             }
         }
 
-        err = triggerReadOnlyIfPutWillfail(nullptr, objId, objData, tier);
-        if (!err.ok()) {
-            return err;
-        }
-
         // write to object data store (will automatically write to new file)
         obj_phy_loc_t objPhyLoc;  // will be set by data store with new location
         err = dataStore->putObjectData(unknownVolId, objId, tier, objData, objPhyLoc);
