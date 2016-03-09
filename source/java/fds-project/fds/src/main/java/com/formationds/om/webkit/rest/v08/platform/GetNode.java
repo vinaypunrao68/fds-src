@@ -9,8 +9,8 @@ import java.util.Optional;
 
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.formationds.client.v08.model.Node;
 import com.formationds.commons.model.helper.ObjectModelHelper;
@@ -25,7 +25,7 @@ public class GetNode implements RequestHandler{
 	private static final String NODE_ARG = "node_id";
 	
     private static final Logger logger =
-            LoggerFactory.getLogger( AddService.class );
+            LogManager.getLogger( AddService.class );
 
 	
 	public GetNode(){}

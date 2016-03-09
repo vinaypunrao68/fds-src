@@ -6,8 +6,8 @@ package com.formationds.om.webkit.rest.v08.users;
 import java.util.Map;
 
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.formationds.client.v08.converters.ExternalModelConverter;
 import com.formationds.client.v08.model.User;
@@ -20,7 +20,7 @@ import com.formationds.web.toolkit.TextResource;
 
 public class GetUser implements RequestHandler{
 
-	private static final Logger logger = LoggerFactory.getLogger( GetUser.class );
+	private static final Logger logger = LogManager.getLogger( GetUser.class );
 	private final static String USER_ARG = "user_id";
 	
 	public static final String STATS_USERNAME = "stats-service";

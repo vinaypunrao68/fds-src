@@ -4,8 +4,8 @@ import java.io.InputStreamReader;
 import java.util.Map;
 
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.formationds.client.v08.model.Volume;
 import com.formationds.commons.model.helper.ObjectModelHelper;
@@ -21,7 +21,7 @@ public class CloneVolumeFromTime implements RequestHandler{
 
     private static final String VOLUME_ARG = "volume_id";
     private static final String TIME_ARG = "time_in_seconds";
-    private static final Logger logger = LoggerFactory.getLogger( CloneVolumeFromTime.class );
+    private static final Logger logger = LogManager.getLogger( CloneVolumeFromTime.class );
 
     private ConfigurationApi configApi;
     private Authorizer authorizer;

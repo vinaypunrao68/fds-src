@@ -59,7 +59,7 @@
     <apache.commons.pool2.version>2.3</apache.commons.pool2.version>
     <apache.hadoop.version>2.6.0</apache.hadoop.version>
     <apache.httpcomponents.version>4.4.1</apache.httpcomponents.version>
-    <apache.log4j.v2.version>2.3</apache.log4j.v2.version>
+    <apache.log4j.v2.version>2.5</apache.log4j.v2.version>
     <asyncretry.version>0.0.7</asyncretry.version>
     <!-- issue with latest version, junit security failure -->
     <aws.version>1.7.9</aws.version>
@@ -422,8 +422,8 @@
       </dependency>
 
       <dependency>
-        <groupId>org.slf4j</groupId>
-        <artifactId>slf4j-api</artifactId>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-api</artifactId>
         <version>${slf4j.version}</version>
       </dependency>
 

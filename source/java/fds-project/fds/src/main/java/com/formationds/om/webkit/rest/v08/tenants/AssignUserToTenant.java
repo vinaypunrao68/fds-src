@@ -15,14 +15,14 @@ import com.formationds.web.toolkit.Resource;
 
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.Map;
 
 public class AssignUserToTenant implements RequestHandler {
 	
-	private final static Logger logger = LoggerFactory.getLogger( AssignUserToTenant.class );
+	private final static Logger logger = LogManager.getLogger( AssignUserToTenant.class );
 	private final static String TENANT_ARG = "tenant_id";
 	private final static String USER_ARG = "user_id";
 	

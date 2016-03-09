@@ -40,8 +40,8 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -54,7 +54,7 @@ import java.util.stream.Collectors;
 
 public class SystemHealthStatus implements RequestHandler {
 
-    private static final Logger logger = LoggerFactory.getLogger( SystemHealth.class );
+    private static final Logger logger = LogManager.getLogger( SystemHealth.class );
     private final ConfigurationApi configApi;
     private final Authorizer authorizer;
     private final AuthenticationToken token;

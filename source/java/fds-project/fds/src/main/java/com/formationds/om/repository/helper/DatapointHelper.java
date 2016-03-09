@@ -4,8 +4,8 @@
 
 package com.formationds.om.repository.helper;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.formationds.commons.model.Datapoint;
 
@@ -19,7 +19,7 @@ import java.util.List;
 public class DatapointHelper {
 
     private static final Logger logger =
-        LoggerFactory.getLogger( DatapointHelper.class );
+        LogManager.getLogger( DatapointHelper.class );
 
     /**
      * default constructor

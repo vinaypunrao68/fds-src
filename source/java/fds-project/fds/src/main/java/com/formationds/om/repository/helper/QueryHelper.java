@@ -46,8 +46,8 @@ import com.formationds.security.Authorizer;
 
 import org.apache.commons.math3.stat.regression.SimpleRegression;
 import org.apache.thrift.TException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -69,7 +69,7 @@ import java.util.stream.DoubleStream;
  */
 public class QueryHelper {
     private static final Logger logger =
-        LoggerFactory.getLogger( QueryHelper.class );
+        LogManager.getLogger( QueryHelper.class );
 
     /**
      * A shared instance, used only if the USE_SHARED_QUERY_HELPER feature toggle is enabled.

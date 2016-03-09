@@ -26,8 +26,8 @@ import com.formationds.web.toolkit.TextResource;
 import com.google.common.base.CharMatcher;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.InputStream;
 import java.util.Collections;
@@ -37,7 +37,7 @@ import java.util.Map;
 public class CreateVolume implements RequestHandler
 {
 
-    private static final Logger logger = LoggerFactory.getLogger( CreateVolume.class );
+    private static final Logger logger = LogManager.getLogger( CreateVolume.class );
 
     private final Authorizer authorizer;
     private ConfigurationApi configApi;
