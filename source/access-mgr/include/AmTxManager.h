@@ -113,11 +113,6 @@ struct AmTxManager :
     void _putBlobCb(AmRequest * amReq, Error const error);
 
     /**
-     * Removes the transaction and pushes all updates into the cache.
-     */
-    Error commitTx(const BlobTxId& txId, fds_uint64_t const blobSize);
-
-    /**
      * Gets the DMT version for a given transaction ID. Returns an
      * error if the transaction ID does not already exist.
      */

@@ -16,6 +16,7 @@ import com.google.common.collect.Multimap;
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -73,6 +74,30 @@ public class StubConfigurationApi implements ConfigurationApi {
         userTenants = HashMultimap.create();
         volumes = new CopyOnWriteArrayList<>();
         volumeId = new AtomicLong();
+    }
+
+    @Override
+    public Version getVersion() throws ApiException, TException {
+        return new Version();
+    }
+
+    /**
+     * Get the API version table for the service.
+     */
+    @Override
+    public List<ServiceAPIVersion> getVersionTable() throws ApiException, TException {
+        List<ServiceAPIVersion> emptyList = Collections.emptyList();
+        return emptyList;
+    }
+
+    /**
+     * Handshake with the server to negotiate API version.
+     * @param stubVersion - Version: The API version suggested by the server.client stub
+     * @return Version: The API version acceptable to the server
+     */
+    @Override
+    public Version suggestVersion(Version stubVersion) throws ApiException, TException {
+        return new Version();
     }
 
     @Override

@@ -4,7 +4,10 @@
 package com.formationds.om.repository.influxdb;
 
 import com.formationds.apis.VolumeDescriptor;
+import com.formationds.client.v08.model.Size;
+import com.formationds.client.v08.model.SizeUnit;
 import com.formationds.client.v08.model.Volume;
+import com.formationds.client.v08.model.stats.Datapoint;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
 import com.formationds.commons.model.exception.UnsupportedMetricException;
@@ -318,7 +321,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
             if (midx == -1) {
                 // NOTE: We currently only populate InfluxDB with metrics explicitly defined in the
                 // Metrics enum.  Additional metrics were recently added to the stat stream that we
-                // are NOT writing to Influx at this time.
+
                 logger.trace( "Metric {} not found in Volume Metrics list.  Skipping.", vdp.getKey() );
                 continue;
             }
@@ -508,7 +511,7 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
             } );
         } // for each row
 
-        logger.trace( "Completed processing series '{}' aand {} rows.  Returning {} datapoints.",
+        logger.trace( "Completed processing series '{}' and {} rows.  Returning {} datapoints.",
                       series.getName(),
                       rowList.size(),
                       datapoints.size() );
@@ -558,18 +561,40 @@ public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, L
 
     @Override
     public Double sumLogicalBytes() {
-        return sumMetric( Metrics.LBYTES );
+        final Double summed = sumMetric( Metrics.LBYTES );
+        logger.trace( "SUMMED: LBYTES {}", Size.of( summed, SizeUnit.MB ) );
+        return summed;
     }
 
     @Override
     public Double sumPhysicalBytes() {
-        return sumMetric( Metrics.PBYTES );
+        final Double summed = sumMetric( Metrics.PBYTES );
+        logger.trace( "SUMMED: PBYTES {}", Size.of( summed, SizeUnit.MB ) );
+        return summed;
     }
 
+    @Override
     public Double sumUsedBytes() {
-        return sumMetric( Metrics.UBYTES );
+        final Double summed = sumMetric( Metrics.UBYTES );
+        logger.trace( "SUMMED: UBYTES {}", Size.of( summed, SizeUnit.MB ) );
+        return summed;
     }
 
+    @Override
+    public Double sumDomainDedupBytesFraction( ) {
+        final Double summed = sumMetric( Metrics.DOMAIN_DEDUP_BYTES_FRACTION );
+        logger.trace( "SUMMED: Domain Dedup Fraction BYTES {}", Size.of( summed, SizeUnit.MB ) );
+        return summed;
+    }
+
+    @Override
+    public Double calculatePBytes( ) {
+        final Double lbytes = sumLogicalBytes();
+        final Double ddfbytes = sumDomainDedupBytesFraction();
+        final Double calculatedPbytes = lbytes - ddfbytes;
+        logger.trace( "CALCULATED: Physical Bytes {}", Size.of( calculatedPbytes, SizeUnit.B ) );
+        return calculatedPbytes;
+    }
 
     protected Double sumMetric( Metrics metrics ) {
         final List<IVolumeDatapoint> datapoints = new ArrayList<>();

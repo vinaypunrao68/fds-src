@@ -89,8 +89,8 @@ public class VolumeDatapointHelper {
 
         asList.forEach( ( key, value ) -> results.put( key, new HashSet<>( value ) ) );
 
-        results.forEach( ( key, set ) -> logger.trace( "KEY::{} SIZE::{}",
-                                                       key, set.size() ) );
+//        results.forEach( ( key, set ) -> logger.trace( "KEY::{} SIZE::{}",
+//                                                       key, set.size() ) );
 
         return results;
     }
