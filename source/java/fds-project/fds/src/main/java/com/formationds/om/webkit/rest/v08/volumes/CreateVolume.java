@@ -261,18 +261,15 @@ public class CreateVolume implements RequestHandler
         {
             /*
              * this validation only applies to block based volume types
+             *
+             * iSCSI is currently the only production supported block volume. The System test still
+             * use BLOCK, but don't provide the block size, so no need to check it.
              */
             case ISCSI:
                 final VolumeSettingsISCSI settingsISCSI = ( VolumeSettingsISCSI ) volume.getSettings();
                 blockSize = settingsISCSI.getBlockSize().getValue( SizeUnit.B ).longValue();
                 requestedVolumeSize = settingsISCSI.getCapacity().getValue( SizeUnit.B ).longValue();
                 break;
-            case BLOCK:
-                final VolumeSettingsBlock settingsBlock = ( VolumeSettingsBlock ) volume.getSettings( );
-                blockSize = settingsBlock.getBlockSize().getValue( SizeUnit.B ).longValue();
-                requestedVolumeSize = settingsBlock.getCapacity().getValue( SizeUnit.B ).longValue();
-                break;
-
             default:
                 return;
         }
