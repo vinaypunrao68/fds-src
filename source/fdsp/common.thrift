@@ -64,6 +64,14 @@ exception NotMasterDomain {
     1: string message,
 }
 
+exception APIVersionNotSupported {
+    1: string message,
+}
+
+exception APIVersionUnknown {
+    1: string message,
+}
+
 /* Can be consolidated when apis and fdsp merge or whatever */
 struct BlobDescriptor {
      1: required string name,

@@ -176,7 +176,7 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
     /**
     Data return handlers
     **/
-
+    
     $scope.capacityReturned = function( data ){
         $scope.capacityStats = data;
         
@@ -211,13 +211,38 @@ angular.module( 'volumes' ).controller( 'viewVolumeController', ['$scope', '$vol
         capacityIntervalId = $timeout( pollCapacity, 60000 );
     };
     
+    var buildPerformanceItems = function( data ){
+        
+        var avg = 0;
+        var ssdPerc=  0;
+        var hddPerc = 0;
+        
+        $toggle_service.getToggles().then( function( rToggles ){
+            
+            if ( rToggles[$toggle_service.STATS_QUERY_TOGGLE] === true ){
+                avg = parseFloat( data.calculated[0].value );
+                ssdPerc = parseFloat( data.calculated[1].value );
+                hddPerc = parseFloat( data.calculated[2].value );
+            }
+            else {
+                avg = parseFloat( data.calculated[0].average );
+                ssdPerc = parseFloat( data.calculated[1].percentage );
+                hddPerc = parseFloat( data.calculated[2].percentage );
+            }
+            
+            $scope.performanceItems = [
+                {number: avg, description: $filter( 'translate' )( 'status.desc_performance' )},
+                {number: ssdPerc, description: $filter( 'translate' )( 'status.desc_ssd_percent' ), iconClass: 'icon-lightningbolt', iconColor: '#8784DE', suffix: '%' },
+                {number: hddPerc, description: $filter( 'translate' )( 'status.desc_hdd_percent' ), iconClass: 'icon-disk', iconColor: '#4857C4', suffix: '%' }
+            ];
+        });
+    };
+    
     $scope.performanceReturned = function( data ){
         $scope.performanceStats = data;
-        $scope.performanceItems = [
-            {number: data.calculated[0].average, description: $filter( 'translate' )( 'status.desc_performance' )},
-            {number: data.calculated[1].percentage, description: $filter( 'translate' )( 'status.desc_ssd_percent' ), iconClass: 'icon-lightningbolt', iconColor: '#8784DE', suffix: '%' },
-            {number: data.calculated[2].percentage, description: $filter( 'translate' )( 'status.desc_hdd_percent' ), iconClass: 'icon-disk', iconColor: '#4857C4', suffix: '%' }
-        ];
+        
+        buildPerformanceItems( data );
+        
         $scope.putLabel = getPerformanceLegendText( $scope.performanceStats.series[0], 'volumes.view.l_avg_puts' );
         $scope.getLabel = getPerformanceLegendText( $scope.performanceStats.series[1], 'volumes.view.l_avg_gets' );
         $scope.ssdGetLabel = getPerformanceLegendText( $scope.performanceStats.series[2], 'volumes.view.l_avg_ssd_gets' );
