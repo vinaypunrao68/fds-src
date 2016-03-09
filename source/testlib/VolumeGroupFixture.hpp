@@ -26,7 +26,7 @@ struct VolumeGroupFixture : DmGroupFixture {
         ASSERT_TRUE(svcUuidVector.size() == clusterSize);
     }
 
-    void runVolumeChecker(std::vector<unsigned> volIdList, unsigned clusterSize, bool expectPass) {
+    void runVolumeChecker(std::vector<unsigned> volIdList, unsigned clusterSize) {
         auto roots = getRootDirectories();
 
         std::string volListString = "-v=";
@@ -35,6 +35,9 @@ struct VolumeGroupFixture : DmGroupFixture {
         volListString += std::to_string(volIdList[0]);
         fds_volid_t volId0(volIdList[0]);
 
+        if (g_fdsprocess == NULL) {
+            g_fdsprocess = omHandle.proc;
+        }
         // As volume checker, we init as an AM
         vcHandle.start({"checker",
                        roots[0],
@@ -42,7 +45,6 @@ struct VolumeGroupFixture : DmGroupFixture {
                        "--fds.pm.platform_port=9861",
                        volListString
                        });
-
 
         // Phase 1 test
         ASSERT_FALSE(vcHandle.proc->getStatus() == fds::VolumeChecker::VC_NOT_STARTED);
@@ -57,13 +59,8 @@ struct VolumeGroupFixture : DmGroupFixture {
 
         // Each DM in the cluster should have received the command
         // Check if all DMs have responded (NS_FINISHED)
-        if (expectPass) {
-            ASSERT_TRUE(vcHandle.proc->testVerifyCheckerListStatus(2));
-            ASSERT_TRUE(vcHandle.proc->getStatus() == fds::VolumeChecker::VC_DM_DONE);
-        } else {
-            ASSERT_FALSE(vcHandle.proc->testVerifyCheckerListStatus(2));
-            ASSERT_TRUE(vcHandle.proc->getStatus() == fds::VolumeChecker::VC_ERROR);
-        }
+        ASSERT_TRUE(vcHandle.proc->testVerifyCheckerListStatus(2));
+        ASSERT_TRUE(vcHandle.proc->getStatus() == fds::VolumeChecker::VC_DM_DONE);
     }
 
     void stopVolumeChecker() {
