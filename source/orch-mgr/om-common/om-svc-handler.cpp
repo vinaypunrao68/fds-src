@@ -463,24 +463,30 @@ void OmSvcHandler::healthReportRunning( boost::shared_ptr<fpi::NotifyHealthRepor
    {
      case fpi::FDSP_ACCESS_MGR:
        comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_ACCESS_MGR : comp_type;
+       msg->healthReport.serviceInfo.svc_type = fpi::FDSP_ACCESS_MGR;
        // no break
      case fpi::FDSP_DATA_MGR:
        comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_DATA_MGR : comp_type;
+       msg->healthReport.serviceInfo.svc_type = fpi::FDSP_DATA_MGR;
        // no break
      case fpi::FDSP_STOR_MGR:
        comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_STOR_MGR : comp_type;
+       msg->healthReport.serviceInfo.svc_type = fpi::FDSP_STOR_MGR;
 
        //if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
        {
            auto domain = OM_NodeDomainMod::om_local_domain();
 
-           LOGNORMAL << "Will set service to state ( "
-                     << msg->healthReport.serviceInfo.svc_status
-                     << " ) : " << msg->healthReport.serviceInfo.name
+           LOGNORMAL << "Will set service to state ACTIVE" << msg->healthReport.serviceInfo.name
                      << ":0x" << std::hex << service_UUID.uuid_get_val() << std::dec;
 
+           // Neither the DM or SM services that send us the HEALTH_STATE_RUNNING messages
+           // ever set the service state correctly. So assuming RUNNING = ACTIVE
+           msg->healthReport.serviceInfo.svc_status = fpi::SVC_STATUS_ACTIVE;
            auto svcInfoPtr = boost::make_shared<fpi::SvcInfo>(msg->healthReport.serviceInfo);
-           domain->om_change_svc_state_and_bcast_svcmap(svcInfoPtr, service_type, msg->healthReport.serviceInfo.svc_status);
+
+           domain->om_change_svc_state_and_bcast_svcmap(svcInfoPtr, service_type, fpi::SVC_STATUS_ACTIVE);
+
            NodeUuid nodeUuid(svcInfoPtr->svc_id.svc_uuid);
            domain->om_service_up(nodeUuid, service_type);
        }

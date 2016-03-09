@@ -53,6 +53,7 @@ namespace fds
                                            fpi::SvcInfo             registeringSvcInfo = fpi::SvcInfo());
 
     bool                    dbRecordNeedsUpdate(fpi::SvcInfo svcLayerInfo, fpi::SvcInfo dbInfo);
+    bool                    areRecordsSame(fpi::SvcInfo svcLayerInfo, fpi::SvcInfo dbInfo );
 
 }  // namespace fds
 

@@ -473,9 +473,15 @@ namespace fds
 //                 |           |                          |                  |
 //                 |           |   incoming < svcLayer    |      No          | DB has most current, update svcLayer|
 //                 |           |   svcLayer < configDB    |                  | with DB record, ignore incoming     |
-//                 |           |                          |                  |
+//                 |           |                          |                  |                                     |
+//                 |           |   incoming < svcLayer    |      No          | svcLayer & DB have most current     |
+//                 |           |   svcLayer == configDB   |                  | No updates are necessary            |
+//                 |           |                          |                  |                                     |
 //                 |           |   incoming >= svcLayer   |      No          | DB has most current, update svcLayer|
 //                 |           |   svcLayer < configDB    |                  | with DB record, ignore incoming     |
+//                 |           |                          |                  |                                     |
+//                 |           |   incoming >= svcLayer   |      Yes         | Incoming has the most current       |
+//                 |           |   svcLayer == configDB   |                  |                                     |
 //                 |           |                          |                  |
 //                 |           |   incoming < svcLayer    |      No          | SvcLayer has most current, update DB|
 //                 |           |   svcLayer > configDB    |                  | with svcLyr record, ignore incoming |
@@ -564,8 +570,17 @@ namespace fds
                 dbInfoPtr       = boost::make_shared<fpi::SvcInfo>(dbInfoUpdate);
 
                 validUpdate = OmExtUtilApi::getInstance()->isIncomingUpdateValid(incomingSvcInfo, svcLayerInfoUpdate);
-                bool dbHasOlderRecord = dbRecordNeedsUpdate(svcLayerInfoUpdate, dbInfoUpdate);
 
+                // What we are trying to determine with the below two values is the relationship
+                // between the svcLayer and DB record.
+                // With the dbHasOlderRecord value, we can trust the return if true, ie dbRecord < svcLyrRecord.
+                // However, if we get a false value, there are two possibilities:
+                // 1. dbRecord > svcLayerRecord or 2. dbRecord == svcLayerRecord
+                // The sameRecords computation helps us determine with certainty which case it is
+                // and take action accordingly. Which is also why you will see sameRecords being checked
+                // only when this dbHasOlderRecord value is false.
+                bool dbHasOlderRecord = dbRecordNeedsUpdate(svcLayerInfoUpdate, dbInfoUpdate);
+                bool sameRecords = areRecordsSame(svcLayerInfoUpdate, dbInfoUpdate);
 
                 if ( validUpdate && dbHasOlderRecord )
                 {
@@ -576,6 +591,30 @@ namespace fds
                     // 2. Update svcLayer to incoming
                     // 3. Broadcast svcMap
 
+                    configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(incomingSvcInfo) );
+                    MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {incomingSvcInfo} );
+                    //OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
+
+                }  else if ( validUpdate && !dbHasOlderRecord && !sameRecords ) {
+
+                    LOGNORMAL << "!!Case: Both svcLayer & DB record found, updating svcLayer with DB record";
+                    // incoming >= svcLayer
+                    // svcLayer < configDB
+                    // 1. No update to DB
+                    // 2. Update svcLayer to DB
+                    // 3. Broadcast svcMap
+
+                    MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {dbInfoUpdate} );
+                    //OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
+
+                } else if ( validUpdate && !dbHasOlderRecord && sameRecords ) {
+
+                    LOGNORMAL << "!!Case: Both svcLayer & DB record found, updating both to incoming";
+                    // incoming >= svcLayer
+                    // svcLayer == configDB
+                    // 1. Update DB to incoming
+                    // 2. Update svcLayer to incoming
+                    // 3. Broadcast svcMap
                     configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(incomingSvcInfo) );
                     MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {incomingSvcInfo} );
                     //OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
@@ -591,19 +630,21 @@ namespace fds
 
                     configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(svcLayerInfoUpdate) );
 
-                } else if ( validUpdate && !dbHasOlderRecord ) {
+                }  else if ( !validUpdate && !dbHasOlderRecord && sameRecords ) {
 
-                    LOGNORMAL << "!!Case: Both svcLayer & DB record found, updating svcLayer with DB record";
-                    // incoming >= svcLayer
-                    // svcLayer < configDB
+                    LOGNORMAL << "!!Case: Both svcLayer & DB record found, no updates necessary";
+
+                    // Reuse the svcAddition flag simply to prevent the broadcasting of the map
+                    svcAddition = true;
+                    // incoming < svcLayer
+                    // svcLayer == configDB
                     // 1. No update to DB
-                    // 2. Update svcLayer to DB
+                    // 2. No update to svcLayer
                     // 3. Broadcast svcMap
 
-                    MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {dbInfoUpdate} );
-                    //OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
-
-                } else if ( !validUpdate && !dbHasOlderRecord ) {
+                    //MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {dbInfoUpdate} );
+                   // OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
+                }   else if ( !validUpdate && !dbHasOlderRecord && !sameRecords ) {
 
                     LOGNORMAL << "!!Case: Both svcLayer & DB record found, updating svcLayer with DB record";
                     // incoming < svcLayer
@@ -727,8 +768,9 @@ namespace fds
              * */
 
             bool dbHasOlderRecord = dbRecordNeedsUpdate(svcLayerInfoUpdate, dbInfoUpdate);
+            bool sameRecords = areRecordsSame(svcLayerInfoUpdate, dbInfoUpdate);
 
-            if ( dbHasOlderRecord )
+            if ( dbHasOlderRecord)
             {
                 LOGDEBUG << "!!ConfigDB has older record, updating it with svcLayer record";
                 // If the flag is true implies that svcLayer has a more recent
@@ -746,6 +788,7 @@ namespace fds
                     LOGWARN << "!!Could not retrieve updated svc record from configDB, potentially making outdated updates ";
                 }
             } else {
+
                 // ConfigDB has latest record, go ahead and update it for the new svc status,
                 // given that the statuses are different.
                 // This record will be used to update svcLayer
@@ -920,5 +963,18 @@ namespace fds
         }
 
         return ret;
+    }
+
+    bool areRecordsSame(fpi::SvcInfo svcLayerInfo, fpi::SvcInfo dbInfo )
+    {
+        if ( svcLayerInfo.incarnationNo == dbInfo.incarnationNo &&
+             svcLayerInfo.svc_status == dbInfo.svc_status)
+        {
+            return true;
+        } else {
+            return false;
+        }
+
+        return false;
     }
 }  // namespace fds
