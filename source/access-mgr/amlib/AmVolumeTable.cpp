@@ -127,6 +127,7 @@ AmVolumeTable::AmVolumeTable(AmDataProvider* prev,
                              fds_log *parent_log) :
     AmDataProvider(prev, new AmQoSCtrl(this, max_thrds, parent_log)),
     volume_map(),
+    lookup_queue(new WaitQueue(this)),
     read_queue(new WaitQueue(this)),
     write_queue(new WaitQueue(this))
 {
@@ -160,7 +161,7 @@ void AmVolumeTable::start() {
 
 bool
 AmVolumeTable::done() {
-    if (!read_queue->empty() || !write_queue->empty()) {
+    if (!lookup_queue->empty() || !read_queue->empty() || !write_queue->empty()) {
         return false;
     }
     return AmDataProvider::done();
@@ -179,11 +180,10 @@ AmVolumeTable::stop() {
         for (auto const& vol_pair : volume_map) {
             auto const& vol = vol_pair.second;
             // Close the volume in case it was open
-            if (vol->writable()) {
+            if (vol->isWritable()) {
                 auto volReq = new DetachVolumeReq(vol->voldesc->volUUID, vol->voldesc->name, nullptr);
-                volReq->token = vol->getToken();
-                volReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
-                AmDataProvider::closeVolume(volReq);
+                volReq->token = vol->clearToken();
+                continueRequest(volReq, vol, &AmDataProvider::closeVolume);
             }
         }
         volume_map.clear();
@@ -242,16 +242,12 @@ Error AmVolumeTable::modifyVolumePolicy(const VolumeDesc& vdesc) {
                 << " (iops_assured=" << vdesc.iops_assured
                 << ", iops_throttle=" << vdesc.iops_throttle
                 << ", prio=" << vdesc.relativePrio << ")";
-        } else if (vol->writable()) {
+        } else if (vol->isWritable()) {
             // Uh-oh, let's close it so any new IO will require a new open
             LOGNOTIFY << "Closing volume: " << vdesc.name << " due to lease transfer.";
             auto volReq = new DetachVolumeReq(vdesc.volUUID, vdesc.name, nullptr);
-            volReq->token = vol->getToken();
-            volReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
-            fpi::VolumeAccessMode ro;
-            ro.can_write = false; ro.can_cache = false;
-            vol->setToken(AmVolumeAccessToken(ro, invalid_vol_token));
-            AmDataProvider::closeVolume(volReq);
+            volReq->token = vol->clearToken();
+            continueRequest(volReq, vol, &AmDataProvider::closeVolume);
         }
     }
 
@@ -273,12 +269,11 @@ AmVolumeTable::removeVolume(VolumeDesc const& volDesc) {
         }
         auto vol = volIt->second;
         // Close the volume in case it was open
-        if (vol->writable()) {
+        if (vol->isWritable()) {
             auto volReq = new DetachVolumeReq(volDesc.volUUID, volDesc.name, nullptr);
-            volReq->token = vol->getToken();
-            volReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
+            volReq->token = vol->clearToken();
             LOGNOTIFY << "Releasing lease on: " << volDesc.name;
-            AmDataProvider::closeVolume(volReq);
+            continueRequest(volReq, vol, &AmDataProvider::closeVolume);
         }
         // Remove the volume from the caches (if there is one)
         AmDataProvider::removeVolume(volDesc);
@@ -288,28 +283,44 @@ AmVolumeTable::removeVolume(VolumeDesc const& volDesc) {
 }
 
 void
-AmVolumeTable::read(AmRequest* amReq, void (AmDataProvider::*func)(AmRequest*)) {
-    if (volume_grouping_support) {
-        // Volume grouping requires the volume to be fully open
-        write(amReq, func);
-        return;
-    }
+AmVolumeTable::continueRequest(AmRequest* amReq,
+                               volume_ptr_type const vol,
+                               void (AmDataProvider::*func)(AmRequest*)) {
+    amReq->setVolId(vol->voldesc->GetID());
+    amReq->object_size = vol->voldesc->maxObjSizeInBytes;
+    amReq->page_out_cache = vol->isCacheable();
+    amReq->forced_unit_access = !vol->isCacheable();
+    amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
+    forward_request(func, amReq);
+}
 
+void
+AmVolumeTable::read(AmRequest* amReq, void (AmDataProvider::*func)(AmRequest*)) {
     ReadGuard rg(map_rwlock);
     auto vol = getVolume(amReq->volume_name);
     if (vol) {
-        amReq->setVolId(vol->voldesc->GetID());
-        amReq->object_size = vol->voldesc->maxObjSizeInBytes;
-        amReq->page_out_cache = vol->cacheable();
-        amReq->forced_unit_access = !vol->cacheable();
-        amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
-        return forward_request(func, amReq);
-    }
-
-    // We do not know about this volume, delay it and try and look up the
-    // required VolDesc to continue the operation.
-    if (ERR_VOL_NOT_FOUND == read_queue->delay(amReq)) {
-        lookupVolume(amReq->volume_name);
+        // We need to open the volume in R/O mode if VG is enabled
+        if (volume_grouping_support && !vol->isOpen()) {
+            if (ERR_VOL_NOT_FOUND == read_queue->delay(amReq) && vol->startOpen()) {
+                // Otherwise implicitly attach and delay till open response
+                GLOGDEBUG << "Trying to read from unopened volume, implicit open.";
+                fpi::VolumeAccessMode ro;
+                ro.can_write = false; ro.can_cache = false;
+                auto volReq = new AttachVolumeReq(amReq->io_vol_id,
+                                                  amReq->volume_name,
+                                                  ro,
+                                                  nullptr);
+                continueRequest(volReq, vol, &AmDataProvider::openVolume);
+            }
+        } else {
+            continueRequest(amReq, vol, func);
+        }
+    } else {
+        // We do not know about this volume, delay it and try and look up the
+        // required VolDesc to continue the operation.
+        if (ERR_VOL_NOT_FOUND == lookup_queue->delay(amReq)) {
+            lookupVolume(amReq->volume_name);
+        }
     }
 }
 
@@ -319,36 +330,32 @@ AmVolumeTable::write(AmRequest* amReq, void (AmDataProvider::*func)(AmRequest*))
     ReadGuard rg(map_rwlock);
     auto vol = getVolume(amReq->volume_name);
     if (vol) {
-        amReq->setVolId(vol->voldesc->GetID());
-        if (vol->writable()) {
-            amReq->object_size = vol->voldesc->maxObjSizeInBytes;
-            amReq->page_out_cache = vol->cacheable();
-            amReq->forced_unit_access = !vol->cacheable();
-            amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
-            forward_request(func, amReq);
-        } else if (ERR_VOL_NOT_FOUND == write_queue->delay(amReq) && vol->startOpen()) {
-            // Otherwise implicitly attach and delay till open response
-            GLOGTRACE << "Trying to update an unleased volume, implicit open.";
-            fpi::VolumeAccessMode default_access_mode;
-            auto volReq = new AttachVolumeReq(amReq->io_vol_id,
-                                              amReq->volume_name,
-                                              default_access_mode,
-                                              nullptr);
-            AmDataProvider::openVolume(volReq);
+        if (!vol->isWritable()) {
+            if (ERR_VOL_NOT_FOUND == write_queue->delay(amReq) && vol->startOpen()) {
+                // Otherwise implicitly attach and delay till open response
+                GLOGTRACE << "Trying to update an unleased volume, implicit open.";
+                fpi::VolumeAccessMode default_access_mode;
+                auto volReq = new AttachVolumeReq(amReq->io_vol_id,
+                                                  amReq->volume_name,
+                                                  default_access_mode,
+                                                  nullptr);
+                continueRequest(volReq, vol, &AmDataProvider::openVolume);
+            }
+        } else {
+            continueRequest(amReq, vol, func);
         }
-        return;
-    }
-
-    // If we didn't even know about the volume, we may need to look it up still
-    if (ERR_VOL_NOT_FOUND == read_queue->delay(amReq)) {
-        lookupVolume(amReq->volume_name);
+    } else {
+        // If we didn't even know about the volume, we may need to look it up still
+        if (ERR_VOL_NOT_FOUND == lookup_queue->delay(amReq)) {
+            lookupVolume(amReq->volume_name);
+        }
     }
 }
 
 void
 AmVolumeTable::openVolume(AmRequest *amReq) {
     // Check we're writable
-    WriteGuard wg(map_rwlock);
+    ReadGuard wg(map_rwlock);
     auto vol = getVolume(amReq->volume_name);
     if (vol) {
         auto volReq = static_cast<AttachVolumeReq*>(amReq);
@@ -356,7 +363,7 @@ AmVolumeTable::openVolume(AmRequest *amReq) {
         auto wants_cache = volReq->mode.can_cache;
         // If we already have the appropriate mode or are currently opening the
         // volume, just return OK
-        if (((!wants_write || vol->writable()) && (!wants_cache || vol->cacheable())) || !vol->startOpen()) {
+        if (((!wants_write || vol->isWritable()) && (!wants_cache || vol->isCacheable())) || !vol->startOpen()) {
             auto cb = std::dynamic_pointer_cast<AttachCallback>(volReq->cb);
             cb->mode = boost::make_shared<fpi::VolumeAccessMode>(volReq->mode);
             cb->volDesc = boost::make_shared<VolumeDesc>(*vol->voldesc);
@@ -365,10 +372,8 @@ AmVolumeTable::openVolume(AmRequest *amReq) {
 
         GLOGTRACE << "Dispatching open volume with mode: cache(" << volReq->mode.can_cache
                   << ") write(" << volReq->mode.can_write << ")";
-        amReq->setVolId(vol->voldesc->GetID());
-        amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
-        AmDataProvider::openVolume(amReq);
-    } else if (ERR_VOL_NOT_FOUND == read_queue->delay(amReq)) {
+        continueRequest(amReq, vol, &AmDataProvider::openVolume);
+    } else if (ERR_VOL_NOT_FOUND == lookup_queue->delay(amReq)) {
         lookupVolume(amReq->volume_name);
     }
 }
@@ -381,35 +386,36 @@ AmVolumeTable::openVolumeCb(AmRequest *amReq, const Error error) {
         WriteGuard wg(map_rwlock);
         auto vol = getVolume(amReq->io_vol_id);
         if (!vol) {
-            GLOGDEBUG << "Volume has been removed, dropping lease to: " << amReq->volume_name;
+            GLOGDEBUG << "Volume has been removed, dropping open to: " << amReq->volume_name;
+            read_queue->cancel_if(amReq->volume_name, ERR_VOLUME_ACCESS_DENIED);
             write_queue->cancel_if(amReq->volume_name, ERR_VOLUME_ACCESS_DENIED);
             return AmDataProvider::openVolumeCb(amReq, ERR_VOLUME_ACCESS_DENIED);
         }
 
         if (err.ok()) {
-            LOGDEBUG << "Leased volume: " << amReq->volume_name;
+            LOGDEBUG << "Opened volume: " << amReq->volume_name;
+            // Assign the volume the token we got from DM
+            vol->setToken(AmVolumeAccessToken(volReq->mode, volReq->token));
+            if (amReq->cb) {
+                auto cb = std::dynamic_pointer_cast<AttachCallback>(amReq->cb);
+                cb->volDesc = boost::make_shared<VolumeDesc>(*vol->voldesc);
+                cb->mode = boost::make_shared<fpi::VolumeAccessMode>(volReq->mode);
+            }
         } else {
-            LOGNOTIFY << "Failed to lease volume: " << amReq->volume_name
+            LOGNOTIFY << "Failed to open volume: " << amReq->volume_name
                       << " error(" << err << ") access is R/O.";
-            err = ERR_OK;
-            volReq->mode.can_cache = false;
-            volReq->mode.can_write = false;
-            volReq->token = invalid_vol_token;
-        }
-
-        // Assign the volume the token we got from DM
-        vol->setToken(AmVolumeAccessToken(volReq->mode, volReq->token));
-        if (amReq->cb) {
-            auto cb = std::dynamic_pointer_cast<AttachCallback>(amReq->cb);
-            cb->volDesc = boost::make_shared<VolumeDesc>(*vol->voldesc);
-            cb->mode = boost::make_shared<fpi::VolumeAccessMode>(volReq->mode);
+            vol->clearToken();
         }
         vol->stopOpen();
     }
 
-    if (volReq->mode.can_write) {
-        write_queue->resume_if(amReq->volume_name);
+    if (err.ok()) {
+        read_queue->resume_if(amReq->volume_name);
+        if (volReq->mode.can_write) {
+            write_queue->resume_if(amReq->volume_name);
+        }
     } else {
+        read_queue->cancel_if(amReq->volume_name, ERR_VOLUME_ACCESS_DENIED);
         write_queue->cancel_if(amReq->volume_name, ERR_VOLUME_ACCESS_DENIED);
     }
 
@@ -422,33 +428,27 @@ AmVolumeTable::closeVolume(AmRequest *amReq) {
     // Check we're writable
     WriteGuard wg(map_rwlock);
     auto vol = getVolume(amReq->volume_name);
-    if (!vol || !vol->writable()) {
+    if (!vol || !vol->isWritable()) {
         return AmDataProvider::closeVolumeCb(amReq, ERR_OK);
     }
 
     auto volReq = static_cast<DetachVolumeReq*>(amReq);
-    volReq->token = vol->getToken();
-    amReq->setVolId(vol->voldesc->GetID());
-    amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
-    fpi::VolumeAccessMode ro;
-    ro.can_write = false; ro.can_cache = false;
-    vol->setToken(AmVolumeAccessToken(ro, invalid_vol_token));
-    AmDataProvider::closeVolume(volReq);
+    volReq->token = vol->clearToken();
+    continueRequest(amReq, vol, &AmDataProvider::closeVolume);
 }
 
 void
 AmVolumeTable::renewTokens() {
     // For each of our volumes that we currently have a lease on, let's renew
     // it so we can ensure mutually exclusivity
-    WriteGuard wg(map_rwlock);
+    ReadGuard wg(map_rwlock);
     for (auto& vol_pair : volume_map) {
         auto& vol = vol_pair.second;
-        if (vol->writable() && vol->startOpen()) {
+        if (vol->isWritable() && vol->startOpen()) {
             fpi::VolumeAccessMode rw;
             auto volReq = new AttachVolumeReq(vol_pair.first, vol->voldesc->name, rw, nullptr);
-            volReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
             volReq->token = vol->getToken();
-            AmDataProvider::openVolume(volReq);
+            continueRequest(volReq, vol, &AmDataProvider::openVolume);
         }
     }
     token_timer->schedule(renewal_task, vol_tok_renewal_freq);
@@ -497,14 +497,14 @@ AmVolumeTable::lookupVolumeCb(std::string const volume_name,
         if (err.ok()) {
             LOGNORMAL << "Found volume, dispatching queued I/O for: " << volume_name;
             registerVolume(response->vol_desc);
-            read_queue->resume_if(volume_name);
+            lookup_queue->resume_if(volume_name);
             return;
         }
     }
     // Drain any wait queue into as any Error
     LOGERROR << "Could not find volume, returning " << err
              << " for all queued I/O on: " << volume_name;
-    read_queue->cancel_if(volume_name, err);
+    lookup_queue->cancel_if(volume_name, err);
 }
 
 /*
