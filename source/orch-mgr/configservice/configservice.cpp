@@ -1277,7 +1277,6 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         configDB->listSnapshots(_return, fds_volid_t(*volumeId));
         for (std::vector<fpi::Snapshot>::iterator it = _return.begin();
 							it != _return.end();) {
-	    LOGDEBUG << "In listSnapshots: snapshot " << it->snapshotName << "state " << it->state;
 	    if (it->state == fpi::ResourceState::MarkedForDeletion) {
 		it = _return.erase(it);
 	    } else {
