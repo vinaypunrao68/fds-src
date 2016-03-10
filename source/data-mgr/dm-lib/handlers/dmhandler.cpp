@@ -17,7 +17,12 @@ RequestHelper::~RequestHelper() {
         Error err = _dataManager.qosCtrl->enqueueIO(dmRequest->getVolId(), dmRequest);
         if (err != ERR_OK) {
             LOGWARN << "Unable to enqueue request for volid:" << dmRequest->getVolId();
-            dmRequest->cb(err, dmRequest);
+
+            if (dmRequest->cb) {
+                dmRequest->cb(err, dmRequest);
+            } else {
+                delete dmRequest;
+            }
         }
     }
 }
@@ -73,7 +78,11 @@ void Handler::addToQueue(DmRequest *dmRequest) {
                                                dmRequest);
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue request for volid:" << dmRequest->getVolId();
-        dmRequest->cb(err, dmRequest);
+        if (dmRequest->cb) {
+            dmRequest->cb(err, dmRequest);
+        } else {
+            delete dmRequest;
+        }
     } else {
         LOGTRACE << "dmrequest " << dmRequest << " added to queue successfully";
     }
