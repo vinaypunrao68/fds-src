@@ -28,8 +28,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.thrift.TException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  * @author ptinius
@@ -38,7 +38,7 @@ public class SvcLayerClient
     implements SvcLayerClientIface {
 
     private static final Logger logger =
-        LoggerFactory.getLogger( SvcLayerClient.class );
+        LogManager.getLogger( SvcLayerClient.class );
 
     private static final Integer DEF_PM_PORT = 7000;
 

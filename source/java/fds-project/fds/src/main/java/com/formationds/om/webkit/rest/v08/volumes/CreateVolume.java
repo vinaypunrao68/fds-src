@@ -7,8 +7,11 @@ package com.formationds.om.webkit.rest.v08.volumes;
 import com.formationds.apis.FDSP_ModifyVolType;
 import com.formationds.apis.VolumeDescriptor;
 import com.formationds.client.v08.converters.ExternalModelConverter;
+import com.formationds.client.v08.model.Size;
+import com.formationds.client.v08.model.SizeUnit;
 import com.formationds.client.v08.model.SnapshotPolicy;
 import com.formationds.client.v08.model.Volume;
+import com.formationds.client.v08.model.VolumeSettingsBlock;
 import com.formationds.client.v08.model.VolumeSettingsISCSI;
 import com.formationds.client.v08.model.VolumeSettingsNfs;
 import com.formationds.commons.model.helper.ObjectModelHelper;
@@ -26,8 +29,8 @@ import com.formationds.web.toolkit.TextResource;
 import com.google.common.base.CharMatcher;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.InputStream;
 import java.util.Collections;
@@ -37,7 +40,7 @@ import java.util.Map;
 public class CreateVolume implements RequestHandler
 {
 
-    private static final Logger logger = LoggerFactory.getLogger( CreateVolume.class );
+    private static final Logger logger = LogManager.getLogger( CreateVolume.class );
 
     private final Authorizer authorizer;
     private ConfigurationApi configApi;
@@ -85,6 +88,8 @@ public class CreateVolume implements RequestHandler
             throw new ApiException( "Badly formatted volume, name cannot contain spaces",
                                     ErrorCode.BAD_REQUEST );
         }
+
+        validateVolumeSize( newVolume );
 
         VolumeDescriptor internalVolume =
                 ExternalModelConverter.convertToInternalVolumeDescriptor( newVolume );
@@ -236,6 +241,46 @@ public class CreateVolume implements RequestHandler
                 .getSnapshotPolicies( ) )
         {
             createEndpoint.createSnapshotPolicy( externalVolume.getId( ), policy );
+        }
+    }
+
+    private static final long TWO_TO_32DN = ( long ) Math.pow( 2, 32 );
+    private static final String VOL_SIZE_ERR =
+        "The specified volume size is too large %s, please specify volume less than %s.";
+
+    /**
+     * @param volume the {@link Volume} representing the external model object
+     * @throws ApiException if the Volume size is not valid
+     */
+    public void validateVolumeSize( final Volume volume )
+        throws ApiException
+    {
+        long blockSize;
+        long requestedVolumeSize;
+        switch( volume.getSettings().getVolumeType() )
+        {
+            /*
+             * this validation only applies to block based volume types
+             *
+             * iSCSI is currently the only production supported block volume. The System test still
+             * use BLOCK, but don't provide the block size, so no need to check it.
+             */
+            case ISCSI:
+                final VolumeSettingsISCSI settingsISCSI = ( VolumeSettingsISCSI ) volume.getSettings();
+                blockSize = settingsISCSI.getBlockSize().getValue( SizeUnit.B ).longValue();
+                requestedVolumeSize = settingsISCSI.getCapacity().getValue( SizeUnit.B ).longValue();
+                break;
+            default:
+                return;
+        }
+
+        final long maxCalculated = blockSize * TWO_TO_32DN;
+        if( requestedVolumeSize > maxCalculated )
+        {
+            throw new ApiException( String.format( VOL_SIZE_ERR,
+                                                   Size.of( requestedVolumeSize, SizeUnit.B ).getValue( SizeUnit.GB ),
+                                                   Size.of( maxCalculated, SizeUnit.B ).getValue( SizeUnit.GB ) ),
+                                    ErrorCode.BAD_REQUEST );
         }
     }
 

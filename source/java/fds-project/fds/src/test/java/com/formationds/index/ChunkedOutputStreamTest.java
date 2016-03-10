@@ -1,5 +1,6 @@
 package com.formationds.index;
 
+import com.formationds.nfs.Chunker;
 import com.formationds.nfs.IoOps;
 import com.formationds.nfs.MemoryIoOps;
 import org.apache.lucene.store.IndexInput;
@@ -28,7 +29,7 @@ public class ChunkedOutputStreamTest {
         assertEquals(57, indexOutput.getFilePointer());
         indexOutput.close();
 
-        IndexInput input = new FdsIndexInput(io, BLOB_NAME, DOMAIN, VOLUME, BLOB_NAME, objectSize);
+        IndexInput input = new FdsIndexInput(new Chunker(io), io, BLOB_NAME, DOMAIN, VOLUME, BLOB_NAME, objectSize);
         assertEquals(57, input.length());
         String string = input.readString();
         assertEquals(s, string);

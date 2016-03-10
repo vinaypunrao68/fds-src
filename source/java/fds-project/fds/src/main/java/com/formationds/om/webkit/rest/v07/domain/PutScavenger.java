@@ -16,8 +16,8 @@ import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 import org.json.JSONException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -26,7 +26,7 @@ import java.util.Map;
 public class PutScavenger
   implements RequestHandler {
   private static final Logger logger =
-    LoggerFactory.getLogger( PutScavenger.class );
+    LogManager.getLogger( PutScavenger.class );
 
   private final Authorizer authorizer;
   private final ConfigurationService.Iface configApi;

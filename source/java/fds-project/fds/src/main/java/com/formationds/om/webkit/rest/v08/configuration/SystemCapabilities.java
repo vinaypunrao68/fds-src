@@ -14,8 +14,8 @@ import com.formationds.web.toolkit.Resource;
 
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +27,7 @@ import java.util.Map;
 public class SystemCapabilities
     implements RequestHandler {
 
-	private Logger logger = LoggerFactory.getLogger( SystemCapabilities.class );
+	private Logger logger = LogManager.getLogger( SystemCapabilities.class );
 	
     private final ParsedConfig parsedConfig;
     

@@ -40,8 +40,8 @@ import com.formationds.xdi.RealAsyncAm;
 import com.nurkiewicz.asyncretry.AsyncRetryExecutor;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.thrift.transport.TTransportException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -53,7 +53,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class Main {
-    private static final Logger logger = LoggerFactory.getLogger( Main.class );
+    private static final Logger logger = LogManager.getLogger( Main.class );
 
     // key for managing the singleton EventManager.
     private final Object eventMgrKey = new Object();

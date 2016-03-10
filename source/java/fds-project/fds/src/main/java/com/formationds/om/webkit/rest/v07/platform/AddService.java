@@ -4,8 +4,8 @@ import java.util.Map;
 
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.formationds.apis.ConfigurationService;
 import com.formationds.web.toolkit.JsonResource;
@@ -15,7 +15,7 @@ import com.formationds.web.toolkit.Resource;
 public class AddService implements RequestHandler {
 
     private static final Logger logger =
-            LoggerFactory.getLogger( AddService.class );
+            LogManager.getLogger( AddService.class );
 
     private ConfigurationService.Iface client;
 	

@@ -106,7 +106,6 @@ bool ScstConnector::_addTarget(VolumeDesc const& volDesc) {
         try {
             it->second.reset(new ScstTarget(this,
                                             target_name,
-                                            threads,
                                             amProcessor));
         } catch (ScstError& e) {
             LOGERROR << "Failed to initialize target [" << target_name << "], ensure that SCST is installed and running.";
@@ -174,8 +173,6 @@ ScstConnector::ScstConnector(std::string const& prefix,
         : amProcessor(processor),
           target_prefix(prefix)
 {
-    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.connector.scst.");
-    threads = conf.get<uint32_t>("threads", threads);
 }
 
 static auto const rediscovery_delay = std::chrono::seconds(15);

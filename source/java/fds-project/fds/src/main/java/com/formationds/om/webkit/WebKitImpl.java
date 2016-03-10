@@ -13,8 +13,8 @@ import com.formationds.web.toolkit.HttpConfiguration;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.HttpsConfiguration;
 import com.formationds.web.toolkit.WebApp;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import javax.crypto.SecretKey;
 
@@ -24,7 +24,7 @@ import javax.crypto.SecretKey;
 public class WebKitImpl {
 
     private static final Logger logger =
-        LoggerFactory.getLogger( WebKitImpl.class );
+        LogManager.getLogger( WebKitImpl.class );
 
     private WebApp webApp;
 

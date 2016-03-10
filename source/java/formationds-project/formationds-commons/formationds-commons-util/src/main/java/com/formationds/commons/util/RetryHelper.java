@@ -4,8 +4,8 @@
 
 package com.formationds.commons.util;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.Random;
 import java.util.UUID;
@@ -16,7 +16,7 @@ import java.util.concurrent.TimeoutException;
 
 public class RetryHelper {
 
-    public static final Logger logger = LoggerFactory.getLogger( RetryHelper.class );
+    public static final Logger logger = LogManager.getLogger( RetryHelper.class );
 
     static final Random rng = new Random( System.currentTimeMillis() );
 

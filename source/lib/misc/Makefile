@@ -16,6 +16,7 @@ user_cpp         :=      \
     serialize.cpp        \
     fds_counters.cpp     \
     fds_types.cpp        \
+    fds_version.cpp      \
     fds_volume.cpp       \
     dmt.cpp              \
     fds_error.cpp        \

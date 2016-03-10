@@ -30,11 +30,13 @@ public class FdsLuceneDirectory extends Directory {
     private int objectSize;
     private Cache<SimpleKey, MemoryLock> locks;
     private IoOps io;
+    private final Chunker chunker;
 
 
     public FdsLuceneDirectory(IoOps ops, String domain, String volume, int objectSize) {
         init(domain, volume, objectSize);
         io = ops;
+        chunker = new Chunker(ops);
     }
 
     private void init(String domain, String volume, int objectSize) {
@@ -56,6 +58,7 @@ public class FdsLuceneDirectory extends Directory {
         DeferredIoOps deferredIo = new DeferredIoOps(amOps, v -> maxObjectSize);
         deferredIo.start();
         io = deferredIo;
+        chunker = new Chunker(io);
     }
 
     @Override
@@ -125,7 +128,7 @@ public class FdsLuceneDirectory extends Directory {
     @Override
     public IndexInput openInput(String indexFile, IOContext ioContext) throws IOException {
         LOG.debug("open input " + indexFile);
-        return new FdsIndexInput(io, indexFile, domain, volume, blobName(indexFile), objectSize);
+        return new FdsIndexInput(chunker, io, indexFile, domain, volume, blobName(indexFile), objectSize);
     }
 
     @Override

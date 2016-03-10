@@ -12,15 +12,15 @@ import org.dcache.xdr.OncRpcException;
 import org.dcache.xdr.XdrAble;
 import org.dcache.xdr.XdrBuffer;
 import org.glassfish.grizzly.Buffer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.util.Optional;
 
 public class CustomOperationGETATTR extends AbstractNFSv4Operation {
 
-    private static final Logger _log = LoggerFactory.getLogger(CustomOperationGETATTR.class);
+    private static final Logger _log = LogManager.getLogger(CustomOperationGETATTR.class);
 
     public CustomOperationGETATTR(nfs_argop4 args) {
         super(args, nfs_opnum4.OP_GETATTR);

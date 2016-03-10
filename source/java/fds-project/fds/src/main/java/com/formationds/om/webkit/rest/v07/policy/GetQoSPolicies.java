@@ -13,8 +13,8 @@ import com.formationds.web.toolkit.Resource;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 import org.json.JSONArray;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.Map;
 import java.util.List;
@@ -22,7 +22,7 @@ import java.util.List;
 public class GetQoSPolicies
   implements RequestHandler {
   private static final Logger logger =
-    LoggerFactory.getLogger( GetQoSPolicies.class );
+    LogManager.getLogger( GetQoSPolicies.class );
 
   private final ConfigurationService.Iface configApi;
 

@@ -24,8 +24,8 @@ import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.WebResource;
 import com.sun.jersey.api.client.config.DefaultClientConfig;
 import com.sun.jersey.api.uri.UriBuilderImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import javax.crypto.SecretKey;
 import javax.ws.rs.core.MediaType;
@@ -40,7 +40,7 @@ import java.util.Optional;
 public class OMConfigServiceRestClientImpl implements OMConfigServiceClient {
 
     private static final Logger logger =
-        LoggerFactory.getLogger( OMConfigServiceRestClientImpl.class);
+        LogManager.getLogger( OMConfigServiceRestClientImpl.class);
 
     private static final String DEF_PROTOCOL = "http";
     private static final String DEF_API_PATH = "/api";

@@ -115,9 +115,6 @@ struct ScstDevice {
     unique<ev::io> ioWatcher;
     unique<ev::async> asyncWatcher;
 
-    /** Indicates to ev loop if it's safe to handle events on this connection */
-    bool processing_ {false};
-
     int openScst();
     void wakeupCb(ev::async &watcher, int revents);
     void ioEvent(ev::io &watcher, int revents);

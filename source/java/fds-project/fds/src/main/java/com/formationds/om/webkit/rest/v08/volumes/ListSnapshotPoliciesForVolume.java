@@ -16,8 +16,8 @@ import com.formationds.web.toolkit.TextResource;
 
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,7 +25,7 @@ import java.util.Map;
 
 public class ListSnapshotPoliciesForVolume implements RequestHandler {
     
-	private static final Logger logger = LoggerFactory.getLogger( ListSnapshotPoliciesForVolume.class );
+	private static final Logger logger = LogManager.getLogger( ListSnapshotPoliciesForVolume.class );
 
     private static final String REQ_PARAM_VOLUME_ID = "volume_id";
     private ConfigurationApi configApi;
