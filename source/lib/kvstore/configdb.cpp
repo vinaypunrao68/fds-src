@@ -1169,8 +1169,7 @@ boost::shared_ptr<std::string> ConfigDB::getVolumeSettings( long unsigned int vo
  *****************************************************************************/
 
 /**
- * Create a new Local Domain provided it does not already exist. (Local Domain names
- * are treated as case-insenative.)
+ * Create a new Qos Policy
  *
  * @param identifier: std::string - Name to use for the new QoS Policy.
  * @param minIops: fds_uint64_t - Minimum IOPs requested for the new QoS Policy.
@@ -1786,13 +1785,17 @@ bool ConfigDB::nodeExists(const NodeUuid& uuid)
 bool ConfigDB::getNodeIds(std::unordered_set<NodeUuid, UuidHash>& nodes, int localDomain)
 {
     LOGDEBUG << "!!ScopedRead nodeLock";
-    SCOPEDREAD(nodeLock);
+
 
     std::vector<long long> nodeIds; //NOLINT
 
     try {
-        Reply reply = kv_store.sendCommand("smembers %d:cluster:nodes", localDomain);
-        reply.toVector(nodeIds);
+        {
+            SCOPEDREAD(nodeLock);
+
+            Reply reply = kv_store.sendCommand("smembers %d:cluster:nodes", localDomain);
+            reply.toVector(nodeIds);
+        }
 
         if (nodeIds.empty()) {
             LOGWARN << "no nodes found for domain [" << localDomain << "]";
@@ -1816,12 +1819,16 @@ bool ConfigDB::getNodeIds(std::unordered_set<NodeUuid, UuidHash>& nodes, int loc
 bool ConfigDB::getAllNodes(std::vector<NodeInfoType>& nodes, int localDomain)
 {
     LOGDEBUG << "!!ScopedRead nodeLock";
-    SCOPEDREAD(nodeLock);
+
     std::vector<long long> nodeIds; //NOLINT
 
     try {
-        Reply reply = kv_store.sendCommand("smembers %d:cluster:nodes", localDomain);
-        reply.toVector(nodeIds);
+            {
+                SCOPEDREAD(nodeLock);
+
+                Reply reply = kv_store.sendCommand("smembers %d:cluster:nodes", localDomain);
+                reply.toVector(nodeIds);
+            }
 
         if (nodeIds.empty()) {
             LOGWARN << "no nodes found for domain [" << localDomain << "]";
@@ -2597,24 +2604,26 @@ bool ConfigDB::deleteSvcMap(const fpi::SvcInfo& svcinfo)
 bool ConfigDB::updateSvcMap(const fpi::SvcInfo& svcinfo)
 {
     LOGDEBUG << "!!ScopedWrite svcMapLock";
-    SCOPEDWRITE(svcMapLock);
 
     bool bRetCode = false;
     try {
         
         std::stringstream uuid;
         uuid << svcinfo.svc_id.svc_uuid.svc_uuid;
-        
-        LOGDEBUG << "!!ConfigDB updating Service Map:"
+
+        {
+            SCOPEDWRITE(svcMapLock);
+            FDSP_SERIALIZE( svcinfo, serialized );
+            bRetCode = kv_store.hset( "svcmap", uuid.str().c_str(), *serialized );
+        }
+
+        LOGDEBUG << "!!ConfigDB updated Service Map:"
                  << " type: " << svcinfo.svc_type
                  << " uuid: " << std::hex << svcinfo.svc_id.svc_uuid.svc_uuid << std::dec
                  << " ip: " << svcinfo.ip
-        		 << " port: " << svcinfo.svc_port
+                 << " port: " << svcinfo.svc_port
                  << " incarnation: " << svcinfo.incarnationNo
                  << " status: " << OmExtUtilApi::printSvcStatus(svcinfo.svc_status);
-                
-        FDSP_SERIALIZE( svcinfo, serialized );        
-        bRetCode = kv_store.hset( "svcmap", uuid.str().c_str(), *serialized );
                        
     } catch(const RedisException& e) {
         
@@ -2668,30 +2677,37 @@ bool ConfigDB::changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr)
 bool ConfigDB::getSvcInfo(const fds_uint64_t svc_uuid, fpi::SvcInfo& svcInfo)
 {
     LOGDEBUG << "!!ScopedRead svcMapLock";
-    SCOPEDREAD(svcMapLock);
 
     bool result = false;
     try
     {
         std::stringstream uuid;
         uuid << svc_uuid;
+        bool nonNilReply = false;
 
         LOGDEBUG << "ConfigDB retrieving svcInfo for"
                  << " uuid: " << std::hex << svc_uuid << std::dec;
 
-        Reply reply = kv_store.hget( "svcmap", uuid.str().c_str() ); //NOLINT
-
-        /*
-         * the reply.isValid() always == true, because its not NULL
-         */
-        if ( !reply.isNil() )
         {
-            std::string value = reply.getString();
-            fds::deserializeFdspMsg( value, svcInfo );
+            SCOPEDREAD(svcMapLock);
+            Reply reply = kv_store.hget( "svcmap", uuid.str().c_str() ); //NOLINT
 
-            result = true;
+            /*
+             * the reply.isValid() always == true, because its not NULL
+             */
+            nonNilReply = reply.isNil();
 
-        } else {
+            if ( !nonNilReply )
+            {
+                std::string value = reply.getString();
+                fds::deserializeFdspMsg( value, svcInfo );
+
+                result = true;
+            }
+        }
+
+        if ( nonNilReply )
+        {
             LOGDEBUG << "Retrieved a nil value from configDB for uuid: "
                      << std::hex << svc_uuid << std::dec;
         }
@@ -2712,9 +2728,9 @@ bool ConfigDB::getSvcInfo(const fds_uint64_t svc_uuid, fpi::SvcInfo& svcInfo)
 fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
 {
     LOGDEBUG << "!!ScopedRead svcMapLock";
-    SCOPEDREAD(svcMapLock);
 
     fpi::ServiceStatus retStatus = fpi::SVC_STATUS_INVALID;
+    bool nonNilReply = false;
 
     try
     {
@@ -2724,20 +2740,25 @@ fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
         LOGDEBUG << "ConfigDB reading service status for service"
                  << " uuid: " << std::hex << svc_uuid << std::dec;
 
-        Reply reply = kv_store.hget( "svcmap", uuid.str().c_str() ); //NOLINT
-
-        /*
-         * the reply.isValid() always == true, because its not NULL
-         */
-        if ( !reply.isNil() )
         {
-            std::string value = reply.getString();
-            fpi::SvcInfo svcInfo;
-            fds::deserializeFdspMsg( value, svcInfo );
+            SCOPEDREAD(svcMapLock);
+            Reply reply = kv_store.hget( "svcmap", uuid.str().c_str() ); //NOLINT
 
-            // got the status!
-            retStatus = svcInfo.svc_status;
+            nonNilReply = reply.isNil();
 
+            if ( !nonNilReply )
+            {
+                std::string value = reply.getString();
+                fpi::SvcInfo svcInfo;
+                fds::deserializeFdspMsg( value, svcInfo );
+
+                // got the status!
+                retStatus = svcInfo.svc_status;
+            }
+
+        }
+        if ( !nonNilReply )
+        {
             LOGDEBUG << "ConfigDB retrieved service status for service"
                      << " uuid: " << std::hex << svc_uuid << std::dec
                      << " status: " << OmExtUtilApi::printSvcStatus(retStatus);
@@ -2755,9 +2776,10 @@ fpi::ServiceStatus ConfigDB::getStateSvcMap( const int64_t svc_uuid )
 bool ConfigDB::isPresentInSvcMap( const int64_t svc_uuid )
 {
     LOGDEBUG << "!!ScopedRead svcMapLock";
-    SCOPEDREAD(svcMapLock);
 
     bool isPresent = false;
+    bool nonNilReply = false;
+
     try
     {
         std::stringstream uuid;
@@ -2766,25 +2788,28 @@ bool ConfigDB::isPresentInSvcMap( const int64_t svc_uuid )
         LOGDEBUG << "ConfigDB getting service"
                  << " uuid: " << std::hex << svc_uuid << std::dec;
 
-        Reply reply = kv_store.hget( "svcmap", uuid.str().c_str() ); //NOLINT
-
-        /*
-         * the reply.isValid() always == true, because its not NULL
-         */
-        if ( !reply.isNil() )
         {
-            std::string value = reply.getString();
-            fpi::SvcInfo svcInfo;
-            fds::deserializeFdspMsg( value, svcInfo );
+            SCOPEDREAD(svcMapLock);
+            Reply reply = kv_store.hget( "svcmap", uuid.str().c_str() ); //NOLINT
 
-            int64_t id = svcInfo.svc_id.svc_uuid.svc_uuid;
+            if ( !nonNilReply )
+            {
+                std::string value = reply.getString();
+                fpi::SvcInfo svcInfo;
+                fds::deserializeFdspMsg( value, svcInfo );
 
-            if ( id != 0 ) {
-                isPresent = true;
-            } else {
-               isPresent = false;
+                int64_t id = svcInfo.svc_id.svc_uuid.svc_uuid;
+
+                if ( id != 0 ) {
+                    isPresent = true;
+                } else {
+                   isPresent = false;
+                }
             }
-        } else {
+        }
+
+        if ( nonNilReply )
+        {
             LOGDEBUG << "Retrieved a nil value from configDB for uuid"
                      << std::hex << svc_uuid << std::dec;
         }
@@ -2801,14 +2826,17 @@ bool ConfigDB::isPresentInSvcMap( const int64_t svc_uuid )
 bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
 {
     LOGDEBUG << "!!getSvcMap ScopedRead svcMapLock";
-    SCOPEDREAD(svcMapLock);
+
+    StringList strings;
 
     try 
     {
         svcMap.clear();
-        Reply reply = kv_store.sendCommand("hgetall svcmap");
-        StringList strings;
-        reply.toVector(strings);
+        {
+            SCOPEDREAD(svcMapLock);
+            Reply reply = kv_store.sendCommand("hgetall svcmap");
+            reply.toVector(strings);
+        }
 
         for (uint i = 0; i < strings.size(); i+= 2) {
             fpi::SvcInfo svcInfo;
@@ -2846,7 +2874,6 @@ bool ConfigDB::getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
 void ConfigDB::fromTo( fpi::SvcInfo svcInfo,
                        kvstore::NodeInfoType nodeInfo )
 {
-    LOGDEBUG << "!!fromTo svc to node info";
     nodeInfo.control_port = svcInfo.svc_port;
     nodeInfo.data_port = svcInfo.svc_port;
     nodeInfo.ip_lo_addr = fds::net::ipString2Addr(svcInfo.ip);
