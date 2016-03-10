@@ -68,8 +68,8 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import javax.crypto.SecretKey;
 
@@ -79,7 +79,7 @@ import javax.crypto.SecretKey;
 public class ApiDefinition extends AbstractApiDefinition{
 
     private static final Logger logger =
-        LoggerFactory.getLogger( ApiDefinition.class );
+        LogManager.getLogger( ApiDefinition.class );
 
     private static final String URL_PREFIX = "/fds/config/v08";
     

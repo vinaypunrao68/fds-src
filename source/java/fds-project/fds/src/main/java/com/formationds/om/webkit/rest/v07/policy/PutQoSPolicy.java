@@ -14,8 +14,8 @@ import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import javax.servlet.http.HttpServletResponse;
 import java.util.Map;
@@ -23,7 +23,7 @@ import java.util.Map;
 public class PutQoSPolicy
   implements RequestHandler {
   private static final Logger logger =
-    LoggerFactory.getLogger( PutQoSPolicy.class );
+    LogManager.getLogger( PutQoSPolicy.class );
 
   private final ConfigurationService.Iface configApi;
 

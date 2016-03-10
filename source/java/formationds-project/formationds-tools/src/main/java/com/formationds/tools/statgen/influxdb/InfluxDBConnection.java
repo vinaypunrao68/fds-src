@@ -7,8 +7,8 @@ package com.formationds.tools.statgen.influxdb;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.Serie;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.nurkiewicz.asyncretry.AsyncRetryExecutor;
 
@@ -39,7 +39,7 @@ import java.util.concurrent.locks.ReentrantLock;;
  * </ul>
  */
 public class InfluxDBConnection {
-    public static final Logger logger = LoggerFactory.getLogger( InfluxDBConnection.class );
+    public static final Logger logger = LogManager.getLogger( InfluxDBConnection.class );
 
     public static final String FDS_OM_INFLUXDB_ENABLE_BACKTRACE = "fds.om.influxdb.enable_query_backtrace";
     public static final String FDS_OM_INFLUXDB_SERIALIZE_READS  = "fds.om.influxdb.serialize_reads";
@@ -300,7 +300,7 @@ public class InfluxDBConnection {
      */
     private class LoggingInfluxDBWriter implements InfluxDBWriter
     {
-        public final Logger writeLogger = LoggerFactory.getLogger( LoggingInfluxDBWriter.class );
+        public final Logger writeLogger = LogManager.getLogger( LoggingInfluxDBWriter.class );
 
         @Override public void write( TimeUnit precision, Serie... series )
         {
@@ -376,7 +376,7 @@ public class InfluxDBConnection {
      */
     private class LoggingInfluxDBReader implements InfluxDBReader
     {
-        public final Logger queryLogger = LoggerFactory.getLogger( LoggingInfluxDBReader.class );
+        public final Logger queryLogger = LogManager.getLogger( LoggingInfluxDBReader.class );
 
         LoggingInfluxDBReader() { }
 

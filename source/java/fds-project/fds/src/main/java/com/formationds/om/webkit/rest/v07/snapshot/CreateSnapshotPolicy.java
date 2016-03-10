@@ -13,8 +13,8 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -23,7 +23,7 @@ import java.util.Map;
 public class CreateSnapshotPolicy
   implements RequestHandler {
     private static final Logger logger =
-      LoggerFactory.getLogger( CreateSnapshotPolicy.class );
+      LogManager.getLogger( CreateSnapshotPolicy.class );
 
     private ConfigurationApi config;
 

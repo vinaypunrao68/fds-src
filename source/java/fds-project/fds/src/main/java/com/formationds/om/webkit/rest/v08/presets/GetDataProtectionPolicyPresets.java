@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.formationds.client.ical.Numbers;
 import com.formationds.client.ical.RecurrenceRule;
@@ -23,7 +23,7 @@ import com.formationds.web.toolkit.TextResource;
 
 public class GetDataProtectionPolicyPresets implements RequestHandler{
 
-	private static final Logger logger = LoggerFactory.getLogger( GetDataProtectionPolicyPresets.class );
+	private static final Logger logger = LogManager.getLogger( GetDataProtectionPolicyPresets.class );
 	private List<DataProtectionPolicyPreset> dataProtectionPresets;
 	private DataProtectionPolicyPreset sparsePreset;
 	private DataProtectionPolicyPreset normalPreset;

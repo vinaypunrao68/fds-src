@@ -10,8 +10,8 @@ import java.util.Optional;
 
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.formationds.protocol.ErrorCode;
 import com.formationds.client.v08.converters.ExternalModelConverter;
@@ -31,7 +31,7 @@ import com.formationds.web.toolkit.TextResource;
 public class CreateSnapshotPolicy implements RequestHandler{
 
     private static final String VOLUME_ARG = "volume_id";
-    private static final Logger logger = LoggerFactory.getLogger( CreateSnapshotPolicy.class );
+    private static final Logger logger = LogManager.getLogger( CreateSnapshotPolicy.class );
     private ConfigurationApi configApi;
     private Authorizer authorizer;
     private AuthenticationToken token;

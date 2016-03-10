@@ -51,8 +51,8 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.AsyncAm;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.thrift.TException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.net.UnknownHostException;
@@ -88,7 +88,7 @@ public class ExternalModelConverter {
     private static final Integer DEF_BLOCK_SIZE  = (1024 * 128);
     private static final Integer DEF_OBJECT_SIZE = ((1024 * 1024) * 2);
     private static final Integer DEF_NFS_SIZE = ((1024 * 1024) * 1);
-    private static final Logger  logger          = LoggerFactory.getLogger( ExternalModelConverter.class );
+    private static final Logger  logger          = LogManager.getLogger( ExternalModelConverter.class );
 
     public static Domain convertToExternalDomain( LocalDomainDescriptor internalDomain ) {
 

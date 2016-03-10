@@ -13,8 +13,8 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.InputStreamReader;
 import java.util.List;
@@ -22,8 +22,7 @@ import java.util.Map;
 
 public class CreateTenant implements RequestHandler {
 
-    private static final Logger logger = LoggerFactory
-            .getLogger( CreateTenant.class);
+    private static final Logger logger = LogManager.getLogger( CreateTenant.class);
 
     private ConfigurationApi configApi;
 
