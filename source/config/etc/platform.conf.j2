@@ -754,7 +754,6 @@ fds: {
 
     checker: {
         id = "checker"
-        path = "/home/bao_pham/temp/skinet2"
         logfile = "checker"
         log_severity = "{{ checker_log_severity }}"
 
@@ -765,6 +764,9 @@ fds: {
 
         threadpool: {
             num_threads = 10
+
+            /* Use lock free threadpool  */
+            use_lftp = true
         }
     }
 

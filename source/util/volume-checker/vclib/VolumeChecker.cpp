@@ -29,6 +29,8 @@ VolumeChecker::init(int argc, char **argv, bool initAsModule)
     auto svc_handler = boost::make_shared<VCSvcHandler>(this);
     auto svc_processor = boost::make_shared<fpi::PlatNetSvcProcessor>(svc_handler);
 
+    g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
+
     if (!populateVolumeList(argc, argv).OK()) {
         LOGERROR << "Unable to parse volume list. Not initializing";
         return;
@@ -41,12 +43,19 @@ VolumeChecker::init(int argc, char **argv, bool initAsModule)
                      argv,
                      initAsModule,
                      "platform.conf",
-                     "fds.checker",
+                     "fds.checker.",
                      "vc.log",
                      nullptr,
                      svc_handler,
                      svc_processor,
                      fpi::commonConstants().PLATNET_SERVICE_NAME);
+
+    if (!initAsModule) {
+        LOGDEBUG << "Starting modules";
+        start_modules();
+    }
+
+
 
     dmtMgr = MODULEPROVIDER()->getSvcMgr()->getDmtManager();
     dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();

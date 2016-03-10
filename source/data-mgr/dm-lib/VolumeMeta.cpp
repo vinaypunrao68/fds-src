@@ -708,7 +708,7 @@ void
 VolumeMeta::cleanupHashOnContext() {
     if (hashCalcContextPtr != nullptr) {
         scanReq->respStatus = hashCalcContextPtr->contextErr;
-        scanReq->respMessage->hash_result = std::string(reinterpret_cast<char*>(hashCalcContextPtr->hashResult));
+        scanReq->respMessage->hash_result = std::string(reinterpret_cast<char*>(hashCalcContextPtr->hashResult), SHA_DIGEST_LENGTH);
         scanReq->cb(scanReq->respStatus, scanReq);
         delete hashCalcContextPtr;
     }

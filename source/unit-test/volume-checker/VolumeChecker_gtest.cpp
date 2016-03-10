@@ -83,7 +83,6 @@ TEST_F(VolumeGroupFixture, staticio_restarts_with_vc) {
         doGroupStateCheck(v1Id);
     }
 
-
     ASSERT_TRUE(dmGroup[0]->proc->getDataMgr()->counters->totalVolumesReceivedMigration.value() == 0);
     /* Bring a dm down */
     dmGroup[0]->stop();

@@ -54,8 +54,8 @@ struct VolumeGroupFixture : DmGroupFixture {
         // That one should have "clusterSize" in it
         ASSERT_TRUE(vcHandle.proc->testGetVgCheckerListSize(0) == clusterSize);
 
-        // Sleep for a second for msgs to be sent
-        sleep(1);
+        // Sleep for seconds for msgs to be sent and to do work
+        sleep(3);
 
         // Each DM in the cluster should have received the command
         // Check if all DMs have responded (NS_FINISHED)

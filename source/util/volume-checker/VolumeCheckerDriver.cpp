@@ -19,6 +19,7 @@ int pm_port = -1;
 int min_argc = 0;
 std::vector<fds::fds_volid_t> volumes;
 namespace po = boost::program_options;
+static std::string logname = "VolumeChecker";
 
 /**
  * Helper Functions
@@ -136,6 +137,7 @@ int main(int argc, char **argv) {
     char **internal_argv = NULL;
     int internal_argc = 0;
 
+    fds::init_process_globals(logname);
     parsePoArgs(argc, argv);
 
     // Set up internal args to pass to checker
