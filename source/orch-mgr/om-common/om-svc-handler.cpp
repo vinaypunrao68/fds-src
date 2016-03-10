@@ -458,7 +458,7 @@ void OmSvcHandler::healthReportRunning( boost::shared_ptr<fpi::NotifyHealthRepor
    ResourceUUID service_UUID (msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
    fpi::FDSP_MgrIdType service_type = service_UUID.uuid_get_type();
    fpi::FDSP_MgrIdType comp_type = fpi::FDSP_INVALID_SVC;
-
+   fpi::SvcInfo dbInfo;
    switch (service_type)
    {
      case fpi::FDSP_ACCESS_MGR:
@@ -473,6 +473,19 @@ void OmSvcHandler::healthReportRunning( boost::shared_ptr<fpi::NotifyHealthRepor
        comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_STOR_MGR : comp_type;
        msg->healthReport.serviceInfo.svc_type = fpi::FDSP_STOR_MGR;
 
+       // Do not trust all fields in the incoming svcInfo to be set
+       // Retrieve current dbInfo and update the specific fields
+
+       gl_orch_mgr->getConfigDB()->getSvcInfo(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid, dbInfo);
+
+       // Neither the DM or SM services that send us the HEALTH_STATE_RUNNING messages
+       // ever set the service state correctly. So assuming RUNNING = ACTIVE
+       dbInfo.svc_status    = fpi::SVC_STATUS_ACTIVE;
+       dbInfo.svc_type      = msg->healthReport.serviceInfo.svc_type;
+       dbInfo.svc_port      = msg->healthReport.serviceInfo.svc_port;
+       dbInfo.name          = msg->healthReport.serviceInfo.name;
+       dbInfo.incarnationNo = msg->healthReport.serviceInfo.incarnationNo;
+
        //if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
        {
            auto domain = OM_NodeDomainMod::om_local_domain();
@@ -480,10 +493,7 @@ void OmSvcHandler::healthReportRunning( boost::shared_ptr<fpi::NotifyHealthRepor
            LOGNORMAL << "Will set service to state ACTIVE" << msg->healthReport.serviceInfo.name
                      << ":0x" << std::hex << service_UUID.uuid_get_val() << std::dec;
 
-           // Neither the DM or SM services that send us the HEALTH_STATE_RUNNING messages
-           // ever set the service state correctly. So assuming RUNNING = ACTIVE
-           msg->healthReport.serviceInfo.svc_status = fpi::SVC_STATUS_ACTIVE;
-           auto svcInfoPtr = boost::make_shared<fpi::SvcInfo>(msg->healthReport.serviceInfo);
+           auto svcInfoPtr = boost::make_shared<fpi::SvcInfo>(dbInfo);
 
            domain->om_change_svc_state_and_bcast_svcmap(svcInfoPtr, service_type, fpi::SVC_STATUS_ACTIVE);
 

@@ -459,18 +459,18 @@ namespace fds
 //                 |           |   incoming < current     |      No          | Only update svcLayer with DB record |
 //                 |           |   incoming = 0           |      Yes         | Update DB, svcLayer with incoming   |
 //                 |           |                          |                  | (after updating 0 incarnationNo)    |
-//+----------------+-----------+--------------------------+-------------------------------------+
+//+----------------+-----------+--------------------------+--------------------------------------------------------+
 //     False       |   True    |   incoming >= current    |      Yes         | Update svcLayer, DB with incoming   |
 //                 |           |   incoming < current     |      No          | Only update DB with svcLayer record |
 //                 |           |   incoming = 0           |      Yes         | Update svcLayer, DB with incoming   |
 //                 |           |                          |                  | (after updating 0 incarnationNo)    |
-//+----------------+-----------+--------------------------+-------------------------------------+
+//+----------------+-----------+--------------------------+--------------------------------------------------------+
 //     False       |   False   |   only incoming is valid |      Yes         | Check incoming incarnationNo, if    |
 //                 |           |                          |                  | 0, update, then update DB & svcLayer|
-//+----------------+-----------+--------------------------+-------------------------------------+
+//+----------------+-----------+--------------------------+--------------------------------------------------------+
 //     True        |   True    |   incoming >= svcLayer   |      Yes         | Update svcLayer, DB with incoming   |
-//                 |           |   svcLayer > configDB    |                  |
-//                 |           |                          |                  |
+//                 |           |   svcLayer > configDB    |                  |                                     |
+//                 |           |                          |                  |                                     |
 //                 |           |   incoming < svcLayer    |      No          | DB has most current, update svcLayer|
 //                 |           |   svcLayer < configDB    |                  | with DB record, ignore incoming     |
 //                 |           |                          |                  |                                     |
@@ -482,10 +482,10 @@ namespace fds
 //                 |           |                          |                  |                                     |
 //                 |           |   incoming >= svcLayer   |      Yes         | Incoming has the most current       |
 //                 |           |   svcLayer == configDB   |                  |                                     |
-//                 |           |                          |                  |
+//                 |           |                          |                  |                                     |
 //                 |           |   incoming < svcLayer    |      No          | SvcLayer has most current, update DB|
 //                 |           |   svcLayer > configDB    |                  | with svcLyr record, ignore incoming |
-//                 |           |                          |                  |
+//                 |           |                          |                  |                                     |
 //                 |           |   incoming = 0           |      Yes         | Update svcLayer, DB with incoming   |
 //+----------------+-----------+--------------------------+------------------+-------------------------------------+
 
@@ -495,7 +495,6 @@ namespace fds
                 LOGNORMAL << "!!Case: No svcLayer or DB record found, updating both with incoming";
                 // 1. Update DB to incoming
                 // 2. Update svcLayer to incoming
-                // 3. Broadcast svcMap
 
                 configDB->changeStateSvcMap( dbInfoPtr );
 
@@ -503,7 +502,6 @@ namespace fds
                 {
                     MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {svcLayerInfoUpdate} );
                 }
-                //OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
 
             } else if ( !svcLayerRecordFound && dbRecordFound ) {
 
@@ -515,7 +513,7 @@ namespace fds
                     LOGNORMAL << "!!Case: No svcLayer record, found DB record, updating both with incoming";
                     // 1. Update DB to incoming
                     // 2. Update svcLayer to incoming
-                    // 3. Broadcast svcMap
+
                     fpi::SvcInfoPtr incomingSvcInfoPtr = boost::make_shared<fpi::SvcInfo>(incomingSvcInfo);
                     configDB->changeStateSvcMap( incomingSvcInfoPtr );
 
@@ -523,7 +521,6 @@ namespace fds
                     {
                         MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {incomingSvcInfo} );
                     }
-                   // OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
 
                 } else {
                     LOGNORMAL << "!!Case: No svcLayer record, found DB record, updating svcLayer with DB record";
@@ -534,7 +531,6 @@ namespace fds
                     {
                         MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {dbInfoUpdate} );
                     }
-                   // OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
                 }
 
             } else if ( svcLayerRecordFound && !dbRecordFound ) {
@@ -553,7 +549,6 @@ namespace fds
                     {
                         MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {incomingSvcInfo} );
                     }
-                    //OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
 
                 } else {
                     LOGNORMAL << "!!Case: No DB record, found svcLayer record, updating DB with svcLayer";
@@ -562,7 +557,6 @@ namespace fds
                     // 2. No update to svcLayer
                     // 3. No svcMap broadcast
                     configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(svcLayerInfoUpdate) );
-                    //OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
                 }
             } else if ( svcLayerRecordFound && dbRecordFound ) {
 
@@ -589,23 +583,31 @@ namespace fds
                     // svcLayer > configDB
                     // 1. Update DB to incoming
                     // 2. Update svcLayer to incoming
-                    // 3. Broadcast svcMap
 
                     configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(incomingSvcInfo) );
                     MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {incomingSvcInfo} );
-                    //OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
 
                 }  else if ( validUpdate && !dbHasOlderRecord && !sameRecords ) {
-
-                    LOGNORMAL << "!!Case: Both svcLayer & DB record found, updating svcLayer with DB record";
                     // incoming >= svcLayer
                     // svcLayer < configDB
-                    // 1. No update to DB
-                    // 2. Update svcLayer to DB
-                    // 3. Broadcast svcMap
 
-                    MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {dbInfoUpdate} );
-                    //OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
+                    // Need to establish now that incoming > configDB
+                    validUpdate = OmExtUtilApi::getInstance()->isIncomingUpdateValid(incomingSvcInfo, dbInfoUpdate);
+
+                    if ( validUpdate )
+                    {
+                        LOGNORMAL << "!!Case: Both svcLayer & DB record found, updating both with incoming";
+                        configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(incomingSvcInfo) );
+                        MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {incomingSvcInfo} );
+
+                    } else {
+
+                        // 1. No update to DB
+                        // 2. Update svcLayer to DB
+
+                        LOGNORMAL << "!!Case: Both svcLayer & DB record found, updating svcLayer with DB record";
+                        MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {dbInfoUpdate} );
+                    }
 
                 } else if ( validUpdate && !dbHasOlderRecord && sameRecords ) {
 
@@ -614,10 +616,9 @@ namespace fds
                     // svcLayer == configDB
                     // 1. Update DB to incoming
                     // 2. Update svcLayer to incoming
-                    // 3. Broadcast svcMap
+
                     configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(incomingSvcInfo) );
                     MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {incomingSvcInfo} );
-                    //OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
 
                 } else if ( !validUpdate && dbHasOlderRecord ) {
 
@@ -626,7 +627,6 @@ namespace fds
                     // svcLayer > configDB
                     // 1. Update DB to svcLayer
                     // 2. No update to svcLayer
-                    // 3. No svcMap broadcast
 
                     configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(svcLayerInfoUpdate) );
 
@@ -640,10 +640,8 @@ namespace fds
                     // svcLayer == configDB
                     // 1. No update to DB
                     // 2. No update to svcLayer
-                    // 3. Broadcast svcMap
 
                     //MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {dbInfoUpdate} );
-                   // OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
                 }   else if ( !validUpdate && !dbHasOlderRecord && !sameRecords ) {
 
                     LOGNORMAL << "!!Case: Both svcLayer & DB record found, updating svcLayer with DB record";
@@ -651,10 +649,8 @@ namespace fds
                     // svcLayer < configDB
                     // 1. No update to DB
                     // 2. Update svcLayer to DB
-                    // 3. Broadcast svcMap
 
                     MODULEPROVIDER()->getSvcMgr()->updateSvcMap( {dbInfoUpdate} );
-                   // OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
                 }
             }
 
