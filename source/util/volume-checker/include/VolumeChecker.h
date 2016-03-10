@@ -46,6 +46,7 @@ public:
     enum StatusCode {
         VC_NOT_STARTED,     // First started
         VC_RUNNING,         // Finished initializing
+        VC_DM_NOT_SENT,     // Unable to start DM hashing operation
         VC_DM_HASHING,      // VC has finished initializing and is running phase 1
         VC_DM_DONE,         // VC has finished running phase 1
         VC_ERROR            // VC has seen some errors
@@ -97,7 +98,7 @@ private:
      * Internal data structure of keeping track of each DM that is responsible
      * for the volume's metadata (phase 1)
      */
-    Error runPhase1();
+    void runPhase1();
 
     struct DmCheckerMetaData {
         DmCheckerMetaData(fds_volid_t _volId,
@@ -169,7 +170,6 @@ private:
             boost::bimaps::list_of<unsigned>> bm_type;
 
     bm_type hashQuorumCheckMap;
-
 
     /**
      * If an error occurs during volume checking process, this will send out the

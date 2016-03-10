@@ -55,8 +55,6 @@ VolumeChecker::init(int argc, char **argv, bool initAsModule)
         start_modules();
     }
 
-
-
     dmtMgr = MODULEPROVIDER()->getSvcMgr()->getDmtManager();
     dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
 
@@ -139,9 +137,8 @@ VolumeChecker::getStatus() {
     return (currentStatusCode);
 }
 
-Error
+void
 VolumeChecker::runPhase1() {
-    Error err(ERR_OK);
     currentStatusCode = VC_DM_HASHING;
 
     initialMsgTracker = new MigrationTrackIOReqs;
@@ -157,8 +154,6 @@ VolumeChecker::runPhase1() {
         LOGNORMAL << "DM checks all succeeded";
     }
     delete initialMsgTracker;
-
-    return err;
 }
 
 void
@@ -268,30 +263,6 @@ VolumeChecker::DmCheckerMetaData::sendVolChkMsg(const EPSvcRequestRespCb &cb) {
     status = NS_CONTACTED;
 }
 
-/** Unit test implementations */
-size_t
-VolumeChecker::testGetVgCheckerListSize() {
-    return vgCheckerList.size();
-}
-
-size_t
-VolumeChecker::testGetVgCheckerListSize(unsigned index) {
-    return vgCheckerList[index].second.size();
-}
-
-bool
-VolumeChecker::testVerifyCheckerListStatus(unsigned castCode) {
-    bool ret = true;
-    for (auto dmChecker : vgCheckerList) {
-        for (auto oneDMtoCheck : dmChecker.second) {
-            if (oneDMtoCheck.status != static_cast<DmCheckerMetaData::chkNodeStatus>(castCode)) {
-                ret = false;
-            }
-        }
-    }
-    return ret;
-}
-
 Error
 VolumeChecker::checkDMHashQuorum() {
     Error err(ERR_OK);
@@ -322,4 +293,28 @@ VolumeChecker::checkDMHashQuorum() {
     return err;
 }
 
+
+/** Unit test implementations */
+size_t
+VolumeChecker::testGetVgCheckerListSize() {
+    return vgCheckerList.size();
+}
+
+size_t
+VolumeChecker::testGetVgCheckerListSize(unsigned index) {
+    return vgCheckerList[index].second.size();
+}
+
+bool
+VolumeChecker::testVerifyCheckerListStatus(unsigned castCode) {
+    bool ret = true;
+    for (auto dmChecker : vgCheckerList) {
+        for (auto oneDMtoCheck : dmChecker.second) {
+            if (oneDMtoCheck.status != static_cast<DmCheckerMetaData::chkNodeStatus>(castCode)) {
+                ret = false;
+            }
+        }
+    }
+    return ret;
+}
 } // namespace fds

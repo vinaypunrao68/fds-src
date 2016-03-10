@@ -147,6 +147,5 @@ int main(int argc, char **argv) {
     populateInternalArgs(argc, argv, &internal_argc, &internal_argv, roots[0]);
 
     fds::VolumeChecker checker(internal_argc, internal_argv, false);
-    checker.run();
-    return checker.main();
+    return checker.run();
 }

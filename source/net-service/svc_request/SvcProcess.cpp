@@ -163,14 +163,17 @@ void SvcProcess::start_modules()
     mod_vectors_->mod_startup_modules();
     mod_vectors_->mod_startup_modules(false);
 
-    /* Register with OM */
-    LOGNOTIFY << "Registering the service with om";
     /* Default implementation registers with OM.  Until registration completes
-     * this will not return
+     * this will not return.
+     * For checker type, OM is not expecting it so we won't register with it.
+     * As long as we can get the service map and send msgs to DMs/SMs, we're good.
      */
     auto config = get_conf_helper();
-    bool registerWithOM = !(config.get<bool>("testing.standalone", false));
+    bool registerWithOM = (!(config.get<bool>("testing.standalone", false)) ||
+                            (svcInfo_.svc_type != fpi::FDSP_CHECKER_TYPE));
     if (registerWithOM) {
+        /* Register with OM */
+        LOGNOTIFY << "Registering the service with om";
         registerSvcProcess();
     }
 
