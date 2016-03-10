@@ -14,7 +14,7 @@
 
 /* Globals to drive Volume Checker */
 bool help_flag;
-int pm_uuid = -1;
+unsigned long long pm_uuid = 0;
 int pm_port = -1;
 int min_argc = 0;
 std::vector<fds::fds_volid_t> volumes;
@@ -97,7 +97,7 @@ void parsePoArgs(int argc, char **argv) {
     po::positional_options_description m_positional;
     desc.add_options()
             ("help,h", "help/ usage message")
-            ("uuid,u", po::value<int>(&pm_uuid), "Current node PM's UUID in decimal")
+            ("uuid,u", po::value<unsigned long long>(&pm_uuid), "Current node PM's UUID in decimal")
             ("port,p", po::value<int>(&pm_port), "Current node PM's Port")
             ("volume,v", po::value<std::vector<uint64_t>>()->multitoken(), "Volume IDs to be checked");
 
