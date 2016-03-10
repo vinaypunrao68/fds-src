@@ -3,8 +3,8 @@
  */
 package com.formationds.commons.crud;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.Serializable;
 import java.lang.reflect.ParameterizedType;
@@ -27,7 +27,7 @@ abstract public class AbstractRepository<T, PK extends Serializable> implements 
      *
      */
     protected AbstractRepository() {
-        logger = LoggerFactory.getLogger( this.getClass() );
+        logger = LogManager.getLogger( this.getClass() );
     }
 
     /**

@@ -5,8 +5,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.formationds.client.v08.model.QosPolicyPreset;
 import com.formationds.commons.model.helper.ObjectModelHelper;
@@ -16,7 +16,7 @@ import com.formationds.web.toolkit.TextResource;
 
 public class GetQosPolicyPresets implements RequestHandler{
 
-	private static final Logger logger = LoggerFactory.getLogger( GetQosPolicyPresets.class );
+	private static final Logger logger = LogManager.getLogger( GetQosPolicyPresets.class );
 	private List<QosPolicyPreset> policyPresets;
 	private QosPolicyPreset lowPriorityPreset;
 	private QosPolicyPreset normalPriorityPreset;

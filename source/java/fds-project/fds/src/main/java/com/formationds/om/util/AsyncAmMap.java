@@ -7,8 +7,8 @@ package com.formationds.om.util;
 import com.formationds.om.helper.SingletonConfiguration;
 import com.formationds.protocol.svc.types.SvcUuid;
 import com.formationds.xdi.AsyncAm;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class AsyncAmMap
 {
-    private static final Logger logger = LoggerFactory.getLogger( AsyncAmMap.class );
+    private static final Logger logger = LogManager.getLogger( AsyncAmMap.class );
 
     private static final ConcurrentHashMap<SvcUuid, AsyncAm> map = new ConcurrentHashMap<>( );
 

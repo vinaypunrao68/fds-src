@@ -12,8 +12,8 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.Map;
 
@@ -21,7 +21,7 @@ public class DeleteSnapshot
   implements RequestHandler {
 
   private static final Logger logger =
-          LoggerFactory.getLogger( DeleteSnapshot.class );
+          LogManager.getLogger( DeleteSnapshot.class );
 
   private static final String REQ_PARAM_SNAPSHOT_NAME = "snapshotName";
 

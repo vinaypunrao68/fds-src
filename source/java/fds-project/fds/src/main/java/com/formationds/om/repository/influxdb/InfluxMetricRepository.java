@@ -25,8 +25,8 @@ import com.formationds.om.repository.query.QueryCriteria.QueryType;
 import org.apache.thrift.TException;
 import org.influxdb.dto.ChunkedResponse;
 import org.influxdb.dto.Serie;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -48,7 +48,7 @@ import java.util.stream.Collectors;
  */
 public class InfluxMetricRepository extends InfluxRepository<IVolumeDatapoint, Long> implements MetricRepository {
 
-    public static final Logger logger = LoggerFactory.getLogger( InfluxMetricRepository.class );
+    public static final Logger logger = LogManager.getLogger( InfluxMetricRepository.class );
 
     public static final String VOL_SERIES_NAME    = "volume_metrics";
     public static final String VOL_ID_COLUMN_NAME = "volume_id";

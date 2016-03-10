@@ -5,8 +5,8 @@ package com.formationds.commons.libconfig;
 
 import org.antlr.runtime.*;
 import org.antlr.runtime.tree.CommonTree;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.File;
 import java.io.IOException;
@@ -23,7 +23,7 @@ public class ParsedConfig {
             "etc/ssl/dev/keystore";
 
     private static final Logger logger =
-            LoggerFactory.getLogger(ParsedConfig.class);
+            LogManager.getLogger(ParsedConfig.class);
 
     private Map<String, Node> map;
 

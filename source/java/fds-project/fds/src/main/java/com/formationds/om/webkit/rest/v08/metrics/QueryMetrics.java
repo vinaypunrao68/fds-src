@@ -23,8 +23,8 @@ import com.google.gson.reflect.TypeToken;
 
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -38,7 +38,7 @@ import javax.crypto.SecretKey;
  */
 public class QueryMetrics implements RequestHandler, QueryHandler {
     private static final Logger logger =
-            LoggerFactory.getLogger( QueryMetrics.class );
+            LogManager.getLogger( QueryMetrics.class );
 
     private static final Type TYPE_08 = new TypeToken<MetricQueryCriteria>() { }.getType();
     private static final Type TYPE_COMMON = new TypeToken<com.formationds.om.repository.query.MetricQueryCriteria>() { }.getType();

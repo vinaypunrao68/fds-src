@@ -18,8 +18,8 @@ import com.formationds.web.toolkit.TextResource;
 
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.InputStreamReader;
 import java.util.List;
@@ -32,7 +32,7 @@ public class MutateLocalDomain implements RequestHandler {
     private static final String DOMAIN_ARG = "domain_id";
 
     private static final Logger logger =
-            LoggerFactory.getLogger( MutateLocalDomain.class );
+            LogManager.getLogger( MutateLocalDomain.class );
 
     private ConfigurationApi configApi;
 

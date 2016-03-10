@@ -13,8 +13,8 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -23,18 +23,17 @@ import java.util.Map;
 
 public class ListTenants implements RequestHandler {
 
-	private static final Logger logger = LoggerFactory
-			.getLogger( ListTenants.class);
-	
+	private static final Logger logger = LogManager.getLogger( ListTenants.class);
+
 	private ConfigurationApi configApi;
 
     public ListTenants() {}
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-    	
+
     	List<Tenant> tenants = Collections.emptyList();
-    	
+
     	try {
     		tenants = listTenants();
     	}
@@ -43,35 +42,35 @@ public class ListTenants implements RequestHandler {
     		logger.debug( "Exception: ", e );
     		throw e;
     	}
-    	
+
     	String jsonString = ObjectModelHelper.toJSON( tenants );
-    	
+
     	return new TextResource( jsonString );
     }
-    
+
     public List<Tenant> listTenants() throws Exception{
-    	
+
     	logger.debug( "Trying to get a list of tenants." );
-    	
+
     	List<com.formationds.apis.Tenant> internalTenants = getConfigApi().listTenants( 0 );
-    	
+
     	List<Tenant> externalTenants = new ArrayList<Tenant>();
-    	
+
     	internalTenants.stream().forEach( iTenant -> {
     		Tenant externalTenant = ExternalModelConverter.convertToExternalTenant( iTenant );
     		externalTenants.add( externalTenant );
     	});
-    	
+
     	return externalTenants;
-    	
+
     }
-    
+
     private ConfigurationApi getConfigApi(){
-    	
+
     	if ( configApi == null ){
     		configApi = SingletonConfigAPI.instance().api();
     	}
-    	
+
     	return configApi;
     }
 }

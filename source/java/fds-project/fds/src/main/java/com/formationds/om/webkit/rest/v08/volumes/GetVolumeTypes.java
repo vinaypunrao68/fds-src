@@ -12,8 +12,8 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -23,7 +23,7 @@ import java.util.Map;
 public class GetVolumeTypes
     implements RequestHandler
 {
-    private static final Logger logger = LoggerFactory.getLogger( GetVolumeTypes.class );
+    private static final Logger logger = LogManager.getLogger( GetVolumeTypes.class );
     private List<VolumeSettings> volumeTypes;
 
     @Override

@@ -6,8 +6,8 @@ package com.formationds.commons.togglz.repository.fds;
 
 import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.togglz.core.Feature;
 import org.togglz.core.repository.FeatureState;
 import org.togglz.core.repository.StateRepository;
@@ -19,7 +19,7 @@ public class PlatformDotConfStateRepository
     implements StateRepository
 {
     private static final Logger logger =
-        LoggerFactory.getLogger( PlatformDotConfStateRepository.class );
+        LogManager.getLogger( PlatformDotConfStateRepository.class );
 
     private final ParsedConfig repo;
 
