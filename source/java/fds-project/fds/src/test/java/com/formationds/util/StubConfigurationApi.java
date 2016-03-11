@@ -76,6 +76,9 @@ public class StubConfigurationApi implements ConfigurationApi {
         volumeId = new AtomicLong();
     }
 
+    /**
+     * Get API version used by service handler.
+     */
     @Override
     public Version getVersion() throws ApiException, TException {
         return new Version();
@@ -92,11 +95,13 @@ public class StubConfigurationApi implements ConfigurationApi {
 
     /**
      * Handshake with the server to negotiate API version.
-     * @param stubVersion - Version: The API version suggested by the server.client stub
+     * @param suggestedVersion - Version: The API version suggested by the client.
+     *  Using Thrift, the client is the code using a Thrift generated service.client
+     *  instance.
      * @return Version: The API version acceptable to the server
      */
     @Override
-    public Version suggestVersion(Version stubVersion) throws ApiException, TException {
+    public Version suggestVersion(Version suggestedVersion) throws ApiException, TException {
         return new Version();
     }
 
