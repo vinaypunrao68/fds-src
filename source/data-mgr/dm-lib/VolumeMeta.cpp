@@ -618,17 +618,14 @@ VolumeMeta::HashCalcContext::HashCalcContext(fpi::SvcUuid _reqUUID,
     hashResult[0] = '\0';
 }
 
-VolumeMeta::HashCalcContext::~HashCalcContext() {
-    // typedRequest gets deleted as callback of registerDmVolumeReqHandler<DmIoVolumeCheck>();
-}
-
 void
 VolumeMeta::printDebugSlice(CatalogKVPair &pair) {
-
+LEVELCHECK(debug) {
     auto keyType = reinterpret_cast<CatalogKeyType const*>(pair.first.data());
     int type = ((unsigned char)(*keyType) - (unsigned char)CatalogKeyType::ERROR);
     auto objID = ObjIdGen::genObjectId((const char*)&pair, sizeof(pair));
     LOGDEBUG << "Hashing one KV pair type: " << type << " with hash: " << objID.ToString();
+}
 }
 
 void
@@ -640,27 +637,31 @@ VolumeMeta::HashCalcContext::hashThisSlice(CatalogKVPair &pair) {
         case CatalogKeyType::BLOB_METADATA:
         {
             BlobMetadataKey key {pair.first};
-            hasher.update(reinterpret_cast<const unsigned char *>(key.toString().c_str()),
-                          sizeof(key.toString()));
+            auto keyString = key.toString();
+            hasher.update(reinterpret_cast<const unsigned char *>(keyString.c_str()),
+                          keyString.size());
             std::string value {pair.second.data()};
-            hasher.update(reinterpret_cast<const unsigned char *>(value.c_str()), sizeof(value.c_str()));
+            hasher.update(reinterpret_cast<const unsigned char *>(value.c_str()), value.size());
             break;
         }
         case CatalogKeyType::BLOB_OBJECTS:
         {
             BlobObjectKey key {pair.first};
-            hasher.update(reinterpret_cast<const unsigned char *>(key.toString().c_str()),
-                          sizeof(key.toString()));
+            auto keyString = key.toString();
+            hasher.update(reinterpret_cast<const unsigned char *>(keyString.c_str()),
+                          keyString.size());
             ObjectID value {pair.second.data()};
-            hasher.update(reinterpret_cast<const unsigned char *>(value.ToString().c_str()),
-                          sizeof(value.ToString()));
+            auto valueString = value.ToString();
+            hasher.update(reinterpret_cast<const unsigned char *>(valueString.c_str()),
+                          valueString.size());
             break;
         }
         case CatalogKeyType::VOLUME_METADATA:
         {
             // Volume Metadata Key is simply just the key type of VOLUME_METADATA
-            std::string value {pair.second.data()};
-            hasher.update(reinterpret_cast<const unsigned char *>(value.c_str()), sizeof(value.c_str()));
+            std::string valueString {pair.second.data()};
+            hasher.update(reinterpret_cast<const unsigned char *>(valueString.c_str()),
+                          valueString.size());
             break;
         }
         default:
@@ -678,7 +679,6 @@ Error
 VolumeMeta::createHashCalcContext(DmRequest *req,
                                   fpi::SvcUuid _reqUUID,
                                   int batchSize) {
-    std::unique_lock<fds_mutex> l(testMutex);
     if (hashCalcContextPtr) {
         LOGERROR << "A hash request has already been sent and is processing.";
         return ERR_DUPLICATE;
@@ -711,6 +711,11 @@ VolumeMeta::cleanupHashOnContext() {
         scanReq->respMessage->hash_result = std::string(reinterpret_cast<char*>(hashCalcContextPtr->hashResult), SHA_DIGEST_LENGTH);
         scanReq->cb(scanReq->respStatus, scanReq);
         delete hashCalcContextPtr;
+        hashCalcContextPtr = nullptr;
+    }
+    if (scannerPtr) {
+        delete scannerPtr;
+        scannerPtr = nullptr;
     }
 }
 
@@ -760,7 +765,8 @@ VolumeMeta::doHashTaskOnContext() {
                                  threadPoolPtr,
                                  static_cast<unsigned>(hashCalcContextPtr->batchSize),
                                  batchCb,
-                                 scannerCb);
+                                 scannerCb,
+                                 vol_desc->volUUID.v);
 
     scannerPtr->start();
 }

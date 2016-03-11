@@ -358,7 +358,7 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     struct HashCalcContext {
         explicit HashCalcContext(fpi::SvcUuid _reqUUID,
                                 int _batchSize);
-        ~HashCalcContext();
+        ~HashCalcContext() = default;
 
         /**
          * The sha1 class related to this context.
@@ -395,8 +395,6 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     // Used to hold the cb info
     DmIoVolumeCheck *scanReq;
 
-    void sendHashCalcContextCb();
-
     void printDebugSlice(CatalogKVPair &pair);
 
     /**
@@ -405,9 +403,11 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
      */
     void doHashTaskOnContext();
 
+    /**
+     * Does the cleanup of the context, as well as sending the cb back to checker
+     * if needed.
+     */
     void cleanupHashOnContext();
-
-    fds_mutex testMutex;
 };
 
 using VolumeMetaPtr = SHPTR<VolumeMeta>;

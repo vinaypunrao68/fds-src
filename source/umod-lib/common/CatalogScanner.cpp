@@ -7,6 +7,14 @@
 
 namespace fds {
 
+#define SCHEDULE_TASK(task) \
+    if (affinitySet) { \
+        threadpool->scheduleWithAffinity(affinity, task); \
+    } else { \
+        threadpool->schedule(task); \
+    }
+
+
 CatalogScanner::CatalogScanner(Catalog &_c,
                                fds_threadpool *_tp,
                                unsigned _batchSize,
@@ -17,7 +25,25 @@ CatalogScanner::CatalogScanner(Catalog &_c,
          batchSize(_batchSize),
          batchCb(_batchCb),
          doneCb(_doneCb),
-         progressTracking(CS_INIT)
+         progressTracking(CS_INIT),
+         affinity(0),
+         affinitySet(false)
+{}
+
+CatalogScanner::CatalogScanner(Catalog &_c,
+                               fds_threadpool *_tp,
+                               unsigned _batchSize,
+                               ForEachBatchCb _batchCb,
+                               ScannerCb _doneCb,
+                               uint64_t _affinity)
+       : catalog(_c),
+         threadpool(_tp),
+         batchSize(_batchSize),
+         batchCb(_batchCb),
+         doneCb(_doneCb),
+         progressTracking(CS_INIT),
+         affinity(_affinity),
+         affinitySet(true)
 {}
 
 void
@@ -38,7 +64,7 @@ CatalogScanner::start() {
     iterator->SeekToFirst();
 
     auto nextStep = [this](){ doTableWalk(); };
-    threadpool->schedule(nextStep);
+    SCHEDULE_TASK(nextStep);
 }
 
 void
@@ -61,7 +87,7 @@ CatalogScanner::doTableWalk() {
     if (iterator->Valid()) {
         // still working. Do another batch next cycle.
         auto nextStep = [this](){ doTableWalk(); };
-        threadpool->schedule(nextStep);
+        SCHEDULE_TASK(nextStep);
     } else {
         // We are done with the scan. Pass whatever we have for the last batch
         progressTracking = CS_DONE;

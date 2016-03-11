@@ -43,6 +43,12 @@ public:
                    unsigned _batchSize,
                    ForEachBatchCb _batchCb,
                    ScannerCb _doneCb);
+    CatalogScanner(Catalog &_c,
+                   fds_threadpool *_threadpool,
+                   unsigned _batchSize,
+                   ForEachBatchCb _batchCb,
+                   ScannerCb _doneCb,
+                   uint64_t _affinity);
     ~CatalogScanner() = default;
 
     // Calls to have the scanner start and go off to do work
@@ -78,6 +84,9 @@ private:
     typedef leveldb::Iterator catalog_iterator_t;
     std::unique_ptr<catalog_iterator_t> iterator;
 
+    // In case users want to schedule with affinity
+    uint64_t affinity;
+    bool affinitySet;
 };
 } // namespace fds
 
