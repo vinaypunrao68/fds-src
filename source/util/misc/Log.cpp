@@ -42,7 +42,6 @@ __TRACER__::~__TRACER__() {
     GLOGDEBUG << "exit  : " << prettyName << ":" << filename << ":" << lineno;
 }
 
-
 /*
  * Rotate log when reachs N bytes
  */
@@ -55,6 +54,18 @@ __TRACER__::~__TRACER__() {
 #define MAX_DIR_SIZE 1024 * 1024 * 1024 * (uint64_t)20
 #endif
 
+
+/*
+ * Adds and modifies attributes for the logger stream - helps logger see function, file, and line number as a
+ * part of the attributes
+ */
+std::string set_get_attrib(const char* name, std::string value, const char * function_name) {
+    value.append(function_name);
+    value.append("] - ");
+    auto attr = boost::log::attribute_cast<boost::log::attributes::mutable_constant<std::string> >(boost::log::core::get()->get_global_attributes()[name]);
+    attr.set(value);
+    return attr.get();
+}
 
 BOOST_LOG_ATTRIBUTE_KEYWORD(process_name, "ProcessName", std::string)
 
@@ -181,7 +192,7 @@ void fds_log::init(const std::string& logfile,
     severityLevel = level;
 
     /*
-     * Setup the attributes
+     * Setup the attributes - Location will only be set to non empty values if the build is debug
      */
     boost::log::attributes::counter< unsigned int > RecordID(1);
     boost::log::core::get()->add_global_attribute("RecordID", RecordID);
@@ -195,6 +206,8 @@ void fds_log::init(const std::string& logfile,
                                                   boost::log::attributes::current_thread_id());
     boost::log::core::get()->add_global_attribute("Context",
                                                   boost::log::attributes::named_scope());
+    boost::log::core::get()->add_global_attribute("Location",
+                                                  boost::log::attributes::mutable_constant<std::string>(" - "));
 
     /*
      * Set the format
@@ -205,7 +218,8 @@ void fds_log::init(const std::string& logfile,
                         << "] [" << boost::log::expressions::attr< severity_level >("Severity")
                         << "] ["
                         << boost::log::expressions::attr< boost::log::attributes::current_thread_id::value_type >("ThreadID")
-                        << "] - "
+                        << "]"
+                        << boost::log::expressions::attr< std::string >("Location")
                         << boost::log::expressions::format_named_scope("Context",
                                                                 boost::log::keywords::format = "%n",
                                                                 boost::log::keywords::delimiter = " ",

@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
       SCOPEDATTR("Phillip", "NotifyContext2");
       FDS_LOG_SEV(logger, fds::fds_log::notification) << "Logging an notification";
     } else {
-      FDS_LOG(logger) << "Logging normally";
+      FDS_LOG_SEV(logger, fds::fds_log::normal) << "Logging normally";
     }
   }
   return 0;

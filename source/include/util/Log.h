@@ -28,13 +28,27 @@
 #include <boost/log/sources/severity_logger.hpp>
 #include <boost/log/sources/record_ostream.hpp>
 #include <boost/lockfree/detail/branch_hints.hpp>
+#include <boost/log/attributes/mutable_constant.hpp>
 
 #include <fds_defines.h>
 
 #define FDS_LOG(lg) BOOST_LOG_SEV(lg.get_slog(), fds::fds_log::debug)
-#define FDS_LOG_SEV(lg, sev) BOOST_LOG_SEV(lg.get_slog(), sev)
 #define FDS_PLOG(lg_ptr) BOOST_LOG_SEV(lg_ptr->get_slog(), fds::fds_log::debug)
+//If the build is a debug build we want source location exposed
+#ifndef DONTLOGLINE
+#define FDS_PLOG_SEV(lg_ptr, sev) BOOST_LOG_STREAM_WITH_PARAMS((lg_ptr->get_slog()), \
+                                                               (fds::set_get_attrib("Location", (__LOC__), (__func__)))\
+                                                               (boost::log::keywords::severity = (sev)) \
+                                                              )
+#define FDS_LOG_SEV(lg_ptr, sev) BOOST_LOG_STREAM_WITH_PARAMS((lg_ptr.get_slog()), \
+                                                               (fds::set_get_attrib("Location", (__LOC__), (__func__)))\
+                                                               (boost::log::keywords::severity = (sev)) \
+                                                              )
+//Otherwise - do not waste cycles setting attribute "Location"
+#else 
 #define FDS_PLOG_SEV(lg_ptr, sev) BOOST_LOG_SEV(lg_ptr->get_slog(), sev)
+#define FDS_LOG_SEV(lg_ptr, sev) BOOST_LOG_SEV(lg_ptr.get_slog(), sev)
+#endif
 #define FDS_PLOG_COMMON(lg_ptr, sev) BOOST_LOG_SEV(lg_ptr->get_slog(), sev) << __FUNCTION__ << " " << __LINE__ << " " << log_string() << " "
 #define FDS_PLOG_INFO(lg_ptr) FDS_PLOG_COMMON(lg_ptr, fds::fds_log::normal)
 #define FDS_PLOG_WARN(lg_ptr) FDS_PLOG_COMMON(lg_ptr, fds::fds_log::warning)
@@ -50,34 +64,34 @@
 #define LEVELCHECK(sev) if (LOGGERPTR->getSeverityLevel()<= fds::fds_log::sev)
 #define GLEVELCHECK(sev) if (GLOGGERPTR->getSeverityLevel()<= fds::fds_log::sev)
 
-#define LOGTRACE    LEVELCHECK(trace)        FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::trace)        _ATLINE_
-#define LOGDEBUG    LEVELCHECK(debug)        FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::debug)        _ATLINE_
-#define LOGMIGRATE  LEVELCHECK(migrate)      FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::migrate)      _ATLINE_
-#define LOGIO       LEVELCHECK(io)           FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::io)           _ATLINE_
-#define LOGNORMAL   LEVELCHECK(normal)       FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::normal)       _ATLINE_
-#define LOGNOTIFY   LEVELCHECK(notification) FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::notification) _ATLINE_
-#define LOGWARN     LEVELCHECK(warning)      FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::warning)      _ATLINE_
-#define LOGERROR    LEVELCHECK(error)        FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::error)        _ATLINE_
-#define LOGCRITICAL LEVELCHECK(critical)     FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::critical)     _ATLINE_
+#define LOGTRACE    LEVELCHECK(trace)        FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::trace)
+#define LOGDEBUG    LEVELCHECK(debug)        FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::debug)
+#define LOGMIGRATE  LEVELCHECK(migrate)      FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::migrate)
+#define LOGIO       LEVELCHECK(io)           FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::io)
+#define LOGNORMAL   LEVELCHECK(normal)       FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::normal)
+#define LOGNOTIFY   LEVELCHECK(notification) FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::notification)
+#define LOGWARN     LEVELCHECK(warning)      FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::warning)
+#define LOGERROR    LEVELCHECK(error)        FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::error)
+#define LOGCRITICAL LEVELCHECK(critical)     FDS_PLOG_SEV(LOGGERPTR, fds::fds_log::critical)
 
 // for static functions inside classes
-#define GLOGTRACE    GLEVELCHECK(trace)        FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::trace)        _ATLINE_
-#define GLOGDEBUG    GLEVELCHECK(debug)        FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::debug)        _ATLINE_
-#define GLOGMIGRATE  GLEVELCHECK(migrate)      FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::migrate)      _ATLINE_
-#define GLOGIO       GLEVELCHECK(io)           FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::io)           _ATLINE_
-#define GLOGNORMAL   GLEVELCHECK(normal)       FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::normal)       _ATLINE_
-#define GLOGNOTIFY   GLEVELCHECK(notification) FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::notification) _ATLINE_
-#define GLOGWARN     GLEVELCHECK(warning)      FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::warning)      _ATLINE_
-#define GLOGERROR    GLEVELCHECK(error)        FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::error)        _ATLINE_
-#define GLOGCRITICAL GLEVELCHECK(critical)     FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::critical)     _ATLINE_
+#define GLOGTRACE    GLEVELCHECK(trace)        FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::trace)
+#define GLOGDEBUG    GLEVELCHECK(debug)        FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::debug)
+#define GLOGMIGRATE  GLEVELCHECK(migrate)      FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::migrate)
+#define GLOGIO       GLEVELCHECK(io)           FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::io)
+#define GLOGNORMAL   GLEVELCHECK(normal)       FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::normal)
+#define GLOGNOTIFY   GLEVELCHECK(notification) FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::notification)
+#define GLOGWARN     GLEVELCHECK(warning)      FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::warning)
+#define GLOGERROR    GLEVELCHECK(error)        FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::error)
+#define GLOGCRITICAL GLEVELCHECK(critical)     FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::critical)
 
-// #define FUNCTRACING
 
 /*
  * Adds a thread local attribute to be printed at the log level
  * */
 #define SCOPEDATTR(key,value) BOOST_LOG_NAMED_SCOPE((key ":" value))
 
+// #define FUNCTRACING
 #ifdef FUNCTRACING
 #define TRACEFUNC fds::__TRACER__ __tt__(__PRETTY_FUNCTION__, __FILE__, __LINE__);
 #else
@@ -170,6 +184,12 @@ struct HasLogger {
 fds_log* GetLog();
 
 typedef boost::shared_ptr<fds_log> fds_logPtr;
+
+/*
+ * Adds and modifies attributes for the logger stream - helps logger see function, file, and line number as a
+ * part of the attributes
+ */
+std::string set_get_attrib(const char* name, std::string value, const char * function_name);
 
 }  // namespace fds
 #endif  // SOURCE_UTIL_LOG_H_
