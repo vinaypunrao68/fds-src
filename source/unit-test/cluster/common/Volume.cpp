@@ -647,7 +647,7 @@ void Volume::applyPulledCommitLogEntries_(const fpi::PullCommitLogEntriesRespMsg
         commitBatch_(commitId, batchPtr);
         commitId++;
     }
-    LOGNORMAL " Applied commit log entries. " << quicksyncLogStr();
+    LOGNORMAL << " Applied commit log entries. " << quicksyncLogStr();
 }
 
 void Volume::applyBufferedCommits_()
