@@ -925,6 +925,9 @@ OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_ty
             services.am = svc_agent->get_uuid();
             LOGDEBUG << " am: " <<  std::hex << services.am.uuid_get_val() << std::dec;
             break;
+        case FDS_ProtocolInterface::FDSP_CHECKER_TYPE:
+            LOGDEBUG << "Checker does not need to be registered.";
+            break;
         default:
             fds_verify(false);
     };
