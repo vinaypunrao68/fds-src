@@ -216,4 +216,15 @@ public class CreateVolumeTest
             .create();
         ( new CreateVolume( null, null ) ).validateVolumeSize( volume );
     }
+
+    @Test
+    public void testVolumeMissingBlockSize( )
+        throws Exception
+    {
+        final Volume volume = new Volume.Builder( "DummyVolume" )
+            .settings( new VolumeSettingsISCSI( Size.tb( 5 ),
+                                                null ) )
+            .create();
+        ( new CreateVolume( null, null ) ).validateVolumeSize( volume );
+    }
 }
