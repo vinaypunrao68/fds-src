@@ -33,10 +33,16 @@ public enum RedisSingleton
         return api;
     }
 
-    public void getRedisLock() throws InterruptedException
+    public void getRedisLock()
     {
     	logger.trace("Acquiring redis lock");
-    	redisLock.acquire();
+    	try
+    	{
+    	    redisLock.acquire();
+    	}
+    	catch (InterruptedException e)
+    	{
+    	}
     }
     
     public void releaseRedisLock()
@@ -45,9 +51,15 @@ public enum RedisSingleton
     	redisLock.release();
     }
     
-    public void waitRedis() throws InterruptedException
+    public void waitRedis()
     {
     	logger.trace("Waiting for redis calls to finish");
-    	redisLock.acquire(totalPermits);
+    	try
+    	{
+    	    redisLock.acquire(totalPermits);
+    	}
+    	catch (InterruptedException e)
+    	{
+    	}
     }
 }

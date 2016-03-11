@@ -302,13 +302,7 @@ public class Main {
     private static class ShutdownHook extends Thread {
         public void run() {
         	logger.info( "Shutting down OM. Waiting for redis");
-            try
-            {
-            	RedisSingleton.INSTANCE.waitRedis();
-            }
-            catch (InterruptedException e)
-            {
-            }
+            RedisSingleton.INSTANCE.waitRedis();
             logger.info ( "Done" );
         }
     }
