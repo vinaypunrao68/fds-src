@@ -40,15 +40,15 @@ public:
 
     CatalogScanner(Catalog &_c,
                    fds_threadpool *_threadpool,
-                   unsigned _batchSize,
+                   const unsigned _batchSize,
                    ForEachBatchCb _batchCb,
                    ScannerCb _doneCb);
     CatalogScanner(Catalog &_c,
                    fds_threadpool *_threadpool,
-                   unsigned _batchSize,
+                   const unsigned _batchSize,
                    ForEachBatchCb _batchCb,
-                   ScannerCb _doneCb,
-                   uint64_t _affinity);
+                   const ScannerCb _doneCb,
+                   const uint64_t _affinity);
     ~CatalogScanner() = default;
 
     // Calls to have the scanner start and go off to do work
@@ -70,7 +70,7 @@ private:
     fds_threadpool *threadpool;
 
     // Batch size
-    unsigned batchSize;
+    const unsigned batchSize;
 
     // Calls when each batch is done
     ForEachBatchCb batchCb;
@@ -85,8 +85,8 @@ private:
     std::unique_ptr<catalog_iterator_t> iterator;
 
     // In case users want to schedule with affinity
-    uint64_t affinity;
-    bool affinitySet;
+    const uint64_t affinity;
+    const bool affinitySet;
 };
 } // namespace fds
 
