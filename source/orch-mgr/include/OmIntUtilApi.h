@@ -7,6 +7,7 @@
 #include <fds_types.h>
 #include <kvstore/kvstore.h>
 #include <kvstore/configdb.h>
+#include "net/SvcMgr.h"
 
 typedef std::vector<fpi::SvcInfo>::iterator SvcInfoIter;
 
@@ -43,8 +44,9 @@ namespace fds
                                                   fpi::FDSP_MgrIdType type,
                                                   std::vector<fpi::SvcInfo> svcInfos,
                                                   kvstore::ConfigDB* configDB);
-
-    void                     updateSvcMaps(kvstore::ConfigDB*       configDB,
+    template<class DataStoreT>
+    void                     updateSvcMaps(DataStoreT*       configDB,
+                                           SvcMgr*                  svcMgr,
                                            const fds_uint64_t       svc_uuid,
                                            const fpi::ServiceStatus svc_status,
                                            fpi::FDSP_MgrIdType      svcType,

@@ -233,7 +233,7 @@ bool OmExtUtilApi::isTransitionAllowed( fpi::ServiceStatus incoming,
 
     if ( !allowed )
     {
-        LOGWARN << "!!Will not allow transition from state:" << OmExtUtilApi::getInstance()->printSvcStatus(current)
+        LOGWARN << "Will not allow transition from state:" << OmExtUtilApi::getInstance()->printSvcStatus(current)
                 << " to state:" << OmExtUtilApi::getInstance()->printSvcStatus(incoming) << " !!";
     }
 
@@ -251,7 +251,7 @@ bool OmExtUtilApi::isIncomingUpdateValid( fpi::SvcInfo& incomingSvcInfo,
 {
     bool ret = false;
 
-    LOGNOTIFY << "!!Uuid:" << std::hex << currentInfo.svc_id.svc_uuid.svc_uuid << std::dec
+    LOGNOTIFY << "Uuid:" << std::hex << currentInfo.svc_id.svc_uuid.svc_uuid << std::dec
               << " Incoming [incarnationNo:" << incomingSvcInfo.incarnationNo
               << ", status:" << printSvcStatus(incomingSvcInfo.svc_status)
               << "] VS Current [incarnationNo:" << currentInfo.incarnationNo
@@ -259,24 +259,23 @@ bool OmExtUtilApi::isIncomingUpdateValid( fpi::SvcInfo& incomingSvcInfo,
 
     if ( incomingSvcInfo.incarnationNo < currentInfo.incarnationNo)
     {
-        LOGWARN << "!!Incoming update for svc:"
-                //<< fds::logString(incomingSvcInfo)
+        LOGWARN << "Incoming update for svc:"
                 << " appears older than what is in svc map, will ignore";
         ret = false;
 
 
     } else if ( incomingSvcInfo.incarnationNo == currentInfo.incarnationNo &&
                 incomingSvcInfo.svc_status != currentInfo.svc_status ) {
-        LOGNOTIFY << "!!Same incarnation number, different status proceeding with update";
+        LOGNOTIFY << "Same incarnation number, different status proceeding with update";
         ret = true;
 
     } else if (incomingSvcInfo.incarnationNo > currentInfo.incarnationNo) {
-        LOGNOTIFY << "!!Incoming update has newer incarnationNo";
+        LOGNOTIFY << "Incoming update has newer incarnationNo";
         ret = true;
 
     } else if (incomingSvcInfo.incarnationNo == 0) {
 
-        LOGWARN << "!!Zero incarnation number, allow the update nevertheless";
+        LOGWARN << "Zero incarnation number, allow the update nevertheless";
         incomingSvcInfo.incarnationNo = util::getTimeStampSeconds();
         ret = true;
     }
@@ -291,11 +290,8 @@ bool OmExtUtilApi::isIncomingUpdateValid( fpi::SvcInfo& incomingSvcInfo,
         }
     }
 
-    LOGNOTIFY << "!!isIncomingUpdateValid ? " << ret;
+    LOGNOTIFY << "isIncomingUpdateValid ? " << ret;
     return ret;
 }
-
-
-
 
 } // namespace fds

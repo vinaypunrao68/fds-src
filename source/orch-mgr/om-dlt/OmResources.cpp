@@ -1531,7 +1531,7 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                  * does not already exists or if the incarnation is newer then
                  * then the existing service.
                  */
-				// do we need a broadcast here? Can we afford to eliminate this call?
+				// This independent update should be okay
                 MODULEPROVIDER()->getSvcMgr()->updateSvcMap(svcinfos);              
             } else {
                 LOGNORMAL << "No persisted Service Map found.";
@@ -2114,7 +2114,8 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
         // om_locDomain->om_bcast_svcmap();
 
         if (svcInfo->svc_type == fpi::FDSP_PLATFORM) {
-            updateSvcMaps( configDB, svcInfo->svc_id.svc_uuid.svc_uuid,
+            updateSvcMaps<kvstore::ConfigDB>( configDB,  MODULEPROVIDER()->getSvcMgr(),
+                           svcInfo->svc_id.svc_uuid.svc_uuid,
                            svcInfo->svc_status, fpi::FDSP_PLATFORM, false, true , *svcInfo );
         }
     }
@@ -2364,7 +2365,8 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                      svc.svc_status == fpi::SVC_STATUS_INACTIVE_STOPPED ||
                      svc.svc_status == fpi::SVC_STATUS_STANDBY) ) )
             {
-                updateSvcMaps( configDB, svc.svc_id.svc_uuid.svc_uuid,
+                updateSvcMaps<kvstore::ConfigDB>( configDB,  MODULEPROVIDER()->getSvcMgr(),
+                               svc.svc_id.svc_uuid.svc_uuid,
                                fpi::SVC_STATUS_ACTIVE, fpi::FDSP_PLATFORM );
             }
 
@@ -3090,7 +3092,8 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
                       << infoPtr->svc_id.svc_uuid.svc_uuid
                       << std::dec;
 
-            updateSvcMaps( configDB, infoPtr->svc_id.svc_uuid.svc_uuid,
+            updateSvcMaps<kvstore::ConfigDB>( configDB,  MODULEPROVIDER()->getSvcMgr(),
+                           infoPtr->svc_id.svc_uuid.svc_uuid,
                            infoPtr->svc_status, infoPtr->svc_type, false, true, *infoPtr);
 
             // Now erase the svc from the the local tracking vector
@@ -3566,7 +3569,8 @@ OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap(boost::shared_ptr<fpi::Sv
 {
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
     // Not sure whether passing this reference to the object managed by the shared ptr is safe
-    updateSvcMaps( configDB, svcInfo->svc_id.svc_uuid.svc_uuid,
+    updateSvcMaps<kvstore::ConfigDB>( configDB,  MODULEPROVIDER()->getSvcMgr(),
+                   svcInfo->svc_id.svc_uuid.svc_uuid,
                    status, svcType, true, false, *svcInfo );
 
     //om_locDomain->om_bcast_svcmap();

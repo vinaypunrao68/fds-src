@@ -99,7 +99,8 @@ OM_NodeAgent::handle_service_deployed()
 
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
 
-    updateSvcMaps( configDB,
+    updateSvcMaps<kvstore::ConfigDB>( configDB,
+                   MODULEPROVIDER()->getSvcMgr(),
                    rs_get_uuid().uuid_get_val(),
                    fpi::SVC_STATUS_ACTIVE,
                    node_get_svc_type() );
@@ -1016,7 +1017,8 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
                 // This path gets called from an unexpected exit message from the PM
                 // In this case, we want to allow for the service to be restarted
                 // in case of a PM re-registration
-                updateSvcMaps( configDB,
+                updateSvcMaps<kvstore::ConfigDB>( configDB,
+                               MODULEPROVIDER()->getSvcMgr(),
                                ( activeSmAgent->get_uuid() ).uuid_get_val(),
                                fpi::SVC_STATUS_INACTIVE_FAILED,
                                fpi::FDSP_STOR_MGR );
@@ -1037,7 +1039,8 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
                          << ( activeDmAgent->get_uuid() ).uuid_get_val()
                          << std::dec;
 
-                updateSvcMaps( configDB,
+                updateSvcMaps<kvstore::ConfigDB>( configDB,
+                               MODULEPROVIDER()->getSvcMgr(),
                                ( activeDmAgent->get_uuid() ).uuid_get_val(),
                                fpi::SVC_STATUS_INACTIVE_FAILED,
                                fpi::FDSP_DATA_MGR );
@@ -1058,7 +1061,8 @@ OM_PmAgent::handle_deactivate_service(const FDS_ProtocolInterface::FDSP_MgrIdTyp
                          << ( activeAmAgent->get_uuid() ).uuid_get_val()
                          << std::dec;
 
-                updateSvcMaps( configDB,
+                updateSvcMaps<kvstore::ConfigDB>( configDB,
+                               MODULEPROVIDER()->getSvcMgr(),
                                ( activeAmAgent->get_uuid() ).uuid_get_val(),
                                fpi::SVC_STATUS_INACTIVE_FAILED,
                                fpi::FDSP_ACCESS_MGR );
@@ -1145,26 +1149,30 @@ OM_PmAgent::send_activate_services(fds_bool_t activate_sm,
             {
                 case fpi::FDS_Node_Discovered:
                 case fpi::FDS_Node_Up:
-                    updateSvcMaps( configDB,
+                    updateSvcMaps<kvstore::ConfigDB>( configDB,
+                                   MODULEPROVIDER()->getSvcMgr(),
                                    get_uuid().uuid_get_val(),
                                    fpi::SVC_STATUS_ACTIVE,
                                    fpi::FDSP_PLATFORM );
                     break;
                 case fpi::FDS_Start_Migration:
-                    updateSvcMaps( configDB,
+                    updateSvcMaps<kvstore::ConfigDB>( configDB,
+                                   MODULEPROVIDER()->getSvcMgr(),
                                    get_uuid().uuid_get_val(),
                                    fpi::SVC_STATUS_INVALID,
                                    fpi::FDSP_PLATFORM );
                     break;
                 case fpi::FDS_Node_Down:
                 case fpi::FDS_Node_Rmvd:
-                    updateSvcMaps( configDB,
+                    updateSvcMaps<kvstore::ConfigDB>( configDB,
+                                   MODULEPROVIDER()->getSvcMgr(),
                                    get_uuid().uuid_get_val(),
                                    fpi::SVC_STATUS_INACTIVE_STOPPED,
                                    fpi::FDSP_PLATFORM );
                     break;
                 case fpi::FDS_Node_Standby:
-                    updateSvcMaps( configDB,
+                    updateSvcMaps<kvstore::ConfigDB>( configDB,
+                                   MODULEPROVIDER()->getSvcMgr(),
                                    get_uuid().uuid_get_val(),
                                    fpi::SVC_STATUS_STANDBY,
                                    fpi::FDSP_PLATFORM );
@@ -1304,26 +1312,28 @@ OM_PmAgent::send_add_service
     {
         case fpi::FDS_Node_Discovered:
         case fpi::FDS_Node_Up:
-            updateSvcMaps( configDB,
+            updateSvcMaps<kvstore::ConfigDB>( configDB,
+                           MODULEPROVIDER()->getSvcMgr(),
                            get_uuid().uuid_get_val(),
                            fpi::SVC_STATUS_ACTIVE,
                            fpi::FDSP_PLATFORM );
             break;
         case fpi::FDS_Start_Migration:
-            updateSvcMaps( configDB,
+            updateSvcMaps<kvstore::ConfigDB>( configDB,
+                           MODULEPROVIDER()->getSvcMgr(),
                            get_uuid().uuid_get_val(),
                            fpi::SVC_STATUS_INVALID,
                            fpi::FDSP_PLATFORM );
             break;
         case fpi::FDS_Node_Down:
         case fpi::FDS_Node_Rmvd:
-            updateSvcMaps( configDB,
+            updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                            get_uuid().uuid_get_val(),
                            fpi::SVC_STATUS_INACTIVE_STOPPED,
                            fpi::FDSP_PLATFORM );
             break;
         case fpi::FDS_Node_Standby:
-            updateSvcMaps( configDB,
+            updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                            get_uuid().uuid_get_val(),
                            fpi::SVC_STATUS_STANDBY,
                            fpi::FDSP_PLATFORM );
@@ -1354,7 +1364,8 @@ OM_PmAgent::send_add_service
                 item.__set_svc_id(*svcId);
                 item.__set_svc_status(fpi::SVC_STATUS_ADDED);
                 item.ip = pmIp;
-                updateSvcMaps(configDB, svcId->svc_uuid.svc_uuid,
+                updateSvcMaps<kvstore::ConfigDB>(configDB,  MODULEPROVIDER()->getSvcMgr(),
+                              svcId->svc_uuid.svc_uuid,
                               fpi::SVC_STATUS_ADDED, fpi::FDSP_STOR_MGR,
                               true, false, item);
                 break;
@@ -1366,7 +1377,8 @@ OM_PmAgent::send_add_service
                 item.__set_svc_id(*svcId);
                 item.__set_svc_status(fpi::SVC_STATUS_ADDED);
                 item.ip = pmIp;
-                updateSvcMaps(configDB, svcId->svc_uuid.svc_uuid,
+                updateSvcMaps<kvstore::ConfigDB>(configDB,  MODULEPROVIDER()->getSvcMgr(),
+                               svcId->svc_uuid.svc_uuid,
                              fpi::SVC_STATUS_ADDED, fpi::FDSP_DATA_MGR,
                              true, false, item);
                 break;
@@ -1378,7 +1390,8 @@ OM_PmAgent::send_add_service
                 item.__set_svc_id(*svcId);
                 item.__set_svc_status(fpi::SVC_STATUS_ADDED);
                 item.ip = pmIp;
-                updateSvcMaps(configDB, svcId->svc_uuid.svc_uuid,
+                updateSvcMaps<kvstore::ConfigDB>(configDB,  MODULEPROVIDER()->getSvcMgr(),
+                              svcId->svc_uuid.svc_uuid,
                               fpi::SVC_STATUS_ADDED, fpi::FDSP_ACCESS_MGR,
                               true, false, item);
                 break;
@@ -1455,7 +1468,7 @@ OM_PmAgent::send_start_service
                 (services.dm.uuid_get_val() == 0) &&
                 (services.am.uuid_get_val() == 0))
             {
-                updateSvcMaps( configDB,
+                updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                                get_uuid().uuid_get_val(),
                                fpi::SVC_STATUS_STANDBY,
                                fpi::FDSP_PLATFORM );
@@ -1479,7 +1492,7 @@ OM_PmAgent::send_start_service
         }
     }
 
-    updateSvcMaps( configDB,
+    updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                    get_uuid().uuid_get_val(),
                    fpi::SVC_STATUS_ACTIVE,
                    fpi::FDSP_PLATFORM );
@@ -1544,7 +1557,7 @@ OM_PmAgent::send_start_service
                     // it can lead to some weird behavior
                     LOGNORMAL << "Starting svc:" << std::hex << svcuuid.svc_uuid << std::dec;
 
-                    updateSvcMaps(configDB, svcuuid.svc_uuid,
+                    updateSvcMaps<kvstore::ConfigDB>(configDB, MODULEPROVIDER()->getSvcMgr(), svcuuid.svc_uuid,
                                   fpi::SVC_STATUS_STARTED, existingItem.svc_type);
                     break;
                 }
@@ -1611,7 +1624,7 @@ void OM_PmAgent::send_start_service_resp
                 kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
 
                 // Update the service state to active
-                updateSvcMaps( configDB,
+                updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                                svcUuid.svc_uuid,
                                fpi::SVC_STATUS_ACTIVE,
                                item.svcType);
@@ -1658,7 +1671,7 @@ OM_PmAgent::send_stop_service
     // Corner case: shutting down a node with no associated services
     if (node_state() == FDS_ProtocolInterface::FDS_Node_Standby) {
         LOGDEBUG << "No services present to stop, setting node to down";
-        updateSvcMaps( configDB,
+        updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                        get_uuid().uuid_get_val(),
                        fpi::SVC_STATUS_INACTIVE_STOPPED,
                        fpi::FDSP_PLATFORM );
@@ -1726,7 +1739,7 @@ OM_PmAgent::send_stop_service
                      << smSvcId.svc_uuid
                      << std::dec;
 
-            updateSvcMaps( configDB,
+            updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                            smSvcId.svc_uuid,
                            fpi::SVC_STATUS_STOPPED,
                            fpi::FDSP_STOR_MGR );
@@ -1775,7 +1788,7 @@ OM_PmAgent::send_stop_service
                       << dmSvcId.svc_uuid
                       << std::dec;
 
-             updateSvcMaps( configDB,
+             updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                             dmSvcId.svc_uuid,
                             fpi::SVC_STATUS_STOPPED,
                             fpi::FDSP_DATA_MGR );
@@ -1813,7 +1826,7 @@ OM_PmAgent::send_stop_service
                       << amSvcId.svc_uuid
                       << std::dec;
 
-             updateSvcMaps( configDB,
+             updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                             amSvcId.svc_uuid,
                             fpi::SVC_STATUS_STOPPED,
                             fpi::FDSP_ACCESS_MGR );
@@ -1841,7 +1854,7 @@ OM_PmAgent::send_stop_service
      // to STOPPED, node state will get set to down in the response handle
 
      LOGDEBUG << "Changing PM state to STOPPED";
-     updateSvcMaps( configDB,
+     updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                     get_uuid().uuid_get_val(),
                     fpi::SVC_STATUS_STOPPED,
                     fpi::FDSP_PLATFORM );
@@ -1903,7 +1916,8 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
         {
             if (configDB->getStateSvcMap(smSvcId.svc_uuid) != fpi::SVC_STATUS_REMOVED)
             {
-                updateSvcMaps( configDB,
+                updateSvcMaps<kvstore::ConfigDB>( configDB,
+                               MODULEPROVIDER()->getSvcMgr(),
                                smSvcId.svc_uuid,
                                fpi::SVC_STATUS_INACTIVE_STOPPED,
                                fpi::FDSP_STOR_MGR );
@@ -1921,7 +1935,8 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
          {
              if (configDB->getStateSvcMap(dmSvcId.svc_uuid) != fpi::SVC_STATUS_REMOVED)
              {
-                 updateSvcMaps( configDB,
+                 updateSvcMaps<kvstore::ConfigDB>( configDB,
+                                MODULEPROVIDER()->getSvcMgr(),
                                 dmSvcId.svc_uuid,
                                 fpi::SVC_STATUS_INACTIVE_STOPPED,
                                 fpi::FDSP_DATA_MGR );
@@ -1940,7 +1955,8 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
              {
                  if (configDB->getStateSvcMap(amSvcId.svc_uuid) != fpi::SVC_STATUS_REMOVED)
                  {
-                     updateSvcMaps( configDB,
+                     updateSvcMaps<kvstore::ConfigDB>( configDB,
+                                    MODULEPROVIDER()->getSvcMgr(),
                                     amSvcId.svc_uuid,
                                     fpi::SVC_STATUS_INACTIVE_STOPPED,
                                     fpi::FDSP_ACCESS_MGR );
@@ -1988,7 +2004,8 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
                // Node is being shutdown, change the state of platform
                // to inactive, node state to down
                LOGDEBUG << "Changing PM state to INACTIVE";
-               updateSvcMaps( configDB,
+               updateSvcMaps<kvstore::ConfigDB>( configDB,
+                              MODULEPROVIDER()->getSvcMgr(),
                               get_uuid().uuid_get_val(),
                               fpi::SVC_STATUS_INACTIVE_STOPPED,
                               fpi::FDSP_PLATFORM );
@@ -2165,7 +2182,8 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
 
                     set_node_state(FDS_ProtocolInterface::FDS_Node_Discovered);
 
-                    updateSvcMaps( configDB,
+                    updateSvcMaps<kvstore::ConfigDB>( configDB,
+                                   MODULEPROVIDER()->getSvcMgr(),
                                    get_uuid().uuid_get_val(),
                                    fpi::SVC_STATUS_DISCOVERED,
                                    fpi::FDSP_PLATFORM );
@@ -2178,7 +2196,8 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
                          << std::dec << " successfully";
                 LOGDEBUG <<"Changing PM state to STANDBY";
                 set_node_state(FDS_ProtocolInterface::FDS_Node_Standby);
-                updateSvcMaps( configDB,
+                updateSvcMaps<kvstore::ConfigDB>( configDB,
+                               MODULEPROVIDER()->getSvcMgr(),
                                get_uuid().uuid_get_val(),
                                fpi::SVC_STATUS_STANDBY,
                                fpi::FDSP_PLATFORM );

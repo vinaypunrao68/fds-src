@@ -76,12 +76,13 @@ namespace fds
         //|     Incoming State       |    Transition allowed on States       |
         //+--------------------------+---------------------------------------+
         //    (0)  INVALID           |  Any
-        //    (1)  ACTIVE            |  STARTED, DISCOVERED, INACTIVE_FAILED
+        //    (1)  ACTIVE            |  STARTED, DISCOVERED, INACTIVE_FAILED,
+        //                           |  INACTIVE_STOPPED
         //    (2)  INACTIVE_STOPPED  |  STOPPED
         //    (3)  DISCOVERED        |  REMOVED, (svc not present before)
         //    (4)  STANDBY           |  ACTIVE (applicable only for PM)
         //    (5)  ADDED             |  svc not present before
-        //    (6)  STARTED           |  ADDED, STOPPED
+        //    (6)  STARTED           |  ADDED, STOPPED, INACTIVE_STOPPED
         //    (7)  STOPPED           |  ACTIVE, STARTED, INACTIVE_FAILED
         //    (8)  REMOVED           |  STANDBY( applicable only for PM),
         //                           |  INACTIVE_STOPPED, STOPPED
@@ -96,7 +97,8 @@ namespace fds
                   fpi::SVC_STATUS_STANDBY, fpi::SVC_STATUS_ADDED, fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_STOPPED,
                   fpi::SVC_STATUS_REMOVED, fpi::SVC_STATUS_INACTIVE_FAILED },
                 // valid current states for incoming: ACTIVE(1)
-                { fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_DISCOVERED, fpi::SVC_STATUS_INACTIVE_FAILED },
+                { fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_DISCOVERED, fpi::SVC_STATUS_INACTIVE_FAILED,
+                  fpi::SVC_STATUS_INACTIVE_STOPPED },
                 // valid current states for incoming: INACTIVE_STOPPED(2)
                 { fpi::SVC_STATUS_STOPPED },
                 // valid current states for incoming: DISCOVERED(3)
@@ -106,7 +108,7 @@ namespace fds
                 // valid current states for incoming: ADDED(5) , empty since svc is not going to be present
                 {},
                 // valid current states for incoming: STARTED(6)
-                { fpi::SVC_STATUS_ADDED, fpi::SVC_STATUS_STOPPED },
+                { fpi::SVC_STATUS_ADDED, fpi::SVC_STATUS_STOPPED, fpi::SVC_STATUS_INACTIVE_STOPPED },
                 // valid current states for incoming: STOPPED(7)
                 { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_INACTIVE_FAILED },
                 // valid current states for incoming: REMOVED(8)
