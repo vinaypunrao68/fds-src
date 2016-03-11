@@ -286,6 +286,8 @@ class ObjectStore : public Module, public boost::noncopyable {
                                   fds_bool_t verifyData,
                                   fds_bool_t objOwned);
 
+    Error verifyObjectData(const ObjectID& objId,
+                           const fds_volid_t& volId = invalid_vol_id);
 
     /**
      * Apply Object metadata/data from source SM
