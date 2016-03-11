@@ -31,18 +31,32 @@ class AMMain : public SvcProcess
 
         /**
          * Note on Thrift service compatibility:
-         * Because asynchronous service requests are routed manually, any new
-         * PlatNetSvc version MUST extend a previous PlatNetSvc version.
-         * Only ONE version of PlatNetSvc API can be included in the list of
-         * multiplexed services.
          *
-         * For other new major service API versions (not PlatNetSvc), pass
-         * additional pairs of processor and Thrift service name.
+         * For service that extends PlatNetSvc, add the processor twice using
+         * Thrift service name as the key and again using 'PlatNetSvc' as the
+         * key. Only ONE major API version is supported for PlatNetSvc.
+         *
+         * All other services:
+         * Add Thrift service name and a processor for each major API version
+         * supported.
          */
         TProcessorMap processors;
+
+        /**
+         * When using a multiplexed server, handles requests from AMSvcClient.
+         */
         processors.insert(std::make_pair<std::string,
             boost::shared_ptr<apache::thrift::TProcessor>>(
                 fpi::commonConstants().AM_SERVICE_NAME, svc_processor));
+
+        /**
+         * It is common for SvcLayer to route asynchronous requests using an
+         * instance of PlatNetSvcClient. When using a multiplexed server, the
+         * processor map must have a key for PlatNetSvc.
+         */
+        processors.insert(std::make_pair<std::string,
+            boost::shared_ptr<apache::thrift::TProcessor>>(
+                fpi::commonConstants().PLATNET_SERVICE_NAME, svc_processor));
 
         /* Init service process */
         init(argc,

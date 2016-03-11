@@ -138,6 +138,17 @@ using SvcHandleMap = std::unordered_map<fpi::SvcUuid, SvcHandlePtr, SvcUuidHash>
 * @brief Overall manager class for service layer
 */
 struct SvcMgr : HasModuleProvider, Module, StateProvider {
+
+    /**
+     * @param asyncHandler Handles asynchronous requests.
+     *  If the instance of the SvcMgr cares about a particular asynchronous
+     *  message type, the handler must install a functor for that message
+     *  type. This class can only support ONE major API version for
+     *  PlatNetSvc.
+     *
+     * @param processors The list of processors when multiplexed services are
+     *  used. Keyed by unique Thrift service name.
+     */
     SvcMgr(CommonModuleProviderIf *moduleProvider,
            PlatNetSvcHandlerPtr asyncHandler,
            TProcessorMap& processors,

@@ -14,6 +14,8 @@
 #include <net/SvcServer.h>
 #include <net/PlatNetSvcHandler.h>
 
+#include "fdsp/common_constants.h"
+
 /* Forward declarations */
 namespace FDS_ProtocolInterface {
     class PlatNetSvcProcessor;
@@ -67,9 +69,8 @@ struct SvcProcess : FdsProcess, SvcServerListener {
      *  special initialization. A PlatNetSvcHandler is more than just a Thrift
      *  service handler. It also IS-A module.
      *
-     * @param processors A collection of unique processors keyed by Thrift
-     *  service name. A processor has a service handler. Only ONE of these is
-     *  used to handle asynchronous reqeusts.
+     * @param processors A collection of processors keyed by unique Thrift
+     *  service name. A processor has a service handler.
      */
     SvcProcess(int argc, char *argv[],
                const std::string &def_cfg_file,
@@ -99,9 +100,8 @@ struct SvcProcess : FdsProcess, SvcServerListener {
      *  special initialization. A PlatNetSvcHandler is more than just a Thrift
      *  service handler. It also IS-A module.
      *
-     * @param processors A collection of unique processors keyed by Thrift
-     *  service name. A processor has a service handler. Only ONE of these is
-     *  used to handle asynchronous reqeusts.
+     * @param processors A collection of processors keyed by unique Thrift
+     *  service name. A processor has a service handler.
      */
     SvcProcess(int argc, char *argv[],
                bool initAsModule,
@@ -173,18 +173,30 @@ struct SvcProcess : FdsProcess, SvcServerListener {
 
         /**
          * Note on Thrift service compatibility:
-         * Because asynchronous service requests are routed manually, any new
-         * PlatNetSvc version MUST extend a previous PlatNetSvc version.
-         * Only ONE version of PlatNetSvc API can be included in the list of
-         * multiplexed services.
          *
-         * For other new major service API versions (not PlatNetSvc), pass
-         * additional pairs of processor and Thrift service name.
+         * For service that extends PlatNetSvc, add the processor twice using
+         * Thrift service name as the key and again using 'PlatNetSvc' as the
+         * key. Only ONE major API version is supported for PlatNetSvc.
+         *
+         * All other services:
+         * Add Thrift service name and a processor for each major API version
+         * supported.
          */
         TProcessorMap processors;
         processors.insert(std::make_pair<std::string,
             boost::shared_ptr<apache::thrift::TProcessor>>(thriftServiceName.c_str(),
                 processor));
+
+        /**
+         * It is common for SvcLayer to route asynchronous requests using an
+         * instance of PlatNetSvcClient. When using a multiplexed server, the
+         * processor map must have a key for PlatNetSvc.
+         */
+        if (thriftServiceName != fpi::commonConstants().PLATNET_SERVICE_NAME) {
+            processors.insert(std::make_pair<std::string,
+                boost::shared_ptr<apache::thrift::TProcessor>>(
+                    fpi::commonConstants().PLATNET_SERVICE_NAME, processor));
+        }
 
         init(argc, argv, false, def_cfg_file, base_path, def_log_file, mod_vec,
                 handler, processors);
@@ -209,18 +221,31 @@ struct SvcProcess : FdsProcess, SvcServerListener {
 
         /**
          * Note on Thrift service compatibility:
-         * Because asynchronous service requests are routed manually, any new
-         * PlatNetSvc version MUST extend a previous PlatNetSvc version.
-         * Only ONE version of PlatNetSvc API can be included in the list of
-         * multiplexed services.
          *
-         * For other new major service API versions (not PlatNetSvc), pass
-         * additional pairs of processor and Thrift service name.
+         * For service that extends PlatNetSvc, add the processor twice using
+         * Thrift service name as the key and again using 'PlatNetSvc' as the
+         * key. Only ONE major API version is supported for PlatNetSvc.
+         *
+         * All other services:
+         * Add Thrift service name and a processor for each major API version
+         * supported.
          */
         TProcessorMap processors;
+
         processors.insert(std::make_pair<std::string,
             boost::shared_ptr<apache::thrift::TProcessor>>(thriftServiceName.c_str(),
                 processor));
+
+        /**
+         * It is common for SvcLayer to route asynchronous requests using an
+         * instance of PlatNetSvcClient. When using a multiplexed server, the
+         * processor map must have a key for PlatNetSvc.
+         */
+        if (thriftServiceName != fpi::commonConstants().PLATNET_SERVICE_NAME) {
+            processors.insert(std::make_pair<std::string,
+                boost::shared_ptr<apache::thrift::TProcessor>>(
+                    fpi::commonConstants().PLATNET_SERVICE_NAME, processor));
+        }
         init(argc, argv, initAsModule, def_cfg_file, base_path, def_log_file, mod_vec,
                 handler, processors);
     }
@@ -286,8 +311,8 @@ struct SvcProcess : FdsProcess, SvcServerListener {
     * Now multiplexed Thrift servers are supported. A service manager might
     * use multiple handler/processor objects. Because asynchronous service
     * requests are routed manually, any new PlatNetSvc version MUST extend a
-    * previous PlatNetSvc version. Only ONE version of PlatNetSvc API can
-    * be included in the list of multiplexed services.
+    * previous PlatNetSvc version. Only ONE major API version is supported
+    * for PlatNetSvc.
     *
     * @param asyncHandler A service handler for asynchronous requests. The
     *  processor for this handler must be included in the processors map.
@@ -295,9 +320,8 @@ struct SvcProcess : FdsProcess, SvcServerListener {
     *  special initialization. A PlatNetSvcHandler is more than just a Thrift
     *  service handler. It also IS-A module.
     *
-    * @param processors A collection of unique processors keyed by Thrift
-    *  service name. A processor has a service handler. Only ONE of these is
-    *  used to handle asynchronous reqeusts.
+    * @param processors A collection of processors keyed by unique Thrift
+    *  service name. A processor has a service handler.
     */
     virtual void setupSvcMgr_(PlatNetSvcHandlerPtr asyncHandler, TProcessorMap& processors);
 

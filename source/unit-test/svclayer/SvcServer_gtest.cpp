@@ -55,13 +55,14 @@ struct SvcMgrModuleProvider : CommonModuleProviderIf {
 
         /**
          * Note on Thrift service compatibility:
-         * Because asynchronous service requests are routed manually, any new
-         * PlatNetSvc version MUST extend a previous PlatNetSvc version.
-         * Only ONE version of PlatNetSvc API can be included in the list of
-         * multiplexed services.
          *
-         * For other new major service API versions (not PlatNetSvc), pass
-         * additional pairs of processor and Thrift service name.
+         * For service that extends PlatNetSvc, add the processor twice using
+         * Thrift service name as the key and again using 'PlatNetSvc' as the
+         * key. Only ONE major API version is supported for PlatNetSvc.
+         *
+         * All other services:
+         * Add Thrift service name and a processor for each major API version
+         * supported.
          */
         TProcessorMap processors;
         processors.insert(std::make_pair<std::string,

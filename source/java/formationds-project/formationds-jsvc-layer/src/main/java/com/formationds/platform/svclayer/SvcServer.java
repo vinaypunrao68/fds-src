@@ -80,7 +80,7 @@ public class SvcServer<S extends PlatNetSvc.Iface> {
     private final ExecutorService         serviceLayerExecutor;
 
     /**
-     * Unique Thrift processors keyed by Thrift service name.
+     * Thrift processors keyed by unique Thrift service name.
      *
      * @detail
      * Empty, unless the server is multiplexed
