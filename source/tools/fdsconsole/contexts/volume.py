@@ -289,13 +289,17 @@ class VolumeContext(Context):
     @arg('volume', help= "vol name/id")
     @arg('count', help= "count of objs to put", type=long, default=10, nargs="?")
     @arg('--seed', help= "seed the key name", default='1')
-    def bulkput(self, volume, count, seed='1'):
+    @arg('--size', help= "size of value", default='1K')
+    @arg('--same', help= "random/same values", default=False)
+    def bulkput(self, volume, count, seed='1', size='1K', same=False):
         '''
         Does bulk put
         '''
+        size = helpers.tobytes(size)
+        data=helpers.gendata(size, seed)
         for i in xrange(0, count):
             k = "key_{}_{}".format(seed, i)
-            v = "value_{}_{}".format(seed, i)
+            v = data if same else "{}-{}".format(i, data) 
             print self.put(volume, k, v)
 
     #--------------------------------------------------------------------------------------
@@ -410,7 +414,7 @@ class VolumeContext(Context):
                 #print cb.payload
                 data.append((self.config.getServiceApi().getServiceName(uuid),
                              cb.payload.volumeStatus.blobCount,cb.payload.volumeStatus.objectCount,
-                             cb.payload.volumeStatus.size, humanize.naturalsize(cb.payload.volumeStatus.size)))
+                             cb.payload.volumeStatus.size, humanize.naturalsize(cb.payload.volumeStatus.size, gnu=True)))
         print ('\n{}\n stats for vol:{}\n{}'.format('-'*40, volId, '-'*40))
         print tabulate(data, tablefmt=self.config.getTableFormat(), headers=['dm','blobs','objects','size','size.human'])
 
@@ -468,7 +472,9 @@ class VolumeContext(Context):
                 count = 0
                 for obj in cb.payload.obj_list:
                     count += 1
-                    objects.append((count, binascii.b2a_hex(obj.data_obj_id.digest), obj.size, obj.offset))
+                    objects.append((count, binascii.b2a_hex(obj.data_obj_id.digest),
+                                    '{} ({})'.format(obj.size,humanize.naturalsize(obj.size, gnu=True)),
+                                    '{} ({})'.format(obj.offset, humanize.naturalsize(obj.offset, gnu=True, format='%.3f'))))
 
                 print tabulate(objects, tablefmt=self.config.getTableFormat(), headers=['no','objid','size','offset'])
         if len(errors) > 0:
