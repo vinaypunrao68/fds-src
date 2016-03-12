@@ -4,14 +4,12 @@
 #
 
 # FDS test-case pattern requirements.
-import pdb
-import unittest
-import traceback
-
+from collections import defaultdict
 import xmlrunner
 import TestCase
 import random
 import time
+
 # Module-specific requirements
 import sys
 from fdslib.TestUtils import get_volume_service
@@ -22,9 +20,11 @@ import datetime
 from fabric.contrib.files import *
 from fdslib.TestUtils import connect_fabric
 from fdslib.TestUtils import disconnect_fabric
+import unittest
 
 from fabric.api import local
 from fdslib.TestUtils import verify_disk_free
+
 
 # This class contains the attributes and methods to test
 # create snapshot
@@ -55,14 +55,15 @@ class TestCreateSnapshot(TestCase.FDSTestCase):
                 vol_snapshot.retention = self.passedRetention
                 # from fs-4999 when the disk space reaches 75%, snapshots should NOT happen.
                 # Threshhold might change in future
-                #assert verify_disk_free(self,75) is True
+                # assert verify_disk_free(self,75) is True
                 status = vol_service.create_snapshot(vol_snapshot)
 
                 snapshot_list = vol_service.list_snapshots(vol_snapshot.volume_id)
                 for snapshot in snapshot_list:
                     if snapshot.volume_id == vol_snapshot.volume_id:
                         self.log.info(
-                            "Snapshot {0} created for volume {1} at time {2}".format(self.passedVolume_name, snapshot.name, snapshot.created))
+                            "Snapshot {0} created for volume {1} at time {2}".format(self.passedVolume_name,
+                                                                                     snapshot.name, snapshot.created))
 
                 if isinstance(status, FdsError) or type(status).__name__ == 'FdsError':
                     self.log.error(
@@ -122,7 +123,7 @@ class TestListSnapshot(TestCase.FDSTestCase):
                 for snapshot in snapshot_list:
                     if snapshot.volume_id == each_volume.id:
                         self.log.info("Snapshot found for volume={}: {}".format(volume.nd_conf_dict['vol-name'],
-                                                                                        snapshot.name))
+                                                                                snapshot.name))
 
                 if isinstance(snapshot_list, FdsError):
                     self.log.error("FAILED: To list snapshots for volume %s" % (
@@ -192,18 +193,21 @@ class TestCreateVolClone(TestCase.FDSTestCase):
 
         assert timeline is not None
         create_fdsConf_file(om_node.nd_conf_dict['ip'])
-        cmd = 'fds volume clone -name {0} -volume_id {1} -time {2}'.format(self.passedClone_name, passed_volume.id, timeline)
-        status = local(cmd, capture=True)
+        cmd = 'fds volume clone -name {0} -volume_id {1} -time {2}'.format(self.passedClone_name, passed_volume.id,
+                                                                           timeline)
+        with hide('output', 'running'):
+            status = local(cmd, capture=True)
         time.sleep(3)  # let clone volume creation propogate
         cloned_volume = vol_service.find_volume_by_name(self.passedClone_name)
 
         if type(cloned_volume).__name__ == 'FdsError':
-            self.log.error("Creating %s clone from timeline failed" %self.passedVolume_name)
+            self.log.error("Creating %s clone from timeline failed" % self.passedVolume_name)
         elif type(cloned_volume).__name__ == 'Volume':
-            self.log.info("Created clone {0} of volume {1} with time line {2}".format(self.passedClone_name, self.passedVolume_name, timeline))
+            self.log.info("Created clone {0} of volume {1} with time line {2}".format(self.passedClone_name,
+                                                                                      self.passedVolume_name, timeline))
             return True
 
-        self.log.error("Creating %s clone from timeline failed" %self.passedVolume_name)
+        self.log.error("Creating %s clone from timeline failed" % self.passedVolume_name)
 
         return False
 
@@ -228,25 +232,23 @@ class TestTimeline(TestCase.FDSTestCase):
         nodes = fdscfg.rt_obj.cfg_nodes
         om_node = fdscfg.rt_om_node
 
-        # For now , check only for daily,weekly,monthly and yearly snapshot creation
+        # For now ,check only for daily,weekly,monthly and yearly snapshot creation
         number_of_days = [1, 7, 30, 365]
-        patterns = ['daily', 'weekly', 'monthly', 'yearly']
 
         vol_service = get_volume_service(self, om_node.nd_conf_dict['ip'])
         volume_list = vol_service.list_volumes()
-        for idx, val in enumerate(number_of_days):
-            change_date(self, val)
+        for day in number_of_days:
+            # Store snapshot ids before changing date
+            pre_date_change_ss_ids = self.store_latest_ss_id(om_node)
+            change_date(self, day)
             if self.parameters['ansible_install_done']:
-                change_date(self, val, nodes)
-
-            # after changing dates sleep for 5 secs before checking if snapshots are available
-            time.sleep(5)
+                change_date(self, day, nodes)
+            # Sleep for 3 secs before checking if snapshots are available
+            time.sleep(3)
 
             for each_volume in volume_list:
-                pattern = 'snap.' + str(each_volume.name) + '.' + str(each_volume.id) + '_system_timeline_' + patterns[idx]
-                if snapshot_created(self, each_volume, pattern)is not True:
-                    self.log.error("FAILED: couldn't find {0} snapshot for vol_name = {1} , vol_id = {2}".format(pattern[idx], each_volume.name,each_volume.id))
-
+                pre_date_change_ss_id = pre_date_change_ss_ids[each_volume.id]
+                if self.snapshot_created(each_volume, pre_date_change_ss_id) is not True:
                     # Even if it's failure, sync up time on each node using ntp
                     sync_time_with_ntp(self)
                     if self.parameters['ansible_install_done']:
@@ -259,12 +261,50 @@ class TestTimeline(TestCase.FDSTestCase):
         sync_time_with_ntp(self)
         return True
 
+    def store_latest_ss_id(self, om_node):
+        vol_service = get_volume_service(self, om_node.nd_conf_dict['ip'])
+        volume_list = vol_service.list_volumes()
+
+        # "volume_ss_ids_dict" is dictionary which stores all snapshot ids for each volume,
+        # key is volume id, value is list of snapshot ids for respective volume
+        volume_ss_ids_dict = defaultdict(list)
+        for each_vol in volume_list:
+            ss_list = vol_service.list_snapshots(each_vol.id)
+            for ss in ss_list:
+                volume_ss_ids_dict[each_vol.id].append(int(ss.id.strip()))
+        return volume_ss_ids_dict
+
+    def snapshot_created(self, volume, pre_date_change_snapshots):
+        fdscfg = self.parameters["fdscfg"]
+        om_node = fdscfg.rt_om_node
+        vol_service = get_volume_service(self, om_node.nd_conf_dict['ip'])
+        snapshot_list = vol_service.list_snapshots(volume.id)
+        post_date_change_snapshots = [int((snapshot.id).strip()) for snapshot in snapshot_list]
+
+        if len(pre_date_change_snapshots) == 0:
+            assert len(post_date_change_snapshots) == 1
+            self.log.info("{} is first snapshot for volume {}".format(post_date_change_snapshots, volume.id))
+        elif max(post_date_change_snapshots) > max(pre_date_change_snapshots):
+            for snapshot in snapshot_list:
+                if int(snapshot.id.strip()) == max(post_date_change_snapshots):
+                    ss = snapshot
+            self.log.info('Success: New snapshot created = {0}, vol_name = {1}, vol_id = {2}'.
+                          format(ss.name, volume.name, volume.id))
+        else:
+            self.log.error('Failed: No new snapshot found for {0}, id = {}. '
+                           'List of exiting snapshots'.format(volume.name, volume.id,
+                                                              vol_service.list_snapshots(volume.id)))
+            return False
+
+        return True
+
+
 # This method returns current date from node
 # @param node_ip: ip address of the node. If node_ip is passed then return date on that node
 # else date on local machine
 def get_date_from_node(self, node_ip=None):
     if node_ip is None:
-        with hide('output','running'):
+        with hide('output', 'running'):
             string_date = local("date +\"%Y-%m-%d %H:%M:%S\"", capture=True)
             current_time = datetime.datetime.strptime(string_date, "%Y-%m-%d %H:%M:%S")
             return current_time
@@ -283,7 +323,7 @@ def change_date(self, number_of_days, nodes=None):
     if nodes is None:  # all nodes running on same machine
         new_date = get_date_from_node(self) + datetime.timedelta(days=number_of_days)
         cmd = "sudo date --set=\"{0}\"  && date --rfc-3339=ns".format(new_date)
-        with hide('output','running'):
+        with hide('output', 'running'):
             op = local(cmd, capture=False)
         self.log.info("Changed date on local node :{0}".format(get_date_from_node(self)))
 
@@ -300,25 +340,6 @@ def change_date(self, number_of_days, nodes=None):
     return True
 
 
-def snapshot_created(self, volume, pattern):
-    fdscfg = self.parameters["fdscfg"]
-    om_node = fdscfg.rt_om_node
-    vol_service = get_volume_service(self, om_node.nd_conf_dict['ip'])
-    snapshot_list = vol_service.list_snapshots(volume.id)
-    self.log.info(
-        'Found number_of_snapshots = {0}, vol_name = {1}, vol_id = {2}'.format(len(snapshot_list), volume.name, volume.id))
-    found_snapshot = False
-    for snapshot in snapshot_list:
-        snapshot_name = snapshot.name
-        # TODO pooja: after fs-5246 is fixed put check on number of snapshots created.
-        if snapshot_name.startswith(pattern):
-            found_snapshot = True
-            self.log.info("OK: {0} is available for {1} , vol_id = {2}".format(snapshot_name, volume.name, volume.id))
-            break
-
-    return found_snapshot
-
-
 # This method syncs time using ntp. Irrespective of timeline testing usccess /failure sync time with ntp
 # making sure domain is in good state.
 # @param nodes: is none if all nodes in domain are running on same machine
@@ -326,17 +347,17 @@ def snapshot_created(self, volume, pattern):
 def sync_time_with_ntp(self, nodes=None):
     cmd = "ntpdate ntp.ubuntu.com"
     if nodes is None:
-        with hide('output','running'):
-            local("sudo "+cmd, capture=True)
+        with hide('output', 'running'):
+            local("sudo " + cmd, capture=True)
             self.log.info("Sync time using ntp on local machine. Now date is {0}".format(get_date_from_node(self)))
-            return True
     else:
         for node in nodes:
             connect_fabric(self, node.nd_host)
             op = sudo(cmd, quiet=True)
-            self.log.info("Sync time using ntp on AWS node {0}. Now date is {1}".format(node.nd_host,get_date_from_node(self, node.nd_host)))
+            self.log.info("Sync time using ntp on AWS node {0}. Now date is {1}".
+                          format(node.nd_host,get_date_from_node(self, node.nd_host)))
             disconnect_fabric()
-        return True
+    return True
 
 
 if __name__ == '__main__':
