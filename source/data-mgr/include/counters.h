@@ -16,6 +16,7 @@ struct Counters : FdsCounters {
     SimpleNumericCounter refscanNumTokenFiles;
     SimpleNumericCounter refscanLastRun;
     SimpleNumericCounter refscanNumObjects;
+    SimpleNumericCounter refscanRunCount;
 
     // Starting with VG mode, because migrations can happen at any time,
     // the total values are not reset, but active values are dynamically changed

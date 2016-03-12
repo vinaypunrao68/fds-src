@@ -281,6 +281,8 @@ void ObjectRefScanMgr::prescanInit()
     dataMgr->counters->refscanRunning.set(1);
     dataMgr->counters->refscanNumVolumes.set(0);
     dataMgr->counters->refscanNumTokenFiles.set(0);
+    dataMgr->counters->refscanRunCount.incr();
+
     /* Get the current dlt */
     currentDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
 
@@ -459,6 +461,7 @@ Error VolumeObjectRefScanner::scanStep() {
         auto bloomfilter = bfStore->get(ObjectRefScanMgr::volTokBloomFilterKey(bfVolId, kv.first));
         auto &objects = kv.second;
         for (const auto &oid : objects) {
+            // LOGNORMAL << "scanned obj:" << oid;
             bloomfilter->add(oid);
             objRefMgr->objectsScannedCntr++;
             objRefMgr->dataMgr->counters->refscanNumObjects.set(objRefMgr->objectsScannedCntr);
