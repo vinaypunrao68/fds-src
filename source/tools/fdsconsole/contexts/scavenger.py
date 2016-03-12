@@ -46,13 +46,9 @@ class ScavengerContext(Context):
     #--------------------------------------------------------------------------------------
     @clidebugcmd
     @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='sm', nargs='?')
-    @arg('--force', help= "force immediate expunge by passing threshold", default=False, action='store_true')
     def startscavenger(self, sm, force=False):
         'start garbage collection on sm'
         try:
-            if force:
-                self.forceexpunge()
-
             for uuid in self.config.getServiceApi().getServiceIds(sm):
                 print 'starting scavenger on {}'.format(self.config.getServiceApi().getServiceName(uuid))
                 getScavMsg = FdspUtils.newStartScavengerMsg()
@@ -64,33 +60,17 @@ class ScavengerContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
-    def forceexpunge(self):
-        'send force expunge command to SMs'
-        try:
-            print 'will ask SMs to do immediate expunge for current run'
-            msg = FdspUtils.newSvcMsgByTypeId(FDSPMsgTypeId.GenericCommandMsgTypeId)
-            msg.command="force.expunge";
-            for uuid in self.config.getServiceApi().getServiceIds("sm"):
-                cb = WaitedCallback()
-                print 'sending force expunge to {}'.format(self.config.getServiceApi().getServiceName(uuid))
-                self.smClient().sendAsyncSvcReq(uuid, msg, cb)
-        except Exception, e:
-            log.exception(e)
-            print 'set force expunge failed'
-
-    #--------------------------------------------------------------------------------------
-    @clidebugcmd
-    @arg('dm', help= "DM id to send the command to", type=str, default='dm', nargs='?')
-    @arg('--force', help= "force immediate expunge by passing threshold", default=False, action='store_true')
-    def start(self, dm, force=False):
+    @arg('svc', help= "DMs id to send the command to", type=str, default='dm', nargs='?')
+    def start(self, svc):
         'start gc process'
         try:
-            if force:
-                self.forceexpunge();
-
-            for uuid in self.config.getServiceApi().getServiceIds(dm):
-                print 'starting gc refscan on {}'.format(self.config.getServiceApi().getServiceName(uuid))
-                msg = FdspUtils.newSvcMsgByTypeId(FDSPMsgTypeId.StartRefScanMsgTypeId)
+            for uuid in self.config.getServiceApi().getServiceIds(svc):
+                print 'starting expunge on {}'.format(self.config.getServiceApi().getServiceName(uuid))
+                if self.config.getServiceApi().getServiceType(uuid) == 'sm':
+                    msg = FdspUtils.newSvcMsgByTypeId(FDSPMsgTypeId.GenericCommandMsgTypeId)
+                    msg.command="scavenger.start"
+                else:
+                    msg = FdspUtils.newSvcMsgByTypeId(FDSPMsgTypeId.StartRefScanMsgTypeId)
                 cb = WaitedCallback()
                 self.smClient().sendAsyncSvcReq(uuid, msg, cb)
         except Exception, e:
@@ -129,20 +109,22 @@ class ScavengerContext(Context):
 
 
     #--------------------------------------------------------------------------------------
-
     @clidebugcmd
+    @arg('--full', help= "show info from individual services", default=False)
     @arg('sm', help= "-Uuid of the SM to send the command to", type=str, default='*', nargs='?')
-    def info(self, sm):
+    def info(self, sm, full=False):
         'show information about garbage collection'
         try:
             gcdata =[]
             cluster_totalobjects = 0
             cluster_deletedobjects = 0
+            cluster_inactiveobjects = 0
             cluster_num_gc_running = 0
             cluster_num_compactor_running = 0
             cluster_num_refscan_running = 0
-            numsvcs=0
+            numsvcs = 0
             dm=False
+
             if sm == '*' :
                 sm='sm'
                 dm=True
@@ -166,24 +148,30 @@ class ScavengerContext(Context):
 
                 cluster_totalobjects += totalobjects
                 cluster_deletedobjects += deletedobjects
+                cluster_inactiveobjects += cntrs.get('sm.scavenger.inactive.count',0)
                 data.append(('gc.start',cntrs.get('sm.scavenger.start.timestamp.human','not yet')))
 
-                if cntrs.get('sm.scavenger.running',0) > 0: cluster_num_gc_running +=1
-                if cntrs.get('sm.scavenger.compactor.running',0) : cluster_num_compactor_running +=1
+                if cntrs.get('sm.scavenger.running',0) > 0: cluster_num_gc_running += 1
+                if cntrs.get('sm.scavenger.compactor.running',0) : cluster_num_compactor_running += 1
 
                 data.append(('num.gc.running', cntrs.get('sm.scavenger.running',0) ))
+                data.append(('gc.run.count', cntrs.get('sm.scavenger.run.count',0) ))
                 data.append(('num.compactors', cntrs.get('sm.scavenger.compactor.running',0)))
                 data.append(('objects.total',totalobjects))
                 data.append(('objects.deleted',deletedobjects))
                 data.append(('tokens.total',totaltokens))
-                print ('{}\ngc info for {}\n{}'.format('-'*40, self.config.getServiceApi().getServiceName(uuid), '-'*40))
-                print tabulate(data,headers=['key', 'value'], tablefmt=self.config.getTableFormat())
-
+                gcdata.append(('{}.info'.format(self.config.getServiceApi().getServiceName(uuid)),
+                               '{} : {}'.format(cntrs.get('sm.scavenger.run.count',0), cntrs.get('sm.scavenger.start.timestamp.human','not yet')) ))
+                if full:
+                    print ('{}\ngc info for {}\n{}'.format('-'*40, self.config.getServiceApi().getServiceName(uuid), '-'*40))
+                    print tabulate(data,headers=['key', 'value'], tablefmt=self.config.getTableFormat())
+            gcdata.append(('',''))
             gcdata.append(('sm.objects.total',cluster_totalobjects))
             gcdata.append(('sm.objects.deleted',cluster_deletedobjects))
+            #gcdata.append(('sm.objects.inactive',cluster_inactiveobjects))
             gcdata.append(('sm.doing.gc',cluster_num_gc_running))
             gcdata.append(('sm.doing.compaction',cluster_num_compactor_running))
-
+            gcdata.append(('',''))
             if dm:
                 totalobjects =0
                 totalvolumes=0
@@ -197,12 +185,17 @@ class ScavengerContext(Context):
                     data.append(('dm.refscan.num_objects', cntrs.get('dm.refscan.num_objects',0)))
                     data.append(('dm.refscan.num_volumes', cntrs.get('dm.refscan.num_volumes',0)))
                     data.append(('dm.refscan.running', cntrs.get('dm.refscan.running',0)))
+                    data.append(('dm.refscan.run.count', cntrs.get('dm.refscan.run.count',0)))
                     if cntrs.get('dm.refscan.running',0) > 0 :  cluster_num_refscan_running += 1
                     totalobjects += cntrs.get('dm.refscan.num_objects',0)
                     totalvolumes += cntrs.get('dm.refscan.num_volumes',0)
-                    print ('{}\ngc info for {}\n{}'.format('-'*40, self.config.getServiceApi().getServiceName(uuid), '-'*40))
-                    print tabulate(data,headers=['key', 'value'], tablefmt=self.config.getTableFormat())
+                    gcdata.append(('{}.info'.format(self.config.getServiceApi().getServiceName(uuid)),
+                                   '{} : {}'.format(cntrs.get('dm.refscan.run.count',0), cntrs.get('dm.refscan.lastrun.timestamp.human','not yet')) ))
 
+                    if full:
+                        print ('{}\ngc info for {}\n{}'.format('-'*40, self.config.getServiceApi().getServiceName(uuid), '-'*40))
+                        print tabulate(data,headers=['key', 'value'], tablefmt=self.config.getTableFormat())
+                gcdata.append(('',''))
                 gcdata.append(('dm.objects.total',totalobjects))
                 gcdata.append(('dm.volumes.total',totalvolumes))
                 gcdata.append(('dm.doing.refscan',cluster_num_refscan_running))

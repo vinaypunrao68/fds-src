@@ -95,7 +95,7 @@ util::BloomFilterPtr BloomFilterStore::get(const std::string &key, bool create) 
         bloomfilter.reset(new util::BloomFilter(bloomfilterBits));
         addToCache(key, bloomfilter);
         index.insert(key);
-        GLOGDEBUG << "Created bloomfilter: " << key;
+        GLOGDEBUG << "created bloomfilter: " << key;
     } else {
         /* Check in cache */
         bloomfilter = getFromCache(key);
@@ -126,7 +126,7 @@ void BloomFilterStore::purge() {
     for (const auto &item : index) {
         auto ret = bfs::remove(bfs::path(item.c_str()));
         if (ret != 0) {
-            GLOGWARN << "Failed to remove bloomfilter: " << item << " ret: " << ret;
+            GLOGWARN << "failed to remove bloomfilter:" << item << " ret:" << ret;
         }
     }
     index.clear();
@@ -146,46 +146,26 @@ ObjectRefScanMgr::ObjectRefScanMgr(CommonModuleProviderIf *moduleProvider, DataM
 
 void ObjectRefScanMgr::mod_startup() {
     auto config = MODULEPROVIDER()->get_conf_helper();
-    timeBasedEnabled = dataMgr->features.isExpungeEnabled();
-            // config.get<bool>("objectrefscan.timebased", false);
-    scanIntervalSec = std::chrono::seconds(
-        util::getSecondsFromHumanTime(
-            config.get<std::string>("objectrefscan.interval", "1d")));
+
     maxEntriesToScan = config.get<int>("objectrefscan.entries_per_scan", 32768);
 
-    LOGNORMAL << "refscanner [enabled:" << (timeBasedEnabled?"true":"false") <<"]"
-              << " [interval:" << scanIntervalSec.count() << " s]"
-              << " [scancount:" << maxEntriesToScan << "]";
+    LOGNORMAL << "refscan enabled:" << (dataMgr->features.isExpungeEnabled()?"true":"false")
+              << " scancount:" << maxEntriesToScan;
 
-    /* Only if enabled is set we start timer based scanning */
-    if (timeBasedEnabled) {
-        auto timer = MODULEPROVIDER()->getTimer();
-        scanTask = boost::shared_ptr<FdsTimerTask>(
-            new FdsTimerFunctionTask([this] () {
-                                         auto expectedState = STOPPED;
-                                         bool wasStopped = state.compare_exchange_strong(expectedState, INIT);
-                                         if (!wasStopped) {
-                                             GLOGWARN << "Ignoring scanOnce as Scanner is already in progress";
-                                             return;
-                                         }
-                                         /* Immediately post to threadpool so we don't hold up timer thread */
-                                         auto req = new DmFunctor(FdsDmSysTaskId, std::bind(&ObjectRefScanMgr::scanStep, this));
-                                         qosHelper.addToQueue(req);
-                                     }));
-        timer->schedule(scanTask, scanIntervalSec);
-    } else {
-        LOGNORMAL << "auto refscan not enabled";
-    }
 }
 
 void ObjectRefScanMgr::mod_shutdown() {
+}
+
+bool ObjectRefScanMgr::isRunning() {
+    return (STOPPED != state.load());
 }
 
 void ObjectRefScanMgr::scanOnce() {
     auto expectedState = STOPPED;
     bool wasStopped = state.compare_exchange_strong(expectedState, INIT);
     if (!wasStopped) {
-        GLOGWARN << "Ignoring scanOnce as Scanner is already in progress";
+        GLOGWARN << "ignoring refscan request as scanner is already running";
         return;
     }
 
@@ -199,11 +179,11 @@ void ObjectRefScanMgr::setScanDoneCb(const ObjectRefScanMgr::ScanDoneCb &cb) {
 }
 
 void ObjectRefScanMgr::dumpStats() const {
-    GLOGNOTIFY << "Scan run#: " << scanCntr
-               << " # of volumes: " << scanList.size()
-               << " # of scanned volumes: " << scanSuccessVols.size()
-               << " # of scanned objects: " << objectsScannedCntr
-               << " # of generated bloomfilters: " << bfStore->getIndexSize();
+    GLOGNOTIFY << "refscan runcount:" << scanCntr
+               << " total.volumes:" << scanList.size()
+               << " scanned.volumes:" << scanSuccessVols.size()
+               << " scanned.objects:" << objectsScannedCntr
+               << " bloomfilters.count:" << bfStore->getIndexSize();
 }
 
 void ObjectRefScanMgr::scanStep() {
@@ -216,7 +196,7 @@ void ObjectRefScanMgr::scanStep() {
         Error e = currentItr->scanStep();
         if (e != ERR_OK) {
             /* Report the error and move on */
-            GLOGWARN<< "Failed to scan: " << currentItr->logString() << " " << e;
+            GLOGWARN<< "failed to scan: " << currentItr->logString() << " " << e;
             currentItr->finishScan(e);
             currentItr++;
         } else {
@@ -239,11 +219,6 @@ void ObjectRefScanMgr::scanStep() {
         dumpStats();
         if (scandoneCb) {
             scandoneCb(this);
-        }
-        /* Schedule another scan cycle */
-        if (timeBasedEnabled) {
-            auto timer = MODULEPROVIDER()->getTimer();
-            timer->schedule(scanTask, scanIntervalSec);
         }
     }
 }
@@ -281,6 +256,8 @@ void ObjectRefScanMgr::prescanInit()
     dataMgr->counters->refscanRunning.set(1);
     dataMgr->counters->refscanNumVolumes.set(0);
     dataMgr->counters->refscanNumTokenFiles.set(0);
+    dataMgr->counters->refscanRunCount.incr();
+
     /* Get the current dlt */
     currentDlt = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();
 
@@ -348,7 +325,7 @@ Error VolumeRefScannerContext::scanStep() {
         auto scanner = *itr;
         e = scanner->scanStep();
         if (e != ERR_OK) {
-            GLOGWARN<< "Failed to scan: " << scanner->logString() << " " << e;
+            GLOGWARN<< "failed to scan: " << scanner->logString() << " " << e;
             scanner->finishScan(e);
             itr++;
         } else {
@@ -370,10 +347,11 @@ Error VolumeRefScannerContext::finishScan(const Error &e) {
         oss<< " completion error:" << e;
         errString = oss.str();
     }
-    GLOGNOTIFY << "Finished scanning [volume:" << volId << "]"
-               << " [snapshots:" << (scanners.size() - 1) << "]"
-               << " [aggr objects scanned:" << objRefMgr->objectsScannedCntr << "]"
-               << errString;
+
+    GLOGNOTIFY << "finished scan vol:" << volId
+               << " snapshots:" << (scanners.size() - 1)
+               << " total.objects.scanned:" << objRefMgr->objectsScannedCntr
+               << " " << errString;
 
 
     if (e != ERR_OK) {
@@ -427,7 +405,7 @@ Error VolumeObjectRefScanner::scanStep() {
     if (state == INIT) {
         auto error = init();
         if (error != ERR_OK) {
-            GLOGWARN << "Failed to initialize " << logString();
+            GLOGWARN << "failed to initialize " << logString();
             return error;
         }
         state = SCANNING;
@@ -459,6 +437,7 @@ Error VolumeObjectRefScanner::scanStep() {
         auto bloomfilter = bfStore->get(ObjectRefScanMgr::volTokBloomFilterKey(bfVolId, kv.first));
         auto &objects = kv.second;
         for (const auto &oid : objects) {
+            // LOGNORMAL << "scanned obj:" << oid;
             bloomfilter->add(oid);
             objRefMgr->objectsScannedCntr++;
             objRefMgr->dataMgr->counters->refscanNumObjects.set(objRefMgr->objectsScannedCntr);
@@ -476,7 +455,7 @@ Error VolumeObjectRefScanner::finishScan(const Error &e) {
     if (e != ERR_VOL_NOT_FOUND) {
         itr = nullptr;
         if (ERR_OK != volcatIf->freeVolumeSnapshot(volId, snap)) {
-            GLOGWARN << "Failed to release snapshot for volId: " << volId;
+            GLOGWARN << "failed to release snapshot for vol: " << volId;
         }
     }
     return e;

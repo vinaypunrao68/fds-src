@@ -329,6 +329,7 @@ std::ostream& operator<<(std::ostream& os, const fds_io_op_t& opType) {
         ENUMCASEOS(FDS_SM_GET_OBJECT             , os);
         ENUMCASEOS(FDS_SM_PUT_OBJECT             , os);
         ENUMCASEOS(FDS_SM_SNAPSHOT_TOKEN         , os);
+        ENUMCASEOS(FDS_GENERIC_REQUEST           , os);
         ENUMCASEOS(FDS_OP_INVALID                , os);
         default:
             os << "unknown op:"<< static_cast<int>(opType);

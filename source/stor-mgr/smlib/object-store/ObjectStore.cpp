@@ -1991,6 +1991,10 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                  * metadata information.
                  */
                 auto objDelCnt = objMeta->getDeleteCount();
+
+                // add counter to see how many inactive objects are actually present
+                if ((fds_uint16_t)objDelCnt > 0) OBJECTSTOREMGR(objStorMgr)->counters->inactiveObjectCount.incr();
+
                 auto objTS = objMeta->getTimeStamp();
                 if (!ts || (objTS < ts)) {
                     ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
@@ -2003,6 +2007,7 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                      * If the delete count for this object has reached the threshold
                      * then let the Scavenger know about it.
                      */
+                    if ((fds_uint16_t)objDelCnt == 0) OBJECTSTOREMGR(objStorMgr)->counters->inactiveObjectCount.incr();
                     if (updatedMeta->incrementDeleteCount() >= fds::objDelCountThresh) {
                         ++tokStats.tkn_reclaim_size;
                     }
