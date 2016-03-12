@@ -231,6 +231,7 @@ struct FTCallback : concurrency::TaskStatus {
     void handle(fds::net::FileTransferService::Handle::ptr handle,
                 const Error &e) {
         GLOGNORMAL << "in callback : " << handle->srcFile << " : " << e;
+        error = e;
         done();
     }
 };
@@ -242,9 +243,11 @@ TEST_F(SvcRequestMgrTest, filetransfer) {
     fds::net::FileTransferService::OnTransferCallback ftcb = std::bind(&FTCallback::handle, &cb, std::placeholders::_1, std::placeholders::_2);
     domain[1]->filetransfer->send(domain.getFakeSvcUuid(2), "/bin/ls", "test.txt", ftcb, false);
     cb.await();
+    ASSERT_EQ(cb.error, ERR_OK);
     cb.reset(1);
     domain[1]->filetransfer->send(domain.getFakeSvcUuid(2), "/bin/ls", "test.txt", ftcb, false);
     cb.await();
+    ASSERT_EQ(cb.error, ERR_OK);
 }
 
 int main(int argc, char** argv) {
