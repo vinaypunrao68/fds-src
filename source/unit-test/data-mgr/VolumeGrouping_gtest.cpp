@@ -67,7 +67,7 @@ TEST_F(VolumeGroupFixture, singledm) {
     ASSERT_TRUE(dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() == fpi::Offline);
     /* Any IO should fail */
     sendUpdateOnceMsg(*v1, blobName, waiter);
-    ASSERT_TRUE(waiter.awaitResult() == ERR_VOLUMEGROUP_DOWN);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_VOLUMEGROUP_NOT_OPEN);
 
     /* Now open should succeed */
     openVolume(*v1, waiter);
@@ -85,7 +85,6 @@ TEST_F(VolumeGroupFixture, singledm) {
     /* Do more IO.  IO should fail */
     sendQueryCatalogMsg(*v1, blobName, waiter);
     ASSERT_TRUE(waiter.awaitResult() != ERR_OK);
-
     /* Close volumegroup handle */
     waiter.reset(1);
     v1->close([this]() { waiter.doneWith(ERR_OK); });
@@ -97,7 +96,7 @@ TEST_F(VolumeGroupFixture, staticio_restarts) {
 
     /* Create two dms */
     createCluster(2);
-    setupVolumeGroup(1);
+    setupVolumeGroupHandleOnAm1(1);
 
     /* Do some io. After Io is done, every volume replica must have same state */
     for (uint32_t i = 0; i < 10; i++) {
@@ -159,7 +158,7 @@ TEST_F(VolumeGroupFixture, activeio_restart) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
     /* Create two dms */
     createCluster(2);
-    setupVolumeGroup(1);
+    setupVolumeGroupHandleOnAm1(1);
 
     /* Start io thread */
     bool ioAbort = false;
@@ -202,7 +201,7 @@ TEST_F(VolumeGroupFixture, domain_reboot) {
 
     /* Create two dms */
     createCluster(2);
-    setupVolumeGroup(1);
+    setupVolumeGroupHandleOnAm1(1);
 
     /* Do more IO.  IO should succeed */
     doIo(10);
@@ -238,12 +237,76 @@ TEST_F(VolumeGroupFixture, domain_reboot) {
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
+TEST_F(VolumeGroupFixture, multiAccess) {
+    g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
+
+    /* Create threed dms */
+    createCluster(3);
+
+    startAm2();
+
+    /* Create read only volume group handel on second am */
+    auto readonlyV1 = setupReadonlyVolumeGroupHandleOnAm2(2);
+    openVolumeReadonly(*readonlyV1, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_DM_VOL_NOT_ACTIVATED);
+
+    /* Open on group handle that is a coordinator */
+    setupVolumeGroupHandleOnAm1(2);
+
+    /* Do IO from coordinator and it should succeed */
+    doIo(10);
+
+    /* Open volume readonly and it should succeed */
+    openVolumeReadonly(*readonlyV1, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+
+    /* Reads on read only group handle should succeed */
+    sendQueryCatalogMsg(*readonlyV1, blobName, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+
+    /* Write on read only group handel should fail */
+    sendUpdateOnceMsg(*readonlyV1, blobName, waiter);
+    ASSERT_TRUE(waiter.awaitResult() != ERR_OK);
+
+#if 0
+    /* Stop 1st dm, we should still be able to do reads */
+    dmGroup[0]->stop();
+    sendQueryCatalogMsg(*readonlyV1, blobName, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+
+    /* Stop 2nd dm, we should still be able to do reads */
+    dmGroup[1]->stop();
+    sendQueryCatalogMsg(*readonlyV1, blobName, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+
+    /* Stop 3rd dm, reads should fail */
+    dmGroup[2]->stop();
+    sendQueryCatalogMsg(*readonlyV1, blobName, waiter);
+    ASSERT_TRUE(waiter.awaitResult() != ERR_OK);
+    
+    /* Do read from coordinator.  It should fail as well.  We do a read so that coordinator
+     * knows which all dms are down.  This is needed because coordinator will do pings
+     * which allows DMs to go through resyncs when they are up
+     */
+    sendQueryCatalogMsg(*v1, blobName, waiter);
+    ASSERT_TRUE(waiter.awaitResult() != ERR_OK);
+
+    /* Start 1st dm and wait for it be active */
+    dmGroup[0]->start();
+    doVolumeStateCheck(0, v1Id, fpi::Active);
+
+    /* Reads should succeed now */
+    sendQueryCatalogMsg(*readonlyV1, blobName, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+#endif
+}
+
 TEST_F(VolumeGroupFixture, allDownFollowedBySequentialUp) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
 
     /* Create two dms */
     createCluster(3);
-    setupVolumeGroup(2);
+    setupVolumeGroupHandleOnAm1(2);
 
     /* Do more IO.  IO should succeed */
     doIo(10);
@@ -278,7 +341,7 @@ TEST_F(DmGroupFixture, VolumeTargetCopy) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
     /* Create two dms */
     createCluster(2);
-    setupVolumeGroup(1);
+    setupVolumeGroupHandleOnAm1(1);
 
     Waiter waiter(0);
     fds_volid_t v1Id(10);

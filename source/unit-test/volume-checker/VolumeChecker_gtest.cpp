@@ -33,7 +33,7 @@ TEST_F(VolumeGroupFixture, twoHappyDMs) {
     // Create 2 DMs
     unsigned clusterSize = 2;
     createCluster(clusterSize);
-    setupVolumeGroup(clusterSize);
+    setupVolumeGroupHandleOnAm1(clusterSize);
 
     // Test Volume Checker svcmgr layer
     // For now only one volume

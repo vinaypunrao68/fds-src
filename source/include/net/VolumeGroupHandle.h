@@ -11,18 +11,22 @@
 #include <net/volumegroup_extensions.h>
 #include <boost/circular_buffer.hpp>
 
-#define GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb, msg) \
+#define GROUPHANDLE_ACCESS_CHECK_CB(isWrite, cb, msg) \
     if (state_ != fpi::ResourceState::Active) { \
-        LOGWARN << logString() << fds::logString(*msg) << " Unavailable"; \
-        cb(ERR_VOLUMEGROUP_DOWN, nullptr); \
+        if (state_ == fpi::ResourceState::Loading) { \
+            LOGWARN << logString() << fds::logString(*msg) << " open in progress"; \
+            cb(ERR_VOLUMEGROUP_NOT_OPEN, nullptr); \
+            return; \
+        } else { \
+            LOGWARN << logString() << fds::logString(*msg) << " Unavailable"; \
+            cb(ERR_VOLUMEGROUP_DOWN, nullptr); \
+            return; \
+        } \
+    } else if (isWrite && !isCoordinator_) { \
+        LOGWARN << logString() << fds::logString(*msg) << " must be a coordinator to do write"; \
+        cb(ERR_INVALID, nullptr); \
         return; \
     }
-#define GROUPHANDLE_FUNCTIONAL_CHECK() \
-    if (state_ != fpi::ResourceState::Active) { \
-        LOGWARN << logString() << " Unavailable"; \
-        return; \
-    }
-
 
 namespace fds {
 // Some logging routines have external linkage
@@ -270,7 +274,7 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     void incRef();
     void decRef();
 
-    std::vector<VolumeReplicaHandle*> getIoReadyReplicaHandles();
+    std::vector<VolumeReplicaHandle*> getWriteableReplicaHandles();
     VolumeReplicaHandle* getFunctionalReplicaHandle();
     std::vector<fpi::SvcUuid> getAllReplicas() const;
 
@@ -286,6 +290,7 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     }
     inline uint32_t getFunctionalReplicasCnt() const { return functionalReplicas_.size(); }
     std::string logString() const;
+    inline int32_t getRefCnt() const { return refCnt_; }
 
  protected:
     template<class MsgT, class ReqT>
@@ -318,6 +323,8 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     EPSvcRequestPtr createSetVolumeGroupCoordinatorMsgReq_(bool clearCoordinator = false);
     QuorumSvcRequestPtr createPreareOpenVolumeGroupMsgReq_();
     fpi::OpenVolumeRspMsgPtr determineFunctaionalReplicas_(QuorumSvcRequest* openReq);
+    void handleOpenResponseForNonCoordinator_(QuorumSvcRequest* openReq,
+                                              const OpenResponseCb &cb);
     QuorumSvcRequestPtr createBroadcastGroupInfoReq_();
     void changeState_(const fpi::ResourceState &targetState,
                       bool cleanReplicas,
@@ -371,6 +378,10 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     VoidCb                              closeCb_;
     /* Whether check on non-functional replicas is in progress */
     bool                                checkOnNonFunctionalScheduled_;
+    /* Whether the group handle is coordinator or not.  Coordinator has write access/
+     * as well as responsibility to coordinate replication
+     */
+    bool                                isCoordinator_;
 
     static const uint32_t               WRITEOPS_BUFFER_SZ = 1024;
 
@@ -384,7 +395,7 @@ void VolumeGroupHandle::sendReadMsg(const fpi::FDSPMsgTypeId &msgTypeId,
     fds_assert(!closeCb_);
 
     runSynchronized([this, msgTypeId, msg, cb]() mutable {
-        GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb, msg);
+        GROUPHANDLE_ACCESS_CHECK_CB(false, cb, msg);
 
         /* Create a request and send */
         auto req = requestMgr_->newSvcRequest<VolumeGroupFailoverRequest>(this);
@@ -401,7 +412,7 @@ void VolumeGroupHandle::sendModifyMsg(const fpi::FDSPMsgTypeId &msgTypeId,
     fds_assert(!closeCb_);
 
     runSynchronized([this, msgTypeId, msg, cb]() mutable {
-        GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb, msg);
+        GROUPHANDLE_ACCESS_CHECK_CB(true, cb, msg);
 
         opSeqNo_++;
         sendWriteReq_<MsgT, VolumeGroupBroadcastRequest>(msgTypeId, msg, cb);
@@ -414,7 +425,7 @@ void VolumeGroupHandle::sendCommitMsg(const fpi::FDSPMsgTypeId &msgTypeId,
     fds_assert(!closeCb_);
 
     runSynchronized([this, msgTypeId, msg, cb]() mutable {
-        GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb, msg);
+        GROUPHANDLE_ACCESS_CHECK_CB(true, cb, msg);
 
         opSeqNo_++;
         commitNo_++;

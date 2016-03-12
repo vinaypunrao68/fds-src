@@ -58,7 +58,21 @@ void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
 
     auto volMeta = dataManager.getVolumeMeta(request->volId);
     if (dataManager.features.isVolumegroupingEnabled()) {
-        fds_verify(request->msg->mode.can_write == true);
+        if (!request->msg->mode.can_write) {
+            /* Request to open from volume group handle that wishes to do just reads.
+             * When trying to do reads it's important the volume can eventually be activated.
+             * With VG, the only volume can be activated is via open from coordinator.
+             * If coordinator isn't set we return ERR_DM_VOL_NOT_ACTIVATED so that group
+             * handle can retry and open as a coordinator.
+             * If coordinator is set then the volume can be read eventually.
+             */
+            if (!volMeta->isCoordinatorSet()) {
+                helper.err = ERR_DM_VOL_NOT_ACTIVATED;
+            }
+            return;
+        }
+
+        /* Requests from volume group handle that is a coordinator */
         if (volMeta->isInitializerInProgress()) {
             LOGWARN << volMeta->logString() << " Failed to open.  Sync is in progress";
             helper.err = ERR_SYNC_INPROGRESS;
@@ -70,9 +84,7 @@ void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
                 << " volume: " << request->volId
                 << " from: " << request->msg->coordinator.id
                 << " stored: " << volMeta->getCoordinatorId();
-            // helper.err = ERR_INVALID_COORDINATOR;
-            // TODO(Rao): Uncomment above
-            helper.err = ERR_INVALID;
+            helper.err = ERR_INVALID_COORDINATOR;
             return;
         }
         volMeta->setCoordinator(request->msg->coordinator);
