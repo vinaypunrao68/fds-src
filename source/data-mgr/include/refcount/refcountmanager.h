@@ -21,8 +21,9 @@ struct RefCountManager : Module {
     virtual void mod_startup();
     virtual void mod_shutdown();
 
-    void scanActiveObjects();
+    void scanActiveObjects(bool fFromSM, bool fSchedule=true);
     void scanDoneCb(ObjectRefScanMgr*);
+    void sendRefScanDoneMessage();
     void objectFileTransferredCb(fds::net::FileTransferService::Handle::ptr,
                                  const Error& err,
                                  fds_token_id token);

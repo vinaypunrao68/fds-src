@@ -194,6 +194,7 @@ bool FileTransferService::sendNextChunk(FileTransferService::Handle::ptr handle)
 
     request->setPayload(FDSP_MSG_TYPEID(fpi::FileTransferMsg), msg);
     request->onResponseCb(RESPONSE_MSG_HANDLER(FileTransferService::handleTransferResponse, handle));
+    request->setTimeoutMs(30*1000);
     request->invoke();
     GLOGDEBUG << "after send : " << handle;
     return true;
@@ -236,6 +237,7 @@ void FileTransferService::sendVerifyRequest(FileTransferService::Handle::ptr han
     auto request =  svcMgr->getSvcRequestMgr()->newEPSvcRequest(handle->svcId);
     request->setPayload(FDSP_MSG_TYPEID(fpi::FileTransferVerifyMsg), msg);
     request->onResponseCb(RESPONSE_MSG_HANDLER(FileTransferService::handleVerifyResponse, handle));
+    request->setTimeoutMs(30*1000);
     request->invoke();
 }
 

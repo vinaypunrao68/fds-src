@@ -11,6 +11,7 @@ Counters::Counters(const std::string &id, FdsCountersMgr *mgr)
               refscanNumTokenFiles("dm.refscan.num_tokens", this),
               refscanNumObjects("dm.refscan.num_objects", this),
               refscanLastRun("dm.refscan.lastrun.timestamp", this),
+              refscanRunCount("dm.refscan.run.count", this),
 
               migrationLastRun("dm.migration.lastrun.timestamp", this),
               migrationDMTVersion("dm.migration.dmt.version", this),

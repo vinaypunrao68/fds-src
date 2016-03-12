@@ -719,8 +719,9 @@ Error SvcMgr::updateDmt(bool dmt_type, std::string& dmt_data, OmUpdateRespCbType
     }
 
     err = dmtMgr_->addSerializedDMT(dmt_data, cb, DMT_COMMITTED);
-    if (!err.ok()) {
-        LOGERROR << "Failed to update DMT! check dmt_data was set";
+
+    if (!(err == ERR_OK || err == ERR_DUPLICATE)) {
+        LOGERROR << "Failed to update DMT! check dmt_data was set " << err;
     }
 
     return err;

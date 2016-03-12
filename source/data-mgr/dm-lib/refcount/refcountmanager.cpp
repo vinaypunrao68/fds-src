@@ -30,16 +30,73 @@ void RefCountManager::mod_shutdown() {
     scanner->mod_shutdown();
 }
 
-void RefCountManager::scanActiveObjects() {
-    LOGDEBUG << "asking to scan active objects";
-    scanner->scanOnce();
+void RefCountManager::scanActiveObjects(bool fFromSM, bool fSchedule) {
+    static fds_mutex lock("refscan request");
+    static TimeStamp timegap = 30*60;  // 30 minutes
+    static TimeStamp lastRequestFromSM = 0;
+
+    // this is to make sure that multiple SM's dont trigger refscans
+    // within a short period of time
+    synchronized(lock) {
+        if (fFromSM) {
+            auto now = util::getTimeStampSeconds();
+            if (now - lastRequestFromSM < timegap) {
+                LOGWARN << "ignoring refscan request from sm as previous request received @ "<< util::getLocalTimeString(lastRequestFromSM);
+                return;
+            }
+            lastRequestFromSM = now;
+            LOGNORMAL << "accepted refscan request from sm";
+        }
+    }
+
+    if (fSchedule) {
+        LOGNORMAL << "scheduling refscan fromsm:" << fFromSM;
+        auto lambda = [this]() {
+            scanner->scanOnce();
+        };
+        dm->addToQueue(lambda);
+    } else {
+        scanner->scanOnce();
+    }
 }
 
 void RefCountManager::scanDoneCb(ObjectRefScanMgr*) {
     // now transfer the active objects to all SMs
+    // force fetch DLT
+    Error err = svcMgr->getDLT();
+    if (!(err == ERR_OK || err == ERR_DUPLICATE )) {
+        LOGCRITICAL << "unable to fetch latest DLT .. " << err;
+    }
+
     transferContext.volumeList.reset(new std::list<fds_volid_t>(scanner->getScanSuccessVols()));
-    transferContext.currentToken = 0;
-    transferContext.processNextToken();
+
+    if (transferContext.volumeList->empty()) {
+        LOGNORMAL << "no volumes to scan";
+        sendRefScanDoneMessage();
+    } else {
+        transferContext.currentToken = 0;
+        if (!transferContext.processNextToken()) {
+            LOGCRITICAL << "process token done too soon .. unexpected here";
+            sendRefScanDoneMessage();
+        }
+    }
+}
+
+void RefCountManager::sendRefScanDoneMessage() {
+    std::vector<fpi::SvcInfo> services;
+    svcMgr->getSvcMap(services);
+    fpi::GenericCommandMsgPtr msg(new fpi::GenericCommandMsg());
+    msg->command="refscan.done";
+    for (const auto& service : services) {
+        if (service.svc_type != fpi::FDSP_STOR_MGR) continue;
+        LOGNORMAL << "sending refscan.done msg to sm:" << service.svc_id.svc_uuid.svc_uuid;
+        auto request  =  svcMgr->getSvcRequestMgr()->newEPSvcRequest(service.svc_id.svc_uuid);
+        request->setPayload(FDSP_MSG_TYPEID(fpi::GenericCommandMsg), msg);
+        request->invoke();
+    }
+
+    // set the scanner to done state
+    scanner->setStateStopped();
 }
 
 void RefCountManager::objectFileTransferredCb(fds::net::FileTransferService::Handle::ptr handle,
@@ -106,17 +163,7 @@ void RefCountManager::FileTransferContext::tokenDone(fds_token_id token, fpi::Sv
         if (!processNextToken()) {
             LOGNORMAL << "refscan and file transfers complete";
             // now send a done message to SM
-            auto svcMgr = refCountManager->svcMgr;
-            std::vector<fpi::SvcInfo> services;
-            svcMgr->getSvcMap(services);
-            fpi::GenericCommandMsgPtr msg(new fpi::GenericCommandMsg());
-            msg->command="refscan.done";
-            for (const auto& service : services) {
-                if (service.svc_type != fpi::FDSP_STOR_MGR) continue;
-                auto request  =  svcMgr->getSvcRequestMgr()->newEPSvcRequest(service.svc_id.svc_uuid);
-                request->setPayload(FDSP_MSG_TYPEID(fpi::GenericCommandMsg), msg);
-                request->invoke();
-            }
+            refCountManager->sendRefScanDoneMessage();
         }
     }
 }
@@ -128,13 +175,11 @@ bool RefCountManager::FileTransferContext::processNextToken() {
     auto myuuid = svcMgr->getSelfSvcUuid().svc_uuid;
     if (currentToken >= dlt->getNumTokens()) {
         LOGDEBUG << "no more tokens to process";
-        refCountManager->scanner->setStateStopped();
         return false;
     }
 
     if (volumeList->empty()) {
         LOGDEBUG << "nothing to do";
-        refCountManager->scanner->setStateStopped();
         return false;
     }
 
@@ -170,6 +215,7 @@ bool RefCountManager::FileTransferContext::processNextToken() {
             request->setPayload(FDSP_MSG_TYPEID(fpi::ActiveObjectsMsg), msg);
             request->onResponseCb(std::bind(&RefCountManager::handleActiveObjectsResponse, refCountManager,
                                             currentToken, PH_ARG1, PH_ARG2, PH_ARG3));
+            request->setTimeoutMs(30*1000);
             request->invoke();
         }
     }
