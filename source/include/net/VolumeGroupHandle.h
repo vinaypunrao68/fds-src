@@ -18,9 +18,14 @@
             cb(ERR_VOLUMEGROUP_NOT_OPEN, nullptr); \
             return; \
         } else { \
-            LOGWARN << logString() << fds::logString(*msg) << " Unavailable"; \
-            cb(ERR_VOLUMEGROUP_DOWN, nullptr); \
-            return; \
+            if (isWrite || \
+                state_ != fpi::ResourceState::Offline || \
+                functionalReplicas_.size() == 0) { \
+                LOGWARN << logString() << fds::logString(*msg) << " Unavailable"; \
+                cb(ERR_VOLUMEGROUP_DOWN, nullptr); \
+                return; \
+            } \
+            /* Read request when state is offline with at least one functional replica is ok */ \
         } \
     } else if (isWrite && !isCoordinator_) { \
         LOGWARN << logString() << fds::logString(*msg) << " must be a coordinator to do write"; \

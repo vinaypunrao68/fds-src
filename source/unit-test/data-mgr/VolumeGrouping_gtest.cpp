@@ -311,9 +311,17 @@ TEST_F(VolumeGroupFixture, allDownFollowedBySequentialUp) {
     /* Do more IO.  IO should succeed */
     doIo(10);
 
-    /* stop two dms with out active.  So coordinator still thinks all dms are active */
+    /* stop two dms */
     dmGroup[0]->stop();
     dmGroup[1]->stop();
+
+#if 0
+    /* Read should succeed */
+    sendQueryCatalogMsg(*v1, blobName, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+#endif
+
+    /* Stop third dm */
     dmGroup[2]->stop();
     LOGNORMAL << "Stopped all the dms";
 

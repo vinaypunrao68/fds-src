@@ -814,6 +814,8 @@ Error VolumeGroupHandle::changeVolumeReplicaState_(VolumeReplicaHandleItr &volum
                                                    const Error &e,
                                                    const std::string &context)
 {
+    fds_assert(isCoordinator_);
+
     /* VolumeReplicaHandle state transitions
      * Transition cycle is expected to be Loading->Syncing -> Active -> Offline
      * Loading doesn't require any state change.  It's more of a query to figure
@@ -1138,12 +1140,16 @@ void VolumeGroupFailoverRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
                                        successAcks_);
     if (successAcks_.size() == 1) {
         /* Atleast one replica succeeded */
-        fds_assert(groupHandle_->isFunctional());
+        fds_assert(groupHandle_->getFunctionalReplicasCnt() > 0);
         responseCb_(header->msg_code, payload); 
         responseCb_ = 0;
         complete(ERR_OK);
     } else {
-        if (nAcked_ < groupHandle_->size() && groupHandle_->isFunctional()) {
+        /* We continue as long as we haven't tried against all replicas (NOTE: When not
+         * coordinator i.e read only, all replicas are considered functional)
+         */
+        if (nAcked_ < groupHandle_->size() &&
+            groupHandle_->getFunctionalReplicasCnt() > 0) {
             /* Try against another replica */
             invokeWork_();
         } else {
