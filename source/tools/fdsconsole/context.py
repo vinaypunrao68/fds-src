@@ -31,6 +31,12 @@ class Context:
         '''
         return True
 
+    def printServiceHeader(self, svcid):
+        '''
+        Prints servicer header
+        '''
+        print('-->From service {}: '.format(self.config.getServiceApi().getServiceName(svcid)))
+
 class ContextInfo:
     '''
     Basic wrapper structure used by the console.

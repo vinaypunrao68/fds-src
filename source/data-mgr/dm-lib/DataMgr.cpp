@@ -2012,6 +2012,9 @@ DataMgr::dmQosCtrl::dmQosCtrl(DataMgr *_parent,
 
     serialExecutor = std::unique_ptr<SynchronizedTaskExecutor<size_t>>(
         new SynchronizedTaskExecutor<size_t>(*threadPool));
+    if (parentDm->getModuleProvider()->get_cntrs_mgr()) {
+        parentDm->getModuleProvider()->get_cntrs_mgr()->add_for_export(this);
+    }
 }
 
 
@@ -2022,6 +2025,10 @@ Error DataMgr::dmQosCtrl::markIODone(const FDS_IOType& _io) {
 }
 
 DataMgr::dmQosCtrl::~dmQosCtrl() {
+    if (parentDm->getModuleProvider()->get_cntrs_mgr()) {
+        parentDm->getModuleProvider()->get_cntrs_mgr()->remove_from_export(this);
+    }
+
     delete dispatcher;
     if (dispatcherThread) {
         dispatcherThread->join();
