@@ -26,6 +26,7 @@ namespace fds {
         GET_VOLUMEREPLICA_HANDLE_RETURN(volumeHandle__, svcUuid__, NONE_RET)
 
 uint32_t VolumeGroupHandle::GROUPCHECK_INTERVAL_SEC = 30;
+uint32_t VolumeGroupHandle::COORDINATOR_SWITCH_TIMEOUT_MS = 60000;      // 60 seconds
 
 std::ostream& operator << (std::ostream &out, const fpi::VolumeIoHdr &h)
 {
@@ -216,36 +217,45 @@ void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
             return;
         }
 
+        runOpenProtocol_(clientCb);
+    });
+}
+
+void VolumeGroupHandle::runOpenProtocol_(const OpenResponseCb &openCb)
+{
         /* Send open volume against the group to prepare for open */
         auto openReq = createPreareOpenVolumeGroupMsgReq_();
-        openReq->onResponseCb([this, clientCb](QuorumSvcRequest* openReq,
+        openReq->onResponseCb([this, openCb](QuorumSvcRequest* openReq,
                                               const Error& e_,
                                               boost::shared_ptr<std::string> payload) {
          Error e = e_;
          auto responseMsg = fds::deserializeFdspMsg<fpi::OpenVolumeRspMsg>(e, payload);
          if (e != ERR_OK) {
              LOGWARN << logString() << "Prepare for open failed: " << e;
-             clientCb(e, nullptr);
+             openCb(e, nullptr);
              return;
          }
 
          if (!isCoordinator_) {
-            handleOpenResponseForNonCoordinator_(openReq, clientCb);
+            handleOpenResponseForNonCoordinator_(openReq, openCb);
             return;
          }
 
-         auto openResp = determineFunctaionalReplicas_(openReq);
-         if (functionalReplicas_.size() == 0) {
+         determineFunctaionalReplicas_(openReq);
+         if (switchCtx_ && switchCtx_->triesCnt == 0) {
+            runCoordinatorSwitchProtocol_(openCb);
+         } else if (functionalReplicas_.size() == 0) {
              LOGWARN << logString()
                  << " Not enough members with latest state to start a group";
-             clientCb(ERR_VOLUMEGROUP_DOWN, nullptr);
+             openCb(ERR_VOLUMEGROUP_DOWN, nullptr);
              return;
          }
+         fds_assert(functionalReplicas_.size() >= quorumCnt_);
          /* Functional group is determined.  Broadcase the group info so that functaional
           * group members can set their state to functional
           */
          auto broadcastGroupReq = createBroadcastGroupInfoReq_();
-         broadcastGroupReq->onResponseCb([this, openResp, clientCb](QuorumSvcRequest*,
+         broadcastGroupReq->onResponseCb([this, openCb](QuorumSvcRequest*,
                                               const Error& e_,
                                               boost::shared_ptr<std::string> payload) {
              /* NOTE: We don't care about the returned error here.  We want to be sure
@@ -254,14 +264,48 @@ void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
              changeState_(fpi::ResourceState::Active,
                           false, /* This value is noop */
                           "Open volume");
-             clientCb(ERR_OK, openResp);
+             auto openResp = MAKE_SHARED<fpi::OpenVolumeRspMsg>();
+             openResp->token = groupId_;
+             openCb(ERR_OK, openResp);
          });
          LOGNORMAL << logString() << " - Broadcast group info";
          broadcastGroupReq->invoke();
        });
        LOGNORMAL << logString() << " - Prepare for open request to group";
        openReq->invoke();
-    });
+}
+
+void VolumeGroupHandle::runCoordinatorSwitchProtocol_(const OpenResponseCb &openCb)
+{
+    LOGNORMAL << logString() << " request coordinator switch from:"
+        << fds::logString(switchCtx_->currentCoordinator)
+        << " tries:" << switchCtx_->triesCnt;
+
+    /* Prepare coordinator switch message */
+    auto msg = MAKE_SHARED<fpi::SwitchCoordinatorMsg>();
+    msg->requester.id =  MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
+    msg->volumeId = groupId_;
+
+    auto req = requestMgr_->newEPSvcRequest(switchCtx_->currentCoordinator);
+    req->setTaskExecutorId(groupId_);
+    req->setPayload(FDSP_MSG_TYPEID(fpi::SwitchCoordinatorMsg), msg);
+    req->setTimeoutMs(COORDINATOR_SWITCH_TIMEOUT_MS);
+
+    /* Prepare cb */
+    auto switchCb = [this, openCb](EPSvcRequest* req,
+                       const Error& e,
+                       boost::shared_ptr<std::string> payload) {
+        if (e != ERR_OK) {
+            LOGWARN << logString() << " - Received " << e << " from:"
+                << fds::logString(req->getPeerEpId()) << " contining with force open anyways";
+        }
+
+        switchCtx_->triesCnt++;
+        runOpenProtocol_(openCb);
+    };
+
+    req->onResponseCb(switchCb);
+    req->invoke();
 }
 
 void VolumeGroupHandle::close(const VoidCb &closeCb)
@@ -271,10 +315,6 @@ void VolumeGroupHandle::close(const VoidCb &closeCb)
         changeState_(fpi::ResourceState::Unknown,
                      true,  /* Clear replica lists */
                      "Close");
-
-        /* Notify OM to clear the coordinator */
-        auto clearCoordinatorreq = createSetVolumeGroupCoordinatorMsgReq_(true);
-        clearCoordinatorreq->invokeDirect();
 
         if (refCnt_ == 0) {
             closeCb_ = nullptr;
@@ -448,37 +488,86 @@ VolumeGroupHandle::createPreareOpenVolumeGroupMsgReq_()
     return req;
 }
 
-fpi::OpenVolumeRspMsgPtr
+void
 VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
 {
     using Response = std::pair<fpi::SvcUuid, fpi::OpenVolumeRspMsgPtr>;
-    std::vector<Response> successSvcs;
-    std::vector<fpi::SvcUuid> errdSvcs;
+    using ErrorResponse = std::pair<fpi::SvcUuid, Error>;
+    std::unordered_map<int64_t, std::vector<Response>> seqIdMap;
+    std::vector<ErrorResponse> errdSvcs;
+    int64_t quorumSeqId = -1;
+    std::vector<fpi::SvcUuid> cachedCoordinators;  // response from services that returned
+                                                   // ERR_INVALID_COORDINATOR
 
     /* Split services that responded succusfully from the ones that failed */
     auto sz = size();    
     for (int32_t i = 0; i < sz; i++) {
         const auto &ep = openReq->ep(i);
-        if (ep->responseStatus() == ERR_OK) {
-            Error e;
-            auto resp = deserializeFdspMsg<fpi::OpenVolumeRspMsg>(e, ep->responsePayload());
-            if (e != ERR_OK) {
-                fds_assert(!"Deserialization shouldn't fail here");
-                errdSvcs.push_back(ep->getPeerEpId());
-                continue;
+        Error e = ep->responseStatus();
+        auto resp = deserializeFdspMsg<fpi::OpenVolumeRspMsg>(e, ep->responsePayload());
+        if (e == ERR_OK) {
+            seqIdMap[resp->sequence_id].push_back(std::make_pair(ep->getPeerEpId(), resp));
+            if (seqIdMap[resp->sequence_id].size() >= quorumCnt_) {
+                quorumSeqId = resp->sequence_id;
             }
-            successSvcs.push_back(std::make_pair(ep->getPeerEpId(), resp));
             LOGNORMAL << logString()
                 << " open success svc: " << fds::logString(ep->getPeerEpId())
                 << " sequenceid: " << resp->sequence_id;
         } else {
-            errdSvcs.push_back(ep->getPeerEpId());
+            errdSvcs.push_back(std::make_pair(ep->getPeerEpId(), e));
+            if (e == ERR_INVALID_COORDINATOR) {
+                cachedCoordinators.push_back(resp->coordinator.id);
+            }
             LOGNORMAL << logString()
                 << " open errored svc: " << fds::logString(ep->getPeerEpId())
-                << ep->responseStatus();
+                << e;
         }
     }
 
+    fds_assert(cachedCoordinators.size() < quorumCnt_ || quorumSeqId == -1);
+
+    /* Figure out if quorum rejected the coordinator */
+    if (cachedCoordinators.size() >= quorumCnt_) {
+        /* We only support quorum of 1 or 2, if this changes below conditions need to be
+         * reviisted
+         */
+        fds_assert(quorumCnt_ > 1 && quorumCnt_ < 3);
+        if (cachedCoordinators[0] == cachedCoordinators[1]) {
+            if (!switchCtx_) {
+                /* We will go through a coordinator switch protocol */
+                switchCtx_.reset(new CoordinatorSwitchCtx);
+            }
+        }
+        return;
+    } else if (quorumSeqId != -1) {
+        /* We have a quorum with matching sequence ids */
+        const auto& quorumResps = seqIdMap[quorumSeqId];
+        for (const auto &resp : quorumResps) {
+            auto volumeHandle = getVolumeReplicaHandle_(resp.first);
+            /* For replica handle to be functional transition from syncing to functional
+             * so that all the accounting is taken care for ids appropriately
+             */
+            changeVolumeReplicaState_(volumeHandle,
+                                      resp.second->replicaVersion,
+                                      fpi::ResourceState::Syncing,
+                                      opSeqNo_,
+                                      ERR_OK,
+                                      "Open");
+            changeVolumeReplicaState_(volumeHandle,
+                                      resp.second->replicaVersion,
+                                      fpi::ResourceState::Active,
+                                      opSeqNo_,
+                                      ERR_OK,
+                                      "Open");
+        }
+        commitNo_ = quorumSeqId;
+        version_ = commitNo_;
+        return;
+    }
+
+    LOGWARN << logString() << " Quorum was not reached to start a group.";
+
+#if 0
     /* Sort open responses by sequence id in descending order */
     std::sort(successSvcs.begin(),
               successSvcs.end(),
@@ -523,6 +612,7 @@ VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
     version_ = commitNo_;
 
     return successSvcs[0].second;
+#endif
 }
 
 QuorumSvcRequestPtr

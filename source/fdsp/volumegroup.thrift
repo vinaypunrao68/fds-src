@@ -69,6 +69,16 @@ struct SetVolumeGroupCoordinatorRspMsg {
     1: i32				version;
 }
 
+/* Message to switch coordinator */
+struct SwitchCoordinatorMsg {
+    1: svc_types.VolumeGroupCoordinatorInfo	requester;
+    2: i64					volumeId;
+}
+
+/* Response to switch coordinator message */
+struct SwitchCoordinatorRspMsg {
+}
+
 /* BEGIN exposed for testing.  Will be removed */
 struct StartTxMsg {
     1: required VolumeIoHdr		volumeIoHdr;

@@ -193,6 +193,12 @@ struct VolumeGroupHandleListener {
     virtual bool isError(const fpi::FDSPMsgTypeId &reqMsgTypeId, const Error &e) = 0;
 };
 
+struct CoordinatorSwitchCtx {
+    fpi::SvcUuid            currentCoordinator;
+    /* # of times switch was attempted */
+    int                     triesCnt {0};
+};
+
 /**
 * @brief VolumeGroupHandle provides access to a group of volumes.
 * It manages io coordination/replication to a group of volumes. Think
@@ -216,6 +222,7 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
      * Exposed as public/non-const so that it can be tuned for unit testing
      */
     static uint32_t                     GROUPCHECK_INTERVAL_SEC;
+    static uint32_t                     COORDINATOR_SWITCH_TIMEOUT_MS;
 
     VolumeGroupHandle(CommonModuleProviderIf* provider,
                       const fds_volid_t& volId,
@@ -322,12 +329,15 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
         return req;
     }
 
+    void runOpenProtocol_(const OpenResponseCb &cb);
+    void runCoordinatorSwitchProtocol_(const OpenResponseCb &cb);
+
     bool replayFromWriteOpsBuffer_(const VolumeReplicaHandle &handle, const int64_t fromOpId);
     void toggleWriteOpsBuffering_(bool enable);
     void resetGroup_(fpi::ResourceState state);
     EPSvcRequestPtr createSetVolumeGroupCoordinatorMsgReq_(bool clearCoordinator = false);
     QuorumSvcRequestPtr createPreareOpenVolumeGroupMsgReq_();
-    fpi::OpenVolumeRspMsgPtr determineFunctaionalReplicas_(QuorumSvcRequest* openReq);
+    void determineFunctaionalReplicas_(QuorumSvcRequest* openReq);
     void handleOpenResponseForNonCoordinator_(QuorumSvcRequest* openReq,
                                               const OpenResponseCb &cb);
     QuorumSvcRequestPtr createBroadcastGroupInfoReq_();
@@ -387,6 +397,9 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
      * as well as responsibility to coordinate replication
      */
     bool                                isCoordinator_;
+
+    /* Context kept around when coordinator switch is in progress */
+    std::unique_ptr<CoordinatorSwitchCtx> switchCtx_;
 
     static const uint32_t               WRITEOPS_BUFFER_SZ = 1024;
 
