@@ -58,35 +58,47 @@ void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
 
     auto volMeta = dataManager.getVolumeMeta(request->volId);
     if (dataManager.features.isVolumegroupingEnabled()) {
+
+        /* Request to open from volume group handle that wishes to do just reads.
+         * When trying to do reads it's important the volume can eventually be activated.
+         * With VG, the only volume can be activated is via open from coordinator.
+         * If coordinator isn't set we return ERR_DM_VOL_NOT_ACTIVATED so that group
+         * handle can retry and open as a coordinator.
+         * If coordinator is set then the volume can be read eventually.
+         */
         if (!request->msg->mode.can_write) {
-            /* Request to open from volume group handle that wishes to do just reads.
-             * When trying to do reads it's important the volume can eventually be activated.
-             * With VG, the only volume can be activated is via open from coordinator.
-             * If coordinator isn't set we return ERR_DM_VOL_NOT_ACTIVATED so that group
-             * handle can retry and open as a coordinator.
-             * If coordinator is set then the volume can be read eventually.
-             */
             if (!volMeta->isCoordinatorSet()) {
                 helper.err = ERR_DM_VOL_NOT_ACTIVATED;
             }
             return;
         }
 
-        /* Requests from volume group handle that is a coordinator */
+        /* When syncing is in progress we won't allow open.
+         * NOTE: When sync is in progress, force flag has no effect. This may need to be
+         * revisted.  At the moment we don't have a way to cancel ongoing sync process
+         */
         if (volMeta->isInitializerInProgress()) {
             LOGWARN << volMeta->logString() << " Failed to open.  Sync is in progress";
             helper.err = ERR_SYNC_INPROGRESS;
             return;
         }
-        if (volMeta->isCoordinatorSet() &&
+
+        /* When force isn't set (force open from coordinator), we reject setting coordinator
+         * if one is already set
+         */
+        if (!request->msg->force &&
+            volMeta->isCoordinatorSet() &&
             volMeta->getCoordinatorId() != request->msg->coordinator.id) {
             LOGWARN << "Rejecting openvolume request due to coordinator mismatch"
                 << " volume: " << request->volId
                 << " from: " << request->msg->coordinator.id
                 << " stored: " << volMeta->getCoordinatorId();
             helper.err = ERR_INVALID_COORDINATOR;
+            request->coordinator = volMeta->getCoordinator();
             return;
         }
+
+        /* Set coordinator when either force is set or coordinator wasn't set */
         volMeta->setCoordinator(request->msg->coordinator);
         volMeta->setState(fpi::Loading,
                           util::strformat(" - openvolume from coordinator: %ld",
@@ -120,7 +132,7 @@ void VolumeOpenHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
         response.token = request->token;
         response.sequence_id = request->sequence_id;
         response.replicaVersion = request->version;
-        // TODO(Rao): set coordinator id on response
+        response.coordinator = request->coordinator;
     }
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::OpenVolumeRspMsg), response);
     if (dmRequest) {

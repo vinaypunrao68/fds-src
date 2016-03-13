@@ -433,7 +433,7 @@ enum  FDSPMsgTypeId {
   AddToVolumeGroupRespCtrlMsgTypeId         = 30005;
   VolumeStateUpdateInfoCtrlMsgTypeId        = 30006;
   SwitchCoordinatorMsgTypeId                = 30007;
-  SwitchCoordinatorRspMsgTypeId             = 30008;  
+  SwitchCoordinatorRespMsgTypeId            = 30008;  
 
   /** Volume Checker Messages */
   CheckVolumeMetaDataMsgTypeId              = 40000;

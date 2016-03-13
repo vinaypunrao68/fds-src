@@ -55,7 +55,7 @@ TEST_F(VolumeGroupFixture, singledm) {
 
     /* Open without volume being add to DM.  Open should fail */
     openVolume(*v1, waiter);
-    ASSERT_TRUE(waiter.awaitResult() == ERR_VOL_NOT_FOUND);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_VOLUMEGROUP_DOWN);
 
     /* Generate volume descriptor */
     v1Desc = generateVolume(v1Id);
@@ -237,7 +237,7 @@ TEST_F(VolumeGroupFixture, domain_reboot) {
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
-TEST_F(VolumeGroupFixture, multiAccess) {
+TEST_F(VolumeGroupFixture, singleWriterSingleReader) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
 
     /* Create threed dms */
@@ -246,7 +246,7 @@ TEST_F(VolumeGroupFixture, multiAccess) {
     startAm2();
 
     /* Create read only volume group handel on second am */
-    auto readonlyV1 = setupReadonlyVolumeGroupHandleOnAm2(2);
+    auto readonlyV1 = setupVolumeGroupHandleOnAm2(2);
     openVolumeReadonly(*readonlyV1, waiter);
     ASSERT_TRUE(waiter.awaitResult() == ERR_DM_VOL_NOT_ACTIVATED);
 
@@ -268,7 +268,6 @@ TEST_F(VolumeGroupFixture, multiAccess) {
     sendUpdateOnceMsg(*readonlyV1, blobName, waiter);
     ASSERT_TRUE(waiter.awaitResult() != ERR_OK);
 
-#if 0
     /* Stop 1st dm, we should still be able to do reads */
     dmGroup[0]->stop();
     sendQueryCatalogMsg(*readonlyV1, blobName, waiter);
@@ -298,7 +297,34 @@ TEST_F(VolumeGroupFixture, multiAccess) {
     /* Reads should succeed now */
     sendQueryCatalogMsg(*readonlyV1, blobName, waiter);
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
-#endif
+}
+
+TEST_F(VolumeGroupFixture, multiWriter) {
+    g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
+
+    /* Create threed dms */
+    createCluster(3);
+    setupVolumeGroupHandleOnAm1(2);
+
+    /* Do more IO.  IO should succeed */
+    doIo(10);
+
+
+    /* Create volume group handel on second am */
+    startAm2();
+    auto am2VolumeHandle = setupVolumeGroupHandleOnAm2(2);
+    openVolume(*am2VolumeHandle, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+
+    /* Any IO access via 2nd AM should succeed */
+    sendQueryCatalogMsg(*am2VolumeHandle, blobName, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+    sendUpdateOnceMsg(*am2VolumeHandle, blobName, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+
+    /* Any writes access via 1st AM should fail */
+    sendUpdateOnceMsg(*v1, blobName, waiter);
+    ASSERT_TRUE(waiter.awaitResult() != ERR_OK);
 }
 
 TEST_F(VolumeGroupFixture, allDownFollowedBySequentialUp) {

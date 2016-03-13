@@ -76,7 +76,7 @@ struct SwitchCoordinatorMsg {
 }
 
 /* Response to switch coordinator message */
-struct SwitchCoordinatorRspMsg {
+struct SwitchCoordinatorRespMsg {
 }
 
 /* BEGIN exposed for testing.  Will be removed */

@@ -23,7 +23,7 @@ struct VolumeGroupFixture : DmGroupFixture {
                         });
     }
 
-    SHPTR<VolumeGroupHandle> setupReadonlyVolumeGroupHandleOnAm2(uint32_t quorumCnt)
+    SHPTR<VolumeGroupHandle> setupVolumeGroupHandleOnAm2(uint32_t quorumCnt)
     {
         /* Set up the volume on om and dms */
         if (!v1Desc) {
@@ -35,10 +35,10 @@ struct VolumeGroupFixture : DmGroupFixture {
         EXPECT_TRUE(e == ERR_OK);
 
         /* Create a volumegroup handle with quorum of quorumCnt */
-        auto readonlyV1 = MAKE_SHARED<VolumeGroupHandle>(amHandle2.proc, v1Id, quorumCnt);
-        amHandle2.proc->setVolumeHandle(readonlyV1.get());
+        auto volumeHandle = MAKE_SHARED<VolumeGroupHandle>(amHandle2.proc, v1Id, quorumCnt);
+        amHandle2.proc->setVolumeHandle(volumeHandle.get());
 
-        return readonlyV1;
+        return volumeHandle;
     }
 
     void addDMTToVC(DMTPtr DMT, unsigned clusterSize) {
