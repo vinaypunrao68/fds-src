@@ -1421,7 +1421,7 @@ namespace fds
                             }
 
                             if (JAVA_AM != appIndex)
-                            { // do not notify OM on the xdi process exit; this message will only be sent is the service starts flapping
+                            { // do not notify OM on the xdi process exit; this message will only be sent if the XDI service is flapping
                                 notifyOmServiceStateChange (appIndex, mapIter->second, fpi::HealthState::HEALTH_STATE_UNEXPECTED_EXIT, "unexpectedly exited");
                             }
                             m_appPidMap.erase (mapIter++);
