@@ -62,7 +62,7 @@ __TRACER__::~__TRACER__() {
 std::string set_get_attrib(const char* name, std::string value, const char * function_name) {
     value.append(function_name);
     value.append("] - ");
-    auto attr = boost::log::attribute_cast<boost::log::attributes::mutable_constant<std::string> >(boost::log::core::get()->get_global_attributes()[name]);
+    auto attr = boost::log::attribute_cast<string_attr>(boost::log::core::get()->get_global_attributes()[name]);
     attr.set(value);
     return attr.get();
 }
@@ -207,7 +207,7 @@ void fds_log::init(const std::string& logfile,
     boost::log::core::get()->add_global_attribute("Context",
                                                   boost::log::attributes::named_scope());
     boost::log::core::get()->add_global_attribute("Location",
-                                                  boost::log::attributes::mutable_constant<std::string>(" - "));
+                                                  string_attr(" - "));
 
     /*
      * Set the format

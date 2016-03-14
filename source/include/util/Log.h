@@ -22,6 +22,8 @@
 #include <boost/log/sinks/sync_frontend.hpp>
 #include <boost/log/utility/setup/file.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
+#include <boost/log/attributes/mutable_constant.hpp>
+#include <boost/thread/shared_mutex.hpp>
 #include <boost/log/attributes/named_scope.hpp>
 #include <boost/log/sinks/text_ostream_backend.hpp>
 #include <boost/log/sources/logger.hpp>
@@ -29,11 +31,13 @@
 #include <boost/log/sources/record_ostream.hpp>
 #include <boost/lockfree/detail/branch_hints.hpp>
 #include <boost/log/attributes/mutable_constant.hpp>
+#include <boost/thread/shared_mutex.hpp>
 
 #include <fds_defines.h>
 
 #define FDS_LOG(lg) BOOST_LOG_SEV(lg.get_slog(), fds::fds_log::debug)
 #define FDS_PLOG(lg_ptr) BOOST_LOG_SEV(lg_ptr->get_slog(), fds::fds_log::debug)
+
 //If the build is a debug build we want source location exposed
 #ifndef DONTLOGLINE
 #define FDS_PLOG_SEV(lg_ptr, sev) BOOST_LOG_STREAM_WITH_PARAMS((lg_ptr->get_slog()), \
@@ -106,6 +110,13 @@ struct __TRACER__ {
     const std::string filename;
     int lineno;
 };
+
+typedef boost::log::attributes::mutable_constant<
+    std::string,                                        // attribute value type
+    boost::shared_mutex,                        // synchronization primitive
+    boost::unique_lock< boost::shared_mutex >,  // exclusive lock type
+    boost::shared_lock< boost::shared_mutex >   // shared lock type
+> string_attr;
 
 std::string cleanNameFromPrettyFunc(const std::string& prettyFunction, bool fClassOnly = false);
 class fds_log {
