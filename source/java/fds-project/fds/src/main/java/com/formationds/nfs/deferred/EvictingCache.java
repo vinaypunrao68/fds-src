@@ -106,7 +106,23 @@ public class EvictingCache<TKey extends SortableKey<TKey>, TValue> {
         }
     }
 
-    public void flush() throws IOException {
+    public void flushKeysWithPrefix(TKey prefix) throws IOException {
+        bubbleExceptions();
+        Iterator<Map.Entry<TKey, CacheEntry<TValue>>> entries = traversableView.tailMap(prefix).entrySet().iterator();
+        while (entries.hasNext()) {
+            Map.Entry<TKey, CacheEntry<TValue>> entry = entries.next();
+            TKey key = entry.getKey();
+            CacheEntry<TValue> cacheEntry = entry.getValue();
+            if (key.beginsWith(prefix)) {
+                evictor.flush(key, cacheEntry);
+                cacheEntry.isDirty = false;
+            } else {
+                break;
+            }
+        }
+    }
+
+    public void flushAll() throws IOException {
         bubbleExceptions();
         Set<TKey> keys = cache.asMap().keySet();
         for (TKey key : keys) {

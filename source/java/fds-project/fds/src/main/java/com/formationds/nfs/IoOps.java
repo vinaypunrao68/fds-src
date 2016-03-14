@@ -1,6 +1,7 @@
 package com.formationds.nfs;
 
 import com.formationds.apis.ObjectOffset;
+import com.formationds.util.IoConsumer;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -28,5 +29,9 @@ public interface IoOps {
 
     public void onVolumeDeletion(String domain, String volumeName) throws IOException;
 
+    public void addCommitListener(IoConsumer<MetaKey> listener);
+
     public void commitAll() throws IOException;
+
+    public void commitAll(String domain, String volumeName) throws IOException;
 }

@@ -6,10 +6,9 @@ package com.formationds.am;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.commons.libconfig.Assignment;
 import com.formationds.commons.libconfig.ParsedConfig;
-import com.formationds.nfs.*;
+import com.formationds.nfs.NfsServer;
+import com.formationds.nfs.XdiStaticConfiguration;
 import com.formationds.om.helper.SingletonConfigAPI;
-import com.formationds.sc.SvcState;
-import com.formationds.sc.api.SvcAsyncAm;
 import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
@@ -25,10 +24,8 @@ import com.formationds.xdi.contracts.transport.ConnectorConfigMessageHandler;
 import com.formationds.xdi.contracts.transport.ConnectorDataMessageHandler;
 import com.formationds.xdi.contracts.transport.TransportServer;
 import com.formationds.xdi.contracts.transport.pipe.NamedPipeServer;
-import com.formationds.xdi.experimental.XdiConnector;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.formationds.xdi.swift.SwiftEndpoint;
-import com.google.common.net.HostAndPort;
 import com.nurkiewicz.asyncretry.AsyncRetryExecutor;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -40,11 +37,8 @@ import org.apache.thrift.transport.TTransportException;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-import java.io.IOException;
 import java.net.ConnectException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -238,27 +232,27 @@ public class Main {
         new NfsServer().start(xdiStaticConfig, configCache, asyncAm, pmPort - 4951);
         startStreamingServer(pmPort + streamingPortOffset, configCache);
 
-        // Experimental: XDI server
-        int javaSvcResponsePort = new ServerPortFinder().findPort("javaSvcResponsePort", amResponsePort + 10);
-        SvcState svc = new SvcState(HostAndPort.fromParts("*", javaSvcResponsePort), HostAndPort.fromParts(omHost, 7004), UUID.randomUUID().getLeastSignificantBits());
-        svc.openAndRegister();
-        SvcAsyncAm svcLayer = new SvcAsyncAm(svc);
-        IoOps ioOps = new DeferredIoOps(new AmOps(svcLayer), v -> {
-            try {
-                return configCache.statVolume(XdiVfs.DOMAIN, v).getPolicy().getMaxObjectSizeInBytes();
-            } catch (Exception e) {
-                throw new IOException(e);
-            }
-        });
-
-        XdiConnector connector = new XdiConnector(configCache, ioOps);
-
-        // start XDI connector servers -- add this to config?
-        TransportServer xdiConfigServer = createXdiConfigServer(connector, Executors.newFixedThreadPool(4));
-        monitorNamedPipePath(xdiConfigServer, Paths.get("/tmp/xdi/config"));
-
-        TransportServer xdiDataServer = createXdiDataServer(connector, Executors.newFixedThreadPool(16));
-        monitorNamedPipePath(xdiDataServer, Paths.get("/tmp/xdi/data"));
+//        // Experimental: XDI server
+//        int javaSvcResponsePort = new ServerPortFinder().findPort("javaSvcResponsePort", amResponsePort + 10);
+//        SvcState svc = new SvcState(HostAndPort.fromParts("*", javaSvcResponsePort), HostAndPort.fromParts(omHost, 7004), UUID.randomUUID().getLeastSignificantBits());
+//        svc.openAndRegister();
+//        SvcAsyncAm svcLayer = new SvcAsyncAm(svc);
+//        IoOps ioOps = new DeferredIoOps(new AmOps(svcLayer), v -> {
+//            try {
+//                return configCache.statVolume(XdiVfs.DOMAIN, v).getPolicy().getMaxObjectSizeInBytes();
+//            } catch (Exception e) {
+//                throw new IOException(e);
+//            }
+//        });
+//
+//        XdiConnector connector = new XdiConnector(configCache, ioOps);
+//
+//        // start XDI connector servers -- add this to config?
+//        TransportServer xdiConfigServer = createXdiConfigServer(connector, Executors.newFixedThreadPool(4));
+//        monitorNamedPipePath(xdiConfigServer, Paths.get("/tmp/xdi/config"));
+//
+//        TransportServer xdiDataServer = createXdiDataServer(connector, Executors.newFixedThreadPool(16));
+//        monitorNamedPipePath(xdiDataServer, Paths.get("/tmp/xdi/data"));
 
         int swiftPort = platformConfig.defaultInt("fds.am.swift_port_offset", 2999);
         swiftPort += pmPort;  // remains 9999 for default platform port
