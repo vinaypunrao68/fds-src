@@ -235,8 +235,7 @@ void ObjectRefScanMgr::scanStep() {
         /* Scan finished */
         bfStore->sync(true /* clear cache */);
         // stop from refcountmanager
-        // state = STOPPED;
-        dataMgr->counters->refscanRunning.set(0);
+        // state = STOPPED
         dumpStats();
         if (scandoneCb) {
             scandoneCb(this);
@@ -257,6 +256,7 @@ bool ObjectRefScanMgr::setStateStopped() {
                  << "current state: " << state;
         return false;
     }
+    dataMgr->counters->refscanRunning.set(0);
     return true;
 }
 
