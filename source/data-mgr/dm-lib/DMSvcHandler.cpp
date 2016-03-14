@@ -428,7 +428,8 @@ void DMSvcHandler::NotifyDMTCloseCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 
     // When DMT is closed, then delete unowned volumes iff DM Migration is active
     if (dataManager_.dmMigrationMgr->isMigrationEnabled()) {
-        dataManager_.deleteUnownedVolumes();
+        // TODO(james) : revisit this to see if this is needed.
+        // dataManager_.deleteUnownedVolumes();
     } else {
         LOGNOTIFY << "DM Migration feature is disabled. Skipping removing unowned volumes.";
     }

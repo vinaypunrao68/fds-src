@@ -15,6 +15,7 @@ from fdslib import restendpoint
 import types
 import random
 import boto
+import string
 from boto.s3 import connection
 from fdslib import platformservice
 import re
@@ -96,11 +97,32 @@ def addHumanInfo(datamap, nozero = False):
             value = '{}'.format(humanize.naturaldelta(datamap[key]))
             datamap[key + ".human"] = value
         elif key.endswith('.bytes'):
-            value = '{}'.format(humanize.naturalsize(datamap[key]))
+            value = '{}'.format(humanize.naturalsize(datamap[key], gnu=True))
             datamap[key + ".human"] = value
 
 def printHeader(data):
     print ('\n{}\n{}'.format(data, '-'*60))
+
+def tobytes(num):
+    if type(num) == types.IntType:
+        return num
+
+    if type(num) == types.StringType:
+        if num.isdigit(): return int(num)
+        m = re.search(r'[A-Za-z]', num)
+        if m.start() <=0:
+            return num
+
+        n = int(num[0:m.start()])
+        c = num[m.start()].upper()
+        if c == 'K': return n*1024;
+        if c == 'M': return n*1024*1024;
+        if c == 'G': return n*1024*1024*1024;
+
+def gendata(length=10, seed=None):
+    r = random.Random(seed)
+    return ''.join([r.choice(string.ascii_lowercase) for i in range(0, tobytes(length))])
+
 
 class AccessLevel:
     '''

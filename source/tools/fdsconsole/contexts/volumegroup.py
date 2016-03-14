@@ -18,7 +18,7 @@ class VolumeGroupContext(Context):
         'Gets the volume group related state from service.  At the moment am or dm are valid'
         volid = self.config.getVolumeApi().getVolumeId(volid)
         for uuid in self.config.getServiceApi().getServiceIds(svcid):
-            print('-->From service {}: '.format(self.config.getServiceApi().getServiceName(uuid)))
+            self.printServiceHeader(uuid)
             try:
                 svcType = self.config.getServiceApi().getServiceType(uuid)
                 state=dict()
@@ -37,7 +37,7 @@ class VolumeGroupContext(Context):
                     # humanize returned json
                     temp = json.loads(stateStr)
                     for key in temp.keys():
-                        if key == "coordinator":
+                        if key == "coordinator" and temp[key] != 0:
                             state[key] = self.config.getServiceApi().getServiceName(long(temp[key]))
                         else:
                             state[key] = temp[key]

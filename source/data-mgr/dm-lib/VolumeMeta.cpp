@@ -203,6 +203,15 @@ std::string VolumeMeta::getStateInfo()
     state["sequenceid"] = static_cast<Json::Value::Int64>(sequence_id);
     state["coordinator"] = static_cast<Json::Value::Int64>(getCoordinatorId().svc_uuid);
 
+    /* Qos realted */
+    auto volQueue = dataManager->getQosCtrl()->getQueue(vol_desc->volUUID);
+    if (volQueue) {
+        std::string qoskey = "qos";
+        state[qoskey]["throttle"] = static_cast<Json::Value::Int64>(volQueue->iops_throttle);
+        state[qoskey]["assured"] = static_cast<Json::Value::Int64>(volQueue->iops_assured);
+        state[qoskey]["count"] = volQueue->count();
+    }
+
     std::stringstream ss;
     ss << state;
     return ss.str();
