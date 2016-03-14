@@ -120,6 +120,8 @@ SmSuperblock::readSuperblock(const std::string& path)
                      << "vs. "
                      << sizeof(struct SmSuperblock);
             err = ERR_SM_SUPERBLOCK_DATA_CORRUPT;
+
+            return err;
         }
 
         /* Read the superblock to buffer.
@@ -135,6 +137,8 @@ SmSuperblock::readSuperblock(const std::string& path)
                      << sizeof(struct SmSuperblock)
                      << ")";
             err = ERR_SM_SUPERBLOCK_DATA_CORRUPT;
+
+            return err;
         }
 
         /* Assert the magic value to see.
