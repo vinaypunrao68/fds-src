@@ -114,8 +114,10 @@ public class EvictingCache<TKey extends SortableKey<TKey>, TValue> {
             TKey key = entry.getKey();
             CacheEntry<TValue> cacheEntry = entry.getValue();
             if (key.beginsWith(prefix)) {
-                evictor.flush(key, cacheEntry);
-                cacheEntry.isDirty = false;
+                if (cacheEntry.isDirty) {
+                    evictor.flush(key, cacheEntry);
+                    cacheEntry.isDirty = false;
+                }
             } else {
                 break;
             }

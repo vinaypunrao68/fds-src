@@ -22,11 +22,18 @@ public class EvictingCacheTest {
         assertTrue(cache.get(new SimpleKey("bbc")).isDirty);
         assertTrue(cache.get(new SimpleKey("ccc")).isDirty);
 
+        assertEquals(0, evictions.get());
+        assertEquals(4, loads.get());
+
+        cache.flush(new SimpleKey("bbb"));
+        assertEquals(1, evictions.get());
+
         cache.flushKeysWithPrefix(new SimpleKey("b"));
         assertTrue(cache.get(new SimpleKey("aaa")).isDirty);
         assertFalse(cache.get(new SimpleKey("bbb")).isDirty);
         assertFalse(cache.get(new SimpleKey("bbc")).isDirty);
         assertTrue(cache.get(new SimpleKey("ccc")).isDirty);
+        assertEquals(2, evictions.get());
     }
 
     @Test
