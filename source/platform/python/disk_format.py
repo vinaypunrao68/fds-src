@@ -644,12 +644,13 @@ class DiskManager (Base):
 
         # reach each line from the hints file and create a disk
         for line in input_file:
-            if '#' == line[0]:                 # skip lines beginning with '#'
+            line = line.strip ('\r\n')
+            line = line.strip()                # remove beginning and trailing spaces
+
+            if not line:                       # skip empty lines
                 continue
 
-            line = line.strip ('\r\n')
-
-            if not line.strip():               # skip empty lines
+            if '#' == line[0]:                 # skip lines beginning with '#'
                 continue
 
             # items vector contains
