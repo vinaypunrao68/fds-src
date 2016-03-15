@@ -213,7 +213,6 @@ ScstDevice::openScst() {
 
 void
 ScstDevice::wakeupCb(ev::async &watcher, int revents) {
-    if (processing_) return;
     if (ConnectionState::RUNNING != state_) {
         startShutdown();
         if (ConnectionState::STOPPED == state_ ||
@@ -231,8 +230,6 @@ ScstDevice::wakeupCb(ev::async &watcher, int revents) {
     // It's ok to keep writing responses if we've been shutdown
     if (!readyResponses.empty()) {
         ioEvent(*ioWatcher, ev::WRITE);
-    } else {
-        ioWatcher->start();
     }
 }
 
@@ -497,15 +494,10 @@ ScstDevice::getAndRespond() {
 
 void
 ScstDevice::ioEvent(ev::io &watcher, int revents) {
-    if (processing_ || (EV_ERROR & revents)) {
+    if (EV_ERROR & revents) {
         LOGERROR << "Got invalid libev event";
         return;
     }
-
-    ioWatcher->stop();
-    processing_ = true;
-    // Unblocks the next thread to listen on the ev loop
-    scst_target->process();
 
     // We are guaranteed to be the only thread acting on this file descriptor
     try {
@@ -518,10 +510,6 @@ ScstDevice::ioEvent(ev::io &watcher, int revents) {
             state_ = ConnectionState::DRAINED;
         }
     }
-    // Unblocks the ev loop to handle events again on this connection
-    processing_ = false;
-    asyncWatcher->send();
-    scst_target->follow();
 }
 
 }  // namespace fds

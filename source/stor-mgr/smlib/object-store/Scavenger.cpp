@@ -32,7 +32,7 @@ ScavControl::ScavControl(const std::string &modName,
           dataStoreReqHandler(data_store),
           persistStoreGcHandler(persist_store),
           noPersistScavStats(false),
-          verifyData(false),
+          verifyData(true),
           scav_timer(new FdsTimer()),
           scav_timer_task(new ScavTimerTask(*scav_timer, this))
 {
@@ -60,6 +60,8 @@ ScavControl::mod_init(SysParams const *const param) {
     intervalSeconds = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.scavenger.interval_seconds",
                                                                     SCAV_TIMER_SECONDS);
 
+    verifyData = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.scavenger.verify_data",
+                                                               true);
     LOGNORMAL << "Scavenger will be compacting at most " << max_disks_compacting
               << " disks at a time; scavenger interval " << intervalSeconds << " seconds";
     Module::mod_init(param);
@@ -319,7 +321,6 @@ void ScavControl::startScavengeProcess()
         return;
     }
 
-    LOGNORMAL << "Scavenger cycle - Started";
     fds_mutex::scoped_lock l(scav_lock);
     // start first max_disks_compacting disk scavengers
     fds_uint32_t count = 0;
@@ -327,6 +328,8 @@ void ScavControl::startScavengeProcess()
         LOGWARN << "Looks like GC is already in progress.. not going to start GC ";
         return;
     }
+
+    LOGNORMAL << "Scavenger cycle - Started";
 
     OBJECTSTOREMGR(dataStoreReqHandler)->counters->scavengerStartedAt.set(util::getTimeStampSeconds());
     OBJECTSTOREMGR(dataStoreReqHandler)->counters->dataCopied.set(0);
@@ -653,8 +656,12 @@ fds_bool_t DiskScavenger::updateDiskStats(fds_bool_t verify_data,
     if (avail_percent < scav_policy.dsk_avail_threshold_1) {
         // we are going to GC this disk
         if (avail_percent < scav_policy.dsk_avail_threshold_2) {
-            // we will GC all tokens
-            token_reclaim_threshold = 0;
+            /**
+             * GC tokens which have 2% or more data that can be
+             * reclaimed. There's no point doing TC for tokens
+             * which don't have any space up for reclaimation.
+             */
+            token_reclaim_threshold = 1;
         } else {
             // we will GC only tokens that are worth to GC
             token_reclaim_threshold = scav_policy.tok_reclaim_threshold;

@@ -7,6 +7,7 @@
 #include <fdsp/volumegroup_types.h>
 #include <fds_defines.h>
 #include <fds_error.h>
+#include <fds_types.h>
 
 namespace fpi = FDS_ProtocolInterface;
 
@@ -19,6 +20,7 @@ struct VolumeGroupConstants {
     static const int32_t            VERSION_INVALID = 0;
     static const int32_t            VERSION_SKIPCHECK = 1;
     static const int32_t            VERSION_START = 2;
+    static const sequence_id_t      INVALID_SEQUENCEID = std::numeric_limits<sequence_id_t>::max();
 };
 
 template <class MsgT>

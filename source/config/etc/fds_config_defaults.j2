@@ -71,6 +71,7 @@
 {% set sm_scavenger_max_disks_compact = sm_scavenger_max_disks_compact if sm_scavenger_max_disks_compact is defined else '2' %}
 {% set sm_scavenger_interval_seconds = sm_scavenger_interval_seconds if sm_scavenger_interval_seconds is defined else '7200' %}
 {% set sm_scavenger_expunge_threshold = sm_scavenger_expunge_threshold if sm_scavenger_expunge_threshold is defined else '3' %}
+{% set sm_scavenger_verify_data = fds_sm_scavenger_verify_data if fds_sm_scavenger_verify_data is defined else 'true' %}
 {% set sm_req_serialization = fds_sm_req_serialization if fds_sm_req_serialization is defined else 'false' %}
 {% set sm_max_delta_set_size = fds_sm_max_delta_set_size if fds_sm_max_delta_set_size is defined else '16' %}
 {% set sm_verify_migration_data = fds_sm_verify_migration_data if fds_sm_verify_migration_data is defined else 'false' %}
@@ -92,7 +93,6 @@
 {% set am_cache_missing_cat = fds_am_cache_missing_cat if fds_am_cache_missing_cat is defined else 'false' %}
 {% set am_nbd_server_threads = fds_am_nbd_server_threads if fds_am_nbd_server_threads is defined else '1' %}
 {% set am_scst_target_prefix = fds_am_scst_target_prefix if fds_am_scst_target_prefix is defined else 'iqn.2012-05.com.formationds:' %}
-{% set am_scst_target_threads = fds_am_scst_target_threads if fds_am_scst_target_threads is defined else '1' %}
 {% set am_scst_default_block_size = fds_am_scst_default_block_size if fds_am_scst_default_block_size is defined else '512' %}
 {#
    fds.om. specific entries

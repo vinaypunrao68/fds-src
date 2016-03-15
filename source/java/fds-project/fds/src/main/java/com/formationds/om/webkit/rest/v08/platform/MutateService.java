@@ -22,8 +22,8 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.InputStreamReader;
@@ -37,7 +37,7 @@ public class MutateService implements RequestHandler {
     private static final String SERVICE_ARG = "service_id";
     private static final String FORCE_ARG = "force";
 
-    private static final Logger logger = LoggerFactory.getLogger( MutateService.class );
+    private static final Logger logger = LogManager.getLogger( MutateService.class );
 
     private ConfigurationApi configApi;
 

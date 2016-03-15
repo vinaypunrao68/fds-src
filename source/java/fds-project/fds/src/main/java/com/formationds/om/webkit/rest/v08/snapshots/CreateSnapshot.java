@@ -13,8 +13,8 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.InputStreamReader;
 import java.util.List;
@@ -22,7 +22,7 @@ import java.util.Map;
 
 public class CreateSnapshot implements RequestHandler {
 
-    private static final Logger logger = LoggerFactory.getLogger( CreateSnapshot.class );
+    private static final Logger logger = LogManager.getLogger( CreateSnapshot.class );
     private static final String VOLUME_ARG = "volume_id";
 
     private ConfigurationApi configApi;

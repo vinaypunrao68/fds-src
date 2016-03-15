@@ -606,10 +606,13 @@ ObjectStore::putObject(fds_volid_t volId,
             }
             // check if data is the same
             if (*existObjData != *objData) {
-                fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
-                          objId.ToHex().c_str());
+                LOGCRITICAL << "Data mismatch for object "
+                            << objId.ToHex().c_str() << " "
+                            << objMeta->logString();
+                err = ERR_ONDISK_DATA_CORRUPT;
+                return err;
             }
-        }  // if (conf_verify_data == true)
+        }
 
         // Create new object metadata to update the refcnts
         updatedMeta.reset(new ObjMetaData(objMeta));
@@ -1016,6 +1019,7 @@ ObjectStore::deleteObject(fds_volid_t volId,
     return err;
 }
 
+// Used by writeback thread and hybrid tier  data movement.
 Error
 ObjectStore::moveObjectToTier(const ObjectID& objId,
                               diskio::DataTier fromTier,
@@ -1193,6 +1197,56 @@ ObjectStore::copyAssociation(fds_volid_t srcVolId,
     return err;
 }
 
+/**
+ * Verify if objId matches SHA of(data corresponding to objId)
+ * If not, set err and updated on-disk metadata of the object.
+ * returns : false if data for objId is corrupt, true otherwise.
+ */
+Error
+ObjectStore::verifyObjectData(const ObjectID& objId,
+                              const fds_volid_t& volId) {
+    Error err(ERR_OK);
+    ObjMetaData::const_ptr objMeta =
+            metaStore->getObjectMetadata(volId, objId, err);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get metadata for object: " << objId
+                 << " volume: " << volId << " with " << err;
+        return err;
+    }
+
+    // first read the object
+    boost::shared_ptr<const std::string> objData
+            = dataStore->getObjectData(volId, objId, objMeta, err);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get object data for: " << objId
+                 << " for volume: " << volId << " with error: " << err;
+        return err;
+    }
+
+    // Do the SHA match
+    ObjectID onDiskObjId;
+    onDiskObjId = ObjIdGen::genObjectId(objData->c_str(),
+                                        objData->size());
+    if (onDiskObjId != objId) {
+        // on-disk data corruption. Update metadata.
+        LOGCRITICAL << "On-disk corruption detected: "
+                    << objId.ToHex() << " != " <<  onDiskObjId.ToHex()
+                    << " ObjMetaData = " << objMeta->logString();
+        // Create new object metadata for update
+        ObjMetaData::ptr updatedMeta;
+        updatedMeta.reset(new ObjMetaData(objMeta));
+        // set flag in object metadata
+        updatedMeta->setObjCorrupted();
+        err = metaStore->putObjectMetadata(volId, objId, updatedMeta);
+        if (!err.ok()) {
+            LOGERROR << "Failed to update metadata for obj " << objId;
+        }
+        return ERR_ONDISK_DATA_CORRUPT;
+    }
+    return ERR_OK;
+}
+
+// Used by GC to copy data over to new token file
 Error
 ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
                                      diskio::DataTier tier,
@@ -1231,28 +1285,13 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         // Create new object metadata for update
         updatedMeta.reset(new ObjMetaData(objMeta));
 
-        // we may be copying file with objects that already has 'corrupt'
-        // flag set. Since we are not yet recovering corrupted objects, we
-        // are going to copy corrupted objects to new files (not loose them)
-        if (!objMeta->isObjCorrupted() && verifyData) {
-            ObjectID onDiskObjId;
-            onDiskObjId = ObjIdGen::genObjectId(objData->c_str(),
-                                                objData->size());
-            if (onDiskObjId != objId) {
-                // on-disk data corruption
-                // mark object metadata as corrupted! will copy it to new
-                // location anyway so we can debug the issue
-                LOGCRITICAL << "CORRUPTION: On-disk corruption detected: "
-                            << objId.ToHex() << "!=" <<  onDiskObjId.ToHex()
-                            << " ObjMetaData=" << updatedMeta->logString();
-                // set flag in object metadata
-                updatedMeta->setObjCorrupted();
+        // Verify data read from current on disk location
+        if (verifyData) {
+            err = verifyObjectData(objId);
+            if (!err.ok()) {
+                LOGERROR << "Data verification failed with error: "<< err;
+                return err;
             }
-        }
-
-        err = triggerReadOnlyIfPutWillfail(nullptr, objId, objData, tier);
-        if (!err.ok()) {
-            return err;
         }
 
         // write to object data store (will automatically write to new file)
@@ -1272,6 +1311,15 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         err = metaStore->putObjectMetadata(unknownVolId, objId, updatedMeta);
         if (!err.ok()) {
             LOGERROR << "Failed to update metadata for obj " << objId;
+        }
+
+        // Verify data at the new on disk location.
+        if (verifyData) {
+            verifyObjectData(objId);
+            if (!err.ok()) {
+                LOGERROR << "Data verification failed with error: "<< err;
+                return err;
+            }
         }
     } else {
         // not going to copy object to new location
@@ -1927,6 +1975,15 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                 Error err(ERR_OK);
                 ObjMetaData::const_ptr objMeta =
                         metaStore->getObjectMetadata(invalid_vol_id, oid, err);
+                /**
+                 * TODO(Gurpreet) Error propogation from here to TC.
+                 * And in case of error here, TC should fail compaction for this
+                 * token.
+                 */
+                if (!objMeta || !err.ok()) {
+                    return;
+                }
+
                 /**
                  * Check if the object got updated recently(via a PUT).
                  * If so, then these object sets will have stale information

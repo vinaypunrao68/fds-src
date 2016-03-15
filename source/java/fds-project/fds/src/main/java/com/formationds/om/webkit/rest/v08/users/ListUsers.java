@@ -15,27 +15,26 @@ import com.formationds.web.toolkit.TextResource;
 
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 public class ListUsers implements RequestHandler {
-	
-	private static final Logger logger = LoggerFactory
-			.getLogger(ListUsers.class);
-	
+
+	private static final Logger logger = LogManager.getLogger(ListUsers.class);
+
     private ConfigurationApi configApi;
 
     public ListUsers() {}
 
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters) throws Exception {
-    	
+
     	List<User> externalUsers = null;
-    	
+
     	try{
     		externalUsers = listUsers();
     	}
@@ -44,39 +43,39 @@ public class ListUsers implements RequestHandler {
     		logger.debug( "Caused by:", e );
     		throw e;
     	}
-    	
+
     	String jsonString = ObjectModelHelper.toJSON( externalUsers );
-    	
+
         return new TextResource( jsonString );
     }
-    
+
     public List<User> listUsers() throws ApiException, TException{
-    	
+
     	logger.debug( "Trying to list users." );
-    	
+
     	List<User> externalUsers = new ArrayList<>();
-    	
+
     	getConfigApi().allUsers( 0 ).stream().forEach( user -> {
-    		
+
     		User externalUser = ExternalModelConverter.convertToExternalUser( user );
-    		
+
     		if ( externalUser.getName().equalsIgnoreCase( GetUser.STATS_USERNAME ) ){
     			logger.debug( "Removing stats user from the list." );
     			return;
     		}
-    		
+
     		externalUsers.add( externalUser );
     	});
-    	
+
     	return externalUsers;
     }
-    
+
     private ConfigurationApi getConfigApi(){
-    	
+
     	if ( configApi == null ){
     		configApi = SingletonConfigAPI.instance().api();
     	}
-    	
+
     	return configApi;
     }
 }

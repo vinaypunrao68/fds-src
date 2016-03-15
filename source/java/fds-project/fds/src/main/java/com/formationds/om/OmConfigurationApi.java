@@ -1,4 +1,3 @@
-
 /*
  * Copyright (c) 2015 Formation Data Systems. All rights Reserved.
  */
@@ -9,6 +8,7 @@ import com.formationds.apis.ConfigurationService.Iface;
 import com.formationds.om.events.EventManager;
 import com.formationds.om.events.OmEvents;
 import com.formationds.om.helper.EndUserMessages;
+import com.formationds.om.redis.RedisSingleton;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.svc.types.FDSP_Node_Info_Type;
 import com.formationds.protocol.svc.types.FDSP_PolicyInfoType;
@@ -39,6 +39,8 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     private       CachedConfiguration                             cache;
 
     private StatStreamRegistrationHandler statStreamRegistrationHandler;
+    
+    private RedisSingleton redisSingleton = RedisSingleton.INSTANCE;
 
     public OmConfigurationApi( ThriftClientFactory<Iface> configClientFactory ) throws TException {
         this.configClientFactory = configClientFactory;
@@ -74,7 +76,41 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         apisPolicy.setRetentionTimeSeconds( retention );
         apisPolicy.setTimelineTime( timelineTime );
 
-        return createSnapshotPolicy( apisPolicy );
+        redisSingleton.getRedisLock();
+        long ret = createSnapshotPolicy( apisPolicy );
+        redisSingleton.releaseRedisLock();
+        return ret;
+    }
+
+    /**
+     * Get API version used by service handler.
+     */
+    @Override
+    public Version getVersion() throws ApiException, TException {
+
+        return getConfig().getVersion();
+    }
+
+    /**
+     * Get the API version table for the service.
+     */
+    @Override
+    public List<ServiceAPIVersion> getVersionTable() throws ApiException, TException {
+
+        return getConfig().getVersionTable();
+    }
+
+    /**
+     * Handshake with the server to negotiate API version.
+     * @param suggestedVersion - Version: The API version suggested by the client.
+     *  Using Thrift, the client is the code using a Thrift generated service.client
+     *  instance.
+     * @return Version: The API version acceptable to the server
+     */
+    @Override
+    public Version suggestVersion(Version suggestedVersion) throws ApiException, TException {
+
+        return getConfig().suggestVersion(suggestedVersion);
     }
 
     /**
@@ -89,7 +125,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public long createLocalDomain( String domainName, String domainSite ) throws TException {
+    	redisSingleton.getRedisLock();
         long id = getConfig().createLocalDomain( domainName, domainSite );
+        redisSingleton.releaseRedisLock();
         EventManager.notifyEvent( OmEvents.CREATE_LOCAL_DOMAIN, domainName, domainSite );
         return id;
     }
@@ -138,7 +176,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public void updateLocalDomainName( String oldDomainName, String newDomainName ) throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().updateLocalDomainName( oldDomainName, newDomainName );
+        redisSingleton.releaseRedisLock();
     }
 
     /**
@@ -151,7 +191,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public void updateLocalDomainSite( String domainName, String newSiteName ) throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().updateLocalDomainSite( domainName, newSiteName );
+        redisSingleton.releaseRedisLock();
     }
 
     /**
@@ -164,7 +206,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public void setThrottle( String domainName, double throttleLevel ) throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().setThrottle( domainName, throttleLevel );
+        redisSingleton.releaseRedisLock();
     }
 
     /**
@@ -178,12 +222,16 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public void setScavenger( String domainName, String scavengerAction ) throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().setScavenger( domainName, scavengerAction );
+        redisSingleton.releaseRedisLock();
     }
 
     @Override
     public void startupLocalDomain( String domainName ) throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().startupLocalDomain( domainName );
+        redisSingleton.releaseRedisLock();
     }
 
     /**
@@ -195,7 +243,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public int shutdownLocalDomain( String domainName ) throws TException {
-        return getConfig().shutdownLocalDomain( domainName );
+    	redisSingleton.getRedisLock();
+        int ret = getConfig().shutdownLocalDomain( domainName );
+        redisSingleton.releaseRedisLock();
+        return ret;
     }
 
     /**
@@ -207,7 +258,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public void deleteLocalDomain( String domainName ) throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().deleteLocalDomain( domainName );
+        redisSingleton.releaseRedisLock();
     }
 
     /**
@@ -230,7 +283,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                                              boolean sm,
                                              boolean dm,
                                              boolean am ) throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().activateLocalDomainServices( domainName, sm, dm, am );
+        redisSingleton.releaseRedisLock();
     }
 
     /**
@@ -244,7 +299,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public int ActivateNode( FDSP_ActivateOneNodeType act_serv_req ) throws TException {
-        return getConfig().ActivateNode( act_serv_req );
+    	redisSingleton.getRedisLock();
+        int ret = getConfig().ActivateNode( act_serv_req );
+        redisSingleton.releaseRedisLock();
+        return ret;
     }
 
     /**
@@ -259,7 +317,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public int AddService( NotifyAddServiceMsg add_svc_req ) throws TException {
-        return getConfig().AddService( add_svc_req );
+    	redisSingleton.getRedisLock();
+        int ret = getConfig().AddService( add_svc_req );
+        redisSingleton.releaseRedisLock();
+        return ret;
     }
 
     /**
@@ -274,7 +335,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public int StartService( NotifyStartServiceMsg start_svc_req ) throws TException {
-        return getConfig().StartService( start_svc_req );
+    	redisSingleton.getRedisLock();
+        int ret = getConfig().StartService( start_svc_req );
+        redisSingleton.releaseRedisLock();
+        return ret;
     }
 
     /**
@@ -289,7 +353,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public int StopService( NotifyStopServiceMsg stop_svc_req ) throws TException {
-        return getConfig().StopService( stop_svc_req );
+    	redisSingleton.getRedisLock();
+        int ret = getConfig().StopService( stop_svc_req );
+        redisSingleton.releaseRedisLock();
+        return ret;
     }
 
     /**
@@ -304,7 +371,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public int RemoveService( NotifyRemoveServiceMsg rm_svc_req ) throws TException {
-        return getConfig().RemoveService( rm_svc_req );
+    	redisSingleton.getRedisLock();
+        int ret = getConfig().RemoveService( rm_svc_req );
+        redisSingleton.releaseRedisLock();
+        return ret;
     }
 
     /**
@@ -352,7 +422,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                                            boolean sm,
                                            boolean dm,
                                            boolean am ) throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().removeLocalDomainServices( domainName, sm, dm, am );
+        redisSingleton.releaseRedisLock();
     }
 
     /**
@@ -366,12 +438,17 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public int RemoveServices( com.formationds.apis.FDSP_RemoveServicesType rm_node_req ) throws TException {
-        return getConfig().RemoveServices( rm_node_req );
+    	redisSingleton.getRedisLock();
+        int ret = getConfig().RemoveServices( rm_node_req );
+        redisSingleton.releaseRedisLock();
+        return ret;
     }
 
     @Override
     public long createTenant( String identifier ) throws TException {
+    	redisSingleton.getRedisLock();
         long tenantId = getConfig().createTenant( identifier );
+        redisSingleton.releaseRedisLock();
         /*
         VolumeSettings volumeSettings = new VolumeSettings(1024 * 1024 * 2, VolumeType.OBJECT, 0, 0, MediaPolicy.HDD_ONLY);
         // TODO: XDI implementation hardcodes tenant system volume domain to "FDS_S3" (via S3Endpoint.FDS_S3. Not sure if this is correct?
@@ -409,7 +486,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                             String passwordHash,
                             String secret,
                             boolean isFdsAdmin ) throws TException {
+    	redisSingleton.getRedisLock();
         long userId = getConfig().createUser( identifier, passwordHash, secret, isFdsAdmin );
+        redisSingleton.releaseRedisLock();
         EventManager.notifyEvent( OmEvents.CREATE_USER, identifier, isFdsAdmin, userId );
         return userId;
     }
@@ -417,7 +496,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public void assignUserToTenant( long userId, long tenantId )
         throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().assignUserToTenant( userId, tenantId );
+        redisSingleton.releaseRedisLock();
         EventManager.notifyEvent( OmEvents.ASSIGN_USER_TENANT, userId, tenantId );
 
         getCache().addTenantUser( userId, tenantId );
@@ -425,7 +506,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public void revokeUserFromTenant( long userId, long tenantId ) throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().revokeUserFromTenant( userId, tenantId );
+        redisSingleton.releaseRedisLock();
         EventManager.notifyEvent( OmEvents.REVOKE_USER_TENANT, userId, tenantId );
 
         getCache().removeTenantUser( tenantId, userId );
@@ -499,7 +582,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                             String passwordHash,
                             String secret,
                             boolean isFdsAdmin ) throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().updateUser( userId, identifier, passwordHash, secret, isFdsAdmin );
+        redisSingleton.releaseRedisLock();
         EventManager.notifyEvent( OmEvents.UPDATE_USER, identifier, isFdsAdmin, userId );
 
         getCache().updateUser( userId, identifier, passwordHash, secret, isFdsAdmin );
@@ -529,7 +614,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                                                 long iopsMin,
                                                 long iopsMax,
                                                 int relPrio ) throws TException {
+    	redisSingleton.getRedisLock();
         FDSP_PolicyInfoType qosPolicy = getConfig().createQoSPolicy( policyName, iopsMin, iopsMax, relPrio );
+        redisSingleton.releaseRedisLock();
         EventManager.notifyEvent( OmEvents.CREATE_QOS_POLICY, qosPolicy.getPolicy_name() );
         return qosPolicy;
     }
@@ -568,8 +655,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                                                 long iopsMin,
                                                 long iopsMax,
                                                 int relPrio ) throws TException {
+    	redisSingleton.getRedisLock();
         FDSP_PolicyInfoType policy = getConfig().modifyQoSPolicy( currentPolicyName, newPolicyName,
                                                                   iopsMin, iopsMax, relPrio );
+        redisSingleton.releaseRedisLock();
         EventManager.notifyEvent( OmEvents.MODIFY_QOS_POLICY, policy.getPolicy_name() );
         return policy;
     }
@@ -583,7 +672,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public void deleteQoSPolicy( String policyName ) throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().deleteQoSPolicy( policyName );
+        redisSingleton.releaseRedisLock();
         EventManager.notifyEvent( OmEvents.DELETE_QOS_POLICY, policyName );
     }
 
@@ -592,7 +683,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                               String volumeName,
                               VolumeSettings volumeSettings,
                               long tenantId ) throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().createVolume( domainName, volumeName, volumeSettings, tenantId );
+        redisSingleton.releaseRedisLock();
 
         VolumeType vt = volumeSettings.getVolumeType();
         long maxSize = (VolumeType.BLOCK.equals( vt ) ?
@@ -633,12 +726,17 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public int ModifyVol( FDSP_ModifyVolType mod_vol_req ) throws TException {
         LOG.trace( "ModifyVol::" + mod_vol_req.toString() );
-        return getConfig().ModifyVol( mod_vol_req );
+        redisSingleton.getRedisLock();
+        int ret = getConfig().ModifyVol( mod_vol_req );
+        redisSingleton.releaseRedisLock();
+        return ret;
     }
 
     @Override
     public void deleteVolume( String domainName, String volumeName ) throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().deleteVolume( domainName, volumeName );
+        redisSingleton.releaseRedisLock();
         EventManager.notifyEvent( OmEvents.DELETE_VOLUME, domainName, volumeName );
         getCache().removeVolume( domainName, volumeName );
     }
@@ -675,7 +773,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                                List<String> volume_names,
                                int sample_freq_seconds,
                                int duration_seconds ) throws TException {
-        return getConfig().registerStream( url, http_method, volume_names, sample_freq_seconds, duration_seconds );
+    	redisSingleton.getRedisLock();
+        int ret = getConfig().registerStream( url, http_method, volume_names, sample_freq_seconds, duration_seconds );
+        redisSingleton.releaseRedisLock();
+        return ret;
     }
 
     @Override
@@ -685,12 +786,16 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public void deregisterStream( int registration_id ) throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().deregisterStream( registration_id );
+        redisSingleton.releaseRedisLock();
     }
 
     @Override
     public long createSnapshotPolicy( SnapshotPolicy policy ) throws TException {
+    	redisSingleton.getRedisLock();
         long l = getConfig().createSnapshotPolicy( policy );
+        redisSingleton.releaseRedisLock();
         // TODO: is the value returned the new policy id?
         EventManager.notifyEvent( OmEvents.CREATE_SNAPSHOT_POLICY, policy.getPolicyName(), policy.getRecurrenceRule(),
                                   policy.getRetentionTimeSeconds(), l );
@@ -706,7 +811,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public void deleteSnapshotPolicy( long id ) throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().deleteSnapshotPolicy( id );
+        redisSingleton.releaseRedisLock();
         EventManager.notifyEvent( OmEvents.DELETE_SNAPSHOT_POLICY, id );
     }
 
@@ -714,7 +821,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public void attachSnapshotPolicy( long volumeId, long policyId ) throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().attachSnapshotPolicy( volumeId, policyId );
+        redisSingleton.releaseRedisLock();
         EventManager.notifyEvent( OmEvents.ATTACH_SNAPSHOT_POLICY, policyId, volumeId );
     }
 
@@ -725,7 +834,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public void detachSnapshotPolicy( long volumeId, long policyId ) throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().detachSnapshotPolicy( volumeId, policyId );
+        redisSingleton.releaseRedisLock();
         EventManager.notifyEvent( OmEvents.DETACH_SNAPSHOT_POLICY, policyId, volumeId );
     }
 
@@ -739,14 +850,18 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                                 String snapshotName,
                                 long retentionTime,
                                 long timelineTime ) throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().createSnapshot( volumeId, snapshotName, retentionTime, timelineTime );
+        redisSingleton.releaseRedisLock();
         // TODO: is there a generated snapshot id?
         EventManager.notifyEvent( OmEvents.CREATE_SNAPSHOT, snapshotName, volumeId, retentionTime );
     }
 
     @Override
     public void deleteSnapshot( long volumeId, long snapshotId ) throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().deleteSnapshot( volumeId, snapshotId );
+        redisSingleton.releaseRedisLock();
     }
 
     @Override
@@ -756,7 +871,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public void restoreClone( long volumeId, long snapshotId ) throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().restoreClone( volumeId, snapshotId );
+        redisSingleton.releaseRedisLock();
         EventManager.notifyEvent( OmEvents.RESTORE_CLONE, volumeId, snapshotId );
     }
 
@@ -765,7 +882,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                              long fdsp_PolicyInfoId,
                              String clonedVolumeName,
                              long timelineTime ) throws TException {
+    	redisSingleton.getRedisLock();
         long clonedVolumeId = getConfig().cloneVolume( volumeId, fdsp_PolicyInfoId, clonedVolumeName, timelineTime );
+        redisSingleton.releaseRedisLock();
         if ( clonedVolumeId <= 0 ) {
             clonedVolumeId = getConfig().getVolumeId( clonedVolumeName );
         }
@@ -809,6 +928,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                                    com.formationds.apis.SubscriptionScheduleType schedType,
                                    long intervalSize)
             throws TException {
+    	redisSingleton.getRedisLock();
         long id = getConfig().createSubscription(subName,
                                               tenantID,
                                               primaryDomainID,
@@ -817,7 +937,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                                               subType,
                                               schedType,
                                               intervalSize);
-
+        redisSingleton.releaseRedisLock(); 
         EventManager.notifyEvent(OmEvents.CREATE_SUBSCRIPTION,
                                  subName,
                                  tenantID,
@@ -983,7 +1103,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public void updateSubscription(com.formationds.apis.SubscriptionDescriptor subMods)
             throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().updateSubscription(subMods);
+        redisSingleton.releaseRedisLock();
 
         EventManager.notifyEvent(OmEvents.UPDATE_SUBSCRIPTION,
                                  subMods.name,
@@ -1006,7 +1128,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public void deleteSubscriptionName(String subName, long tenantID, boolean dematerialize)
             throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().deleteSubscriptionName(subName, tenantID, dematerialize);
+        redisSingleton.releaseRedisLock();
 
         String doDemat = (dematerialize) ? "with" : "without";
 
@@ -1027,7 +1151,9 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public void deleteSubscriptionID(long subID, boolean dematerialize)
             throws TException {
+    	redisSingleton.getRedisLock();
         getConfig().deleteSubscriptionID(subID, dematerialize);
+        redisSingleton.releaseRedisLock();
 
         String doDemat = (dematerialize) ? "with" : "without";
 

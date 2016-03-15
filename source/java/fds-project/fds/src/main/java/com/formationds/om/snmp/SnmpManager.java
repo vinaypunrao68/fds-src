@@ -5,8 +5,8 @@
 package com.formationds.om.snmp;
 
 import com.formationds.commons.model.entity.Event;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -22,7 +22,7 @@ public class SnmpManager
     private static final long serialVersionUID = 2277997569296699748L;
 
     private static final Logger logger =
-        LoggerFactory.getLogger( SnmpManager.class );
+        LogManager.getLogger( SnmpManager.class );
 
     private AtomicBoolean ACTIVE;
 

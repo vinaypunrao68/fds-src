@@ -4,8 +4,8 @@
 
 package com.formationds.commons.util;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -16,7 +16,7 @@ import java.util.regex.PatternSyntaxException;
  */
 public class RegExUtil {
   private static final Logger logger =
-    LoggerFactory.getLogger( RegExUtil.class );
+    LogManager.getLogger( RegExUtil.class );
 
   public static final String WHITE_SPACE = "\\p{Space}";
   public static final String TAB = "\t";

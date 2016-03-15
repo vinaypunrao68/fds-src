@@ -10,15 +10,15 @@ import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
 import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import javax.servlet.http.HttpServletResponse;
 import java.util.function.Function;
 
 public abstract class AbstractApiDefinition {
 
-    private static final Logger logger = LoggerFactory.getLogger( AbstractApiDefinition.class );
+    private static final Logger logger = LogManager.getLogger( AbstractApiDefinition.class );
     
 	public abstract void configure();
 	protected abstract WebApp getWebApp();

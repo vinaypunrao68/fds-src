@@ -13,6 +13,7 @@ import com.formationds.om.events.EventManager;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
+import com.formationds.om.redis.RedisSingleton;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.snmp.SnmpManager;
 import com.formationds.om.snmp.TrapSend;
@@ -39,8 +40,8 @@ import com.formationds.xdi.RealAsyncAm;
 import com.nurkiewicz.asyncretry.AsyncRetryExecutor;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.thrift.transport.TTransportException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -52,7 +53,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class Main {
-    private static final Logger logger = LoggerFactory.getLogger( Main.class );
+    private static final Logger logger = LogManager.getLogger( Main.class );
 
     // key for managing the singleton EventManager.
     private final Object eventMgrKey = new Object();
@@ -61,6 +62,8 @@ public class Main {
     // feature toggle, but also depends on the platform.conf feature toggle (that
     // the C++ side uses).
     private Optional<SvcServer<Iface>> proxyServer = Optional.empty();
+    
+    private final ShutdownHook shutdownHook = new ShutdownHook();
 
     public static void main( String[] args ) {
 
@@ -285,6 +288,8 @@ public class Main {
 
         logger.info( "Starting Web toolkit" );
 
+        Runtime.getRuntime().addShutdownHook( shutdownHook );
+
         WebKitImpl originalImpl = new WebKitImpl( authenticator,
                     authorizer,
                     webDir,
@@ -292,6 +297,14 @@ public class Main {
                     httpsPort,
                     secretKey );
         originalImpl.start();
+    }
+    
+    private static class ShutdownHook extends Thread {
+        public void run() {
+        	logger.info( "Shutting down OM. Waiting for redis");
+            RedisSingleton.INSTANCE.waitRedis();
+            logger.info ( "Done" );
+        }
     }
 }
 

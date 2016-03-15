@@ -4,15 +4,15 @@
 
 package com.formationds.commons.calculation;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  * @author ptinius
  */
 public class Calculation {
    private static final Logger logger =
-     LoggerFactory.getLogger( Calculation.class );
+     LogManager.getLogger( Calculation.class );
 
    /*
     * current thinking is the initial threshold will be set to 3. To come up

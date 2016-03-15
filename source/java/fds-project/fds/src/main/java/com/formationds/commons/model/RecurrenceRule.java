@@ -11,8 +11,8 @@ import com.formationds.commons.util.Numbers;
 import com.formationds.commons.util.WeekDays;
 import com.google.common.base.Preconditions;
 import com.google.gson.annotations.SerializedName;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.text.ParseException;
 import java.util.Date;
@@ -29,7 +29,7 @@ public class RecurrenceRule
     private static final long serialVersionUID = -6056637443021228929L;
 
     private static final Logger logger =
-        LoggerFactory.getLogger( RecurrenceRule.class );
+        LogManager.getLogger( RecurrenceRule.class );
 
     private static final String MISSING_TOKEN =
         "Missing expected token, last token: '%s'";

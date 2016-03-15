@@ -356,7 +356,7 @@ namespace fds
 
                         if (m_diskUuidToDeviceMap.end() == item)
                         {
-                            LOGERROR << "Unable to the hardware path for partition with UUID:  " << uuid << ", as found in fstab";
+                            LOGERROR << "Unable to find the hardware path for partition with UUID:  " << uuid << ", as found in fstab";
                             continue;
                         }
 
@@ -555,6 +555,13 @@ namespace fds
 
             if (JAVA_AM == procIndex)
             {
+                // don't start JAVA_AM if BARE_AM is not in a RUNNING state
+                if (fpi::SERVICE_RUNNING != m_nodeInfo.bareAMState)
+                {
+                    LOGNORMAL << "Received a request to start " << procName << ", but bare_am is not running.  Not doing anything.";
+                    return;
+                }
+
                 command = m_javaXdiJavaCmd;
 
                 for (auto const &vectItem : m_javaOptions)
@@ -1014,7 +1021,7 @@ namespace fds
                 {
                     if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.bareAMState || fpi::SERVICE_NOT_PRESENT == m_nodeInfo.javaAMState)
                     {
-                        LOGDEBUG << "Received an unexpected service request for the AM when the AM services are not expected to be present.";
+                        LOGERROR << "Received an unexpected service request for the AM when the AM services are not expected to be present.";
                         present = false;
                     }
                  } break;
@@ -1218,9 +1225,9 @@ namespace fds
 
         void PlatformManager::heartbeatCheck (fpi::HeartbeatMessagePtr const &heartbeatMsg)
         {
-            LOGDEBUG << "Sending heartbeatMessage ack from PM uuid: "
-                     << std::hex << heartbeatMsg->svcUuid.uuid << std::dec
-                     << " [ " << usedDiskCapacity << " ]";
+            LOGNORMAL << "Sending heartbeatMessage ack from PM uuid: "
+                      << std::hex << heartbeatMsg->svcUuid.uuid << std::dec
+                      << " [ UsedDiskCapacity:" << usedDiskCapacity << " ]";
 
             auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
             auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
