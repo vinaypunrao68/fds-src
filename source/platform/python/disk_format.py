@@ -649,6 +649,9 @@ class DiskManager (Base):
 
             line = line.strip ('\r\n')
 
+            if not line.strip():               # skip empty lines
+                continue
+
             # items vector contains
             # [1] device path (/dev/sdm)
             # [2] bool, used by the OS

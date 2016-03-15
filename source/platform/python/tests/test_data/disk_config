@@ -1,3 +1,5 @@
+
+# verify that the file can start with a blank line (above)
 #path      os_use  index_use  type  interface  capacity (GB)
 /dev/sdza  1       0          HDD         NA    32
 /dev/sdzb  1       0          HDD         NA    16
