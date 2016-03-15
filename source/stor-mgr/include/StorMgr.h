@@ -186,7 +186,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
       * should be just enough to make sure system task makes progress
       */
      inline fds_uint32_t getSysTaskIopsMin() {
-         return 10;
+         return 2000;
      }
 
      /**
@@ -194,7 +194,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
       * in SM, we should be ok to take all available bandwidth
       */
      inline fds_uint32_t getSysTaskIopsMax() {
-         return 0;
+         return 10000;
      }
 
      inline fds_uint32_t getSysTaskPri() {
