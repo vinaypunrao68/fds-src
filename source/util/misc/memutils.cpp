@@ -8,10 +8,10 @@
 namespace fds {
 namespace util {
 
-fds_uint64_t getMemBytes() {
+fds_uint64_t getMemoryKB() {
     struct rusage usage;
     getrusage (RUSAGE_SELF, &usage);
-    return usage.ru_maxrss * 1024;
+    return usage.ru_maxrss;
 }
 
 }  // namespace util

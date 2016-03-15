@@ -9,7 +9,8 @@
 namespace fds {
 namespace util {
 
-fds_uint64_t getMemBytes();
+// get the current memory usage in Kilo Bytes
+fds_uint64_t getMemoryKB();
 
 } // namespace util
 } // namespace fds
