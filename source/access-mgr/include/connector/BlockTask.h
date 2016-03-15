@@ -5,11 +5,7 @@
 #ifndef SOURCE_ACCESSMGR_INCLUDE_CONNECTOR_BLOCKTASK_H_
 #define SOURCE_ACCESSMGR_INCLUDE_CONNECTOR_BLOCKTASK_H_
 
-#include <atomic>
-#include <deque>
-#include <mutex>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 #include <boost/shared_ptr.hpp>
@@ -29,7 +25,6 @@ namespace fpi = FDS_ProtocolInterface;
 struct BlockTask {
     using buffer_type = std::string;
     using buffer_ptr_type = boost::shared_ptr<buffer_type>;
-    using sequence_type = uint32_t;
 
     /// What type of task is this
     enum BlockOp {
@@ -61,20 +56,9 @@ struct BlockTask {
     uint64_t getOffset() const  { return offset; }
     uint32_t getLength() const  { return length; }
     fpi::ErrorCode getError() const      { return opError; }
-    uint32_t maxObjectSize() const { return maxObjectSizeInBytes; }
 
     /// Task setters
     void setError(fpi::ErrorCode const& error) { opError = error; }
-    void setObjectCount(size_t const count) {
-        objCount = count;
-        bufVec.reserve(count);
-        offVec.reserve(count);
-    }
-    void setMaxObjectSize(uint32_t const size) { maxObjectSizeInBytes = size; };
-
-    /// Sub-task operations
-    uint64_t getOffset(sequence_type const seqId) const          { return offVec[seqId]; }
-    buffer_ptr_type getBuffer(sequence_type const seqId) const   { return bufVec[seqId]; }
 
     /// Buffer operations
     buffer_ptr_type getNextReadBuffer(uint32_t& context) {
@@ -84,70 +68,28 @@ struct BlockTask {
         return bufVec[context++];
     }
 
-    void keepBufferForWrite(sequence_type const seqId,
-                            uint64_t const objectOff,
-                            buffer_ptr_type& buf) {
-        bufVec.emplace_back(buf);
-        offVec.emplace_back(objectOff);
-    }
-
     /**
-     * \return true if all responses were received or operation error
+     * Split and trim returned buffers for actual requested data
      */
     void handleReadResponse(std::vector<buffer_ptr_type>& buffers,
                             buffer_ptr_type& empty_buffer,
-                            uint32_t len);
-
-    /**
-     * \return true if all responses were received
-     */
-    bool handleWriteResponse(const fpi::ErrorCode& err) {
-        if (fpi::OK != err) {
-            // Note, we're always setting the most recent
-            // responses's error code.
-            opError = err;
-        }
-        uint32_t doneCnt = doneCount.fetch_add(1);
-        return ((doneCnt + 1) == objCount);
-    }
-
-    /**
-     * Handle read response for read-modify-write
-     * \return true if all responses were received or operation error
-     */
-    std::pair<fpi::ErrorCode, buffer_ptr_type>
-        handleRMWResponse(buffer_ptr_type const& retBuf,
-                          uint32_t len,
-                          sequence_type seqId,
-                          const fpi::ErrorCode& err);
-
-    void getChain(sequence_type const seqId, std::deque<BlockTask*>& chain);
-    void setChain(sequence_type const seqId, std::deque<BlockTask*>&& chain);
+                            uint32_t len,
+                            uint32_t const maxObjectSizeInBytes);
 
     int64_t handle;
 
   private:
     BlockOp operation {OTHER};
-    std::atomic_uint doneCount {0};
-    uint32_t objCount {1};
-
-    // These are the responses we are also in charge of responding to, in order
-    // with ourselves being last.
-    std::unordered_map<sequence_type, std::deque<BlockTask*>> chained_responses;
-    std::mutex chain_lock;
 
     // error of the operation
     fpi::ErrorCode opError {fpi::OK};
 
     // to collect read responses or first and last buffer for write op
     std::vector<buffer_ptr_type> bufVec;
-    // when writing, we need to remember the object offsets for rwm buffers
-    std::vector<uint64_t> offVec;
 
     // offset
     uint64_t offset {0};
     uint32_t length {0};
-    uint32_t maxObjectSizeInBytes {0};
 };
 
 

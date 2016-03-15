@@ -5,8 +5,8 @@
 #ifndef SOURCE_ACCESSMGR_INCLUDE_CONNECTOR_SECTORLOCKMAP_H_
 #define SOURCE_ACCESSMGR_INCLUDE_CONNECTOR_SECTORLOCKMAP_H_
 
+#include <deque>
 #include <mutex>
-#include <boost/lockfree/spsc_queue.hpp>
 
 namespace fds
 {
@@ -14,13 +14,12 @@ namespace fds
 // This class offers a way to "lock" a sector of the blob
 // and queue operations modifying the same offset to maintain
 // consistency for < maxObjectSize writes.
-template <typename E, size_t N>
+template <typename E>
 struct SectorLockMap {
     typedef E entry_type;
-    static constexpr size_t size = N;
     typedef std::mutex lock_type;
     typedef uint64_t key_type;
-    typedef boost::lockfree::spsc_queue<entry_type, boost::lockfree::capacity<size>> queue_type;  // NOLINT
+    typedef std::deque<entry_type> queue_type;
     typedef std::unordered_map<key_type, std::unique_ptr<queue_type>> map_type;
     typedef typename map_type::iterator map_it;
 
@@ -32,11 +31,11 @@ struct SectorLockMap {
     ~SectorLockMap() {}
 
     QueueResult queue_update(key_type const& k, entry_type e) {
-        QueueResult result = QueueResult::Failure;
+        QueueResult result = QueueResult::AddedEntry;
         std::lock_guard<lock_type> g(map_lock);
         map_it it = sector_map.find(k);
         if (sector_map.end() != it) {
-            if ((*it).second->push(e)) result = QueueResult::AddedEntry;
+            (*it).second->push_front(e);
         } else {
             auto r = sector_map.insert(
                 std::make_pair(k, std::move(std::unique_ptr<queue_type>(new queue_type()))));
@@ -51,8 +50,9 @@ struct SectorLockMap {
         std::lock_guard<lock_type> g(map_lock);
         auto it = sector_map.find(k);
         if (sector_map.end() != it) {
-            entry_type entry;
-            if ((*it).second->pop(entry)) {
+            if (!(*it).second->empty()) {
+                auto entry = (*it).second->back();
+                (*it).second->pop_back();
                 return std::make_pair(true, entry);
             } else {
                 // No more queued requests, return nullptr
