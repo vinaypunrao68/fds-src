@@ -24,6 +24,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <testlib/TestFixtures.h>
+#include <util/stats.h>
+#include <util/memutils.h>
+#include <util/path.h>
 
 using ::testing::AtLeast;
 using ::testing::Return;
@@ -241,13 +244,90 @@ TEST_F(SvcRequestMgrTest, filetransfer) {
     FakeSyncSvcDomain domain(cnt, confFile);
     FTCallback cb;
     fds::net::FileTransferService::OnTransferCallback ftcb = std::bind(&FTCallback::handle, &cb, std::placeholders::_1, std::placeholders::_2);
-    domain[1]->filetransfer->send(domain.getFakeSvcUuid(2), "/bin/ls", "test.txt", ftcb, false);
+    util::Stats stats;
+    auto bytes = util::getMemoryKB();
+
+    bytes = util::getMemoryKB();
+    std::cout << "mem:" << bytes << " : init" << std::endl;
+    domain[1]->filetransfer->setChunkSize(1024);
+    domain[1]->filetransfer->send(domain.getFakeSvcUuid(2), "/bin/bash", "bash", ftcb, false);
     cb.await();
     ASSERT_EQ(cb.error, ERR_OK);
     cb.reset(1);
-    domain[1]->filetransfer->send(domain.getFakeSvcUuid(2), "/bin/ls", "test.txt", ftcb, false);
-    cb.await();
-    ASSERT_EQ(cb.error, ERR_OK);
+
+    bytes = util::getMemoryKB();
+    std::cout << "mem:" << bytes << " : after 1 file - small chunk " << std::endl;
+    domain[1]->filetransfer->setChunkSize(5*KB);
+    stats.reset();
+    stats.add(bytes);
+    for (uint i = 0 ; i < 100 ; i++) {
+        domain[1]->filetransfer->send(domain.getFakeSvcUuid(2), "/bin/ls", "test.txt_" + std::to_string(i), ftcb, false);
+        cb.await();
+        ASSERT_EQ(cb.error, ERR_OK);
+        cb.reset(1);
+        usleep(1000);
+        stats.add(util::getMemoryKB());
+    }
+    stats.calculate();
+    bytes = util::getMemoryKB();
+    auto originalBytes = bytes;
+    std::cout << "mem:" << bytes << " : after 100 /bin/ls xfers : " << stats <<std::endl;
+
+    stats.reset();
+    stats.add(bytes);
+    for (uint i = 0 ; i < 100 ; i++) {
+        domain[1]->filetransfer->send(domain.getFakeSvcUuid(2), "/bin/bash", "test.txt_" + std::to_string(i), ftcb, false);
+        cb.await();
+        ASSERT_EQ(cb.error, ERR_OK);
+        cb.reset(1);
+        stats.add(util::getMemoryKB());
+    }
+    stats.calculate();
+    domain[1]->filetransfer->setChunkSize(2*MB);
+    bytes = util::getMemoryKB();
+    std::cout << "mem:" << bytes << " : after 100 /bin/bash xfers : " << stats << std::endl;
+    stats.reset();
+    stats.add(bytes);
+    for (uint i = 0 ; i < 100 ; i++) {
+        domain[1]->filetransfer->send(domain.getFakeSvcUuid(2), "/bin/bash", "test.txt_" + std::to_string(i), ftcb, false);
+        cb.await();
+        ASSERT_EQ(cb.error, ERR_OK);
+        cb.reset(1);
+        stats.add(util::getMemoryKB());
+    }
+    stats.calculate();
+    bytes = util::getMemoryKB();
+    std::cout << "mem:" << bytes << " : after 100 /bin/bash re-xfers : " << stats << std::endl;
+    stats.reset();
+    std::vector<std::string> files;
+    util::getFiles("/bin", files);
+    if (files.size() > 100) files.resize(100);
+    for (const auto file : files) {
+        domain[1]->filetransfer->send(domain.getFakeSvcUuid(2), "/bin/"+file, file , ftcb, false);
+        cb.await();
+        ASSERT_EQ(cb.error, ERR_OK);
+        cb.reset(1);
+        usleep(1000);
+        stats.add(util::getMemoryKB());
+    }
+    stats.calculate();
+    bytes = util::getMemoryKB();
+    std::cout << "mem:" << bytes << " : after " << files.size() << " /bin/* xfers : " << stats << std::endl;
+
+    stats.reset();
+    for (const auto file : files) {
+        domain[1]->filetransfer->send(domain.getFakeSvcUuid(2), "/bin/"+file, file , ftcb, false);
+        cb.await();
+        ASSERT_EQ(cb.error, ERR_OK);
+        cb.reset(1);
+        usleep(1000);
+        stats.add(util::getMemoryKB());
+    }
+    stats.calculate();
+    bytes = util::getMemoryKB();
+    std::cout << "mem:" << bytes << " : after " << files.size() << " /bin/* re-xfers : " << stats << std::endl;
+    std::cout << "original:" << originalBytes << " now:" << bytes << " diff:" << (bytes-originalBytes) << std::endl;
+    EXPECT_LT(bytes-originalBytes, 5*KB);
 }
 
 int main(int argc, char** argv) {
