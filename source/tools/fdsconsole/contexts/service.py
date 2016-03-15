@@ -551,3 +551,18 @@ class ServiceContext(Context):
             log.exception(e)
             return 'unable to get svcmap'
 
+    @clidebugcmd
+    @arg('svcid', help= "service id or name", type=str)
+    def qosinfo(self, svcid):
+        'Gets qos information'
+        for uuid in self.config.getServiceApi().getServiceIds(svcid):
+            try:
+                svcType = self.config.getServiceApi().getServiceType(uuid)
+                if svcType != 'dm' and svcType != 'sm':
+                    continue
+                jsonStr = ServiceMap.client(uuid).getStateInfo('qos')
+                jsonData = json.loads(jsonStr)
+                print(json.dumps(jsonData, indent=2, sort_keys=True))
+            except Exception, e:
+                print "Failed to fetch state.  Either service is down or argument is incorrect"
+        return

@@ -7,6 +7,7 @@
 #include "fds_qos.h"
 #include "fds_error.h"
 #include "qos_htb.h"
+#include <json/json.h>
 
 namespace fds {
 
@@ -145,6 +146,25 @@ Error FDS_QoSControl::processIO(FDS_IOType *io_type) {
 
 Error FDS_QoSControl::markIODone(FDS_IOType* io) {
     return dispatcher->markIODone(io);
+}
+
+std::string FDS_QoSControl::getStateInfo()
+{
+    Json::Value state;
+    state["total"] = static_cast<Json::Value::Int64>(dispatcher->total_svc_iops);
+    state["max_outstanding_ios"] = dispatcher->max_outstanding_ios;
+    state["num_pending_ios"] = dispatcher->num_pending_ios.load(std::memory_order_relaxed);
+    state["num_outstanding_ios"] = dispatcher->num_outstanding_ios.load(std::memory_order_relaxed); 
+    state["queue_map_size"] = static_cast<Json::Value::UInt>(dispatcher->queue_map.size());
+
+    std::stringstream ss;
+    ss << state;
+    return ss.str();
+}
+
+std::string FDS_QoSControl::getStateProviderId()
+{
+    return "qos";
 }
 
 }  // namespace fds

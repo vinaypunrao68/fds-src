@@ -86,7 +86,7 @@ std::string getFileChecksum(const std::string& filename) {
         is.read (buffer,length);
         sum.checksum_update((unsigned  char *)buffer, is.gcount());
     }
-
+    delete[] buffer;
     is.close();
     std::string strsum;
     sum.get_checksum(strsum);
