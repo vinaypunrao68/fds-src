@@ -144,8 +144,16 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
                  serialExecutor = std::unique_ptr<SynchronizedTaskExecutor<size_t>>(
                      new SynchronizedTaskExecutor<size_t>(*threadPool));
+
+                 if (parentSm->modProvider_->get_cntrs_mgr()) {
+                     parentSm->modProvider_->get_cntrs_mgr()->add_for_export(this);
+                 }
              }
          virtual ~SmQosCtrl() {
+             if (parentSm->modProvider_->get_cntrs_mgr()) {
+                 parentSm->modProvider_->get_cntrs_mgr()->remove_from_export(this);
+             }
+
              delete dispatcher;
              if (dispatcherThread) {
                  dispatcherThread->join();

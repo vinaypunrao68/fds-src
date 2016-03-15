@@ -11,6 +11,7 @@
 #include <fds_types.h>
 #include <fds_error.h>
 #include <fds_volume.h>
+#include <fds_counters.h>
 
 namespace fds { 
 
@@ -24,7 +25,7 @@ namespace fds {
  *  FDS_QosControl: Qos Control Class with a shared threadpool
  *
  **********************************************************/
-class FDS_QoSControl { 
+class FDS_QoSControl : public StateProvider { 
    public :
 
    typedef enum {
@@ -78,6 +79,9 @@ class FDS_QoSControl {
    void resumeIOs(fds_volid_t volUUID);
 
    virtual fds_uint32_t queueSize(fds_volid_t volId);
+
+   std::string getStateInfo() override;
+   std::string getStateProviderId() override;
 };
 
 }
