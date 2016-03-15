@@ -12,7 +12,13 @@ namespace util {
 Stats::Stats(std::string name) : name(name) {
     numbers.reserve(256);
 }
+
 Stats::Stats() : Stats("") {
+}
+
+void Stats::reset() {
+    numbers.clear();
+    count = avg = stddev = min = max = median = 0;
 }
 
 void Stats::add(long double num) {
@@ -23,27 +29,27 @@ void Stats::setDropPercent(uint64_t percent) {
     dropPercent = percent;
 }
 
-uint64_t Stats::getCount() {
+uint64_t Stats::getCount() const {
     return count;
 }
 
-long double Stats::getAverage() {
+long double Stats::getAverage() const {
     return avg;
 }
 
-long double Stats::getStdDev() {
+long double Stats::getStdDev() const {
     return stddev;
 }
 
-long double Stats::getMedian() {
+long double Stats::getMedian() const {
     return median;
 }
 
-long double Stats::getMax() {
+long double Stats::getMax() const {
     return max;
 }
 
-long double Stats::getMin() {
+long double Stats::getMin() const {
     return min;
 }
 
@@ -85,6 +91,16 @@ void Stats::calculate() {
     stddev = std::sqrt(sum/count);
 }
 
+std::ostream& operator<< (std::ostream &os, const fds::util::Stats& stats) {
+    return os << "["
+              << " count:" << stats.getCount()
+              << " median:" << stats.getMedian()
+              << " avg:" << stats.getAverage()
+              << " stddev:" << stats.getStdDev()
+              << " min:" << stats.getMin()
+              << " max:" << stats.getMax()
+              << " ]";
+}
 
 }  // namespace util
 }  // namespace fds
