@@ -22,12 +22,12 @@ task buildDeb(type: Deb) {
 	version = '1.0.0'
 	ext.packagePrefix = 'fds-platform-manager'
 	release = build_num
-	packageName = packagePrefix + '-' + version
+	packageName = packagePrefix + '-' + version + '-' + release
 	arch = "amd64"
 
 	def baseDir = main_dir_build
 
-	into '/opt/fds/formation_one/packages/' + packagePrefix + '-' + version + '-' + release
+	into '/opt/fds/formation_one/packages/' + packageName
 	from(baseDir + '/bin/platformd') {
 		into 'bin'
 		fileMode 755

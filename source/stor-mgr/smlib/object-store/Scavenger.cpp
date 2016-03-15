@@ -667,12 +667,13 @@ fds_bool_t DiskScavenger::updateDiskStats(fds_bool_t verify_data,
             // we will GC only tokens that are worth to GC
             token_reclaim_threshold = scav_policy.tok_reclaim_threshold;
         }
-        LOGCRITICAL << "tier:" << tier << " disk:" << disk_id
-                    << " total:" << disk_stat.dsk_tot_size
-                    << " avail:" << disk_stat.dsk_avail_size << " (" << avail_percent << "%)"
-                    << " policy: thresh1="<< scav_policy.dsk_avail_threshold_1
-                    << " thresh2=" << scav_policy.dsk_avail_threshold_2
-                    << " reclaim:" << token_reclaim_threshold;
+        LOGNOTIFY << "tier:" << tier << " disk:" << disk_id
+                  << " total:" << disk_stat.dsk_tot_size
+                  << " used: " << " (" << (100 - avail_percent) << "%)"
+                  << " avail:" << disk_stat.dsk_avail_size << " (" << avail_percent << "%)"
+                  << " policy: thresh1="<< scav_policy.dsk_avail_threshold_1
+                  << " thresh2=" << scav_policy.dsk_avail_threshold_2
+                  << " reclaim:" << token_reclaim_threshold;
 
         // start token compaction process
         err = startScavenge(verifyData, done_hdlr, token_reclaim_threshold);

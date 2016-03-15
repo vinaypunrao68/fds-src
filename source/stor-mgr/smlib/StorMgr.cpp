@@ -1686,8 +1686,7 @@ void ObjectStorMgr::startRefscanOnDMs() {
         counters->dmRefScanRequestSentAt.set(util::getTimeStampSeconds());
     }    
 
-    LOGNORMAL << "sending refscan message to all DMs, will also set force expunge";
-    fds::objDelCountThresh = 1;
+    LOGNORMAL << "sending refscan message to all DMs";
     SvcInfo info = MODULEPROVIDER()->getSvcMgr()->getSelfSvcInfo();
 
     fpi::StartRefScanMsgPtr msg(new fpi::StartRefScanMsg());

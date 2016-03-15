@@ -2152,20 +2152,20 @@ fds_errno_t ObjectStore::triggerReadOnlyIfPutWillfail(StorMgrVolume *vol,
                                                       boost::shared_ptr<const std::string> objData,
                                                       diskio::DataTier &useTier) {
 
-    // Get the disk ID so we can figure out the consumed space.
-    fds_uint16_t diskId = diskMap->getDiskId(objId, useTier);
-
-    // If there was no volume information just assume HDD
+    // If there was no volume information and maxTier is selected, just use HDD
     // TODO(brian): Revisit this because it isn't necessarily a safe assumption
-    if (!vol) {
+    if (!vol && useTier == diskio::maxTier) {
         useTier = diskio::diskTier;
     }
+
+    // Get the disk ID so we can figure out the consumed space.
+    fds_uint16_t diskId = diskMap->getDiskId(objId, useTier);
 
     if (useTier == diskio::flashTier) {
         fds_bool_t ssdSuccess = willPutSucceed(diskId, objData->size());
 
         if (!ssdSuccess) {
-            if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_SSD) {
+            if (vol != nullptr && vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_SSD) {
                 // If we can't write put the node in READ ONLY mode and return an error
                 setReadOnly();
                 LOGERROR << "IO bound for disk " << diskMap->getDiskPath(diskId)
@@ -2174,13 +2174,17 @@ fds_errno_t ObjectStore::triggerReadOnlyIfPutWillfail(StorMgrVolume *vol,
                             << capacityMap[diskId].usedCapacity + objData->size()
                             << " / " << capacityMap[diskId].totalCapacity;
                 return ERR_SM_READ_ONLY;
-            } else if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_HYBRID) {
+            } else if (vol != nullptr && vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_HYBRID) {
                 // If we can't write, backoff to HDD since this is hybrid
                 if (!sentPutToHddMsg) {
                     sentPutToHddMsg = true;
                     LOGNOTIFY << "Write bound for SSD but SSD capacity exceeded. Using HDD instead.";
                 }
                 useTier = diskio::diskTier;
+            } else {
+                // This really should only happen if we've got no volume information but are trying to force
+                // writes to the SSD explicitly (not maxTier). This should only be possible via internal APIs
+                setReadOnly();
             }
         }
     }
