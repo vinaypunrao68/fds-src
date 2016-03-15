@@ -36,10 +36,8 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
     public static final String DOMAIN = "nfs";
     public static final long MIN_FILE_ID = 256;
     public static final String FILE_ID_WELL = "file-id-well";
-    private IoOps ops;
 
     public XdiVfs(ExportResolver resolver, Counters counters, IoOps ops) {
-        this.ops = ops;
         resolver.addVolumeDeleteEventHandler(v -> ops.onVolumeDeletion(DOMAIN, v));
         allocator = new PersistentCounter(ops, DOMAIN, FILE_ID_WELL, MIN_FILE_ID);
         ops.addCommitListener(key -> allocator.accept(key));

@@ -64,6 +64,7 @@ public class NfsServer {
         IoOps ops = new RecoveryHandler(new AmOps(asyncAm), xdiStaticConfiguration.getAmRetryAttempts(), xdiStaticConfiguration.getAmRetryInterval());
         if (xdiStaticConfiguration.deferMetadataUpdates()) {
             ops = new DeferredIoOps(ops, maxObjectSize);
+            ((DeferredIoOps) ops).start();
         }
 
         ControlServer controlServer = new ControlServer(xdiStaticConfiguration.getControlPort(), ops);
