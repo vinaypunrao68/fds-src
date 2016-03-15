@@ -18,6 +18,7 @@
 #include "fdsp/common_constants.h"
 #include <om-svc-handler.h>
 #include <net/SvcMgr.h>
+#include <kvstore/configdb.h>
 
 namespace fds {
 
@@ -47,12 +48,17 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule, bool initAsModule,
         node_id_to_name[i] = "";
     }
 
-    // Note on Thrift service compatibility:
-    // If a backward incompatible change arises, pass additional pairs of
-    // processor and Thrift service name to SvcProcess::init(). Similarly,
-    // if the Thrift service API wants to be broken up.
-    init<fds::OmSvcHandler, fpi::OMSvcProcessor>(argc, argv, initAsModule, "platform.conf",
-        "fds.om.", "om.log", omVec, fpi::commonConstants().OM_SERVICE_NAME);
+    // With the introduction of multiplexed services, this init<> is deprecated.
+    // When multiple Thrift processors are needed, use the init interface
+    // that takes a map of processors keyed by Thrift service name instead.
+    init<fds::OmSvcHandler<kvstore::ConfigDB>, fpi::OMSvcProcessor>(argc,
+        argv,
+        initAsModule,
+        "platform.conf",  // configuration file for the process
+        "fds.om",         // base path
+        "om.log",         // default log file
+        omVec,            // collection of modules
+        fpi::commonConstants().OM_SERVICE_NAME);
 
     enableTimeline = get_fds_config()->get<bool>(
             "fds.feature_toggle.common.enable_timeline", true);

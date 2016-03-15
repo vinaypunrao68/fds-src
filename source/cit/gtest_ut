@@ -1,6 +1,7 @@
 Build/linux-x86_64.debug/tests/sharedcache_gtest
 Build/linux-x86_64.debug/tests/configservice_gtest
 Build/linux-x86_64.debug/tests/fds_version_gtest
+Build/linux-x86_64.debug/tests/omsvchandler_gtest
 Build/linux-x86_64.debug/tests/sqlitedb
 Build/linux-x86_64.debug/tests/dm_volume_catalog_gtest --fds-root=./config/
 Build/linux-x86_64.debug/tests/dm_direct --fds-root=./config/
@@ -25,6 +26,7 @@ Build/linux-x86_64.debug/tests/sm_token_snapshot_delta_gtest
 Build/linux-x86_64.debug/tests/sm_token_persistent_snapshot_gtest
 Build/linux-x86_64.debug/tests/object_metadata_reconcile_gtest
 Build/linux-x86_64.debug/tests/svcserver_gtest
+Build/linux-x86_64.debug/tests/svcserver_multiplex_gtest --fds.feature_toggle.common.enable_multiplexed_services=true
 Build/linux-x86_64.debug/tests/svcmgr_gtest --fds-root=./config
 Build/linux-x86_64.debug/tests/svcrequestmgr_gtest --fds-root=./config
 Build/linux-x86_64.debug/tests/bitset_gtest

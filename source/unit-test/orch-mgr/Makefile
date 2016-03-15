@@ -28,7 +28,8 @@ user_cpp          :=                   \
     configservice_t.cpp                \
     dmt_calculation_gtest.cpp          \
     VolumeGroupingOm_gtest.cpp         \
-    dlt_calculation_gtest.cpp
+    dlt_calculation_gtest.cpp          \
+    omsvchandler_t.cpp
 
 user_no_style     := $(user_cc)
 user_bin_exe      :=       \
@@ -36,12 +37,14 @@ user_bin_exe      :=       \
     configservice_gtest    \
     dmt_calc_gtest         \
     volume_group_omgtest   \
-    dlt_calc_gtest
+    dlt_calc_gtest         \
+    omsvchandler_gtest
 
 configservice_gtest := configservice_t.cpp
 place_tbl_test      := place_tbl_unit_test.cpp
 dmt_calc_gtest      := dmt_calculation_gtest.cpp
 dlt_calc_gtest      := dlt_calculation_gtest.cpp
 volume_group_omgtest := VolumeGroupingOm_gtest.cpp
+omsvchandler_gtest  := omsvchandler_t.cpp
 
 include $(test_topdir)/Makefile.om

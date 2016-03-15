@@ -70,7 +70,6 @@ struct OMSvcHandler2 : virtual public fpi::OMSvcIf, public PlatNetSvcHandler {
     	// Don't do anything here. This stub is just to keep cpp compiler happy
     }
 
-
     virtual void getSvcInfo(fpi::SvcInfo & _return,
                             boost::shared_ptr< fpi::SvcUuid>& svcUuid) override
     {
