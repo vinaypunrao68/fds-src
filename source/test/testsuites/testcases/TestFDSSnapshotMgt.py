@@ -197,6 +197,7 @@ class TestCreateVolClone(TestCase.FDSTestCase):
                                                                            timeline)
         with hide('output', 'running'):
             status = local(cmd, capture=True)
+            disconnect_fabric()
         time.sleep(3)  # let clone volume creation propogate
         cloned_volume = vol_service.find_volume_by_name(self.passedClone_name)
 
@@ -291,8 +292,8 @@ class TestTimeline(TestCase.FDSTestCase):
             self.log.info('Success: New snapshot created = {0}, vol_name = {1}, vol_id = {2}'.
                           format(ss.name, volume.name, volume.id))
         else:
-            self.log.error('Failed: No new snapshot found for {0}, id = {}. '
-                           'List of exiting snapshots'.format(volume.name, volume.id,
+            self.log.error('Failed: No new snapshot found for {0}, id = {1}. '
+                           'List of exiting snapshots: {2}'.format(volume.name, volume.id,
                                                               vol_service.list_snapshots(volume.id)))
             return False
 
@@ -307,6 +308,7 @@ def get_date_from_node(self, node_ip=None):
         with hide('output', 'running'):
             string_date = local("date +\"%Y-%m-%d %H:%M:%S\"", capture=True)
             current_time = datetime.datetime.strptime(string_date, "%Y-%m-%d %H:%M:%S")
+            disconnect_fabric()
             return current_time
     else:
         connect_fabric(self, node_ip)
@@ -326,6 +328,8 @@ def change_date(self, number_of_days, nodes=None):
         with hide('output', 'running'):
             op = local(cmd, capture=False)
         self.log.info("Changed date on local node :{0}".format(get_date_from_node(self)))
+        disconnect_fabric()
+
 
     else:
         for node in nodes:
@@ -350,6 +354,8 @@ def sync_time_with_ntp(self, nodes=None):
         with hide('output', 'running'):
             local("sudo " + cmd, capture=True)
             self.log.info("Sync time using ntp on local machine. Now date is {0}".format(get_date_from_node(self)))
+            disconnect_fabric()
+
     else:
         for node in nodes:
             connect_fabric(self, node.nd_host)
