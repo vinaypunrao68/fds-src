@@ -128,7 +128,7 @@ void TokenCompactor::enqSnapDbWork()
     snap_req.token_id = token_id;
     err = data_store->enqueueMsg(FdsSysTaskQueueId, &snap_req);
     if (!err.ok()) {
-        LOGERROR << "Failed to enqueue take index db snapshot message ;" << err;
+        LOGERROR << "Failed to enqueue snapshot request ;" << err;
         // We already created shadow file
         // TODO(anna) should we just retry here? reschedule timer?
         handleCompactionDone(err);
@@ -334,7 +334,7 @@ void TokenCompactor::objsCompactedCb(const Error& error,
                  << " tier " << (fds_uint16_t)cur_tier
                  << " disk_id " << cur_disk_id
                  << " with error " << error;
-        delete req;
+        if (req) {  delete req; }
         handleCompactionDone(error);
         return;
     }
@@ -356,6 +356,7 @@ void TokenCompactor::objsCompactedCb(const Error& error,
         return;
     }
 
+    if (req) {  delete req; }
     LOGDEBUG << "Finished compaction of " << work_objs_done << " objects"
              << ", done so far " << total_done << " out of " << total_objs
              << " (tok " << token_id << " tier " << (fds_uint16_t)cur_tier
@@ -372,10 +373,9 @@ void TokenCompactor::objsCompactedCb(const Error& error,
         }
         */
         handleTimerEvent();
-        delete req;
+    } else {
+        nextWork();
     }
-
-    nextWork();
 }
 
 Error TokenCompactor::handleCompactionDone(const Error& tc_error)

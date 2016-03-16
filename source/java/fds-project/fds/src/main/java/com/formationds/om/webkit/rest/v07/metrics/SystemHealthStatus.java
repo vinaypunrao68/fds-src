@@ -37,6 +37,8 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 
@@ -49,6 +51,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class SystemHealthStatus implements RequestHandler {
+
+    private static final Logger logger = LogManager.getLogger( SystemHealthStatus.class );
 
     private final ConfigurationApi configApi;
     private final Authorizer authorizer;
@@ -280,8 +284,10 @@ public class SystemHealthStatus implements RequestHandler {
 
         final CapacityConsumed consumed = new CapacityConsumed();
         consumed.setTotal(SingletonRepositoryManager.instance()
-                .getMetricsRepository()
-                .sumPhysicalBytes());
+                                                    .getMetricsRepository()
+                                                    .calculatePBytes() );
+
+        logger.trace( "Consumed bytes:{}", consumed.getTotal() );
 
         List<Series> series = SeriesHelper.getRollupSeries( queryResults,
                                                                   query.getRange(),

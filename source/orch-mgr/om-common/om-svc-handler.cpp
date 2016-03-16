@@ -700,8 +700,8 @@ OmSvcHandler::setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                 /* Request to unset coordinator.  We only unset if the request to unset is
                  * coming from the AM hosting the coordinator
                  */
-                if (hdr->msg_src_id != storedVolDesc->getCoordinatorId().svc_uuid) {
-                    LOGWARN << "Attempting clear coordinator from svc: " << hdr->msg_src_id
+                if (hdr->msg_src_uuid.svc_uuid != storedVolDesc->getCoordinatorId().svc_uuid) {
+                    LOGWARN << "Attempting clear coordinator from svc: " << hdr->msg_src_uuid
                         << " volid: " << volId
                         << " from AM that isn't a coordinator anymore.  Rejected";
                     hdr->msg_code = ERR_INVALID;

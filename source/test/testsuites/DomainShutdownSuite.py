@@ -77,7 +77,7 @@ def suiteConstruction(self, action="kill-uninst"):
         if fdscfg.rt_om_node.nd_cmd_line_options['reusecluster'] is not True:
             # if [kill-uninst] scenario is present then, for local env DELETE installation dir.
             # For remote env if --reusecluster is NOT passed then DELETE installation dir
-            # For remot env if --reusecluster is passed then  DON'T DELETE installation dir, just clean the nodes
+            # For remote env if --reusecluster is passed then  DON'T DELETE installation dir, just clean the nodes
             suite.addTest(testcases.TestFDSEnvMgt.TestFDSDeleteInstDir())
         # This one will take care of other product artifacts such as SHM files.
         suite.addTest(testcases.TestFDSEnvMgt.TestFDSSelectiveInstDirClean())
