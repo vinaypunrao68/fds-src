@@ -55,7 +55,7 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule, bool initAsModule,
         argv,
         initAsModule,
         "platform.conf",  // configuration file for the process
-        "fds.om",         // base path
+        "fds.om.",        // base path
         "om.log",         // default log file
         omVec,            // collection of modules
         fpi::commonConstants().OM_SERVICE_NAME);

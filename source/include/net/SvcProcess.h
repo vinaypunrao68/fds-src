@@ -56,7 +56,7 @@ struct SvcProcess : FdsProcess, SvcServerListener {
      *  Example: "platform.conf".
      *
      * @param base_path The '.' delimited path to the configuration file data
-     *  for this process. Example: "fds.om" for an OM process.
+     *  for this process. Example: "fds.om." for an OM process.
      *
      * @param def_log_file Name of the default log file for the process.
      *  Example: "om.log".
@@ -87,7 +87,7 @@ struct SvcProcess : FdsProcess, SvcServerListener {
      *  Example: "platform.conf".
      *
      * @param base_path The '.' delimited path to the configuration file data
-     *  for this process. Example: "fds.om" for an OM process.
+     *  for this process. Example: "fds.om." for an OM process.
      *
      * @param def_log_file Name of the default log file for the process.
      *  Example: "om.log".

@@ -303,7 +303,7 @@ int main(int argc, char** argv) {
 
     // Overrides libConfig data with command line key/value pairs
     // Initializes globals, including the global FDS process pointer
-    fds::FakeOMProcess fakeProcess(argc, argv, "platform.conf", "fds.om", NULL);
+    fds::FakeOMProcess fakeProcess(argc, argv, "platform.conf", "fds.om.", NULL);
 
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
