@@ -959,7 +959,7 @@ SmSuperblockMgr::reconcileSuperblock()
                 /* diskID is not unique.  Failed to add to diskBadSuperblock
                  * set, because diskID already exists.  DiskID should be unique.
                  */
-                return
+                return ERR_SM_SUPERBLOCK_NO_RECONCILE;
             }
             continue;
         }
