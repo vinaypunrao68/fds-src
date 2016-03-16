@@ -959,7 +959,7 @@ SmSuperblockMgr::reconcileSuperblock()
                 /* diskID is not unique.  Failed to add to diskBadSuperblock
                  * set, because diskID already exists.  DiskID should be unique.
                  */
-                fds_panic("Detected non-unique diskID entry");
+                return
             }
             continue;
         }
@@ -980,7 +980,7 @@ SmSuperblockMgr::reconcileSuperblock()
                  * set, because diskID already exists.  DiskID should be unique.
                  */
             if (!ret.second) {
-                fds_panic("Detected non-unique diskID entry");
+                return ERR_SM_SUPERBLOCK_NO_RECONCILE;
             }
             continue;
         }
@@ -1002,7 +1002,7 @@ SmSuperblockMgr::reconcileSuperblock()
             /* diskID is not unique.  Failed to add to diskGoodSuperblock
              * set, because diskID already exists.  DiskID should be unique.
              */
-            fds_panic("Detected non-unique diskID entry");
+            return ERR_SM_SUPERBLOCK_NO_RECONCILE;
         }
     }
 
