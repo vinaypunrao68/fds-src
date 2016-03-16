@@ -48,17 +48,48 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule, bool initAsModule,
         node_id_to_name[i] = "";
     }
 
-    // With the introduction of multiplexed services, this init<> is deprecated.
-    // When multiple Thrift processors are needed, use the init interface
-    // that takes a map of processors keyed by Thrift service name instead.
-    init<fds::OmSvcHandler<kvstore::ConfigDB>, fpi::OMSvcProcessor>(argc,
+    auto pHandler = boost::make_shared<fds::OmSvcHandler<kvstore::ConfigDB>>(this);
+    auto pProcessor = boost::make_shared<fpi::OMSvcProcessor>(pHandler);
+
+    /**
+     * Note on Thrift service compatibility:
+     *
+     * For service that extends PlatNetSvc, add the processor twice using
+     * Thrift service name as the key and again using 'PlatNetSvc' as the
+     * key. Only ONE major API version is supported for PlatNetSvc.
+     *
+     * All other services:
+     * Add Thrift service name and a processor for each major API version
+     * supported.
+     */
+    TProcessorMap processors;
+
+    /**
+     * When using a multiplexed server, handles requests from OMSvcClient.
+     */
+    processors.insert(std::make_pair<std::string,
+        boost::shared_ptr<apache::thrift::TProcessor>>(
+            fpi::commonConstants().OM_SERVICE_NAME, pProcessor));
+
+    /**
+     * It is common for SvcLayer to route asynchronous requests using an
+     * instance of PlatNetSvcClient. When using a multiplexed server, the
+     * processor map must have a key for PlatNetSvc.
+     */
+    processors.insert(std::make_pair<std::string,
+        boost::shared_ptr<apache::thrift::TProcessor>>(
+            fpi::commonConstants().PLATNET_SERVICE_NAME, pProcessor));
+
+    // Init service process
+    init(argc,
         argv,
         initAsModule,
         "platform.conf",  // configuration file for the process
         "fds.om.",        // base path
         "om.log",         // default log file
         omVec,            // collection of modules
-        fpi::commonConstants().OM_SERVICE_NAME);
+        pHandler,         // async request handler
+        processors);      // processors
 
     enableTimeline = get_fds_config()->get<bool>(
             "fds.feature_toggle.common.enable_timeline", true);

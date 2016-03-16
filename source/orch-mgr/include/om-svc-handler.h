@@ -109,12 +109,9 @@ namespace fds {
                                      boost::shared_ptr<fpi::SetVolumeGroupCoordinatorMsg> &msg);
 
       DECL_ASYNC_HANDLER(genericCommand         , GenericCommandMsg);
-//      template <typename T, typename Cb>
-//      std::unique_ptr<TrackerBase<NodeUuid>>
-//      create_tracker(Cb&& cb, std::string event, fds_uint32_t d_w = 0, fds_uint32_t d_t = 0);
 
     protected:
-//      OM_NodeDomainMod         *om_mod;
+
       EventTracker<NodeUuid, Error, UuidHash, ErrorHash> event_tracker;
 
       std::pair<int64_t, int32_t> lastHeardResp;
