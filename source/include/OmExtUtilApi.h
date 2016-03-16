@@ -50,7 +50,13 @@ namespace fds
          * the OM as well as other components such as svcMgr
          */
         bool         isIncomingUpdateValid(fpi::SvcInfo& incomingSvcInfo, fpi::SvcInfo currentInfo);
-        bool         isTransitionAllowed(fpi::ServiceStatus incoming, fpi::ServiceStatus current);
+        bool         isTransitionAllowed(fpi::ServiceStatus incoming,
+                                         fpi::ServiceStatus current,
+                                         bool sameIncNo,
+                                         bool greaterIncNo,
+                                         bool zeroIncNo);
+
+        std::vector<std::vector<fpi::ServiceStatus>> getAllowedTransitions();
 
         static std::string  printSvcStatus(fpi::ServiceStatus svcStatus);
     private:
@@ -71,50 +77,48 @@ namespace fds
         fds_uint64_t        dltTargetVersionForAbort;
         fds_uint64_t        dmtTargetVersionForAbort;
 
-
         //+--------------------------+---------------------------------------+
-        //|     Incoming State       |    Transition allowed on States       |
+        //|     Current State        |    Valid IncomingState                |
         //+--------------------------+---------------------------------------+
-        //    (0)  INVALID           |  Any
-        //    (1)  ACTIVE            |  STARTED, DISCOVERED, INACTIVE_FAILED,
-        //                           |  INACTIVE_STOPPED
-        //    (2)  INACTIVE_STOPPED  |  STOPPED
-        //    (3)  DISCOVERED        |  REMOVED, (svc not present before)
-        //    (4)  STANDBY           |  ACTIVE (applicable only for PM)
-        //    (5)  ADDED             |  svc not present before
-        //    (6)  STARTED           |  ADDED, STOPPED, INACTIVE_STOPPED
-        //    (7)  STOPPED           |  ACTIVE, STARTED, INACTIVE_FAILED
-        //    (8)  REMOVED           |  STANDBY( applicable only for PM),
-        //                           |  INACTIVE_STOPPED, STOPPED
-        //    (9)  INACTIVE_FAILED   |  ACTIVE, STARTED
+        //      ACTIVE               |  STANDBY, STOPPED, INACTIVE_FAILED
+        //      INACTIVE_STOPPED     |  ACTIVE, STARTED, REMOVED
+        //      DISCOVERED           |  ACTIVE
+        //      STANDBY              |  REMOVED, ACTIVE
+        //      ADDED                |  STARTED, REMOVED
+        //      STARTED              |  ACTIVE, STOPPED, INACTIVE_FAILED
+        //      STOPPED              |  INACTIVE_STOPPED, STARTED, REMOVED
+        //      REMOVED              |  DISCOVERED
+        //      INACTIVE_FAILED      |  ACTIVE, STOPPED
         //+--------------------------+---------------------------------------+
-
 
         std::vector<std::vector<fpi::ServiceStatus>> allowedStateTransitions =
         {
-                // valid current states for incoming: INVALID(0)
-                { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_INACTIVE_STOPPED, fpi::SVC_STATUS_DISCOVERED,
-                  fpi::SVC_STATUS_STANDBY, fpi::SVC_STATUS_ADDED, fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_STOPPED,
+                // valid incoming for state: INVALID(0)
+                { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_INACTIVE_STOPPED,
+                  fpi::SVC_STATUS_DISCOVERED, fpi::SVC_STATUS_STANDBY, fpi::SVC_STATUS_ADDED,
+                  fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_STOPPED,
                   fpi::SVC_STATUS_REMOVED, fpi::SVC_STATUS_INACTIVE_FAILED },
-                // valid current states for incoming: ACTIVE(1)
-                { fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_DISCOVERED, fpi::SVC_STATUS_INACTIVE_FAILED,
-                  fpi::SVC_STATUS_INACTIVE_STOPPED },
-                // valid current states for incoming: INACTIVE_STOPPED(2)
-                { fpi::SVC_STATUS_STOPPED },
-                // valid current states for incoming: DISCOVERED(3)
-                { fpi::SVC_STATUS_REMOVED },
-                // valid current states for incoming: STANDBY(4)
+                // valid incoming for state: ACTIVE (1)
+                { fpi::SVC_STATUS_STANDBY, fpi::SVC_STATUS_STOPPED,
+                  fpi::SVC_STATUS_INACTIVE_FAILED },
+                // valid incoming for state: INACTIVE_STOPPED(2)
+                { fpi::SVC_STATUS_ACTIVE,fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_REMOVED },
+                // valid incoming for state: DISCOVERED(3)
                 { fpi::SVC_STATUS_ACTIVE },
-                // valid current states for incoming: ADDED(5) , empty since svc is not going to be present
-                {},
-                // valid current states for incoming: STARTED(6)
-                { fpi::SVC_STATUS_ADDED, fpi::SVC_STATUS_STOPPED, fpi::SVC_STATUS_INACTIVE_STOPPED },
-                // valid current states for incoming: STOPPED(7)
-                { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_INACTIVE_FAILED },
-                // valid current states for incoming: REMOVED(8)
-                { fpi::SVC_STATUS_STANDBY, fpi::SVC_STATUS_INACTIVE_STOPPED, fpi::SVC_STATUS_STOPPED },
-                // valid current states for incoming: INACTIVE_FAILED(9)
-                { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_STARTED }
+                // valid incoming for state: STANDBY(4)
+                { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_REMOVED },
+                // valid incoming for state: ADDED(5)
+                { fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_REMOVED },
+                // valid incoming for state: STARTED(6)
+                { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_STOPPED,
+                  fpi::SVC_STATUS_INACTIVE_FAILED },
+                // valid incoming for state: STOPPED(7)
+                { fpi::SVC_STATUS_INACTIVE_STOPPED,fpi::SVC_STATUS_STARTED,
+                  fpi::SVC_STATUS_REMOVED },
+                // valid incoming for state: REMOVED(8)
+                { fpi::SVC_STATUS_DISCOVERED },
+                // valid incoming for state: INACTIVE_FAILED(9)
+                { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_STOPPED }
         };
     };
 

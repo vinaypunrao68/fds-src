@@ -208,23 +208,51 @@ std::string OmExtUtilApi::printSvcStatus( fpi::ServiceStatus svcStatus )
  * DISCOVERED so this check will pass
  */
 bool OmExtUtilApi::isTransitionAllowed( fpi::ServiceStatus incoming,
-                                         fpi::ServiceStatus current )
+                                         fpi::ServiceStatus current,
+                                         bool sameIncNo,
+                                         bool greaterIncNo,
+                                         bool zeroIncNo  )
 {
 
     // The only situation when this would be, if incarnationNo is newer
     // or was 0 (and now updated), in which case we want to allow
     // the update so that the incarnationNo gets updated
-    if (incoming == current)
-        return true;
+    if ( incoming == current )
+    {
+        if ( zeroIncNo || greaterIncNo ) {
+            return true;
+        } else {
+            LOGWARN << "Current state:"
+                    << OmExtUtilApi::getInstance()->printSvcStatus(current)
+                    << " is the same as incoming, same incarnation, nothing to do";
+            return false;
+        }
+    }
+
+    // special case: INACTIVE_FAILED -> ACTIVE should be allowed ONLY if the
+    // incarnation # is newer
+    if ( incoming == fpi::SVC_STATUS_ACTIVE && current == fpi::SVC_STATUS_INACTIVE_FAILED)
+    {
+        if (greaterIncNo) {
+            return true;
+        } else {
+            LOGWARN << "Will not allow transition from state:"
+                    << OmExtUtilApi::getInstance()->printSvcStatus(current)
+                    << " to state:" << OmExtUtilApi::getInstance()->printSvcStatus(incoming)
+                    << " for the same incarnation number!!";
+            return false;
+        }
+    }
+
 
     bool allowed = false;
-    std::vector<fpi::ServiceStatus> allowedForThisIncoming = allowedStateTransitions[incoming];
+    std::vector<fpi::ServiceStatus> allowedStates = allowedStateTransitions[current];
 
     // If the current state is one of the states allowed for a transition
     // to the incoming state, then return true, otherwise return false
-    for (auto s : allowedForThisIncoming)
+    for (auto s : allowedStates)
     {
-        if ( s == current)
+        if ( s == incoming)
         {
             allowed = true;
             break;
@@ -233,7 +261,8 @@ bool OmExtUtilApi::isTransitionAllowed( fpi::ServiceStatus incoming,
 
     if ( !allowed )
     {
-        LOGWARN << "Will not allow transition from state:" << OmExtUtilApi::getInstance()->printSvcStatus(current)
+        LOGWARN << "Will not allow transition from state:"
+                << OmExtUtilApi::getInstance()->printSvcStatus(current)
                 << " to state:" << OmExtUtilApi::getInstance()->printSvcStatus(incoming) << " !!";
     }
 
@@ -249,7 +278,10 @@ bool OmExtUtilApi::isTransitionAllowed( fpi::ServiceStatus incoming,
 bool OmExtUtilApi::isIncomingUpdateValid( fpi::SvcInfo& incomingSvcInfo,
                                           fpi::SvcInfo currentInfo )
 {
-    bool ret = false;
+    bool ret          = false;
+    bool sameIncNo    = false;
+    bool greaterIncNo = false;
+    bool zeroIncNo    = false;
 
     LOGNOTIFY << "Uuid:" << std::hex << currentInfo.svc_id.svc_uuid.svc_uuid << std::dec
               << " Incoming [incarnationNo:" << incomingSvcInfo.incarnationNo
@@ -267,31 +299,46 @@ bool OmExtUtilApi::isIncomingUpdateValid( fpi::SvcInfo& incomingSvcInfo,
     } else if ( incomingSvcInfo.incarnationNo == currentInfo.incarnationNo &&
                 incomingSvcInfo.svc_status != currentInfo.svc_status ) {
         LOGNOTIFY << "Same incarnation number, different status proceeding with update";
-        ret = true;
+
+        sameIncNo = true;
+        ret       = true;
 
     } else if (incomingSvcInfo.incarnationNo > currentInfo.incarnationNo) {
         LOGNOTIFY << "Incoming update has newer incarnationNo";
-        ret = true;
+
+        greaterIncNo = true;
+        ret          = true;
 
     } else if (incomingSvcInfo.incarnationNo == 0) {
 
         LOGWARN << "Zero incarnation number, allow the update nevertheless";
+
         incomingSvcInfo.incarnationNo = util::getTimeStampSeconds();
-        ret = true;
+        zeroIncNo =
+        ret       = true;
     }
 
     if (ret)
     {
         // If all the incarnation number checks pass, but the allowed state transition
         // does not pass, set the return back to false
-        if ( !isTransitionAllowed(incomingSvcInfo.svc_status, currentInfo.svc_status) )
+        if ( !isTransitionAllowed(incomingSvcInfo.svc_status, currentInfo.svc_status, sameIncNo,
+                                  greaterIncNo, zeroIncNo) )
         {
             ret = false;
         }
     }
 
-    LOGNOTIFY << "isIncomingUpdateValid ? " << ret;
+    LOGNOTIFY << "isIncomingUpdateValid? " << ret
+              << " sameIncarnationNo? " << sameIncNo
+              << " greaterIncomingIncNo? " << greaterIncNo
+              << " zeroIncarnationNo? " << zeroIncNo;
     return ret;
+}
+
+std::vector<std::vector<fpi::ServiceStatus>> OmExtUtilApi::getAllowedTransitions()
+{
+    return allowedStateTransitions;
 }
 
 } // namespace fds
