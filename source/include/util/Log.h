@@ -39,13 +39,12 @@
 #define FDS_PLOG(lg_ptr) BOOST_LOG_SEV(lg_ptr->get_slog(), fds::fds_log::debug)
 
 //If the build is a debug build we want source location exposed
+/*(fds::set_get_attrib("Location", (__LOC__), (__func__)))\*/
 #ifndef DONTLOGLINE
 #define FDS_PLOG_SEV(lg_ptr, sev) BOOST_LOG_STREAM_WITH_PARAMS((lg_ptr->get_slog()), \
-                                                               (fds::set_get_attrib("Location", (__LOC__), (__func__)))\
                                                                (boost::log::keywords::severity = (sev)) \
                                                               )
 #define FDS_LOG_SEV(lg_ptr, sev) BOOST_LOG_STREAM_WITH_PARAMS((lg_ptr.get_slog()), \
-                                                               (fds::set_get_attrib("Location", (__LOC__), (__func__)))\
                                                                (boost::log::keywords::severity = (sev)) \
                                                               )
 //Otherwise - do not waste cycles setting attribute "Location"
