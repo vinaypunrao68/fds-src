@@ -62,9 +62,15 @@ __TRACER__::~__TRACER__() {
 std::string set_get_attrib(const char* name, std::string value, const char * function_name) {
     value.append(function_name);
     value.append("] - ");
-    auto attr = boost::log::attribute_cast<string_attr>(boost::log::core::get()->get_global_attributes()[name]);
-    attr.set(value);
-    return attr.get();
+    auto attr = boost::log::attribute_cast<boost::log::attributes::mutable_constant<std::string>>(boost::log::core::get()->get_thread_attributes()[name]);
+    if (attr) {
+        attr.set(value);
+        return attr.get();
+    } else {
+        boost::log::core::get()->add_thread_attribute("Location",
+                                                      boost::log::attributes::mutable_constant<std::string>(value));
+    }
+    return value;
 }
 
 BOOST_LOG_ATTRIBUTE_KEYWORD(process_name, "ProcessName", std::string)
@@ -206,8 +212,6 @@ void fds_log::init(const std::string& logfile,
                                                   boost::log::attributes::current_thread_id());
     boost::log::core::get()->add_global_attribute("Context",
                                                   boost::log::attributes::named_scope());
-    boost::log::core::get()->add_global_attribute("Location",
-                                                  string_attr(" - "));
 
     /*
      * Set the format

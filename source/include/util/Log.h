@@ -39,12 +39,13 @@
 #define FDS_PLOG(lg_ptr) BOOST_LOG_SEV(lg_ptr->get_slog(), fds::fds_log::debug)
 
 //If the build is a debug build we want source location exposed
-/*(fds::set_get_attrib("Location", (__LOC__), (__func__)))\*/
 #ifndef DONTLOGLINE
 #define FDS_PLOG_SEV(lg_ptr, sev) BOOST_LOG_STREAM_WITH_PARAMS((lg_ptr->get_slog()), \
+                                                               (fds::set_get_attrib("Location", (__LOC__), (__func__)))\
                                                                (boost::log::keywords::severity = (sev)) \
                                                               )
 #define FDS_LOG_SEV(lg_ptr, sev) BOOST_LOG_STREAM_WITH_PARAMS((lg_ptr.get_slog()), \
+                                                               (fds::set_get_attrib("Location", (__LOC__), (__func__)))\
                                                                (boost::log::keywords::severity = (sev)) \
                                                               )
 //Otherwise - do not waste cycles setting attribute "Location"
@@ -109,13 +110,6 @@ struct __TRACER__ {
     const std::string filename;
     int lineno;
 };
-
-typedef boost::log::attributes::mutable_constant<
-    std::string,                                        // attribute value type
-    boost::shared_mutex,                        // synchronization primitive
-    boost::unique_lock< boost::shared_mutex >,  // exclusive lock type
-    boost::shared_lock< boost::shared_mutex >   // shared lock type
-> string_attr;
 
 std::string cleanNameFromPrettyFunc(const std::string& prettyFunction, bool fClassOnly = false);
 class fds_log {
