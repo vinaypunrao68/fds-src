@@ -14,6 +14,7 @@
 
 #include "connector/xdi/AmAsyncService.h"
 #include "connector/xdi/AmAsyncXdi.h"
+#include "connector/xdi/XdiRestfulInterface.h"
 
 namespace fds {
 
@@ -73,6 +74,8 @@ AsyncDataServer::AsyncDataServer(std::weak_ptr<AmProcessor> processor,
     // Setup API processor
     processorFactory.reset(new apis::AsyncXdiServiceRequestProcessorFactory(
             boost::make_shared<AsyncAmServiceRequestIfCloneFactory>(processor) ));
+
+    auto x = XdiRestfulInterface("host", 10700);
 }
 
 /**

@@ -187,6 +187,7 @@
         - libgoogle-perftools-dev
         - libconfig++-dev
         - libcurl4-openssl-dev
+        - libcpr-1.2.0
         - npm
         - nodejs-legacy
         - open-iscsi
