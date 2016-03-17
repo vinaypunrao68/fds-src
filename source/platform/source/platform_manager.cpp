@@ -952,7 +952,7 @@ namespace fds
                 } break;
                 default:
                 {
-                    LOGWARN << "Received an unexpected service type of " << svc_type;
+                    LOGERROR << "Received an unexpected service type of " << svc_type;
                 } break;
             }
             return state;
@@ -980,7 +980,7 @@ namespace fds
 
                 default:
                 {
-                    LOGWARN << "Received an unexpected service type of " << svc_type;
+                    LOGERROR << "Received an unexpected service type of " << svc_type;
                 } break;
             }
         }
@@ -1008,7 +1008,7 @@ namespace fds
 
                 default:
                 {
-                    LOGWARN << "Received an unexpected service type of " << svc_type;
+                    LOGERROR << "Received an unexpected service type of " << svc_type;
                 } break;
             }
         }
@@ -1036,7 +1036,7 @@ namespace fds
 
                 default:
                 {
-                    LOGWARN << "Received an unexpected service type of " << svc_type;
+                    LOGERROR << "Received an unexpected service type of " << svc_type;
                 } break;
             }
         }
