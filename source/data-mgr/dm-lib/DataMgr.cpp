@@ -257,9 +257,9 @@ void DataMgr::sampleDMStatsForVol(fds_volid_t volume_id,
         return;
     }
 
-    //err = timeVolCat_->queryIface()->statVolumePhysical(volume_id,
-    //                                                    &total_pbytes,
-    //                                                    &total_pobjects);
+    err = timeVolCat_->queryIface()->statVolumePhysical(volume_id,
+                                                        &total_pbytes,
+                                                        &total_pobjects);
     if (!err.ok()) {
         if (err.GetErrno() != ERR_VOL_NOT_FOUND) {
             LOGERROR << "Failed to get physical usage for vol " << volume_id << " " << err;

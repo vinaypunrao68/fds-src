@@ -218,6 +218,13 @@ void StatsCollector::recordEvent(fds_volid_t volume_id,
                                  fds_uint64_t timestamp,
                                  FdsVolStatType event_type,
                                  fds_uint64_t value) {
+    /**
+     * For disabled Volume stats, just exit.
+     */
+    if (g_stat_constants->disabledVolStats.find(event_type) != g_stat_constants->disabledVolStats.end()) {
+        return;
+    }
+
     switch (event_type) {
         case STAT_AM_PUT_OBJ:       // end-to-end put in AM in usec
         case STAT_AM_GET_OBJ:       // end-to-end get in AM in usec

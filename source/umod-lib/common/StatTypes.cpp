@@ -47,6 +47,14 @@ StatConstants::StatConstants() {
     fds_assert(FdsStatFGStreamPeriodFactorSec % FdsStatPushAndAggregatePeriodSec == 0);
 
     FdsStatRunForever = FDS_ProtocolInterface::g_common_constants.STAT_STREAM_RUN_FOR_EVER_DURATION;  // The duration setting for a stats stream that is to run indefinitely.
+
+    /**
+     * Disabled Volume stats.
+     */
+    disabledVolStats.insert(FdsVolStatType::STAT_DM_BYTES_ADDED);
+    disabledVolStats.insert(FdsVolStatType::STAT_DM_BYTES_REMOVED);
+    disabledVolStats.insert(FdsVolStatType::STAT_DM_CUR_PBYTES);
+    disabledVolStats.insert(FdsVolStatType::STAT_DM_CUR_POBJECTS);
 }
 
 const StatConstants* StatConstants::singleton() {
