@@ -34,7 +34,6 @@ class Helper:
             return num
 
         if type(num) == types.StringType:
-            num=num.strip()
             if num.isdigit(): return int(num)
             m = re.search(r'[A-Za-z]', num)
             if m.start() <=0:
@@ -45,12 +44,12 @@ class Helper:
             if c == 'K': return n*1024;
             if c == 'M': return n*1024*1024;
             if c == 'G': return n*1024*1024*1024;
-            return n
 
     @staticmethod
     def boolean(value):
-        value = str(value).lower().strip()
-        return value in ['true', '1', 'yes', 'ok', 'set','on']
+        if type(value) == types.StringType:
+            value = value.lower()
+        return value in ['true', '1', 'yes', 1, 'ok', 'set', True]
 
     @staticmethod
     def genData(length=10, seed=None):
@@ -729,7 +728,7 @@ class TestS3VerifyMBLOB(TestCase.FDSTestCase):
 #                  value "RESOURCES/<inputfile.name>".
 # @param key If provided this will be the object key of the loaded Blob. Otherwise a default is used.
 class TestS3LoadLBLOB(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, bucket=None, verify="true", inputfile=None, key=None, multipart=True, chunk_size='50M'):
+    def __init__(self, parameters=None, bucket=None, verify="true", inputfile=None, key=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_S3LoadLBLOB,
@@ -744,8 +743,6 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
 
         self.passedInputFile = inputfile
         self.passedKey = key
-        self.multipart = Helper.boolean(multipart)
-        self.chunk_size = Helper.tobytes(chunk_size)
 
     def test_S3LoadLBLOB(self):
         """
@@ -780,46 +777,37 @@ class TestS3LoadLBLOB(TestCase.FDSTestCase):
         lkey = "large"
         if self.passedKey is not None:
             lkey = self.passedKey
-            
+
+        s3.keys.append(lkey)
+        mp = s3.bucket1.initiate_multipart_upload(lkey)
+
+        # Use a chunk size of 50 MiB (feel free to change this)
+        chunk_size = 52428800
+        chunk_count = int(math.ceil(float(source_size) / chunk_size))
         md5sum = str(hashlib.md5(open(source_path, 'rb').read()).hexdigest())
-        final_etag = None
-        if not self.multipart:
-            # dont use multipart
-            self.log.info("Loading %s of size %d bytes [md5: %s] with key %s WITHOUT multipart" % (source_path, source_size, md5sum, lkey))
-            key=Key(s3.bucket1,lkey)
-            key.set_contents_from_filename(source_path)
-            final_etag=key.etag
-        else:
-            # use multi part
-            s3.keys.append(lkey)
-            mp = s3.bucket1.initiate_multipart_upload(lkey)
 
-            chunk_count = int(math.ceil(float(source_size) / self.chunk_size))            
+        self.log.info("Loading %s of size %d bytes [md5: %s] with key %s using %d chunks of max size %d with "
+                      "Boto's 'multi-part' upload interface." %
+                      (source_path, source_size, md5sum, lkey, chunk_count, chunk_size))
 
-            self.log.info("Loading %s of size %d bytes [md5: %s] with key %s using %d chunks of max size %d with "
-                          "Boto's 'multi-part' upload interface." %
-                          (source_path, source_size, md5sum, lkey, chunk_count, self.chunk_size))
+        # Send the file parts, using FileChunkIO to create a file-like object
+        # that points to a certain byte range within the original file. We
+        # set bytes to never exceed the original file size.
+        for i in range(chunk_count):
+            self.log.info("Sending chunk %d." % (i + 1))
+            offset = chunk_size * i
+            bytes = min(chunk_size, source_size - offset)
+            with FileChunkIO(source_path, 'r', offset=offset,
+                     bytes=bytes) as fp:
+                mp.upload_part_from_file(fp, part_num=i + 1)
 
-            # Send the file parts, using FileChunkIO to create a file-like object
-            # that points to a certain byte range within the original file. We
-            # set bytes to never exceed the original file size.
-            for i in range(chunk_count):
-                self.log.info("Sending chunk %d." % (i + 1))
-                offset = self.chunk_size * i
-                bytes = min(self.chunk_size, source_size - offset)
-                with FileChunkIO(source_path, 'r', offset=offset,
-                         bytes=bytes) as fp:
-                    mp.upload_part_from_file(fp, part_num=i + 1)
-
-            # Finish the upload
-            completed_upload = mp.complete_upload()
-            final_etag = completed_upload.etag
-
-        if not md5sum != final_etag:
-            self.log.info("Etag does not match md5 sum of file: [ " + md5sum + " ] != [ " + final_etag + "]")
+        # Finish the upload
+        completed_upload = mp.complete_upload()
+        if not md5sum != completed_upload.etag:
+            self.log.info("Etag does not match md5 sum of file: [ " + md5sum + " ] != [ " + completed_upload.etag + "]")
             return False
         else:
-            self.log.info("Etag matched: [" + final_etag + "]")
+            self.log.info("Etag matched: [" + completed_upload.etag + "]")
 
         test_passed = True
         if self.passedVerify:

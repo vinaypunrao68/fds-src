@@ -33,7 +33,6 @@ import TestFDSVolMgt
 import TestFDSSysVerify
 import NetworkErrorInjection
 import TestFDSSnapshotMgt
-from TestS3IntFace import Helper
 
 try:
     # Removed in Python 3
@@ -1385,7 +1384,7 @@ class TestLogMarker(TestCase.FDSTestCase):
 # @param size In bytes.
 #
 class TestGenerateFile(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, filename=TestUtils.default_generated_file, size='1K', seed='seed'):
+    def __init__(self, parameters=None, filename=TestUtils.default_generated_file, size=1024, seed='seed'):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_GenerateFile,
@@ -1393,7 +1392,13 @@ class TestGenerateFile(TestCase.FDSTestCase):
 
         self.passedFileName = filename
         self.passedSeed = seed
-        self.passedSize = Helper.tobytes(size)
+
+        self.passedSize = 0
+        if size is not None:
+            if isinstance(size, int):
+                self.passedSize = size
+            else:
+                self.passedSize = int(size)
 
     def test_GenerateFile(self):
         """
