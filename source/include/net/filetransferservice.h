@@ -99,7 +99,8 @@ struct FileTransferService : HasLogger {
 
     void dump();
     void done(fds_uint64_t hashCode, const Error& error);
-
+    fds_uint32_t getChunkSize() const;
+    void setChunkSize(fds_uint32_t size);
   protected:
     std::string destDir;
     bool exists(fds_uint64_t hashCode);
@@ -111,6 +112,7 @@ struct FileTransferService : HasLogger {
     SimpleNumericCounter *inProgressSent;
     SimpleNumericCounter *avoidedTransfers;
     fds::fds_mutex       transferMutex;
+    fds_uint32_t             chunkSize = 2*MB;
 };
 std::ostream& operator <<(std::ostream& os, const FileTransferService::Handle& handle);
 std::ostream& operator <<(std::ostream& os, const FileTransferService::Handle::ptr& handle);

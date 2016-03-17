@@ -48,7 +48,7 @@ struct RemoveErroredVolume {
         auto iter = dm->vol_meta_map.find(vol_uuid);
         if (iter != dm->vol_meta_map.end() && iter->second == NULL) {
             dm->vol_meta_map.erase(iter);
-            LOGERROR << "vol:" << vol_uuid << " add volume failed";
+            LOGWARN << "vol:" << vol_uuid << " NOT added";
         } else {
             LOGNORMAL << "vol:" << vol_uuid << " added successfully";
         }
@@ -600,7 +600,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
     }
 
     /* We only add the volume if the volume is owned by this DM */
-    bool fShouldBeHere = false;
+    bool fShouldBeHere = true;
 
     if (features.isVolumegroupingEnabled()) {
         if (vdesc->isSnapshot()) {
