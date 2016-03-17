@@ -10,8 +10,6 @@ Counters::Counters(FdsCountersMgr *mgr) : FdsCounters("sm", mgr),
                                           compactorRunning("sm.scavenger.compactor.running", this),
                                           dataRemoved("sm.scavenger.data.removed.bytes", this),
                                           dmRefScanRequestSentAt("sm.refscan.request.sent.timestamp", this),
-                                          scavengerRunCount("sm.scavenger.run.count",this),
-                                          inactiveObjectCount("sm.scavenger.inactive.count",this),
                                           dataCopied("sm.scavenger.data.copied.bytes", this) {
     for (auto i = 0; i < 256 ; i++) {
         scanvengedTokens.insert(std::make_pair<fds_token_id, std::pair<SimpleNumericCounter* ,SimpleNumericCounter* > >(

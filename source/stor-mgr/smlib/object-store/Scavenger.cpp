@@ -330,8 +330,7 @@ void ScavControl::startScavengeProcess()
     }
 
     LOGNORMAL << "Scavenger cycle - Started";
-    OBJECTSTOREMGR(dataStoreReqHandler)->counters->scavengerRunCount.incr();
-    OBJECTSTOREMGR(dataStoreReqHandler)->counters->inactiveObjectCount.set(0);
+
     OBJECTSTOREMGR(dataStoreReqHandler)->counters->scavengerStartedAt.set(util::getTimeStampSeconds());
     OBJECTSTOREMGR(dataStoreReqHandler)->counters->dataCopied.set(0);
     OBJECTSTOREMGR(dataStoreReqHandler)->counters->dataRemoved.set(0);

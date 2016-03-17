@@ -18,8 +18,6 @@ struct Counters : FdsCounters {
     SimpleNumericCounter scavengerRunning;
     SimpleNumericCounter scavengerStartedAt;
     SimpleNumericCounter compactorRunning;
-    SimpleNumericCounter scavengerRunCount;
-    SimpleNumericCounter inactiveObjectCount;
     SimpleNumericCounter dataRemoved;
     SimpleNumericCounter dataCopied;
     SimpleNumericCounter dmRefScanRequestSentAt;
