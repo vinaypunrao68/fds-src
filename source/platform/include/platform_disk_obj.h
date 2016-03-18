@@ -69,6 +69,8 @@ namespace fds
 
             void dsk_set_fds_disk(bool use_new_superblock);
 
+            bool dsk_is_data_disk();
+
             /**
              * Setup the mount point where the device is mounted as the result of the discovery.
              */

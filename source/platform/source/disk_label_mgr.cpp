@@ -269,7 +269,7 @@ namespace fds
     //
     bool DiskLabelMgr::dsk_rec_label_map(PmDiskObj::pointer disk, int idx)
     {
-        if ((dl_map != NULL) && !disk->dsk_get_mount_point().empty()) // OS devices will have no mount points
+        if ((dl_map != NULL) && disk->dsk_is_data_disk())
         {
             char const *const    name = disk->rs_get_name();
 
