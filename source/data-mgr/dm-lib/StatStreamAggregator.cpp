@@ -729,7 +729,8 @@ fds_uint64_t StatHelper::getTotalWithDriftSupport(FdsVolStatType type, StatSlot 
      * since no generation of the stat will have observations.
      */
     if ((slot.getCount(type) > 0) ||
-                (g_stat_constants->disabledVolStats.find(type) != g_stat_constants->disabledVolStats.end())) {
+                (StatConstants::singleton()->disabledVolStats.find(type) !=
+                        StatConstants::singleton()->disabledVolStats.end())) {
         return slot.getTotal(type);
     } else {
         /**

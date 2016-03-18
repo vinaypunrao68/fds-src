@@ -221,7 +221,8 @@ void StatsCollector::recordEvent(fds_volid_t volume_id,
     /**
      * For disabled Volume stats, just exit.
      */
-    if (g_stat_constants->disabledVolStats.find(event_type) != g_stat_constants->disabledVolStats.end()) {
+    if (StatConstants::singleton()->disabledVolStats.find(event_type) !=
+            StatConstants::singleton()->disabledVolStats.end()) {
         return;
     }
 

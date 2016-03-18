@@ -17,7 +17,7 @@
 #include <dm-vol-cat/DmVolumeCatalog.h>
 
 #include <VolumeMeta.h>
-#include <StatTypes.h>  // For g_stat_constants.
+#include <StatTypes.h>  // For StatConstants::singleton().
 
 #define ENSURE_SEQUENCE_ADV(seq_a, seq_b, volId, blobName) \
         auto const seq_ev_a = (seq_a); auto const seq_ev_b = (seq_b); \
@@ -318,8 +318,10 @@ Error DmVolumeCatalog::statVolumePhysical(fds_volid_t volId, fds_uint64_t *pbyte
     /**
      * If both of our "physical" Volume stats are disabled, just exit.
      */
-    if ((g_stat_constants->disabledVolStats.find(FdsVolStatType::STAT_DM_CUR_PBYTES) != g_stat_constants->disabledVolStats.end()) &&
-        (g_stat_constants->disabledVolStats.find(FdsVolStatType::STAT_DM_CUR_POBJECTS) != g_stat_constants->disabledVolStats.end())) {
+    if ((StatConstants::singleton()->disabledVolStats.find(FdsVolStatType::STAT_DM_CUR_PBYTES) !=
+            StatConstants::singleton()->disabledVolStats.end()) &&
+        (StatConstants::singleton()->disabledVolStats.find(FdsVolStatType::STAT_DM_CUR_POBJECTS) !=
+            StatConstants::singleton()->disabledVolStats.end())) {
         return ERR_OK;
     }
 
