@@ -143,7 +143,7 @@ class Disk:
                 print 'WARNING: lshw units size not implemented for:  ', node_logicalname.text, ', ignoring. '
 
         if self.dsk_cap < 0:
-            print 'WARNING: Size not detected for " ', node_logicalname.text, '", will ignore this device'
+            print 'WARNING: Size not detected for " ', path, '", will ignore this device'
 
         # match type
         dev = re.split('/', path)
