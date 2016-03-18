@@ -789,7 +789,11 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
     fds_assert(objId != NullObjectID);
 
     {  // token lock
+        PerfContext objWaitCtx(PerfEventType::SM_PUT_OBJ_TASK_SYNC_WAIT, volId);
+
+        PerfTracer::tracePointBegin(objWaitCtx);
         auto token_lock = getTokenLock(objId);
+        PerfTracer::tracePointEnd(objWaitCtx);
 
         // latency of ObjectStore layer
         PerfTracer::tracePointBegin(putReq->opLatencyCtx);
@@ -964,11 +968,20 @@ ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
     // start of ObjectStore layer latency
     PerfTracer::tracePointBegin(getReq->opLatencyCtx);
 
-    boost::shared_ptr<const std::string> objData =
-            objectStore->getObject(volId,
-                                   objId,
-                                   tierUsed,
-                                   err);
+    boost::shared_ptr<const std::string> objData;
+    {  // token lock
+        PerfContext objWaitCtx(PerfEventType::SM_GET_OBJ_TASK_SYNC_WAIT, volId);
+
+        PerfTracer::tracePointBegin(objWaitCtx);
+        auto token_lock = getTokenLock(objId);
+        PerfTracer::tracePointEnd(objWaitCtx);
+
+        objData = objectStore->getObject(volId,
+                                         objId,
+                                         tierUsed,
+                                         err);
+    }
+
     if (err.ok()) {
         // TODO(Andrew): Remove this copy. The network should allocated
         // a shared ptr structure so that we can directly store that, even
@@ -1167,9 +1180,12 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
                  << objOwned;
 
         // copy this object if not garbage, otherwise rm object db entry
-        err = objectStore->copyObjectToNewLocation(obj_id, cobjs_req->tier,
-                                                   cobjs_req->verifyData,
-                                                   objOwned);
+        {  // token lock
+            auto token_lock = getTokenLock(obj_id, true);
+            err = objectStore->copyObjectToNewLocation(obj_id, cobjs_req->tier,
+                                                       cobjs_req->verifyData,
+                                                       objOwned);
+        }
         if (!err.ok()) {
             LOGERROR << "Failed to compact object " << obj_id
                      << ", error " << err;
@@ -1211,8 +1227,10 @@ ObjectStorMgr::applyRebalanceDeltaSet(SmIoReq* ioReq)
 
         LOGMIGRATE << "Applying DeltaSet element: " << objId;
 
-        err = objectStore->applyObjectMetadataData(objId, objDataMeta);
-
+        {  // token lock
+            auto token_lock = getTokenLock(objId, true);
+            err = objectStore->applyObjectMetadataData(objId, objDataMeta);
+        }
         if (!err.ok()) {
             // we will stop applying object metadata/data and report error to migr mgr
             LOGERROR << "Failed to apply object metadata/data " << objId
@@ -1436,8 +1454,11 @@ ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq)
     moveReq->movedCnt = 0;
     for (fds_uint32_t i = 0; i < (moveReq->oidList).size(); ++i) {
         const ObjectID& objId = (moveReq->oidList)[i];
-        err = objectStore->moveObjectToTier(objId, moveReq->fromTier,
-                                            moveReq->toTier, moveReq->relocate);
+        {  // token lock
+            auto token_lock = getTokenLock(objId, true);
+            err = objectStore->moveObjectToTier(objId, moveReq->fromTier,
+                                                moveReq->toTier, moveReq->relocate);
+        }
         if (!err.ok()) {
             if (err != ERR_SM_ZERO_REFCNT_OBJECT &&
                 err != ERR_SM_TIER_HYBRIDMOVE_ON_FLASH_VOLUME &&

@@ -540,12 +540,6 @@ ObjectStore::putObject(fds_volid_t volId,
 
     fiu_return_on("sm.objectstore.faults.putObject", ERR_DISK_WRITE_FAILED);
 
-    PerfContext objWaitCtx(PerfEventType::SM_PUT_OBJ_TASK_SYNC_WAIT, volId);
-
-    PerfTracer::tracePointBegin(objWaitCtx);
-    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
-    PerfTracer::tracePointEnd(objWaitCtx);
-
     useTier = diskio::maxTier;
     LOGTRACE << "Putting object " << objId << " volume " << std::hex << volId
              << std::dec;
@@ -661,6 +655,8 @@ ObjectStore::putObject(fds_volid_t volId,
                                 vols_refcnt);
     }
 
+    StorMgrVolume *vol = volumeTbl->getVolume(volId);
+
     // Put data in store if it's not a duplicate.
     // Or TokenMigration + Active IO handle:  if the ObjData doesn't physically exist, still write out
     // the obj data.
@@ -673,7 +669,6 @@ ObjectStore::putObject(fds_volid_t volId,
         ((err == ERR_DUPLICATE) && !objMeta->dataPhysicallyExists())) {
         // object not duplicate
         // select tier to put object
-        StorMgrVolume *vol = volumeTbl->getVolume(volId);
 
         // Depending on when the IO is available on this SM and when the volume
         // information is propoated when the cluster restarts or SM service
@@ -725,17 +720,19 @@ ObjectStore::putObject(fds_volid_t volId,
         // Now track capacity change
         capacityMap[diskId].usedCapacity += objData->size();
 
-        // Notify tier engine of recent IO
-        tierEngine->notifyIO(objId, FDS_SM_PUT_OBJECT, *vol->voldesc, useTier);
-
         // update physical location that we got from data store
         updatedMeta->updatePhysLocation(&objPhyLoc);
     }
 
+    auto writtenToTier = useTier;
     updatedMeta->updateTimestamp();
     updatedMeta->resetDeleteCount();
     // write metadata to metadata store
     err = metaStore->putObjectMetadata(volId, objId, updatedMeta, &useTier);
+
+    // Notify tier engine of recent IO
+    tierEngine->notifyIO(objId, FDS_SM_PUT_OBJECT, *vol->voldesc, writtenToTier);
+
     useTier = metaStore->getMetadataTier();
     return err;
 }
@@ -749,11 +746,6 @@ ObjectStore::getObject(fds_volid_t volId,
     if (!err.ok() && err != ERR_SM_READ_ONLY) {
         return nullptr;
     }
-
-    PerfContext objWaitCtx(PerfEventType::SM_GET_OBJ_TASK_SYNC_WAIT, volId);
-    PerfTracer::tracePointBegin(objWaitCtx);
-    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
-    PerfTracer::tracePointEnd(objWaitCtx);
 
     // INTERACTION WITH MIGRATION and ACTIVE IO (second phase of SM token migration)
     //
@@ -1026,7 +1018,6 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
                               diskio::DataTier toTier,
                               fds_bool_t relocateFlag) {
     Error err(ERR_OK);
-    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
 
     LOGDEBUG << "Moving object " << objId << " from tier " << fromTier
              << " to tier " << toTier << " relocate?" << relocateFlag;
@@ -1155,7 +1146,6 @@ ObjectStore::copyAssociation(fds_volid_t srcVolId,
 
     PerfContext objWaitCtx(PerfEventType::SM_ADD_OBJ_REF_TASK_SYNC_WAIT, destVolId);
     PerfTracer::tracePointBegin(objWaitCtx);
-    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     PerfTracer::tracePointEnd(objWaitCtx);
 
     // New object metadata to update association
@@ -1252,7 +1242,6 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
                                      diskio::DataTier tier,
                                      fds_bool_t verifyData,
                                      fds_bool_t objOwned) {
-    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     Error err(ERR_OK);
 
     // since object can be associated with multiple volumes, we just
@@ -1356,7 +1345,6 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
 
     // we do not expect to receive rebal message for same object id concurrently
     // but we may do GC later while migrating, etc, so locking anyway
-    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
 
     bool isDataPhysicallyExist = false;
     bool metadataAlreadyReconciled = false;
