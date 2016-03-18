@@ -1978,14 +1978,18 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                 Error err(ERR_OK);
                 ObjMetaData::const_ptr objMeta =
                         metaStore->getObjectMetadata(invalid_vol_id, oid, err);
+
+
+                // Verify the data phsyically exists on this tier
+                ObjPhyLoc checker {};  // This would be a default physical location
+                bool phys_exist_on_tier = !memcmp(&checker, objMeta->getObjPhyLoc(tier), sizeof(ObjPhyLoc));
+
                 /**
                  * TODO(Gurpreet) Error propogation from here to TC.
                  * And in case of error here, TC should fail compaction for this
                  * token.
                  */
-                // Exit if metadata ptr is nullptr, we receive an error, or the physical location of the data
-                // does not match the tier that we're currently compacting on
-                if (!objMeta || !err.ok() || !objMeta->getObjPhyLoc(tier)) {
+                if (!objMeta || !err.ok() || phys_exist_on_tier) {
                     return;
                 }
 
