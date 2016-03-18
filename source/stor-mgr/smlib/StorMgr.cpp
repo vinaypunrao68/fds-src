@@ -1455,7 +1455,7 @@ ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq)
     for (fds_uint32_t i = 0; i < (moveReq->oidList).size(); ++i) {
         const ObjectID& objId = (moveReq->oidList)[i];
         {  // token lock
-            auto token_lock = getTokenLock(objId, true);
+            auto token_lock = getTokenLock(objId);
             err = objectStore->moveObjectToTier(objId, moveReq->fromTier,
                                                 moveReq->toTier, moveReq->relocate);
         }
