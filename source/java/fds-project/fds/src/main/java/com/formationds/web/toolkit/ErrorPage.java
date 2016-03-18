@@ -32,6 +32,7 @@ public class ErrorPage implements Resource {
     public void render(OutputStream outputStream) throws IOException {
         PrintWriter writer = new PrintWriter(new OutputStreamWriter(outputStream));
         writer.println("Internal server error - 503");
+        writer.println(throwable.getClass().getName());
         writer.println(message);
         throwable.printStackTrace(writer);
         writer.flush();

@@ -227,8 +227,14 @@ public class Main {
                 httpConfiguration,
                 s3MaxConcurrentRequests).start(), "S3 service thread").start();
 
-        // Experimental: XDI server
-//        SvcState svc = new SvcState(HostAndPort.fromParts("*", amResponsePort + 1), HostAndPort.fromParts(omHost, 7004), UUID.randomUUID().getLeastSignificantBits());
+
+        // Default NFS port is 2049, or 7000 - 4951
+        new NfsServer().start(xdiStaticConfig, configCache, asyncAm, pmPort - 4951);
+        startStreamingServer(pmPort + streamingPortOffset, configCache);
+
+//        // Experimental: XDI server
+//        int javaSvcResponsePort = new ServerPortFinder().findPort("javaSvcResponsePort", amResponsePort + 10);
+//        SvcState svc = new SvcState(HostAndPort.fromParts("*", javaSvcResponsePort), HostAndPort.fromParts(omHost, 7004), UUID.randomUUID().getLeastSignificantBits());
 //        svc.openAndRegister();
 //        SvcAsyncAm svcLayer = new SvcAsyncAm(svc);
 //        IoOps ioOps = new DeferredIoOps(new AmOps(svcLayer), v -> {
@@ -248,9 +254,6 @@ public class Main {
 //        TransportServer xdiDataServer = createXdiDataServer(connector, Executors.newFixedThreadPool(16));
 //        monitorNamedPipePath(xdiDataServer, Paths.get("/tmp/xdi/data"));
 
-        // Default NFS port is 2049, or 7000 - 4951
-        new NfsServer().start(xdiStaticConfig, configCache, asyncAm, pmPort - 4951);
-        startStreamingServer(pmPort + streamingPortOffset, configCache);
         int swiftPort = platformConfig.defaultInt("fds.am.swift_port_offset", 2999);
         swiftPort += pmPort;  // remains 9999 for default platform port
         new SwiftEndpoint(xdi, secretKey).start(swiftPort);
