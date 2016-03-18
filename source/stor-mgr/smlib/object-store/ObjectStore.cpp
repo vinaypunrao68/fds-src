@@ -654,7 +654,6 @@ ObjectStore::putObject(fds_volid_t volId,
                                 true,
                                 vols_refcnt);
     }
-
     StorMgrVolume *vol = volumeTbl->getVolume(volId);
 
     // Put data in store if it's not a duplicate.
