@@ -51,10 +51,10 @@ StatConstants::StatConstants() {
     /**
      * Disabled Volume stats.
      */
-    disabledVolStats.insert(FdsVolStatType::STAT_DM_BYTES_ADDED);
-    disabledVolStats.insert(FdsVolStatType::STAT_DM_BYTES_REMOVED);
-    disabledVolStats.insert(FdsVolStatType::STAT_DM_CUR_PBYTES);
-    disabledVolStats.insert(FdsVolStatType::STAT_DM_CUR_POBJECTS);
+    disabledVolStats.insert(FdsVolStatType::STAT_DM_BYTES_ADDED);   // Probably never used or deprecated as it is not collected anywhere.
+    disabledVolStats.insert(FdsVolStatType::STAT_DM_BYTES_REMOVED); // Probably never used or deprecated as it is not collected anywhere.
+    disabledVolStats.insert(FdsVolStatType::STAT_DM_CUR_PBYTES);    // Too costly, performance-wise, to collect for volumes whose data object counts become "large" (for iSCSI with default block data object size, when the volume size is approximately 2TB it was taking about 7 minutes to collect).
+    disabledVolStats.insert(FdsVolStatType::STAT_DM_CUR_POBJECTS);  // Too costly, performance-wise, to collect for volumes whose data object counts become "large" (for iSCSI with default block data object size, when the volume size is approximately 2TB it was taking about 7 minutes to collect).
 }
 
 const StatConstants* StatConstants::singleton() {
