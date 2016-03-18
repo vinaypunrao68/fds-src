@@ -32,7 +32,8 @@ VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
           dataManager(_dm),
           cbToVGMgr(NULL),
           initializerTriesCnt(0),
-          maxInitializerTriesCnt(10)
+          maxInitializerTriesCnt(10),
+          hashCalcContextPtr(nullptr)
 {
     const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
 
