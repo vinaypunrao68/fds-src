@@ -894,6 +894,17 @@ AmDispatcher::_openVolumeCb(AttachVolumeReq* amReq, const Error& error, fpi::Ope
         // Set the token and volume sequence returned by the DM
         amReq->token = msg->token;
         dispatchTable.registerVolumeSequence(amReq->io_vol_id, msg->sequence_id);
+    } else if (volume_grouping_support) {
+        WriteGuard wg(volumegroup_lock);
+        // Give ownership of the volume handle to the handle itself, we're
+        // done with it
+        auto it = volumegroup_map.find(amReq->io_vol_id);
+        if (volumegroup_map.end() != it) {
+            std::shared_ptr<VolumeGroupHandle> vg = std::move(it->second);
+            volumegroup_map.erase(it);
+            auto volReq = new DetachVolumeReq(amReq->io_vol_id, amReq->volume_name, nullptr);
+            vg->close([this, volReq, vg] { delete volReq; });
+        }
     }
     AmDataProvider::openVolumeCb(amReq, error);
 }
