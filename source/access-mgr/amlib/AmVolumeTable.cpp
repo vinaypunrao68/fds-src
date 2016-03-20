@@ -315,7 +315,6 @@ AmVolumeTable::read(AmRequest* amReq, void (AmDataProvider::*func)(AmRequest*)) 
         } else {
             continueRequest(amReq, vol, func);
         }
-        continueRequest(amReq, vol, func);
     } else {
         // We do not know about this volume, delay it and try and look up the
         // required VolDesc to continue the operation.
@@ -402,9 +401,16 @@ AmVolumeTable::openVolumeCb(AmRequest *amReq, const Error error) {
                 cb->volDesc = boost::make_shared<VolumeDesc>(*vol->voldesc);
                 cb->mode = boost::make_shared<fpi::VolumeAccessMode>(volReq->mode);
             }
+        } else if (ERR_DM_VOL_NOT_ACTIVATED == err && !volReq->mode.can_write) {
+            // No coordinator exists on this volume yet, retry the open with
+            // write access:
+            volReq->mode.can_write = true;
+            volReq->mode.can_cache = true;
+            continueRequest(volReq, vol, &AmDataProvider::openVolume);
+            return;
         } else {
             LOGNOTIFY << "Failed to open volume: " << amReq->volume_name
-                      << " error(" << err << ") access is R/O.";
+                      << " error(" << err << ")";
             vol->clearToken();
         }
         vol->stopOpen();
