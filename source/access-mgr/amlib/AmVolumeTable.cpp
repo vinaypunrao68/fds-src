@@ -128,8 +128,7 @@ AmVolumeTable::AmVolumeTable(AmDataProvider* prev,
     AmDataProvider(prev, new AmQoSCtrl(this, max_thrds, parent_log)),
     volume_map(),
     lookup_queue(new WaitQueue(this)),
-    read_queue(new WaitQueue(this)),
-    write_queue(new WaitQueue(this))
+    open_queue(new WaitQueue(this))
 {
     if (parent_log) {
         SetLog(parent_log);
@@ -161,7 +160,7 @@ void AmVolumeTable::start() {
 
 bool
 AmVolumeTable::done() {
-    if (!lookup_queue->empty() || !read_queue->empty() || !write_queue->empty()) {
+    if (!lookup_queue->empty() || !open_queue->empty()) {
         return false;
     }
     return AmDataProvider::done();
@@ -301,7 +300,7 @@ AmVolumeTable::read(AmRequest* amReq, void (AmDataProvider::*func)(AmRequest*)) 
     if (vol) {
         // We need to open the volume in R/O mode if VG is enabled
         if (volume_grouping_support && !vol->isOpen()) {
-            if (ERR_VOL_NOT_FOUND == read_queue->delay(amReq) && vol->startOpen()) {
+            if (ERR_VOL_NOT_FOUND == open_queue->delay(amReq) && vol->startOpen()) {
                 // Otherwise implicitly attach and delay till open response
                 GLOGDEBUG << "Trying to read from unopened volume, implicit open.";
                 fpi::VolumeAccessMode ro;
@@ -331,7 +330,7 @@ AmVolumeTable::write(AmRequest* amReq, void (AmDataProvider::*func)(AmRequest*))
     auto vol = getVolume(amReq->volume_name);
     if (vol) {
         if (!vol->isWritable()) {
-            if (ERR_VOL_NOT_FOUND == write_queue->delay(amReq) && vol->startOpen()) {
+            if (ERR_VOL_NOT_FOUND == open_queue->delay(amReq) && vol->startOpen()) {
                 // Otherwise implicitly attach and delay till open response
                 GLOGTRACE << "Trying to update an unleased volume, implicit open.";
                 fpi::VolumeAccessMode default_access_mode;
@@ -387,8 +386,7 @@ AmVolumeTable::openVolumeCb(AmRequest *amReq, const Error error) {
         auto vol = getVolume(amReq->io_vol_id);
         if (!vol) {
             GLOGDEBUG << "Volume has been removed, dropping open to: " << amReq->volume_name;
-            read_queue->cancel_if(amReq->volume_name, ERR_VOLUME_ACCESS_DENIED);
-            write_queue->cancel_if(amReq->volume_name, ERR_VOLUME_ACCESS_DENIED);
+            open_queue->cancel_if(amReq->volume_name, ERR_VOLUME_ACCESS_DENIED);
             return AmDataProvider::openVolumeCb(amReq, ERR_VOLUME_ACCESS_DENIED);
         }
 
@@ -417,13 +415,9 @@ AmVolumeTable::openVolumeCb(AmRequest *amReq, const Error error) {
     }
 
     if (err.ok()) {
-        read_queue->resume_if(amReq->volume_name);
-        if (volReq->mode.can_write) {
-            write_queue->resume_if(amReq->volume_name);
-        }
+        open_queue->resume_if(amReq->volume_name);
     } else {
-        read_queue->cancel_if(amReq->volume_name, ERR_VOLUME_ACCESS_DENIED);
-        write_queue->cancel_if(amReq->volume_name, ERR_VOLUME_ACCESS_DENIED);
+        open_queue->cancel_if(amReq->volume_name, ERR_VOLUME_ACCESS_DENIED);
     }
 
     // If this is a real request, set the return data (could be implicit// from QoS)
