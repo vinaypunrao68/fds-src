@@ -82,6 +82,7 @@ struct AmVolumeTable :
 
     boost::shared_ptr<FdsTimerTask> renewal_task;
 
+    std::unique_ptr<WaitQueue> lookup_queue;
     std::unique_ptr<WaitQueue> read_queue;
     std::unique_ptr<WaitQueue> write_queue;
 
@@ -109,6 +110,7 @@ struct AmVolumeTable :
     volume_ptr_type getVolume(const std::string& vol_name) const;
     volume_ptr_type getVolume(fds_volid_t const vol_uuid) const;
 
+    void continueRequest(AmRequest *amReq, volume_ptr_type const vol, void (AmDataProvider::*func)(AmRequest*));
     void read(AmRequest *amReq, void (AmDataProvider::*func)(AmRequest*));
     void write(AmRequest *amReq, void (AmDataProvider::*func)(AmRequest*));
 };

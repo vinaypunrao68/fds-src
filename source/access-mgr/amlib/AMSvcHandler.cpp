@@ -110,8 +110,8 @@ AMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 
     fds_volid_t vol_uuid (vol_msg->vol_desc.volUUID);
     VolumeDesc vdesc(vol_msg->vol_desc);
-    GLOGNOTIFY << "Received volume modify  event from OM"
-               << " for volume " << vdesc;
+    GLOGDEBUG << "Received volume modify  event from OM"
+              << " for volume " << vdesc;
 
     if (amProcessor->isShuttingDown())
     {
@@ -138,34 +138,8 @@ void
 AMSvcHandler::AddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                         boost::shared_ptr<fpi::CtrlNotifyVolAdd> &vol_msg)
 {
+    // We do nothing here...we really shouldn't get these messages at all
     Error err(ERR_OK);
-
-    fds_volid_t vol_uuid (vol_msg->vol_desc.volUUID);
-    GLOGNOTIFY << "Received volume add event from OM"
-                       << " for volume \"" << vol_msg->vol_desc.vol_name << "\" ["
-                       << vol_uuid << "]";
-
-    if (amProcessor->isShuttingDown())
-    {
-        LOGDEBUG << "Request rejected due to shutdown in progress.";
-        err = ERR_SHUTTING_DOWN;
-    }
-    else
-    {
-        VolumeDesc vdesc(vol_msg->vol_desc);
-
-        if (vol_uuid != invalid_vol_id) {
-            /** Registration is always a success, but the VolumeOpen may fail */
-            try {
-                amProcessor->registerVolume(vdesc);
-            } catch(Exception& e) {
-                err = e.getError();
-                GLOGWARN << err;
-            }
-        }
-    }
-
-    // we return without wait for that to be clearly finish, not big deal.
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolAdd), *vol_msg);
 }

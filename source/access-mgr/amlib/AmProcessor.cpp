@@ -333,7 +333,7 @@ Error AmProcessor::modifyVolumePolicy(const VolumeDesc& vdesc)
 {
     auto err = _impl->modifyVolumePolicy(vdesc);
     if (ERR_VOL_NOT_FOUND == err) {
-        _impl->registerVolume(vdesc);
+        err = ERR_OK;
     }
     return err;
 }
