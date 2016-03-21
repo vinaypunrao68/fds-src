@@ -42,7 +42,7 @@ Error AmQoSCtrl::processIO(FDS_IOType *io) {
     fds_verify(io->io_module == FDS_IOType::ACCESS_MGR_IO);
     auto amReq = static_cast<AmRequest*>(io);
     PerfTracer::tracePointEnd(amReq->qos_perf_ctx);
-    LOGTRACE << "Scheduling request: 0x" << std::hex << amReq->io_req_id;
+    LOGTRACE << "scheduling request:0x" << std::hex << amReq->io_req_id << std::dec;
     auto vol_id = io->io_vol_id;
     threadPool->schedule([this] (FDS_IOType* io) mutable -> void
                          { unknownTypeResume(static_cast<AmRequest*>(io)); }, io);
@@ -286,15 +286,15 @@ AmQoSCtrl::removeVolume(VolumeDesc const& volDesc) {
 void AmQoSCtrl::enqueueRequest(AmRequest *amReq) {
     PerfTracer::tracePointBegin(amReq->qos_perf_ctx);
 
-    GLOGDEBUG << "Entering QoS request: 0x" << std::hex << amReq->io_req_id << std::dec;
+    GLOGDEBUG << "entering QoS request: 0x" << std::hex << amReq->io_req_id << std::dec;
     Error err {ERR_OK};
     {
         ReadGuard rg(queue_lock);
         err = htb_dispatcher->enqueueIO(amReq->io_vol_id.get(), amReq);
     }
     if (ERR_OK != err) {
-        GLOGERROR << "Had an issue with queueing a request to volume: " << amReq->volume_name
-                  << " error: " << err;
+        GLOGERROR << "error queueing request to volume:" << amReq->volume_name
+                  << " error:" << err;
         PerfTracer::tracePointEnd(amReq->qos_perf_ctx);
         AmDataProvider::unknownTypeCb(amReq, err);
     }
