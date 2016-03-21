@@ -198,14 +198,8 @@ std::string OmExtUtilApi::printSvcStatus( fpi::ServiceStatus svcStatus )
  * This function ensures that an incoming transition from a given state to another
  * is a valid one (following the table allowedStateTransitions)
  *
- * Disclaimer : this function is called currently (3/7/2016) ONLY from the below
- * isIncomingUpdateValid. The places where that function is called ensure that there
- * is in fact a valid current record (ie the record exists), so there isn't a scope
- * for this function to be called for brand new services. As per code in OmIntUtilApi.cpp:
- * if (!svcLayerRecordFound && !dbRecordFound).
- * If this changes, then the allowedStateTransition table will have to be modified
- * to hold values that indicate "svc not present" for incoming values of ADDED,
- * DISCOVERED so this check will pass
+ * This function should not get called if/when a service is being added for the first
+ * time to the domain
  */
 bool OmExtUtilApi::isTransitionAllowed( fpi::ServiceStatus incoming,
                                          fpi::ServiceStatus current,

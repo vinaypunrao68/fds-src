@@ -165,12 +165,6 @@ public:
         }
         fakeSvcMap.push_back(*svcInfoPtr);
 
-        //std::cout << "ConfigDB updated Service Map:"
-        //         << " type: " << svcInfoPtr->svc_type
-        //         << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid.svc_uuid << std::dec
-        //         << " incarnation: " << svcInfoPtr->incarnationNo
-        //         << " status: " << OmExtUtilApi::getInstance()->printSvcStatus(svcInfoPtr->svc_status) << "\n";
-
         return true;
     }
 

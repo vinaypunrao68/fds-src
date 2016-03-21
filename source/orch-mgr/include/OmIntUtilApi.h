@@ -114,8 +114,8 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
     LOGNORMAL << "Acquiring update map lock";
 
-    std::mutex  updateMapMutex;
-    std::unique_lock<std::mutex> updateLock(updateMapMutex);
+    //std::mutex  updateMapMutex;
+    //std::unique_lock<std::mutex> updateLock(updateMapMutex);
 
 
     if (handlerUpdate || registration)
@@ -423,7 +423,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
         }
 
         LOGNORMAL << "Releasing update map lock";
-        updateLock.unlock();
+        //updateLock.unlock();
 
         if ( !svcAddition )
         {
@@ -566,7 +566,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
                 LOGWARN << "Svc state transition check failed, will return without update";
                 LOGNORMAL << "Releasing update lock";
-                updateLock.unlock();
+                //updateLock.unlock();
                 return;
             }
         } else {
@@ -589,7 +589,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                 } else {
                     LOGWARN << "Svc state transition check failed, will return without update";
                     LOGNORMAL << "Releasing update lock";
-                    updateLock.unlock();
+                   //updateLock.unlock();
                     return;
                 }
             } else {
@@ -633,7 +633,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
 
                 LOGNORMAL << "Releasing update map lock";
-                updateLock.unlock();
+                //updateLock.unlock();
                 // Something has already changed in the svc layer, so the current update of
                 // status we are proceeding with is already out-dated
                 // Call a new update of configDB, and return from the current cycle
@@ -689,12 +689,12 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
             svcMgr->updateSvcMap( {*dbInfoPtr} );
 
             LOGNORMAL << "Releasing update map lock";
-            updateLock.unlock();
+           // updateLock.unlock();
             // Broadcast the service map
             //OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
         } else {
             LOGNORMAL << "Releasing update map lock";
-            updateLock.unlock();
+            //updateLock.unlock();
         }
     }
 }
