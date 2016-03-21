@@ -235,6 +235,7 @@ void VolumeGroupHandle::runOpenProtocol_(const OpenResponseCb &openCb)
 
          determineFunctaionalReplicas_(openReq);
          if (switchCtx_ && switchCtx_->triesCnt == 0) {
+            fds_assert(functionalReplicas_.size() == 0);
             runCoordinatorSwitchProtocol_(openCb);
             return;
          } else if (functionalReplicas_.size() == 0) {
@@ -243,7 +244,7 @@ void VolumeGroupHandle::runOpenProtocol_(const OpenResponseCb &openCb)
              openCb(ERR_VOLUMEGROUP_DOWN, nullptr);
              return;
          }
-         fds_assert(functionalReplicas_.size() >= quorumCnt_);
+         fds_assert(functionalReplicas_.size() >= 1);
          /* Functional group is determined.  Broadcase the group info so that functaional
           * group members can set their state to functional
           */
@@ -489,7 +490,7 @@ VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
 {
     using Response = std::pair<fpi::SvcUuid, fpi::OpenVolumeRspMsgPtr>;
     using ErrorResponse = std::pair<fpi::SvcUuid, Error>;
-    std::unordered_map<int64_t, std::vector<Response>> seqIdMap;
+    std::map<int64_t, std::vector<Response>, std::greater<int64_t>> seqIdMap;
     std::vector<ErrorResponse> errdSvcs;
     int64_t quorumSeqId = -1;
     std::vector<fpi::SvcUuid> cachedCoordinators;  // response from services that returned
@@ -523,12 +524,12 @@ VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
 
     fds_assert(cachedCoordinators.size() < quorumCnt_ || quorumSeqId == -1);
 
-    /* Figure out if quorum rejected the coordinator */
+    /* Figure out if quorum # of replicas rejected the coordinator */
     if (cachedCoordinators.size() >= quorumCnt_) {
-        /* We only support quorum of 1 or 2, if this changes below conditions need to be
+        /* We only support quorum of 2, if this changes below conditions need to be
          * reviisted
          */
-        fds_assert(quorumCnt_ > 1 && quorumCnt_ < 3);
+        fds_assert(quorumCnt_ == 2);
         if (cachedCoordinators[0] == cachedCoordinators[1]) {
             if (!switchCtx_) {
                 /* We will go through a coordinator switch protocol */
@@ -537,30 +538,50 @@ VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
             }
         }
         return;
-    } else if (quorumSeqId != -1) {
-        /* We have a quorum with matching sequence ids */
-        const auto& quorumResps = seqIdMap[quorumSeqId];
-        for (const auto &resp : quorumResps) {
-            auto volumeHandle = getVolumeReplicaHandle_(resp.first);
-            /* For replica handle to be functional transition from syncing to functional
-             * so that all the accounting is taken care for ids appropriately
+    } else {
+        if (size() == 3 && seqIdMap.size() == static_cast<size_t>(size())) {
+            /* We don't have a quorum on sequence id match.  However we received
+             * sequence id from everyone. In this case matching sequence id is
+             * taken to be sequence id that is common amongst quorum # of replicas.
+             * That would be the sequence id returned by replica at index of quorum #
+             * (All sequence ids in seqIdMap are ordered in descending order)
+             * Since we don't support rollbacks yet, every one except replica at
+             * quorum index will be asked to go through sync
+             * NOTE: We special cased when group size is three replicas. When group
+             * size larger we'll need to revisit.
              */
-            changeVolumeReplicaState_(volumeHandle,
-                                      resp.second->replicaVersion,
-                                      fpi::ResourceState::Syncing,
-                                      opSeqNo_,
-                                      ERR_OK,
-                                      "Open");
-            changeVolumeReplicaState_(volumeHandle,
-                                      resp.second->replicaVersion,
-                                      fpi::ResourceState::Active,
-                                      opSeqNo_,
-                                      ERR_OK,
-                                      "Open");
+             quorumSeqId = std::next(seqIdMap.begin())->first;
+             LOGNORMAL << logString()
+                 << " All replicas returned different sequence ids."
+                 << " Common sequence id is: " << quorumSeqId
+                 << ". Other replicas will go through sync";
         }
-        commitNo_ = quorumSeqId;
-        version_ = commitNo_;
-        return;
+
+        if (quorumSeqId != -1) {
+            /* We have a quorum with matching sequence ids */
+            const auto& quorumResps = seqIdMap[quorumSeqId];
+            for (const auto &resp : quorumResps) {
+                auto volumeHandle = getVolumeReplicaHandle_(resp.first);
+                /* For replica handle to be functional transition from syncing to functional
+                 * so that all the accounting is taken care for ids appropriately
+                 */
+                changeVolumeReplicaState_(volumeHandle,
+                                          resp.second->replicaVersion,
+                                          fpi::ResourceState::Syncing,
+                                          opSeqNo_,
+                                          ERR_OK,
+                                          "Open");
+                changeVolumeReplicaState_(volumeHandle,
+                                          resp.second->replicaVersion,
+                                          fpi::ResourceState::Active,
+                                          opSeqNo_,
+                                          ERR_OK,
+                                          "Open");
+            }
+            commitNo_ = quorumSeqId;
+            version_ = commitNo_;
+            return;
+        }
     }
 
     LOGWARN << logString() << " Quorum was not reached to start a group.";
