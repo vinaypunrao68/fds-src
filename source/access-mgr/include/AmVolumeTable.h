@@ -65,6 +65,13 @@ struct AmVolumeTable :
     // Renews volume leases
     void renewTokens();
 
+    /**
+     * Returns volume if found in volume map.
+     * if volume does not exist, returns 'nullptr'
+     */
+    volume_ptr_type getVolume(const std::string& vol_name) const;
+    volume_ptr_type getVolume(fds_volid_t const vol_uuid) const;
+
  protected:
 
     /**
@@ -103,12 +110,6 @@ struct AmVolumeTable :
                         const Error& error,
                         boost::shared_ptr<std::string> payload);
 
-    /**
-     * Returns volume if found in volume map.
-     * if volume does not exist, returns 'nullptr'
-     */
-    volume_ptr_type getVolume(const std::string& vol_name) const;
-    volume_ptr_type getVolume(fds_volid_t const vol_uuid) const;
 
     void continueRequest(AmRequest *amReq, volume_ptr_type const vol, void (AmDataProvider::*func)(AmRequest*));
     void read(AmRequest *amReq, void (AmDataProvider::*func)(AmRequest*));

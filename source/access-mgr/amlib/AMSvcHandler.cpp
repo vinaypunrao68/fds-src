@@ -7,6 +7,7 @@
 #include <fdsp/dm_api_types.h>
 #include "net/SvcRequest.h"
 #include "AmProcessor.h"
+#include "AmVolume.h"
 #include "requests/DetachVolumeReq.h"
 #include "fds_process.h"
 
@@ -328,14 +329,33 @@ AMSvcHandler::addToVolumeGroup(fpi::AsyncHdrPtr& asyncHdr,
         });
 }
 
+/**
+ * Handler to handle switching of coordinator from another AM.
+ * If we can't look up the volume we immediately reply.
+ */
 void
 AMSvcHandler::switchCoordinator(boost::shared_ptr<fpi::AsyncHdr>&           hdr,
                                 fpi::SwitchCoordinatorMsgPtr&               msg)
 {
-    // TODO: currently getting volume ID, need volume name
-    //addPendingFlush(msg->volumeName, hdr);
+    auto vol = amProcessor->getVolume(static_cast<fds_volid_t>(msg->volumeId));
+    if (nullptr == vol) {
+        LOGDEBUG << "volid:" << msg->volumeId << " unable to find volume";
+        completeFlush(hdr, ERR_OK);
+    } else {
+        LOGDEBUG << "vol:" << vol->voldesc->name << " switching coordinator";
+        addPendingFlush(vol->voldesc->name, hdr);
+    }
 }
 
+/**
+ * Track which AMs are waiting for a volume to flush.
+ * If a flush is already happening we just add it to the
+ * pending list. If this is the first flush for a volume
+ * we trigger the flush and pass it a DetachVolumeReq to queue
+ * up when it's done, which will call our callback upon completion.
+ * This ensures that all AMs will be responded to, but that we only
+ * have one flush in transit.
+ */
 void
 AMSvcHandler::addPendingFlush(std::string const&                  volName,
                               boost::shared_ptr<fpi::AsyncHdr>&   hdr)
@@ -366,19 +386,34 @@ AMSvcHandler::addPendingFlush(std::string const&                  volName,
     }
 }
 
+/**
+ * Callback that will be called when the DetachVolumeReq completes
+ * after flushing a volume. We will reply to all AMs waiting for this
+ * volume to be flushed.
+ */
 void
 AMSvcHandler::flushCb(std::string const& volName, Error const& err) {
     auto it = _pendingFlushes.find(volName);
     if (_pendingFlushes.end() != it) {
+        LOGDEBUG << "vol:" << volName << " completing flush of volume";
         for (auto& hdr : *(it->second)) {
-            hdr->msg_code = err.GetErrno();
-            //fpi::DetachVolumeResp vol_msg{};
-            //sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::DetachVolumeResp), vol_msg);
+            completeFlush(hdr, err);
         }
         _pendingFlushes.erase(it);
     } else {
         LOGERROR << "vol:" << volName << " unable to find pending flush";
     }
 }
+
+/**
+ * Reply to AM when switching of coordinator is complete.
+ */
+void
+AMSvcHandler::completeFlush(boost::shared_ptr<fpi::AsyncHdr> const& hdr, Error const& err) {
+    hdr->msg_code = err.GetErrno();
+    fpi::SwitchCoordinatorRespMsg vol_msg{};
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::SwitchCoordinatorRespMsg), vol_msg);
+}
+
 
 }  // namespace fds
