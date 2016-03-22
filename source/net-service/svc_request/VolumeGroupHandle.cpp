@@ -26,7 +26,7 @@ namespace fds {
         GET_VOLUMEREPLICA_HANDLE_RETURN(volumeHandle__, svcUuid__, NONE_RET)
 
 uint32_t VolumeGroupHandle::GROUPCHECK_INTERVAL_SEC = 30;
-uint32_t VolumeGroupHandle::COORDINATOR_SWITCH_TIMEOUT_MS = 60000;      // 60 seconds
+uint32_t VolumeGroupHandle::COORDINATOR_SWITCH_TIMEOUT_MS = 5000;      // 60 seconds
 
 std::ostream& operator << (std::ostream &out, const fpi::VolumeIoHdr &h)
 {
@@ -62,7 +62,7 @@ VolumeGroupHandle::VolumeGroupHandle(CommonModuleProviderIf* provider,
     groupSize_ = 0;
     quorumCnt_ = quorumCnt;
 
-    state_ = fpi::ResourceState::Unknown;   // same as closed
+    state_ = fpi::ResourceState::Unknown;
     groupId_ = volId.get();
     version_ = VolumeGroupConstants::VERSION_INVALID;
 
@@ -305,18 +305,26 @@ void VolumeGroupHandle::runCoordinatorSwitchProtocol_(const OpenResponseCb &open
 void VolumeGroupHandle::close(const VoidCb &closeCb)
 {
     runSynchronized([this, closeCb]() {
-        groupSize_ = 0;
-        changeState_(fpi::ResourceState::Unknown,
-                     true,  /* Clear replica lists */
-                     "Close");
-
-        if (refCnt_ == 0) {
-            closeCb_ = nullptr;
-            closeCb();
-        } else if (!closeCb_) {
+        LOGNORMAL << logString() << " - close issued";
+        if (!closeCb_) {
             closeCb_ = closeCb;
         }
+        if (refCnt_ == 0) {
+            closeHandle_();
+        }
     });
+}
+
+void VolumeGroupHandle::closeHandle_()
+{
+    groupSize_ = 0;
+    changeState_(fpi::ResourceState::Unknown,
+                 true,  /* Clear replica lists */
+                 "Close");
+
+    auto cb = std::move(closeCb_);
+    closeCb_ = nullptr;
+    cb();
 }
 
 std::string VolumeGroupHandle::logString() const
@@ -381,9 +389,7 @@ void VolumeGroupHandle::decRef()
     --refCnt_;
     fds_assert(refCnt_ >= 0);
     if (refCnt_ <= 0 && closeCb_) {
-        auto cb = std::move(closeCb_);
-        closeCb_ = nullptr;
-        cb();
+        closeHandle_();
     }
 }
 
@@ -678,7 +684,8 @@ void VolumeGroupHandle::handleAddToVolumeGroupMsg(
     runSynchronized([this, addMsg, cb]() mutable {
         /* Make sure we are not in the middle of open or prior open */
         if (state_ == fpi::ResourceState::Unknown ||
-            state_ == fpi::ResourceState::Loading) {
+            state_ == fpi::ResourceState::Loading ||
+            closeCb_) {
             LOGDEBUG << "Rejecting AddToVolumeGroupCtrlMsg from : "
                 << SvcMgr::mapToSvcUuidAndName(addMsg->svcUuid)
                 << " as group handle is not in active state";
