@@ -59,7 +59,7 @@ AmDispatcher::ProtectedVGH::getVGH(uint32_t const timeout)
     if (swapping.wait_for(guard, duration, [this]{ return !!group_handle; })) {
         handle = group_handle;
     }
-    if (!handle) guard.release();
+    if (!handle) guard.unlock();
     return std::make_pair(std::move(guard), group_handle);
 }
 
@@ -236,7 +236,7 @@ AmDispatcher::addToVolumeGroup(const fpi::AddToVolumeGroupCtrlMsgPtr &addMsg,
         if (volumegroup_map.end() != it) {
             ProtectedVGH::vgh_ptr vgh;
             ProtectedVGH::uniq_lock lock;
-            std::tie(lock, vgh) = it->second.getVGH(message_timeout_open);
+            std::tie(lock, vgh) = it->second.getVGH(message_timeout_io);
             if (vgh) {
                 vgh->handleAddToVolumeGroupMsg(addMsg, cb);
                 return;
@@ -342,7 +342,7 @@ Error AmDispatcher::modifyVolumePolicy(const VolumeDesc& vdesc) {
         if (volumegroup_map.end() != it) {
             ProtectedVGH::vgh_ptr vgh;
             ProtectedVGH::uniq_lock lock;
-            std::tie(lock, vgh) = it->second.getVGH(message_timeout_open);
+            std::tie(lock, vgh) = it->second.getVGH(message_timeout_io);
             if (vgh &&
                 vdesc.getCoordinatorId() != MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() &&
                 vdesc.getCoordinatorVersion() > vgh->getVersion()) {
