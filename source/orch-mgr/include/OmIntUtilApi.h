@@ -112,12 +112,6 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
     bool ret = false;
 
-    LOGNORMAL << "Acquiring update map lock";
-
-    //std::mutex  updateMapMutex;
-    //std::unique_lock<std::mutex> updateLock(updateMapMutex);
-
-
     if (handlerUpdate || registration)
     {
         /*
@@ -422,9 +416,6 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
             }
         }
 
-        LOGNORMAL << "Releasing update map lock";
-        //updateLock.unlock();
-
         if ( !svcAddition )
         {
            broadcast();
@@ -565,8 +556,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
             } else {
 
                 LOGWARN << "Svc state transition check failed, will return without update";
-                LOGNORMAL << "Releasing update lock";
-                //updateLock.unlock();
+
                 return;
             }
         } else {
@@ -588,8 +578,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
                 } else {
                     LOGWARN << "Svc state transition check failed, will return without update";
-                    LOGNORMAL << "Releasing update lock";
-                   //updateLock.unlock();
+
                     return;
                 }
             } else {
@@ -631,9 +620,6 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                           << OmExtUtilApi::printSvcStatus(svcLayerNewerInfo.svc_status)
                           << "]. Initiating new update";
 
-
-                LOGNORMAL << "Releasing update map lock";
-                //updateLock.unlock();
                 // Something has already changed in the svc layer, so the current update of
                 // status we are proceeding with is already out-dated
                 // Call a new update of configDB, and return from the current cycle
@@ -687,14 +673,6 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
             // (which will be applied under the condition incarnationNo is equal, but status is different)
             // Assumption is that EVERY change to service state of configDB comes through here
             svcMgr->updateSvcMap( {*dbInfoPtr} );
-
-            LOGNORMAL << "Releasing update map lock";
-           // updateLock.unlock();
-            // Broadcast the service map
-            //OM_NodeDomainMod::om_loc_domain_ctrl()->om_bcast_svcmap();
-        } else {
-            LOGNORMAL << "Releasing update map lock";
-            //updateLock.unlock();
         }
     }
 }
