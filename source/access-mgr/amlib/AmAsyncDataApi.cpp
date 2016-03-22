@@ -21,11 +21,6 @@
 
 namespace fds {
 
-template<typename T, typename C>
-CallbackPtr
-create_async_handler(C&& c)
-{ return std::make_shared<AsyncResponseHandler<T, C>>(std::forward<C>(c)); }
-
 AmAsyncDataApi::AmAsyncDataApi(processor_type processor,
                                   response_ptr response_api)
 :   amProcessor(processor),

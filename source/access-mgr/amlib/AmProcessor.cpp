@@ -64,6 +64,8 @@ class AmProcessor_impl : public AmDataProvider
     void registerVolume(VolumeDesc const& volDesc) override;
     void removeVolume(VolumeDesc const& volDesc) override;
 
+    void flushVolume(AmRequest* req, std::string const& vol);
+
   protected:
     /**
      * These are only here because AmDataApi is not a data provider
@@ -237,6 +239,10 @@ void AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     AmDataProvider::removeVolume(volDesc);
 }
 
+void AmProcessor_impl::flushVolume(AmRequest* req, std::string const& vol) {
+    parent_mod->volumeFlushed(req, vol);
+}
+
 Error
 AmProcessor_impl::updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb) {
     std::lock_guard<std::mutex> lg(shut_down_lock);
@@ -348,6 +354,9 @@ void AmProcessor::registerVolume(const VolumeDesc& volDesc)
 
 void AmProcessor::removeVolume(const VolumeDesc& volDesc)
 { return _impl->removeVolume(volDesc); }
+
+void AmProcessor::flushVolume(AmRequest* req, std::string const& vol)
+{ return _impl->flushVolume(req, vol); }
 
 Error AmProcessor::updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb)
 { return _impl->updateDlt(dlt_type, dlt_data, cb); }

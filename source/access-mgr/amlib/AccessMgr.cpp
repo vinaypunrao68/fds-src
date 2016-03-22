@@ -43,13 +43,13 @@ AccessMgr::mod_init(SysParams const *const param) {
 
 void
 AccessMgr::mod_startup() {
-    LOGNOTIFY << "Starting processing layer ";
+    LOGNOTIFY << "starting processing layer";
     amProcessor->start();
 }
 
 void
 AccessMgr::mod_shutdown() {
-    LOGNOTIFY << "Stopping processing layer ";
+    LOGNOTIFY << "stopping processing layer";
     amProcessor->stop();
     std::unique_lock<std::mutex> lk {stop_lock};
     shutting_down = true;
@@ -66,10 +66,10 @@ void AccessMgr::mod_enable_service()
     if (!asyncServer) {
         // Pretty useless till we have the tables, just keep retrying I guess.
         while (!amProcessor->haveTables()) {
-            LOGWARN << "Failed to get the distribution tables...will try again.";
+            LOGDEBUG << "failed to get the distribution tables, will try again";
             std::this_thread::sleep_for(std::chrono::seconds(2));
         }
-        LOGNOTIFY << "Enabling services ";
+        LOGNOTIFY << "enabling services";
         initilizeConnectors();
     }
 }
@@ -82,7 +82,7 @@ void AccessMgr::initilizeConnectors() {
     if (!standalone_mode) {
         pmPort = modProvider_->getSvcMgr()->getMappedSelfPlatformPort();
     }
-    LOGTRACE << "Platform port " << pmPort;
+    LOGTRACE << "platform port:" << pmPort;
 
     /**
      * Initialize the async server
@@ -111,7 +111,7 @@ void AccessMgr::initilizeConnectors() {
 }
 
 void AccessMgr::mod_disable_service() {
-    LOGNOTIFY << "Stopping connectors";
+    LOGNOTIFY << "stopping connectors";
     asyncServer->stop();
     if (nbd_enabled) {
         NbdConnector::stop();
@@ -129,7 +129,7 @@ void
 AccessMgr::run() {
     std::unique_lock<std::mutex> lk {stop_lock};
     stop_signal.wait(lk, [this]() { return this->shutting_down; });
-    LOGNORMAL << "Processing layer has shutdown, stop external services.";
+    LOGNORMAL << "processing layer has shutdown, stop external services";
 }
 
 void
@@ -150,6 +150,11 @@ AccessMgr::volumeRemoved(VolumeDesc const& volDesc) {
     if (scst_enabled) {
         ScstConnector::volumeRemoved(volDesc);
     }
+}
+
+void AccessMgr::volumeFlushed(AmRequest* req, std::string const& vol) {
+    std::thread t( [&, this] { asyncServer->flushVolume(req, vol); } );
+    t.detach();
 }
 
 }  // namespace fds
