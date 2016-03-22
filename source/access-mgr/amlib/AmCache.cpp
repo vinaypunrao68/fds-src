@@ -339,6 +339,9 @@ AmCache::openVolumeCb(AmRequest* amReq, Error const error) {
     if (ERR_OK != error || !static_cast<AttachVolumeReq*>(amReq)->mode.can_cache) {
         descriptor_cache.clear(vol_uuid);
         offset_cache.clear(vol_uuid);
+        if (ERR_OK == error) {
+            object_cache.addVolume(vol_uuid, max_volume_data);
+        }
     } else if (ERR_VOL_DUPLICATE != descriptor_cache.addVolume(vol_uuid, max_metadata_entries)) {
         offset_cache.addVolume(vol_uuid, max_metadata_entries);
         object_cache.addVolume(vol_uuid, max_volume_data);
