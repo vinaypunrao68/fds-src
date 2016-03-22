@@ -4,6 +4,9 @@
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_AMSVCHANDLER_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_AMSVCHANDLER_H_
 
+#include <unordered_map>
+#include <set>
+
 #include <net/PlatNetSvcHandler.h>
 #include <fds_typedefs.h>
 #include <fdsp/AMSvc.h>
@@ -83,6 +86,12 @@ class AMSvcHandler :  virtual public fpi::AMSvcIf, virtual public PlatNetSvcHand
     virtual void
     addToVolumeGroup(fpi::AsyncHdrPtr& asyncHdr,
                          fpi::AddToVolumeGroupCtrlMsgPtr& addMsg);
+
+  private:
+    std::unordered_map<std::string, boost::shared_ptr<std::set<boost::shared_ptr<fpi::AsyncHdr>>>>     _pendingFlushes;
+
+    void addPendingFlush(std::string const& volName, boost::shared_ptr<fpi::AsyncHdr>& hdr);
+    void flushCb(std::string const& volName, Error const& err);
 };
 
 }  // namespace fds

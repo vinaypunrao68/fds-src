@@ -3,10 +3,12 @@
  */
 
 #include <AMSvcHandler.h>
+#include "AmAsyncDataApi.h"
 
 #include <fdsp/dm_api_types.h>
 #include "net/SvcRequest.h"
 #include "AmProcessor.h"
+#include "requests/DetachVolumeReq.h"
 #include "fds_process.h"
 
 namespace fds {
@@ -350,6 +352,51 @@ AMSvcHandler::addToVolumeGroup(fpi::AsyncHdrPtr& asyncHdr,
                       FDSP_MSG_TYPEID(fpi::AddToVolumeGroupRespCtrlMsg),
                       *payload);
         });
+}
+
+void
+AMSvcHandler::addPendingFlush(std::string const&                  volName,
+                              boost::shared_ptr<fpi::AsyncHdr>&   hdr)
+{
+    auto it = _pendingFlushes.end();
+    bool happened {false};
+    std::tie(it, happened) = _pendingFlushes.emplace(volName, nullptr);
+    if (happened) {
+        it->second.reset(new std::set<boost::shared_ptr<fpi::AsyncHdr>>());
+    }
+    it->second->emplace(hdr);
+    if (happened) {
+        if (amProcessor->isShuttingDown())
+        {
+            LOGDEBUG << "request ignored due to shutdown already in progress";
+            flushCb(volName, ERR_OK);
+        } else {
+            // Closure for response call
+            auto closure = [this, volName] (DetachCallback* cb, fpi::ErrorCode const& e) mutable -> void {
+                flushCb(volName, e);
+            };
+
+            auto callback = create_async_handler<DetachCallback>(std::move(closure));
+
+            AmRequest *volReq = new DetachVolumeReq(invalid_vol_id, volName, callback);
+            amProcessor->flushVolume(volReq, volName);
+        }
+    }
+}
+
+void
+AMSvcHandler::flushCb(std::string const& volName, Error const& err) {
+    auto it = _pendingFlushes.find(volName);
+    if (_pendingFlushes.end() != it) {
+        for (auto& hdr : *(it->second)) {
+            hdr->msg_code = err.GetErrno();
+            //fpi::DetachVolumeResp vol_msg{};
+            //sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::DetachVolumeResp), vol_msg);
+        }
+        _pendingFlushes.erase(it);
+    } else {
+        LOGERROR << "vol:" << volName << " unable to find pending flush";
+    }
 }
 
 }  // namespace fds
