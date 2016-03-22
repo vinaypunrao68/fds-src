@@ -1984,7 +1984,7 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                  * And in case of error here, TC should fail compaction for this
                  * token.
                  */
-                if (!objMeta || !err.ok() || !ObjMetaData::onTier(tier)) {
+                if (!objMeta || !err.ok() || !objMeta->onTier(tier)) {
                     return;
                 }
 
