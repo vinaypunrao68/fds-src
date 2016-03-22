@@ -981,7 +981,6 @@ ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
                                          tierUsed,
                                          err);
     }
-
     if (err.ok()) {
         // TODO(Andrew): Remove this copy. The network should allocated
         // a shared ptr structure so that we can directly store that, even
@@ -989,7 +988,7 @@ ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
         getReq->getObjectNetResp->data_obj = *objData;
     } else {
         auto smToken = SmDiskMap::smTokenId(objId, getDLT()->getNumBitsForToken());
-        objectStore->updateMediaTrackers(smToken, tierUsed, err);
+        checkForDiskFailErrors(smToken, tierUsed, err);
     }
     qosCtrl->markIODone(*getReq, tierUsed, amIPrimary(objId));
 
@@ -1441,6 +1440,19 @@ ObjectStorMgr::notifyDLTClose(SmIoReq *ioReq)
 }
 
 void
+ObjectStorMgr::checkForDiskFailErrors(fds_token_id smToken,
+                                      diskio::DataTier tier,
+                                      const Error& err) {
+    if (err == ERR_META_DISK_READ_FAILED ||
+        err == ERR_META_DISK_WRITE_FAILED) {
+        auto metaTier = objectStore->getMetadataTier();
+        objectStore->updateMediaTrackers(smToken, metaTier, err);
+    } else {
+        objectStore->updateMediaTrackers(smToken, tier, err);
+    }
+}
+
+void
 ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq)
 {
     Error err(ERR_OK);
@@ -1460,6 +1472,13 @@ ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq)
                                                 moveReq->toTier, moveReq->relocate);
         }
         if (!err.ok()) {
+            fds_token_id smToken = SmDiskMap::smTokenId(objId, getDLT()->getNumBitsForToken());
+            if (err == ERR_DISK_READ_FAILED ||
+                err == ERR_NO_BYTES_READ) {
+                checkForDiskFailErrors(smToken, moveReq->fromTier, err);
+            } else {
+                checkForDiskFailErrors(smToken, moveReq->toTier, err);
+            }
             if (err != ERR_SM_ZERO_REFCNT_OBJECT &&
                 err != ERR_SM_TIER_HYBRIDMOVE_ON_FLASH_VOLUME &&
                 err != ERR_SM_TIER_WRITEBACK_NOT_DONE) {

@@ -778,12 +778,15 @@ ObjectStore::getObject(fds_volid_t volId,
         fds_token_id smToken = diskMap->smTokenId(objId);
         diskio::DataTier metaTier = metaStore->getMetadataTier();
         DiskId diskId = diskMap->getDiskId(objId, metaTier);
-        std::string path = diskMap->getDiskPath(diskId) + "/.tempFlush";
 
-        bool diskDown = DiskUtils::diskFileTest(path);
+        std::string path = diskMap->getDiskPath(diskId) + "/.tempFlush";
+        bool diskDown = (diskMap->isDiskOffline(diskId) ||
+                         DiskUtils::diskFileTest(path));
         if (diskDown) {
-            updateMediaTrackers(smToken, metaTier, ERR_DISK_READ_FAILED);
+            err = ERR_META_DISK_READ_FAILED;
         }
+        std::remove(path.c_str());
+
         LOGERROR << "Failed to get object metadata" << objId << " volume "
                  << std::hex << volId << std::dec << " " << err;
         return nullptr;
@@ -1033,12 +1036,14 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
         fds_token_id smToken = diskMap->smTokenId(objId);
         diskio::DataTier metaTier = metaStore->getMetadataTier();
         DiskId diskId = diskMap->getDiskId(objId, metaTier);
-        std::string path = diskMap->getDiskPath(diskId) + "/.tempFlush";
 
-        bool diskDown = DiskUtils::diskFileTest(path);
+        std::string path = diskMap->getDiskPath(diskId) + "/.tempFlush";
+        bool diskDown = (diskMap->isDiskOffline(diskId) ||
+                         DiskUtils::diskFileTest(path));
         if (diskDown) {
-            updateMediaTrackers(smToken, metaTier, ERR_DISK_READ_FAILED);
+            err = ERR_META_DISK_READ_FAILED;
         }
+        std::remove(path.c_str());
 
         LOGERROR << "Failed to get metadata for object " << objId << " " << err;
         return err;
@@ -1675,6 +1680,11 @@ ObjectStore::SmCheckControlCmd(SmCheckCmd *checkCmd)
     return err;
 }
 
+diskio::DataTier
+ObjectStore::getMetadataTier() {
+    return metaStore->getMetadataTier();
+}
+
 fds_uint32_t
 ObjectStore::getDiskCount() const {
     return diskMap->getTotalDisks();
@@ -1684,7 +1694,9 @@ void
 ObjectStore::updateMediaTrackers(fds_token_id smTokId,
                                  diskio::DataTier tier,
                                  const Error& error) {
-    if ((error == ERR_DISK_WRITE_FAILED) ||
+    if ((error == ERR_META_DISK_WRITE_FAILED) ||
+        (error == ERR_META_DISK_READ_FAILED) ||
+        (error == ERR_DISK_WRITE_FAILED) ||
         (error == ERR_DISK_READ_FAILED) ||
         (error == ERR_NO_BYTES_READ)) {
         DiskId diskId = diskMap->getDiskId(smTokId, tier);
