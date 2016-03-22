@@ -255,8 +255,10 @@ public class CreateVolume implements RequestHandler
     public void validateVolumeSize( final Volume volume )
         throws ApiException
     {
-        long blockSize;
-        long requestedVolumeSize;
+        // ensure that we initialize the to our default values.
+        long blockSize = Size.kb( 128 ).getValue( SizeUnit.B ).longValue();
+        // this should always be passed in, but just in case.
+        long requestedVolumeSize = Size.gb( 10 ).getValue( SizeUnit.B ).longValue();
         switch( volume.getSettings().getVolumeType() )
         {
             /*
@@ -267,8 +269,19 @@ public class CreateVolume implements RequestHandler
              */
             case ISCSI:
                 final VolumeSettingsISCSI settingsISCSI = ( VolumeSettingsISCSI ) volume.getSettings();
-                blockSize = settingsISCSI.getBlockSize().getValue( SizeUnit.B ).longValue();
-                requestedVolumeSize = settingsISCSI.getCapacity().getValue( SizeUnit.B ).longValue();
+                if( settingsISCSI.getBlockSize() != null )
+                {
+                    blockSize = settingsISCSI.getBlockSize( )
+                                             .getValue( SizeUnit.B )
+                                             .longValue( );
+                }
+
+                if( settingsISCSI.getCapacity() != null )
+                {
+                    requestedVolumeSize = settingsISCSI.getCapacity( )
+                                                       .getValue( SizeUnit.B )
+                                                       .longValue( );
+                }
                 break;
             default:
                 return;

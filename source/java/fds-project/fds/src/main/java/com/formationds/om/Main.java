@@ -13,6 +13,7 @@ import com.formationds.om.events.EventManager;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
+import com.formationds.om.redis.RedisSingleton;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.snmp.SnmpManager;
 import com.formationds.om.snmp.TrapSend;
@@ -61,6 +62,8 @@ public class Main {
     // feature toggle, but also depends on the platform.conf feature toggle (that
     // the C++ side uses).
     private Optional<SvcServer<Iface>> proxyServer = Optional.empty();
+    
+    private final ShutdownHook shutdownHook = new ShutdownHook();
 
     public static void main( String[] args ) {
 
@@ -285,6 +288,8 @@ public class Main {
 
         logger.info( "Starting Web toolkit" );
 
+        Runtime.getRuntime().addShutdownHook( shutdownHook );
+
         WebKitImpl originalImpl = new WebKitImpl( authenticator,
                     authorizer,
                     webDir,
@@ -292,6 +297,14 @@ public class Main {
                     httpsPort,
                     secretKey );
         originalImpl.start();
+    }
+    
+    private static class ShutdownHook extends Thread {
+        public void run() {
+        	logger.info( "Shutting down OM. Waiting for redis");
+            RedisSingleton.INSTANCE.waitRedis();
+            logger.info ( "Done" );
+        }
     }
 }
 

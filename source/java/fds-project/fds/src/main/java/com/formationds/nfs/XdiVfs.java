@@ -1,7 +1,5 @@
 package com.formationds.nfs;
 
-import com.formationds.util.IoFunction;
-import com.formationds.xdi.AsyncAm;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Sets;
 import org.apache.log4j.Logger;
@@ -16,7 +14,6 @@ import org.dcache.nfs.v4.NfsIdMapping;
 import org.dcache.nfs.v4.SimpleIdMap;
 import org.dcache.nfs.v4.xdr.nfsace4;
 import org.dcache.nfs.vfs.*;
-import org.joda.time.Duration;
 
 import javax.security.auth.Subject;
 import java.io.IOException;
@@ -40,19 +37,10 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
     public static final long MIN_FILE_ID = 256;
     public static final String FILE_ID_WELL = "file-id-well";
 
-    public XdiVfs(AsyncAm asyncAm, ExportResolver resolver, Counters counters, boolean deferMetadataWrites, int amRetryAttempts, Duration amRetryInterval) {
-        IoFunction<String, Integer> maxObjectSize = (v) -> resolver.objectSize(v);
-        IoOps ops = new RecoveryHandler(new AmOps(asyncAm), amRetryAttempts, amRetryInterval);
-        if (deferMetadataWrites) {
-            DeferredIoOps deferredOps = new DeferredIoOps(ops, maxObjectSize);
-            ops = deferredOps;
-            resolver.addVolumeDeleteEventHandler(v -> deferredOps.onVolumeDeletion(DOMAIN, v));
-            ((DeferredIoOps) ops).start();
-            allocator = new PersistentCounter(ops, DOMAIN, FILE_ID_WELL, MIN_FILE_ID);
-            deferredOps.addCommitListener(key -> allocator.accept(key));
-        } else {
-            allocator = new PersistentCounter(ops, DOMAIN, FILE_ID_WELL, MIN_FILE_ID);
-        }
+    public XdiVfs(ExportResolver resolver, Counters counters, IoOps ops) {
+        resolver.addVolumeDeleteEventHandler(v -> ops.onVolumeDeletion(DOMAIN, v));
+        allocator = new PersistentCounter(ops, DOMAIN, FILE_ID_WELL, MIN_FILE_ID);
+        ops.addCommitListener(key -> allocator.accept(key));
         inodeMap = new InodeMap(ops, resolver);
         this.exportResolver = resolver;
         inodeIndex = new SimpleInodeIndex(ops, resolver);

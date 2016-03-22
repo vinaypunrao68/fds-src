@@ -606,10 +606,13 @@ ObjectStore::putObject(fds_volid_t volId,
             }
             // check if data is the same
             if (*existObjData != *objData) {
-                fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
-                          objId.ToHex().c_str());
+                LOGCRITICAL << "Data mismatch for object "
+                            << objId.ToHex().c_str() << " "
+                            << objMeta->logString();
+                err = ERR_ONDISK_DATA_CORRUPT;
+                return err;
             }
-        }  // if (conf_verify_data == true)
+        }
 
         // Create new object metadata to update the refcnts
         updatedMeta.reset(new ObjMetaData(objMeta));
@@ -1016,6 +1019,7 @@ ObjectStore::deleteObject(fds_volid_t volId,
     return err;
 }
 
+// Used by writeback thread and hybrid tier  data movement.
 Error
 ObjectStore::moveObjectToTier(const ObjectID& objId,
                               diskio::DataTier fromTier,
@@ -1193,6 +1197,56 @@ ObjectStore::copyAssociation(fds_volid_t srcVolId,
     return err;
 }
 
+/**
+ * Verify if objId matches SHA of(data corresponding to objId)
+ * If not, set err and updated on-disk metadata of the object.
+ * returns : false if data for objId is corrupt, true otherwise.
+ */
+Error
+ObjectStore::verifyObjectData(const ObjectID& objId,
+                              const fds_volid_t& volId) {
+    Error err(ERR_OK);
+    ObjMetaData::const_ptr objMeta =
+            metaStore->getObjectMetadata(volId, objId, err);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get metadata for object: " << objId
+                 << " volume: " << volId << " with " << err;
+        return err;
+    }
+
+    // first read the object
+    boost::shared_ptr<const std::string> objData
+            = dataStore->getObjectData(volId, objId, objMeta, err);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get object data for: " << objId
+                 << " for volume: " << volId << " with error: " << err;
+        return err;
+    }
+
+    // Do the SHA match
+    ObjectID onDiskObjId;
+    onDiskObjId = ObjIdGen::genObjectId(objData->c_str(),
+                                        objData->size());
+    if (onDiskObjId != objId) {
+        // on-disk data corruption. Update metadata.
+        LOGCRITICAL << "On-disk corruption detected: "
+                    << objId.ToHex() << " != " <<  onDiskObjId.ToHex()
+                    << " ObjMetaData = " << objMeta->logString();
+        // Create new object metadata for update
+        ObjMetaData::ptr updatedMeta;
+        updatedMeta.reset(new ObjMetaData(objMeta));
+        // set flag in object metadata
+        updatedMeta->setObjCorrupted();
+        err = metaStore->putObjectMetadata(volId, objId, updatedMeta);
+        if (!err.ok()) {
+            LOGERROR << "Failed to update metadata for obj " << objId;
+        }
+        return ERR_ONDISK_DATA_CORRUPT;
+    }
+    return ERR_OK;
+}
+
+// Used by GC to copy data over to new token file
 Error
 ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
                                      diskio::DataTier tier,
@@ -1231,22 +1285,12 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         // Create new object metadata for update
         updatedMeta.reset(new ObjMetaData(objMeta));
 
-        // we may be copying file with objects that already has 'corrupt'
-        // flag set. Since we are not yet recovering corrupted objects, we
-        // are going to copy corrupted objects to new files (not loose them)
-        if (!objMeta->isObjCorrupted() && verifyData) {
-            ObjectID onDiskObjId;
-            onDiskObjId = ObjIdGen::genObjectId(objData->c_str(),
-                                                objData->size());
-            if (onDiskObjId != objId) {
-                // on-disk data corruption
-                // mark object metadata as corrupted! will copy it to new
-                // location anyway so we can debug the issue
-                LOGCRITICAL << "CORRUPTION: On-disk corruption detected: "
-                            << objId.ToHex() << "!=" <<  onDiskObjId.ToHex()
-                            << " ObjMetaData=" << updatedMeta->logString();
-                // set flag in object metadata
-                updatedMeta->setObjCorrupted();
+        // Verify data read from current on disk location
+        if (verifyData) {
+            err = verifyObjectData(objId);
+            if (!err.ok()) {
+                LOGERROR << "Data verification failed with error: "<< err;
+                return err;
             }
         }
 
@@ -1267,6 +1311,15 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         err = metaStore->putObjectMetadata(unknownVolId, objId, updatedMeta);
         if (!err.ok()) {
             LOGERROR << "Failed to update metadata for obj " << objId;
+        }
+
+        // Verify data at the new on disk location.
+        if (verifyData) {
+            verifyObjectData(objId);
+            if (!err.ok()) {
+                LOGERROR << "Data verification failed with error: "<< err;
+                return err;
+            }
         }
     } else {
         // not going to copy object to new location
@@ -1923,6 +1976,15 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                 ObjMetaData::const_ptr objMeta =
                         metaStore->getObjectMetadata(invalid_vol_id, oid, err);
                 /**
+                 * TODO(Gurpreet) Error propogation from here to TC.
+                 * And in case of error here, TC should fail compaction for this
+                 * token.
+                 */
+                if (!objMeta || !err.ok()) {
+                    return;
+                }
+
+                /**
                  * Check if the object got updated recently(via a PUT).
                  * If so, then these object sets will have stale information
                  * regarding the state of the object. Ignore processing this
@@ -2085,20 +2147,20 @@ fds_errno_t ObjectStore::triggerReadOnlyIfPutWillfail(StorMgrVolume *vol,
                                                       boost::shared_ptr<const std::string> objData,
                                                       diskio::DataTier &useTier) {
 
-    // Get the disk ID so we can figure out the consumed space.
-    fds_uint16_t diskId = diskMap->getDiskId(objId, useTier);
-
-    // If there was no volume information just assume HDD
+    // If there was no volume information and maxTier is selected, just use HDD
     // TODO(brian): Revisit this because it isn't necessarily a safe assumption
-    if (!vol) {
+    if (!vol && useTier == diskio::maxTier) {
         useTier = diskio::diskTier;
     }
+
+    // Get the disk ID so we can figure out the consumed space.
+    fds_uint16_t diskId = diskMap->getDiskId(objId, useTier);
 
     if (useTier == diskio::flashTier) {
         fds_bool_t ssdSuccess = willPutSucceed(diskId, objData->size());
 
         if (!ssdSuccess) {
-            if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_SSD) {
+            if (vol != nullptr && vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_SSD) {
                 // If we can't write put the node in READ ONLY mode and return an error
                 setReadOnly();
                 LOGERROR << "IO bound for disk " << diskMap->getDiskPath(diskId)
@@ -2107,13 +2169,17 @@ fds_errno_t ObjectStore::triggerReadOnlyIfPutWillfail(StorMgrVolume *vol,
                             << capacityMap[diskId].usedCapacity + objData->size()
                             << " / " << capacityMap[diskId].totalCapacity;
                 return ERR_SM_READ_ONLY;
-            } else if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_HYBRID) {
+            } else if (vol != nullptr && vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_HYBRID) {
                 // If we can't write, backoff to HDD since this is hybrid
                 if (!sentPutToHddMsg) {
                     sentPutToHddMsg = true;
                     LOGNOTIFY << "Write bound for SSD but SSD capacity exceeded. Using HDD instead.";
                 }
                 useTier = diskio::diskTier;
+            } else {
+                // This really should only happen if we've got no volume information but are trying to force
+                // writes to the SSD explicitly (not maxTier). This should only be possible via internal APIs
+                setReadOnly();
             }
         }
     }

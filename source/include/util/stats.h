@@ -5,6 +5,7 @@
 #define SOURCE_INCLUDE_UTIL_STATS_H_
 #include <vector>
 #include <string>
+#include <ostream>
 namespace fds {
 namespace util {
 struct Stats {
@@ -14,15 +15,16 @@ struct Stats {
 
     void add(long double num);
     void calculate();
+    void reset();
 
     void setDropPercent(uint64_t percent);
-    uint64_t getCount();
-    long double getAverage();
-    long double getStdDev();
-    long double getMedian();
-    long double getMax();
-    long double getMin();
-
+    uint64_t getCount() const;
+    long double getAverage() const;
+    long double getStdDev() const;
+    long double getMedian() const;
+    long double getMax() const;
+    long double getMin() const;
+    friend std::ostream& operator<< (std::ostream &os, const Stats& stats);
   protected:
     uint64_t dropPercent = 5;
     uint64_t count;
@@ -32,8 +34,7 @@ struct Stats {
     long double median;
     std::vector<long double> numbers;
 };
-
+std::ostream& operator<< (std::ostream &os, const fds::util::Stats& stats);
 }  // namespace util
 }  // namespace fds
-
 #endif  // SOURCE_INCLUDE_UTIL_STATS_H_
