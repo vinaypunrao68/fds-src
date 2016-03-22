@@ -947,7 +947,7 @@ void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
     GLOGDEBUG << "Incoming update: " << fds::logString(*newPtr) << " vs current status: "
             << fds::logString(*currentPtr);
 
-    if (OmExtUtilApi::getInstance()->isIncomingUpdateValid(*newPtr, *currentPtr)) {
+    if (OmExtUtilApi::isIncomingUpdateValid(*newPtr, *currentPtr)) {
         svcInfo_ = newInfo;
         svcClient_.reset();
         GLOGDEBUG << "Operation Applied.";

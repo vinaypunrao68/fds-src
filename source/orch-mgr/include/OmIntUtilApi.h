@@ -268,7 +268,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
         } else if ( !svcLayerRecordFound && dbRecordFound ) {
 
             // DB has a record, check if it is more current than incoming
-            validUpdate = OmExtUtilApi::getInstance()->isIncomingUpdateValid(incomingSvcInfo, dbInfoUpdate);
+            validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, dbInfoUpdate);
 
             if (validUpdate)
             {
@@ -288,7 +288,6 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                 LOGNORMAL << "Case: No svcLayer record, found DB record, updating svcLayer with DB record";
                 // 1. No update to DB
                 // 2. Update svcLayer to DB
-                // 3. Broadcast svcMap
                 if ( !svcAddition )
                 {
                     svcMgr->updateSvcMap( {dbInfoUpdate} );
@@ -298,26 +297,22 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
         } else if ( svcLayerRecordFound && !dbRecordFound ) {
 
             // Only svcLayer has a record, check if it is more current than incoming
-            validUpdate = OmExtUtilApi::getInstance()->isIncomingUpdateValid(incomingSvcInfo, svcLayerInfoUpdate);
+            validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, svcLayerInfoUpdate);
 
             if (validUpdate)
             {
                 LOGNORMAL << "Case: No DB record, found svcLayer record, updating both with incoming";
                 // 1. Update DB to incoming
                 // 2. Update svcLayer to incoming
-                // 3. Broadcast svcMap
+
                 configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(incomingSvcInfo) );
-                ///if ( !svcAddition )
-                {
-                    svcMgr->updateSvcMap( {incomingSvcInfo} );
-                }
+                svcMgr->updateSvcMap( {incomingSvcInfo} );
 
             } else {
                 LOGNORMAL << "Case: No DB record, found svcLayer record, updating DB with svcLayer";
                 // svcLayer has most current info, update the DB since it has no record of this svc
                 // 1. Update DB to svcLayer
                 // 2. No update to svcLayer
-                // 3. No svcMap broadcast
                 configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(svcLayerInfoUpdate) );
             }
         } else if ( svcLayerRecordFound && dbRecordFound ) {
@@ -325,7 +320,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
             svcLayerInfoPtr = boost::make_shared<fpi::SvcInfo>(svcLayerInfoUpdate);
             dbInfoPtr       = boost::make_shared<fpi::SvcInfo>(dbInfoUpdate);
 
-            validUpdate = OmExtUtilApi::getInstance()->isIncomingUpdateValid(incomingSvcInfo, svcLayerInfoUpdate);
+            validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, svcLayerInfoUpdate);
 
             // What we are trying to determine with the below two values is the relationship
             // between the svcLayer and DB record.
@@ -354,7 +349,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                 // svcLayer < configDB
 
                 // Need to establish now that incoming > configDB
-                validUpdate = OmExtUtilApi::getInstance()->isIncomingUpdateValid(incomingSvcInfo, dbInfoUpdate);
+                validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, dbInfoUpdate);
 
                 if ( validUpdate )
                 {
@@ -533,11 +528,11 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
             // record of the service in question, so first update the record
             // in configDB. First check if the transition from the state in svcLayer
             // is one that is allowed
-            if ( OmExtUtilApi::getInstance()->isTransitionAllowed(svc_status,
-                                                                  svcLayerInfoUpdate.svc_status,
-                                                                  true,
-                                                                  false,
-                                                                  false))
+            if ( OmExtUtilApi::isTransitionAllowed( svc_status,
+                                                    svcLayerInfoUpdate.svc_status,
+                                                    true,
+                                                    false,
+                                                    false ) )
             {
                 configDB->changeStateSvcMap( svcLayerInfoPtr );
 
@@ -567,12 +562,11 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
             if ( initialDbStatus != fpi::SVC_STATUS_INVALID )
             {
-                LOGNORMAL << "Checking transition now..";
-                if ( OmExtUtilApi::getInstance()->isTransitionAllowed(svc_status,
-                                                                      initialDbStatus,
-                                                                      true,
-                                                                      false,
-                                                                      false) ) // this check working??
+                if ( OmExtUtilApi::isTransitionAllowed( svc_status,
+                                                        initialDbStatus,
+                                                        true,
+                                                        false,
+                                                        false ) )
                 {
                     configDB->changeStateSvcMap( dbInfoPtr );
 
@@ -582,7 +576,6 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                     return;
                 }
             } else {
-                LOGNORMAL << "Change state now..";
                 // any incoming state is allowed, so need to explicitly check
                 configDB->changeStateSvcMap( dbInfoPtr );
             }

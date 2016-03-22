@@ -486,11 +486,11 @@ void OmSvcHandler::healthReportRunning( boost::shared_ptr<fpi::NotifyHealthRepor
        dbInfo.name          = msg->healthReport.serviceInfo.name;
        dbInfo.incarnationNo = msg->healthReport.serviceInfo.incarnationNo;
 
-       //if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
        {
            auto domain = OM_NodeDomainMod::om_local_domain();
 
-           LOGNORMAL << "Will set service to state ACTIVE" << msg->healthReport.serviceInfo.name
+           LOGNORMAL << "Will set service:" << msg->healthReport.serviceInfo.name
+                     << " to state ACTIVE, uuid: "
                      << ":0x" << std::hex << service_UUID.uuid_get_val() << std::dec;
 
            auto svcInfoPtr = boost::make_shared<fpi::SvcInfo>(dbInfo);
@@ -582,39 +582,37 @@ void OmSvcHandler::healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
         /*
          * if unreachable service incarnation is the same as the service map, change the state to INVALID
         */
-        //if ( isSameSvcInfoInstance( msg->healthReport.serviceInfo ) )
-        {
-            NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
+        NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
 
-            fpi::ServiceStatus status = gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.uuid_get_val());
-            if ( (status == fpi::SVC_STATUS_REMOVED) ||
-                 (status == fpi::SVC_STATUS_INACTIVE_STOPPED) ) {
+        fpi::ServiceStatus status = gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.uuid_get_val());
+        if ( (status == fpi::SVC_STATUS_REMOVED) ||
+             (status == fpi::SVC_STATUS_INACTIVE_STOPPED) ) {
 
-                // It is important that SMs and DMs stay in removed state for correct
-                // handling if interruptions occur before commit of the DLT or DMT.
-                // If the svc is in REMOVED state, it has been stopped and is already INACTIVE
-                LOGDEBUG << "Service:" << std::hex << msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid
-                         << std::dec << " in REMOVED or INACTIVE_STOPPED state, will not change state to failed";
-                return;
-            }
-
-            /*
-             * change the state and update service map; then broadcast updated service map
-             */
-
-            /*
-             * As of March 1st, 2016 it is determined that we don't want to mark a service as inactive failed
-             * when we receive a "unreachable" health message form service layer.
-             */
-//            auto domain = OM_NodeDomainMod::om_local_domain();
-//            Error reportError(msg->healthReport.statusCode);
-//
-//            auto svcInfo = boost::make_shared<fpi::SvcInfo>(msg->healthReport.serviceInfo);
-//            LOGERROR << "Will set service to inactive failed state, svcInfo ("
-//                     << fds::logString(msg->healthReport.serviceInfo) << " )";
-//            domain->om_change_svc_state_and_bcast_svcmap( svcInfo, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
-//            domain->om_service_down( reportError, uuid, svc_type );
+            // It is important that SMs and DMs stay in removed state for correct
+            // handling if interruptions occur before commit of the DLT or DMT.
+            // If the svc is in REMOVED state, it has been stopped and is already INACTIVE
+            LOGDEBUG << "Service:" << std::hex << msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid
+                     << std::dec << " in REMOVED or INACTIVE_STOPPED state, will not change state to failed";
+            return;
         }
+
+        /*
+         * change the state and update service map; then broadcast updated service map
+         */
+
+        /*
+         * As of March 1st, 2016 it is determined that we don't want to mark a service as inactive failed
+         * when we receive a "unreachable" health message form service layer.
+         */
+//      auto domain = OM_NodeDomainMod::om_local_domain();
+//      Error reportError(msg->healthReport.statusCode);
+//
+//      auto svcInfo = boost::make_shared<fpi::SvcInfo>(msg->healthReport.serviceInfo);
+//      LOGERROR << "Will set service to inactive failed state, svcInfo ("
+//               << fds::logString(msg->healthReport.serviceInfo) << " )";
+//      domain->om_change_svc_state_and_bcast_svcmap( svcInfo, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
+//      domain->om_service_down( reportError, uuid, svc_type );
+
 
         return;
     }

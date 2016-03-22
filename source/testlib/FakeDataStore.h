@@ -7,20 +7,31 @@
 
 
 #include <orchMgr.h>
-#include <OmExtUtilApi.h>
 
 namespace fds
 {
+using NodeInfoType = fpi::FDSP_RegisterNodeType;
 /**
  * @brief A fake data store
  * @details
- * Inherits from no other, but must define interfaces used by
- * ConfigurationServiceHandler<DataStoreT>.
+ * This provides a basic implementation of
+ * functions in configdb.cpp. In order to use custom
+ * definitions of certain functions, simply inherit
+ * from this class and override the function.
+ * See SvcMapsUpdate_gtest.cpp to view example
  */
 class FakeDataStore {
 
-private:
+protected:
     std::vector<fpi::SvcInfo> fakeSvcMap;
+
+    typedef enum {
+        CONFIGDB_EXCEPTION, // Exception reported by ConfigDB.
+        NOT_FOUND,          // Successful ConfigDB access, but nothing found matching inquiry.
+        NOT_UPDATED,        // Successful ConfigDB access, but requested updated could not be made.
+        SUCCESS             // Successful ConfigDB access and object(s) to be updated or queried found.
+    } ReturnType;
+
 public:
 
     FakeDataStore() { fakeSvcMap = {};}
@@ -32,8 +43,7 @@ public:
      *                      Local Domain Section
      *****************************************************************************/
     fds_ldomid_t getNewLocalDomainId() {
-        static fds_ldomid_t d = 0;
-        return ++d;
+        return 0;
     }
     fds_ldomid_t putLocalDomain(const LocalDomain& localDomain, const bool isNew = true) {
         return 0;
@@ -77,7 +87,7 @@ public:
      *****************************************************************************/
     fds_volid_t getNewVolumeId() {
         static int v = 0;
-        return fds::fds_value_type<uint64_t>(++v);
+        return fds::fds_value_type<uint64_t>(v);
     }
     bool setVolumeState(fds_volid_t volumeId, fpi::ResourceState state) {
         return false;
@@ -107,91 +117,134 @@ public:
         return false;
     }
 
-    /******************************************************************************
-     *                      Service Map Section
-     *****************************************************************************/
-    bool getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
-    {
-        bool ret = false;
-
-        if ( !fakeSvcMap.empty() )
-        {
-            svcMap = fakeSvcMap;
-            ret = true;
-        }
-
-        return ret;
-    }
-
-    bool getSvcInfo(const fds_uint64_t svc_uuid, fpi::SvcInfo& svcInfo)
-    {
-        bool ret = false;
-
-        int64_t svcUuid = static_cast<int64_t>(svc_uuid);
-        for ( auto svc : fakeSvcMap )
-        {
-            if ( svc.svc_id.svc_uuid.svc_uuid == svcUuid)
-            {
-                svcInfo = svc;
-                ret = true;
-                break;
-            }
-        }
-        return ret;
-    }
-
-    bool changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr)
-    {
-        bool found = false;
-
-        if ( !fakeSvcMap.empty())
-        {
-            std::vector<fpi::SvcInfo>::iterator iter;
-            for ( iter = fakeSvcMap.begin(); iter != fakeSvcMap.end(); iter++)
-            {
-                if ( (*iter).svc_id.svc_uuid.svc_uuid == svcInfoPtr->svc_id.svc_uuid.svc_uuid )
-                {
-                    found = true;
-                    break;
-                }
-            }
-
-            if ( found )
-            {
-                // Simply erase and re add, easier than updating every field
-                fakeSvcMap.erase(iter);
-            }
-
-        }
-        fakeSvcMap.push_back(*svcInfoPtr);
-
-        return true;
-    }
-
-    bool deleteSvcMap(const fpi::SvcInfo& svcInfo)
-    {
-        bool found = false;
-
-        std::vector<fpi::SvcInfo>::iterator iter;
-        for ( iter = fakeSvcMap.begin(); iter != fakeSvcMap.end(); iter++)
-        {
-            if ( (*iter).svc_id.svc_uuid.svc_uuid == svcInfo.svc_id.svc_uuid.svc_uuid )
-            {
-                found = true;
-                break;
-            }
-        }
-
-        if ( found )
-        {
-            // Simply erase and re add, easier than updating every field
-            fakeSvcMap.erase(iter);
-            return true;
-        }
-
+    bool setVolumeSettings( long unsigned int volumeId, boost::shared_ptr<std::string> serialized ) {
         return false;
     }
 
+    boost::shared_ptr<std::string>  getVolumeSettings( long unsigned int volumeId ) {
+        std::string s;
+        return boost::make_shared<std::string>(s);
+    }
+
+    /******************************************************************************
+     *                      DLT/DMT Section
+     *****************************************************************************/
+
+    fds_uint64_t getDltVersionForType(const std::string type, int localDomain = 0) {
+        return 0;
+    }
+    bool setDltType(fds_uint64_t version, const std::string type, int localDomain = 0) {
+        return false;
+    }
+
+    bool storeDlt(const DLT& dlt, const std::string type = "" , int localDomain = 0) {
+        return false;
+    }
+
+    bool getDlt(DLT& dlt, fds_uint64_t version, int localDomain = 0) {
+        return false;
+    }
+
+    bool loadDlts(DLTManager& dltMgr, int localDomain = 0) {
+        return false;
+    }
+
+    bool storeDlts(DLTManager& dltMgr, int localDomain = 0) {
+        return false;
+    }
+
+    fds_uint64_t getDmtVersionForType(const std::string type, int localDomain = 0) {
+        return 0;
+    }
+    bool setDmtType(fds_uint64_t version, const std::string type, int localDomain = 0) {
+        return false;
+    }
+
+    bool storeDmt(const DMT& dmt, const std::string type = "" , int localDomain = 0) {
+        return false;
+    }
+    bool getDmt(DMT& dmt, fds_uint64_t version, int localDomain = 0) {
+        return false;
+    }
+
+    /******************************************************************************
+     *                      Node Section
+     *****************************************************************************/
+    bool addNode(const NodeInfoType& node) {
+        return false;
+    }
+
+    bool updateNode(const NodeInfoType& node) {
+        return false;
+    }
+
+    bool removeNode(const NodeUuid& uuid) {
+        return false;
+    }
+
+    bool getNode(const NodeUuid& uuid, NodeInfoType& node) {
+        return false;
+    }
+
+    bool nodeExists(const NodeUuid& uuid) {
+        return false;
+    }
+
+    bool getNodeIds(std::unordered_set<NodeUuid, UuidHash>& nodes, int localDomain = 0) {
+        return false;
+    }
+
+    bool getAllNodes(std::vector<NodeInfoType>& nodes, int localDomain = 0) {
+        return false;
+    }
+
+    std::string getNodeName(const NodeUuid& uuid) {
+        std::string s;
+        return s;
+    }
+
+    bool getNodeServices(const NodeUuid& uuid, NodeServices& services) {
+        return false;
+    }
+
+    bool setNodeServices(const NodeUuid& uuid, const NodeServices& services) {
+        return false;
+    }
+
+    uint getNodeNameCounter() {
+        return 0;
+    }
+
+    /******************************************************************************
+     *                      Service Map Section
+     *****************************************************************************/
+    bool getSvcMap(std::vector<fpi::SvcInfo>& svcMap) {
+        return false;
+    }
+
+    bool getSvcInfo(const fds_uint64_t svc_uuid, fpi::SvcInfo& svcInfo) {
+        return false;
+    }
+
+    bool changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr) {
+        return false;
+    }
+
+    bool deleteSvcMap(const fpi::SvcInfo& svcInfo) {
+        return false;
+    }
+
+    bool updateSvcMap(const fpi::SvcInfo& svcinfo) {
+        return false;
+    }
+
+    bool isPresentInSvcMap(const int64_t svc_uuid) {
+        return false;
+    }
+
+    fpi::ServiceStatus getStateSvcMap( const int64_t svc_uuid ) {
+        return fpi::SVC_STATUS_INVALID;
+    }
     /******************************************************************************
      *                      Volume Policy Section
      *****************************************************************************/
@@ -220,8 +273,7 @@ public:
      *                      Stat Stream Registrations Section
      *****************************************************************************/
     int32_t getNewStreamRegistrationId() {
-        static int32_t i = 0;
-        return ++i;
+        return 0;
     }
     bool addStreamRegistration(apis::StreamingRegistrationMsg& streamReg) {
         return false;
@@ -240,8 +292,7 @@ public:
      *                      Tenant Section
      *****************************************************************************/
     int64_t createTenant(const std::string& identifier) {
-        static int64_t t = 0;
-        return ++t;
+        return 0;
     }
     bool listTenants(std::vector<fds::apis::Tenant>& tenants) {
         return false;
@@ -325,15 +376,13 @@ public:
      *                      Subscription Section
      *****************************************************************************/
     fds_subid_t getNewSubscriptionId() {
-        static fds_subid_t s = 0;
-        return ++s;
+        return 0;
     }
     kvstore::ConfigDB::ReturnType setSubscriptionState(fds_subid_t id, fpi::ResourceState state) {
         return kvstore::ConfigDB::ReturnType::NOT_UPDATED;
     }
     fds_subid_t putSubscription(const Subscription &subscription, const bool isNew = true) {
-        static fds_subid_t s = 0;
-        return ++s;
+        return 0;
     }
     kvstore::ConfigDB::ReturnType updateSubscription(const Subscription& subscription) {
         return kvstore::ConfigDB::ReturnType::NOT_UPDATED;
@@ -364,6 +413,40 @@ public:
     }
     kvstore::ConfigDB::ReturnType getSubscription(const std::string& name, const std::int64_t tenantId, Subscription& subscription) {
         return kvstore::ConfigDB::ReturnType::NOT_FOUND;
+    }
+
+
+    // Other functions
+    bool setCapacityUsedNode( const int64_t svcUuid, const unsigned long usedCapacityInBytes ) {
+        return false;
+    }
+
+    bool listLocalDomainsTalc(std::vector<fds::apis::LocalDomainDescriptorV07> &localDomains) {
+        return false;
+    }
+
+    // ConfigDB design version and upgrade management.
+    void setConfigVersion() { }
+
+    std::string getConfigVersion() {
+        std::string s;
+        return s;
+    }
+
+    bool isLatestConfigDBVersion(std::string& version) {
+        return false;
+    }
+
+    ReturnType upgradeConfigDBVersionLatest(std::string& currentVersion);
+
+    // Global Domains
+    std::string getGlobalDomain() {
+        std::string s;
+        return s;
+    }
+
+    bool setGlobalDomain(ConstString globalDomain= "fds") {
+        return false;
     }
 };
 

@@ -42,13 +42,106 @@ void processStop(OrchMgr *ptr) {
     ptr->stop();
 }
 
+class CustomFakeDataStore : public FakeDataStore
+{
+public:
+
+    CustomFakeDataStore() { }
+    ~CustomFakeDataStore() {}
+
+    /*
+    * Custom implementation of functions for this specific set of tests
+    */
+       bool getSvcMap(std::vector<fpi::SvcInfo>& svcMap)
+       {
+           bool ret = false;
+
+           if ( !fakeSvcMap.empty() )
+           {
+               svcMap = fakeSvcMap;
+               ret = true;
+           }
+
+           return ret;
+       }
+
+       bool getSvcInfo(const fds_uint64_t svc_uuid, fpi::SvcInfo& svcInfo)
+       {
+           bool ret = false;
+
+           int64_t svcUuid = static_cast<int64_t>(svc_uuid);
+           for ( auto svc : fakeSvcMap )
+           {
+               if ( svc.svc_id.svc_uuid.svc_uuid == svcUuid)
+               {
+                   svcInfo = svc;
+                   ret = true;
+                   break;
+               }
+           }
+           return ret;
+       }
+
+       bool changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr)
+       {
+           bool found = false;
+
+           if ( !fakeSvcMap.empty())
+           {
+               std::vector<fpi::SvcInfo>::iterator iter;
+               for ( iter = fakeSvcMap.begin(); iter != fakeSvcMap.end(); iter++)
+               {
+                   if ( (*iter).svc_id.svc_uuid.svc_uuid == svcInfoPtr->svc_id.svc_uuid.svc_uuid )
+                   {
+                       found = true;
+                       break;
+                   }
+               }
+
+               if ( found )
+               {
+                   // Simply erase and re add, easier than updating every field
+                   fakeSvcMap.erase(iter);
+               }
+
+           }
+           fakeSvcMap.push_back(*svcInfoPtr);
+
+           return true;
+       }
+
+       bool deleteSvcMap(const fpi::SvcInfo& svcInfo)
+       {
+           bool found = false;
+
+           std::vector<fpi::SvcInfo>::iterator iter;
+           for ( iter = fakeSvcMap.begin(); iter != fakeSvcMap.end(); iter++)
+           {
+               if ( (*iter).svc_id.svc_uuid.svc_uuid == svcInfo.svc_id.svc_uuid.svc_uuid )
+               {
+                   found = true;
+                   break;
+               }
+           }
+
+           if ( found )
+           {
+               // Simply erase and re add, easier than updating every field
+               fakeSvcMap.erase(iter);
+               return true;
+           }
+
+           return false;
+       }
+};
+
 struct SvcMapFixture : BaseTestFixture{
 
-    OrchMgr*       testOm;
-    OM_Module*     testOmModule;
-    std::thread*   omThPtr;
-    uint64_t       uuidCounter; // starts at 10 for fun
-    FakeDataStore* dataStore;
+    OrchMgr*             testOm;
+    OM_Module*           testOmModule;
+    std::thread*         omThPtr;
+    uint64_t             uuidCounter; // starts at 10 for fun
+    CustomFakeDataStore* dataStore;
 
     std::vector<std::vector<fpi::ServiceStatus>> invalidTransitions =
     {
@@ -95,7 +188,7 @@ struct SvcMapFixture : BaseTestFixture{
                        omThPtr(nullptr),
                        uuidCounter(10)
     {
-        dataStore = new FakeDataStore();
+        dataStore = new CustomFakeDataStore();
     }
 
     ~SvcMapFixture() {}
@@ -225,7 +318,7 @@ struct SvcMapFixture : BaseTestFixture{
         {
             SvcMgr* svcMgr = MODULEPROVIDER()->getSvcMgr();
 
-            fds::updateSvcMaps<FakeDataStore>( dataStore,
+            fds::updateSvcMaps<CustomFakeDataStore>( dataStore,
                                                svcMgr,
                                                uuid.uuid_get_val(),
                                                svcInfo.svc_status,
@@ -244,7 +337,7 @@ struct SvcMapFixture : BaseTestFixture{
     {
         SvcMgr* svcMgr = MODULEPROVIDER()->getSvcMgr();
 
-        fds::updateSvcMaps<FakeDataStore>( dataStore,
+        fds::updateSvcMaps<CustomFakeDataStore>( dataStore,
                                            svcMgr,
                                            uuid,
                                            incomingStatus,
@@ -258,7 +351,7 @@ struct SvcMapFixture : BaseTestFixture{
     {
         SvcMgr* svcMgr = MODULEPROVIDER()->getSvcMgr();
 
-        fds::updateSvcMaps<FakeDataStore>( dataStore,
+        fds::updateSvcMaps<CustomFakeDataStore>( dataStore,
                                            svcMgr,
                                            svcInfo.svc_id.svc_uuid.svc_uuid,
                                            svcInfo.svc_status,

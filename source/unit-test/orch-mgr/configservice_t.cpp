@@ -22,6 +22,21 @@ OM_Module *OM_Module::om_singleton()
     return omModule;
 }
 
+
+class CustomFakeDataStore : public FakeDataStore
+{
+public:
+    CustomFakeDataStore() {}
+    ~CustomFakeDataStore() {}
+
+    /*
+    * Custom implementation of functions for this specific set of tests
+    */
+    fds_subid_t putSubscription(const Subscription &subscription, const bool isNew = true) {
+        static fds_subid_t s = 0;
+        return ++s;
+    }
+};
 /**
  * @brief A fake process
  * @details
@@ -78,10 +93,10 @@ TEST(CreateSubscription, FeatureToggle) {
     // Supplies the configuration datastore
     fds::FakeProcess fakeProcess;
     // Fake subscription data
-    fds::FakeDataStore dataStore;
+    fds::CustomFakeDataStore dataStore;
 
     // Yes, that global orchMgr is nullptr. Look out!
-    fds::apis::ConfigurationServiceHandler<fds::FakeDataStore> uut(fds::orchMgr);
+    fds::apis::ConfigurationServiceHandler<fds::CustomFakeDataStore> uut(fds::orchMgr);
     uut.setConfigDB(&dataStore);
 
     std::string strName("Subscription1");
@@ -110,7 +125,7 @@ TEST(CreateSubscription, FeatureToggle) {
     EXPECT_EQ(result, true);
 
     // Yes, that global orchMgr is nullptr. Look out!
-    fds::apis::ConfigurationServiceHandler<fds::FakeDataStore> uut1(fds::orchMgr);
+    fds::apis::ConfigurationServiceHandler<fds::CustomFakeDataStore> uut1(fds::orchMgr);
     uut1.setConfigDB(&dataStore);
 
     EXPECT_NO_THROW(uut1.createSubscription(pArg1, pArg2, pArg3,

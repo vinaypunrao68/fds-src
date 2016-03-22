@@ -9,6 +9,51 @@ namespace fds
 
 OmExtUtilApi* OmExtUtilApi::m_instance = NULL;
 
+
+//+--------------------------+---------------------------------------+
+//|     Current State        |    Valid IncomingState                |
+//+--------------------------+---------------------------------------+
+//      ACTIVE               |  STANDBY, STOPPED, INACTIVE_FAILED
+//      INACTIVE_STOPPED     |  ACTIVE, STARTED, REMOVED
+//      DISCOVERED           |  ACTIVE
+//      STANDBY              |  REMOVED, ACTIVE
+//      ADDED                |  STARTED, REMOVED
+//      STARTED              |  ACTIVE, STOPPED, INACTIVE_FAILED
+//      STOPPED              |  INACTIVE_STOPPED, STARTED, REMOVED
+//      REMOVED              |  DISCOVERED
+//      INACTIVE_FAILED      |  ACTIVE, STOPPED
+//+--------------------------+---------------------------------------+
+
+const std::vector<std::vector<fpi::ServiceStatus>> OmExtUtilApi::allowedStateTransitions =
+{
+        // valid incoming for state: INVALID(0)
+        { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_INACTIVE_STOPPED,
+          fpi::SVC_STATUS_DISCOVERED, fpi::SVC_STATUS_STANDBY, fpi::SVC_STATUS_ADDED,
+          fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_STOPPED,
+          fpi::SVC_STATUS_REMOVED, fpi::SVC_STATUS_INACTIVE_FAILED },
+        // valid incoming for state: ACTIVE (1)
+        { fpi::SVC_STATUS_STANDBY, fpi::SVC_STATUS_STOPPED,
+          fpi::SVC_STATUS_INACTIVE_FAILED },
+        // valid incoming for state: INACTIVE_STOPPED(2)
+        { fpi::SVC_STATUS_ACTIVE,fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_REMOVED },
+        // valid incoming for state: DISCOVERED(3)
+        { fpi::SVC_STATUS_ACTIVE },
+        // valid incoming for state: STANDBY(4)
+        { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_REMOVED },
+        // valid incoming for state: ADDED(5)
+        { fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_REMOVED },
+        // valid incoming for state: STARTED(6)
+        { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_STOPPED,
+          fpi::SVC_STATUS_INACTIVE_FAILED },
+        // valid incoming for state: STOPPED(7)
+        { fpi::SVC_STATUS_INACTIVE_STOPPED,fpi::SVC_STATUS_STARTED,
+          fpi::SVC_STATUS_REMOVED },
+        // valid incoming for state: REMOVED(8)
+        { fpi::SVC_STATUS_DISCOVERED },
+        // valid incoming for state: INACTIVE_FAILED(9)
+        { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_STOPPED }
+};
+
 OmExtUtilApi::OmExtUtilApi()
                       : sendSMMigAbortAfterRestart(false),
                         sendDMMigAbortAfterRestart(false),
@@ -202,10 +247,10 @@ std::string OmExtUtilApi::printSvcStatus( fpi::ServiceStatus svcStatus )
  * time to the domain
  */
 bool OmExtUtilApi::isTransitionAllowed( fpi::ServiceStatus incoming,
-                                         fpi::ServiceStatus current,
-                                         bool sameIncNo,
-                                         bool greaterIncNo,
-                                         bool zeroIncNo  )
+                                        fpi::ServiceStatus current,
+                                        bool sameIncNo,
+                                        bool greaterIncNo,
+                                        bool zeroIncNo  )
 {
 
     // The only situation when this would be, if incarnationNo is newer
@@ -216,9 +261,9 @@ bool OmExtUtilApi::isTransitionAllowed( fpi::ServiceStatus incoming,
         if ( zeroIncNo || greaterIncNo ) {
             return true;
         } else {
-            LOGWARN << "Current state:"
-                    << OmExtUtilApi::getInstance()->printSvcStatus(current)
-                    << " is the same as incoming, same incarnation, nothing to do";
+            LOGDEBUG << "Current state:"
+                     << OmExtUtilApi::getInstance()->printSvcStatus(current)
+                     << " is the same as incoming, same incarnation, nothing to do";
             return false;
         }
     }
@@ -230,7 +275,7 @@ bool OmExtUtilApi::isTransitionAllowed( fpi::ServiceStatus incoming,
         if (greaterIncNo) {
             return true;
         } else {
-            LOGWARN << "Will not allow transition from state:"
+            LOGDEBUG << "Will not allow transition from state:"
                     << OmExtUtilApi::getInstance()->printSvcStatus(current)
                     << " to state:" << OmExtUtilApi::getInstance()->printSvcStatus(incoming)
                     << " for the same incarnation number!!";
@@ -240,7 +285,7 @@ bool OmExtUtilApi::isTransitionAllowed( fpi::ServiceStatus incoming,
 
 
     bool allowed = false;
-    std::vector<fpi::ServiceStatus> allowedStates = allowedStateTransitions[current];
+    std::vector<fpi::ServiceStatus> allowedStates = OmExtUtilApi::allowedStateTransitions[current];
 
     // If the current state is one of the states allowed for a transition
     // to the incoming state, then return true, otherwise return false
@@ -279,34 +324,27 @@ bool OmExtUtilApi::isIncomingUpdateValid( fpi::SvcInfo& incomingSvcInfo,
 
     LOGNOTIFY << "Uuid:" << std::hex << currentInfo.svc_id.svc_uuid.svc_uuid << std::dec
               << " Incoming [incarnationNo:" << incomingSvcInfo.incarnationNo
-              << ", status:" << printSvcStatus(incomingSvcInfo.svc_status)
+              << ", status:" << OmExtUtilApi::printSvcStatus(incomingSvcInfo.svc_status)
               << "] VS Current [incarnationNo:" << currentInfo.incarnationNo
-              << ", status:" << printSvcStatus(currentInfo.svc_status) << "]";
+              << ", status:" << OmExtUtilApi::printSvcStatus(currentInfo.svc_status) << "]";
 
     if ( incomingSvcInfo.incarnationNo < currentInfo.incarnationNo)
     {
-        LOGWARN << "Incoming update for svc:"
+        LOGDEBUG << "Incoming update for svc:"
                 << " appears older than what is in svc map, will ignore";
         ret = false;
 
 
     } else if ( incomingSvcInfo.incarnationNo == currentInfo.incarnationNo &&
                 incomingSvcInfo.svc_status != currentInfo.svc_status ) {
-        LOGNOTIFY << "Same incarnation number, different status proceeding with update";
-
         sameIncNo = true;
         ret       = true;
 
     } else if (incomingSvcInfo.incarnationNo > currentInfo.incarnationNo) {
-        LOGNOTIFY << "Incoming update has newer incarnationNo";
-
         greaterIncNo = true;
         ret          = true;
 
     } else if (incomingSvcInfo.incarnationNo == 0) {
-
-        LOGWARN << "Zero incarnation number, allow the update nevertheless";
-
         incomingSvcInfo.incarnationNo = util::getTimeStampSeconds();
         zeroIncNo =
         ret       = true;
@@ -316,23 +354,26 @@ bool OmExtUtilApi::isIncomingUpdateValid( fpi::SvcInfo& incomingSvcInfo,
     {
         // If all the incarnation number checks pass, but the allowed state transition
         // does not pass, set the return back to false
-        if ( !isTransitionAllowed(incomingSvcInfo.svc_status, currentInfo.svc_status, sameIncNo,
-                                  greaterIncNo, zeroIncNo) )
+        if ( !OmExtUtilApi::isTransitionAllowed(incomingSvcInfo.svc_status,
+                                                currentInfo.svc_status,
+                                                sameIncNo,
+                                                greaterIncNo,
+                                                zeroIncNo) )
         {
             ret = false;
         }
     }
 
-    LOGNOTIFY << "isIncomingUpdateValid? " << ret
-              << " sameIncarnationNo? " << sameIncNo
-              << " greaterIncomingIncNo? " << greaterIncNo
-              << " zeroIncarnationNo? " << zeroIncNo;
+    LOGNOTIFY << "IsIncomingUpdateValid? " << ret
+              << " SameIncarnationNo? " << sameIncNo
+              << " GreaterIncomingIncNo? " << greaterIncNo
+              << " ZeroIncarnationNo? " << zeroIncNo;
     return ret;
 }
 
 std::vector<std::vector<fpi::ServiceStatus>> OmExtUtilApi::getAllowedTransitions()
 {
-    return allowedStateTransitions;
+    return OmExtUtilApi::allowedStateTransitions;
 }
 
 } // namespace fds
