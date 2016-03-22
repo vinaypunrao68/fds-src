@@ -50,6 +50,61 @@ struct ErrorHandler : public VolumeGroupHandleListener {
     bool isError(fpi::FDSPMsgTypeId const& msgType, Error const& e) override;
 };
 
+std::pair<AmDispatcher::ProtectedVGH::uniq_lock, AmDispatcher::ProtectedVGH::vgh_ptr>
+AmDispatcher::ProtectedVGH::getVGH(uint32_t const timeout)
+{
+    vgh_ptr handle;
+    std::chrono::milliseconds duration(timeout);
+    uniq_lock guard(swap_lock);
+    if (swapping.wait_for(guard, duration, [this]{ return !!group_handle; })) {
+        handle = group_handle;
+    }
+    if (!handle) guard.release();
+    return std::make_pair(std::move(guard), group_handle);
+}
+
+template<typename Cb>
+void
+AmDispatcher::ProtectedVGH::close(fds_volid_t const vol_id, Cb callback) {
+    vgh_ptr old_handle;
+    {
+        std::lock_guard<std::mutex> g(swap_lock);
+        old_handle = group_handle;
+        group_handle.reset();
+    }
+    if (old_handle) {
+        // We're gonna close
+        auto closeReq = new DetachVolumeReq(vol_id, "", nullptr);
+        old_handle->close([this, old_handle, closeReq, callback] { delete closeReq; callback(); });
+    } else {
+        callback();
+    }
+}
+
+template<typename Cb>
+void
+AmDispatcher::ProtectedVGH::open(fds_volid_t const vol_id,
+                                 boost::shared_ptr<fpi::OpenVolumeMsg> msg,
+                                 CommonModuleProviderIf* modProvider,
+                                 ErrorHandler* handler,
+                                 Cb callback) {
+    close(vol_id, []{});
+    auto quorum = std::max(modProvider->getSvcMgr()->getCurrentDMT()->getDepth() - 1,
+                           static_cast<uint32_t>(1));
+    vgh_ptr new_vgh = std::make_shared<VolumeGroupHandle>(modProvider, vol_id, quorum);
+    new_vgh->setListener(handler);
+    new_vgh->open(msg,
+                  [this, new_vgh, callback] (Error const& e, fpi::OpenVolumeRspMsgPtr const& p) mutable
+                  -> void {
+                      if (e.ok()) {
+                          std::lock_guard<std::mutex> g(swap_lock);
+                          group_handle = new_vgh;
+                      }
+                      swapping.notify_all();
+                      callback(e, p);
+                  });
+}
+
 AmDispatcher::AmDispatcher(AmDataProvider* prev)
         : AmDataProvider(prev, nullptr)
 {
@@ -179,8 +234,13 @@ AmDispatcher::addToVolumeGroup(const fpi::AddToVolumeGroupCtrlMsgPtr &addMsg,
         ReadGuard rg(volumegroup_lock);
         auto it = volumegroup_map.find(vol_id);
         if (volumegroup_map.end() != it) {
-            it->second->handleAddToVolumeGroupMsg(addMsg, cb);
-            return;
+            ProtectedVGH::vgh_ptr vgh;
+            ProtectedVGH::uniq_lock lock;
+            std::tie(lock, vgh) = it->second.getVGH(message_timeout_open);
+            if (vgh) {
+                vgh->handleAddToVolumeGroupMsg(addMsg, cb);
+                return;
+            }
         }
     }
 
@@ -265,11 +325,7 @@ AmDispatcher::closeVolume(AmRequest * amReq) {
         if (volumegroup_map.end() != it) {
             // Give ownership of the volume handle to the handle itself, we're
             // done with it
-            std::shared_ptr<VolumeGroupHandle> vg = std::move(it->second);
-            volumegroup_map.erase(it);
-            vg->close([this, volReq, vg] () mutable -> void {
-                            _closeVolumeCb(volReq);
-                        });
+            it->second.close(volReq->io_vol_id, [this, volReq] { _closeVolumeCb(volReq); });
             return;
         }
     }
@@ -283,12 +339,17 @@ Error AmDispatcher::modifyVolumePolicy(const VolumeDesc& vdesc) {
         // Check to see if another AM has claimed ownership of coordinating the volume
         ReadGuard rg(volumegroup_lock);
         auto it = volumegroup_map.find(vdesc.GetID());
-        if (volumegroup_map.end() != it &&
-            vdesc.getCoordinatorId() != MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() &&
-            vdesc.getCoordinatorVersion() > it->second->getVersion()) {
-            // Inform peers that they should not perform IO on this volume
-            // as another client is accessing it
-            err = ERR_VOLUME_ACCESS_DENIED;
+        if (volumegroup_map.end() != it) {
+            ProtectedVGH::vgh_ptr vgh;
+            ProtectedVGH::uniq_lock lock;
+            std::tie(lock, vgh) = it->second.getVGH(message_timeout_open);
+            if (vgh &&
+                vdesc.getCoordinatorId() != MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() &&
+                vdesc.getCoordinatorVersion() > vgh->getVersion()) {
+                // Inform peers that they should not perform IO on this volume
+                // as another client is accessing it
+                err = ERR_VOLUME_ACCESS_DENIED;
+            }
         }
     }
     return err;
@@ -430,32 +491,17 @@ AmDispatcher::openVolume(AmRequest* amReq) {
         auto it = volumegroup_map.end();
 
         WriteGuard wg(volumegroup_lock);
-        std::tie(it, happened) = volumegroup_map.emplace(vol_id, nullptr);
-        if (!happened) {
-            // Give ownership of the volume handle to the handle itself, we're
-            // done with it
-            std::shared_ptr<VolumeGroupHandle> vg = std::move(it->second);
-            volumegroup_map.erase(it);
-            auto closeReq = new DetachVolumeReq(amReq->io_vol_id, amReq->volume_name, nullptr);
-            vg->close([this, closeReq, vg] { delete closeReq; });
-            std::tie(it, happened) = volumegroup_map.emplace(vol_id, nullptr);
-        }
-
-        auto quorum = std::max(MODULEPROVIDER()->getSvcMgr()->getCurrentDMT()->getDepth() - 1,
-                               static_cast<uint32_t>(1));
-        it->second.reset(new VolumeGroupHandle(MODULEPROVIDER(), vol_id, quorum));
-        if (!it->second) {
-            LOGERROR << "Could not create a volume group handle for this volume: " << vol_id;
-            AmDataProvider::openVolumeCb(amReq, ERR_VOLUME_ACCESS_DENIED);
-            return;
-        }
-        it->second->setListener(volumegroup_handler.get());
+        auto& pvgh = volumegroup_map[vol_id];
 
         volMDMsg->volume_id = vol_id.get();
-        it->second->open(volMDMsg,
-                         [volReq, this] (Error const& e, fpi::OpenVolumeRspMsgPtr const& p) mutable -> void {
-                            _openVolumeCb(volReq, e, p);
-                            });
+        pvgh.open(volReq->io_vol_id,
+                  volMDMsg,
+                  MODULEPROVIDER(),
+                  volumegroup_handler.get(),
+                  [volReq, this] (Error const& e, fpi::OpenVolumeRspMsgPtr const& p) mutable
+                  -> void {
+                      _openVolumeCb(volReq, e, p);
+                      });
     }
 }
 

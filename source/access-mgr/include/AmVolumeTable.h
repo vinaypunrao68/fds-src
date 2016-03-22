@@ -83,8 +83,7 @@ struct AmVolumeTable :
     boost::shared_ptr<FdsTimerTask> renewal_task;
 
     std::unique_ptr<WaitQueue> lookup_queue;
-    std::unique_ptr<WaitQueue> read_queue;
-    std::unique_ptr<WaitQueue> write_queue;
+    std::unique_ptr<WaitQueue> open_queue;
 
     /// Timer for token renewal
     boost::shared_ptr<FdsTimer> token_timer;
