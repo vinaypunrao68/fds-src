@@ -39,7 +39,13 @@ public class Chunker {
             ObjectOffset objectOffset = new ObjectOffset(i);
             ObjectKey key = new ObjectKey(domain, volume, blobName, objectOffset);
             objectLock.lock(key, () -> {
-                FdsObject fdsObject = io.readCompleteObject(domain, volume, blobName, objectOffset, maxObjectSize);
+                FdsObject fdsObject;
+
+                if (toBeWritten == maxObjectSize) {
+                    fdsObject = new FdsObject(ByteBuffer.allocate(maxObjectSize), maxObjectSize);
+                } else {
+                    fdsObject = io.readCompleteObject(domain, volume, blobName, objectOffset, maxObjectSize);
+                }
                 int limit = Math.max(fdsObject.limit(), startOffset[0] + toBeWritten);
                 fdsObject.limit(limit);
                 ByteBuffer bb = fdsObject.asByteBuffer();

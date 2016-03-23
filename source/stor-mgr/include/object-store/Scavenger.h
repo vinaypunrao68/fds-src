@@ -94,7 +94,7 @@ class DiskScavenger {
 
     Error startScavenge(fds_bool_t verify,
                         disk_compaction_done_handler_t done_hdlr,
-                        fds_uint32_t token_reclaim_threshold = 0);
+                        fds_uint32_t token_reclaim_threshold = 1);
     void stopScavenge();
 
     void handleScavengeError(const Error& err);

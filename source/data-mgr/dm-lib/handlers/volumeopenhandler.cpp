@@ -58,23 +58,24 @@ void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
 
     auto volMeta = dataManager.getVolumeMeta(request->volId);
     if (dataManager.features.isVolumegroupingEnabled()) {
+        fds_verify(request->msg->mode.can_write == true);
         if (volMeta->isInitializerInProgress()) {
             LOGWARN << volMeta->logString() << " Failed to open.  Sync is in progress";
             helper.err = ERR_SYNC_INPROGRESS;
             return;
         }
         if (volMeta->isCoordinatorSet() &&
-            request->msg->coordinatorVersion < volMeta->getCoordinatorVersion()) {
-            LOGWARN << "Rejecting openvolume request due to version check failure"
+            volMeta->getCoordinatorId() != request->msg->coordinator.id) {
+            LOGWARN << "Rejecting openvolume request due to coordinator mismatch"
                 << " volume: " << request->volId
-                << " from: " << request->client_uuid_
-                << " request version: " << request->msg->coordinatorVersion
-                << " stored version: " << volMeta->getCoordinatorVersion();
-            helper.err = ERR_INVALID_VERSION;
+                << " from: " << request->msg->coordinator.id
+                << " stored: " << volMeta->getCoordinatorId();
+            // helper.err = ERR_INVALID_COORDINATOR;
+            // TODO(Rao): Uncomment above
+            helper.err = ERR_INVALID;
             return;
         }
-        volMeta->setCoordinatorId(request->client_uuid_);
-        volMeta->setCoordinatorVersion(request->msg->coordinatorVersion);
+        volMeta->setCoordinator(request->msg->coordinator);
         volMeta->setState(fpi::Loading,
                           util::strformat(" - openvolume from coordinator: %ld",
                                           volMeta->getCoordinatorId().svc_uuid));
@@ -107,6 +108,7 @@ void VolumeOpenHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHd
         response.token = request->token;
         response.sequence_id = request->sequence_id;
         response.replicaVersion = request->version;
+        // TODO(Rao): set coordinator id on response
     }
     DM_SEND_ASYNC_RESP(*asyncHdr, FDSP_MSG_TYPEID(fpi::OpenVolumeRspMsg), response);
     if (dmRequest) {

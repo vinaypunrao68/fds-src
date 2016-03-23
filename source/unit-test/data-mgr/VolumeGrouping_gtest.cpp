@@ -225,7 +225,7 @@ TEST_F(VolumeGroupFixture, domain_reboot) {
     /* Open the handle */
     openVolume(*v1, waiter);
     waiter.awaitResult();
-    POLL_MS(v1->getFunctionalReplicasCnt() == dmGroup.size(), 1000, 8000);
+    POLL_MS(v1->getFunctionalReplicasCnt() == dmGroup.size(), 1000, 800000);
     ASSERT_TRUE(v1->getFunctionalReplicasCnt() == dmGroup.size());
 
 
@@ -253,6 +253,10 @@ TEST_F(VolumeGroupFixture, allDownFollowedBySequentialUp) {
     dmGroup[1]->stop();
     dmGroup[2]->stop();
     LOGNORMAL << "Stopped all the dms";
+
+    /* Any Read should fail */
+    sendQueryCatalogMsg(*v1, blobName, waiter);
+    ASSERT_TRUE(waiter.awaitResult() != ERR_OK);
 
     /* Bring up one dm at a time */
     dmGroup[2]->start();

@@ -69,7 +69,7 @@ AmAsyncXdiResponse::initiateClientConnect() {
     // Lookup current client for this nexus
     if (client_it != clients.end())
     {
-        LOGTRACE << "Found response channel!";
+        LOGTRACE << "found response channel";
         // If the client is different than ours, use that one
         if (asyncRespClient == client_it->second) {
             // Otherwise trash this one...it must be broken.
@@ -81,7 +81,7 @@ AmAsyncXdiResponse::initiateClientConnect() {
     }
 
     if (!asyncRespClient) {
-        LOGNORMAL << "Setting up response channel to: "
+        LOGNORMAL << "response channel:"
                   << "tcp://" << serverIp << ":" << serverPort;
         // Setup the async response client
         boost::shared_ptr<xdi_att::TTransport> respSock(

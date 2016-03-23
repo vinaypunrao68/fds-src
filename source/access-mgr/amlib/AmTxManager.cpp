@@ -295,11 +295,12 @@ AmTxManager::commitBlobTxCb(AmRequest * amReq, Error const error) {
             }
             err = ERR_OK;
         } else {
-            LOGERROR << "Transaction failed to commit: " << err;
+            LOGERROR << "err:" << err
+                     << " transaction failed to commit";
             abortOnError(blobReq, err);
         }
     } else {
-        LOGWARN << "Missing descriptor for tx commit. Ignoring";
+        LOGWARN << "ignoring missing descriptor for tx commit";
     }
     AmDataProvider::commitBlobTxCb(blobReq, err);
 }
@@ -346,7 +347,7 @@ AmTxManager::setBlobMetadataCb(AmRequest *amReq, Error const error) {
 void
 AmTxManager::deleteBlob(AmRequest *amReq) {
     auto blobReq = static_cast<DeleteBlobReq *>(amReq);
-    LOGDEBUG    << " volume:" << amReq->io_vol_id
+    LOGDEBUG    << "volid:" << amReq->io_vol_id
                 << " blob:" << amReq->getBlobName()
                 << " txn:" << blobReq->tx_desc;
 
@@ -417,8 +418,9 @@ AmTxManager::getBlob(AmRequest *amReq) {
     // FIXME(bszmyd): Sun 26 Apr 2015 04:41:12 AM MDT
     // Don't support unaligned currently, reject if this is not
     if (0 != (amReq->blob_offset % blobReq->object_size)) {
-        LOGERROR << "unaligned read not supported, offset: " << amReq->blob_offset
-                 << " length: " << amReq->data_len;
+        LOGERROR << "offset:" << amReq->blob_offset
+                 << " length:" << amReq->data_len
+                 << " unaligned read";
         return AmDataProvider::getBlobCb(amReq, ERR_INVALID);
     }
 
@@ -493,7 +495,8 @@ AmTxManager::applyPut(PutBlobReq* blobReq) {
                                          blobReq->data_len)) {
         // An abort or commit already caused the tx
         // to be cleaned up. Short-circuit
-        GLOGNOTIFY << "Response no longer has active transaction: " << tx_desc.getValue();
+        LOGNOTIFY << "tx:" << tx_desc.getValue()
+                  << " no longer active";
         return;
     }
 

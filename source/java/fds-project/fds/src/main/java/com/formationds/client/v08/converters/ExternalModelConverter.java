@@ -1291,7 +1291,22 @@ public class ExternalModelConverter {
         if ( externalVolume.getCreated() != null ) {
             volumeType.setCreateTime( externalVolume.getCreated().toEpochMilli() );
         }
-        volumeType.setIops_assured( externalVolume.getQosPolicy().getIopsMin() );
+        /*
+         * HACK ALERT!
+         *
+         * There's a P1 bug that can have a short term workaround if we don't allow a guaranteed
+         * IOPs setting of 0 for a volume, but instead change it to 20. Per Sanjay, "min_iops = 0
+         * leads to scheduler to go very slow and memory builds up in the system."
+         */
+        if( externalVolume.getQosPolicy().getIopsMin() < 20 )
+        {
+            volumeType.setIops_assured( 20 );
+        }
+        else
+        {
+            volumeType.setIops_assured( externalVolume.getQosPolicy( )
+                                                      .getIopsMin( ) );
+        }
         volumeType.setIops_throttle( externalVolume.getQosPolicy().getIopsMax() );
 
         FDSP_MediaPolicy fdspMediaPolicy;

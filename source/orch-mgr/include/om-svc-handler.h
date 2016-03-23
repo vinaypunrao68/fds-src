@@ -105,9 +105,6 @@ namespace fds {
       void svcStateChangeResp(boost::shared_ptr<fpi::AsyncHdr>& hdr,
                               boost::shared_ptr<fpi::SvcStateChangeResp>& msg);
 
-      void setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-                                     boost::shared_ptr<fpi::SetVolumeGroupCoordinatorMsg> &msg);
-
       DECL_ASYNC_HANDLER(genericCommand         , GenericCommandMsg);
 
     protected:

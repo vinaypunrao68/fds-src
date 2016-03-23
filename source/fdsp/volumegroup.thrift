@@ -6,12 +6,11 @@ include "svc_types.thrift"
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.replica
 
-typedef i32             VolumeGroupVersion
 typedef svc_types.ReplicaId VolumeGroupId
 
 /* Header that must be part of every replica group io request */
 struct VolumeIoHdr {
-    1: required VolumeGroupVersion		version;
+    1: required i32				version;
 
     /* Id to identify the replication group */
     2: required VolumeGroupId			groupId;
@@ -87,7 +86,7 @@ struct CommitTxMsg {
 
 struct PullCommitLogEntriesMsg {
     1: required VolumeGroupId		groupId;
-    2: VolumeGroupVersion		lastCommitVersion;
+    2: i32				lastCommitVersion;
     3: required i64			startCommitId;
     4: i64				endCommitId;
 }

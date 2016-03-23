@@ -1406,7 +1406,7 @@ class TestGenerateFile(TestCase.FDSTestCase):
         Generate the named file in the resources directory.
         """
 
-        self.log.info("Generating 'pseudo random' test resource file <{0}> of size <{1}> using seed <{2}>.".
+        self.log.info("Generating 'pseudo random' test resource file <{0}> of size <{1}> bytes using seed <{2}>.".
                       format(self.passedFileName, self.passedSize, self.passedSeed))
 
         qualifiedFileName = TestUtils.get_resource(self, os.path.basename(self.passedFileName))
@@ -1434,12 +1434,13 @@ class TestRemoveFile(TestCase.FDSTestCase):
         Test Case:
         Remove the named file in the resources directory.
         """
+        files = self.passedFileName.split(',')
+        for each_file in files:
+            self.log.info("Removing file <{0}>.".format(each_file))
 
-        self.log.info("Removing file <{0}>.".format(self.passedFileName))
+            qualifiedFileName = TestUtils.get_resource(self, os.path.basename(each_file))
 
-        qualifiedFileName = TestUtils.get_resource(self, os.path.basename(self.passedFileName))
-
-        TestUtils.remove_file(qualified_file_name=qualifiedFileName)
+            TestUtils.remove_file(qualified_file_name=qualifiedFileName)
 
         return True
 
