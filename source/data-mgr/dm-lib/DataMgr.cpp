@@ -562,7 +562,6 @@ Error DataMgr::addVolume(const std::string& vol_name,
 
     Error err(ERR_OK);
     bool fActivated = false;
-    bool fSyncRequired  = false;
     // create vol catalogs, etc first
 
     bool fPrimary = false;
@@ -730,17 +729,8 @@ Error DataMgr::addVolume(const std::string& vol_name,
             if (features.isVolumegroupingEnabled() &&
                 !(vdesc->isSnapshot())) {
                 // volmeta->setPersistVolDB(getPersistDB(vol_uuid));
-                if (volmeta->isCoordinatorSet()) {
-                    /* Coordinator is set. We can go through sync protocol */
-                    fSyncRequired = true;
-                    volmeta->setState(fpi::Offline,
-                                      " - addVolume:coordinator set. Will start initializer");
-                } else {
-                    /* Coordinator isn't available yet.  We wait until coordinator tries to
-                     * do an open
-                     */
-                    volmeta->setState(fpi::Offline, " - addVolume:coordinator not set");
-                }
+                /* We wait until coordinator tries to do an open */
+                volmeta->setState(fpi::Offline, " - addVolume:coordinator not set");
             } else {
                 volmeta->setState(fpi::Active, " - addVolume");
             }
@@ -787,10 +777,6 @@ Error DataMgr::addVolume(const std::string& vol_name,
     // now load all the snapshots for the volume
     if (fOldVolume) {
         timelineMgr->loadSnapshot(vol_uuid);
-    }
-
-    if (fSyncRequired) {
-        volmeta->scheduleInitializer(true);
     }
 
     return err;
@@ -1023,12 +1009,6 @@ int DataMgr::mod_init(SysParams const *const param)
     dmFullnessThreshold = MODULEPROVIDER()->get_fds_config()->\
             get<fds_uint32_t>("fds.dm.disk_fullness_threshold", 75);
 
-    /**
-     * FEATURE TOGGLE: Volume Open Support
-     * Thu 02 Apr 2015 12:39:27 PM PDT
-     */
-    features.setVolumeTokensEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
-        "fds.feature_toggle.common.volume_open_support", false));
 
     features.setExpungeEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
         "fds.feature_toggle.common.periodic_expunge", false));
@@ -1041,6 +1021,13 @@ int DataMgr::mod_init(SysParams const *const param)
 
     features.setVolumegroupingEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
         "fds.feature_toggle.common.enable_volumegrouping", false));
+    /**
+     * FEATURE TOGGLE: Volume Open Support
+     * Thu 02 Apr 2015 12:39:27 PM PDT
+     */
+    features.setVolumeTokensEnabled(!features.isVolumegroupingEnabled() &&
+                                    MODULEPROVIDER()->get_fds_config()->get<bool>(
+                                        "fds.feature_toggle.common.volume_open_support", false));
 
     /**
      * FEATURE TOGGLE: Sample DM stats for a volume with each Volume update. If not enabled,

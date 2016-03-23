@@ -46,7 +46,7 @@ VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
     selfSvcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
 
     // this should be overwritten when volume add triggers read of the persisted value
-    sequence_id = 0;
+    sequence_id = VolumeGroupConstants::INVALID_SEQUENCEID;
 
     opId = VolumeGroupConstants::OPSTARTID;
     version = VolumeGroupConstants::VERSION_INVALID;
@@ -147,7 +147,8 @@ Error VolumeMeta::applyActiveTxState(const int64_t &highestOpId,
 void VolumeMeta::setSequenceId(sequence_id_t new_seq_id){
     fds_mutex::scoped_lock l(sequence_lock);
 
-    if (new_seq_id > sequence_id) {
+    if (sequence_id == VolumeGroupConstants::INVALID_SEQUENCEID ||
+        new_seq_id > sequence_id) {
         sequence_id = new_seq_id;
     }
 }
@@ -176,7 +177,9 @@ void VolumeMeta::setState(const fpi::ResourceState &state,
 {
     // TODO(Rao): Ensure setState is invoked under volume synchronized context
     vol_desc->state = state;
-    if (state == fpi::ResourceState::Loading) {
+    if (state == fpi::ResourceState::Offline) {
+        setOpId(VolumeGroupConstants::OPSTARTID);
+    } else if (state == fpi::ResourceState::Loading) {
         /* Every time volume goes into loading state version is incremented */
         version = dataManager->getPersistDB(vol_desc->volUUID)->updateVersion();
     } else if (state == fpi::ResourceState::Active) {
@@ -248,7 +251,7 @@ void VolumeMeta::notifyInitializerComplete(const Error &completionError)
     LOGDEBUG << "Cleanedup initializer: " << logString();
 
     if (completionError != ERR_OK) {
-        scheduleInitializer(false);
+        // scheduleInitializer(false);
     } else {
         initializerTriesCnt = 0;
     }
@@ -576,42 +579,46 @@ void VolumeMeta::handleVolumegroupUpdate(DmRequest *dmRequest)
     DmIoVolumegroupUpdate* request = static_cast<DmIoVolumegroupUpdate*>(dmRequest);
     auto &group = request->reqMessage->group;
 
-    LOGDEBUG << logString() << " volume group update ";
-    if (getCoordinatorId() != group.coordinator.id) {
-        LOGDEBUG << logString() << " Coordinator mismatch.  Ignoring volume group update";
+    if (isInitializerInProgress()) {
+        LOGDEBUG << logString() << " - Initializer in progress.  Ignoring volume group update";
         return;
     }
-    if (getState() == fpi::Active) {
-        if (group.nonfunctionalReplicas.end() !=
-            std::find(group.nonfunctionalReplicas.begin(),
-                      group.nonfunctionalReplicas.end(),
-                      selfSvcUuid)) {
-            setState(fpi::Offline,
-                     " - VolumegroupUpdateHandler:coordinator has this volume as nonfunctional");
-            scheduleInitializer(false);
-        }
-        return;
-    } else if (isInitializerInProgress()) {
-        LOGDEBUG << "Initializer in progress.  Ignoring volume group update";
-        return;
-    } else if (getState() == fpi::Loading) {  // This branch is when open is in progress
-        if (group.functionalReplicas.end() !=
-            std::find(group.functionalReplicas.begin(),
-                      group.functionalReplicas.end(),
-                      selfSvcUuid)) {
-            fds_assert(getSequenceId() == static_cast<uint64_t>(group.lastCommitId));
-            setOpId(group.lastOpId);
-            setState(fpi::Active, " - VolumegroupUpdateHandler:state matched with coordinator");
-        } else {
-            fds_assert(getSequenceId() != static_cast<uint64_t>(group.lastCommitId));
-            LOGWARN << "vol: " << request->volId << " doesn't have active state."
-                    << " current sequence id: " << getSequenceId()
-                    << " expected sequence id: " << group.lastCommitId;
-            setState(fpi::Offline, " - VolumegroupUpdateHandler:sequence id mismatch");
-            scheduleInitializer(false);
-        }
+
+    /* Following are cases when we can become functional */
+    if (getState() == fpi::Loading &&
+        getCoordinator().id == group.coordinator.id &&
+        getSequenceId() == static_cast<uint64_t>(group.lastCommitId) &&
+        (group.functionalReplicas.end() !=
+         std::find(group.functionalReplicas.begin(),
+                   group.functionalReplicas.end(),
+                   selfSvcUuid))) {
+        setOpId(group.lastOpId);
+        setCoordinator(group.coordinator);
+        setState(fpi::Active, " - VolumegroupUpdateHandler:state matched with coordinator after open");
         return;
     }
+
+    /* Following are cases when sync is required */
+    if (group.coordinator.id != getCoordinatorId() &&
+        group.coordinator.version >= getCoordinatorVersion()) {
+       setCoordinator(group.coordinator);
+       setState(fpi::Offline,
+                "- VolumegroupUpdateHandler: coordinator updated. Will go through sync");
+       scheduleInitializer(true);
+       return;
+    } else if (group.coordinator.id == getCoordinatorId() &&
+        (group.functionalReplicas.end() ==
+         std::find(group.functionalReplicas.begin(),
+                   group.functionalReplicas.end(),
+                   selfSvcUuid))) {
+        setCoordinator(group.coordinator);
+        setState(fpi::Offline,
+                 "- VolumegroupUpdateHandler: not a functional member as per coordinator.  Will go through sync");
+        scheduleInitializer(true);
+        return;
+    }
+
+    LOGTRACE << logString() << "- volume group update ignored";
 }
 
 VolumeMeta::hashCalcContext::hashCalcContext(DmRequest *req,

@@ -203,6 +203,11 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     using VolumeReplicaHandleItr        = VolumeReplicaHandleList::iterator;
     using WriteOpsBuffer                = boost::circular_buffer<std::pair<fpi::FDSPMsgTypeId, StringPtr>>;
 
+    /* Ping to the group when non-functional members exist is done on this interval 
+     * Exposed as public/non-const so that it can be tuned for unit testing
+     */
+    static uint32_t                     GROUPCHECK_INTERVAL_SEC;
+
     VolumeGroupHandle(CommonModuleProviderIf* provider,
                       const fds_volid_t& volId,
                       uint32_t quorumCnt);
@@ -273,7 +278,7 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     inline bool isFunctional() const { return state_ == fpi::ResourceState::Active; }
     inline int64_t getGroupId() const { return groupId_; }
     inline int32_t getDmtVersion() const { return dmtVersion_; }
-    inline int32_t getVersion() const { return version_; }
+    inline int64_t getVersion() const { return version_; }
     inline int32_t size() const {
         return functionalReplicas_.size() +
             nonfunctionalReplicas_.size() +
@@ -344,7 +349,7 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     /* ID of the volume group.  This is same as volume id */
     int64_t                             groupId_;
     /* Version # for group handle.  This is different from VolumeReplicaHandle version # */
-    fpi::VolumeGroupVersion             version_;
+    int64_t                             version_;
     /* Id used when exporting state */
     std::string                         stateProviderId_;
     /* Every write operation is given a sequence #. The first # is OPSTARTID+1 */
