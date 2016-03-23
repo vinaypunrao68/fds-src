@@ -72,7 +72,7 @@ TEST_F(VolumeGroupFixture, staticio_restarts_with_vc) {
     /* Create two dms */
     unsigned clusterSize = 3;
     createCluster(clusterSize);
-    setupVolumeGroup(1);
+    setupVolumeGroupHandleOnAm1(1);
 
     /* Do some io. After Io is done, every volume replica must have same state */
     for (uint32_t i = 0; i < 10; i++) {
