@@ -4,6 +4,7 @@ import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.google.common.collect.Multimap;
 
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.ThreadContext;
 import org.apache.logging.log4j.LogManager;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Response;
@@ -77,15 +78,17 @@ public class Dispatcher extends HttpServlet {
                                ((RequestLog.LoggingRequestWrapper<Request>)request).getRequestId() :
                                RequestLog.nextRequestId();
 
-        // Add Dispatcher and request URI to thread name for the duration of the request processing.
+        // Add Dispatcher and requestId to thread name for the duration of the request processing.
         // This has value as long as the request is all processed on the same thread.  Requests that
         // are passed along to other threads for asynchronous handling will not have this thread
         // name.  That is not a problem, you just don't get the same tracking ability.
         String threadBaseName = Thread.currentThread().getName();
-        String dispatchContextName = String.format( "Dispatcher[%d:%d:%s]",
+        String dispatchContextName = String.format( "Dispatcher(%d:%d)",
                                                     Thread.currentThread().getId(),
-                                                    requestId,
-                                                    request.getRequestURI() );
+                                                    requestId );
+
+        ThreadContext.put( "reqid", Long.toString( requestId ) );
+        ThreadContext.put( "uri", request.getRequestURI() );
 
         Thread.currentThread().setName( dispatchContextName );
         LOG.info("{} Starting request", requestLogEntryBase);
@@ -113,12 +116,21 @@ public class Dispatcher extends HttpServlet {
 	        }
 
 	        try {
+	            // TODO: for most of our request handlers, this is going to show as HttpErrorHandler
+	            // that wraps the admin and auth handlers.  In order for this to be useful, I think we
+	            // we need an interface in RequestHandler that returns an ID/Name that resolves to
+	            // the wrapped handler name.  That turns out to be non-trivial and requires some
+	            // gymnastics with the HttpAuthenticator's handler wrapped in a function.  The
+	            // alternative is adding this in every single handler
+	            //ThreadContext.put( "handler", requestHandler.getClass().getSimpleName() );
 	            resource = requestHandler.handle(request, routeAttributes);
 	        } catch (UsageException e) {
 	            resource = new JsonResource(new JSONObject().put("message", e.getMessage()), HttpServletResponse.SC_BAD_REQUEST);
 	        } catch (Throwable t) {
 	            LOG.fatal(t.getMessage(), t);
 	            resource = new ErrorPage(t.getMessage(), t);
+	        } finally {
+	            // see above todo comment: ThreadContext.remove( "handler" );
 	        }
 
 	        sendResponse( response, resource );
@@ -130,6 +142,9 @@ public class Dispatcher extends HttpServlet {
         	    RequestLog.requestComplete(request);
         	}
             Thread.currentThread().setName( threadBaseName );
+
+            ThreadContext.remove( "reqid" );
+            ThreadContext.remove( "uri" );
         }
     }
 
