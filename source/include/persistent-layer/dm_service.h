@@ -128,7 +128,7 @@ class DmQuery : protected QueryMgr
     DmQuery();
     static DmQuery &dm_query();
 
-    static const int dm_blk_shift = 9;
+    static const int dm_blk_shift = 12; // align token file to 4096 byte block size
     static const int dm_blk_size  = (1 << DmQuery::dm_blk_shift);
     static const int dm_blk_mask  = DmQuery::dm_blk_size - 1;
 
