@@ -12,8 +12,8 @@ import com.formationds.commons.model.builder.SeriesBuilder;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.StatOperation;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,7 +31,7 @@ public class SeriesHelper {
 
 
     private static final Logger logger =
-            LoggerFactory.getLogger( SeriesHelper.class );
+            LogManager.getLogger( SeriesHelper.class );
 
     private static final Long SECONDS_IN_HOUR    = TimeUnit.HOURS.toSeconds( 1 );
     private static final Long SECONDS_IN_DAY     = TimeUnit.HOURS.toSeconds( 24 );

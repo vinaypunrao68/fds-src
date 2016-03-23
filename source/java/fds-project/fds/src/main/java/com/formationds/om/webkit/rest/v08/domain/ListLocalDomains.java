@@ -15,8 +15,8 @@ import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,8 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 public class ListLocalDomains implements RequestHandler {
-	private static final Logger logger = LoggerFactory
-			.getLogger(ListLocalDomains.class);
+	private static final Logger logger = LogManager.getLogger(ListLocalDomains.class);
 
 	private ConfigurationApi configApi;
 
@@ -36,7 +35,7 @@ public class ListLocalDomains implements RequestHandler {
 			throws Exception {
 
 		List<Domain> localDomains = Collections.emptyList();
-		
+
 		try {
 			localDomains = listDomains();
 		} catch (Exception e) {
@@ -50,20 +49,20 @@ public class ListLocalDomains implements RequestHandler {
 
 		return new TextResource(jsonString);
 	}
-	
+
 	public List<Domain> listDomains() throws Exception{
-		
+
 		logger.debug("Listing local domains.");
 		List<LocalDomainDescriptor> internalDomains = getConfigApi().listLocalDomains( 0 );
 
 		List<Domain> externalDomains = new ArrayList<Domain>();
-		
+
 		internalDomains.stream().forEach( internalDomain -> {
-			
+
 			Domain externalDomain = ExternalModelConverter.convertToExternalDomain( internalDomain );
 			externalDomains.add( externalDomain );
 		});
-		
+
 		return externalDomains;
 	}
 

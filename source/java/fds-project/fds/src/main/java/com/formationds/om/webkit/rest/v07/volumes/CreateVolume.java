@@ -24,8 +24,8 @@ import com.formationds.web.toolkit.TextResource;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -37,7 +37,7 @@ import java.util.concurrent.TimeUnit;
 public class CreateVolume
   implements RequestHandler {
   private static final Logger logger =
-    LoggerFactory.getLogger( CreateVolume.class );
+    LogManager.getLogger( CreateVolume.class );
 
   // TODO pull these values from the platform.conf file.
   private static final String URL = "http://localhost:7777/api/stats";

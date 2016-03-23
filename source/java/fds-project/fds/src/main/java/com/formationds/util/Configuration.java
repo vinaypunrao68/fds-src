@@ -42,6 +42,7 @@ public class Configuration {
     public static final String FDS_XDI_AM_TIMEOUT_SECONDS = "fds.xdi.am_timeout_seconds";
     public static final String FDS_XDI_AM_RETRY_ATTEMPTS = "fds.xdi.am_retry_attempts";
     public static final String FDS_XDI_AM_RETRY_INTERVAL_SECONDS = "fds.xdi.am_retry_interval_seconds";
+    public static final String FDS_XDI_CONTROL_PORT_OFFSET = "fds.xdi.control_port_offset";
     public static final String FDS_OM_IP_LIST = "fds.common.om_ip_list";
     public static final String FDS_OM_UUID = "fds.common.om_uuid";
     public static final String FDS_OM_NODE_UUID = "fds.pm.platform.uuid";
@@ -373,6 +374,8 @@ public class Configuration {
                 platformConfig.lookup(FDS_XDI_AM_RETRY_ATTEMPTS).intValue(),
                 platformConfig.lookup(FDS_XDI_AM_RETRY_INTERVAL_SECONDS).intValue(),
                 // assign NFS statistics webapp port based on platform port number 7000 - 1445 == 5555
-                pmPort - 1445 );
+                pmPort - 1445,
+                // same for XDI control webapp port
+                pmPort + platformConfig.lookup(FDS_XDI_CONTROL_PORT_OFFSET).intValue());
     }
 }

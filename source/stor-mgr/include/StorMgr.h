@@ -144,8 +144,16 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
                  serialExecutor = std::unique_ptr<SynchronizedTaskExecutor<size_t>>(
                      new SynchronizedTaskExecutor<size_t>(*threadPool));
+
+                 if (parentSm->modProvider_->get_cntrs_mgr()) {
+                     parentSm->modProvider_->get_cntrs_mgr()->add_for_export(this);
+                 }
              }
          virtual ~SmQosCtrl() {
+             if (parentSm->modProvider_->get_cntrs_mgr()) {
+                 parentSm->modProvider_->get_cntrs_mgr()->remove_from_export(this);
+             }
+
              delete dispatcher;
              if (dispatcherThread) {
                  dispatcherThread->join();
@@ -186,7 +194,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
       * should be just enough to make sure system task makes progress
       */
      inline fds_uint32_t getSysTaskIopsMin() {
-         return 10;
+         return 2000;
      }
 
      /**
@@ -194,7 +202,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
       * in SM, we should be ok to take all available bandwidth
       */
      inline fds_uint32_t getSysTaskIopsMax() {
-         return 0;
+         return 10000;
      }
 
      inline fds_uint32_t getSysTaskPri() {
@@ -345,6 +353,9 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
       */
      void checkDiskCapacities();
 
+     void checkForDiskFailErrors(fds_token_id smTokId,
+                                 diskio::DataTier tier,
+                                 const Error& error);
      virtual std::string log_string() {
          std::stringstream ret;
          ret << " ObjectStorMgr";

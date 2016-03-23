@@ -6,8 +6,8 @@ package com.formationds.commons.util.thread;
 
 import com.formationds.commons.util.i18n.CommonsUtilResource;
 import org.apache.commons.lang3.time.StopWatch;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.text.MessageFormat;
 
@@ -18,7 +18,7 @@ public abstract class ThreadBase
   implements Runnable
 {
   protected static final Logger logger =
-    LoggerFactory.getLogger( ThreadBase.class );
+    LogManager.getLogger( ThreadBase.class );
 
   protected static final String STARTUP_MSG =
     CommonsUtilResource.getString( "startup.thread.messages" );

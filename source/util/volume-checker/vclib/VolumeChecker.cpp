@@ -36,6 +36,10 @@ VolumeChecker::init(int argc, char **argv, bool initAsModule)
         return;
     }
 
+    TProcessorMap processors;
+    processors.insert(std::make_pair<std::string, boost::shared_ptr<apache::thrift::TProcessor>>(
+        fpi::commonConstants().PLATNET_SERVICE_NAME, svc_processor));
+
     /**
      * Init service process
      */
@@ -47,8 +51,7 @@ VolumeChecker::init(int argc, char **argv, bool initAsModule)
                      "vc.log",
                      nullptr,
                      svc_handler,
-                     svc_processor,
-                     fpi::commonConstants().PLATNET_SERVICE_NAME);
+                     processors);
 
     if (!initAsModule) {
         LOGDEBUG << "Starting modules";

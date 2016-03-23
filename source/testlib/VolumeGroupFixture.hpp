@@ -9,7 +9,8 @@
 #include <VolumeChecker.h>
 
 struct VolumeGroupFixture : DmGroupFixture {
-    VolumeGroupFixture() {}
+    VolumeGroupFixture() {
+    }
     using VcHandle = ProcessHandle<VolumeChecker>;
     VcHandle   vcHandle;
 

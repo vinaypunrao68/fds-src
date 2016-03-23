@@ -16,7 +16,7 @@ TokenCompactor::TokenCompactor(SmIoReqHandler *_data_store,
                                SmPersistStoreHandler* persist_store)
         : token_id(0),
           done_evt_handler(NULL),
-          verifyData(false),
+          verifyData(true),
           data_store(_data_store),
           persistGcHandler(persist_store),
           tc_timer(new FdsTimer()),

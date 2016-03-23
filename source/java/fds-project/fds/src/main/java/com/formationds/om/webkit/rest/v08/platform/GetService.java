@@ -6,8 +6,8 @@ import java.util.Optional;
 
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.ErrorCode;
@@ -19,7 +19,7 @@ import com.formationds.web.toolkit.TextResource;
 
 public class GetService implements RequestHandler{
 
-	private static final Logger logger = LoggerFactory.getLogger( GetService.class );
+	private static final Logger logger = LogManager.getLogger( GetService.class );
 	private static final String SERVICE_ARG = "service_id";
 	private static final String NODE_ARG = "node_id";
 	

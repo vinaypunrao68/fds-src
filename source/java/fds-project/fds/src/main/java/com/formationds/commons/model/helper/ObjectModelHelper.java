@@ -11,8 +11,8 @@ import com.formationds.client.v08.model.VolumeSettingsNfs;
 import com.formationds.client.v08.model.VolumeSettingsObject;
 import com.formationds.commons.model.type.Protocol;
 import com.google.gson.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.Reader;
 import java.lang.reflect.Field;
@@ -29,7 +29,7 @@ import java.util.List;
 public class ObjectModelHelper {
 
     private static final Logger logger =
-        LoggerFactory.getLogger( ObjectModelHelper.class );
+        LogManager.getLogger( ObjectModelHelper.class );
 
     private static final ModelObjectExclusionStrategy exclusion =
         new ModelObjectExclusionStrategy();

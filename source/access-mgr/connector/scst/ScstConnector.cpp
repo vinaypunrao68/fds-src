@@ -80,7 +80,7 @@ void ScstConnector::volumeRemoved(VolumeDesc const& volDesc) {
 void ScstConnector::targetDone(const std::string target_name) {
     std::lock_guard<std::mutex> lk(target_lock_);
     if (0 < targets_.erase(target_name)) {
-        LOGNOTIFY << "Connector has removed target: " << target_name;
+        LOGNOTIFY << "vol:" << target_name << " connector removed target";
     }
     if (targets_.empty()) {
         ScstAdmin::toggleDriver(false);
@@ -106,17 +106,16 @@ bool ScstConnector::_addTarget(VolumeDesc const& volDesc) {
         try {
             it->second.reset(new ScstTarget(this,
                                             target_name,
-                                            threads,
                                             amProcessor));
         } catch (ScstError& e) {
-            LOGERROR << "Failed to initialize target [" << target_name << "], ensure that SCST is installed and running.";
+            LOGERROR << "vol:" << target_name << " failed to initialize target";
             targets_.erase(it);
             return false;
         }
         it->second->addDevice(volDesc);
     }
     if (targets_.end() == it) {
-        LOGERROR << "Failed to insert target into target map...";
+        LOGERROR << "vol:" << target_name << " failed to insert target into target map";
         return false;
     }
     auto& target = *it->second;
@@ -124,7 +123,7 @@ bool ScstConnector::_addTarget(VolumeDesc const& volDesc) {
     // If we already had a target, and it's shutdown...wait for it to complete
     // before trying to apply the apparently new descriptor
     if (!happened && !target.enabled()) {
-        LOGNOTIFY << "Waiting for existing target to complete shutdown: " << target_name;
+        LOGNOTIFY << "vol:" << target_name << " waiting for existing target to complete shutdown";
         return false;
     }
 
@@ -140,17 +139,17 @@ bool ScstConnector::_addTarget(VolumeDesc const& volDesc) {
     for (auto const& cred : volDesc.iscsiSettings.incomingUsers) {
         auto password = cred.passwd;
         if (minimum_chap_password_len > password.size()) {
-            GLOGDEBUG << "User: [" << cred.name
-                      << "] has an undersized password of length: [" << password.size()
-                      << "] where the minimum length is " << minimum_chap_password_len
-                      << " password will be extended to meet criteria for now.";
+            LOGWARN << "user:" << cred.name
+                    << " length:" << password.size()
+                    << " minlength:" << minimum_chap_password_len
+                    << " extending undersized password";
             password.resize(minimum_chap_password_len, '*');
         }
         auto cred_it = credentials.end();
         bool happened;
         std::tie(cred_it, happened) = credentials.emplace(cred.name, password);
         if (!happened) {
-            GLOGWARN << "Duplicate user: [" << cred.name << "]";
+            LOGWARN << "user:" << cred.name << " duplicate";
         }
     }
     target.setCHAPCreds(credentials);
@@ -174,8 +173,6 @@ ScstConnector::ScstConnector(std::string const& prefix,
         : amProcessor(processor),
           target_prefix(prefix)
 {
-    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.connector.scst.");
-    threads = conf.get<uint32_t>("threads", threads);
 }
 
 static auto const rediscovery_delay = std::chrono::seconds(15);
@@ -189,10 +186,10 @@ ScstConnector::discoverTargets() {
         bool added_target {false};
         auto amProc = amProcessor.lock();
         if (!amProc) {
-            GLOGERROR << "No processing layer, no targets.";
+            LOGERROR << "no processing layer";
             break;
         }
-        GLOGTRACE << "Discovering iSCSI volumes to export.";
+        LOGTRACE << "discovering iSCSI volumes";
         std::vector<VolumeDesc> volumes;
         amProc->getVolumes(volumes);
 

@@ -286,6 +286,8 @@ class ObjectStore : public Module, public boost::noncopyable {
                                   fds_bool_t verifyData,
                                   fds_bool_t objOwned);
 
+    Error verifyObjectData(const ObjectID& objId,
+                           const fds_volid_t& volId = invalid_vol_id);
 
     /**
      * Apply Object metadata/data from source SM
@@ -328,6 +330,8 @@ class ObjectStore : public Module, public boost::noncopyable {
      * Returns number of disks on this SM
      */
     fds_uint32_t getDiskCount() const;
+
+    diskio::DataTier getMetadataTier();
 
     /**
      * Handle disk change.

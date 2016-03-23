@@ -356,7 +356,7 @@ namespace fds
 
                         if (m_diskUuidToDeviceMap.end() == item)
                         {
-                            LOGERROR << "Unable to the hardware path for partition with UUID:  " << uuid << ", as found in fstab";
+                            LOGERROR << "Unable to find the hardware path for partition with UUID:  " << uuid << ", as found in fstab";
                             continue;
                         }
 
@@ -555,6 +555,13 @@ namespace fds
 
             if (JAVA_AM == procIndex)
             {
+                // don't start JAVA_AM if BARE_AM is not in a RUNNING state
+                if (fpi::SERVICE_RUNNING != m_nodeInfo.bareAMState)
+                {
+                    LOGNORMAL << "Received a request to start " << procName << ", but bare_am is not running.  Not doing anything.";
+                    return;
+                }
+
                 command = m_javaXdiJavaCmd;
 
                 for (auto const &vectItem : m_javaOptions)
@@ -1014,7 +1021,7 @@ namespace fds
                 {
                     if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.bareAMState || fpi::SERVICE_NOT_PRESENT == m_nodeInfo.javaAMState)
                     {
-                        LOGDEBUG << "Received an unexpected service request for the AM when the AM services are not expected to be present.";
+                        LOGERROR << "Received an unexpected service request for the AM when the AM services are not expected to be present.";
                         present = false;
                     }
                  } break;
@@ -1218,9 +1225,9 @@ namespace fds
 
         void PlatformManager::heartbeatCheck (fpi::HeartbeatMessagePtr const &heartbeatMsg)
         {
-            LOGDEBUG << "Sending heartbeatMessage ack from PM uuid: "
-                     << std::hex << heartbeatMsg->svcUuid.uuid << std::dec
-                     << " [ " << usedDiskCapacity << " ]";
+            LOGNORMAL << "Sending heartbeatMessage ack from PM uuid: "
+                      << std::hex << heartbeatMsg->svcUuid.uuid << std::dec
+                      << " [ UsedDiskCapacity:" << usedDiskCapacity << " ]";
 
             auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
             auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
@@ -1413,7 +1420,10 @@ namespace fds
                                 stopProcess (JAVA_AM);
                             }
 
-                            notifyOmServiceStateChange (appIndex, mapIter->second, fpi::HealthState::HEALTH_STATE_UNEXPECTED_EXIT, "unexpectedly exited");
+                            if (JAVA_AM != appIndex)
+                            { // do not notify OM on the xdi process exit; this message will only be sent if the XDI service is flapping
+                                notifyOmServiceStateChange (appIndex, mapIter->second, fpi::HealthState::HEALTH_STATE_UNEXPECTED_EXIT, "unexpectedly exited");
+                            }
                             m_appPidMap.erase (mapIter++);
 
                             updateNodeInfoDbPidAndState (appIndex, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
@@ -1552,18 +1562,20 @@ namespace fds
             fpi::SvcUuid smUuid;
             std::vector <fpi::SvcInfo> serviceMap;
             MODULEPROVIDER()->getSvcMgr()->getSvcMap (serviceMap);
-            // Find DM and SM on the service map
+
+            LOGDEBUG << "Searching for a local SM";
             for (auto const &vectItem : serviceMap)
             {
                 fpi::SvcUuid svcUuid = vectItem.svc_id.svc_uuid;
                 ResourceUUID    uuid (vectItem.svc_id.svc_uuid.svc_uuid);
 
-                // Check if this is an SM/DM service on this node
+                LOGDEBUG << "Looking at serviceMap entry uuid " << uuid << " svcType " << vectItem.svc_type;
+                // Check if this is an SM service on this node
                 if (getNodeUUID (fpi::FDSP_PLATFORM) == uuid.uuid_get_base_val())
                 {
                     if (smUuid.svc_uuid == 0 && vectItem.svc_type == fpi::FDSP_STOR_MGR)
                     {
-                        LOGDEBUG << "Found local SM service " << svcUuid.svc_uuid;
+                        LOGNORMAL << "Found local SM service " << svcUuid.svc_uuid;
                         smUuid = svcUuid;
                         break;
                     }

@@ -514,6 +514,7 @@ fds: {
              /* Time interval where GC periodically checks whether to GC or not */
              interval_seconds = {{ sm_scavenger_interval_seconds }}
              expunge_threshold = {{ sm_scavenger_expunge_threshold }}
+             verify_data = {{ sm_scavenger_verify_data }}
         }
 
         /* Graphite is enabled or not */
@@ -593,9 +594,6 @@ fds: {
 
                 /* Targets will appear with this prefix on iscsi portals */
                 target_prefix="{{ am_scst_target_prefix }}"
-
-		/* Threads per target */
-		threads={{ am_scst_target_threads }}
             }
         }
 
@@ -779,6 +777,7 @@ fds: {
 	am_timeout_seconds = {{ xdi_am_timeout_seconds }}
 	am_retry_attempts = {{ xdi_am_retry_attempts }}
 	am_retry_interval_seconds = {{ xdi_am_retry_interval_seconds }}
+	control_port_offset = 3200
     }
 
     test: {

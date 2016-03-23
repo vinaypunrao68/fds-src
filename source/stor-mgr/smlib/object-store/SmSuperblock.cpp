@@ -120,6 +120,8 @@ SmSuperblock::readSuperblock(const std::string& path)
                      << "vs. "
                      << sizeof(struct SmSuperblock);
             err = ERR_SM_SUPERBLOCK_DATA_CORRUPT;
+
+            return err;
         }
 
         /* Read the superblock to buffer.
@@ -135,6 +137,8 @@ SmSuperblock::readSuperblock(const std::string& path)
                      << sizeof(struct SmSuperblock)
                      << ")";
             err = ERR_SM_SUPERBLOCK_DATA_CORRUPT;
+
+            return err;
         }
 
         /* Assert the magic value to see.
@@ -955,7 +959,7 @@ SmSuperblockMgr::reconcileSuperblock()
                 /* diskID is not unique.  Failed to add to diskBadSuperblock
                  * set, because diskID already exists.  DiskID should be unique.
                  */
-                fds_panic("Detected non-unique diskID entry");
+                return ERR_SM_SUPERBLOCK_NO_RECONCILE;
             }
             continue;
         }
@@ -976,7 +980,7 @@ SmSuperblockMgr::reconcileSuperblock()
                  * set, because diskID already exists.  DiskID should be unique.
                  */
             if (!ret.second) {
-                fds_panic("Detected non-unique diskID entry");
+                return ERR_SM_SUPERBLOCK_NO_RECONCILE;
             }
             continue;
         }
@@ -998,7 +1002,7 @@ SmSuperblockMgr::reconcileSuperblock()
             /* diskID is not unique.  Failed to add to diskGoodSuperblock
              * set, because diskID already exists.  DiskID should be unique.
              */
-            fds_panic("Detected non-unique diskID entry");
+            return ERR_SM_SUPERBLOCK_NO_RECONCILE;
         }
     }
 

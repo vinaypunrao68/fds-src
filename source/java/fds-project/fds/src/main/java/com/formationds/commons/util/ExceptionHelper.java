@@ -11,8 +11,8 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.formationds.commons.NullArgumentException;
 import com.formationds.commons.TunneledException;
@@ -28,7 +28,7 @@ import com.formationds.commons.util.functional.ExceptionThrowingRunnable;
  */
 public final class ExceptionHelper {
   private static final Logger logger =
-    LoggerFactory.getLogger( ExceptionHelper.class );
+    LogManager.getLogger( ExceptionHelper.class );
 
   /**
    * @param t the {@link java.lang.Throwable}

@@ -999,7 +999,6 @@ VolumeInfo::vol_fmt_desc_pkt(fpi::FDSP_VolumeDescType *pkt) const
 
     pkt->iscsi                  = pVol->iscsiSettings;
     pkt->nfs                    = pVol->nfsSettings;
-    pkt->coordinator            = pVol->coordinator;
 }
 
 // vol_fmt_message

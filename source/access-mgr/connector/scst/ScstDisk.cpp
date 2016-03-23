@@ -96,11 +96,10 @@ void ScstDisk::setupModePages(size_t const lba_size, size_t const pba_size, size
 void ScstDisk::execSessionCmd() {
     auto attaching = (SCST_USER_ATTACH_SESS == cmd.subcode) ? true : false;
     auto& sess = cmd.sess;
-    LOGNOTIFY << "Session "
-              << (attaching ? "attachment" : "detachment") << " requested"
-              << ", handle [" << sess.sess_h
-              << "] Init [" << sess.initiator_name
-              << "] Targ [" << sess.target_name << "]";
+    LOGNOTIFY << "request:" << (attaching ? "attachment" : "detachment")
+              << " handle:" << sess.sess_h
+              << " initiator:" << sess.initiator_name
+              << " target:" << sess.target_name;
 
     try {
     if (attaching) {
@@ -136,7 +135,7 @@ void ScstDisk::execDeviceCmd(ScstTask* task) {
     switch (op_code) {
     case FORMAT_UNIT:
         {
-            LOGTRACE << "Format Unit received.";
+            LOGTRACE << "format unit received";
             bool fmtpinfo = (0x00 != (scsi_cmd.cdb[1] & 0x80));
             bool fmtdata = (0x00 != (scsi_cmd.cdb[1] & 0x10));
 
@@ -161,12 +160,12 @@ void ScstDisk::execDeviceCmd(ScstTask* task) {
                 fua = (0x00 != (scsi_cmd.cdb[1] & 0x08));
             }
 
-            LOGIO << "Read received for "
-                  << "LBA[0x" << std::hex << scsi_cmd.lba
-                  << "] Length[0x" << scsi_cmd.bufflen
-                  << "] FUA[" << fua
-                  << "] PR[0x" << (uint32_t)rdprotect
-                  << "] Handle[0x" << cmd.cmd_h << "]";
+            LOGIO << "iotype:read"
+                  << " lba:" << scsi_cmd.lba
+                  << " length:" << scsi_cmd.bufflen
+                  << " fua:" << fua
+                  << " pr:" << (uint32_t)rdprotect
+                  << " handle:" << cmd.cmd_h;
 
             // We do not support rdprotect data
             if (0x00 != rdprotect) {
@@ -187,7 +186,7 @@ void ScstDisk::execDeviceCmd(ScstTask* task) {
     case READ_CAPACITY:     // READ_CAPACITY(10)
     case READ_CAPACITY_16:
         {
-            LOGTRACE << "Read Capacity received.";
+            LOGTRACE << "iotype:readcapacity";
             uint64_t num_blocks = volume_size / logical_block_size;
             uint32_t blocks_per_object = physical_block_size / logical_block_size;
 
@@ -219,12 +218,12 @@ void ScstDisk::execDeviceCmd(ScstTask* task) {
                 fua = (0x00 != (scsi_cmd.cdb[1] & 0x08));
             }
 
-            LOGIO << "Write received for "
-                  << "LBA[0x" << std::hex << scsi_cmd.lba
-                  << "] Length[0x" << scsi_cmd.bufflen
-                  << "] FUA[" << fua
-                  << "] PR[0x" << (uint32_t)wrprotect
-                  << "] Handle[0x" << cmd.cmd_h << "]";
+            LOGIO << "iotype:write"
+                  << " lba:" << scsi_cmd.lba
+                  << " length:" << scsi_cmd.bufflen
+                  << " fua:" << fua
+                  << " pr:" << (uint32_t)wrprotect
+                  << " handle:" << cmd.cmd_h;
 
             // We do not support wrprotect data
             if (0x00 != wrprotect) {
@@ -245,10 +244,9 @@ void ScstDisk::execDeviceCmd(ScstTask* task) {
         }
         break;
     default:
-        LOGNOTIFY << "Unsupported SCSI command received " << std::hex
-            << "OPCode [0x" << (uint32_t)(op_code)
-            << "] CDB length [" << std::dec << scsi_cmd.cdb_len
-            << "]";
+        LOGDEBUG << "iotype:unsupported"
+                 << "opcode:" << (uint32_t)(op_code)
+                 << "cdblength:" << scsi_cmd.cdb_len;
         task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_opcode));
         break;
     }
@@ -258,7 +256,7 @@ void ScstDisk::execDeviceCmd(ScstTask* task) {
 
 void ScstDisk::attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) {
     if (volDesc) {
-        LOGNORMAL << "Attached to volume: " << volDesc->name;
+        LOGNORMAL << "vol:" << volDesc->name << " attached";
     }
 }
 

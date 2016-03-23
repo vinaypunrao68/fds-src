@@ -184,15 +184,6 @@ AmTxManager::abortOnError(AmRequest *amReq, Error const error) {
     }
 }
 
-Error
-AmTxManager::commitTx(const BlobTxId &txId, fds_uint64_t const blobSize)
-{
-    if (auto descriptor = pop_descriptor(txId)) {
-        return static_cast<AmCache*>(getNextInChain())->putTxDescriptor(descriptor, blobSize);
-    }
-    return ERR_NOT_FOUND;
-}
-
 void
 AmTxManager::startBlobTx(AmRequest *amReq) {
     auto blobReq = static_cast<StartBlobTxReq*>(amReq);
@@ -245,29 +236,35 @@ AmTxManager::commitBlobTx(AmRequest *amReq) {
         AmDataProvider::commitBlobTxCb(blobReq, err);
     }
 
-    SCOPEDREAD(txMapLock);
-    TxMap::iterator txMapIt = txMap.find(txId);
-    if (txMapIt == txMap.end()) {
+    descriptor_ptr_type descriptor;
+    {
+        SCOPEDREAD(txMapLock);
+        TxMap::iterator txMapIt = txMap.find(txId);
+        if (txMapIt != txMap.end()) {
+            descriptor = txMapIt->second;
+        }
+    }
+    if (!descriptor) {
         AmDataProvider::commitBlobTxCb(blobReq, ERR_INVALID_ARG);
         return;
     }
-    blobReq->is_delete = (FDS_DELETE_BLOB == txMapIt->second->opType);
+    blobReq->is_delete = (FDS_DELETE_BLOB == descriptor->opType);
 
     if (!all_atomic_ops) {
         AmDataProvider::commitBlobTx(blobReq);
     } else {
         if (!blobReq->is_delete) {
             auto catUpdateReq = new UpdateCatalogReq(blobReq);
-            catUpdateReq->blob_mode = txMapIt->second->blob_mode;
-            for (auto const& offset_pair : txMapIt->second->stagedBlobOffsets) {
+            catUpdateReq->blob_mode = descriptor->blob_mode;
+            for (auto const& offset_pair : descriptor->stagedBlobOffsets) {
                 auto const& obj_id = offset_pair.second.first;
                 auto const data_length = offset_pair.second.second;
                 catUpdateReq->object_list.emplace(obj_id,
                                    std::make_pair(offset_pair.first.getOffset(), data_length));
             }
 
-            for (auto kvIt = txMapIt->second->stagedBlobDesc->kvMetaBegin();
-                 txMapIt->second->stagedBlobDesc->kvMetaEnd() != kvIt;
+            for (auto kvIt = descriptor->stagedBlobDesc->kvMetaBegin();
+                 descriptor->stagedBlobDesc->kvMetaEnd() != kvIt;
                  ++kvIt) {
                 catUpdateReq->metadata->emplace(kvIt->first, kvIt->second);
             }
@@ -282,17 +279,30 @@ void
 AmTxManager::commitBlobTxCb(AmRequest * amReq, Error const error) {
     auto blobReq = static_cast<CommitBlobTxReq*>(amReq);
     // Push the committed update to the cache and remove from manager
-    if (error.ok()) {
-        // Already written via putObjectCb...updateCatalogCb...
-        if (!all_atomic_ops) {
-            updateStagedBlobDesc(*(blobReq->tx_desc), blobReq->final_meta_data);
-            commitTx(*(blobReq->tx_desc), blobReq->final_blob_size);
+    auto descriptor = pop_descriptor(*(blobReq->tx_desc));
+    auto err = error;
+    if (descriptor) {
+        // tx was a success or we were deleting a missing blob; commit to cache
+        if (err.ok()
+            || (ERR_CAT_ENTRY_NOT_FOUND == err && FDS_DELETE_BLOB == descriptor->opType))
+        {
+            // Already written via putObjectCb...updateCatalogCb...
+            if (!all_atomic_ops || FDS_DELETE_BLOB == descriptor->opType) {
+                for (auto const & meta : blobReq->final_meta_data) {
+                    descriptor->stagedBlobDesc->addKvMeta(meta.key, meta.value);
+                }
+                static_cast<AmCache*>(getNextInChain())->putTxDescriptor(descriptor, blobReq->final_blob_size);
+            }
+            err = ERR_OK;
+        } else {
+            LOGERROR << "err:" << err
+                     << " transaction failed to commit";
+            abortOnError(blobReq, err);
         }
     } else {
-        LOGERROR << "Transaction failed to commit: " << error;
-        abortOnError(blobReq, error);
+        LOGWARN << "ignoring missing descriptor for tx commit";
     }
-    AmDataProvider::commitBlobTxCb(blobReq, error);
+    AmDataProvider::commitBlobTxCb(blobReq, err);
 }
 
 void
@@ -337,7 +347,7 @@ AmTxManager::setBlobMetadataCb(AmRequest *amReq, Error const error) {
 void
 AmTxManager::deleteBlob(AmRequest *amReq) {
     auto blobReq = static_cast<DeleteBlobReq *>(amReq);
-    LOGDEBUG    << " volume:" << amReq->io_vol_id
+    LOGDEBUG    << "volid:" << amReq->io_vol_id
                 << " blob:" << amReq->getBlobName()
                 << " txn:" << blobReq->tx_desc;
 
@@ -408,8 +418,9 @@ AmTxManager::getBlob(AmRequest *amReq) {
     // FIXME(bszmyd): Sun 26 Apr 2015 04:41:12 AM MDT
     // Don't support unaligned currently, reject if this is not
     if (0 != (amReq->blob_offset % blobReq->object_size)) {
-        LOGERROR << "unaligned read not supported, offset: " << amReq->blob_offset
-                 << " length: " << amReq->data_len;
+        LOGERROR << "offset:" << amReq->blob_offset
+                 << " length:" << amReq->data_len
+                 << " unaligned read";
         return AmDataProvider::getBlobCb(amReq, ERR_INVALID);
     }
 
@@ -484,7 +495,8 @@ AmTxManager::applyPut(PutBlobReq* blobReq) {
                                          blobReq->data_len)) {
         // An abort or commit already caused the tx
         // to be cleaned up. Short-circuit
-        GLOGNOTIFY << "Response no longer has active transaction: " << tx_desc.getValue();
+        LOGNOTIFY << "tx:" << tx_desc.getValue()
+                  << " no longer active";
         return;
     }
 

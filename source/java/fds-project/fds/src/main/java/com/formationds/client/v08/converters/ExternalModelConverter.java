@@ -51,8 +51,8 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.AsyncAm;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.thrift.TException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.net.UnknownHostException;
@@ -88,7 +88,7 @@ public class ExternalModelConverter {
     private static final Integer DEF_BLOCK_SIZE  = (1024 * 128);
     private static final Integer DEF_OBJECT_SIZE = ((1024 * 1024) * 2);
     private static final Integer DEF_NFS_SIZE = ((1024 * 1024) * 1);
-    private static final Logger  logger          = LoggerFactory.getLogger( ExternalModelConverter.class );
+    private static final Logger  logger          = LogManager.getLogger( ExternalModelConverter.class );
 
     public static Domain convertToExternalDomain( LocalDomainDescriptor internalDomain ) {
 
@@ -1291,7 +1291,22 @@ public class ExternalModelConverter {
         if ( externalVolume.getCreated() != null ) {
             volumeType.setCreateTime( externalVolume.getCreated().toEpochMilli() );
         }
-        volumeType.setIops_assured( externalVolume.getQosPolicy().getIopsMin() );
+        /*
+         * HACK ALERT!
+         *
+         * There's a P1 bug that can have a short term workaround if we don't allow a guaranteed
+         * IOPs setting of 0 for a volume, but instead change it to 20. Per Sanjay, "min_iops = 0
+         * leads to scheduler to go very slow and memory builds up in the system."
+         */
+        if( externalVolume.getQosPolicy().getIopsMin() < 20 )
+        {
+            volumeType.setIops_assured( 20 );
+        }
+        else
+        {
+            volumeType.setIops_assured( externalVolume.getQosPolicy( )
+                                                      .getIopsMin( ) );
+        }
         volumeType.setIops_throttle( externalVolume.getQosPolicy().getIopsMax() );
 
         FDSP_MediaPolicy fdspMediaPolicy;

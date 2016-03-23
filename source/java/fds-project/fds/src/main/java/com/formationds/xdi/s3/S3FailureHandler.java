@@ -6,14 +6,14 @@ package com.formationds.xdi.s3;
 import com.formationds.protocol.ApiException;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.spike.later.SyncRequestHandler;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import javax.servlet.ServletException;
 import java.util.function.Function;
 
 public class S3FailureHandler implements Function<AuthenticationToken, SyncRequestHandler> {
-    private static final Logger logger = LoggerFactory.getLogger(S3FailureHandler.class);
+    private static final Logger logger = LogManager.getLogger(S3FailureHandler.class);
 
     private Function<AuthenticationToken, SyncRequestHandler> supplier;
 

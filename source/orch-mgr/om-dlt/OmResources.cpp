@@ -986,12 +986,6 @@ NodeDomainFSM::DACT_ShutAm::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         OM_NodeContainer *dom_ctrl = domain->om_loc_domain_ctrl();
 
-        /**
-         * Volume coordinator currently lives as part of the AM.
-         * We'll clear the VC information from the OM as part of the AM shutdown.
-         */
-        dom_ctrl->clearVolumesCoordinatorInfo();
-
         // broadcast shutdown message to all AMs
         dst.am_acks_to_wait = dom_ctrl->om_bcast_shutdown_msg(fpi::FDSP_ACCESS_MGR);
         LOGDEBUG << "Will wait for acks from " << dst.am_acks_to_wait << " AMs";
@@ -1630,8 +1624,8 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         bool unsetTarget = !(DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue());
         bool committed = dp->commitDlt( unsetTarget );
 
-        LOGNOTIFY << "OM deployed DLT with "
-                  << deployed_sm_services.size() << " nodes, committedDlt? " << committed;
+        LOGNOTIFY << "OM has persisted "
+                  << deployed_sm_services.size() << " SM nodes, committedDlt? " << committed;
 
         // Same reasoning as above
         unsetTarget = !(DltDmtUtil::getInstance()->isDMAbortAfterRestartTrue());

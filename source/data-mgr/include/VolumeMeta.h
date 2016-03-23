@@ -134,14 +134,21 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     inline int32_t getVersion() const { return version; }
     inline void setVersion(int32_t version) { this->version = version; }
 
+    inline void setCoordinator(const fpi::VolumeGroupCoordinatorInfo &coordinator) {
+        vol_desc->setCoordinatorId(coordinator.id);
+        vol_desc->setCoordinatorVersion(coordinator.version);
+    }
+    inline fpi::VolumeGroupCoordinatorInfo getCoordinator() const {
+        return vol_desc->getCoordinatorInfo();
+    }
     inline void setCoordinatorId(const fpi::SvcUuid &svcUuid) {
         vol_desc->setCoordinatorId(svcUuid);
     }
     inline fpi::SvcUuid getCoordinatorId() const { return vol_desc->getCoordinatorId(); }
-    inline void setCoordinatorVersion(int32_t version) {
+    inline void setCoordinatorVersion(int64_t version) {
         vol_desc->setCoordinatorVersion(version);
     }
-    inline int32_t getCoordinatorVersion() const { return vol_desc->getCoordinatorVersion(); }
+    inline int64_t getCoordinatorVersion() const { return vol_desc->getCoordinatorVersion(); }
     inline bool isCoordinatorSet() const { return vol_desc->isCoordinatorSet(); }
 
     std::string logString() const;

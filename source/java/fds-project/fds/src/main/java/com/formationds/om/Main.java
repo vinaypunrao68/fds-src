@@ -13,6 +13,7 @@ import com.formationds.om.events.EventManager;
 import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.om.helper.SingletonConfigAPI;
 import com.formationds.om.helper.SingletonConfiguration;
+import com.formationds.om.redis.RedisSingleton;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.snmp.SnmpManager;
 import com.formationds.om.snmp.TrapSend;
@@ -20,6 +21,7 @@ import com.formationds.om.webkit.WebKitImpl;
 import com.formationds.platform.svclayer.OmSvcHandler;
 import com.formationds.platform.svclayer.SvcMgr;
 import com.formationds.platform.svclayer.SvcServer;
+import com.formationds.platform.svclayer.ThriftServiceDescriptor;
 import com.formationds.protocol.ApiException;
 import com.formationds.protocol.commonConstants;
 import com.formationds.protocol.svc.types.FDSP_MgrIdType;
@@ -38,13 +40,17 @@ import com.formationds.xdi.FakeAsyncAm;
 import com.formationds.xdi.RealAsyncAm;
 import com.nurkiewicz.asyncretry.AsyncRetryExecutor;
 import org.apache.commons.codec.binary.Hex;
+import org.apache.thrift.TMultiplexedProcessor;
+import org.apache.thrift.TProcessor;
 import org.apache.thrift.transport.TTransportException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.net.ConnectException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -52,7 +58,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class Main {
-    private static final Logger logger = LoggerFactory.getLogger( Main.class );
+    private static final Logger logger = LogManager.getLogger( Main.class );
 
     // key for managing the singleton EventManager.
     private final Object eventMgrKey = new Object();
@@ -61,6 +67,8 @@ public class Main {
     // feature toggle, but also depends on the platform.conf feature toggle (that
     // the C++ side uses).
     private Optional<SvcServer<Iface>> proxyServer = Optional.empty();
+    
+    private final ShutdownHook shutdownHook = new ShutdownHook();
 
     public static void main( String[] args ) {
 
@@ -111,18 +119,47 @@ public class Main {
             int proxyPortOffset = platformConfig.defaultInt( "fds.om.java_svc_proxy_port_offset", 1900 );
             int proxyToPort = omPort + proxyPortOffset;  // 8904 by default
             logger.trace( "Starting OM Service Proxy {} -> {}", omPort, proxyToPort );
+
+            /**
+             * Empty, unless the server is multiplexed.
+             * Note on Thrift service compatibility:
+             *
+             * For service that extends PlatNetSvc, add the processor twice using
+             * Thrift service name as the key and again using 'PlatNetSvc' as the
+             * key. Only ONE major API version is supported for PlatNetSvc.
+             *
+             * All other services:
+             * Add Thrift service name and a processor for each major API version
+             * supported.
+             */
+            Map<String, TProcessor> processors = new HashMap<String, TProcessor>();
+
             /**
              * FEATURE TOGGLE: enable multiplexed services
              * Tue Feb 23 15:04:17 MST 2016
              */
             if ( FdsFeatureToggles.THRIFT_MULTIPLEXED_SERVICES.isActive() ) {
                 // Multiplexed
-                proxyServer = Optional.of( new SvcServer<>( omPort,
-                                                 new OmSvcHandler( "localhost", proxyToPort, commonConstants.OM_SERVICE_NAME ),
-                                                 commonConstants.OM_SERVICE_NAME ) );
+                OmSvcHandler handler = new OmSvcHandler( "localhost", proxyToPort, commonConstants.OM_SERVICE_NAME );
+                ThriftServiceDescriptor serviceDescriptor = ThriftServiceDescriptor.newDescriptor(
+                    handler.getClass().getInterfaces()[0].getEnclosingClass() );
+                TProcessor processor = (TProcessor) serviceDescriptor.getProcessorFactory().apply( handler );
+                // Handles requests from OMSvcClient
+                processors.put( commonConstants.OM_SERVICE_NAME, processor );
+                // It is common for SvcLayer to route asynchronous requets using an
+                // instance of PlatNetSvcClient. When using a multiplexed server, the
+                // processor map must have a key for PlatNetSvc.
+                processors.put( commonConstants.PLATNET_SERVICE_NAME, processor );
+                // The type variable of SvcServer will be a class or interface
+                // that extends PlatNetSvc.Iface. This fact may not make sense
+                // for a multiplexed server, but we will not redesign SvcServer
+                // at this time.
+                proxyServer = Optional.of( new SvcServer<>( omPort, handler, processors, true ) );
             } else {
                 // Non-multiplexed
-                proxyServer = Optional.of( new SvcServer<>( omPort, new OmSvcHandler( "localhost", proxyToPort, "" ), "" ) );
+                proxyServer = Optional.of( new SvcServer<>( omPort,
+                                                new OmSvcHandler( "localhost", proxyToPort, "" ),
+                                                processors, false ) );
             }
             proxyServer.get().startAndWait( 5, TimeUnit.MINUTES );
 
@@ -285,6 +322,8 @@ public class Main {
 
         logger.info( "Starting Web toolkit" );
 
+        Runtime.getRuntime().addShutdownHook( shutdownHook );
+
         WebKitImpl originalImpl = new WebKitImpl( authenticator,
                     authorizer,
                     webDir,
@@ -292,6 +331,14 @@ public class Main {
                     httpsPort,
                     secretKey );
         originalImpl.start();
+    }
+    
+    private static class ShutdownHook extends Thread {
+        public void run() {
+        	logger.info( "Shutting down OM. Waiting for redis");
+            RedisSingleton.INSTANCE.waitRedis();
+            logger.info ( "Done" );
+        }
     }
 }
 

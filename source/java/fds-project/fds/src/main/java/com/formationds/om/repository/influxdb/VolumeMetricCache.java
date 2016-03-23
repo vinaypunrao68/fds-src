@@ -7,8 +7,8 @@ package com.formationds.om.repository.influxdb;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.exception.UnsupportedMetricException;
 import com.formationds.commons.model.type.Metrics;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -23,7 +23,7 @@ import java.util.function.Function;
  */
 public class VolumeMetricCache {
 
-    public static final Logger logger = LoggerFactory.getLogger( VolumeMetricCache.class );
+    public static final Logger logger = LogManager.getLogger( VolumeMetricCache.class );
 
     /**
      * Helper to convert from the internal EnumMap representation to a list of VolumeDatapoints

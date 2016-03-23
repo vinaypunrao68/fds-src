@@ -223,7 +223,7 @@ syncPreemptionChecks(const fpi::AddToVolumeGroupRespCtrlMsgPtr &responseMsg)
         replica_->setState(fpi::ResourceState::Syncing,
                            "- Sync prevented. No writes since last open. About to become functional");
         notifyCoordinator_();
-        complete_(ERR_OK, "- Sync prevente. dNo writes since last open. Become functional");
+        complete_(ERR_OK, "- Sync prevented. No writes since last open. Become functional");
         return true;
     } else if (responseMsg->group.functionalReplicas.size() == 0) {
         complete_(ERR_SYNCPEER_UNAVAILABLE, " - no sync peer is available");

@@ -18,8 +18,8 @@ import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.security.AuthenticationToken;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.Objects;
 
@@ -40,7 +40,7 @@ public enum EventManager {
 
     public static EventManager instance() { return INSTANCE; }
 
-    static final Logger logger = LoggerFactory.getLogger(EventManager.class);
+    static final Logger logger = LogManager.getLogger(EventManager.class);
 
     /**
      * Event notification handler interface.  Default implementation in EventManager simply

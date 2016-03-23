@@ -87,6 +87,8 @@ struct DmGroupFixture : BaseTestFixture {
 
     void setupVolumeGroup(uint32_t quorumCnt)
     {
+        VolumeGroupHandle::GROUPCHECK_INTERVAL_SEC = 2;
+
         /* Create a coordinator with quorum of quorumCnt */
         v1 = MAKE_SHARED<VolumeGroupHandle>(amHandle.proc, v1Id, quorumCnt);
         amHandle.proc->setVolumeHandle(v1.get());

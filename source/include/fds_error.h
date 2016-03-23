@@ -13,7 +13,7 @@
 #include <util/enum_util.h>
 
 namespace fds {
-    
+
 #define FDS_ERRORNO_ENUM_VALUES(ADD) \
     ADD(ERR_OK,= 0,"ALL OK"), \
     ADD(ERR_DUPLICATE,= 1,"Data is a duplicate"), \
@@ -165,6 +165,8 @@ namespace fds {
     ADD(ERR_SM_READ_ONLY, ,"SM is currently in read-only mode."), \
     ADD(ERR_SM_DISK_FULL, , "IO failure due to FULL disk."), \
     ADD(ERR_SM_TC_INVALID_STATE, ,"Token compactor in invalid state. "), \
+    ADD(ERR_META_DISK_WRITE_FAILED, ,"Unable to write metadata to disk"), \
+    ADD(ERR_META_DISK_READ_FAILED, ,"Unable to read metadata from disk"), \
     \
     /* Network errors */    \
     ADD(ERR_NETWORK_TRANSPORT,= 3000," "), \
@@ -174,6 +176,8 @@ namespace fds {
     /* File Errors */ \
     ADD(ERR_FILE_DOES_NOT_EXIST,= 3100 ,"  "),      \
     ADD(ERR_CHECKSUM_MISMATCH, ,"  "),      \
+    ADD(ERR_FILE_READ_BEYOND_EOF, ,"  "),       \
+    ADD(ERR_TOO_MANY_FILE_READ_RETRIES, ,"  "), \
     \
     /* SVC Request realted */   \
     ADD(ERR_SVC_REQUEST_FAILED,= 4000," "), \
@@ -267,7 +271,7 @@ namespace fds {
     ADD(ERR_INVALID, ,"  "), \
     \
     ADD(ERR_MAX, ,"  ")
-    
+
     /* DO NOT change the order */
 typedef enum {
     FDS_ERRORNO_ENUM_VALUES(ADD_TO_ENUM)
