@@ -16,6 +16,7 @@ import re
 testlib_path = os.path.join(os.getcwd(), '..',)
 sys.path.append(testlib_path)
 from testlib.sm.dlt import DLT as dlt
+from fdslib.TestUtils import disconnect_fabric
 
 class TestVerifyMigrations(TestCase.FDSTestCase):
     """
@@ -68,6 +69,7 @@ class TestVerifyMigrations(TestCase.FDSTestCase):
         for node_uuid, tokens in current_dlt.items():
             self.log.info("Node: {} => Tokens: {}".format(hex(node_uuid), tokens))
 
+        disconnect_fabric()
         for node_uuid, tokens in current_dlt.items():
             # Setup stuff we'll want to check against
             num_checked_tokens = len(tokens)
