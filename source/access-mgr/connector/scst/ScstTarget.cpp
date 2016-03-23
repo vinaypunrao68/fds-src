@@ -42,14 +42,14 @@ ScstTarget::ScstTarget(ScstConnector* parent_connector,
     // TODO(bszmyd): Sat 12 Sep 2015 12:14:19 PM MDT
     // We can support other target-drivers than iSCSI...TBD
     // Create an iSCSI target in the SCST mid-ware for our handler
-    GLOGDEBUG << "Creating iSCSI target for connector: [" << target_name << "]";
+    LOGDEBUG << "target:" << target_name << " creating iSCSI target";
     ScstAdmin::addToScst(target_name);
     ScstAdmin::setQueueDepth(target_name, 64);
 
     // Start watching the loop
     evLoop = std::make_shared<ev::dynamic_loop>(ev::NOENV | ev::POLL);
     if (!evLoop) {
-        GLOGERROR << "Failed to initialize lib_ev...SCST is not serving devices";
+        LOGERROR << "failed to initialize lib_ev";
         throw ScstError::scst_error;
     }
 
@@ -71,13 +71,13 @@ ScstTarget::addDevice(VolumeDesc const& vol_desc) {
 
     // Check if we have a device with this name already
     if (device_map.end() != device_map.find(vol_desc.name)) {
-        GLOGDEBUG << "Already have a device for volume: [" << vol_desc.name << "]";
+        LOGDEBUG << "vol:" << vol_desc.name << " already have device for volume";
         return;
     }
 
     auto processor = amProcessor.lock();
     if (!processor) {
-        GLOGERROR << "No processing layer, shutdown.";
+        LOGERROR << "no processing layer, shutdown";
         return;
     }
 
@@ -86,12 +86,13 @@ ScstTarget::addDevice(VolumeDesc const& vol_desc) {
                                    lun_table.end(),
                                    [] (ScstAdmin::device_ptr& p) -> bool { return (!!p); });
     if (lun_table.end() == lun_it) {
-        GLOGNOTIFY << "Target [" << target_name << "] has exhausted all LUNs.";
+        LOGNOTIFY << "target:" << target_name << " exhausted all LUNs";
         return;
     }
     int32_t lun_number = std::distance(lun_table.begin(), lun_it);
-    GLOGDEBUG << "Mapping [" << vol_desc.name
-              << "] to LUN [" << lun_number << "]";
+    LOGDEBUG << "vol:" << vol_desc.name
+             << " lun:" << lun_number
+             << " mapping LUN";
 
     ScstDevice* device = nullptr;
     try {
@@ -207,7 +208,7 @@ ScstTarget::wakeupCb(ev::async &watcher, int revents) {
 void
 ScstTarget::lead() {
     evLoop->run(0);
-    GLOGNORMAL <<  "SCST Target has shutdown " << target_name;
+    LOGNORMAL <<  "target:" << target_name << " shutdown";
     // If we were removed, disconnect sessions, otherwise we are just restarting
     {
         std::lock_guard<std::mutex> g(deviceLock);

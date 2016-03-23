@@ -193,15 +193,15 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
             }
         }
         if (should_log) {
-            LOGERROR << amReq->io_type
-                     << " on: [" << std::hex << amReq->getBlobName()
-                     << "] had result: [" << error
-                     << "] API code: [" << fpi::_ErrorCode_VALUES_TO_NAMES.at(code) << "]";
+            LOGERROR << "type:" << amReq->io_type
+                     << " blob:" << amReq->getBlobName()
+                     << " err:" << error
+                     << " code:" << fpi::_ErrorCode_VALUES_TO_NAMES.at(code);
         } else {
-            LOGIO << amReq->io_type
-                  << " on: [" << std::hex << amReq->getBlobName()
-                  << "] had result: [" << error
-                  << "] API code: [" << fpi::_ErrorCode_VALUES_TO_NAMES.at(code) << "]";
+            LOGIO << "type:" << amReq->io_type
+                  << " blob:" << amReq->getBlobName()
+                  << " err:" << error
+                  << " code:" << fpi::_ErrorCode_VALUES_TO_NAMES.at(code);
         }
         amReq->cb->call(code);
     }
@@ -214,7 +214,7 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
 void AmProcessor_impl::stop() {
     std::unique_lock<std::mutex> lk(shut_down_lock);
     if (!shut_down) {
-        LOGNOTIFY << "AmProcessor is shutting down.";
+        LOGNOTIFY << "shutting down AmProcessor";
         shut_down = true;
         AmDataProvider::stop();
     }
@@ -246,7 +246,7 @@ AmProcessor_impl::updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::cal
     if (err.ok()) {
         have_tables.first = true;
     } else if (ERR_DUPLICATE == err) {
-        LOGWARN << "Received duplicate DLT version, ignoring";
+        LOGWARN << "duplicate DLT version, ignoring";
         err = ERR_OK;
     }
     return err;
@@ -261,7 +261,7 @@ AmProcessor_impl::updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::cal
     if (err.ok()) {
         have_tables.second = true;
     } else if (ERR_DUPLICATE == err) {
-        LOGWARN << "Received duplicate DMT version, ignoring";
+        LOGWARN << "duplicate DMT version, ignoring";
         err = ERR_OK;
     }
     return err;
