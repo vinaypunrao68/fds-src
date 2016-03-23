@@ -52,24 +52,6 @@ AmCache::done() {
     return AmDataProvider::done();
 }
 
-void
-AmCache::registerVolume(const VolumeDesc& volDesc) {
-    auto const& vol_uuid = volDesc.volUUID;
-    descriptor_cache.addVolume(vol_uuid, max_metadata_entries);
-    offset_cache.addVolume(vol_uuid, max_metadata_entries);
-    object_cache.addVolume(vol_uuid, max_volume_data);
-    LOGDEBUG << "Created caches for volume: " << volDesc.name;
-    AmDataProvider::registerVolume(volDesc);
-}
-
-void
-AmCache::removeVolume(VolumeDesc const& volDesc) {
-    descriptor_cache.removeVolume(volDesc.volUUID);
-    offset_cache.removeVolume(volDesc.volUUID);
-    object_cache.removeVolume(volDesc.volUUID);
-    AmDataProvider::removeVolume(volDesc);
-}
-
 BlobDescriptor::ptr
 AmCache::getBlobDescriptor(AmRequest* amReq, Error &error) {
     auto const& volId = amReq->io_vol_id;
@@ -313,8 +295,9 @@ AmCache::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint6
 
 void
 AmCache::closeVolume(AmRequest *amReq) {
-    descriptor_cache.clear(amReq->io_vol_id);
-    offset_cache.clear(amReq->io_vol_id);
+    descriptor_cache.removeVolume(amReq->io_vol_id);
+    offset_cache.removeVolume(amReq->io_vol_id);
+    object_cache.removeVolume(amReq->io_vol_id);
     AmDataProvider::closeVolume(amReq);
 }
 
@@ -352,9 +335,14 @@ AmCache::statBlob(AmRequest *amReq) {
 void
 AmCache::openVolumeCb(AmRequest* amReq, Error const error) {
     // Let's dump our meta cache to be safe if we loose a lease on a volume
+    auto const& vol_uuid = amReq->io_vol_id;
     if (ERR_OK != error || !static_cast<AttachVolumeReq*>(amReq)->mode.can_cache) {
-        descriptor_cache.clear(amReq->io_vol_id);
-        offset_cache.clear(amReq->io_vol_id);
+        descriptor_cache.clear(vol_uuid);
+        offset_cache.clear(vol_uuid);
+    } else if (ERR_VOL_DUPLICATE != descriptor_cache.addVolume(vol_uuid, max_metadata_entries)) {
+        offset_cache.addVolume(vol_uuid, max_metadata_entries);
+        object_cache.addVolume(vol_uuid, max_volume_data);
+        LOGDEBUG << "Created caches for volume: " << amReq->volume_name;
     }
     AmDataProvider::openVolumeCb(amReq, error);
 }
