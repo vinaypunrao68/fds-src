@@ -161,7 +161,8 @@ struct OpenVolumeMsg {
   2: required common.VolumeAccessMode   mode;
   /** Existing token */
   3: optional i64                       token = 0;
-  4: i32                                coordinatorVersion = 0;
+  /** Volume group handle requesting the open */
+  4: svc_types.VolumeGroupCoordinatorInfo coordinator;
 }
 
 /**
@@ -173,8 +174,10 @@ struct OpenVolumeRspMsg {
   1: required i64                       token;
   /** Volume update sequencing */
   2: required i64                       sequence_id;
-  /* Volume version */
+  /** Volume replica version */
   3: i32                                replicaVersion;
+  /** Coordinator currently stored by the volume replica */
+  4: svc_types.VolumeGroupCoordinatorInfo coordinator;
 }
 
 /**

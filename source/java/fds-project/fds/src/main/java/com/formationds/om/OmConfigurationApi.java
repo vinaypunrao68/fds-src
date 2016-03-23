@@ -76,10 +76,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         apisPolicy.setRetentionTimeSeconds( retention );
         apisPolicy.setTimelineTime( timelineTime );
 
-        redisSingleton.getRedisLock();
-        long ret = createSnapshotPolicy( apisPolicy );
-        redisSingleton.releaseRedisLock();
-        return ret;
+        return createSnapshotPolicy( apisPolicy );
     }
 
     /**
@@ -87,8 +84,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public Version getVersion() throws ApiException, TException {
-
-        return getConfig().getVersion();
+        redisSingleton.getRedisLock();  
+        Version version = getConfig().getVersion();
+        redisSingleton.releaseRedisLock();
+        return version;
     }
 
     /**
@@ -96,8 +95,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public List<ServiceAPIVersion> getVersionTable() throws ApiException, TException {
-
-        return getConfig().getVersionTable();
+        redisSingleton.getRedisLock();
+        List<ServiceAPIVersion> versions = getConfig().getVersionTable();
+        redisSingleton.releaseRedisLock();
+        return versions;
     }
 
     /**
@@ -109,8 +110,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public Version suggestVersion(Version suggestedVersion) throws ApiException, TException {
-
-        return getConfig().suggestVersion(suggestedVersion);
+        redisSingleton.getRedisLock();
+        Version version = getConfig().suggestVersion(suggestedVersion);
+        redisSingleton.releaseRedisLock();
+        return version;
     }
 
     /**
@@ -137,7 +140,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public boolean isLocalDomainUp() throws TException {
-        return getConfig().isLocalDomainUp();
+    	redisSingleton.getRedisLock();
+        boolean ret = getConfig().isLocalDomainUp();
+        redisSingleton.releaseRedisLock();
+        return ret;
     }
 
     /**
@@ -149,7 +155,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public List<LocalDomainDescriptor> listLocalDomains( int ignore ) throws TException {
-        return getConfig().listLocalDomains( ignore );
+    	redisSingleton.getRedisLock();
+    	List<LocalDomainDescriptor> domains = getConfig().listLocalDomains( ignore );
+    	redisSingleton.releaseRedisLock();
+    	return domains;
     }
 
     /**
@@ -163,7 +172,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public List<LocalDomainDescriptorV07> listLocalDomainsV07( int ignore ) throws TException {
-        return getConfig().listLocalDomainsV07( ignore );
+        redisSingleton.getRedisLock();
+    	List<LocalDomainDescriptorV07> domains = getConfig().listLocalDomainsV07( ignore );
+    	redisSingleton.releaseRedisLock();
+    	return domains;
     }
 
     /**
@@ -388,7 +400,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public List<FDSP_Node_Info_Type> listLocalDomainServices( String domainName ) throws TException {
-        return getConfig().listLocalDomainServices( domainName );
+        redisSingleton.getRedisLock();
+        List<FDSP_Node_Info_Type> services = getConfig().listLocalDomainServices( domainName );
+        redisSingleton.releaseRedisLock();
+        return services;
     }
 
     /**
@@ -400,7 +415,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public List<FDSP_Node_Info_Type> ListServices( int ignore ) throws TException {
-        return getConfig().ListServices( ignore );
+        redisSingleton.getRedisLock();
+        List<FDSP_Node_Info_Type> services = getConfig().ListServices( ignore );
+        redisSingleton.releaseRedisLock();
+        return services;
     }
 
     /**
@@ -630,7 +648,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public List<FDSP_PolicyInfoType> listQoSPolicies( long ignore ) throws TException {
-        return getConfig().listQoSPolicies( ignore );
+        redisSingleton.getRedisLock();
+        List<FDSP_PolicyInfoType> policies = getConfig().listQoSPolicies( ignore );
+        redisSingleton.releaseRedisLock();
+        return policies;
     }
 
     /**
@@ -720,7 +741,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public FDSP_VolumeDescType GetVolInfo( FDSP_GetVolInfoReqType vol_info_req ) throws TException {
-        return getConfig().GetVolInfo( vol_info_req );
+        redisSingleton.getRedisLock();
+        FDSP_VolumeDescType volInfo = getConfig().GetVolInfo( vol_info_req );
+        redisSingleton.releaseRedisLock();
+        return volInfo;
     }
 
     @Override
@@ -764,7 +788,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public List<FDSP_VolumeDescType> ListVolumes( int ignore ) throws TException {
-        return Lists.newArrayList( getConfig().ListVolumes( ignore ) );
+        redisSingleton.getRedisLock();
+        List<FDSP_VolumeDescType> volumes = getConfig().ListVolumes( ignore );
+        redisSingleton.releaseRedisLock();
+        return Lists.newArrayList(volumes);
     }
 
     @Override
@@ -781,7 +808,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public List<StreamingRegistrationMsg> getStreamRegistrations( int ignore ) throws TException {
-        return getConfig().getStreamRegistrations( ignore );
+        redisSingleton.getRedisLock();
+        List<StreamingRegistrationMsg> regs = getConfig().getStreamRegistrations( ignore );
+        redisSingleton.releaseRedisLock();
+        return regs;
     }
 
     @Override
@@ -804,7 +834,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public List<SnapshotPolicy> listSnapshotPolicies( long unused ) throws TException {
-        return getConfig().listSnapshotPolicies( unused );
+        redisSingleton.getRedisLock();
+        List<SnapshotPolicy> policies = getConfig().listSnapshotPolicies( unused );
+        redisSingleton.releaseRedisLock();
+        return policies;
     }
 
     // TODO need deleteSnapshotForVolume Iface call.
@@ -829,7 +862,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public List<SnapshotPolicy> listSnapshotPoliciesForVolume( long volumeId ) throws TException {
-        return getConfig().listSnapshotPoliciesForVolume( volumeId );
+        redisSingleton.getRedisLock();
+        List<SnapshotPolicy> policies = getConfig().listSnapshotPoliciesForVolume( volumeId );
+        redisSingleton.releaseRedisLock();
+        return policies;
     }
 
     @Override
@@ -842,7 +878,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public List<Long> listVolumesForSnapshotPolicy( long policyId ) throws TException {
-        return getConfig().listVolumesForSnapshotPolicy( policyId );
+        redisSingleton.getRedisLock();
+        List<Long> volumes = getConfig().listVolumesForSnapshotPolicy( policyId );
+        redisSingleton.releaseRedisLock();
+        return volumes;
     }
 
     @Override
@@ -866,7 +905,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public List<com.formationds.protocol.svc.types.Snapshot> listSnapshots( long volumeId ) throws TException {
-        return getConfig().listSnapshots( volumeId );
+        redisSingleton.getRedisLock();
+        List<com.formationds.protocol.svc.types.Snapshot> snapshots = getConfig().listSnapshots( volumeId );
+        redisSingleton.releaseRedisLock();
+        return snapshots;
     }
 
     @Override
@@ -958,7 +1000,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public List<SubscriptionDescriptor> listSubscriptionsAll(int ignore)
             throws TException {
-        return getConfig().listSubscriptionsAll(ignore);
+        redisSingleton.getRedisLock();
+        List<SubscriptionDescriptor> subscriptions = getConfig().listSubscriptionsAll(ignore);
+        redisSingleton.releaseRedisLock();
+        return subscriptions;
     }
 
     /**
@@ -972,7 +1017,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public List<SubscriptionDescriptor> listTenantSubscriptionsAll(long tenantID)
             throws TException {
-        return getConfig().listTenantSubscriptionsAll(tenantID);
+        redisSingleton.getRedisLock();
+        List<SubscriptionDescriptor> subscriptions = getConfig().listTenantSubscriptionsAll(tenantID);
+        redisSingleton.releaseRedisLock();
+        return subscriptions;
     }
 
     /**
@@ -986,7 +1034,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public List<SubscriptionDescriptor> listSubscriptionsPrimaryDomain(int primaryDomainID)
             throws TException {
-        return getConfig().listSubscriptionsPrimaryDomain(primaryDomainID);
+        redisSingleton.getRedisLock();
+        List<SubscriptionDescriptor> subscriptions = getConfig().listSubscriptionsPrimaryDomain(primaryDomainID);
+        redisSingleton.releaseRedisLock();
+        return subscriptions;
     }
 
     /**
@@ -1001,7 +1052,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public List<SubscriptionDescriptor> listTenantSubscriptionsPrimaryDomain(int primaryDomainID, long tenantID)
             throws TException {
-        return getConfig().listTenantSubscriptionsPrimaryDomain(primaryDomainID, tenantID);
+        redisSingleton.getRedisLock();
+        List<SubscriptionDescriptor> subscriptions = getConfig().listTenantSubscriptionsPrimaryDomain(primaryDomainID, tenantID);
+        redisSingleton.releaseRedisLock();
+        return subscriptions;
     }
 
     /**
@@ -1015,7 +1069,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public List<SubscriptionDescriptor> listSubscriptionsReplicaDomain(int replicaDomainID)
             throws TException {
-        return getConfig().listSubscriptionsReplicaDomain(replicaDomainID);
+        redisSingleton.getRedisLock();
+        List<SubscriptionDescriptor> subscriptions =  getConfig().listSubscriptionsReplicaDomain(replicaDomainID);
+        redisSingleton.releaseRedisLock();
+        return subscriptions;
     }
 
     /**
@@ -1030,7 +1087,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public List<SubscriptionDescriptor> listTenantSubscriptionsReplicaDomain(int replicaDomainID, long tenantID)
             throws TException {
-        return getConfig().listTenantSubscriptionsReplicaDomain(replicaDomainID, tenantID);
+        redisSingleton.getRedisLock();
+        List<SubscriptionDescriptor> subscriptions = getConfig().listTenantSubscriptionsReplicaDomain(replicaDomainID, tenantID);
+        redisSingleton.releaseRedisLock();
+        return subscriptions;
     }
 
     /**
@@ -1045,7 +1105,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public List<SubscriptionDescriptor> listSubscriptionsPrimaryVolume(long primaryVolumeID)
             throws TException {
-        return getConfig().listSubscriptionsPrimaryVolume(primaryVolumeID);
+        redisSingleton.getRedisLock();
+        List<SubscriptionDescriptor> subscriptions = getConfig().listSubscriptionsPrimaryVolume(primaryVolumeID);
+        redisSingleton.releaseRedisLock();
+        return subscriptions;
     }
 
     /**
@@ -1060,7 +1123,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public List<SubscriptionDescriptor> listSubscriptionsReplicaVolume(long replicaVolumeID)
             throws TException {
-        return getConfig().listSubscriptionsReplicaVolume(replicaVolumeID);
+        redisSingleton.getRedisLock();
+        List<SubscriptionDescriptor> subscriptions = getConfig().listSubscriptionsReplicaVolume(replicaVolumeID);
+        redisSingleton.releaseRedisLock();
+        return subscriptions;
     }
 
     /**
@@ -1075,7 +1141,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public SubscriptionDescriptor getSubscriptionInfoName(String subName, long tenantID)
             throws TException {
-        return getConfig().getSubscriptionInfoName(subName, tenantID);
+        redisSingleton.getRedisLock();
+        SubscriptionDescriptor subscription = getConfig().getSubscriptionInfoName(subName, tenantID);
+        redisSingleton.releaseRedisLock();
+        return subscription;
     }
 
     /**
@@ -1088,7 +1157,10 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     @Override
     public SubscriptionDescriptor getSubscriptionInfoID(long subID)
             throws TException {
-        return getConfig().getSubscriptionInfoID(subID);
+        redisSingleton.getRedisLock();
+        SubscriptionDescriptor subscription = getConfig().getSubscriptionInfoID(subID);
+        redisSingleton.releaseRedisLock();
+        return subscription;
     }
 
     /**
@@ -1164,22 +1236,34 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
 
     @Override
     public List<SvcInfo> getAllNodeInfo() throws TException {
-        return getConfig().getAllNodeInfo();
+        redisSingleton.getRedisLock();
+        List<SvcInfo> svcs = getConfig().getAllNodeInfo();
+        redisSingleton.releaseRedisLock();
+        return svcs;
     }
 
     @Override
     public SvcInfo getNodeInfo( SvcUuid nodeUuid ) throws ApiException, TException {
-        return getConfig().getNodeInfo( nodeUuid );
+        redisSingleton.getRedisLock();
+        SvcInfo svc = getConfig().getNodeInfo( nodeUuid );
+        redisSingleton.releaseRedisLock();
+        return svc;
     }
 
     @Override
     public long getDiskCapacityNode( SvcUuid nodeUuid ) throws ApiException, TException {
-        return getConfig().getDiskCapacityNode( nodeUuid );
+        redisSingleton.getRedisLock();
+        long ret = getConfig().getDiskCapacityNode( nodeUuid );
+        redisSingleton.releaseRedisLock();
+        return ret;
     }
 
     @Override
     public long getDiskCapacityTotal() throws ApiException, TException {
-        return getConfig().getDiskCapacityTotal();
+        redisSingleton.getRedisLock();
+        long ret = getConfig().getDiskCapacityTotal();
+        redisSingleton.releaseRedisLock();
+        return ret;
     }
 
     private synchronized CachedConfiguration getCache() {
@@ -1194,12 +1278,14 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
     // TODO: synch here is held over a remote call to config service which is potentially problematic. consider refactoring
     private synchronized CachedConfiguration refreshCacheMaybe() {
         try {
+            redisSingleton.getRedisLock();
             long currentVersion = getConfig().configurationVersion( 0 );
             long cacheVersion = cache.getVersion();
             if ( cacheVersion != currentVersion ) {
                 LOG.debug( "Cache version changed - refreshing" );
                 cache = new CachedConfiguration( getConfig() );
             }
+            redisSingleton.releaseRedisLock();
             return cache;
         } catch ( TException te ) {
             throw new IllegalStateException( EndUserMessages.CS_ACCESS_DENIED, te );

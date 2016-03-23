@@ -136,8 +136,6 @@ void JournalManager::monitorLogs() {
     LOGNORMAL << "journal log monitoring started";
     const FdsRootDir *root = dm->getModuleProvider()->proc_fdsroot();
     const std::string dmDir = root->dir_sys_repo_dm();
-    FdsRootDir::fds_mkdir(dmDir.c_str());
-    FdsRootDir::fds_mkdir(root->dir_timeline_dm().c_str());
 
     // initialize inotify
     int inotifyFd = inotify_init();

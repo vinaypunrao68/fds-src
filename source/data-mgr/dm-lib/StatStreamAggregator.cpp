@@ -724,7 +724,13 @@ fds_uint64_t StatHelper::getCountRenameBlob(const StatSlot &slot) {
 
 fds_uint64_t StatHelper::getTotalWithDriftSupport(FdsVolStatType type, StatSlot &slot,
                                                   VolumePerfHistory::ptr hist) {
-    if (slot.getCount(type) > 0) {
+    /**
+     * If a stat is disabled, we don't bother with drift
+     * since no generation of the stat will have observations.
+     */
+    if ((slot.getCount(type) > 0) ||
+                (StatConstants::singleton()->disabledVolStats.find(type) !=
+                        StatConstants::singleton()->disabledVolStats.end())) {
         return slot.getTotal(type);
     } else {
         /**

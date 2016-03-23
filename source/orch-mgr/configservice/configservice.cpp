@@ -1517,7 +1517,6 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         desc.srcVolumeId = *volumeId;
         desc.timelineTime = *timelineTime;
         desc.createTime = util::getTimeStampSeconds();
-        desc.coordinator.id.svc_uuid = 0;
 
         if (parentVol->vol_get_properties()->lookupVolumeId == invalid_vol_id) {
             desc.lookupVolumeId = *volumeId;
