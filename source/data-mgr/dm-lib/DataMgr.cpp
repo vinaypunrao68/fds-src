@@ -606,7 +606,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
             fShouldBeHere = amIinVolumeGroup(vdesc->srcVolumeId);
         } else if (vdesc->isClone()) {
             // TODO(prem,rao) : dig deeper
-            fShouldBeHere = (amIinVolumeGroup(vdesc->volUUID) || 
+            fShouldBeHere = (amIinVolumeGroup(vdesc->volUUID) ||
                              amIinVolumeGroup(vdesc->srcVolumeId));
         } else {
             fShouldBeHere = amIinVolumeGroup(vdesc->volUUID);
@@ -968,6 +968,13 @@ int DataMgr::mod_init(SysParams const *const param)
     Error err(ERR_OK);
 
     initHandlers();
+
+    // make sure all vital directories exist
+    const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
+    FdsRootDir::fds_mkdir(root->dir_sys_repo_dm().c_str());
+    FdsRootDir::fds_mkdir(root->dir_user_repo_dm().c_str());
+    FdsRootDir::fds_mkdir(root->dir_timeline_dm().c_str());
+
     standalone = MODULEPROVIDER()->get_fds_config()->get<bool>("fds.dm.testing.standalone", false);
     numTestVols = 10;
     scheduleRate = 10000;
@@ -1147,7 +1154,7 @@ void DataMgr::mod_startup()
 
 void DataMgr::mod_enable_service() {
     Error err(ERR_OK);
-    const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
+
     auto svcmgr = MODULEPROVIDER()->getSvcMgr();
     auto diskIOPsMin = standalone ? 60*1000 :
             atoi(svcmgr->getSvcProperty(svcmgr->getMappedSelfPlatformUuid(),
@@ -1212,11 +1219,6 @@ void DataMgr::mod_enable_service() {
         getAllVolumeDescriptors();
     }
     LOGNORMAL << "Finished stat collection and pulling volume descriptors";
-
-    root->fds_mkdir(root->dir_sys_repo_dm().c_str());
-    root->fds_mkdir(root->dir_user_repo_dm().c_str());
-
-    LOGNORMAL << "Finished creating DM directory layout";
 
     // finish setting up time volume catalog
     timeVolCat_->mod_startup();
@@ -2094,7 +2096,7 @@ float_t getUsedCapacityOfSysRepo(const FdsRootDir* _root) {
     float_t result = ((1. * cap.usedCapacity) / cap.totalCapacity) * 100;
     GLOGDEBUG << "Found DM user-repo disk capacity of (" << cap.usedCapacity << "/" << cap.totalCapacity << ") = " << result;
 
-    return result;	
+    return result;
 }
 
 
