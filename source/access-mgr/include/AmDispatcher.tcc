@@ -9,6 +9,7 @@
 #include "TypeIdMap.h"
 #include "net/SvcMgr.h"
 #include "net/SvcRequestPool.h"
+#include "net/VolumeGroupHandle.h"
 #include "util/Log.h"
 
 namespace fds
@@ -224,13 +225,18 @@ void AmDispatcher::volumeGroupRead(ReqPtr request, MsgPtr message, CbMeth cb_fun
         ReadGuard rg(volumegroup_lock);
         auto it = volumegroup_map.find(vol_id);
         if (volumegroup_map.end() != it) {
-            LOGTRACE << "Reading from volume: " << vol_id;
-            it->second->sendReadMsg(message_type_id(*message),
-                                    message,
-                                    [cb_func, request, this] (Error const& e, shared_str p) mutable -> void {
-                                        (this->*(cb_func))(request, e, p);
-                                    });
-            return;
+            ProtectedVGH::vgh_ptr vgh;
+            ProtectedVGH::uniq_lock lock;
+            std::tie(lock, vgh) = it->second.getVGH(message_timeout_open);
+            if (vgh) {
+                LOGTRACE << "Reading from volume: " << vol_id;
+                vgh->sendReadMsg(message_type_id(*message),
+                                 message,
+                                 [cb_func, request, this] (Error const& e, shared_str p) mutable -> void {
+                                     (this->*(cb_func))(request, e, p);
+                                 });
+                return;
+            }
         }
     }
     LOGERROR << "Unknown volume to AmDispatcher: " << vol_id;
@@ -258,13 +264,18 @@ void AmDispatcher::volumeGroupModify(ReqPtr request, MsgPtr message, CbMeth cb_f
         ReadGuard rg(volumegroup_lock);
         auto it = volumegroup_map.find(vol_id);
         if (volumegroup_map.end() != it) {
-            LOGTRACE << "Staging to volume: " << vol_id;
-            it->second->sendModifyMsg(message_type_id(*message),
-                                      message,
-                                      [cb_func, request, this] (Error const& e, shared_str p) mutable -> void {
-                                          (this->*(cb_func))(request, e, p);
-                                      });
-            return;
+            ProtectedVGH::vgh_ptr vgh;
+            ProtectedVGH::uniq_lock lock;
+            std::tie(lock, vgh) = it->second.getVGH(message_timeout_open);
+            if (vgh) {
+                LOGTRACE << "Staging to volume: " << vol_id;
+                vgh->sendModifyMsg(message_type_id(*message),
+                                   message,
+                                   [cb_func, request, this] (Error const& e, shared_str p) mutable -> void {
+                                       (this->*(cb_func))(request, e, p);
+                                   });
+                return;
+            }
         }
     }
     LOGERROR << "Unknown volume to AmDispatcher: " << vol_id;
@@ -294,13 +305,18 @@ void AmDispatcher::volumeGroupCommit(ReqPtr request,
         ReadGuard rg(volumegroup_lock);
         auto it = volumegroup_map.find(vol_id);
         if (volumegroup_map.end() != it) {
-            LOGTRACE << "Writing to volume: " << vol_id;
-            it->second->sendCommitMsg(message_type_id(*message),
-                                      message,
-                                      [cb_func, request, this] (Error const& e, shared_str p) mutable -> void {
-                                          (this->*(cb_func))(request, e, p);
-                                      });
-            return;
+            ProtectedVGH::vgh_ptr vgh;
+            ProtectedVGH::uniq_lock lock;
+            std::tie(lock, vgh) = it->second.getVGH(message_timeout_open);
+            if (vgh) {
+                LOGTRACE << "Writing to volume: " << vol_id;
+                vgh->sendCommitMsg(message_type_id(*message),
+                                   message,
+                                   [cb_func, request, this] (Error const& e, shared_str p) mutable -> void {
+                                       (this->*(cb_func))(request, e, p);
+                                       });
+                return;
+            }
         }
     }
     LOGERROR << "Unknown volume to AmDispatcher: " << vol_id;
