@@ -50,8 +50,10 @@ DiskUtils::diskFileTest(const std::string& path) {
     int fd = open(path.c_str(), O_RDWR | O_CREAT | O_SYNC, S_IRUSR | S_IWUSR);
     if (fd == -1 || fsync(fd) ||close(fd)) {
         LOGNOTIFY << "File test for disk = " << path << " failed with errno = " << errno;
+        close(fd);
         return true;
     } else {
+        close(fd);
         return false;
     }
 }

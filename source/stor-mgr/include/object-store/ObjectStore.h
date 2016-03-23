@@ -331,6 +331,8 @@ class ObjectStore : public Module, public boost::noncopyable {
      */
     fds_uint32_t getDiskCount() const;
 
+    diskio::DataTier getMetadataTier();
+
     /**
      * Handle disk change.
      */
