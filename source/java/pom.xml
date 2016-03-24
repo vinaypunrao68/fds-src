@@ -172,13 +172,13 @@
     <repository>
       <id>boulder-release</id>
       <name>artifacts-releases</name>
-      <url>http://${user}:${user.passwd}@bld-artifactory:8081/artifactory/maven-formation</url>
+      <url>http://${user}:${user.passwd}@bld-artifactory:8081/artifactory/formation-maven</url>
     </repository>
 
     <repository>
       <id>boulder-snapshot</id>
       <name>artifacts-snapshots</name>
-      <url>http://${user}:${user.passwd}@bld-artifactory:8081/artifactory/maven-formation</url>
+      <url>http://${user}:${user.passwd}@bld-artifactory:8081/artifactory/formation-maven</url>
     </repository>
 
     <repository>
@@ -496,6 +496,11 @@
          <version>2.4.0</version>
       </dependency>
 
+      <dependency>
+         <groupId>com.formationds</groupId>
+         <artifactId>fds-logging</artifactId>
+         <version>0.0.1-SNAPSHOT</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 

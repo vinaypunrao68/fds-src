@@ -25,6 +25,8 @@ namespace fds {
 #define GET_VOLUMEREPLICA_HANDLE(volumeHandle__, svcUuid__) \
         GET_VOLUMEREPLICA_HANDLE_RETURN(volumeHandle__, svcUuid__, NONE_RET)
 
+uint32_t VolumeGroupHandle::GROUPCHECK_INTERVAL_SEC = 30;
+
 std::ostream& operator << (std::ostream &out, const fpi::VolumeIoHdr &h)
 {
     out << " groupid: " << h.groupId 
@@ -197,66 +199,46 @@ void VolumeGroupHandle::open(const SHPTR<fpi::OpenVolumeMsg>& msg,
             return;
         }
         
-        /* Send a message to OM requesting to be coordinator for the group */
-        auto setCoordinatorreq = createSetVolumeGroupCoordinatorMsgReq_();
-        setCoordinatorreq->onResponseCb([this, clientCb](EPSvcRequest*,
-                                                         const Error& e_,
-                                                         StringPtr payload) {
-           Error e = e_;
-           auto responseMsg = fds::deserializeFdspMsg<fpi::SetVolumeGroupCoordinatorRspMsg>(e,
-                                                                                            payload);
-           if (e != ERR_OK) {
-            LOGWARN << logString()
-                    << " Failed set volume group coordinator.  Received "
-                    << e << " from om";
-            clientCb(e, nullptr);
-            return;
-           }
 
-           version_ = responseMsg->version;
-
-           /* Send open volume against the group to prepare for open */
-           auto openReq = createPreareOpenVolumeGroupMsgReq_();
-           openReq->onResponseCb([this, clientCb](QuorumSvcRequest* openReq,
-                                                  const Error& e_,
-                                                  boost::shared_ptr<std::string> payload) {
-             Error e = e_;
-             auto responseMsg = fds::deserializeFdspMsg<fpi::OpenVolumeRspMsg>(e, payload);
-             if (e != ERR_OK) {
-                 LOGWARN << logString() << "Prepare for open failed: " << e;
-                 clientCb(e, nullptr);
-                 return;
-             }
-             auto openResp = determineFunctaionalReplicas_(openReq);
-             if (functionalReplicas_.size() == 0) {
-                 LOGWARN << logString()
-                     << " Not enough members with latest state to start a group";
-                 clientCb(ERR_VOLUMEGROUP_DOWN, nullptr);
-                 return;
-             }
-             /* Functional group is determined.  Broadcase the group info so that functaional
-              * group members can set their state to functional
+        /* Send open volume against the group to prepare for open */
+        auto openReq = createPreareOpenVolumeGroupMsgReq_();
+        openReq->onResponseCb([this, clientCb](QuorumSvcRequest* openReq,
+                                              const Error& e_,
+                                              boost::shared_ptr<std::string> payload) {
+         Error e = e_;
+         auto responseMsg = fds::deserializeFdspMsg<fpi::OpenVolumeRspMsg>(e, payload);
+         if (e != ERR_OK) {
+             LOGWARN << logString() << "Prepare for open failed: " << e;
+             clientCb(e, nullptr);
+             return;
+         }
+         auto openResp = determineFunctaionalReplicas_(openReq);
+         if (functionalReplicas_.size() == 0) {
+             LOGWARN << logString()
+                 << " Not enough members with latest state to start a group";
+             clientCb(ERR_VOLUMEGROUP_DOWN, nullptr);
+             return;
+         }
+         /* Functional group is determined.  Broadcase the group info so that functaional
+          * group members can set their state to functional
+          */
+         auto broadcastGroupReq = createBroadcastGroupInfoReq_();
+         broadcastGroupReq->onResponseCb([this, openResp, clientCb](QuorumSvcRequest*,
+                                              const Error& e_,
+                                              boost::shared_ptr<std::string> payload) {
+             /* NOTE: We don't care about the returned error here.  We want to be sure
+              * the broadcasted group information reached the group members
               */
-             auto broadcastGroupReq = createBroadcastGroupInfoReq_();
-             broadcastGroupReq->onResponseCb([this, openResp, clientCb](QuorumSvcRequest*,
-                                                  const Error& e_,
-                                                  boost::shared_ptr<std::string> payload) {
-                 /* NOTE: We don't care about the returned error here.  We want to be sure
-                  * the broadcasted group information reached the group members
-                  */
-                 changeState_(fpi::ResourceState::Active,
-                              false, /* This value is noop */
-                              "Open volume");
-                 clientCb(ERR_OK, openResp);
-             });
-             LOGNORMAL << logString() << " - Broadcast group info";
-             broadcastGroupReq->invoke();
-           });
-           LOGNORMAL << logString() << " - Prepare for open request to group";
-           openReq->invoke();
-        });
-        LOGNORMAL << logString() << " - Set coordinator request to OM";
-        setCoordinatorreq->invoke();
+             changeState_(fpi::ResourceState::Active,
+                          false, /* This value is noop */
+                          "Open volume");
+             clientCb(ERR_OK, openResp);
+         });
+         LOGNORMAL << logString() << " - Broadcast group info";
+         broadcastGroupReq->invoke();
+       });
+       LOGNORMAL << logString() << " - Prepare for open request to group";
+       openReq->invoke();
     });
 }
 
@@ -301,7 +283,7 @@ std::string VolumeGroupHandle::getStateInfo()
     /* NOTE: Getting the stateinfo isn't synchronized.  It may be a bit stale */
     Json::Value state;
     state["state"] = fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(state_));
-    state["version"] = version_;
+    state["version"] = static_cast<Json::Value::Int64>(version_);
     state["quorumcnt"] = quorumCnt_;
     state["up"] = static_cast<Json::Value::UInt>(functionalReplicas_.size());
     state["syncing"] = static_cast<Json::Value::UInt>(syncingReplicas_.size());
@@ -359,7 +341,7 @@ void VolumeGroupHandle::scheduleCheckOnNonfunctionalReplicas_()
     incRef();
     checkOnNonFunctionalScheduled_ = true;
     MODULEPROVIDER()->getTimer()->scheduleFunction(
-        std::chrono::seconds(30),
+        std::chrono::seconds(GROUPCHECK_INTERVAL_SEC),
         [this]() {
            checkOnNonFunctaionalReplicas_();
        });
@@ -418,7 +400,10 @@ VolumeGroupHandle::createPreareOpenVolumeGroupMsgReq_()
 
     auto prepareMsg = boost::make_shared<fpi::OpenVolumeMsg>();
     prepareMsg->volume_id = groupId_;
-    prepareMsg->coordinatorVersion = version_;
+    prepareMsg->coordinator.id = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
+    prepareMsg->coordinator.version = version_;
+    //  TODO(Rao): Set to read/write based on the request
+    prepareMsg->mode.can_write = true;
     // TODO(Rao): Set the token.  Set cooridnator as well
     // prepareMsg->token = volReq->token;
     // prepareMsg->mode = volReq->mode;
@@ -503,6 +488,7 @@ VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
     }
 
     commitNo_ = successSvcs[0].second->sequence_id;
+    version_ = commitNo_;
 
     return successSvcs[0].second;
 }

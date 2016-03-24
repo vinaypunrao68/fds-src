@@ -34,7 +34,7 @@ AmAsyncDataApi::AmAsyncDataApi(processor_type processor,
     FdsConfigAccessor conf(g_fdsprocess->get_conf_helper());
     if (conf.get<fds_bool_t>("testing.uturn_amserv_all")) {
         fiu_enable("am.uturn.api", 1, NULL, 0);
-        LOGNOTIFY << "Enabled AM API uturn";
+        LOGNOTIFY << "enabled AM API uturn";
     }
 }
 
@@ -374,9 +374,7 @@ void AmAsyncDataApi::updateBlobOnce(RequestHandle const& requestId,
 
     // Quick check, if these don't match reject!
     if ((size_t)*length != bytes->size()) {
-        LOGWARN << "Rejecting updateBlobOnce,"
-                << " request specified length: " << *length
-                << " actual length of payload was: " << bytes->size();
+        LOGWARN << "length:" << *length << " payload:" << bytes->size() << " rejecting updateBlobOnce";
         return closure(nullptr, fpi::BAD_REQUEST);
     }
 
@@ -413,9 +411,7 @@ void AmAsyncDataApi::updateBlob(RequestHandle const& requestId,
 
     // Quick check, if these don't match reject!
     if ((size_t)*length != bytes->size()) {
-        LOGWARN << "Rejecting updateBlob,"
-                << " request specified length: " << *length
-                << " actual length of payload was: " << bytes->size();
+        LOGWARN << "length:" << *length << " payload:" << bytes->size() << " rejecting updateBlob";
         return closure(nullptr, fpi::BAD_REQUEST);
     }
 

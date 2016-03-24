@@ -492,6 +492,7 @@ class TestS3LoadFBLOB(TestCase.FDSTestCase):
 #
 # You must also have successfully executed test case TestS3LoadFBLOB,
 # This method takes parameter keys (seperated by ,) This class verifies all passed keys are present in given bucket.
+# NOTE: each key is checked against the same passed comparefile.
 class TestS3VerifyFBLOB(TestCase.FDSTestCase):
     def __init__(self, parameters=None, bucket=None, key=None, comparefile=None):
         super(self.__class__, self).__init__(parameters,
@@ -1410,26 +1411,38 @@ class TestS3DelKey(TestCase.FDSTestCase):
         Test Case:
         Attempt to delete the given key from an S3 Bucket.
         """
-
+        keys = self.passedKey.split(',')
         if not Helper.checkS3Info(self, self.passedBucket):
             return False
 
         s3 = self.parameters["s3"]
-        self.log.info("Delete key [{}] from bucket [{}]".format(self.passedKey, self.passedBucket))
+        self.log.info("Delete key {} from bucket {}".format(keys, self.passedBucket))
 
         try:
-            k = Key(s3.bucket1, self.passedKey)
-            k.delete()
+            for each_key in keys:
+                k = Key(s3.bucket1, each_key)
+                k.delete()
             available_keys = [str(key.name) for key in s3.bucket1.list()]
-            self.log.info("Now [{}] key_set is present in bucket [{}]".format(available_keys, self.passedBucket))
+            self.log.info("Now {0} key_set is present in bucket {1}".format(available_keys, self.passedBucket))
         except:
             if self.passedVerify:
-                self.log.error('Delete failed for key [{}]'.format(self.passedKey))
+                self.log.error('Delete failed for key {0}'.format(self.passedKey))
                 return False
 
         return True
 
 
+# This class contains the attributes and methods to test
+# the FDS S3 interface to verify a specific key/keys are available in a bucket.
+#
+# You must have successfully created an S3 connection
+# and stored it in self.parameters["s3"].conn (see TestS3IntFace.TestS3GetConn)
+# and created a bucket and stored it in self.parameters["s3"].bucket1 or passed it in.
+#
+# @param bucket The bucket from which to verify the key availability.
+# @param key The key/keys to be checked in passed bucket.
+# @param expect_failure "true" and still keys ARE available there in bucket mark failure
+#        expect_failure is "false" and keys ARE NOT available in bucket then also test marked as failure
 class TestS3verifyKeyPresent(TestCase.FDSTestCase):
     def __init__(self, parameters=None, bucket=None, key=None, expect_failure="false"):
         super(self.__class__, self).__init__(parameters,
@@ -1466,6 +1479,7 @@ class TestS3verifyKeyPresent(TestCase.FDSTestCase):
             # Expected keys are NOT present in bucket mark test as Failed
             if passed_keys_set.issubset(available_keys_set) is not True:
                 self.log.error("Failed: passed_key set {0} is NOT subset of present_key_set {1} in bucket {2}".format(passed_keys_set, available_keys_set, self.passedBucket))
+                return False
 
         return True
 

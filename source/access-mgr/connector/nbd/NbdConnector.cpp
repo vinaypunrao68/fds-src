@@ -49,7 +49,7 @@ NbdConnector::NbdConnector(std::weak_ptr<AmProcessor> processor,
         : LeaderFollower(followers, false),
           nbdPort(10809),
           amProcessor(processor) {
-    LOGDEBUG << "Initialized server with: " << followers << " followers.";
+    LOGDEBUG << "followers:" << followers << " initialized server";
     initialize();
 }
 
@@ -77,17 +77,17 @@ void NbdConnector::initialize() {
     // Bind to NBD listen port
     nbdSocket = createNbdSocket();
     if (nbdSocket < 0) {
-        LOGERROR << "Could not bind to NBD port. No Nbd attachments can be made.";
+        LOGERROR << "could not bind to NBD port";
         return;
     }
 
     // Setup event loop
     if (!evLoop && !evIoWatcher) {
-        LOGNORMAL << "Accepting NBD connections on port " << nbdPort;
+        LOGNORMAL << "port:" << nbdPort << " accepting connections";
         evLoop = std::unique_ptr<ev::dynamic_loop>(new ev::dynamic_loop());
         evIoWatcher = std::unique_ptr<ev::io>(new ev::io());
         if (!evLoop || !evIoWatcher) {
-            LOGERROR << "Failed to initialize lib_ev...";
+            LOGERROR << "failed to initialize lib_ev";
             return;
         }
         evIoWatcher->set(*evLoop);
@@ -126,15 +126,15 @@ void NbdConnector::reset() {
 void NbdConnector::configureSocket(int fd) const {
     // Enable Non-Blocking mode
     if (0 > fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK)) {
-        LOGWARN << "Failed to set NON-BLOCK on NBD connection";
+        LOGWARN << "failed to set NON-BLOCK on NBD connection";
     }
 
     // Disable Nagle's algorithm, we do our own Corking
     if (cfg_no_delay) {
-        LOGDEBUG << "Disabling Nagle's algorithm.";
+        LOGDEBUG << "disabling Nagle's algorithm";
         int opt_val = 1;
         if (0 > setsockopt(fd, SOL_TCP, TCP_NODELAY, &opt_val, sizeof(opt_val))) {
-            LOGWARN << "Failed to set socket NON-BLOCKING on NBD connection";
+            LOGWARN << "failed to set socket NON-BLOCKING on NBD connection";
         }
     }
 
@@ -148,19 +148,19 @@ void NbdConnector::configureSocket(int fd) const {
 
         // Configure timeout
         if (setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &cfg_keep_alive, sizeof(cfg_keep_alive)) < 0) {
-            LOGWARN << "Failed to set KEEPALIVE_IDLE on NBD connection";
+            LOGWARN << "failed to set KEEPALIVE_IDLE on NBD connection";
         }
         if (setsockopt(fd, SOL_TCP, TCP_KEEPINTVL, &ka_intvl, sizeof(ka_intvl)) < 0) {
-            LOGWARN << "Failed to set KEEPALIVE_INTVL on NBD connection";
+            LOGWARN << "failed to set KEEPALIVE_INTVL on NBD connection";
         }
         if (setsockopt(fd, SOL_TCP, TCP_KEEPCNT, &ka_probes, sizeof(ka_probes)) < 0) {
-            LOGWARN << "Failed to set KEEPALIVE_CNT on NBD connection";
+            LOGWARN << "failed to set KEEPALIVE_CNT on NBD connection";
         }
 
         // Enable KEEPALIVE on socket
         int optval = 1;
         if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &optval, sizeof(optval)) < 0) {
-            LOGWARN << "Failed to set KEEPALIVE on NBD connection";
+            LOGWARN << "failed to set KEEPALIVE on NBD connection";
         }
     }
 }
@@ -169,14 +169,14 @@ void
 NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
     if (stopping) return;
     if (EV_ERROR & revents) {
-        LOGERROR << "Got invalid libev event";
+        LOGERROR << "invalid libev event";
         return;
     }
 
     /** First see if we even have a processing layer */
     auto processor = amProcessor.lock();
     if (!processor) {
-        LOGNORMAL << "No processing layer, shutdown.";
+        LOGNORMAL << "no processing layer";
         reset();
         return;
     }
@@ -202,7 +202,7 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
             // Will delete itself when connection dies
             auto client = new NbdConnection(this, evLoop, clientsd, processor);
             connection_map[clientsd].reset(client);
-            LOGNORMAL << "Created client connection...";
+            LOGNORMAL << "created client connection";
         } else {
             switch (errno) {
             case ENOTSOCK:
@@ -210,8 +210,7 @@ NbdConnector::nbdAcceptCb(ev::io &watcher, int revents) {
             case EINVAL:
             case EBADF:
                 // Reinitialize server
-                LOGWARN << "Accept error: " << strerror(errno)
-                        << " resetting server.";
+                LOGWARN << "accept error:" << strerror(errno);
                 nbdSocket = -1;
                 initialize();
                 break;
@@ -232,14 +231,14 @@ NbdConnector::createNbdSocket() {
 
     int listenfd = socket(AF_INET, SOCK_STREAM, 0);
     if (listenfd < 0) {
-        LOGERROR << "Failed to create NBD socket";
+        LOGERROR << "failed to create NBD socket";
         return listenfd;
     }
 
     // If we crash this allows us to reuse the socket before it's fully closed
     int optval = 1;
     if (setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
-        LOGWARN << "Failed to set REUSEADDR on NBD socket";
+        LOGWARN << "failed to set REUSEADDR on NBD socket";
     }
 
     if (bind(listenfd,
@@ -248,7 +247,7 @@ NbdConnector::createNbdSocket() {
         fcntl(listenfd, F_SETFL, fcntl(listenfd, F_GETFL, 0) | O_NONBLOCK);
         listen(listenfd, 10);
     } else {
-        LOGERROR << "Bind to listening socket failed: " << strerror(errno);
+        LOGERROR << "bind to listening socket failed:" << strerror(errno);
         listenfd = -1;
     }
 
@@ -261,7 +260,7 @@ NbdConnector::lead() {
     sigemptyset(&set);
     sigaddset(&set, SIGPIPE);
     if (0 != pthread_sigmask(SIG_BLOCK, &set, nullptr)) {
-        LOGWARN << "Failed to enable SIGPIPE mask on NBD server.";
+        LOGWARN << "failed to enable SIGPIPE mask on NBD server";
     }
     evLoop->run(0);
 }

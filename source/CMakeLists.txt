@@ -118,6 +118,7 @@ set(SOURCE_FILES
     ./access-mgr/include/AmCache.h
     ./access-mgr/include/AmDataProvider.h
     ./access-mgr/include/AmDispatcher.h
+    ./access-mgr/include/AmDispatcher.tcc
     ./access-mgr/include/AmProcessor.h
     ./access-mgr/include/AmQoSCtrl.h
     ./access-mgr/include/AmRequest.h
@@ -131,7 +132,7 @@ set(SOURCE_FILES
     ./access-mgr/include/TypeIdMap.h
     ./access-mgr/include/TypeIdMap.h
     ./access-mgr/test/AmFunctionalTest.cpp
-./access-mgr/test/BlockFunctionalTest.cpp
+    ./access-mgr/test/BlockFunctionalTest.cpp
     ./access-mgr/am-main.cpp
 
     ./data-mgr/dm-lib/checker/DmChecker.cpp

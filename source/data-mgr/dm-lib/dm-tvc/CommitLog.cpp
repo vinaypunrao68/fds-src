@@ -75,19 +75,12 @@ uint32_t CommitLogTx::read(serialize::Deserializer * d) {
 DmCommitLog::DmCommitLog(const FdsRootDir* root,
                          const std::string &modName,
                          const fds_volid_t volId,
-                         const fds_uint32_t objSize) 
+                         const fds_uint32_t objSize)
  : Module(modName.c_str()),
     volId_(volId),
     objSize_(objSize),
     started_(false)
 {
-    std::ostringstream oss;
-    oss << root->dir_sys_repo_dm() << volId_;
-    FdsRootDir::fds_mkdir(oss.str().c_str());
-
-    oss.str("");
-    oss << root->dir_user_repo_dm() << volId_;
-    FdsRootDir::fds_mkdir(oss.str().c_str());
 }
 
 DmCommitLog::~DmCommitLog() {}
@@ -443,7 +436,7 @@ Error DmCommitLog::snapshotOutstandingTx(std::vector<std::string>& strings) {
 }
 
 void DmCommitLog::clear()
-{ 
+{
     auto auto_lock = getTxMapLock(true);
     txMap_.clear();
 }

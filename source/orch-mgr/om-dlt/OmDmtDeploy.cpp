@@ -1200,7 +1200,7 @@ DmtDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         // send DMT commit to AMs and SMs if target was committed
         fds_uint32_t commitCnt = 0;
         if (am_dm_needs_dmt_rollback) {
-            LOGDEBUG << "AM and SM has already committed target DMT. Need to roll them back.";
+            LOGNOTIFY << "AM and SM has already committed target DMT. Need to roll them back.";
             // has target DMT (see the first if) and it is commited
             commitCnt = dom_ctrl->om_bcast_dmt(fpi::FDSP_ACCESS_MGR,
                                                vp->getCommittedDMT());

@@ -30,7 +30,9 @@ import java.util.Optional;
  * The Service Layer SvcServer class runs a Thrift server that accepts events for the
  * specified extension of the PlatNetSvc.Iface.
  *
- * @param <S>
+ * Optionally supports multiplexing Thrift services on one transport.
+ *
+ * @param <S> A class or interface that extends PlatNetSvc.Iface.
  */
 public class SvcServer<S extends PlatNetSvc.Iface> {
 
@@ -73,9 +75,17 @@ public class SvcServer<S extends PlatNetSvc.Iface> {
 
     private final InetSocketAddress       address;
     private final S                       serviceLayerHandler;
-    private final Optional<String>        thriftServiceName;
+    private final Boolean                 useMultiplex;
     private final ThriftServiceDescriptor serviceDescriptor;
     private final ExecutorService         serviceLayerExecutor;
+
+    /**
+     * Thrift processors keyed by unique Thrift service name.
+     *
+     * @detail
+     * Empty, unless the server is multiplexed
+     */
+    private final Map<String, TProcessor> thriftProcessors;
 
     private final SvcServerShutdownHook shutdownHook;
 
@@ -83,45 +93,50 @@ public class SvcServer<S extends PlatNetSvc.Iface> {
 
     /**
      * @param port    the port to bind on
-     * @param handler the service interface to forward events to
-     * @param thriftServiceName empty string if non-multiplexed server, otherwise a Thrift service name
+     * @param handler for non-multiplexed server, the service interface to forward events to
+     * @param processors for multiplexed server, the processors keyed by Thrift service name
+     * @param useMultiplex false if non-multiplexed server, true if multiplexed server
      */
-    public SvcServer( int port, S handler, String thriftServiceName ) {
-        this( new InetSocketAddress( port ), handler, thriftServiceName );
+    public SvcServer( int port, S handler, Map<String, TProcessor> processors, Boolean useMultiplex ) {
+        this( new InetSocketAddress( port ), handler, processors, useMultiplex );
     }
 
     /**
      * @param host    the host address to bind to.
      * @param port    the port to bind on
-     * @param handler the service interface to forward events to
-     * @param thriftServiceName empty string if non-multiplexed server, otherwise a Thrift service name
+     * @param handler for non-multiplexed server, the service interface to forward events to
+     * @param processors for multiplexed server, the processors keyed by Thrift service name
+     * @param useMultiplex false if non-multiplexed server, true if multiplexed server
      */
-    public SvcServer( String host, int port, S handler, String thriftServiceName ) {
-        this( new InetSocketAddress( host, port ), handler, thriftServiceName );
+    public SvcServer( String host, int port, S handler, Map<String, TProcessor> processors, Boolean useMultiplex ) {
+        this( new InetSocketAddress( host, port ), handler, processors, useMultiplex );
     }
 
     /**
      * @param host    the host inet address to bind to.
      * @param port    the port to bind on
-     * @param handler the service interface to forward events to
-     * @param thriftServiceName empty string if non-multiplexed server, otherwise a Thrift service name
+     * @param handler for non-multiplexed server, the service interface to forward events to
+     * @param processors for multiplexed server, the processors keyed by Thrift service name
+     * @param useMultiplex false if non-multiplexed server, true if multiplexed server
      */
-    public SvcServer( InetAddress host, int port, S handler, String thriftServiceName ) {
-        this( new InetSocketAddress( host, port ), handler, thriftServiceName );
+    public SvcServer( InetAddress host, int port, S handler, Map<String, TProcessor> processors, Boolean useMultiplex ) {
+        this( new InetSocketAddress( host, port ), handler, processors, useMultiplex );
     }
 
     /**
      * @param address the bind address for the service layer
-     * @param handler the service interface to forward events to
-     * @param thriftServiceName empty string if non-multiplexed server, otherwise a Thrift service name
+     * @param handler for non-multiplexed server, the service interface to forward events to
+     * @param processors for multiplexed server, the processors keyed by Thrift service name
+     * @param useMultiplex false if non-multiplexed server, true if multiplexed server
      */
-    public SvcServer( InetSocketAddress address, S handler, String thriftServiceName ) {
+    public SvcServer( InetSocketAddress address, S handler, Map<String, TProcessor> processors, Boolean useMultiplex ) {
 
         this.address = address;
         this.serviceLayerHandler = handler;
-        this.thriftServiceName = Optional.ofNullable( thriftServiceName );
         this.serviceDescriptor = ThriftServiceDescriptor.newDescriptor( handler.getClass().getInterfaces()[0]
                                                                             .getEnclosingClass() );
+        this.thriftProcessors = processors;
+        this.useMultiplex = useMultiplex;
         this.serviceLayerExecutor = Executors.newSingleThreadExecutor( ThreadFactories
                                                                            .newThreadFactory( "jsvc-layer-proxy" ) );
 
@@ -178,14 +193,7 @@ public class SvcServer<S extends PlatNetSvc.Iface> {
                 Runtime.getRuntime().addShutdownHook( shutdownHook );
 
                 logger.trace( "Starting Thrift Server on bind address " + addr );
-                // Note on Thrift service compatibility:
-                // If a backward incompatible change arises, pass additional pairs of
-                // handler and Thrift service name. Similiarly if the Thrift service
-                // API wants to be broken up.
-                Map<String, S> handlers = new HashMap<String, S>();
-                // For now, there is only one
-                handlers.put( thriftServiceName.orElse(""), serviceLayerHandler );
-                thriftServer = createThriftServer( addr, handlers );
+                thriftServer = createThriftServer( addr );
                 // thrift has an internal event handler, but it is not yet implemented in the (ancient) version
                 // we are using.
                 thriftServer.serve();
@@ -207,33 +215,34 @@ public class SvcServer<S extends PlatNetSvc.Iface> {
      * @throws TTransportException
      */
     @SuppressWarnings( "unchecked" )
-    private TNonblockingServer createThriftServer( InetSocketAddress address, Map<String, S> handlers ) throws TTransportException {
+    private TNonblockingServer createThriftServer( InetSocketAddress address ) throws TTransportException {
 
         TNonblockingServerSocket transport = new TNonblockingServerSocket( address );
 
         // Indirectly controlled by THRIFT_MULTIPLEXED_SERVERS feature toggle
-        String serviceName = this.thriftServiceName.orElse("");
-        if ( serviceName.equals("") ) {
+        if ( !this.useMultiplex ) {
+            if ( serviceLayerHandler != null ) {
 
-            S handler;
-            for ( Map.Entry<String, S> e : handlers.entrySet()) {
-                handler = e.getValue();
                 TNonblockingServer.Args args = new TNonblockingServer.Args( transport )
                                                    .processor( (TProcessor) serviceDescriptor.getProcessorFactory()
-                                                                                             .apply( handler ) );
+                                                                                             .apply( serviceLayerHandler ) );
                 return new TNonblockingServer( args );
             }
             throw new TTransportException( "Failed to start server, no handler" );
         }
 
         // Multiplexed server
-        TMultiplexedProcessor processor = new TMultiplexedProcessor();
-        for (String thriftServiceName : handlers.keySet()) {
-            processor.registerProcessor(thriftServiceName,
-                (TProcessor) serviceDescriptor.getProcessorFactory().apply(handlers.get(thriftServiceName)));
+        TMultiplexedProcessor mp = new TMultiplexedProcessor();
+        for (String thriftServiceName : thriftProcessors.keySet()) {
+            if (thriftServiceName == null) {
+                continue;
+            }
+            TProcessor processor = thriftProcessors.get( thriftServiceName );
+            if ( processor != null ) {
+                mp.registerProcessor( thriftServiceName, processor );
+            }
         }
-        TNonblockingServer.Args args = new TNonblockingServer.Args( transport )
-                                           .processor( processor );
+        TNonblockingServer.Args args = new TNonblockingServer.Args( transport ).processor( mp );
         return new TNonblockingServer( args );
     }
 

@@ -1420,7 +1420,10 @@ namespace fds
                                 stopProcess (JAVA_AM);
                             }
 
-                            notifyOmServiceStateChange (appIndex, mapIter->second, fpi::HealthState::HEALTH_STATE_UNEXPECTED_EXIT, "unexpectedly exited");
+                            if (JAVA_AM != appIndex)
+                            { // do not notify OM on the xdi process exit; this message will only be sent if the XDI service is flapping
+                                notifyOmServiceStateChange (appIndex, mapIter->second, fpi::HealthState::HEALTH_STATE_UNEXPECTED_EXIT, "unexpectedly exited");
+                            }
                             m_appPidMap.erase (mapIter++);
 
                             updateNodeInfoDbPidAndState (appIndex, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
@@ -1559,18 +1562,20 @@ namespace fds
             fpi::SvcUuid smUuid;
             std::vector <fpi::SvcInfo> serviceMap;
             MODULEPROVIDER()->getSvcMgr()->getSvcMap (serviceMap);
-            // Find DM and SM on the service map
+
+            LOGDEBUG << "Searching for a local SM";
             for (auto const &vectItem : serviceMap)
             {
                 fpi::SvcUuid svcUuid = vectItem.svc_id.svc_uuid;
                 ResourceUUID    uuid (vectItem.svc_id.svc_uuid.svc_uuid);
 
-                // Check if this is an SM/DM service on this node
+                LOGDEBUG << "Looking at serviceMap entry uuid " << uuid << " svcType " << vectItem.svc_type;
+                // Check if this is an SM service on this node
                 if (getNodeUUID (fpi::FDSP_PLATFORM) == uuid.uuid_get_base_val())
                 {
                     if (smUuid.svc_uuid == 0 && vectItem.svc_type == fpi::FDSP_STOR_MGR)
                     {
-                        LOGDEBUG << "Found local SM service " << svcUuid.svc_uuid;
+                        LOGNORMAL << "Found local SM service " << svcUuid.svc_uuid;
                         smUuid = svcUuid;
                         break;
                     }
