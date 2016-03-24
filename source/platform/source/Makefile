@@ -11,6 +11,7 @@ platform_cpp  :=                        \
                  svc_handler.cpp        \
                  file_system_table.cpp  \
                  valgrind.cpp           \
+                 environment.cpp         \
                  process.cpp
 
 disk_cpp :=                              \

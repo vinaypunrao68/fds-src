@@ -12,11 +12,11 @@ namespace fds
 {
     namespace pm
     {
-        pid_t fds_spawn(char *const argv[], int daemonize);
+        pid_t fds_spawn(char *const argv[], int daemonize, int procIndex = 256);
 
-        pid_t fds_spawn_service(const std::string& prog, const std::string& fds_root, const std::vector<std::string>& args, bool daemonize);
+        pid_t fds_spawn_service(const std::string& prog, const std::string& fds_root, const std::vector<std::string>& args, bool daemonize, int procIndex = 256);
 
-        pid_t fds_spawn_service(const char *prog, const char *fds_root, const int argc, const char **extra_args, int daemonize);
+    pid_t fds_spawn_service(const char *prog, const char *fds_root, const int argc, const char **extra_args, int daemonize, int procIndex = 256);
     }  // namespace pm
 }  // namespace fds
 
