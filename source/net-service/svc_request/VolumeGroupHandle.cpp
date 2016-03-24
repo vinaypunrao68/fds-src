@@ -255,7 +255,13 @@ void VolumeGroupHandle::runOpenProtocol_(const OpenResponseCb &openCb)
              /* NOTE: We don't care about the returned error here.  We want to be sure
               * the broadcasted group information reached the group members
               */
-             changeState_(fpi::ResourceState::Active,
+
+             auto targetState = fpi::ResourceState::Active;
+             if (functionalReplicas_.size() < quorumCnt_) {
+                targetState = fpi::ResourceState::Offline;
+             }
+
+             changeState_(targetState,
                           false, /* This value is noop */
                           "Open volume");
              auto openResp = MAKE_SHARED<fpi::OpenVolumeRspMsg>();
@@ -532,10 +538,7 @@ VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
 
     /* Figure out if quorum # of replicas rejected the coordinator */
     if (cachedCoordinators.size() >= quorumCnt_) {
-        /* We only support quorum of 2, if this changes below conditions need to be
-         * reviisted
-         */
-        fds_assert(quorumCnt_ == 2);
+        fds_assert(quorumCnt_ == 2);            // NOTE: We only support quorum of 2 for now
         if (cachedCoordinators[0] == cachedCoordinators[1]) {
             if (!switchCtx_) {
                 /* We will go through a coordinator switch protocol */
@@ -545,6 +548,7 @@ VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
         }
         return;
     } else {
+        /* Following is check to see if we received different sequence id from each replica */
         if (size() == 3 && seqIdMap.size() == static_cast<size_t>(size())) {
             /* We don't have a quorum on sequence id match.  However we received
              * sequence id from everyone. In this case matching sequence id is
@@ -563,8 +567,7 @@ VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
                  << ". Other replicas will go through sync";
         }
 
-        if (quorumSeqId != -1) {
-            /* We have a quorum with matching sequence ids */
+        if (quorumSeqId != -1) {        // we hava a sequence id for the group
             const auto& quorumResps = seqIdMap[quorumSeqId];
             for (const auto &resp : quorumResps) {
                 auto volumeHandle = getVolumeReplicaHandle_(resp.first);
