@@ -24,8 +24,25 @@ struct TestAm : SvcProcess {
     {
         handler_ = MAKE_SHARED<PlatNetSvcHandler>(this);
         auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler_);
+
+        /**
+         * Note on Thrift service compatibility:
+         *
+         * For service that extends PlatNetSvc, add the processor twice using
+         * Thrift service name as the key and again using 'PlatNetSvc' as the
+         * key. Only ONE major API version is supported for PlatNetSvc.
+         *
+         * All other services:
+         * Add Thrift service name and a processor for each major API version
+         * supported.
+         */
+        TProcessorMap processors;
+        processors.insert(std::make_pair<std::string,
+            boost::shared_ptr<apache::thrift::TProcessor>>(
+                fpi::commonConstants().PLATNET_SERVICE_NAME, processor));
+
         init(argc, argv, initAsModule, "platform.conf",
-             "fds.am.", "am.log", nullptr, handler_, processor, fpi::commonConstants().PLATNET_SERVICE_NAME);
+             "fds.am.", "am.log", nullptr, handler_, processors);
         REGISTER_FDSP_MSG_HANDLER_GENERIC(handler_, \
                                           fpi::AddToVolumeGroupCtrlMsg, addToVolumeGroup);
         REGISTER_FDSP_MSG_HANDLER_GENERIC(handler_, \

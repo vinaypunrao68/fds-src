@@ -86,10 +86,8 @@ import com.formationds.util.Lazy;
  *
  */
 // TODO: consider refactoring this to write output to an arbitrary output
-// stream/writer
-// instead of a logger. The one downside of the writer is that it can block if
-// there
-// is no one reading the output.
+// stream/writer instead of a logger. The one downside of the writer is
+// that it can block if there is no one reading the output.
 public class RequestLog {
 
     /**
@@ -98,14 +96,17 @@ public class RequestLog {
     public static final Logger LOG = LogManager.getLogger( RequestLog.class );
 
     // NOTE: I originally had these defined with REQUEST_MARKER as the parent
-    // and was
-    // scratching my head wondering why when I had REQUEST_PAYLOAD_INGEST_STATS
-    // = DENY
-    // it was still getting logged. It gets logged if any one of the parents is
-    // enabled.
+    // and was scratching my head wondering why when I had
+    //
+    //    REQUEST_PAYLOAD_INGEST_STATS = DENY
+    //
+    // it was still getting logged. It turns out it gets logged if any one of
+    // the parents is enabled.
+    //
     // We could probably invert the hierarchy and make the more specific ones
-    // the parent,
-    // but i'm going to leave them without parents for now.
+    // the parent, but i'm going to leave them without parents for now as that
+    // does not seem like the logical way to organize them.
+    //
     // The Log4J2 doc on markers is pretty sparse and this was not clear to me.
     public static final Marker REQUEST_MARKER = MarkerManager.getMarker( "REQUEST" );
     public static final Marker REQUEST_QUERY_MARKER = MarkerManager.getMarker( "REQUEST_QUERY" );
@@ -113,8 +114,7 @@ public class RequestLog {
     public static final Marker REQUEST_PAYLOAD_MARKER = MarkerManager.getMarker( "REQUEST_PAYLOAD" );
 
     // NOTE: since this is specific to IngestVolumeStats, it might make more
-    // sense to define it
-    // there. Keeping it together with the others for now.
+    // sense to define it there. Keeping it together with the others for now.
     public static final Marker REQUEST_PAYLOAD_INGEST_STATS_MARKER = MarkerManager.getMarker( "REQUEST_PAYLOAD_INGEST_STATS" );
 
     /**
@@ -140,8 +140,7 @@ public class RequestLog {
      * requests and return an existing one if present.
      */
     // Note that This can't rely on the generated ID and has to rely on
-    // equals/hashCode of Request
-    // unless we come up with a better way to wrap it.
+    // equals/hashCode of Request unless we come up with a better way to wrap it.
     // TODO: track response too?
     private static final Map<HttpServletRequest, LoggingRequestWrapper<? extends HttpServletRequest>> openRequests = new ConcurrentHashMap<>();
 
@@ -255,27 +254,18 @@ public class RequestLog {
     }
 
     /**
-     * Log the body payload chunk to the specified logger using the provided
-     * line buffer for buffering the output, containing any header information.
-     * Any output remaining, representing an incomplete line, is left in the
-     * buffer to be logged when additional data is ready.
+     * Log the body payload chunk to the specified logger using the provided line buffer for
+     * buffering the output, containing any header information. Any output remaining, representing
+     * an incomplete line, is left in the buffer to be logged when additional data is ready.
      *
-     * @param logger
-     *            the logger to used
-     * @param level
-     *            the log level to log at
-     * @param marker
-     *            the log marker, if any
-     * @param bytesRead
-     *            the number of bytes read in the request
-     * @param payloadChunk
-     *            the current payload chunk
-     * @param buffer
-     *            the line buffer possibly containing a header and previously
-     *            read data that has not yet been logged
-     * @param header
-     *            the header (used only for the length to reset the buffer on a
-     *            new line)
+     * @param logger the logger to used
+     * @param level the log level to log at
+     * @param marker the log marker, if any
+     * @param bytesRead the number of bytes read in the request
+     * @param payloadChunk the current payload chunk
+     * @param buffer the line buffer possibly containing a header and previously read data that has
+     *        not yet been logged
+     * @param header the header (used only for the length to reset the buffer on a new line)
      *
      * @throws IOException
      */
@@ -317,8 +307,7 @@ public class RequestLog {
      *
      */
     // TODO: we only use the InputStream at the moment so this is not fully
-    // exercised
-    // in our existing code paths
+    // exercised in our existing code paths
     static class RequestPayloadLoggingReader extends BufferedReader {
 
         // NOTE: Request Info, including id, are already in the pre-formatted
@@ -368,34 +357,29 @@ public class RequestLog {
     }
 
     /**
-     * @param requestId
-     *            a generated request id
-     * @param the
-     *            request
+     * @param requestId a generated request id
+     * @param the request
      */
     private static String formatRequestLogEntryBase( Long requestId,
                                                      HttpServletRequest request,
                                                      boolean logQueryParams ) {
 
         // NOTE: destination on any one host is redundant for each message, but
-        // if we are ever
-        // consolidating logs then it may be important to include (though there
-        // will likely be
-        // another mechanism of identifying at least the host where the logs
-        // originated)
-        // remote port is often ephemeral and short lived, so not sure it is
-        // useful to include
+        // if we are ever consolidating logs then it may be important to include
+        // (though there will likely be another mechanism of identifying at least
+        // the host where the logs originated) remote port is often ephemeral
+        // and short lived, so not sure it is useful to include
         StringBuilder sb = new StringBuilder();
         sb.append( "Request [" );
         if ( requestId != null )
             sb.append( requestId ).append( "] [" );
         sb.append( request.getRemoteAddr() ).append( ":" ).append( request.getRemotePort() ).append( " -> " )
-        .append( request.getLocalAddr() ).append( ":" ).append( request.getLocalPort() ).append( "] [" )
-        .append( request.getMethod() ).append( "  " ).append( request.getRequestURI() ).append( "]" );
+          .append( request.getLocalAddr() ).append( ":" ).append( request.getLocalPort() ).append( "] [" )
+          .append( request.getMethod() ).append( "  " ).append( request.getRequestURI() ).append( "]" );
 
         if ( logQueryParams && request.getQueryString() != null )
             sb.append( " Query: [" ).append( filterQueryParameters( request.getQueryString(), "password", "pwd", "p" ) )
-            .append( "]" );
+              .append( "]" );
 
         int contentLen = request.getContentLength();
         if ( contentLen != -1 ) {

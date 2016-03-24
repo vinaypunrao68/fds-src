@@ -6,9 +6,11 @@ package com.formationds.am;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.commons.libconfig.Assignment;
 import com.formationds.commons.libconfig.ParsedConfig;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.nfs.NfsServer;
 import com.formationds.nfs.XdiStaticConfiguration;
 import com.formationds.om.helper.SingletonConfigAPI;
+import com.formationds.protocol.commonConstants;
 import com.formationds.security.*;
 import com.formationds.streaming.Streaming;
 import com.formationds.util.Configuration;
@@ -31,6 +33,7 @@ import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.log4j.Logger;
+import org.apache.thrift.TMultiplexedProcessor;
 import org.apache.thrift.server.TNonblockingServer;
 import org.apache.thrift.transport.TNonblockingServerSocket;
 import org.apache.thrift.transport.TTransportException;
@@ -227,8 +230,14 @@ public class Main {
                 httpConfiguration,
                 s3MaxConcurrentRequests).start(), "S3 service thread").start();
 
-        // Experimental: XDI server
-//        SvcState svc = new SvcState(HostAndPort.fromParts("*", amResponsePort + 1), HostAndPort.fromParts(omHost, 7004), UUID.randomUUID().getLeastSignificantBits());
+
+        // Default NFS port is 2049, or 7000 - 4951
+        new NfsServer().start(xdiStaticConfig, configCache, asyncAm, pmPort - 4951);
+        startStreamingServer(pmPort + streamingPortOffset, configCache);
+
+//        // Experimental: XDI server
+//        int javaSvcResponsePort = new ServerPortFinder().findPort("javaSvcResponsePort", amResponsePort + 10);
+//        SvcState svc = new SvcState(HostAndPort.fromParts("*", javaSvcResponsePort), HostAndPort.fromParts(omHost, 7004), UUID.randomUUID().getLeastSignificantBits());
 //        svc.openAndRegister();
 //        SvcAsyncAm svcLayer = new SvcAsyncAm(svc);
 //        IoOps ioOps = new DeferredIoOps(new AmOps(svcLayer), v -> {
@@ -248,9 +257,6 @@ public class Main {
 //        TransportServer xdiDataServer = createXdiDataServer(connector, Executors.newFixedThreadPool(16));
 //        monitorNamedPipePath(xdiDataServer, Paths.get("/tmp/xdi/data"));
 
-        // Default NFS port is 2049, or 7000 - 4951
-        new NfsServer().start(xdiStaticConfig, configCache, asyncAm, pmPort - 4951);
-        startStreamingServer(pmPort + streamingPortOffset, configCache);
         int swiftPort = platformConfig.defaultInt("fds.am.swift_port_offset", 2999);
         swiftPort += pmPort;  // remains 9999 for default platform port
         new SwiftEndpoint(xdi, secretKey).start(swiftPort);
@@ -262,8 +268,18 @@ public class Main {
         Runnable runnable = () -> {
             try {
                 TNonblockingServerSocket transport = new TNonblockingServerSocket(port);
-                TNonblockingServer.Args args = new TNonblockingServer.Args(transport)
-                        .processor(new Streaming.Processor<Streaming.Iface>(statisticsPublisher));
+                Streaming.Processor<Streaming.Iface> processor = 
+                    new Streaming.Processor<Streaming.Iface>(statisticsPublisher);
+                TNonblockingServer.Args args;
+                if (FdsFeatureToggles.THRIFT_MULTIPLEXED_SERVICES.isActive()) {
+                    // Multiplexed
+                    TMultiplexedProcessor mp = new TMultiplexedProcessor();
+                    mp.registerProcessor(commonConstants.STREAMING_SERVICE_NAME, processor);
+                    args = new TNonblockingServer.Args(transport).processor(mp);
+                } else {
+                    // Non-multiplexed
+                    args = new TNonblockingServer.Args(transport).processor(processor);
+                }
                 TNonblockingServer server = new TNonblockingServer(args);
                 server.serve();
             } catch (TTransportException e) {

@@ -64,11 +64,11 @@ AMSvcHandler::QoSControl(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
 {
     Error err(ERR_OK);
 
-    LOGNORMAL << "qos ctrl set total rate " << msg->qosctrl.total_rate;
+    LOGNORMAL << "qos ctrl total rate:" << msg->qosctrl.total_rate;
 
     if (amProcessor->isShuttingDown())
     {
-        LOGDEBUG << "Request rejected due to shutdown in progress.";
+        LOGDEBUG << "request rejected due to shutdown";
         err = ERR_SHUTTING_DOWN;
     } else {
         auto rate = msg->qosctrl.total_rate;
@@ -88,10 +88,10 @@ AMSvcHandler::SetThrottleLevel(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
 {
     Error err(ERR_OK);
 
-    LOGNORMAL << " set throttle as " << msg->throttle.throttle_level;
+    LOGNORMAL << "set throttle:" << msg->throttle.throttle_level;
 
     if (amProcessor->isShuttingDown()) {
-        LOGDEBUG << "Request rejected due to shutdown in progress.";
+        LOGDEBUG << "request rejected due to shutdown";
         err = ERR_SHUTTING_DOWN;
     } else {
         float throttle_level = msg->throttle.throttle_level;
@@ -113,12 +113,11 @@ AMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 
     fds_volid_t vol_uuid (vol_msg->vol_desc.volUUID);
     VolumeDesc vdesc(vol_msg->vol_desc);
-    GLOGDEBUG << "Received volume modify  event from OM"
-              << " for volume " << vdesc;
+    GLOGDEBUG << vdesc << "received modify event from OM";
 
     if (amProcessor->isShuttingDown())
     {
-        LOGDEBUG << "Request rejected due to shutdown in progress.";
+        LOGDEBUG << "request rejected due to shutdown";
         err = ERR_SHUTTING_DOWN;
     }
     else
@@ -157,12 +156,11 @@ AMSvcHandler::RemoveVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     Error err(ERR_OK);
 
     fds_volid_t vol_uuid (vol_msg->vol_desc.volUUID);
-    GLOGNOTIFY << "Received volume detach event from OM"
-               << " for volume " << vol_uuid;
+    GLOGNOTIFY << "volid:" << vol_uuid << " received volume detach event from OM";
 
     if (amProcessor->isShuttingDown())
     {
-        LOGDEBUG << "Request rejected due to shutdown in progress.";
+        LOGDEBUG << "request rejected due to shutdown";
         err = ERR_SHUTTING_DOWN;
     }
     else
@@ -180,11 +178,11 @@ AMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
 {
     Error err(ERR_OK);
 
-    LOGNOTIFY << "OMClient received notify DMT update " << hdr->msg_code;
+    LOGNOTIFY << "code:" <<  hdr->msg_code << " OMClient received notify DMT update";
 
     if (amProcessor->isShuttingDown())
     {
-        LOGDEBUG << "Request rejected due to shutdown in progress.";
+        LOGDEBUG << "request rejected due to shutdown";
         err = ERR_SHUTTING_DOWN;
     }
     else
@@ -214,7 +212,7 @@ void
 AMSvcHandler::NotifyDMTUpdateCb(boost::shared_ptr<fpi::AsyncHdr>            hdr,
                                 boost::shared_ptr<fpi::CtrlNotifyDMTUpdate> msg,
                                 const Error                                 &err) {
-    LOGDEBUG << "Sending response for DMT version " << msg->dmt_version << " "  << err;
+    LOGDEBUG << "err:" << err << " version:" << msg->dmt_version << " sending response for DMT";
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDMTUpdate), *msg);
 }
@@ -228,12 +226,11 @@ AMSvcHandler::NotifyDLTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
 {
     Error err(ERR_OK);
 
-    LOGNOTIFY << "OMClient received new DLT commit version  "
-            << dlt->dlt_data.dlt_type;
+    LOGNOTIFY << "type:" << dlt->dlt_data.dlt_type << " OMClient received new DLT commit";
 
     if (amProcessor->isShuttingDown())
     {
-        LOGDEBUG << "Request rejected due to shutdown in progress.";
+        LOGDEBUG << "request rejected due to shutdown";
         err = ERR_SHUTTING_DOWN;
     }
     else
@@ -260,8 +257,7 @@ void
 AMSvcHandler::NotifyDLTUpdateCb(boost::shared_ptr<fpi::AsyncHdr>            hdr,
                                 boost::shared_ptr<fpi::CtrlNotifyDLTUpdate> dlt,
                                 const Error                                 &err) {
-    LOGDEBUG << "Sending response for DLT version " << dlt->dlt_data.dlt_type
-             << " "  << err;
+    LOGDEBUG << "err:" << err << " type:" << dlt->dlt_data.dlt_type << " sending response for DLT";
     hdr->msg_code = static_cast<int32_t>(err.GetErrno());
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyDLTUpdate), *dlt);
 }
@@ -273,7 +269,7 @@ void
 AMSvcHandler::prepareForShutdownMsgRespCb(boost::shared_ptr<fpi::AsyncHdr>  &hdr,
                                           boost::shared_ptr<fpi::PrepareForShutdownMsg> &shutdownMsg)
 {
-    LOGNOTIFY << "Data servers stopped. Sending PrepareForShutdownMsg response back to OM";
+    LOGNOTIFY << "sending PrepareForShutdownMsg response back to OM";
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::PrepareForShutdownMsg), *shutdownMsg);
     /**
      * Delete reference to the amProcessor as we are in shutdown sequence.
@@ -290,7 +286,7 @@ AMSvcHandler::shutdownAM(boost::shared_ptr<fpi::AsyncHdr>           &hdr,
 {
     Error err(ERR_OK);
 
-    LOGNOTIFY << "OMClient received shutdown message ... AM shutting down...";
+    LOGNOTIFY << "AM shutting down";
 
     /*
      * Bind the callback for PrepareForShutdown Message. This will be called

@@ -79,7 +79,7 @@ BlockOperations::attachVolumeResp(const fpi::ErrorCode& error,
                                 handle_type const& requestId,
                                 boost::shared_ptr<VolumeDesc>& volDesc,
                                 boost::shared_ptr<fpi::VolumeAccessMode>& mode) {
-    LOGDEBUG << "Reponse for attach: [" << error << "]";
+    LOGDEBUG << "err:" << error << " attach response";
     auto handle = requestId.handle;
     BlockTask* resp = NULL;
 
@@ -89,8 +89,7 @@ BlockOperations::attachVolumeResp(const fpi::ErrorCode& error,
         // returned an error
         auto it = responses.find(handle);
         if (responses.end() == it) {
-            LOGWARN << "Not waiting for response for handle 0x" << std::hex << handle << std::dec
-                    << ", check if we returned an error";
+            LOGWARN << "handle:" << handle << " not awaiting response, check for error";
             return;
         }
         // get response
@@ -101,7 +100,7 @@ BlockOperations::attachVolumeResp(const fpi::ErrorCode& error,
     if (fpi::OK == error) {
         if (fpi::FDSP_VOL_BLKDEV_TYPE != volDesc->volType &&
             fpi::FDSP_VOL_ISCSI_TYPE != volDesc->volType) {
-            LOGWARN << "Wrong volume type: " << volDesc->volType;
+            LOGWARN << "wrong volume type:" << volDesc->volType;
             resp->setError(fpi::BAD_REQUEST);
         } else {
             maxObjectSizeInBytes = volDesc->maxObjSizeInBytes;
@@ -138,7 +137,7 @@ void
 BlockOperations::detachVolumeResp(const fpi::ErrorCode& error,
                                 handle_type const& requestId) {
     // Volume detach has completed, we shaln't use the volume again
-    LOGDEBUG << "Volume detach response: " << error;
+    LOGDEBUG << "err:" << error << " detach response";
     if (shutting_down) {
         blockResp->terminate();
         blockResp = nullptr;
@@ -209,8 +208,7 @@ BlockOperations::write(typename req_api_type::shared_buffer_type& bytes, task_ty
             iLength = maxObjectSizeInBytes - iOff;
         }
 
-        LOGTRACE  << "Will write offset: 0x" << std::hex << curOffset
-                  << " for length: 0x" << iLength;
+        LOGTRACE  << "offset:0x" << std::hex << curOffset << " length:0x" << iLength << std::dec << " write request";
 
         auto objBuf = (iLength == bytes->length()) ?
             bytes : boost::make_shared<std::string>(*bytes, amBytesWritten, iLength);
@@ -268,9 +266,8 @@ BlockOperations::getBlobResp(const fpi::ErrorCode &error,
     auto handle = requestId.handle;
     uint32_t seqId = requestId.seq;
 
-    LOGDEBUG << "Reponse for getBlob, " << length << " bytes "
-             << error << ", handle 0x" << std::hex << handle << std::dec
-             << " seqId " << seqId;
+    LOGDEBUG << "handle:0x" << std::hex << handle << std::dec << " seqid:" << seqId
+             << " err:" << error << " length:" << length << " getBlob response";
 
     {
         std::unique_lock<std::mutex> l(respLock);
@@ -278,8 +275,7 @@ BlockOperations::getBlobResp(const fpi::ErrorCode &error,
         // returned an error
         auto it = responses.find(handle);
         if (responses.end() == it) {
-            LOGWARN << "Not waiting for response for handle 0x" << std::hex << handle << std::dec
-                    << ", check if we returned an error";
+            LOGWARN << "handle:" << handle << " not awaiting response, check for error";
             return;
         }
         // get response
@@ -290,7 +286,7 @@ BlockOperations::getBlobResp(const fpi::ErrorCode &error,
     if (!resp->isRead()) {
         static BlockTask::buffer_ptr_type const null_buff(nullptr);
         // this is a response for read during a write operation from Block connector
-        LOGDEBUG << "Write after read, handle 0x" << std::hex << handle << std::dec << " seqId " << seqId;
+        LOGDEBUG << "handle:0x" << std::hex << handle << std::dec << " seqid:" << seqId << " write after read";
 
         // RMW only operates on a single buffer...
         auto buf = (bufs && !bufs->empty()) ? bufs->front() : null_buff;
@@ -317,9 +313,8 @@ BlockOperations::updateBlobOnceResp(const fpi::ErrorCode &error, handle_type con
     auto const& seqId = requestId.seq;
     uint64_t offset {0};
 
-    LOGDEBUG << "Reponse for updateBlobOnce, " << error
-             << ", handle 0x" << std::hex << handle
-             << " seqId " << std::dec << seqId;
+    LOGDEBUG << "handle:" << handle << " seqid:" << seqId
+             << " err:" << error << " updateBlobOnce response";
 
     {
         std::unique_lock<std::mutex> l(respLock);
@@ -327,8 +322,7 @@ BlockOperations::updateBlobOnceResp(const fpi::ErrorCode &error, handle_type con
         // returned an error
         auto it = responses.find(handle);
         if (responses.end() == it) {
-            LOGWARN << "Not waiting for response for handle " << handle
-                    << ", check if we returned an error";
+            LOGWARN << "handle:" << handle << " not awaiting response, check for error";
             return;
         }
         // get response
@@ -450,14 +444,13 @@ BlockOperations::finishResponse(BlockTask* response) {
     if (response_removed) {
         blockResp->respondTask(response);
     } else {
-        LOGNOTIFY << "Handle 0x" << std::hex << response->getHandle() << std::dec
-                  << " was missing from the response map!";
+        LOGNOTIFY << "handle:0x" << std::hex << response->getHandle() << std::dec << " missing from response map";
     }
 
     // Only one response will ever see shutting_down == true and
     // no responses left, safe to do this now.
     if (shutting_down && done_responding) {
-        LOGDEBUG << "Block responses drained, finalizing detach from: " << *volumeName;
+        LOGDEBUG << "vol:" << *volumeName << " block responses drained, detaching";
         detachVolume();
     }
 }

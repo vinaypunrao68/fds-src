@@ -1,6 +1,7 @@
 package com.formationds.nfs;
 
 import com.formationds.apis.ObjectOffset;
+import com.formationds.util.IoConsumer;
 import org.apache.log4j.Logger;
 
 import java.io.IOException;
@@ -99,6 +100,11 @@ public class MemoryIoOps implements IoOps {
     }
 
     @Override
+    public void commitAll(String domain, String volumeName) throws IOException {
+
+    }
+
+    @Override
     public void onVolumeDeletion(String domain, String volumeName) throws IOException {
         Iterator<MetaKey> metaKeys = metadataCache.keySet().iterator();
         while (metaKeys.hasNext()) {
@@ -115,6 +121,11 @@ public class MemoryIoOps implements IoOps {
                 objectCache.remove(next);
             }
         }
+    }
+
+    @Override
+    public void addCommitListener(IoConsumer<MetaKey> listener) {
+
     }
 
     @Override

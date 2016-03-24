@@ -167,6 +167,8 @@ namespace fds {
     ADD(ERR_SM_READ_ONLY, ,"SM is currently in read-only mode."), \
     ADD(ERR_SM_DISK_FULL, , "IO failure due to FULL disk."), \
     ADD(ERR_SM_TC_INVALID_STATE, ,"Token compactor in invalid state. "), \
+    ADD(ERR_META_DISK_WRITE_FAILED, ,"Unable to write metadata to disk"), \
+    ADD(ERR_META_DISK_READ_FAILED, ,"Unable to read metadata from disk"), \
     \
     /* Network errors */    \
     ADD(ERR_NETWORK_TRANSPORT,= 3000," "), \

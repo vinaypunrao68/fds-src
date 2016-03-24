@@ -14,6 +14,7 @@ import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.util.thrift.ThriftClientFactory;
 import org.apache.log4j.Logger;
 import org.apache.thrift.TException;
+import org.apache.thrift.TMultiplexedProcessor;
 import org.apache.thrift.server.TNonblockingServer;
 import org.apache.thrift.transport.TNonblockingServerSocket;
 import org.joda.time.Duration;
@@ -44,10 +45,20 @@ public class RealAsyncAm implements AsyncAm {
         try {
             AsyncXdiServiceResponse.Processor<AsyncAmResponseListener> processor = new AsyncXdiServiceResponse.Processor<>(responseListener);
 
-            TNonblockingServer server = new TNonblockingServer(
+            TNonblockingServer server;
+            if (FdsFeatureToggles.THRIFT_MULTIPLEXED_SERVICES.isActive()) {
+                // Multiplexed server
+                TMultiplexedProcessor mp = new TMultiplexedProcessor();
+                mp.registerProcessor(commonConstants.ASYNC_XDI_SERVICE_REQUEST_SERVICE_NAME, processor);
+                server = new TNonblockingServer(
                     new TNonblockingServer.Args(new TNonblockingServerSocket(responsePort))
-                            .processor(processor));
-
+                        .processor(mp));
+            } else {
+                // Non-multiplexed server
+                server = new TNonblockingServer(
+                    new TNonblockingServer.Args(new TNonblockingServerSocket(responsePort))
+                        .processor(processor));
+            }
             new Thread(() -> server.serve(), "AM async listener thread").start();
             LOG.debug("Started async AM listener on port " + responsePort);
 
@@ -57,15 +68,15 @@ public class RealAsyncAm implements AsyncAm {
              * FEATURE TOGGLE: enable multiplexed services
              * Tue Feb 23 15:04:17 MST 2016
              */
-            String thriftServiceName = ""; // non-multiplexed by default
-            if ( FdsFeatureToggles.THRIFT_MULTIPLEXED_SERVICES.isActive() ) {
+            String thriftServiceName = ""; // non-multiplexed when empty string
+            if (FdsFeatureToggles.THRIFT_MULTIPLEXED_SERVICES.isActive()) {
                 // Multiplexed server
                 thriftServiceName = commonConstants.ASYNC_XDI_SERVICE_REQUEST_SERVICE_NAME;
             }
             ThriftClientFactory<AsyncXdiServiceRequest.Iface> factory = new ThriftClientFactory.Builder<>(AsyncXdiServiceRequest.Iface.class)
                     .withHostPort(amHost, amPort)
                     .withPoolConfig(100, 0, Integer.MAX_VALUE)
-                    .withThriftServiceName( thriftServiceName )
+                    .withThriftServiceName(thriftServiceName)
                     .withClientFactory(bp -> {
                         AsyncXdiServiceRequest.Client client = new AsyncXdiServiceRequest.Client(bp);
                         try {

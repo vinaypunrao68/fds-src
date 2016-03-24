@@ -190,8 +190,14 @@ public class DeferredIoOps implements IoOps {
 
     @Override
     public void commitAll() throws IOException {
-        metadataCache.flush();
-        objectCache.flush();
+        metadataCache.flushAll();
+        objectCache.flushAll();
+    }
+
+    @Override
+    public void commitAll(String domain, String volumeName) throws IOException {
+        metadataCache.flushKeysWithPrefix(new MetaKey(domain, volumeName));
+        objectCache.flushKeysWithPrefix(new ObjectKey(domain, volumeName));
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.formationds.nfs;
 
 import com.formationds.apis.ObjectOffset;
+import com.formationds.util.IoConsumer;
 import com.formationds.util.IoSupplier;
 import com.formationds.xdi.RecoverableException;
 import org.apache.log4j.Logger;
@@ -95,8 +96,21 @@ public class RecoveryHandler implements IoOps {
     }
 
     @Override
+    public void commitAll(String domain, String volumeName) throws IOException {
+        attempt(() -> {
+            ops.commitAll(domain, volumeName);
+            return null;
+        });
+    }
+
+    @Override
     public void onVolumeDeletion(String domain, String volumeName) throws IOException {
         ops.onVolumeDeletion(domain, volumeName);
+    }
+
+    @Override
+    public void addCommitListener(IoConsumer<MetaKey> listener) {
+        ops.addCommitListener(listener);
     }
 
     private <T> T attempt(IoSupplier<T> supplier) throws IOException {

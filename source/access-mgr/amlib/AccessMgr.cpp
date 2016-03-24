@@ -129,7 +129,7 @@ void
 AccessMgr::run() {
     std::unique_lock<std::mutex> lk {stop_lock};
     stop_signal.wait(lk, [this]() { return this->shutting_down; });
-    LOGNORMAL << "processing layer has shutdown, stop external services";
+    LOGNORMAL << "processing layer has shutdown, stop external services.";
 }
 
 void

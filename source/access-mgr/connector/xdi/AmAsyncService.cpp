@@ -51,7 +51,7 @@ AsyncAmServiceRequestIfCloneFactory::getHandler(const xdi_at::TConnectionInfo& c
     /** First see if we even have a processing layer */
     auto amProcessor = processor.lock();
     if (!amProcessor) {
-        LOGNORMAL << "No processing layer, shutdown.";
+        LOGNORMAL << "no processing layer";
         return nullptr;
     }
 
@@ -60,7 +60,7 @@ AsyncAmServiceRequestIfCloneFactory::getHandler(const xdi_at::TConnectionInfo& c
     boost::shared_ptr<xdi_att::TSocket> sock =
         boost::dynamic_pointer_cast<xdi_att::TSocket>(connInfo.transport);
     fds_assert(sock.get());
-    LOGNORMAL << "Asynchronous Xdi connection being made from: " << sock->getPeerAddress();
+    LOGNORMAL << "peer:" << sock->getPeerAddress() << " asynchronous Xdi connection";
     request_if* ri = new AmAsyncXdiRequest(amProcessor,
             boost::make_shared<AmAsyncXdiResponse>(sock->getPeerAddress()));
     _connectedXdi.insert(std::make_pair(ri, sock->getPeerAddress()));
@@ -107,11 +107,11 @@ AsyncDataServer::start() {
                                                 protocolFactory));
 
     try {
-        LOGNORMAL << "Starting the async data server at port " << port;
+        LOGNORMAL << "port:" << port << " starting async data server";
         listen_thread.reset(new std::thread(&xdi_ats::TThreadedServer::serve,
                                             ttServer.get()));
     } catch(const xdi_att::TTransportException& e) {
-        LOGERROR << "unable to start async data server : " << e.what();
+        LOGERROR << "unable to start async data server:" << e.what();
         fds_panic("Unable to start async data server...bailing out");
     }
 }

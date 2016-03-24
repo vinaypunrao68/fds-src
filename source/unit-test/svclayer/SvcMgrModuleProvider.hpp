@@ -37,13 +37,17 @@ struct SvcMgrModuleProvider : CommonModuleProviderIf {
         /* service mgr */
         auto handler = boost::make_shared<PlatNetSvcHandler>(this);
         auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
+        TProcessorMap processors;
+        processors.insert(std::make_pair<std::string,
+            boost::shared_ptr<apache::thrift::TProcessor>>(
+                fpi::commonConstants().PLATNET_SERVICE_NAME, processor));
         fpi::SvcInfo svcInfo;
         svcInfo.svc_id.svc_uuid.svc_uuid = 
                 static_cast<int64_t>(configHelper_.get<fds_uint64_t>("svc.uuid", 0));
         svcInfo.ip = net::get_local_ip(configHelper_.get_abs<std::string>("fds.nic_if", "lo"));
         svcInfo.svc_port = configHelper_.get<int>("svc.port");
         svcInfo.incarnationNo = util::getTimeStampSeconds();
-        svcMgr_.reset(new SvcMgr(this, handler, processor, svcInfo, fpi::commonConstants().PLATNET_SERVICE_NAME));
+        svcMgr_.reset(new SvcMgr(this, handler, processors, svcInfo));
         svcMgr_->mod_init(nullptr);
     }
     ~SvcMgrModuleProvider() {

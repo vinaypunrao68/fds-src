@@ -4,6 +4,7 @@ import com.formationds.apis.ObjectOffset;
 import com.formationds.apis.TxDescriptor;
 import com.formationds.commons.util.SupplierWithExceptions;
 import com.formationds.protocol.*;
+import com.formationds.util.IoConsumer;
 import com.formationds.util.IoFunction;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.RecoverableException;
@@ -142,7 +143,17 @@ public class AmOps implements IoOps {
     }
 
     @Override
+    public void commitAll(String domain, String volumeName) throws IOException {
+
+    }
+
+    @Override
     public void onVolumeDeletion(String domain, String volumeName) throws IOException {
+
+    }
+
+    @Override
+    public void addCommitListener(IoConsumer<MetaKey> listener) {
 
     }
 
