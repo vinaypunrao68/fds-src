@@ -754,65 +754,6 @@ void OmSvcHandler<DataStoreT>::healthReportError(fpi::FDSP_MgrIdType &svc_type,
 }
 
 template <class DataStoreT>
-void OmSvcHandler<DataStoreT>::setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-    boost::shared_ptr<fpi::SetVolumeGroupCoordinatorMsg> &msg)
-{
-    auto task = [hdr, msg, this]() {
-        fds_volid_t volId(msg->volumeId);
-        OM_Module *om = OM_Module::om_singleton();
-        OM_NodeDomainMod *dom_mod = om->om_nodedomain_mod();
-        OM_NodeContainer *local = dom_mod->om_loc_domain_ctrl();
-        VolumeContainer::pointer volumes = local->om_vol_mgr();
-
-        auto volumePtr = volumes->get_volume(volId);
-
-        if (volumePtr != nullptr) {
-            auto storedVolDesc = volumePtr->vol_get_properties();
-            auto version = storedVolDesc->getCoordinatorVersion();
-            fpi::VolumeGroupCoordinatorInfo incomingCoordinator = msg->coordinator;
-
-            if (incomingCoordinator.id.svc_uuid == 0) {
-                /* Request to unset coordinator.  We only unset if the request to unset is
-                 * coming from the AM hosting the coordinator
-                 */
-                if (hdr->msg_src_uuid.svc_uuid != storedVolDesc->getCoordinatorId().svc_uuid) {
-                    LOGWARN << "Attempting clear coordinator from svc: " << hdr->msg_src_uuid
-                        << " volid: " << volId
-                        << " from AM that isn't a coordinator anymore.  Rejected";
-                    hdr->msg_code = ERR_INVALID;
-                    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
-                    return;
-                }
-            } else {
-                ++version;
-            }
-
-            auto newVolDesc = boost::make_shared<VolumeDesc>(*storedVolDesc);
-            newVolDesc->setCoordinatorId(incomingCoordinator.id);
-            newVolDesc->setCoordinatorVersion(version);
-            LOGNOTIFY << "updated volume coordinator for volid: " << volId
-                << " coordinator: " << newVolDesc->getCoordinatorId()
-                << " version: " << newVolDesc->getCoordinatorVersion();
-
-            /* Notify the domain of the change */
-            volumePtr->vol_modify(newVolDesc);
-
-            auto resp = MAKE_SHARED<fpi::SetVolumeGroupCoordinatorRspMsg>();
-            resp->version = version;
-            hdr->msg_code = static_cast<int>(ERR_OK);
-            sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::SetVolumeGroupCoordinatorRspMsg), *resp); 
-        } else {
-            LOGERROR << "Unable to find volume " << volId;
-            hdr->msg_code = static_cast<int>(ERR_VOL_NOT_FOUND);
-            sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
-        }
-    };
-
-    /* Run in a synchronized context */
-    MODULEPROVIDER()->proc_thrpool()->scheduleWithAffinity(msg->volumeId, task);
-}
-
-template <class DataStoreT>
 void OmSvcHandler<DataStoreT>::genericCommand(ASYNC_HANDLER_PARAMS(GenericCommandMsg)) {
     if (msg->command == "timeline.queue.ping") {
         auto om = gl_orch_mgr;
