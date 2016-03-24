@@ -825,14 +825,24 @@ DataPlacement::commitDlt( const bool unsetTarget ) {
 }
 
 ///  only reverts if we did not persist it..
-void
+bool
 DataPlacement::undoTargetDltCommit() {
+
+    bool rollbackNeeded = false;
+
     fds_mutex::scoped_lock l(placementMutex);
     if (newDlt) {
         if (!hasNonCommitedTarget()) {
             // we already assigned commitedDlt target, revert back
             commitedDlt = prevDlt;
             prevDlt = NULL;
+
+            if ( commitedDlt != DLT_VER_INVALID )
+            {
+                rollbackNeeded = true;
+            } else {
+                LOGNOTIFY << "No committed DLT yet, nothing to rollback";
+            }
         }
 
         // forget about target DLT
@@ -846,6 +856,8 @@ DataPlacement::undoTargetDltCommit() {
                     << "[" << targetDltVersion << "]";
         }
     }
+
+    return rollbackNeeded;
 }
 
 void
