@@ -353,6 +353,7 @@ std::string VolumeGroupHandle::getStateInfo()
 {
     /* NOTE: Getting the stateinfo isn't synchronized.  It may be a bit stale */
     Json::Value state;
+    state["coordinator"] = isCoordinator_;
     state["state"] = fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(state_));
     state["version"] = static_cast<Json::Value::Int64>(version_);
     state["quorumcnt"] = quorumCnt_;
@@ -791,12 +792,13 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
                  * replicas.  Only reads are allowed and it just cycles through replicas
                  * in a failover manner.
                  * We move the failed replica to end of functional list as an optimiation
-                 * to not send reads immediately.
+                 * to not send reads immediately for subsequent reads
                  */
-                fds_verify(volumeHandle == functionalReplicas_.begin());
-                /* Left shift and rotate by one */
-                std::rotate(functionalReplicas_.begin(), functionalReplicas_.begin()+1,
-                            functionalReplicas_.end());
+                if (volumeHandle == functionalReplicas_.begin()) {
+                    /* Left shift and rotate by one */
+                    std::rotate(functionalReplicas_.begin(), functionalReplicas_.begin()+1,
+                                functionalReplicas_.end());
+                }
                 return;
             }
             auto changeErr = changeVolumeReplicaState_(volumeHandle,
@@ -845,6 +847,14 @@ std::vector<fpi::SvcUuid> VolumeGroupHandle::getAllReplicas() const
     std::for_each(functionalReplicas_.begin(), functionalReplicas_.end(), appendF);
     std::for_each(nonfunctionalReplicas_.begin(), nonfunctionalReplicas_.end(), appendF);
     std::for_each(syncingReplicas_.begin(), syncingReplicas_.end(), appendF);
+    return svcs;
+}
+
+std::vector<fpi::SvcUuid> VolumeGroupHandle::getFunctionalReplicas() const
+{
+    std::vector<fpi::SvcUuid> svcs;
+    auto appendF = [&svcs](const VolumeReplicaHandle& h) { svcs.push_back(h.svcUuid); };
+    std::for_each(functionalReplicas_.begin(), functionalReplicas_.end(), appendF);
     return svcs;
 }
 
@@ -1161,11 +1171,25 @@ void VolumeGroupFailoverRequest::invoke()
 
 void VolumeGroupFailoverRequest::invokeWork_()
 {
-    auto replica = groupHandle_->getFunctionalReplicaHandle();
-    addEndpoint(replica->svcUuid,
-                groupHandle_->getDmtVersion(),
-                groupHandle_->getGroupId(),
-                replica->version);
+    /* First try and get the next replica from availableReplicas_,
+     * otherwise check with VolumeGroupHandle
+     */
+    if (availableReplicas_.size() > 0) {
+        fds_assert(!groupHandle_->isCoordinator_);
+        addEndpoint(availableReplicas_.front().svcUuid,
+                    groupHandle_->getDmtVersion(),
+                    groupHandle_->getGroupId(),
+                    availableReplicas_.front().version);
+        availableReplicas_.erase(availableReplicas_.begin());
+    } else {
+        fds_assert(groupHandle_->isCoordinator_);
+        auto replica = groupHandle_->getFunctionalReplicaHandle();
+        addEndpoint(replica->svcUuid,
+                    groupHandle_->getDmtVersion(),
+                    groupHandle_->getGroupId(),
+                    replica->version);
+    }
+
     auto &ep = epReqs_.back();
     ep->setPayloadBuf(msgTypeId_, payloadBuf_);
     ep->setTimeoutMs(timeoutMs_);
