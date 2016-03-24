@@ -281,23 +281,34 @@ class TestTimeline(TestCase.FDSTestCase):
         vol_service = get_volume_service(self, om_node.nd_conf_dict['ip'])
         snapshot_list = vol_service.list_snapshots(volume.id)
         post_date_change_snapshots = [int((snapshot.id).strip()) for snapshot in snapshot_list]
+        post_date_change_snapshots_name = [snapshot.name for snapshot in snapshot_list]
 
         if len(pre_date_change_snapshots) == 0:
             assert len(post_date_change_snapshots) == 1
             self.log.info("{} is first snapshot for volume {}".format(post_date_change_snapshots, volume.id))
-        elif max(post_date_change_snapshots) > max(pre_date_change_snapshots):
-            for snapshot in snapshot_list:
-                if int(snapshot.id.strip()) == max(post_date_change_snapshots):
-                    ss = snapshot
-            self.log.info('Success: New snapshot created = {0}, vol_name = {1}, vol_id = {2}'.
-                          format(ss.name, volume.name, volume.id))
-        else:
-            self.log.error('Failed: No new snapshot found for {0}, id = {1}. '
-                           'List of exiting snapshots: {2}'.format(volume.name, volume.id,
-                                                              vol_service.list_snapshots(volume.id)))
-            return False
+            return True
 
-        return True
+        # Check if new snapshot is created in retry loop.
+        retryCount = 0
+        maxRetries = 20
+        while retryCount < maxRetries:
+            retryCount += 1
+            if max(post_date_change_snapshots) > max(pre_date_change_snapshots):
+                for snapshot in snapshot_list:
+                    if int(snapshot.id.strip()) == max(post_date_change_snapshots):
+                        ss = snapshot
+                self.log.info('Success: New snapshot created = {0}, vol_name = {1}, vol_id = {2}'.
+                          format(ss.name, volume.name, volume.id))
+                return True
+            elif retryCount < maxRetries:
+                retryTime = 1 + ((retryCount - 1) * 0.5)
+                time.sleep(retryTime)
+                print "Waiting till new snapshot is active"
+                continue
+
+        self.log.error("Failed: No new snapshot found for volume {} with id = {}".format(volume.name, volume.id))
+        self.log.error("Snapshot list for volume {} {}".format(volume.name,post_date_change_snapshots_name))
+        return False
 
 
 # This method returns current date from node
