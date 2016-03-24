@@ -301,8 +301,7 @@ class TestTimeline(TestCase.FDSTestCase):
                           format(ss.name, volume.name, volume.id))
                 return True
             elif retryCount < maxRetries:
-                retryTime = 1 + ((retryCount - 1) * 0.5)
-                time.sleep(retryTime)
+                time.sleep(2)
                 print "Waiting till new snapshot is active"
                 continue
 
