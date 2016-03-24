@@ -16,6 +16,7 @@
 #include "AccessMgr.h"
 #include "AmDataProvider.h"
 #include "AmRequest.h"
+#include "AmVolume.h"
 #include "AmVolumeTable.h"
 #include "net/SvcMgr.h"
 
@@ -51,7 +52,7 @@ class AmProcessor_impl : public AmDataProvider
     bool haveTables();
 
     void getVolumes(std::vector<VolumeDesc>& volumes);
-    std::shared_ptr<AmVolume> getVolume(fds_volid_t const vol_uuid) const;
+    VolumeDesc* getVolume(fds_volid_t const vol_uuid) const;
 
     bool isShuttingDown() const
     { std::lock_guard<std::mutex> lk(shut_down_lock); return shut_down; }
@@ -244,9 +245,9 @@ void AmProcessor_impl::flushVolume(AmRequest* req, std::string const& vol) {
     parent_mod->volumeFlushed(req, vol);
 }
 
-std::shared_ptr<AmVolume> AmProcessor_impl::getVolume(fds_volid_t const vol_uuid) const {
+VolumeDesc* AmProcessor_impl::getVolume(fds_volid_t const vol_uuid) const {
     auto volTable = dynamic_cast<AmVolumeTable*>(_next_in_chain.get());
-    return volTable->getVolume(vol_uuid);
+    return volTable->getVolume(vol_uuid)->voldesc;
 }
 
 Error
@@ -364,7 +365,7 @@ void AmProcessor::removeVolume(const VolumeDesc& volDesc)
 void AmProcessor::flushVolume(AmRequest* req, std::string const& vol)
 { return _impl->flushVolume(req, vol); }
 
-std::shared_ptr<AmVolume> AmProcessor::getVolume(fds_volid_t const vol_uuid) const
+VolumeDesc* AmProcessor::getVolume(fds_volid_t const vol_uuid) const
 { return _impl->getVolume(vol_uuid); }
 
 Error AmProcessor::updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb)

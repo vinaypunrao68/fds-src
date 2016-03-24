@@ -153,7 +153,7 @@ AccessMgr::volumeRemoved(VolumeDesc const& volDesc) {
 }
 
 void AccessMgr::volumeFlushed(AmRequest* req, std::string const& vol) {
-    std::thread t( [&, this] { asyncServer->flushVolume(req, vol); } );
+    std::thread t( [req, vol, this] { asyncServer->flushVolume(req, vol); } );
     t.detach();
 }
 

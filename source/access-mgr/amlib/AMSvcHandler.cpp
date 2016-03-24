@@ -342,8 +342,8 @@ AMSvcHandler::switchCoordinator(boost::shared_ptr<fpi::AsyncHdr>&           hdr,
         LOGDEBUG << "volid:" << msg->volumeId << " unable to find volume";
         completeFlush(hdr, ERR_OK);
     } else {
-        LOGDEBUG << "vol:" << vol->voldesc->name << " switching coordinator";
-        addPendingFlush(vol->voldesc->name, hdr);
+        LOGDEBUG << "vol:" << vol->name << " switching coordinator";
+        addPendingFlush(vol->name, hdr);
     }
 }
 
@@ -360,6 +360,7 @@ void
 AMSvcHandler::addPendingFlush(std::string const&                  volName,
                               boost::shared_ptr<fpi::AsyncHdr>&   hdr)
 {
+    std::lock_guard<std::mutex> l(_flush_map_lock);
     auto it = _pendingFlushes.end();
     bool happened {false};
     std::tie(it, happened) = _pendingFlushes.emplace(volName, nullptr);
@@ -393,6 +394,7 @@ AMSvcHandler::addPendingFlush(std::string const&                  volName,
  */
 void
 AMSvcHandler::flushCb(std::string const& volName, Error const& err) {
+    std::lock_guard<std::mutex> l(_flush_map_lock);
     auto it = _pendingFlushes.find(volName);
     if (_pendingFlushes.end() != it) {
         LOGDEBUG << "vol:" << volName << " completing flush of volume";

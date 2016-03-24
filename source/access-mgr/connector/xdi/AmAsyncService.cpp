@@ -130,11 +130,15 @@ AsyncDataServer::flushVolume(AmRequest* req, std::string const& vol) {
     ip_list ip;
     cloneFactory->getIps(ip);
 
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
+    int xdiRestfulPort = conf.get<int>("xdi_restful_port_offset");
+
     for (auto const& i : ip) {
         LOGDEBUG << "vol:" << vol
                  << " ip:" << i
+                 << " port:" << xdiRestfulPort
                  << " flushing volume";
-        auto x = XdiRestfulInterface(i, 10700);
+        auto x = XdiRestfulInterface(i, xdiRestfulPort);
         x.flushVolume(vol);
     }
 

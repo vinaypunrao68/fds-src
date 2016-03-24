@@ -97,7 +97,7 @@ class AmProcessor : public std::enable_shared_from_this<AmProcessor>
     Error updateQoS(long int const* rate, float const* throttle);
 
     void flushVolume(AmRequest* req, std::string const& vol);
-    std::shared_ptr<AmVolume> getVolume(fds_volid_t const vol_uuid) const;
+    VolumeDesc* getVolume(fds_volid_t const vol_uuid) const;
 
   private:
     std::unique_ptr<AmProcessor_impl> _impl;

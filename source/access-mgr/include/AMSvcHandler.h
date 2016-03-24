@@ -92,6 +92,8 @@ class AMSvcHandler :  virtual public fpi::AMSvcIf, virtual public PlatNetSvcHand
                       fpi::SwitchCoordinatorMsgPtr&               msg);
 
   private:
+    // This mutex protects the _pendingFlushes map
+    std::mutex                                                                                         _flush_map_lock;
     std::unordered_map<std::string, boost::shared_ptr<std::set<boost::shared_ptr<fpi::AsyncHdr>>>>     _pendingFlushes;
 
     void addPendingFlush(std::string const& volName, boost::shared_ptr<fpi::AsyncHdr>& hdr);
