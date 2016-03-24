@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration monitorInterval="30" packages="com.formationds.logging.log4j" status="WARN" >
+    <Properties>
+        
+    </Properties>
+    <Appenders>
+        <Console name="console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d %-5p [%t] %c{2} (%F:%L) - %m%n"/>
+        </Console>
+    </Appenders>
+
+    <Loggers>
+        <Root level="WARN">
+            <AppenderRef ref="console"/>
+        </Root>
+
+        <Logger name="com.amazonaws" level="ERROR" additivity="false">
+            <AppenderRef ref="console"/>
+        </Logger>
+
+        <Logger name="com.amazonaws.request" level="ERROR" additivity="false">
+            <AppenderRef ref="console"/>
+        </Logger>
+
+        <Logger name="org.apache.http.wire" level="ERROR" additivity="false">
+            <AppenderRef ref="console"/>
+        </Logger>
+
+    </Loggers>
+</Configuration>

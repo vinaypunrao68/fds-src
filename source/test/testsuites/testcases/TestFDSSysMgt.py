@@ -226,6 +226,9 @@ class TestNodeActivate(TestCase.FDSTestCase):
                         self.log.error("Failing to add service {} to node {} returned status {}".format(service_name, n.nd_conf_dict['node-name'], add_service.message))
                         return False
 
+                #sleep for 5 seconds to allow the add request to complete
+                time.sleep(5)
+                
                 if not self.expect_to_fail:
                     self.log.info("Activate service %s for node %s." % (service_name, n.nd_conf_dict['node-name']))
                     start_service = node_service.start_service(node_id,add_service.id)

@@ -2,7 +2,8 @@ package com.formationds.nfs;
 
 import com.formationds.apis.ObjectOffset;
 import com.formationds.util.Retry;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.joda.time.Duration;
 
 import java.io.FileNotFoundException;
@@ -13,7 +14,7 @@ import java.util.Map;
 import java.util.Optional;
 
 public class Chunker {
-    private static final Logger LOG = Logger.getLogger(Chunker.class);
+    private static final Logger LOG = LogManager.getLogger(Chunker.class);
     private IoOps io;
     private final StripedLock metaLock, objectLock;
 

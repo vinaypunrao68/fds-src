@@ -23,6 +23,7 @@ import testcases.TestFDSVolMgt
 import testcases.TestMgt
 import logging
 import testcases.TestS3IntFace
+import testcases.TestNFSIntFace
 import testcases.TestFDSSnapshotMgt
 import testcases.TestFDSExpungeMgt
 log_dir = None

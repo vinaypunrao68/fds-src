@@ -32,7 +32,8 @@ import com.nurkiewicz.asyncretry.AsyncRetryExecutor;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import org.apache.commons.codec.binary.Hex;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.apache.thrift.TMultiplexedProcessor;
 import org.apache.thrift.server.TNonblockingServer;
 import org.apache.thrift.transport.TNonblockingServerSocket;
@@ -49,7 +50,7 @@ import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 
 public class Main {
-    private static Logger LOG = Logger.getLogger(Main.class);
+    private static Logger LOG = LogManager.getLogger(Main.class);
 
     public static void main(String[] args) {
         System.setProperty("org.eclipse.jetty.http.HttpParser.STRICT", "true"); // disable jetty header modification
@@ -182,7 +183,7 @@ public class Main {
         // the config API through this singleton, but it ultimately references back
         // to to OMConfigurationServiceProxy.
         SingletonConfigAPI.instance().api( configCache );
-        
+
         // TODO: make cache update check configurable.
         // The config cache has been modified so that it captures all events that come through
         // the XDI apis.  However, it does not capture events that go direct through the
@@ -268,7 +269,7 @@ public class Main {
         Runnable runnable = () -> {
             try {
                 TNonblockingServerSocket transport = new TNonblockingServerSocket(port);
-                Streaming.Processor<Streaming.Iface> processor = 
+                Streaming.Processor<Streaming.Iface> processor =
                     new Streaming.Processor<Streaming.Iface>(statisticsPublisher);
                 TNonblockingServer.Args args;
                 if (FdsFeatureToggles.THRIFT_MULTIPLEXED_SERVICES.isActive()) {

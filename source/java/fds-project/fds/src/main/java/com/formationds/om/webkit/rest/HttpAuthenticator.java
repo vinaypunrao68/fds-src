@@ -11,7 +11,8 @@ import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import org.apache.commons.lang.StringUtils;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
@@ -24,7 +25,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 public class HttpAuthenticator implements RequestHandler {
-    private static final Logger LOG = Logger.getLogger(HttpAuthenticator.class);
+    private static final Logger LOG = LogManager.getLogger(HttpAuthenticator.class);
     public static final String FDS_TOKEN = "token";
     private Function<AuthenticationToken, RequestHandler> f;
     private Authenticator authenticator;

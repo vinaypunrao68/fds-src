@@ -1,6 +1,4 @@
-package com.formationds.util;
-
-import com.formationds.smoketest.SmokeTestRunner;
+package com.formationds.smoketest;
 
 public class RunOneTest {
     public static void main(String[] args) throws Exception {
@@ -9,7 +7,6 @@ public class RunOneTest {
             System.out.println("   or: RunOneTest com.formationds.TestClass testMethod");
             System.exit(1);
         }
-        SmokeTestRunner.turnLog4jOff();
 
         Class testClass = Class.forName(args[0]);
 
