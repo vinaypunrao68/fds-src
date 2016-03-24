@@ -32,6 +32,11 @@ DiskCapabilitiesMgr::dsk_capability_read(PmDiskObj::pointer disk) {
 
     fds_verify(capability->dc_owner == disk);
 
+    if (!disk->dsk_get_parent()->dsk_is_data_disk())
+    {
+        LOGNORMAL << "Skipping non-data disk " << disk->rs_get_name() << " when calculating total capacity";
+        return;
+    }
     dc_mtx.lock();
     dc_capabilities.chain_add_back(&capability->dc_link);
     dc_mtx.unlock();

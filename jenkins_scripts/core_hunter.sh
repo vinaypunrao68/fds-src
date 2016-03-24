@@ -7,7 +7,7 @@ function core_hunter
 {
     message  "POKING around for core files"
     # TODO, remove /corefiles sometime
-    for d in /corefiles /fds; do 
+    for d in /corefiles /fds ../Build/linux-x86_64.debug/bin/; do
         for c in core hprof; do 
         
             find ${d} -type f -name "*.${c}" |grep -e ".*" > /dev/null

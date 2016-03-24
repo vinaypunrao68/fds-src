@@ -35,8 +35,37 @@ TestDm::TestDm(int argc, char *argv[], bool initAsModule)
     auto handler = boost::make_shared<DMSvcHandler>(this, *dm);
     auto processor = boost::make_shared<fpi::DMSvcProcessor>(handler);
 
+    /**
+     * Note on Thrift service compatibility:
+     *
+     * For service that extends PlatNetSvc, add the processor twice using
+     * Thrift service name as the key and again using 'PlatNetSvc' as the
+     * key. Only ONE major API version is supported for PlatNetSvc.
+     *
+     * All other services:
+     * Add Thrift service name and a processor for each major API version
+     * supported.
+     */
+    TProcessorMap processors;
+
+    /**
+     * When using a multiplexed server, handles requests from DMSvcClient.
+     */
+    processors.insert(std::make_pair<std::string,
+        boost::shared_ptr<apache::thrift::TProcessor>>(
+            fpi::commonConstants().DM_SERVICE_NAME, processor));
+
+    /**
+     * It is common for SvcLayer to route asynchronous requests using an
+     * instance of PlatNetSvcClient. When using a multiplexed server, the
+     * processor map must have a key for PlatNetSvc.
+     */
+    processors.insert(std::make_pair<std::string,
+        boost::shared_ptr<apache::thrift::TProcessor>>(
+            fpi::commonConstants().PLATNET_SERVICE_NAME, processor));
+
     init(argc, argv, initAsModule, "platform.conf",
-         "fds.dm.", "dm.log", dmVec, handler, processor, fpi::commonConstants().DM_SERVICE_NAME);
+         "fds.dm.", "dm.log", dmVec, handler, processors);
 
 }
 

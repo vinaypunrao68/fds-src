@@ -353,6 +353,9 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
       */
      void checkDiskCapacities();
 
+     void checkForDiskFailErrors(fds_token_id smTokId,
+                                 diskio::DataTier tier,
+                                 const Error& error);
      virtual std::string log_string() {
          std::stringstream ret;
          ret << " ObjectStorMgr";

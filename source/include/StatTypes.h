@@ -12,33 +12,9 @@
 
 namespace fds {
 
-class StatConstants {
-    public:
-        StatConstants();
-        static const StatConstants* singleton();
-
-        /**
-         * See the constructor for details about how and why these are set.
-         */
-        std::int32_t FdsStatLTPeriodSec;
-        std::int32_t FdsStatLTSlotCnt;
-        std::int32_t FdsStatFGPeriodSec;
-        std::int32_t FdsStatFGPeriodMultToCG;
-        std::int32_t FdsStatFGSlotCnt;
-        std::int32_t FdsStatCGPeriodSec;
-        std::int32_t FdsStatCGPeriodMultToLT;
-        std::int32_t FdsStatCGSlotCnt;
-        std::int32_t FdsStatPushAndAggregatePeriodSec;
-        std::int32_t FdsStatCollectionWaitMult;
-        std::int32_t FdsStatFGStreamPeriodFactorSec;
-        std::int32_t FdsStatRunForever;
-};
-
-extern const StatConstants* g_stat_constants;
-
 /**
  * These are Volume statistics. They only make sense when viewed within the context of the
- * Volume for which they were collected. other product entities for which we might wish to
+ * Volume for which they were collected. Other product entities for which we might wish to
  * collect stats include Nodes, Services, and Tenants.
  *
  * Since these IDs are what's recorded with the stats (as opposed to, say, the enum name) when
@@ -90,6 +66,38 @@ typedef enum {
 
     STAT_MAX_TYPE  // last entry in the enum
 } FdsVolStatType;
+
+class StatConstants {
+    public:
+        StatConstants();
+        static const StatConstants* singleton();
+
+        /**
+         * See the constructor for details about how and why these are set.
+         */
+        std::int32_t FdsStatLTPeriodSec;
+        std::int32_t FdsStatLTSlotCnt;
+        std::int32_t FdsStatFGPeriodSec;
+        std::int32_t FdsStatFGPeriodMultToCG;
+        std::int32_t FdsStatFGSlotCnt;
+        std::int32_t FdsStatCGPeriodSec;
+        std::int32_t FdsStatCGPeriodMultToLT;
+        std::int32_t FdsStatCGSlotCnt;
+        std::int32_t FdsStatPushAndAggregatePeriodSec;
+        std::int32_t FdsStatCollectionWaitMult;
+        std::int32_t FdsStatFGStreamPeriodFactorSec;
+        std::int32_t FdsStatRunForever;
+
+        /**
+         * Add (or remove) volume stat identifiers that are disabled
+         * to this set in the class's constructor. Doing so will disable
+         * all effort in recording the stat. It's values, when requested
+         * will be as if it were never observed.
+         */
+        std::set<FdsVolStatType> disabledVolStats;
+};
+
+extern const StatConstants* g_stat_constants;
 
 class FdsStatHash {
   public:

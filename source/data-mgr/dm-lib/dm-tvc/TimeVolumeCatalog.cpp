@@ -155,6 +155,11 @@ void DmTimeVolCatalog::createCommitLog(const VolumeDesc& voldesc) {
     /* NOTE: Here the lock can be expensive.  We may want to provide an init() api
      * on DmCommitLog so that initialization can happen outside the lock
      */
+
+    if (voldesc.isSnapshot()) {
+        return;
+    }
+
     fds_scoped_lock l(commitLogLock_);
     commitLogs_[voldesc.volUUID] =
         boost::make_shared<DmCommitLog>(MODULEPROVIDER()->proc_fdsroot(),
