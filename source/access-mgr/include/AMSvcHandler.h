@@ -97,6 +97,7 @@ class AMSvcHandler :  virtual public fpi::AMSvcIf, virtual public PlatNetSvcHand
     std::unordered_map<std::string, boost::shared_ptr<std::set<boost::shared_ptr<fpi::AsyncHdr>>>>     _pendingFlushes;
 
     void addPendingFlush(std::string const& volName, boost::shared_ptr<fpi::AsyncHdr>& hdr);
+    void _flushCb(std::string const& volName, Error const& err);
     void flushCb(std::string const& volName, Error const& err);
     void completeFlush(boost::shared_ptr<fpi::AsyncHdr> const& hdr, Error const& err);
 };

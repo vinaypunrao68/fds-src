@@ -376,7 +376,7 @@ AMSvcHandler::addPendingFlush(std::string const&                  volName,
         } else {
             // Closure for response call
             auto closure = [this, volName] (DetachCallback* cb, fpi::ErrorCode const& e) mutable -> void {
-                flushCb(volName, e);
+                _flushCb(volName, e);
             };
 
             auto callback = create_async_handler<DetachCallback>(std::move(closure));
@@ -391,10 +391,11 @@ AMSvcHandler::addPendingFlush(std::string const&                  volName,
  * Callback that will be called when the DetachVolumeReq completes
  * after flushing a volume. We will reply to all AMs waiting for this
  * volume to be flushed.
+ * This call is not thread safe and if the _flush_map_lock isn't
+ * already being held, then _flushCb should be called instead.
  */
 void
 AMSvcHandler::flushCb(std::string const& volName, Error const& err) {
-    std::lock_guard<std::mutex> l(_flush_map_lock);
     auto it = _pendingFlushes.find(volName);
     if (_pendingFlushes.end() != it) {
         LOGDEBUG << "vol:" << volName << " completing flush of volume";
@@ -405,6 +406,15 @@ AMSvcHandler::flushCb(std::string const& volName, Error const& err) {
     } else {
         LOGERROR << "vol:" << volName << " unable to find pending flush";
     }
+}
+
+/**
+ * Should be called when lock isn't already held, such as the callback case.
+ */
+void
+AMSvcHandler::_flushCb(std::string const& volName, Error const& err) {
+    std::lock_guard<std::mutex> l(_flush_map_lock);
+    flushCb(volName, err);
 }
 
 /**
