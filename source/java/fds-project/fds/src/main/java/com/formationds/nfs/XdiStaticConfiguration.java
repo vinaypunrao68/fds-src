@@ -11,6 +11,7 @@ public class XdiStaticConfiguration {
     private int amRetryAttempts;
     private int amRetryIntervalSeconds;
     private int statsPort;
+    private int controlPort;
 
     public XdiStaticConfiguration(int threadPoolSize,
                                   boolean activateStats,
@@ -19,7 +20,7 @@ public class XdiStaticConfiguration {
                                   int amTimeoutSeconds,
                                   int amRetryAttempts,
                                   int amRetryIntervalSeconds,
-                                  int statsPort) {
+                                  int statsPort, int controlPort) {
         this.threadPoolSize = threadPoolSize;
         this.activateStats = activateStats;
         this.deferMetadataUpdates = deferMetadataUpdates;
@@ -28,6 +29,7 @@ public class XdiStaticConfiguration {
         this.amRetryAttempts = amRetryAttempts;
         this.amRetryIntervalSeconds = amRetryIntervalSeconds;
         this.statsPort = statsPort;
+        this.controlPort = controlPort;
     }
 
     public int getStatsPort( )
@@ -61,5 +63,9 @@ public class XdiStaticConfiguration {
 
     public int getAmRetryAttempts() {
         return amRetryAttempts;
+    }
+
+    public int getControlPort() {
+        return controlPort;
     }
 }

@@ -36,7 +36,8 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi {
             return -1;
         }
         request_id_map[hdl] = handle;
-        LOGTRACE << " handle [0x" << std::hex << hdl << "] registered to [" << handle->id << "]";
+        LOGTRACE << "handle:" << hdl
+                 << " id:" << handle->id << " registering";
         return hdl;
     }
 
@@ -64,12 +65,12 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi {
     {
         auto it = request_id_map.find(handle.handle);
         if (request_id_map.end() == it) {
-            LOGNOTIFY << " handle [0x" << std::hex << handle.handle << "] unknown.";
+            LOGNOTIFY << "handle:" << handle.handle << " unknown";
             return nullptr;
         }
         auto request_id = std::move(it->second);
         request_id_map.erase(it);
-        LOGTRACE << " request [" << request_id->id << "] complete.";
+        LOGTRACE << "id:" << request_id->id << " complete";
         return request_id;
     }
 
@@ -97,8 +98,7 @@ class AmAsyncXdiResponse : public AmAsyncResponseApi {
             }
         }
         }
-        LOGERROR << "Unable to respond to XDI: "
-                 << "tcp://" << serverIp << ":" << serverPort;
+        LOGERROR << "server:tcp://" << serverIp << ":" << serverPort << " unable to respond";
     }
 
   public:
@@ -207,14 +207,14 @@ struct AmAsyncXdiRequest
     void logio(char const* op,
           server_handle_type& handle,
           api_type::shared_string_type& volName)
-    { LOGIO << " op [" << op << "] handle [" << handle->id << "] vol [" << *volName << "]"; }
+    { LOGIO << "op:" << op << " handle:" << handle->id << " vol:" << *volName; }
 
     static
     void logio(char const* op,
           server_handle_type& handle,
           api_type::shared_string_type& volName,
           api_type::shared_string_type& blobName)
-    { LOGIO << " op [" << op << "] handle [" << handle->id << "] vol [" << *volName << "] blob [" << *blobName << "]"; }
+    { LOGIO << "op:" << op << " handle:" << handle->id << "vol:" << *volName << " blob:" << *blobName; }
 
     static
     void logio(char const* op,
@@ -224,12 +224,12 @@ struct AmAsyncXdiRequest
                api_type::shared_int_type& length,
                api_type::shared_offset_type& offset)
     {
-        LOGIO << " op [" << op
-              << "] handle [" << handle->id
-              << "] vol [" << *volName
-              << "] blob [" << *blobName
-              << "] offset {" << std::hex << offset->value
-              << "} length {" << std::dec << *length << "}";
+        LOGIO << "op:" << op
+              << " handle:" << handle->id
+              << " vol:" << *volName
+              << " blob:" << *blobName
+              << " offset:" << offset->value
+              << " length:" << *length;
     }
 
     api_type::handle_type get_handle(server_handle_type& handle) {

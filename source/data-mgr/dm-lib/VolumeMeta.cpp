@@ -36,9 +36,6 @@ VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
     vol_desc = new VolumeDesc(_name, _uuid);
     dmCopyVolumeDesc(vol_desc, _desc);
 
-    root->fds_mkdir(root->dir_sys_repo_dm().c_str());
-    root->fds_mkdir(root->dir_user_repo_dm().c_str());
-
     /* Enable ability to query state via StateProvider api */
     stateProviderId = "volume." + std::to_string(_uuid.get());
     MODULEPROVIDER()->get_cntrs_mgr()->add_for_export(this);

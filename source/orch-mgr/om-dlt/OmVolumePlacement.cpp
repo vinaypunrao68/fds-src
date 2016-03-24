@@ -534,7 +534,15 @@ VolumePlacement::undoTargetDmtCommit() {
             if (!configDB->setDmtType(0, "target")) {
                 LOGWARN << "unable to store target dmt type to config db";
             }
-            rollBackNeeded = true;
+
+            // If there never has been a committed DMT, then there is no version
+            // for the services to roll back to
+            if ( dmtMgr->getCommittedVersion() != DMT_VER_INVALID )
+            {
+                rollBackNeeded = true;
+            } else {
+                LOGNOTIFY << "No committed DMT yet, nothing to rollback";
+            }
         } else {
 
             LOGNOTIFY << "Clearing target DMT";

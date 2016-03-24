@@ -102,6 +102,7 @@ namespace fds
             dsk_my_dev = dev;
         }
 
+        // get udev value in blocks and convert to GB
         dsk_cap_gb   = strtoull(udev_device_get_sysattr_value(dev, "size"), NULL, 10) >> 21;
         dsk_my_devno = udev_device_get_devnum(dev);
         dsk_raw_path = udev_device_get_devpath(dev);
@@ -180,7 +181,7 @@ namespace fds
         auto partition = dsk_parent->dsk_part_head.chain_peek_back<PmDiskObj>();
         if (partition) {
             dsk_capability->capacity_gb = partition->dsk_cap_gb;
-            LOGDEBUG << "Discovered storage size: " << partition->dsk_cap_gb;
+            LOGNORMAL << "Discovered storage size for " << partition->rs_name << ": " << partition->dsk_cap_gb;
         }
         dsk_parent->rs_mutex()->unlock();
     }
@@ -226,6 +227,13 @@ namespace fds
         {
             dsk_read_fds_mark();
         }
+    }
+
+    // Return true if this disk is used as a data disk (to place in disk-map and report capacity)
+    //
+    bool PmDiskObj::dsk_is_data_disk()
+    {
+        return !this->dsk_get_mount_point().empty(); // OS devices will have no mount points
     }
 
     // dsk_read_uuid

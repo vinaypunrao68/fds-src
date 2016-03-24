@@ -3,6 +3,7 @@ package com.formationds.nfs;
 import com.formationds.commons.util.thread.ThreadFactories;
 import com.formationds.util.Configuration;
 import com.formationds.util.DebugWebapp;
+import com.formationds.util.IoFunction;
 import com.formationds.util.ServerPortFinder;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.RealAsyncAm;
@@ -54,29 +55,34 @@ public class NfsServer {
             t.setName("NFS statistics webapp");
             t.start();
         }
-        LOG.info("Starting NFS server - " + xdiStaticConfiguration.toString());
+
         DynamicExports dynamicExports = new DynamicExports(config);
         dynamicExports.start();
         ExportFile exportFile = dynamicExports.exportFile();
 
-//        VirtualFileSystem vfs = new MemoryVirtualFileSystem();
+        IoFunction<String, Integer> maxObjectSize = (v) -> dynamicExports.objectSize(v);
+        IoOps ops = new RecoveryHandler(new AmOps(asyncAm), xdiStaticConfiguration.getAmRetryAttempts(), xdiStaticConfiguration.getAmRetryInterval());
+        if (xdiStaticConfiguration.deferMetadataUpdates()) {
+            ops = new DeferredIoOps(ops, maxObjectSize);
+            ((DeferredIoOps) ops).start();
+        }
+
+        ControlServer controlServer = new ControlServer(xdiStaticConfiguration.getControlPort(), ops);
+        controlServer.start();
+
+        LOG.info("Starting NFS server - " + xdiStaticConfiguration.toString());
         XdiVfs vfs = new XdiVfs(
-                asyncAm,
                 dynamicExports,
                 counters,
-                xdiStaticConfiguration.deferMetadataUpdates(),
-                xdiStaticConfiguration.getAmRetryAttempts(),
-                xdiStaticConfiguration.getAmRetryInterval());
+                ops);
 
         // create the RPC service which will handle NFS requests
         ThreadFactory factory = ThreadFactories.newThreadFactory("nfs-rpcsvc", true);
         ThreadPoolExecutor executor = new ThreadPoolExecutor(xdiStaticConfiguration.getThreadPoolSize(),
                 xdiStaticConfiguration.getThreadPoolSize(),
                 10, TimeUnit.MINUTES,
-                //new LinkedBlockingQueue<>(nfsConfiguration.getWorkQueueSize()),
                 new SynchronousQueue<>(),
                 factory,
-                //new BlockingRejectedExecutionHandler(nfsConfiguration.getIncomingRequestTimeoutSeconds(), TimeUnit.SECONDS));
                 new ThreadPoolExecutor.CallerRunsPolicy());
         OncRpcSvc nfsSvc = new OncRpcSvcBuilder()
                 .withPort(serverPort)
