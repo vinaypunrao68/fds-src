@@ -35,7 +35,7 @@ protected:
 public:
 
     FakeDataStore() { fakeSvcMap = {};}
-    ~FakeDataStore() {}
+    virtual ~FakeDataStore() {}
 
     fds_uint64_t getLastModTimeStamp() { return 0; }
 
