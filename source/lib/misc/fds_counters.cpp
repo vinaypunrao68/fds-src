@@ -179,7 +179,12 @@ void FdsCountersMgr::add_for_export(StateProvider *provider)
 void FdsCountersMgr::remove_from_export(StateProvider *provider)
 {
     fds_mutex::scoped_lock lock(stateproviders_lock_);
-    stateproviders_tbl_.erase(provider->getStateProviderId());
+    auto itr = stateproviders_tbl_.find(provider->getStateProviderId());
+    if (itr != stateproviders_tbl_.end()) {
+        if (itr->second == provider) {
+            stateproviders_tbl_.erase(itr);
+        }
+    }
 }
 
 bool FdsCountersMgr::getStateInfo(const std::string &id,

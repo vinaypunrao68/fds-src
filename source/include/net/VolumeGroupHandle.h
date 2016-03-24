@@ -31,6 +31,10 @@
         LOGWARN << logString() << fds::logString(*msg) << " must be a coordinator to do write"; \
         cb(ERR_INVALID, nullptr); \
         return; \
+    } else if (closeCb_) { \
+        LOGWARN << logString() << fds::logString(*msg) << " invalid request on a closed handle"; \
+        cb(ERR_INVALID, nullptr); \
+        return; \
     }
 
 namespace fds {
@@ -210,7 +214,9 @@ struct CoordinatorSwitchCtx {
 * Following are states for VolumeGroupHandle
 * Unknown - Prior open is called
 * Initing - Open is in progress
-* Active - # of functional replicas >= quorum count
+* Active - # of functional replicas >= quorum count.  When active, if close is called, we drain
+* all the pending requests before calling close cb.  After close is called, the expectation is,
+* no new requests can come in.
 * Offline - # of function replicas < qourm count
 */
 struct VolumeGroupHandle : HasModuleProvider, StateProvider {
@@ -356,6 +362,7 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     VolumeReplicaHandleList& getVolumeReplicaHandleList_(const fpi::ResourceState& s);
     void scheduleCheckOnNonfunctionalReplicas_();
     void checkOnNonFunctaionalReplicas_();
+    void closeHandle_();
 
     SynchronizedTaskExecutor<uint64_t>  *taskExecutor_;
     SvcRequestPool                      *requestMgr_;
