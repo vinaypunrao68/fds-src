@@ -87,6 +87,15 @@ VolumeGroupHandle::VolumeGroupHandle(CommonModuleProviderIf* provider,
 
 VolumeGroupHandle::~VolumeGroupHandle()
 {
+    int tries = 0;
+    while (state_ != fpi::Unknown && refCnt_ > 0 && tries < 100) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        tries++;
+    }
+    if (refCnt_ > 0) {
+        LOGWARN << logString() << " destroying handle when refcount:" << refCnt_;
+    }
+
     if (MODULEPROVIDER()->get_cntrs_mgr()) {
         MODULEPROVIDER()->get_cntrs_mgr()->remove_from_export(this);
     }
