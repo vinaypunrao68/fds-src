@@ -212,8 +212,18 @@ namespace fds
     void NodeInventory::set_node_state(FdspNodeState state)
     {
         TRACEFUNC;
-        LOGNORMAL << "Setting node state to:" << state;
-        nd_my_node_state = state;
+
+        // This is a hack to prevent the wrong node state from getting
+        // set when removing a node (there's a race in send_stop/send_remove)
+        // For now, this will work. ToDo @meena clean up with a proper
+        // allowedNodeStateTransition check
+
+        if ( !(nd_my_node_state == fpi::FDS_Node_Discovered &&
+               state == fpi::FDS_Node_Down) )
+        {
+            LOGNORMAL << "Setting node state to:" << state;
+            nd_my_node_state = state;
+        }
     }
 
     void NodeInventory::set_node_dlt_version(fds_uint64_t dlt_version)
