@@ -227,7 +227,7 @@ void AmDispatcher::volumeGroupRead(ReqPtr request, MsgPtr message, CbMeth cb_fun
         if (volumegroup_map.end() != it) {
             ProtectedVGH::vgh_ptr vgh;
             ProtectedVGH::uniq_lock lock;
-            std::tie(lock, vgh) = it->second.getVGH(message_timeout_open);
+            std::tie(lock, vgh) = it->second.getVGH(message_timeout_io);
             if (vgh) {
                 LOGTRACE << "Reading from volume: " << vol_id;
                 vgh->sendReadMsg(message_type_id(*message),
@@ -266,7 +266,7 @@ void AmDispatcher::volumeGroupModify(ReqPtr request, MsgPtr message, CbMeth cb_f
         if (volumegroup_map.end() != it) {
             ProtectedVGH::vgh_ptr vgh;
             ProtectedVGH::uniq_lock lock;
-            std::tie(lock, vgh) = it->second.getVGH(message_timeout_open);
+            std::tie(lock, vgh) = it->second.getVGH(message_timeout_io);
             if (vgh) {
                 LOGTRACE << "Staging to volume: " << vol_id;
                 vgh->sendModifyMsg(message_type_id(*message),
@@ -307,7 +307,7 @@ void AmDispatcher::volumeGroupCommit(ReqPtr request,
         if (volumegroup_map.end() != it) {
             ProtectedVGH::vgh_ptr vgh;
             ProtectedVGH::uniq_lock lock;
-            std::tie(lock, vgh) = it->second.getVGH(message_timeout_open);
+            std::tie(lock, vgh) = it->second.getVGH(message_timeout_io);
             if (vgh) {
                 LOGTRACE << "Writing to volume: " << vol_id;
                 vgh->sendCommitMsg(message_type_id(*message),
