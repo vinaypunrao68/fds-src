@@ -54,6 +54,7 @@ class AsyncDataServer {
     std::shared_ptr<std::thread>                 listen_thread;
 
     std::weak_ptr<AmProcessor>                   _processor;
+    fds_uint32_t                                 _pmPort;
 
   public:
     AsyncDataServer(std::weak_ptr<AmProcessor> processor, fds_uint32_t pmPort);

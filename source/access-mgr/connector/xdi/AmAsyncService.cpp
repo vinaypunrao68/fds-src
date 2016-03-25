@@ -82,7 +82,7 @@ void AsyncAmServiceRequestIfCloneFactory::getIps(std::unordered_set<std::string>
 }
 
 AsyncDataServer::AsyncDataServer(std::weak_ptr<AmProcessor> processor,
-                                 fds_uint32_t pmPort) : _processor(processor)
+                                 fds_uint32_t pmPort) : _processor(processor), _pmPort(pmPort)
 {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     int xdiServicePortOffset = conf.get<int>("xdi_service_port_offset");
@@ -130,8 +130,9 @@ AsyncDataServer::flushVolume(AmRequest* req, std::string const& vol) {
     ip_list ip;
     cloneFactory->getIps(ip);
 
-    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
-    int xdiRestfulPort = conf.get<int>("xdi_restful_port_offset");
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.xdi.");
+    int xdiControlPortOffset = conf.get<int>("control_port_offset");
+    int xdiRestfulPort = _pmPort + xdiControlPortOffset;
 
     for (auto const& i : ip) {
         LOGDEBUG << "vol:" << vol
