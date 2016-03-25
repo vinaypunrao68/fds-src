@@ -114,7 +114,7 @@ class TestNFSDeleteVerifiableFiles(TestCase.FDSTestCase):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_NfsDeleteVerifiableFiles,
-                                             "Delete passed file")
+                                             "Delete passed file from NFS")
 
         self.passedInputFiles = inputfiles
         if verify == "true":
