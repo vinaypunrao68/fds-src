@@ -1075,7 +1075,7 @@ int DataMgr::mod_init(SysParams const *const param)
 }
 
 void DataMgr::initHandlers() {
-    // TODO: Inject these.
+    // NOTE: For the new way of creating handler, see registerDmVolumeReqHandler()
     handlers[FDS_LIST_BLOB] = new dm::GetBucketHandler(*this);
     handlers[FDS_DELETE_BLOB] = new dm::DeleteBlobHandler(*this);
     handlers[FDS_DM_SYS_STATS] = new dm::DmSysStatsHandler(*this);
