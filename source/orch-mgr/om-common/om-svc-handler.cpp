@@ -64,8 +64,6 @@ template <class DataStoreT>
 OmSvcHandler<DataStoreT>::OmSvcHandler(CommonModuleProviderIf *provider)
 : PlatNetSvcHandler(provider)
 {
-//    om_mod = OM_NodeDomainMod::om_local_domain();
-
     /* svc->om response message */
     REGISTER_FDSP_MSG_HANDLER(fpi::GetVolumeDescriptor, getVolumeDescriptor);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlSvcEvent, SvcEvent);
@@ -81,8 +79,6 @@ OmSvcHandler<DataStoreT>::OmSvcHandler(CommonModuleProviderIf *provider)
 template <class DataStoreT>
 int OmSvcHandler<DataStoreT>::mod_init(SysParams const *const param)
 {
-    //this->pConfigDB_ = gl_orch_mgr->getConfigDB();
-
     // TODO(bszmyd): Tue 20 Jan 2015 10:24:45 PM PST
     // This isn't probably where this should go, but for now it doesn't make
     // sense anymore for it to go anywhere else. When then dependencies are
