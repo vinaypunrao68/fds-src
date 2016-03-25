@@ -94,6 +94,10 @@ AsyncDataServer::AsyncDataServer(std::weak_ptr<AmProcessor> processor,
     // Setup API processor
     cloneFactory = boost::make_shared<AsyncAmServiceRequestIfCloneFactory>(processor);
     processorFactory.reset(new apis::AsyncXdiServiceRequestProcessorFactory(cloneFactory));
+
+    // Timeout for flush request to xdi in ms
+    XdiRestfulInterface::TIMEOUT = conf.get_abs<uint32_t>(
+        "fds.am.svc.timeout.coordinator_switch", XdiRestfulInterface::TIMEOUT);
 }
 
 /**

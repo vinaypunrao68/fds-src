@@ -26,7 +26,8 @@ namespace fds {
         GET_VOLUMEREPLICA_HANDLE_RETURN(volumeHandle__, svcUuid__, NONE_RET)
 
 uint32_t VolumeGroupHandle::GROUPCHECK_INTERVAL_SEC = 30;
-uint32_t VolumeGroupHandle::COORDINATOR_SWITCH_TIMEOUT_MS = 5000;      // 60 seconds
+uint32_t VolumeGroupHandle::IO_TIMEOUT_MS = 5000;                      // set low for testing
+uint32_t VolumeGroupHandle::COORDINATOR_SWITCH_TIMEOUT_MS = 5000;      // set low for testing
 
 std::ostream& operator << (std::ostream &out, const fpi::VolumeIoHdr &h)
 {

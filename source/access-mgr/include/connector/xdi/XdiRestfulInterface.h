@@ -13,6 +13,9 @@ namespace fds
 
 class XdiRestfulInterface {
 public:
+    // Timeout in milliseconds
+    static unsigned int         TIMEOUT;
+
     XdiRestfulInterface(std::string const& host, unsigned int const port);
     ~XdiRestfulInterface();
 
@@ -21,8 +24,6 @@ private:
     std::string         _host;
     unsigned int        _port;
 
-    // 10 minute timeout in ms
-    static const unsigned int       TIMEOUT = 10 * 60 * 1000;
 };
 
 } // namespace fds

@@ -235,6 +235,7 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
      * Exposed as public/non-const so that it can be tuned for unit testing
      */
     static uint32_t                     GROUPCHECK_INTERVAL_SEC;
+    static uint32_t                     IO_TIMEOUT_MS;
     static uint32_t                     COORDINATOR_SWITCH_TIMEOUT_MS;
 
     VolumeGroupHandle(CommonModuleProviderIf* provider,
@@ -336,6 +337,7 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
             writeOpsBuffer_->push_back(std::make_pair(msgTypeId, payload));
         }
         req->setPayloadBuf(msgTypeId, payload);
+        req->setTimeoutMs(IO_TIMEOUT_MS);
         req->responseCb_ = cb;
         req->setTaskExecutorId(groupId_);
         req->invoke();
@@ -434,6 +436,7 @@ void VolumeGroupHandle::sendReadMsg(const fpi::FDSPMsgTypeId &msgTypeId,
         /* Create a request and send */
         auto req = requestMgr_->newSvcRequest<VolumeGroupFailoverRequest>(this);
         req->setPayload(msgTypeId, msg);
+        req->setTimeoutMs(IO_TIMEOUT_MS);
         req->responseCb_ = cb;
         req->setTaskExecutorId(groupId_);
         if (!isCoordinator_) {
