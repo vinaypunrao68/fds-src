@@ -36,6 +36,7 @@ struct AmRequest : public FDS_IOType {
     std::size_t    blob_offset_end;
     std::string    volume_name;
 
+    bool           absolute_offset {false};
     bool           forced_unit_access {true};
     bool           page_out_cache {false};
 

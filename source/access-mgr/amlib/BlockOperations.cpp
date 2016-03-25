@@ -165,7 +165,8 @@ BlockOperations::read(BlockTask* resp) {
                             volumeName,
                             blobName,
                             blobLength,
-                            off);
+                            off,
+                            true);
 }
 
 void
@@ -185,15 +186,8 @@ BlockOperations::write(typename req_api_type::shared_buffer_type& bytes, task_ty
     boost::shared_ptr<int32_t> objLength = boost::make_shared<int32_t>(length);
     boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
     off->value = offset;
-    amAsyncDataApi->updateBlobOnce(reqId,
-                                   domainName,
-                                   volumeName,
-                                   blobName,
-                                   blobMode,
-                                   bytes,
-                                   objLength,
-                                   off,
-                                   emptyMeta);
+    amAsyncDataApi->updateBlobOnce(reqId, domainName, volumeName, blobName, blobMode,
+                                   bytes, objLength, off, emptyMeta, true);
 }
 
 void

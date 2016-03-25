@@ -24,8 +24,10 @@ BlockUpdate::BlockUpdate(offset_type const obj_off) :
 BlockUpdate::BlockUpdate(AmMultiReq* root,
                          offset_type const abs_off,
                          offset_type const obj_off,
-                         data_buf_type buf) :
+                         data_buf_type buf,
+                         bool const complete) :
     dirty(true),
+    object_complete(complete),
     object_data(buf),
     object_id(),
     object_offset(obj_off),
@@ -38,11 +40,11 @@ BlockUpdate::BlockUpdate(AmMultiReq* root,
 void
 BlockUpdate::rehash() {
     if (!dirty || !object_data) return;
-    if (0 == object_data->length()) {
-        object_id = ObjectID();
+    object_length = object_data->length();
+    if (0 == object_length) {
+        object_id = NullObjectID;
     } else {
-//        SCOPED_PERF_TRACEPOINT_CTX(objReq->hash_perf_ctx);
-        object_id = ObjectID(ObjIdGen::genObjectId(object_data->c_str(), object_data->length()));
+        object_id = ObjectID(ObjIdGen::genObjectId(object_data->c_str(), object_length));
     }
     dirty = false;
 }
@@ -59,9 +61,10 @@ BlockUpdate::operator>>(BlockUpdate& rhs) const
 BlockUpdate&
 BlockUpdate::operator<<(BlockUpdate& rhs)
 { 
-    if (object_data) {
-        // Make a copy of the buffer, it may be living in cache too!
+    // Just swap the buffer if this is a complete write
+    if (object_data && !rhs.object_complete) {
         if (cached) {
+            // Make a copy of the buffer to merge it may be living in cache too!
             object_data = boost::make_shared<data_type>(*object_data);
             cached = false;
         }
@@ -110,8 +113,6 @@ AmBlockLayer::~AmBlockLayer() = default;
 void
 AmBlockLayer::putBlobOnce(AmRequest *amReq) {
     auto blobReq = static_cast<PutBlobReq*>(amReq);
-    auto const& obj_size    = blobReq->object_size;
-    auto const blob_name = blobReq->getBlobName();
     std::deque<BlockUpdate> needed_offsets;
     std::deque<BlockUpdate> ready_to_put;
 
@@ -119,7 +120,10 @@ AmBlockLayer::putBlobOnce(AmRequest *amReq) {
     // *this* thread should enqueue.
     auto objects = split_update(blobReq, needed_offsets, ready_to_put);
     if (0 == objects) {
+        auto aligned_off = (blobReq->blob_offset / blobReq->object_size) * blobReq->object_size;
         auto catReq = new UpdateCatalogReq(blobReq, true);
+        catReq->metadata->insert(blobReq->metadata->begin(), blobReq->metadata->end());
+        catReq->volInfoCopy(blobReq);
         AmDataProvider::updateCatalog(catReq);
         return;
     }
@@ -173,7 +177,7 @@ AmBlockLayer::getBlobCb(AmRequest* amReq, Error const error) {
                 dispatchPut(blobReq, update);
             } else if (sector_type::queue_result_type::Finished == result) {
                 for (auto req : update.request_set()) {
-                    AmDataProvider::unknownTypeCb(req, update.result());
+                    AmDataProvider::putBlobOnceCb(req, update.result());
                 }
                 dispatchReads(blobReq, need_dispatch);
             }
@@ -202,7 +206,7 @@ AmBlockLayer::putObjectCb(AmRequest* amReq, Error const error) {
                 for (auto part_update : need_dispatch) {
                     catReq->object_list.emplace(part_update.id(),
                                                 std::make_pair(part_update.offset(),
-                                                               blobReq->object_size));
+                                                               part_update.objectLength()));
                 }
                 for (auto req : need_dispatch.front().request_set()) {
                     auto pReq = static_cast<PutBlobReq*>(req);
@@ -216,7 +220,7 @@ AmBlockLayer::putObjectCb(AmRequest* amReq, Error const error) {
             }
         } else if (sector_type::queue_result_type::Finished == result) {
             for (auto req : update.request_set()) {
-                AmDataProvider::unknownTypeCb(req, update.result());
+                AmDataProvider::putBlobOnceCb(req, update.result());
             }
             dispatchReads(blobReq, need_dispatch);
         }
@@ -246,7 +250,7 @@ AmBlockLayer::updateCatalogCb(AmRequest* amReq, Error const error)  {
             auto result = offset_queue->catalog_resp(update, need_dispatch, err);
             err = update.result();
             for (auto req : update.request_set()) {
-                AmDataProvider::unknownTypeCb(req, err);
+                AmDataProvider::putBlobOnceCb(req, err);
             }
             // If the update to the offset failed, we'll get back some Gets that
             // need getting, otherwise we'll get back puts that need putting
@@ -257,6 +261,11 @@ AmBlockLayer::updateCatalogCb(AmRequest* amReq, Error const error)  {
             } else {
                 dispatchReads(blobReq, need_dispatch);
             }
+        }
+    } else {
+        // This was an empty write, just respond to the parent
+        if (blobReq->parent) {
+            AmDataProvider::putBlobOnceCb(blobReq->parent, err);
         }
     }
     delete blobReq;
@@ -315,8 +324,9 @@ AmBlockLayer::split_update(PutBlobReq* blobReq, std::deque<BlockUpdate>& needed,
         auto offset_queue = lookup_offset_queue(blobReq->io_vol_id, blob_name, true);
 
         // Queue the update against the map
-        BlockUpdate update {blobReq, aligned_off, part_off, objBuf};
-        auto result = offset_queue->queue_update(update, (obj_size == part_length));
+        auto complete = (blob::TRUNCATE == blobReq->blob_mode ? true : (obj_size == part_length));
+        BlockUpdate update {blobReq, aligned_off, part_off, objBuf, complete};
+        auto result = offset_queue->queue_update(update);
         if (sector_type::queue_result_type::MergedEntry != result) {
             // This is a RMW and we don't have the data already
             if (sector_type::queue_result_type::FirstEntry == result) {
@@ -338,7 +348,7 @@ AmBlockLayer::dispatchPut(AmRequest* parent_request, BlockUpdate& need_dispatch)
                                    parent_request->getBlobName(),
                                    need_dispatch.data(),
                                    need_dispatch.id(),
-                                   parent_request->object_size);
+                                   need_dispatch.objectLength());
     putReq->blob_offset = need_dispatch.offset();
     putReq->volInfoCopy(parent_request);
     AmDataProvider::putObject(putReq);

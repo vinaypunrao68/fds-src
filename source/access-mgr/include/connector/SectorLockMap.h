@@ -23,12 +23,12 @@ struct SectorLock {
 
     enum class QueueResult { FirstEntry, MergedEntry, Delayed, Finished, Missing };
 
-    QueueResult queue_update(entry_type& e, bool const complete) {
+    QueueResult queue_update(entry_type& e) {
         if (!waiting_for_get.empty()) {
             // Queue with others
             waiting_for_get.push_back(e);
             return QueueResult::Delayed;
-        } else if (!complete || unstable_data) {
+        } else if (!e.objectComplete() || unstable_data) {
             // Set as first request, may or may not need to get data
             waiting_for_get.push_back(e);
             return (unstable_data ? QueueResult::Delayed : QueueResult::FirstEntry);
@@ -164,13 +164,14 @@ struct SectorLockMap {
     {}
     ~SectorLockMap() {}
 
-    queue_result_type queue_update(entry_type& e, bool const complete) {
+    queue_result_type queue_update(entry_type& e) {
+        LOGIO << "Queuing write to: 0x" << std::hex << e.offset();
         queue_result_type result = queue_result_type::Delayed;
         std::lock_guard<lock_type> g(map_lock);
         for (auto req : e.request_set()) {
             request_map[req].insert(e.offset());
         }
-        return sector_map[e.offset()].queue_update(e, complete);
+        return sector_map[e.offset()].queue_update(e);
     }
 
     queue_result_type read_resp(entry_type& response,

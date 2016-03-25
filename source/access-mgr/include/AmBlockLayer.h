@@ -33,7 +33,8 @@ struct BlockUpdate {
     inline BlockUpdate(AmMultiReq* root,
                        offset_type const abs_off,
                        offset_type const obj_off,
-                       data_buf_type buf);
+                       data_buf_type buf,
+                       bool const complete = false);
     BlockUpdate(BlockUpdate const& rhs) = default;
     BlockUpdate& operator=(BlockUpdate const& rhs) = default;
     BlockUpdate(BlockUpdate&& rhs) = default;
@@ -66,9 +67,15 @@ struct BlockUpdate {
     req_set_type const& request_set() const
     { return notify_set; }    
 
+    bool objectComplete() const { return object_complete; }
+
+    size_t objectLength() const { return object_length; }
+
  private:
     bool dirty {false};
     bool cached {false};
+    bool object_complete {false};
+    size_t object_length {0};
     data_buf_type object_data;
     ObjectID object_id;
     offset_type object_offset {0};

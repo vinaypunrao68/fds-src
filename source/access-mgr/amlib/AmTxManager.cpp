@@ -402,7 +402,6 @@ AmTxManager::getBlob(AmRequest *amReq) {
 
     // If this is a large read, the number of end offset needs to encompass
     // the extra objects required.
-    amReq->object_size = blobReq->object_size;
     if (blobReq->object_size < amReq->data_len) {
         auto const extra_objects = (amReq->data_len / blobReq->object_size) - 1
                                  + ((0 != amReq->data_len % blobReq->object_size) ? 1 : 0);

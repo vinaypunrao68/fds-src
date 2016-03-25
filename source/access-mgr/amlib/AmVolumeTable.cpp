@@ -301,6 +301,10 @@ AmVolumeTable::read(AmRequest* amReq, void (AmDataProvider::*func)(AmRequest*)) 
     if (vol) {
         amReq->setVolId(vol->voldesc->GetID());
         amReq->object_size = vol->voldesc->maxObjSizeInBytes;
+        if (!amReq->absolute_offset) {
+            amReq->blob_offset *= amReq->object_size;
+            amReq->absolute_offset = true;
+        }
         amReq->page_out_cache = vol->cacheable();
         amReq->forced_unit_access = !vol->cacheable();
         amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
@@ -323,6 +327,10 @@ AmVolumeTable::write(AmRequest* amReq, void (AmDataProvider::*func)(AmRequest*))
         amReq->setVolId(vol->voldesc->GetID());
         if (vol->writable()) {
             amReq->object_size = vol->voldesc->maxObjSizeInBytes;
+            if (!amReq->absolute_offset) {
+                amReq->blob_offset *= amReq->object_size;
+                amReq->absolute_offset = true;
+            }
             amReq->page_out_cache = vol->cacheable();
             amReq->forced_unit_access = !vol->cacheable();
             amReq->io_req_id = nextIoReqId.fetch_add(1, std::memory_order_relaxed);
