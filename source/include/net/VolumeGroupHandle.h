@@ -152,6 +152,9 @@ struct VolumeGroupRequest : MultiEpSvcRequest {
                         VolumeGroupHandle *groupHandle);
     virtual ~VolumeGroupRequest();
 
+    virtual void invoke() override;
+    void complete(const Error& error) override;
+
     virtual std::string logString() override;
 
     VolumeGroupHandle          *groupHandle_; 
@@ -170,7 +173,6 @@ struct VolumeGroupRequest : MultiEpSvcRequest {
 struct VolumeGroupBroadcastRequest : VolumeGroupRequest {
     /* Constructors inherited */
     using VolumeGroupRequest::VolumeGroupRequest;
-    virtual void invoke() override;
     virtual void handleResponse(SHPTR<fpi::AsyncHdr>& header,
                                 SHPTR<std::string>& payload) override;
  protected:
@@ -183,13 +185,11 @@ struct VolumeGroupBroadcastRequest : VolumeGroupRequest {
 struct VolumeGroupFailoverRequest : VolumeGroupRequest {
     /* Constructors inherited */
     using VolumeGroupRequest::VolumeGroupRequest;
-    virtual void invoke() override;
     virtual void handleResponse(SHPTR<fpi::AsyncHdr>& header,
                                 SHPTR<std::string>& payload) override;
     inline void setAvailableReplicas(const std::vector<VolumeReplicaHandle> &replicas) {
         availableReplicas_ = replicas;
     }
-
 
  protected:
     virtual void invokeWork_() override;
@@ -318,6 +318,9 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     inline uint32_t getFunctionalReplicasCnt() const { return functionalReplicas_.size(); }
     std::string logString() const;
     inline int32_t getRefCnt() const { return refCnt_; }
+    inline bool isSynchronized() const {
+        return std::this_thread::get_id() == threadId_;
+    }
 
  protected:
     template<class MsgT, class ReqT>
@@ -375,6 +378,11 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     void closeHandle_();
 
     SynchronizedTaskExecutor<uint64_t>  *taskExecutor_;
+    /* ID of the thread on which all work related to this handle is done on.
+     * Cached here for ensuring all synchronized tasks are done on this thread id 
+     */
+    std::thread::id                     threadId_;
+
     SvcRequestPool                      *requestMgr_;
     VolumeGroupHandleListener           *listener_ {nullptr};
     VolumeReplicaHandleList             functionalReplicas_;
