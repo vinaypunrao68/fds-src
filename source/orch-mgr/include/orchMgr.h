@@ -17,7 +17,7 @@
 #include <fds_typedefs.h>
 #include <util/Log.h>
 #include <concurrency/Mutex.h>
-#include <omutils.h>
+#include <OmIntUtilApi.h>
 #include <OmVolume.h>
 #include <OMMonitorWellKnownPMs.h>
 #include <OmVolPolicy.hpp>
@@ -84,7 +84,12 @@ class OrchMgr: public SvcProcess {
     int         conf_port_num; /* config port to listen for cli commands */
     int         ctrl_port_num; /* control port (register node + config cmds from AM) */
     std::string stor_prefix;
+
+    /*
+     * Test related
+     */
     fds_bool_t  test_mode;
+    std::atomic<bool> terminateTest;
 
     /* policy manager */
     VolPolicyMgr                    *policy_mgr;
@@ -139,6 +144,8 @@ class OrchMgr: public SvcProcess {
     void                     defaultS3BucketPolicy();
     DmtColumnPtr             getDMTNodesForVolume(fds_volid_t volId);
     kvstore::ConfigDB*       getConfigDB();
+    bool                     getTestMode();
+    void                     testTerminate();
 
     static VolPolicyMgr      *om_policy_mgr();
     static const std::string &om_stor_prefix();
