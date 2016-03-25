@@ -247,8 +247,13 @@ void AmProcessor_impl::flushVolume(AmRequest* req, std::string const& vol) {
 
 VolumeDesc* AmProcessor_impl::getVolume(fds_volid_t const vol_uuid) const {
     auto volTable = dynamic_cast<AmVolumeTable*>(_next_in_chain.get());
-    if (nullptr == volTable) return nullptr;
-    else return volTable->getVolume(vol_uuid)->voldesc;
+    if (nullptr == volTable) {
+        return nullptr;
+    } else {
+        auto vol = volTable->getVolume(vol_uuid);
+        if (nullptr == vol) return nullptr;
+        else return vol->voldesc;
+    }
 }
 
 Error
