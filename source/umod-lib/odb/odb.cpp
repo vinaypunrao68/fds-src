@@ -12,7 +12,7 @@
 namespace fds {
 namespace osm {
 
-#define WRITE_BUFFER_SIZE   50 * 1024 * 1024;
+#define WRITE_BUFFER_SIZE   4 * 1024 * 1024;
 #define FILTER_BITS_PER_KEY 128  // Todo: Change this to the max size of DiskLoc
 
 int doCopyFile(void * arg, const char* fname, fds_uint64_t length) {
