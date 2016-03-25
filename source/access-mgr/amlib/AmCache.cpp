@@ -210,7 +210,7 @@ AmCache::getObject(GetBlobReq* blobReq,
 
 void
 AmCache::getObjectCb(AmRequest* amReq, Error const error) {
-    auto const& obj_id = *static_cast<GetObjectReq*>(amReq)->obj_id;
+    auto const obj_id = *static_cast<GetObjectReq*>(amReq)->obj_id;
     std::unique_ptr<std::deque<GetObjectReq*>> queue;
     {
         // Find the waiting get request queue
@@ -232,7 +232,7 @@ AmCache::getObjectCb(AmRequest* amReq, Error const error) {
     // data member from the first request (the one that was actually dispatched)
     // and populate the volume's cache
     auto buf = queue->front()->obj_data;
-    for (auto& objReq : *queue) {
+    for (auto objReq : *queue) {
         if (error.ok()) {
             objReq->obj_data = buf;
             object_cache.add_dirty(objReq->io_vol_id, obj_id, objReq->obj_data);
