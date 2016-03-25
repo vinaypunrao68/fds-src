@@ -29,7 +29,8 @@ OrchMgr::OrchMgr(int argc, char *argv[], OM_Module *omModule, bool initAsModule,
       ctrl_port_num(0),
       test_mode(testMode),
       deleteScheduler(this),
-      enableTimeline(true)
+      enableTimeline(true),
+      terminateTest(false)
 {
     om_mutex = new fds_mutex("OrchMgrMutex");
     fds::gl_orch_mgr = this;
@@ -248,9 +249,9 @@ int OrchMgr::run()
         deleteScheduler.start();
         runConfigService(this);
     } else {
-        // just sleep for the duration of the test
-        while (true) {
-            sleep(60);
+        // loop until the test sends the terminate call
+        while (!terminateTest) {
+            sleep(5);
         }
     }
     return 0;
@@ -658,6 +659,17 @@ DmtColumnPtr OrchMgr::getDMTNodesForVolume(fds_volid_t volId) {
 
 kvstore::ConfigDB* OrchMgr::getConfigDB() {
     return configDB;
+}
+
+bool OrchMgr::getTestMode()
+{
+    return test_mode;
+}
+
+void OrchMgr::testTerminate()
+{
+    LOGNORMAL << "Terminating test condition!";
+    terminateTest = true;
 }
 
 OrchMgr *gl_orch_mgr;
