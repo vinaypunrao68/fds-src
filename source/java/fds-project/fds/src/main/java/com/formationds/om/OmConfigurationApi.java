@@ -24,7 +24,8 @@ import com.formationds.util.thrift.CachedConfiguration;
 import com.formationds.util.thrift.ThriftClientFactory;
 import com.google.common.collect.Lists;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.apache.thrift.TException;
 
 import java.util.ArrayList;
@@ -33,13 +34,13 @@ import java.util.List;
 import java.util.Optional;
 
 public class OmConfigurationApi implements com.formationds.util.thrift.ConfigurationApi {
-    private static final Logger LOG = Logger.getLogger( OmConfigurationApi.class );
+    private static final Logger LOG = LogManager.getLogger( OmConfigurationApi.class );
 
     private final ThriftClientFactory<ConfigurationService.Iface> configClientFactory;
     private       CachedConfiguration                             cache;
 
     private StatStreamRegistrationHandler statStreamRegistrationHandler;
-    
+
     private RedisSingleton redisSingleton = RedisSingleton.INSTANCE;
 
     public OmConfigurationApi( ThriftClientFactory<Iface> configClientFactory ) throws TException {
@@ -84,7 +85,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
      */
     @Override
     public Version getVersion() throws ApiException, TException {
-        redisSingleton.getRedisLock();  
+        redisSingleton.getRedisLock();
         Version version = getConfig().getVersion();
         redisSingleton.releaseRedisLock();
         return version;
@@ -979,7 +980,7 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
                                               subType,
                                               schedType,
                                               intervalSize);
-        redisSingleton.releaseRedisLock(); 
+        redisSingleton.releaseRedisLock();
         EventManager.notifyEvent(OmEvents.CREATE_SUBSCRIPTION,
                                  subName,
                                  tenantID,

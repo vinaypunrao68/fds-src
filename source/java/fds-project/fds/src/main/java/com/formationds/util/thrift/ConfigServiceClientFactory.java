@@ -6,14 +6,14 @@ package com.formationds.util.thrift;
 import com.formationds.apis.ConfigurationService;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.protocol.commonConstants;
-import org.apache.log4j.Logger;
-import org.apache.thrift.TException;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  *
  */
 public class ConfigServiceClientFactory {
-    protected static final Logger LOG = Logger.getLogger(ThriftClientFactory.class);
+    protected static final Logger LOG = LogManager.getLogger(ThriftClientFactory.class);
 
     /**
      * Create with default settings.  Must use #getClient(host, port) to access the client

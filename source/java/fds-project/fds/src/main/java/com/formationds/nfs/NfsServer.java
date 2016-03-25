@@ -9,7 +9,8 @@ import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.RealAsyncAm;
 import com.formationds.xdi.XdiClientFactory;
 import com.formationds.xdi.XdiConfigurationApi;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.dcache.nfs.ExportFile;
 import org.dcache.nfs.v3.MountServer;
 import org.dcache.nfs.v4.CustomNfsv4OperationFactory;
@@ -27,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 
 
 public class NfsServer {
-    private static final Logger LOG = Logger.getLogger(NfsServer.class);
+    private static final Logger LOG = LogManager.getLogger(NfsServer.class);
 
     public static void main(String[] args) throws Exception {
         if (args.length != 2) {

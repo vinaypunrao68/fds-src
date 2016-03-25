@@ -1,12 +1,13 @@
-package com.formationds.demo;
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+package com.formationds.demo;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 public class Stoppable implements Runnable {
-    private static final Logger LOG = Logger.getLogger(Stoppable.class);
+    private static final Logger LOG = LogManager.getLogger(Stoppable.class);
 
     private String name;
     private Action action;

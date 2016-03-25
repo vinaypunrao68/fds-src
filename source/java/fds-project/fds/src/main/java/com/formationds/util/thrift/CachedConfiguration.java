@@ -14,7 +14,8 @@ import com.formationds.protocol.IScsiTarget;
 import com.formationds.protocol.NfsOption;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.apache.thrift.TException;
 
 import java.util.ArrayList;
@@ -31,7 +32,7 @@ import java.util.stream.Collectors;
 
 public class CachedConfiguration {
 
-    private static final Logger LOG = Logger.getLogger(CachedConfiguration.class);
+    private static final Logger LOG = LogManager.getLogger(CachedConfiguration.class);
 
     private final ConfigurationService.Iface config;
 
@@ -420,10 +421,10 @@ public class CachedConfiguration {
     public Optional<Tenant> tenantFor(long userId) {
         synchronized (tenantsById) {
             if ( tenantsByUser.containsKey( userId ) ) {
-            	
+
                 long tenantId = tenantsByUser.get( userId );
                 Tenant tenant = tenantsById.get( tenantId );
-                
+
                 // cannot set an optional to null
                 if ( tenant == null ){
                 	return Optional.empty();
@@ -431,7 +432,7 @@ public class CachedConfiguration {
                 else {
                 	return Optional.of( tenantsById.get( tenantId ) );
                 }
-                
+
             } else {
                 return Optional.empty();
             }
