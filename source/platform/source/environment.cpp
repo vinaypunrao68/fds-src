@@ -15,6 +15,8 @@ namespace fds {
 Environment* Environment::e = 0;
 
 void Environment::initialize() {
+    GLOGDEBUG << "Initializeing environment variable configurations";
+
     auto config(MODULEPROVIDER()->get_conf_helper());
     config.set_base_path("fds.pm.environment");
 
@@ -48,14 +50,14 @@ void Environment::ingest(int idx, std::string str){
     EnvironmentMap& env = getEnvironmentForService(idx);
 
     typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
-      boost::char_separator<char> sep(",=");
+    boost::char_separator<char> sep(",=");
 
-      tokenizer tokens(str, sep);
+    tokenizer tokens(str, sep);
 
-      for (tokenizer::iterator tok_iter = tokens.begin(); tok_iter != tokens.end(); ++tok_iter) {
-          // NOTE: this is pretty disgusting. sorry :'(
-          env[*tok_iter] = ++tok_iter != tokens.end() ? *tok_iter : "";
-      }
+    for (tokenizer::iterator tok_iter = tokens.begin(); tok_iter != tokens.end(); ++tok_iter) {
+        // NOTE: this is pretty disgusting. sorry :'(
+        env[*tok_iter] = (++tok_iter != tokens.end()) ? *tok_iter : "";
+    }
 }
 
 EnvironmentMap& Environment::getEnvironmentForService(int service) {
@@ -65,13 +67,14 @@ EnvironmentMap& Environment::getEnvironmentForService(int service) {
 void Environment::setEnvironment(EnvironmentMap& env) {
     if (env.size() != 0) {
         for(auto i : env) {
-            LOGDEBUG << "Launching with env var " << i.first << "=" << i.second;
+            GLOGDEBUG << "Launching with env var " << i.first << "=" << i.second;
             setenv(i.first.c_str(), i.second.c_str(), 1);
         }
     }
 }
 
 void Environment::setEnvironment(int service) {
+    GLOGDEBUG << "Called for service index: " << service;
     setEnvironment(getEnvironmentForService(service));
 }
 
