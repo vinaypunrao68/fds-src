@@ -19,23 +19,24 @@ void Environment::initialize() {
     config.set_base_path("fds.pm.environment");
 
     std::string temp;
+    std::string dummy("");
 
-    temp = config.get<std::string>("am");
+    temp = config.get<std::string>("am", dummy);
     if (temp.size() != 0) {
         ingest(pm::BARE_AM, temp);
     }
 
-    temp = config.get<std::string>("dm");
+    temp = config.get<std::string>("dm", dummy);
     if (temp.size() != 0) {
         ingest(pm::DATA_MANAGER, temp);
     }
 
-    temp = config.get<std::string>("sm");
+    temp = config.get<std::string>("sm", dummy);
     if (temp.size() != 0) {
         ingest(pm::STORAGE_MANAGER, temp);
     }
 
-    temp = config.get<std::string>("xdi");
+    temp = config.get<std::string>("xdi", dummy);
     if (temp.size() != 0) {
         ingest(pm::JAVA_AM, temp);
     }
@@ -64,6 +65,7 @@ EnvironmentMap& Environment::getEnvironmentForService(int service) {
 void Environment::setEnvironment(EnvironmentMap& env) {
     if (env.size() != 0) {
         for(auto i : env) {
+            LOGDEBUG << "Launching with env var " << i.first << "=" << i.second;
             setenv(i.first.c_str(), i.second.c_str(), 1);
         }
     }
