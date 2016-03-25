@@ -846,7 +846,6 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
      */
     void ListServices(std::vector<fpi::FDSP_Node_Info_Type>& vec, boost::shared_ptr<int32_t>& ignore) {
         boost::shared_ptr<std::string> ldomain = boost::make_shared<std::string>("local");
-        LOGDEBUG << "list services!!!";
         listLocalDomainServices(vec, ldomain);
         return;
     }
