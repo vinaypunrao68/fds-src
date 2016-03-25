@@ -14,7 +14,7 @@ then
     # ActiveMigration is disabled for master merge because scenarios are not supported with VG enabled
     # As of 03/03/2016 only ActiveIORestartTest runs for master merges
     # For master mergess, disable some tests
-    DISABLED_SYSTEM_TEST_SCENARIO_LIST="ExpungeTest RestartDataPersistence ActiveIORndKillTest MultiAMVolOpsTest RestartClusterKillServices BuildSmokeTest_onpr QosTest ActiveMigration DmMigrationFailover SnapshotTest"
+    DISABLED_SYSTEM_TEST_SCENARIO_LIST="ExpungeTest RestartDataPersistence ActiveIORndKillTest MultiAMVolOpsTest RestartClusterKillServices BuildSmokeTest_onpr QosTest ActiveMigration DmMigrationFailover SnapshotTest VolumeChecker"
 fi
 
 for test_case in ${DISABLED_SYSTEM_TEST_SCENARIO_LIST}

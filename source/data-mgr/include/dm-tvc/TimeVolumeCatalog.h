@@ -17,6 +17,7 @@
 #include <util/Log.h>
 #include <util/timeutils.h>
 #include <concurrency/SynchronizedTaskExecutor.hpp>
+#include <gtest/gtest_prod.h>
 
 namespace fds {
 
@@ -103,6 +104,7 @@ class DmTimeVolCatalog : public HasModuleProvider,
      * @return none
      */
     void notifyVolCatalogSync(BlobTxList::const_ptr sycndTxList);
+
 
   protected:
     void createCommitLog(const VolumeDesc& voldesc);

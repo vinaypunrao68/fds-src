@@ -29,6 +29,8 @@ VolumeChecker::init(int argc, char **argv, bool initAsModule)
     auto svc_handler = boost::make_shared<VCSvcHandler>(this);
     auto svc_processor = boost::make_shared<fpi::PlatNetSvcProcessor>(svc_handler);
 
+    g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
+
     if (!populateVolumeList(argc, argv).OK()) {
         LOGERROR << "Unable to parse volume list. Not initializing";
         return;
@@ -45,11 +47,16 @@ VolumeChecker::init(int argc, char **argv, bool initAsModule)
                      argv,
                      initAsModule,
                      "platform.conf",
-                     "fds.checker",
+                     "fds.checker.",
                      "vc.log",
                      nullptr,
                      svc_handler,
                      processors);
+
+    if (!initAsModule) {
+        LOGDEBUG << "Starting modules";
+        start_modules();
+    }
 
     dmtMgr = MODULEPROVIDER()->getSvcMgr()->getDmtManager();
     dltMgr = MODULEPROVIDER()->getSvcMgr()->getDltManager();
@@ -98,6 +105,8 @@ VolumeChecker::getDLT()
 
 int
 VolumeChecker::run() {
+    int retCode = ERR_OK;
+
     if (!initCompleted) {
         return ERR_INVALID;
     } else {
@@ -113,12 +122,17 @@ VolumeChecker::run() {
     LOGNORMAL << "Running volume checker DM check (phase 1)";
     runPhase1();
 
+    if (currentStatusCode == VC_ERROR) {
+        LOGERROR << "Volume Checker experienced data inconsistency!";
+        retCode = ERR_CHECKSUM_MISMATCH;
+    }
+
     readyWaiter.done();
     if (waitForShutdown) {
         shutdownGate_.waitUntilOpened();
     }
     LOGNORMAL << "Shutting down volume checker";
-    return 0;
+    return retCode;
 }
 
 VolumeChecker::VcStatus
@@ -126,9 +140,8 @@ VolumeChecker::getStatus() {
     return (currentStatusCode);
 }
 
-Error
+void
 VolumeChecker::runPhase1() {
-    Error err(ERR_OK);
     currentStatusCode = VC_DM_HASHING;
 
     initialMsgTracker = new MigrationTrackIOReqs;
@@ -137,9 +150,13 @@ VolumeChecker::runPhase1() {
     if (!waitForVolChkMsg().OK()) {
         handleVolumeCheckerError();
     }
+    if (!checkDMHashQuorum().OK()) {
+        handleVolumeCheckerError();
+    } else {
+        currentStatusCode = VC_DM_DONE;
+        LOGNORMAL << "DM checks all succeeded";
+    }
     delete initialMsgTracker;
-
-    return err;
 }
 
 void
@@ -198,6 +215,7 @@ VolumeChecker::sendVolChkMsgsToDMs() {
 Error
 VolumeChecker::waitForVolChkMsg() {
     Error err(ERR_OK);
+
     fds_assert(initialMsgTracker);
     initialMsgTracker->waitForTrackIOReqs();
 
@@ -206,6 +224,13 @@ VolumeChecker::waitForVolChkMsg() {
             if (oneDMtoCheck.status == DmCheckerMetaData::NS_ERROR) {
                 err = ERR_INVALID;
                 break;
+            } else {
+                // Record this in hashQuorumCheckMap
+                ++hashQuorumCheckMap.left[oneDMtoCheck.hashResult];
+                LOGNOTIFY << "Received checker status " <<  oneDMtoCheck.status
+                          << " from  " << oneDMtoCheck.svcUuid << " with hash result: "
+                          << oneDMtoCheck.hashResult << " "
+                          << hashQuorumCheckMap.left[oneDMtoCheck.hashResult] << " times";
             }
         }
     }
@@ -214,7 +239,8 @@ VolumeChecker::waitForVolChkMsg() {
 
 void
 VolumeChecker::handleVolumeCheckerError() {
-    // TODO
+    // All we have to do now is to set the error code. More to come?
+    currentStatusCode = VC_ERROR;
 }
 
 void
@@ -238,6 +264,36 @@ VolumeChecker::DmCheckerMetaData::sendVolChkMsg(const EPSvcRequestRespCb &cb) {
      * DmIoVolumeCheck
      */
     status = NS_CONTACTED;
+}
+
+Error
+VolumeChecker::checkDMHashQuorum() {
+    Error err(ERR_OK);
+    bool noQuorum(false);
+    fds_assert(hashQuorumCheckMap.size() > 0);
+
+    if (hashQuorumCheckMap.size() > 1) {
+        // The 0th element of the map should be the one with the most count
+        auto firstIt = hashQuorumCheckMap.left.begin();
+        if (firstIt->second == 1) {
+            LOGERROR << "No quorum found";
+            noQuorum = true;
+        }
+
+        // All the DMs did not return the same hash
+        err = ERR_INVALID;
+        for (auto dmChecker : vgCheckerList) {
+            for (auto oneDMtoCheck : dmChecker.second) {
+                if (noQuorum) {
+                    oneDMtoCheck.status = DmCheckerMetaData::chkNodeStatus::NS_ERROR;
+                } else if (oneDMtoCheck.hashResult != firstIt->first) {
+                    LOGERROR << "Node: " << oneDMtoCheck.svcUuid << " is out of sync";
+                    oneDMtoCheck.status = DmCheckerMetaData::chkNodeStatus::NS_OUT_OF_SYNC;
+                }
+            }
+        }
+    }
+    return err;
 }
 
 
@@ -264,5 +320,4 @@ VolumeChecker::testVerifyCheckerListStatus(unsigned castCode) {
     }
     return ret;
 }
-
 } // namespace fds
