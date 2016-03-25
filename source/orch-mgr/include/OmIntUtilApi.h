@@ -144,9 +144,9 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
             svcLayerRecordFound = true;
         } else {
 
-            LOGWARN << "Could not find svcInfo for uuid:"
-                      << std::hex << svc_uuid << std::dec
-                      << " in the svcMap";
+            //LOGDEBUG << "Could not find svcInfo for uuid:"
+            //          << std::hex << svc_uuid << std::dec
+            //          << " in the svcMap";
 
             svcLayerInfoUpdate = incomingSvcInfo;
         }
@@ -163,9 +163,9 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
             dbRecordFound = true;
             dbInfoPtr = boost::make_shared<fpi::SvcInfo>(dbInfoUpdate);
         } else {
-            LOGWARN << "Could not find SvcInfo for uuid:"
-                    << std::hex << svc_uuid << std::dec
-                    << " in the OM's configDB";
+            //LOGDEBUG << "Could not find SvcInfo for uuid:"
+            //        << std::hex << svc_uuid << std::dec
+            //        << " in the OM's configDB";
 
             dbInfoUpdate    = incomingSvcInfo;
             dbInfoPtr = boost::make_shared<fpi::SvcInfo>(dbInfoUpdate);
@@ -445,9 +445,9 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
             dbInfoUpdate.svc_status = svc_status;
 
         } else {
-            LOGWARN << "Could not find SvcInfo for uuid:"
-                    << std::hex << svc_uuid << std::dec
-                    << " in the OM's configDB";
+            //LOGWARN << "Could not find SvcInfo for uuid:"
+            //        << std::hex << svc_uuid << std::dec
+            //        << " in the OM's configDB";
 
             dbInfoUpdate.svc_id.svc_uuid.svc_uuid = svc_uuid;
             dbInfoUpdate.svc_status    = svc_status;
@@ -475,9 +475,9 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
             svcLayerInfoUpdate.svc_status = svc_status;
 
         } else {
-            LOGWARN << "Could not find svcInfo for uuid:"
-                      << std::hex << svc_uuid << std::dec
-                      << " in the svcMap, generating new";
+            //LOGWARN << "Could not find svcInfo for uuid:"
+            //          << std::hex << svc_uuid << std::dec
+            //          << " in the svcMap, generating new";
 
             svcLayerInfoUpdate.svc_id.svc_uuid.svc_uuid = uuid.svc_uuid;
             svcLayerInfoUpdate.svc_status    = svc_status;
