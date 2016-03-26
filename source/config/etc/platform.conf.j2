@@ -32,7 +32,7 @@ fds: {
     	    /* Volume grouping allows IO to volumes to driven by a coordinator at AM */
     	    enable_volumegrouping = {{ ft_enable_volumegrouping }}
 	    /* Wheter to serialize reads when volume grouping is on */
-	    enable_volumegrouping_serializedreads = {{ ft_enable_volumegrouping_serializedreads }} 
+	    volumegrouping_serializedreads = {{ ft_volumegrouping_serializedreads }} 
             /* If volume grouping mode is on, calculate 1 DMT version once # of DMs have matched */
             volumegrouping_dm_cluster_size = {{ ft_dm_cluster_size }}
 

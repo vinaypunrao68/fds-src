@@ -1031,7 +1031,7 @@ int DataMgr::mod_init(SysParams const *const param)
     features.setVolumegroupingSerializedReadsEnabled(
         features.isVolumegroupingEnabled() &&
         MODULEPROVIDER()->get_fds_config()->get<bool>(
-            "fds.feature_toggle.common.enable_volumegrouping_serializedreads", false));
+            "fds.feature_toggle.common.volumegrouping_serializedreads", false));
     /**
      * FEATURE TOGGLE: Volume Open Support
      * Thu 02 Apr 2015 12:39:27 PM PDT
