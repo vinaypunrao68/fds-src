@@ -1637,6 +1637,10 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                       << dmSvcs.size() << " DMs. "
                       << smSvcs.size() << " SMs.";
 
+            // This should contain currently just the OM. Broadcast here first
+            // so that any PMs trying to send heartbeats to the OM will succeed
+            om_locDomain->om_bcast_svcmap();
+
             spoofRegisterSvcs(pmSvcs);
 
             handlePendingSvcRemoval(removedSvcs);
@@ -2033,6 +2037,11 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 
                     gl_orch_mgr->addToSendQ(msg, false);
 
+                    auto curTime         = std::chrono::system_clock::now().time_since_epoch();
+                    double timeInMinutes = std::chrono::duration<double,std::ratio<60>>(curTime).count();
+
+                    gl_orch_mgr->omMonitor->updateKnownPMsMap(svcInfo->svc_id.svc_uuid, timeInMinutes, true );
+
                 } else {
                     LOGDEBUG << "Platform Manager Service UUID ( "
                              << std::hex 
@@ -2045,11 +2054,9 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                     auto pmNodes = om_locDomain->om_pm_nodes();
                     auto pmAgent = OM_PmAgent::agt_cast_ptr(pmNodes->agent_info(node_uuid));
                     pmAgent->set_node_state(fpi::FDS_Node_Discovered);
-                }
-                auto curTime         = std::chrono::system_clock::now().time_since_epoch();
-                double timeInMinutes = std::chrono::duration<double,std::ratio<60>>(curTime).count();
 
-                gl_orch_mgr->omMonitor->updateKnownPMsMap(svcInfo->svc_id.svc_uuid, timeInMinutes, false );
+                    // DISCOVERED PMs will only be added to the well-known map when it is added
+                }
             } 
             else if ( isStorageMgrSvc( *svcInfo ) || isDataMgrSvc( *svcInfo ) ) 
             {    
@@ -2378,6 +2385,11 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                     << fds::logDetailedString( svc );
         }
     }
+
+    // We have to explicitly broadcast here because the ::updateSvcMaps function will not do it.
+    // That's because we don't want to spam the system with updates for every single svc state
+    // change. So do it for all svcs that have been spoofed
+    om_locDomain->om_bcast_svcmap();
 }
     
 

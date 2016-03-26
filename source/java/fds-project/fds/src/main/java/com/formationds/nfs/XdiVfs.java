@@ -268,7 +268,8 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
         String volumeName = exportResolver.volumeName(inode.exportIndex());
         String blobName = InodeMap.blobName(inode);
         try {
-            int read = chunker.read(DOMAIN, volumeName, blobName, exportResolver.objectSize(volumeName), data, offset, count);
+            long fileSize = target.get().getSize();
+            int read = chunker.read(DOMAIN, volumeName, blobName, fileSize, exportResolver.objectSize(volumeName), data, offset, count);
             counters.increment(Counters.Key.bytesRead, read);
             return read;
         } catch (Exception e) {

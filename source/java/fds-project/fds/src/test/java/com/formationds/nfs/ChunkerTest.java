@@ -11,7 +11,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.junit.Assert.*;
 
 public class ChunkerTest {
-
     public static final int MAX_OBJECT_SIZE = 1024;
     public static final String DOMAIN = "domain";
     public static final String VOLUME = "volume";
@@ -27,7 +26,7 @@ public class ChunkerTest {
         assertEquals(0, io.objectReads.get());
         assertEquals(1, io.objectWrites.get());
         byte[] dest = new byte[MAX_OBJECT_SIZE];
-        int read = chunker.read(DOMAIN, VOLUME, BLOB_NAME, MAX_OBJECT_SIZE, dest, 0, MAX_OBJECT_SIZE);
+        int read = chunker.read(DOMAIN, VOLUME, BLOB_NAME, MAX_OBJECT_SIZE, MAX_OBJECT_SIZE, dest, 0, MAX_OBJECT_SIZE);
         assertEquals(MAX_OBJECT_SIZE, read);
         assertArrayEquals(buf, dest);
     }
@@ -42,13 +41,20 @@ public class ChunkerTest {
     }
 
     @Test
+    public void testReadWayWayPastEnd() throws Exception {
+        assertEquals(0, chunker.read(DOMAIN, VOLUME, BLOB_NAME, 10, 1048576, new byte[4096], 21473722368l, 4096));
+    }
+
+    @Test
     public void testReadPastEnd() throws Exception {
         int length = MAX_OBJECT_SIZE * 2;
         byte[] buf = new byte[length];
         new Random().nextBytes(buf);
         chunker.write(DOMAIN, VOLUME, BLOB_NAME, MAX_OBJECT_SIZE, buf, 0, length, x -> null);
         byte[] dest = new byte[10];
-        int read = chunker.read(DOMAIN, VOLUME, BLOB_NAME, MAX_OBJECT_SIZE, dest, MAX_OBJECT_SIZE * 2, 10);
+        int read = chunker.read(DOMAIN, VOLUME, BLOB_NAME, MAX_OBJECT_SIZE, MAX_OBJECT_SIZE, dest, MAX_OBJECT_SIZE * 2, 10);
+        assertEquals(0, read);
+        read = chunker.read(DOMAIN, VOLUME, BLOB_NAME, MAX_OBJECT_SIZE, 1048576, new byte[4096], 21473722368l, 4096);
         assertEquals(0, read);
     }
 
@@ -59,7 +65,7 @@ public class ChunkerTest {
         new Random().nextBytes(buf);
         chunker.write(DOMAIN, VOLUME, BLOB_NAME, MAX_OBJECT_SIZE, buf, 0, length, x -> null);
         byte[] dest = new byte[10];
-        int read = chunker.read(DOMAIN, VOLUME, BLOB_NAME, MAX_OBJECT_SIZE, dest, MAX_OBJECT_SIZE - 5, 10);
+        int read = chunker.read(DOMAIN, VOLUME, BLOB_NAME, MAX_OBJECT_SIZE, MAX_OBJECT_SIZE, dest, MAX_OBJECT_SIZE - 5, 10);
         assertEquals(10, read);
     }
 
@@ -71,10 +77,20 @@ public class ChunkerTest {
         assertTrue(ofm.isPresent());
         assertEquals(arbitraryValue, ofm.get().get("key"));
         byte[] readBuf = new byte[length];
-        chunker.read(DOMAIN, VOLUME, BLOB_NAME, MAX_OBJECT_SIZE, readBuf, 0, length);
+        chunker.read(DOMAIN, VOLUME, BLOB_NAME, length, MAX_OBJECT_SIZE, readBuf, 0, length);
         assertArrayEquals(bytes, readBuf);
-        chunker.read(DOMAIN, VOLUME, BLOB_NAME, MAX_OBJECT_SIZE, readBuf, 0, length);
+        chunker.read(DOMAIN, VOLUME, BLOB_NAME, length, MAX_OBJECT_SIZE, readBuf, 0, length);
         assertArrayEquals(bytes, readBuf);
+    }
+
+    private static Random RNG = new Random();
+
+    @Before
+    public void setUp() throws Exception {
+        io = new CountingIo();
+        chunker = new Chunker(io);
+        io.writeMetadata(DOMAIN, VOLUME, BLOB_NAME, new HashMap<>(new HashMap<>()));
+        io.commitMetadata(DOMAIN, VOLUME, BLOB_NAME);
     }
 
     private byte[] randomBytes(int length) {
@@ -83,22 +99,12 @@ public class ChunkerTest {
         return bytes;
     }
 
-    private static Random RNG = new Random();
-
-    @Before
-    public void setUp() throws Exception {
-        io = new CountingIo(MAX_OBJECT_SIZE);
-        chunker = new Chunker(io);
-        io.writeMetadata(DOMAIN, VOLUME, BLOB_NAME, new HashMap<>(new HashMap<>()));
-        io.commitMetadata(DOMAIN, VOLUME, BLOB_NAME);
-    }
-
     private static class CountingIo extends MemoryIoOps {
         final AtomicLong objectReads;
         final AtomicLong objectWrites;
 
-        public CountingIo(int maxObjectSize) {
-            super(maxObjectSize);
+        public CountingIo() {
+            super();
             objectReads = new AtomicLong(0);
             objectWrites = new AtomicLong(0);
         }

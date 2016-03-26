@@ -143,8 +143,7 @@ class DiskScavenger {
      * Query and update disk stats (available size ,etc)
      * If GC is in progress, this method is noop
      */
-    fds_bool_t updateDiskStats(fds_bool_t verify_data,
-                               disk_compaction_done_handler_t done_hdlr);
+    fds_bool_t updateDiskStats();
 
     fds_bool_t isTokenCompacted(const fds_token_id& tok_id);
 
@@ -263,6 +262,9 @@ class ScavControl : public Module {
     * Get status of scrubber (enabled=true, disabled=false)
     */
     void getDataVerify(const fpi::CtrlQueryScrubberStatusRespPtr& statusResp);
+
+    // puts the start scavenger request in system q and returns
+    void scheduleScavengerStart();
 
     /**
      * Start scavenging

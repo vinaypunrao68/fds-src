@@ -28,10 +28,12 @@ using AddToVolumeGroupCb =
  * AM's DataProvider API
  * All service layers of AM from QoS to Dispatcher implement this interface
  */
-struct AmDataProvider : public HasModuleProvider
+struct AmDataProvider :
+    public std::enable_shared_from_this<AmDataProvider>,
+    public HasModuleProvider
 {
     explicit AmDataProvider(AmDataProvider* _prev,
-                            AmDataProvider* _next,
+                            std::shared_ptr<AmDataProvider> const& _next,
                             CommonModuleProviderIf* modProvider = nullptr) :
         HasModuleProvider(modProvider),
         _next_in_chain(_next),
@@ -230,7 +232,7 @@ struct AmDataProvider : public HasModuleProvider
     AmDataProvider* getNextInChain() const
     { return _next_in_chain.get(); }
 
-    std::unique_ptr<AmDataProvider> _next_in_chain {nullptr};
+    std::shared_ptr<AmDataProvider> _next_in_chain {nullptr};
     AmDataProvider* const _prev_in_chain {nullptr};
 
  protected:

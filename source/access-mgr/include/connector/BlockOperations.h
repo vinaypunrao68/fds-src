@@ -1,22 +1,19 @@
 /*
- * Copyright 2014 by Formation Data Systems, Inc.
+ * Copyright 2014-2016 by Formation Data Systems, Inc.
  */
 #ifndef SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCKOPERATIONS_H_
 #define SOURCE_ACCESS_MGR_INCLUDE_CONNECTOR_BLOCKOPERATIONS_H_
 
 #include <map>
+#include <mutex>
 #include <string>
 #include <unordered_map>
-#include <utility>
-#include <vector>
 
 #include <boost/enable_shared_from_this.hpp>
-#include <boost/lockfree/spsc_queue.hpp>
 
 #include "fdsp/common_types.h"
 #include "AmAsyncDataApi.h"
 #include "connector/BlockTask.h"
-#include "connector/SectorLockMap.h"
 
 namespace fds {
 
@@ -28,10 +25,7 @@ enum class BlockError : uint8_t {
 /**
  * The BlockOperations class provides a simple interface to a dynamic connector
  * allowing block like semantics. The interface consists of three main calls to
- * attach the volume, read data and write data. The RMW logic and operation
- * rollup all happens in here allowing block connectors to issue their requests
- * as fast as possible without having to deal with consistency themselves and
- * map I/O to AmAsyncDataApi calls.
+ * attach the volume, read data and write data.
  */
 class BlockOperations
     :   public boost::enable_shared_from_this<BlockOperations>,
@@ -45,8 +39,6 @@ class BlockOperations
     using error_type = resp_api_type::error_type;
     using size_type = resp_api_type::size_type;
 
-
-    typedef SectorLockMap<handle_type, 1024> sector_type;
     typedef std::unordered_map<int64_t, task_type*> response_map_type;
   public:
 
@@ -101,13 +93,6 @@ class BlockOperations
   private:
     void finishResponse(task_type* response);
 
-    void drainUpdateChain(uint64_t const offset,
-                          boost::shared_ptr<std::string> buf,
-                          handle_type const* queued_handle_ptr,
-                          fpi::ErrorCode const error);
-
-    uint32_t getObjectCount(uint32_t length, uint64_t offset);
-
     // api we've built
     std::unique_ptr<req_api_type> amAsyncDataApi;
     boost::shared_ptr<std::string> volumeName;
@@ -128,8 +113,6 @@ class BlockOperations
     std::mutex respLock;
     response_map_type responses;
 
-    sector_type sector_map;
-
     // AmAsyncResponseApi un-implemented responses
     void abortBlobTxResp       (const error_type &, handle_type const&) override {}
     void commitBlobTxResp      (const error_type &, handle_type const&) override {}
@@ -144,8 +127,6 @@ class BlockOperations
     void volumeStatusResp      (const error_type &, handle_type const&, resp_api_type::shared_status_type&) override {}  // NOLINT
     void setVolumeMetadataResp (const error_type &, handle_type const&) override {}  // NOLINT
     void getVolumeMetadataResp (const error_type &, handle_type const&, resp_api_type::shared_meta_type&) override {}  // NOLINT
-
-    void retryLoop();
 };
 
 }  // namespace fds

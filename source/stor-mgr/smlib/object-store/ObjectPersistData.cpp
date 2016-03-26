@@ -614,7 +614,8 @@ ObjectPersistData::scavengerControlCmd(SmScavengerCmd* scavCmd) {
             scavenger->disableScavenger(scavCmd->initiator);
             break;
         case SmScavengerCmd::SCAV_START:
-            scavenger->startScavengeProcess();
+            // scavenger->startScavengeProcess();
+            scavenger->scheduleScavengerStart();
             break;
         case SmScavengerCmd::SCAV_STOP:
             scavenger->stopScavengeProcess();

@@ -100,7 +100,7 @@ public class DeferredIoOpsTest {
         deferredIo.writeObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), FdsObject.wrap(bytes, OBJECT_SIZE));
         deferredIo.commitObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0));
         FdsObject fdsObject = backend.readCompleteObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), OBJECT_SIZE);
-        assertArrayEquals(bytes, fdsObject.toByteArray());
+        assertArrayEquals(bytes, fdsObject.bytes());
     }
 
     @Test
@@ -112,14 +112,14 @@ public class DeferredIoOpsTest {
         byte[] bytes = ByteBufferUtility.randomBytes(OBJECT_SIZE).array();
         deferredIo.writeObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), FdsObject.wrap(bytes, OBJECT_SIZE));
         FdsObject fdsObject = deferredIo.readCompleteObject(DOMAIN, VOLUME, BLOB, new ObjectOffset(0), OBJECT_SIZE);
-        assertArrayEquals(bytes, fdsObject.toByteArray());
+        assertArrayEquals(bytes, fdsObject.bytes());
 
         deferredIo.renameBlob(DOMAIN, VOLUME, BLOB, "schmoops");
         fdsObject = backend.readCompleteObject(DOMAIN, VOLUME, "schmoops", new ObjectOffset(0), OBJECT_SIZE);
-        assertArrayEquals(bytes, fdsObject.toByteArray());
+        assertArrayEquals(bytes, fdsObject.bytes());
 
         fdsObject = backend.readCompleteObject(DOMAIN, VOLUME, "schmoops", new ObjectOffset(0), OBJECT_SIZE);
-        assertArrayEquals(bytes, fdsObject.toByteArray());
+        assertArrayEquals(bytes, fdsObject.bytes());
     }
 
     @Test
@@ -154,7 +154,7 @@ public class DeferredIoOpsTest {
 
     @Before
     public void setUp() throws Exception {
-        backend = new MemoryIoOps(MAX_OBJECT_SIZE);
+        backend = new MemoryIoOps();
         deferredIo = new DeferredIoOps(backend, v -> MAX_OBJECT_SIZE);
     }
 }

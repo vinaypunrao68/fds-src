@@ -740,7 +740,21 @@ void OmSvcHandler<DataStoreT>::healthReportError(fpi::FDSP_MgrIdType &svc_type,
             LOGNOTIFY << "Received Flapping error from PM for service:"
                       << std::hex << uuid.uuid_get_val() << std::dec
                       << ", setting to state INACTIVE_FAILED";
-            domain->om_change_svc_state_and_bcast_svcmap( msg->healthReport.serviceInfo, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
+
+
+            fpi::SvcInfo svcInfo;
+            bool ret = gl_orch_mgr->getConfigDB()->getSvcInfo(uuid.uuid_get_val(), svcInfo);
+
+            if (!ret) {
+                // Should NEVER be the case. Updating with received healthReport svcInfo
+                // is risky because the svcInfo is likely incomplete
+                LOGWARN << "Received flapping error for svc:" << std::hex
+                        << uuid.uuid_get_val() << std::dec << " but svc does not exist"
+                        << " in DB, will not update!!";
+                return;
+            }
+
+            domain->om_change_svc_state_and_bcast_svcmap( svcInfo, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
 
         } else if (status == fpi::SVC_STATUS_INACTIVE_FAILED) {
             LOGNOTIFY << "Flapping service:"<< std::hex << uuid.uuid_get_val() << std::dec
