@@ -840,6 +840,8 @@ DataPlacement::undoTargetDltCommit() {
             if ( commitedDlt != DLT_VER_INVALID )
             {
                 rollbackNeeded = true;
+            } else {
+                LOGNOTIFY << "No committed DLT yet, nothing to rollback";
             }
         }
 
