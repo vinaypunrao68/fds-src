@@ -921,6 +921,9 @@ DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     OM_Module *om = OM_Module::om_singleton();
     DataPlacement *dp = om->om_dataplace_mod();
     fds_verify(dp != NULL);
+
+    fds_bool_t rollbackNeeded = false;
+
     if (dp->hasNoTargetDlt()) {
         LOGNORMAL << "No target DLT computed/commited or new DLT was already commited"
                   << ", nothing to recover";
@@ -946,7 +949,7 @@ DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         // which have already been set to what they should be in ::loadDltsFromConfigDb.
         // The "next" version will be explicitly cleared at the end of error mode
         if ( !OmExtUtilApi::getInstance()->isSMAbortAfterRestartTrue() ) {
-            dp->undoTargetDltCommit();
+            rollbackNeeded = dp->undoTargetDltCommit();
         }
 
         // we already computed target DLT, so most likely sent start migration msg
@@ -969,7 +972,7 @@ DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
 
         // send dlt commit to AMs and DMs if target was commited
         fds_uint32_t commitCnt = 0;
-        if (!dp->hasNonCommitedTarget()) {
+        if (rollbackNeeded) {
             // has target DLT (see the first if) and it is commited
             commitCnt = dom_ctrl->om_bcast_dlt(dp->getCommitedDlt(), false, true, true);
             dst.commitDltAcksToWait = 0;

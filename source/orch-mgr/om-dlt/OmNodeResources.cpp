@@ -3673,7 +3673,12 @@ OM_NodeContainer::om_bcast_dlt(const DLT* curDlt,
     LOGNOTIFY << "Will broadcast DLT version:" << curDlt->getVersion()
               << " to all SM, DM, AM svcs in domain";
 
-    curDlt->dump();
+    if ( curDlt != NULL )
+    {
+        curDlt->dump();
+    } else {
+        LOGWARN << "Broadcasting invalid DLT object!!";
+    }
 
     if (to_sm) {
         count = dc_sm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);
