@@ -1028,6 +1028,10 @@ int DataMgr::mod_init(SysParams const *const param)
 
     features.setVolumegroupingEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
         "fds.feature_toggle.common.enable_volumegrouping", false));
+    features.setVolumegroupingSerializedReadsEnabled(
+        features.isVolumegroupingEnabled() &&
+        MODULEPROVIDER()->get_fds_config()->get<bool>(
+            "fds.feature_toggle.common.enable_volumegrouping_serializedreads", false));
     /**
      * FEATURE TOGGLE: Volume Open Support
      * Thu 02 Apr 2015 12:39:27 PM PDT
@@ -1857,6 +1861,17 @@ Error DataMgr::dmQosCtrl::processIO(FDS_IOType* _io) {
         case FDS_STAT_VOLUME:
         case FDS_GET_VOLUME_METADATA:
         case FDS_DM_LIST_BLOBS_BY_PATTERN:
+            if (parentDm->features.isVolumegroupingSerializedReadsEnabled()) {
+                schedule(scheduleOnId, true,
+                         std::bind(&dm::Handler::handleQueueItem,
+                                   parentDm->handlers.at(io->io_type),
+                                   io));
+                break;
+            }
+            threadPool->schedule(&dm::Handler::handleQueueItem,
+                                 parentDm->handlers.at(io->io_type),
+                                 io);
+            break;
         case FDS_DM_MIGRATION:
             // Other (stats, etc...) handlers
         case FDS_DM_SYS_STATS:
