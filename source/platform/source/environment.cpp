@@ -52,8 +52,11 @@ void Environment::ingest(int idx, std::string str){
     tokenizer tokens(str, sep);
 
     for (tokenizer::iterator tok_iter = tokens.begin(); tok_iter != tokens.end(); ++tok_iter) {
-        // NOTE: this is pretty disgusting. sorry :'(
-        env[*tok_iter] = (++tok_iter != tokens.end()) ? *tok_iter : "";
+        auto prev = *tok_iter;
+        ++tok_iter;
+        if (tok_iter != tokens.end()) {
+            env[prev] = *tok_iter;
+        }
     }
 }
 
