@@ -254,6 +254,7 @@ void ReplicaInitializer<T>::startBuffering_()
     /* Create buffer replay instance */
     bufferReplay_.reset(new BufferReplay(bufferfilePath,
                                          512,  /* Replay batch size */
+                                         replica_->getId(),
                                          MODULEPROVIDER()->proc_thrpool()));
     auto err = bufferReplay_->init();
     if (!err.ok()) {
@@ -281,6 +282,7 @@ void ReplicaInitializer<T>::startBuffering_()
      * NOTE: This doesn't need to be done on a volume synchronized context
      */
     bufferReplay_->setReplayOpsCb([this](int64_t opCntr, std::list<BufferReplay::Op> &ops) {
+        /* We replay ops as if client is sending the ops over service layer */
         auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
         auto selfUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
         for (const auto &op : ops) {
