@@ -3678,6 +3678,7 @@ OM_NodeContainer::om_bcast_dlt(const DLT* curDlt,
         curDlt->dump();
     } else {
         LOGWARN << "Broadcasting invalid DLT object!!";
+        return 0;
     }
 
     if (to_sm) {
