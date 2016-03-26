@@ -15,42 +15,39 @@ namespace fds {
 Environment* Environment::e = 0;
 
 void Environment::initialize() {
-    GLOGDEBUG << "Initializeing environment variable configurations";
-
-    auto config(MODULEPROVIDER()->get_conf_helper());
-    config.set_base_path("fds.pm.environment");
+    GLOGDEBUG << "Initializing environment variable configurations";
 
     std::string temp;
     std::string dummy("");
 
-    temp = config.get<std::string>("am", dummy);
+    temp = CONFIG_STR("fds.pm.environment.am", dummy);
     if (temp.size() != 0) {
         ingest(pm::BARE_AM, temp);
     }
 
-    temp = config.get<std::string>("dm", dummy);
+    temp = CONFIG_STR("fds.pm.environment.dm", dummy);
     if (temp.size() != 0) {
         ingest(pm::DATA_MANAGER, temp);
     }
 
-    temp = config.get<std::string>("sm", dummy);
+    temp = CONFIG_STR("fds.pm.environment.sm", dummy);
     if (temp.size() != 0) {
         ingest(pm::STORAGE_MANAGER, temp);
     }
 
-    temp = config.get<std::string>("xdi", dummy);
+    temp = CONFIG_STR("fds.pm.environment.xdi", dummy);
     if (temp.size() != 0) {
         ingest(pm::JAVA_AM, temp);
     }
 
 }
 
-/* takes a sting of the form "key1=val1,key2=val2,..." and produces a map with pairs (key1, val1) (key2, val2) ...*/
+/* takes a sting of the form "key1=val1;key2=val2;..." and produces a map with pairs (key1, val1) (key2, val2) ...*/
 void Environment::ingest(int idx, std::string str){
     EnvironmentMap& env = getEnvironmentForService(idx);
 
     typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
-    boost::char_separator<char> sep(",=");
+    boost::char_separator<char> sep(";=");
 
     tokenizer tokens(str, sep);
 
