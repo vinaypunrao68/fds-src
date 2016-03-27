@@ -26,12 +26,6 @@ struct PutObjectReq: public AmRequest {
     PutBlobReq* parent;
 
     explicit inline PutObjectReq(PutBlobReq* blobReq);
-    inline PutObjectReq(fds_volid_t const vol_id,
-                        std::string const vol_name,
-                        std::string const blob_name,
-                        buffer_type buffer,
-                        ObjectID const& id,
-                        size_t const length);
 
     ~PutObjectReq() override = default;
 };
@@ -40,7 +34,7 @@ PutObjectReq::PutObjectReq(PutBlobReq* blobReq)
     : AmRequest(FDS_SM_PUT_OBJECT,
                 blobReq->io_vol_id,
                 blobReq->volume_name,
-                blobReq->getBlobName(),
+                "",
                 nullptr,
                 blobReq->blob_offset,
                 blobReq->data_len),
@@ -57,25 +51,6 @@ PutObjectReq::PutObjectReq(PutBlobReq* blobReq)
     fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
 }
 
-PutObjectReq::PutObjectReq(fds_volid_t const vol_id,
-             std::string const vol_name,
-             std::string const blob_name,
-             buffer_type buffer,
-             ObjectID const& id,
-             size_t const length)
-    : AmRequest(FDS_SM_PUT_OBJECT, vol_id, vol_name, blob_name, nullptr, 0, length),
-      obj_id(id),
-      dataPtr(buffer),
-      parent(nullptr)
-{
-    qos_perf_ctx.type = PerfEventType::AM_PUT_QOS;
-    hash_perf_ctx.type = PerfEventType::AM_PUT_HASH;
-    dm_perf_ctx.type = PerfEventType::AM_PUT_DM;
-    sm_perf_ctx.type = PerfEventType::AM_PUT_SM;
-
-    e2e_req_perf_ctx.type = PerfEventType::AM_PUT_SM;
-    fds::PerfTracer::tracePointBegin(e2e_req_perf_ctx);
-}
 
 }  // namespace fds
 

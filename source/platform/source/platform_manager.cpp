@@ -1323,7 +1323,7 @@ namespace fds
 
                             if (JAVA_AM != appIndex)
                             { // do not notify OM on the xdi process exit; this message will only be sent if the XDI service is flapping
-                                notifyOmServiceStateChange (appIndex, mapIter->second, fpi::HealthState::HEALTH_STATE_UNEXPECTED_EXIT, "unexpectedly exited");
+                                notifyOmServiceStateChange (appIndex, pid, fpi::HealthState::HEALTH_STATE_UNEXPECTED_EXIT, "unexpectedly exited");
                             }
                             m_appPidMap.erase (mapIter++);
 
@@ -1455,6 +1455,7 @@ namespace fds
             healthMessage->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid = serviceRecord->svc_id.svc_uuid.svc_uuid;
             healthMessage->healthReport.serviceInfo.svc_id.svc_name = serviceRecord->name;
             healthMessage->healthReport.serviceInfo.svc_port = serviceRecord->svc_port;
+            healthMessage->healthReport.serviceInfo.incarnationNo = serviceRecord->incarnationNo;
             healthMessage->healthReport.platformUUID.svc_uuid.svc_uuid = m_nodeInfo.uuid;
             healthMessage->healthReport.serviceState = state;
             healthMessage->healthReport.statusCode = fds::PLATFORM_ERROR_UNEXPECTED_CHILD_DEATH;

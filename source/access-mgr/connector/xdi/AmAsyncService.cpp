@@ -44,6 +44,7 @@ class AsyncAmServiceRequestIfCloneFactory
  private:
     // Stores a list of IPs of currently connected XDIs
     std::map<request_if*, std::string>       _connectedXdi;
+    std::mutex                               _connectedXdiLock;
 };
 
 AsyncAmServiceRequestIfCloneFactory::request_if*
@@ -63,19 +64,29 @@ AsyncAmServiceRequestIfCloneFactory::getHandler(const xdi_at::TConnectionInfo& c
     LOGNORMAL << "peer:" << sock->getPeerAddress() << " asynchronous Xdi connection";
     request_if* ri = new AmAsyncXdiRequest(amProcessor,
             boost::make_shared<AmAsyncXdiResponse>(sock->getPeerAddress()));
-    _connectedXdi.insert(std::make_pair(ri, sock->getPeerAddress()));
+    {
+        std::lock_guard<std::mutex> l(_connectedXdiLock);
+        _connectedXdi.insert(std::make_pair(ri, sock->getPeerAddress()));
+    }
     return ri;
 }
 
 void
 AsyncAmServiceRequestIfCloneFactory::releaseHandler(request_if* handler) {
-    _connectedXdi.erase(handler);
+    {
+        std::lock_guard<std::mutex> l(_connectedXdiLock);
+        auto it = _connectedXdi.find(handler);
+        if (_connectedXdi.end() != it) {
+            _connectedXdi.erase(it);
+        }
+    }
     delete handler;
 }
 
 void AsyncAmServiceRequestIfCloneFactory::getIps(std::unordered_set<std::string>& ip) {
     // loop through all the handles and by inserting into an unordered_set we will
     // get a list of all the unique IPs from the map.
+    std::lock_guard<std::mutex> l(_connectedXdiLock);
     for (auto const& i : _connectedXdi) {
         ip.insert(i.second);
     }

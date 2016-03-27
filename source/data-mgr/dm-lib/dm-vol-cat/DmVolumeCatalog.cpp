@@ -56,7 +56,12 @@ namespace fds {
 DmVolumeCatalog::DmVolumeCatalog(CommonModuleProviderIf* modProvider,
                                  char const * const name)
     : HasModuleProvider(modProvider),
-    Module(name), expungeCb_(0) {}
+      Module(name),
+      expungeCb_(0),
+      _ft_newStats { false }
+{
+    _ft_newStats = CONFIG_BOOL("fds.feature_toggle.common.send_to_new_stats_service", true);
+}
 
 DmVolumeCatalog::~DmVolumeCatalog() {}
 
@@ -971,9 +976,39 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         }
     }
 
+    if (_ft_newStats)
+    {
+        _updateLBytes(volId);
+    }
+
     // actually expunge objects that were dereferenced by the blob
     // TODO(xxx): later that should become part of GC and done in background
     return ERR_OK;
+}
+
+void DmVolumeCatalog::_updateLBytes (fds_volid_t volId)
+{
+    static stats::StatDescriptor const lbytesDescriptor { "LBYTES",
+                                                          ContextType::VOLUME,
+                                                          static_cast<std::int64_t>(volId.get()),
+                                                          AggregationType::LATEST };
+    static std::chrono::milliseconds const timeBudget { 20 };
+
+    fds_uint64_t size;
+    fds_uint64_t dummy1;
+    fds_uint64_t dummy2;
+    auto rc = statVolumeLogical(volId, &size, &dummy1, &dummy2);
+    if (!rc.ok())
+    {
+        LOGERROR << "Failed to stat volume ID " << volId << ". Error: " << rc;
+        return;
+    }
+
+    auto metrics = getModuleProvider()->getMetrics();
+    if (metrics)
+    {
+        metrics->put(lbytesDescriptor, size, timeBudget);
+    }
 }
 
 // NOTE: used by the Batch ifdef, not currently called by compiled code
@@ -1078,6 +1113,11 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         }
     }
 
+    if (_ft_newStats)
+    {
+        _updateLBytes(volId);
+    }
+
     return rc;
 }
 
@@ -1179,6 +1219,11 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volId, const std::string& blobName
                 << ">, and logical bytes removed <" << bytesRemoved
                 << ">.";
             }
+        }
+
+        if (_ft_newStats)
+        {
+            _updateLBytes(volId);
         }
     }
 

@@ -52,11 +52,6 @@ struct AsyncResponseHandler :   public Callback,
     proc_type proc_func;
 };
 
-template<typename T, typename C>
-CallbackPtr
-create_async_handler(C&& c)
-{ return std::make_shared<AsyncResponseHandler<T, C>>(std::forward<C>(c)); }
-
 /**
  * These are the structures that AmDataApi uses to respond with, with
  * the Dispatcher and Processor setting them, and the DataApi using them to
@@ -137,6 +132,11 @@ struct CommitBlobTxCallback {
     /// The blob trans ID to fill in
     BlobTxId      blobTxId;
 };
+
+template<typename T, typename C>
+CallbackPtr
+create_async_handler(C&& c)
+{ return std::make_shared<AsyncResponseHandler<T, C>>(std::forward<C>(c)); }
 
 }  // namespace fds
 

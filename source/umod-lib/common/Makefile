@@ -12,9 +12,10 @@ user_no_style    := \
     fds_stat.cpp \
     PerfTrace.cpp
 
-user_ar_libs     := fds-umod
-user_so_libs     := fds-umod
-fds-umod         := $(user_cpp)
+user_ar_libs      := fds-umod
+user_so_libs      := fds-umod
+user_non_fds_libs := fdsStatsUtil-debug statsclient
+fds-umod          := $(user_cpp)
 
 include $(topdir)/Makefile.incl
 

@@ -249,10 +249,9 @@ void AmAsyncDataApi::getBlob(RequestHandle const& requestId,
                                 shared_string_type& volumeName,
                                 shared_string_type& blobName,
                                 shared_int_type& length,
-                                shared_offset_type& offset,
-                                bool const absolute_offset) {
+                                shared_offset_type& objectOffset) {
     fds_verify(*length >= 0);
-    fds_verify(offset->value >= 0);
+    fds_verify(objectOffset->value >= 0);
 
     // Closure for response call
     auto closure = [p = responseApi, requestId](GetObjectCallback* cb, fpi::ErrorCode const& e) mutable -> void {
@@ -265,9 +264,8 @@ void AmAsyncDataApi::getBlob(RequestHandle const& requestId,
                                        *volumeName,
                                        *blobName,
                                        callback,
-                                       static_cast<fds_uint64_t>(offset->value),
+                                       static_cast<fds_uint64_t>(objectOffset->value),
                                        *length);
-    blobReq->absolute_offset = absolute_offset;
     amProcessor->enqueueRequest(blobReq);
 }
 
@@ -276,9 +274,9 @@ void AmAsyncDataApi::getBlobWithMeta(RequestHandle const& requestId,
                                         shared_string_type& volumeName,
                                         shared_string_type& blobName,
                                         shared_int_type& length,
-                                        shared_offset_type& offset) {
+                                        shared_offset_type& objectOffset) {
     fds_verify(*length >= 0);
-    fds_verify(offset->value >= 0);
+    fds_verify(objectOffset->value >= 0);
 
     // Closure for response call
     auto closure = [p = responseApi, requestId](GetObjectWithMetadataCallback* cb, fpi::ErrorCode const& e) mutable -> void {
@@ -291,7 +289,7 @@ void AmAsyncDataApi::getBlobWithMeta(RequestHandle const& requestId,
                                         *volumeName,
                                         *blobName,
                                         callback,
-                                        static_cast<fds_uint64_t>(offset->value),
+                                        static_cast<fds_uint64_t>(objectOffset->value),
                                         *length);
     blobReq->get_metadata = true;
     amProcessor->enqueueRequest(blobReq);
@@ -353,17 +351,16 @@ void AmAsyncDataApi::updateMetadata(RequestHandle const& requestId,
 }
 
 void AmAsyncDataApi::updateBlobOnce(RequestHandle const& requestId,
-                                    shared_string_type& domainName,
-                                    shared_string_type& volumeName,
-                                    shared_string_type& blobName,
-                                    shared_int_type& blobMode,
-                                    shared_buffer_type& bytes,
-                                    shared_int_type& length,
-                                    shared_offset_type& offset,
-                                    shared_meta_type& metadata,
-                                    bool const absolute_offset) {
+                                       shared_string_type& domainName,
+                                       shared_string_type& volumeName,
+                                       shared_string_type& blobName,
+                                       shared_int_type& blobMode,
+                                       shared_buffer_type& bytes,
+                                       shared_int_type& length,
+                                       shared_offset_type& objectOffset,
+                                       shared_meta_type& metadata) {
     fds_verify(*length >= 0);
-    fds_verify(offset->value >= 0);
+    fds_verify(objectOffset->value >= 0);
 
     // Closure for response call
     auto closure = [p = responseApi, requestId](UpdateBlobCallback* cb, fpi::ErrorCode const& e) mutable -> void {
@@ -381,13 +378,12 @@ void AmAsyncDataApi::updateBlobOnce(RequestHandle const& requestId,
     AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
                                         *volumeName,
                                         *blobName,
-                                        static_cast<fds_uint64_t>(offset->value),
+                                        static_cast<fds_uint64_t>(objectOffset->value),
                                         *length,
                                         bytes,
                                         *blobMode,
                                         metadata,
                                         callback);
-    blobReq->absolute_offset = absolute_offset; // Is this an absolute or object offset?
     amProcessor->enqueueRequest(blobReq);
 }
 
@@ -398,10 +394,10 @@ void AmAsyncDataApi::updateBlob(RequestHandle const& requestId,
                                    shared_tx_ctx_type& txDesc,
                                    shared_buffer_type& bytes,
                                    shared_int_type& length,
-                                   shared_offset_type& offset) {
+                                   shared_offset_type& objectOffset) {
 
     fds_verify(*length >= 0);
-    fds_verify(offset->value >= 0);
+    fds_verify(objectOffset->value >= 0);
 
     // Closure for response call
     auto closure = [p = responseApi, requestId](UpdateBlobCallback* cb, fpi::ErrorCode const& e) mutable -> void {
@@ -423,7 +419,7 @@ void AmAsyncDataApi::updateBlob(RequestHandle const& requestId,
     AmRequest *blobReq = new PutBlobReq(invalid_vol_id,
                                         *volumeName,
                                         *blobName,
-                                        static_cast<fds_uint64_t>(offset->value),
+                                        static_cast<fds_uint64_t>(objectOffset->value),
                                         *length,
                                         bytes,
                                         blobTxDesc,

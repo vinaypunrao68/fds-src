@@ -9,14 +9,12 @@
 #include <vector>
 
 #include "AmRequest.h"
-#include "BlobDescriptor.h"
 
 namespace fds
 {
 
 struct GetBlobReq: public AmMultiReq {
     fds_bool_t get_metadata;
-    bool for_rmw {false};
 
     fds_bool_t metadata_cached;
 
@@ -29,8 +27,8 @@ struct GetBlobReq: public AmMultiReq {
                       const std::string& _volumeName,
                       const std::string& _blob_name,
                       CallbackPtr cb,
-                      size_t _blob_offset,
-                      size_t _data_len);
+                      fds_uint64_t _blob_offset,
+                      fds_uint64_t _data_len);
 
     ~GetBlobReq() override = default;
 };
@@ -39,8 +37,8 @@ GetBlobReq::GetBlobReq(fds_volid_t _volid,
                        const std::string& _volumeName,
                        const std::string& _blob_name,  // same as objKey
                        CallbackPtr cb,
-                       size_t _blob_offset,
-                       size_t _data_len)
+                       fds_uint64_t _blob_offset,
+                       fds_uint64_t _data_len)
     : AmMultiReq(FDS_GET_BLOB, _volid, _volumeName, _blob_name, cb, _blob_offset, _data_len),
       get_metadata(false), metadata_cached(false)
 {

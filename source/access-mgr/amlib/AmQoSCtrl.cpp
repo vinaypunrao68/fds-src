@@ -4,14 +4,14 @@
 
 #include "AmQoSCtrl.h"
 #include "lib/StatsCollector.h"
-#include "AmBlockLayer.h"
+#include "AmTxManager.h"
 #include "AmRequest.h"
 
 namespace fds {
 
 AmQoSCtrl::AmQoSCtrl(AmDataProvider* prev, uint32_t max_thrds, fds_log *log)
     : FDS_QoSControl::FDS_QoSControl(max_thrds, fds::FDS_QoSControl::FDS_DISPATCH_HIER_TOKEN_BUCKET, log, "SH"),
-      AmDataProvider(prev, std::make_shared<AmBlockLayer>(this))
+      AmDataProvider(prev, new AmTxManager(this))
 {
     total_rate = 200000;
     htb_dispatcher = new QoSHTBDispatcher(this, qos_log, total_rate);
