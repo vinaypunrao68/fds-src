@@ -43,10 +43,11 @@ void populateVolumeList(std::string &volumeList) {
  *          roots[0],
  *          "--fds.pm.platform_uuid=<uuid>",
  *          "--fds.pm.platform_port=<port>",
+ *          "--fds.checker.threadpool.use_lftp=true",
  *          "-v=1,2,3
  *          }
  *
- *  internal_argc == 5 above + 1 for original prog name
+ *  internal_argc == 6 above + 1 for original prog name
  *
  */
 void populateInternalArgs(int argc, char **argv, int *internal_argc, char ***internal_argv, std::string root) {
@@ -57,7 +58,7 @@ void populateInternalArgs(int argc, char **argv, int *internal_argc, char ***int
     int new_argc = *internal_argc;
 
     // see above for magic number here
-    *internal_argc = 6;
+    *internal_argc = 7;
 
     // one for NULL ptr
     *internal_argv = (char **)malloc(sizeof(char*) * (*internal_argc) + 1);
@@ -79,6 +80,8 @@ void populateInternalArgs(int argc, char **argv, int *internal_argc, char ***int
         } else if (i == 4) {
             currentArg = "--fds.pm.platform_port=" + std::to_string(pm_port);
         } else if (i == 5) {
+            currentArg = "--fds.checker.threadpool.use_lftp=true";
+        } else if (i == 6) {
             currentArg = "-v=" + volumeList;
         } else {
             break;
