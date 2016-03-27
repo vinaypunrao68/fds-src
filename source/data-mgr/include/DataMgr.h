@@ -2,59 +2,48 @@
  * Copyright 2013-2016 Formation Data Systems, Inc.
  */
 
-/*
- * Umbrella classes for the data manager component.
- */
-
 #ifndef SOURCE_DATA_MGR_INCLUDE_DATAMGR_H_
 #define SOURCE_DATA_MGR_INCLUDE_DATAMGR_H_
 
+// Standard includes.
+#include <functional>
 #include <list>
+#include <string>
 #include <vector>
 #include <map>
-#include <fds_error.h>
-#include <fds_types.h>
-#include <fds_volume.h>
-#include <fds_timer.h>
-
-/* TODO: avoid cross module include, move API header file to include dir. */
-
-#include <util/Log.h>
-#include <VolumeMeta.h>
-#include <concurrency/ThreadPool.h>
-
-#include <include/fds_qos.h>
-#include <include/qos_ctrl.h>
 #include <unordered_map>
-#include <string>
-#include <persistent-layer/dm_service.h>
 
+// Internal includes.
+#include "concurrency/ThreadPool.h"
+#include "blob/BlobTypes.h"
+#include "dm-tvc/CommitLog.h"
+#include "dm-tvc/TimeVolumeCatalog.h"
+#include "fdsp/DMSvc.h"
+#include "fdsp/FDSP_types.h"
 #include "fdsp/health_monitoring_types_types.h"
-#include "fds_types.h"
-#include <fdsp/FDSP_types.h>
-#include <lib/QoSWFQDispatcher.h>
-#include <lib/qos_min_prio.h>
-
-#include <net/filetransferservice.h>
-#include <dmhandler.h>
-#include <DmIoReq.h>
-#include <CatalogSync.h>
-#include <CatalogSyncRecv.h>
-#include <dm-tvc/CommitLog.h>
-
-#include <blob/BlobTypes.h>
-#include <fdsp/DMSvc.h>
-#include <functional>
-
-#include <dm-tvc/TimeVolumeCatalog.h>
-#include <StatStreamAggregator.h>
-#include <DataMgrIf.h>
-#include <dmutil.h>
-#include <DmMigrationMgr.h>
+#include "include/fds_qos.h"
+#include "include/qos_ctrl.h"
+#include "lib/qos_min_prio.h"
+#include "lib/QoSWFQDispatcher.h"
+#include "net/filetransferservice.h"
+#include "refcount/refcountmanager.h"
+#include "persistent-layer/dm_service.h"
+#include "timeline/timelinemanager.h"
 #include "util/ExecutionGate.h"
-
-#include <timeline/timelinemanager.h>
-#include <refcount/refcountmanager.h>
+#include "util/Log.h"
+#include "CatalogSync.h"
+#include "CatalogSyncRecv.h"
+#include "DataMgrIf.h"
+#include "dmhandler.h"
+#include "DmIoReq.h"
+#include "DmMigrationMgr.h"
+#include "dmutil.h"
+#include "fds_error.h"
+#include "fds_types.h"
+#include "fds_timer.h"
+#include "fds_volume.h"
+#include "StatStreamAggregator.h"
+#include "VolumeMeta.h"
 
 /* if defined, puts complete as soon as they
  * arrive to DM (not for gets right now)

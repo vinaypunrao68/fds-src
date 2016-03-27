@@ -4,22 +4,27 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DM_TVC_TIMEVOLUMECATALOG_H_
 #define SOURCE_DATA_MGR_INCLUDE_DM_TVC_TIMEVOLUMECATALOG_H_
 
-#include <string>
-#include <vector>
+// Standard includes.
 #include <functional>
 #include <thread>
-#include <fds_error.h>
-#include <fds_module.h>
-#include <fds_config.hpp>
-#include <DmBlobTypes.h>
-#include <dm-tvc/CommitLog.h>
-#include <dm-vol-cat/DmVolumeCatalog.h>
-#include <util/Log.h>
-#include <util/timeutils.h>
-#include <concurrency/SynchronizedTaskExecutor.hpp>
+#include <string>
+#include <vector>
+
+// Internal includes.
+#include "concurrency/SynchronizedTaskExecutor.hpp"
+#include "dm-tvc/CommitLog.h"
+#include "dm-vol-cat/DmVolumeCatalog.h"
+#include "util/Log.h"
+#include "util/timeutils.h"
+#include "DmBlobTypes.h"
+#include "fds_config.hpp"
+#include "fds_error.h"
+#include "fds_module.h"
 
 namespace fds {
 
+// Forward declarations.
+class DataMgr;
 struct DmVolumeAccessTable;
 
 /**
