@@ -115,6 +115,22 @@ VolumeChecker::run() {
 
     LOGNORMAL << "Running volume checker";
 
+    /**
+     * OM schedules the setupNewNode() task for this service registration
+     * to kick in after a 3 second delay. We should *really* remove that.
+     * So... in the case where setupNewNode() hasn't kicked in yet, if
+     * we send the request out to DMs, and the DMs
+     * finish their request and tries to send the results back but haven't
+     * yet heard the service map update from OM, then they will fail to send
+     * the results back and VolumeChecker will just wait here forever.
+     * I'm reluctant on wanting to implement a timeout mechanism, since we will
+     * then need to implement a heart-beat mechanism, which I dont' want.
+     * Let's just ensure that we start after svclayer has its chance to est
+     * everything.
+     */
+    LOGNORMAL << "Sleeping 5 seconds for OM's setupNewNode() to kick in";
+    sleep(5);
+
     // First pull the DMT and DLT from OM
     fds_assert(getDMT() != ERR_NOT_FOUND);
     getDLT();
