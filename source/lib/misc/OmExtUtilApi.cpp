@@ -364,10 +364,12 @@ bool OmExtUtilApi::isIncomingUpdateValid( fpi::SvcInfo& incomingSvcInfo,
         }
     }
 
-    LOGNOTIFY << "IsIncomingUpdateValid? " << ret
-              << " SameIncarnationNo? " << sameIncNo
-              << " GreaterIncomingIncNo? " << greaterIncNo
-              << " ZeroIncarnationNo? " << zeroIncNo;
+    //LOGNOTIFY << "IsIncomingUpdateValid for uuid:"
+    //          << std::hex << currentInfo.svc_id.svc_uuid.svc_uuid
+    //          << std::dec << " ? " << ret
+    //           << " SameIncarnationNo? " << sameIncNo
+    //          << " GreaterIncomingIncNo? " << greaterIncNo
+    //          << " ZeroIncarnationNo? " << zeroIncNo;
     return ret;
 }
 
