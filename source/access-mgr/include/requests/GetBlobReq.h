@@ -15,6 +15,7 @@ namespace fds
 
 struct GetBlobReq: public AmMultiReq {
     fds_bool_t get_metadata;
+    bool for_rmw {false};
 
     fds_bool_t metadata_cached;
 

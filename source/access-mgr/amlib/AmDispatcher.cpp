@@ -506,7 +506,6 @@ AmDispatcher::updateCatalog(AmRequest* amReq) {
     message->blob_mode    = blobReq->blob_mode;
 
     // Setup blob offset updates
-    // TODO(Andrew): Today we only expect one offset update
     // TODO(Andrew): Remove lastBuf when we have real transactions
     for (auto const& obj_upd : blobReq->object_list) {
         auto const& obj_id = obj_upd.first;

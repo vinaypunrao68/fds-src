@@ -139,47 +139,47 @@ AmBlockLayer::getBlobCb(AmRequest* amReq, Error const error) {
     auto blobReq = static_cast<GetBlobReq*>(amReq);
     auto err = error;
 
-    // Here's the block map with pending requests
-    auto offset_queue = lookup_offset_queue(blobReq->io_vol_id, blobReq->getBlobName());
-    // TODO(bszmyd): Sat 19 Mar 2016 03:52:57 AM MDT
-    // Don't call for every callback
-    if (offset_queue) {
-        BlockUpdate::data_buf_type empty_buffer;
-        auto offset = blobReq->blob_offset;
-        auto const& obj_size = blobReq->object_size;
-        auto cb = std::dynamic_pointer_cast<GetObjectCallback>(blobReq->cb);
-        auto buf_it = cb->return_buffers->begin();
-        for (; blobReq->blob_offset_end >= offset; offset += obj_size) {
-            BlockUpdate update { offset };
-            if (ERR_OK == err || ERR_BLOB_NOT_FOUND == err) {
-                BlockUpdate::data_buf_type buffer;
-                if (cb->return_buffers->end() == buf_it
-                    || !(*buf_it)
-                    || 0 == (*buf_it)->size()) {
-                    if (!empty_buffer) {
-                        empty_buffer = boost::make_shared<std::string>(obj_size, '\0');
+    if (blobReq->for_rmw) {
+        // Here's the block map with pending requests
+        auto offset_queue = lookup_offset_queue(blobReq->io_vol_id, blobReq->getBlobName());
+        if (offset_queue) {
+            BlockUpdate::data_buf_type empty_buffer;
+            auto offset = blobReq->blob_offset;
+            auto const& obj_size = blobReq->object_size;
+            auto cb = std::dynamic_pointer_cast<GetObjectCallback>(blobReq->cb);
+            auto buf_it = cb->return_buffers->begin();
+            for (; blobReq->blob_offset_end >= offset; offset += obj_size) {
+                BlockUpdate update { offset };
+                if (ERR_OK == err || ERR_BLOB_NOT_FOUND == err) {
+                    BlockUpdate::data_buf_type buffer;
+                    if (cb->return_buffers->end() == buf_it
+                        || !(*buf_it)
+                        || 0 == (*buf_it)->size()) {
+                        if (!empty_buffer) {
+                            empty_buffer = boost::make_shared<std::string>(obj_size, '\0');
+                        }
+                        buffer = empty_buffer;
+                    } else {
+                        // Copy the buffer so we don't corrupt the read cache
+                        buffer = *buf_it;
+                        ++buf_it;
                     }
-                    buffer = empty_buffer;
-                } else {
-                    // Copy the buffer so we don't corrupt the read cache
-                    buffer = *buf_it;
-                    ++buf_it;
+                    update = BlockUpdate {nullptr, offset, 0, buffer};
+                    update.setCached();
+                    err = ERR_OK;
                 }
-                update = BlockUpdate {nullptr, offset, 0, buffer};
-                update.setCached();
-                err = ERR_OK;
-            }
-           
-            std::deque<BlockUpdate> need_dispatch;
-            auto result = offset_queue->read_resp(update, need_dispatch, err);
 
-            if (sector_type::queue_result_type::MergedEntry == result) {
-                dispatchPut(blobReq, update);
-            } else if (sector_type::queue_result_type::Finished == result) {
-                for (auto req : update.request_set()) {
-                    AmDataProvider::putBlobOnceCb(req, update.result());
+                std::deque<BlockUpdate> need_dispatch;
+                auto result = offset_queue->read_resp(update, need_dispatch, err);
+
+                if (sector_type::queue_result_type::MergedEntry == result) {
+                    dispatchPut(blobReq, update);
+                } else if (sector_type::queue_result_type::Finished == result) {
+                    for (auto req : update.request_set()) {
+                        AmDataProvider::putBlobOnceCb(req, update.result());
+                    }
+                    dispatchReads(blobReq, need_dispatch);
                 }
-                dispatchReads(blobReq, need_dispatch);
             }
         }
     }
@@ -192,8 +192,6 @@ AmBlockLayer::putObjectCb(AmRequest* amReq, Error const error) {
 
     // Here's the block map with pending requests
     auto offset_queue = lookup_offset_queue(blobReq->io_vol_id, blobReq->getBlobName());
-    // TODO(bszmyd): Sat 19 Mar 2016 03:53:40 AM MDT
-    // Don't call for every put
     if (offset_queue) {
         BlockUpdate update { blobReq->blob_offset };
         update.setId(blobReq->obj_id);
@@ -236,8 +234,6 @@ AmBlockLayer::updateCatalogCb(AmRequest* amReq, Error const error)  {
     if (!blobReq->object_list.empty()) {
         // Here's the block map with pending requests
         auto offset_queue = lookup_offset_queue(blobReq->io_vol_id, blobReq->getBlobName());
-        // TODO(bszmyd): Sat 19 Mar 2016 03:53:40 AM MDT
-        // Don't call for every put
         if (offset_queue) {
             // Build a matching Update for the sector lock to find
             ObjectID object_id;
@@ -374,6 +370,7 @@ AmBlockLayer::dispatchReads(AmRequest* parent_request,
                                      begin_off,
                                      get_length);
         getReq->volInfoCopy(parent_request);
+        getReq->for_rmw = true;
         AmDataProvider::getBlob(getReq);
     }
 }
