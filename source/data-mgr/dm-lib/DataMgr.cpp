@@ -976,7 +976,11 @@ Error DataMgr::getVolObjSize(fds_volid_t volId,
 
 DataMgr::DataMgr(CommonModuleProviderIf *modProvider)
         : HasModuleProvider(modProvider),
-          Module("dm")
+          Module("dm"),
+          metrics {
+                  std::unique_ptr<stats::util::UserClock>(new stats::util::UserClock { }),
+                  std::unique_ptr<stats::util::SystemClock>(new stats::util::SystemClock { }),
+                  std::chrono::seconds { 30 } }
 {
     // NOTE: Don't put much stuff in the constructor.  Move any construction
     // into mod_init()
@@ -985,6 +989,8 @@ DataMgr::DataMgr(CommonModuleProviderIf *modProvider)
 int DataMgr::mod_init(SysParams const *const param)
 {
     Error err(ERR_OK);
+
+
 
     initHandlers();
     standalone = MODULEPROVIDER()->get_fds_config()->get<bool>("fds.dm.testing.standalone", false);
@@ -1079,10 +1085,55 @@ int DataMgr::mod_init(SysParams const *const param)
     dmMigrationMgr = DmMigrationMgr::unique_ptr(new DmMigrationMgr(*this));
     counters->clearMigrationCounters();
 
+    {
+        // Stats service runs on OM host for now.
+        std::string statsServiceIp;
+        {
+            fds_uint32_t dummy;
+            MODULEPROVIDER()->getSvcMgr()->getOmIPPort(statsServiceIp, dummy);
+        }
+
+        auto statsServicePort = MODULEPROVIDER()
+                                ->get_fds_config()
+                                ->get<int>("fds.common.stats_port", 11011);
+
+        // UN & PW is not yet configurable.
+        _statsServiceClient = StatsConnFactory::newConnection(statsServiceIp,
+                                                              statsServicePort,
+                                                              "stats-service",
+                                                              "$t@t$");
+    }
+
     fileTransfer.reset(new net::FileTransferService(MODULEPROVIDER()->proc_fdsroot()->dir_filetransfer(), MODULEPROVIDER()->getSvcMgr()));
     refCountMgr.reset(new refcount::RefCountManager(this));
     requestHandler.reset(new dm::Handler(*this));
     return 0;
+}
+
+void DataMgr::_submitGenerationCallback (
+        std::unordered_map<stats::StatDescriptor, stats::util::StatData> const& generation)
+{
+    // TODO: Replace with a version that does error handling and retries.
+    for (auto& stat : generation)
+    {
+        auto descriptor = stat.first;
+        auto data = stat.second;
+
+        StatDataPoint dataPoint { };
+        dataPoint.setAggregationType(descriptor.getAggregationType());
+        dataPoint.setCollectionPeriod(data.getDuration());
+        dataPoint.setCollectionTimeUnit(data.getDurationUnit());
+        dataPoint.setContextId(descriptor.getContextId());
+        dataPoint.setContextType(descriptor.getContextType());
+        dataPoint.setMaximumValue(data.getMaximum());
+        dataPoint.setMetricName(descriptor.getName());
+        dataPoint.setMetricValue(data.getValue());
+        dataPoint.setMinimumValue(data.getMinimum());
+        dataPoint.setNumberOfSamples(data.getSampleCount());
+        dataPoint.setReportTime(data.getStartSecondsFromUnixEpoch());
+
+        _statsServiceClient->publishStatistic(dataPoint);
+    }
 }
 
 void DataMgr::initHandlers() {

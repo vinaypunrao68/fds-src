@@ -8,6 +8,7 @@ user_fds_ar_libs := fds-lib
 # boost_chrono and rabbitmq are used in the SimpleAmqpClient library
 # The SimpleAmqpClient is used in the statsclient library
 user_non_fds_libs := \
+	fdsStatsUtil-debug \
     statsclient \
     SimpleAmqpClient \
     rabbitmq \
@@ -17,7 +18,8 @@ user_non_fds_libs := \
 
 # TODO: remove this once we have correct placement of header API.
 #
-user_incl_dir     := $(topdir) ../include
+user_incl_dir     := $(topdir) ../include /opt/fds/formation_one/packages/fds-stats-util-1.0.0/include
+user_ld_flags     := /opt/fds/formation_one/packages/fds-stats-util-1.0.0/lib
 user_cpp_flags    := -DDMGR_LIVE_DEBUG
 user_cpp          := $(wildcard *.cpp)
 user_ar_libs      := fds-dm-lib
