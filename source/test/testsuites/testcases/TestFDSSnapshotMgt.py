@@ -293,6 +293,10 @@ class TestTimeline(TestCase.FDSTestCase):
         maxRetries = 20
         while retryCount < maxRetries:
             retryCount += 1
+            snapshot_list = vol_service.list_snapshots(volume.id)
+            post_date_change_snapshots = [int((snapshot.id).strip()) for snapshot in snapshot_list]
+            post_date_change_snapshots_name = [snapshot.name for snapshot in snapshot_list]
+
             if max(post_date_change_snapshots) > max(pre_date_change_snapshots):
                 for snapshot in snapshot_list:
                     if int(snapshot.id.strip()) == max(post_date_change_snapshots):

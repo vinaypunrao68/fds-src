@@ -23,7 +23,7 @@
 #include <OmResources.h>
 #include <convert.h>
 #include <orchMgr.h>
-#include <omutils.h>
+#include <OmIntUtilApi.h>
 #include "fds_version.h"
 #include <util/stringutils.h>
 #include <util/timeutils.h>
@@ -819,7 +819,6 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
          * Currently (3/18/2015) only support for one Local Domain.
          * So the specified name is ignored. Also, we should be using Domain UUID.
          */
-
         std::vector<fpi::SvcInfo> svcinfos;
         if ( configDB->getSvcMap( svcinfos ) )
         {
@@ -847,6 +846,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
      */
     void ListServices(std::vector<fpi::FDSP_Node_Info_Type>& vec, boost::shared_ptr<int32_t>& ignore) {
         boost::shared_ptr<std::string> ldomain = boost::make_shared<std::string>("local");
+        LOGDEBUG << "list services!!!";
         listLocalDomainServices(vec, ldomain);
         return;
     }
@@ -2218,6 +2218,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     void getNodeInfo( ::FDS_ProtocolInterface::SvcInfo& _return,
                       boost::shared_ptr< ::FDS_ProtocolInterface::SvcUuid>& nodeUuid) {
+
         std::vector<fpi::SvcInfo> svcInfos;
         getAllNodeInfo(svcInfos);
         for (fpi::SvcInfo svcInfo : svcInfos) {

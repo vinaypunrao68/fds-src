@@ -371,6 +371,68 @@ TEST_F(VolumeGroupFixture, allDownFollowedBySequentialUp) {
     doVolumeStateCheck(2, v1Id, fpi::Active, 1000, 10000);
 }
 
+#if 0
+TEST_F(VolumeGroupFixture, sequenceIdMismatch) {
+    g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
+
+    /* Create two dms */
+    createCluster(3);
+    setupVolumeGroupHandleOnAm1(2);
+
+    /* Do more IO.  IO should succeed */
+    doIo(10);
+
+    /* stop one dms */
+    dmGroup[0]->stop();
+    
+    /* IO should succeed */
+    sendUpdateOnceMsg(*v1, blobName, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+
+    /* stop 2nd dms */
+    dmGroup[1]->stop();
+
+    /* IO will fail */
+    sendUpdateOnceMsg(*v1, blobName, waiter);
+    ASSERT_TRUE(waiter.awaitResult() != ERR_OK);
+
+    /* Now all replicas should have different sequence ids */
+    /* close and cleanup volume group handle */
+    v1->close([this, &waiter]() { waiter.doneWith(ERR_OK); });
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+
+    /* Start the dms that were stopped */
+    dmGroup[0]->start();
+    dmGroup[1]->start();
+
+    /* Recreate and open the volume group.  Though sequnce ids mismatch, open should
+     * go through.
+     */
+    v1 = MAKE_SHARED<VolumeGroupHandle>(amHandle.proc, v1Id, quorumCnt);
+    amHandle.proc->setVolumeHandle(v1.get());
+
+    /* open should succeed */
+    openVolume(*v1, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+
+    /* Any Read should succeed */
+    sendQueryCatalogMsg(*v1, blobName, waiter);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+
+    /* Eventually writes should succeed as well */
+    int nTries = 0;
+    do {
+        std::this_thread::sleep_for(std::chrono::seconds(nTries));
+        sendUpdateOnceMsg(*v1, blobName, waiter);
+        nTries++;
+    } while (waiter.awaitResult() != ERR_OK && nTries < 3);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+    doVolumeStateCheck(0, v1Id, fpi::Active);
+    doVolumeStateCheck(1, v1Id, fpi::Active);
+    doVolumeStateCheck(2, v1Id, fpi::Active);
+}
+#endif
+
 TEST_F(DmGroupFixture, VolumeTargetCopy) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
     /* Create two dms */

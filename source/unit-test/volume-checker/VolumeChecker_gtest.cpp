@@ -39,11 +39,8 @@ TEST_F(VolumeGroupFixture, twoHappyDMs) {
     // For now only one volume
     std::vector<unsigned> volIdList;
     volIdList.push_back(v1Id.v);
-    runVolumeChecker(volIdList, clusterSize);
-    stopVolumeChecker();
 
     /* Do some io. After Io is done, every volume replica must have same state */
-#if 0
     for (uint32_t i = 0; i < 10; i++) {
         sendUpdateOnceMsg(*v1, blobName, waiter);
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
@@ -51,10 +48,93 @@ TEST_F(VolumeGroupFixture, twoHappyDMs) {
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
         doGroupStateCheck(v1Id);
     }
-#endif
 
+    // Volume checker run should be consistent
+    runVolumeChecker(volIdList, clusterSize);
+    stopVolumeChecker();
 
     LOGNORMAL << "TEST MARKER Finished twoHappyDMs";
+}
+
+/**
+ * Test 2: Test resync
+ * 1. Create a VG of 3 DMs with a single volume
+ * 2. Write IOs
+ * 3. Bring down a DM
+ * 4. Write more IOs
+ * 5. Bring up a DM
+ * 6. Write IOs for 10 second to wait for resync
+ * 7. Test VC - should pass
+ */
+TEST_F(VolumeGroupFixture, staticio_restarts_with_vc) {
+    g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
+
+    /* Create two dms */
+    unsigned clusterSize = 3;
+    createCluster(clusterSize);
+    setupVolumeGroupHandleOnAm1(1);
+
+    /* Do some io. After Io is done, every volume replica must have same state */
+    for (uint32_t i = 0; i < 10; i++) {
+        sendUpdateOnceMsg(*v1, blobName, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+        sendQueryCatalogMsg(*v1, blobName, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+        doGroupStateCheck(v1Id);
+    }
+
+    ASSERT_TRUE(dmGroup[0]->proc->getDataMgr()->counters->totalVolumesReceivedMigration.value() == 0);
+    /* Bring a dm down */
+    dmGroup[0]->stop();
+    /* Do more IO.  IO should succeed */
+    for (uint32_t i = 0; i < 10; i++) {
+        blobName = "blob" + std::to_string(i);
+        sendUpdateOnceMsg(*v1, blobName, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+        sendQueryCatalogMsg(*v1, blobName, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+    }
+    /* Send few more non-commit updates so that we have active Txs */
+    for (uint32_t i = 0; i < 5; i++) {
+        sendStartBlobTxMsg(*v1, blobName, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+    }
+
+    /* Bring 1st dm up again */
+    dmGroup[0]->start();
+
+    /* Keep doing IO for maximum of 10 seconds */
+    for (uint32_t i = 0;
+         (i < 100 &&
+          dmGroup[0]->proc->getDataMgr()->getVolumeMeta(v1Id)->getState() != fpi::Active);
+         i++) {
+        sendUpdateOnceMsg(*v1, blobName, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+        sendQueryCatalogMsg(*v1, blobName, waiter);
+        ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+        if (i % 10 == 0) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+    }
+    /* By now sync must complete */
+    doVolumeStateCheck(0, v1Id, fpi::Active);
+    doMigrationCheck(0, v1Id);
+
+    /* Do more IO.  IO should succeed */
+    doIo(10);
+
+    // For now only one volume
+    std::vector<unsigned> volIdList;
+    volIdList.push_back(v1Id.v);
+
+    // Volume checker run should be consistent
+    runVolumeChecker(volIdList, clusterSize);
+    stopVolumeChecker();
+
+    /* Close volumegroup handle */
+    waiter.reset(1);
+    v1->close([this]() { waiter.doneWith(ERR_OK); });
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
 int main(int argc, char* argv[]) {

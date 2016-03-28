@@ -56,7 +56,7 @@ struct DmGroupFixture : BaseTestFixture {
         numOfNodes = numDms;
 
         auto roots = getRootDirectories();
-        omHandle.start({"am",
+        omHandle.start({"om",
                        roots[0],
                        "--fds.pm.platform_uuid=1024",
                        "--fds.pm.platform_port=7000",
