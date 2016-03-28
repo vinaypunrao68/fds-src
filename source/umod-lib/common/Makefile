@@ -1,23 +1,11 @@
 topdir           := ../..
+speedup          = -j $(threads)
+user_incl_dir    := $(topdir)/lib
 user_predep      := update_buildstr
 user_target      := lib
 user_rtime_env   := user
 user_python      := true
-user_cpp         := \
-    buildstr.cpp \
-    fds_resource.cpp \
-    fds_request.cpp \
-    fds_module.cpp \
-    fds_stat.cpp \
-    fds-shmobj.cpp \
-    fds_python_bind.cpp \
-    fdsp_utils.cpp \
-    fds-fsm.cpp \
-    fds-aio.cpp \
-    fds_process.cpp \
-    PerfTrace.cpp \
-    Tracebuffer.cpp \
-    StatTypes.cpp
+user_cpp         := $(wildcard *.cpp)
 
 user_no_style    := \
     fds_request.cpp \

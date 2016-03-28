@@ -24,5 +24,5 @@ struct CheckVolumeMetaDataMsg {
  * Empty response
  */
 struct CheckVolumeMetaDataRspMsg {
-    1: required i32         hash_result;
+    1: required binary              hash_result;
 }

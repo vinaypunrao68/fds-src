@@ -589,7 +589,7 @@ namespace fds {
          * Restores cached commited DLT from persistent store
          * and resets target DLT in persistent store
          */
-        void undoTargetDltCommit();
+        bool undoTargetDltCommit();
         void clearTargetDlt();
 
         /**
