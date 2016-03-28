@@ -545,4 +545,39 @@ AmVolumeTable::getVolume(const std::string& vol_name) const {
     return nullptr;
 }
 
+void
+AmVolumeTable::setVolumeMetadataCb(AmRequest * amReq, Error const error) {
+    checkFailureResponse(amReq, error);
+}
+
+void
+AmVolumeTable::commitBlobTxCb(AmRequest * amReq, Error const error) {
+    checkFailureResponse(amReq, error);
+}
+
+void
+AmVolumeTable::renameBlobCb(AmRequest * amReq, Error const error) {
+    checkFailureResponse(amReq, error);
+}
+
+void
+AmVolumeTable::putBlobOnceCb(AmRequest * amReq, Error const error) {
+    checkFailureResponse(amReq, error);
+}
+
+void
+AmVolumeTable::checkFailureResponse(AmRequest * amReq, Error const error) {
+    if (ERR_INVALID_COORDINATOR == error) {
+        WriteGuard wg(map_rwlock);
+        LOGDEBUG << "vol:" << amReq->volume_name << " closing due to invalid coordinator";
+        auto vol = getVolume(amReq->io_vol_id);
+        if (nullptr != vol && vol->isWritable()) {
+            auto volReq = new DetachVolumeReq(amReq->io_vol_id, amReq->volume_name, nullptr);
+            volReq->token = vol->clearToken();
+            continueRequest(volReq, vol, &AmDataProvider::closeVolume);
+        }
+    }
+    AmDataProvider::unknownTypeCb(amReq, error);
+}
+
 }  // namespace fds

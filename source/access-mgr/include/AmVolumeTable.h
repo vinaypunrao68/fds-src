@@ -80,6 +80,11 @@ struct AmVolumeTable :
     void openVolumeCb(AmRequest *amReq, const Error error) override;
     void statVolumeCb(AmRequest *amReq, const Error error) override;
 
+    void setVolumeMetadataCb(AmRequest * amReq, Error const error) override;
+    void commitBlobTxCb(AmRequest * amReq, Error const error) override;
+    void renameBlobCb(AmRequest * amReq, Error const error) override;
+    void putBlobOnceCb(AmRequest * amReq, Error const error) override;
+
   private:
     /// volume uuid -> AmVolume map
     std::unordered_map<fds_volid_t, volume_ptr_type> volume_map;
@@ -113,6 +118,8 @@ struct AmVolumeTable :
     void continueRequest(AmRequest *amReq, volume_ptr_type const vol, void (AmDataProvider::*func)(AmRequest*));
     void read(AmRequest *amReq, void (AmDataProvider::*func)(AmRequest*));
     void write(AmRequest *amReq, void (AmDataProvider::*func)(AmRequest*));
+
+    void checkFailureResponse(AmRequest * amReq, Error const error);
 };
 
 }  // namespace fds
