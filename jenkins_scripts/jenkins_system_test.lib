@@ -443,9 +443,6 @@ function run_aws_test_scenarios
     message "Packaging fds-platform"
     sudo make package fds-platform BUILD_TYPE=debug || deployment_error
 
-    message "Packaging fds-deps"
-    sudo make package fds-deps || deployment_error
-
     chown -R pairing /home/pairing/*
     chown -R pairing /home/pairing/.*
     echo 'Formation1234' > /home/pairing/.vault_pass.txt
