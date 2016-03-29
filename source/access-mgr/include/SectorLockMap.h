@@ -132,7 +132,7 @@ struct SectorLock {
 // This class offers a way to "lock" a sector of the blob
 // and queue operations modifying the same offset to maintain
 // consistency for < maxObjectSize writes.
-struct SectorLockMap {
+struct SectorLockMap : public AmDataProvider {
     using lock_type = std::mutex;
     using key_type = size_t;
     using key_set_type = std::set<key_type>;
@@ -146,32 +146,19 @@ struct SectorLockMap {
     using error_type = SectorLock::error_type;
     using queue_result_type = SectorLock::QueueResult;
 
-    SectorLockMap() :
+    explicit SectorLockMap(AmDataProvider* next) :
+        AmDataProvider(nullptr, next),
         map_lock(), sector_map()
     {}
     ~SectorLockMap() = default;
 
-    queue_result_type queue_update(entry_type& e) {
-        LOGIO << "Queuing write to: 0x" << std::hex << e.offset();
-        queue_result_type result = queue_result_type::Delayed;
-        std::lock_guard<lock_type> g(map_lock);
-        for (auto req : e.request_set()) {
-            request_map[req].insert(e.offset());
-        }
-        return sector_map[e.offset()].queue_update(e);
-    }
+    bool queue_update(entry_type& e);
 
-    queue_result_type read_resp(entry_type& response,
-                                entry_deque_type& need_dispatch,
-                                error_type const error);
+    void read_resp(entry_type& response, error_type const error);
 
-    queue_result_type write_resp(entry_type& response,
-                                 entry_deque_type& need_dispatch,
-                                 error_type const error);
+    void write_resp(entry_type& response, error_type const error);
 
-    queue_result_type catalog_resp(entry_type& response,
-                                   entry_deque_type& need_dispatch,
-                                   error_type const error);
+    void catalog_resp(entry_type& response, error_type const error);
 
  private:
     explicit SectorLockMap(SectorLockMap const& rhs) = delete;  // Non-copyable
@@ -182,6 +169,10 @@ struct SectorLockMap {
     queue_result_type _complete(entry_type& complete,
                                 entry_deque_type& need_dispatch,
                                 bool const cat_update = false);
+
+    void _send_reads(std::deque<entry_type>& need_dispatch);
+    void _send_put(entry_type& need_dispatch);
+    void _send_cat(std::deque<entry_type>& need_dispatch);
 
     lock_type map_lock;
     sector_map_type sector_map;

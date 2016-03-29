@@ -24,11 +24,10 @@ void
 AmBlockLayer::putBlobOnce(AmRequest *amReq) {
     auto blobReq = static_cast<PutBlobReq*>(amReq);
     std::deque<sector_type> needed_offsets;
-    std::deque<sector_type> ready_to_put;
 
     // Split and enqueue write. Vectors will be populated with requests that
     // *this* thread should enqueue.
-    auto objects = split_update(blobReq, needed_offsets, ready_to_put);
+    auto objects = split_update(blobReq, needed_offsets);
     if (0 == objects) {
         auto aligned_off = (blobReq->blob_offset / blobReq->object_size) * blobReq->object_size;
         auto catReq = new UpdateCatalogReq(blobReq, true);
@@ -38,10 +37,6 @@ AmBlockLayer::putBlobOnce(AmRequest *amReq) {
         return;
     }
     dispatchReads(blobReq, needed_offsets);
-
-    for (auto& update: ready_to_put) {
-        dispatchPut(blobReq, update);
-    }
 }
 
 void
@@ -79,17 +74,7 @@ AmBlockLayer::getBlobCb(AmRequest* amReq, Error const error) {
                     err = ERR_OK;
                 }
 
-                std::deque<sector_type> need_dispatch;
-                auto result = offset_queue->read_resp(update, need_dispatch, err);
-
-                if (offset_queue_type::queue_result_type::MergedEntry == result) {
-                    dispatchPut(blobReq, update);
-                } else if (offset_queue_type::queue_result_type::Finished == result) {
-                    for (auto req : update.request_set()) {
-                        AmDataProvider::putBlobOnceCb(req, update.result());
-                    }
-                    dispatchReads(blobReq, need_dispatch);
-                }
+                offset_queue->read_resp(update, err);
             }
         }
     }
@@ -105,33 +90,7 @@ AmBlockLayer::putObjectCb(AmRequest* amReq, Error const error) {
     if (offset_queue) {
         sector_type update { blobReq->blob_offset };
         update.setId(blobReq->obj_id);
-        std::deque<sector_type> need_dispatch;
-        auto result = offset_queue->write_resp(update, need_dispatch, error);
-        if (offset_queue_type::queue_result_type::MergedEntry == result) {
-            if (ERR_OK == error) {
-                auto putReq = static_cast<PutBlobReq*>(*need_dispatch.front().request_set().begin());
-                auto catReq = new UpdateCatalogReq(putReq, true);
-                for (auto part_update : need_dispatch) {
-                    catReq->object_list.emplace(part_update.id(),
-                                                std::make_pair(part_update.offset(),
-                                                               part_update.objectLength()));
-                }
-                for (auto req : need_dispatch.front().request_set()) {
-                    auto pReq = static_cast<PutBlobReq*>(req);
-                    catReq->metadata->insert(pReq->metadata->begin(), pReq->metadata->end());
-                }
-                catReq->volInfoCopy(amReq);
-                AmDataProvider::updateCatalog(catReq);
-            } else {
-                // We can retry with this rolled up object
-                dispatchPut(blobReq, update);
-            }
-        } else if (offset_queue_type::queue_result_type::Finished == result) {
-            for (auto req : update.request_set()) {
-                AmDataProvider::putBlobOnceCb(req, update.result());
-            }
-            dispatchReads(blobReq, need_dispatch);
-        }
+        offset_queue->write_resp(update, error);
     }
     delete amReq;
 }
@@ -152,21 +111,7 @@ AmBlockLayer::updateCatalogCb(AmRequest* amReq, Error const error)  {
             sector_type update { nullptr, object_pair.first, 0, nullptr };
             update.setId(object_id);
 
-            std::deque<sector_type> need_dispatch;
-            auto result = offset_queue->catalog_resp(update, need_dispatch, err);
-            err = update.result();
-            for (auto req : update.request_set()) {
-                AmDataProvider::putBlobOnceCb(req, err);
-            }
-            // If the update to the offset failed, we'll get back some Gets that
-            // need getting, otherwise we'll get back puts that need putting
-            if (ERR_OK == err) {
-                for (auto& needed : need_dispatch) {
-                    dispatchPut(blobReq, needed);
-                }
-            } else {
-                dispatchReads(blobReq, need_dispatch);
-            }
+            offset_queue->catalog_resp(update, err);
         }
     } else {
         // This was an empty write, just respond to the parent
@@ -189,7 +134,7 @@ AmBlockLayer::lookup_offset_queue(fds_volid_t const vol_id,
             bool happened {false};
             std::tie(blob_it, happened) = blob_map.emplace(blob,
                                                            std::make_shared<
-                                                           offset_queue_type>());
+                                                           offset_queue_type>(this));
             fds_assert(happened);
         }
         return blob_it->second;
@@ -198,7 +143,7 @@ AmBlockLayer::lookup_offset_queue(fds_volid_t const vol_id,
 }
 
 size_t
-AmBlockLayer::split_update(PutBlobReq* blobReq, std::deque<sector_type>& needed, std::deque<sector_type>& ready) {
+AmBlockLayer::split_update(PutBlobReq* blobReq, std::deque<sector_type>& needed) {
     size_t data_written = 0;
     size_t objects = 0;
     auto const& bytes       = blobReq->dataPtr;
@@ -232,32 +177,13 @@ AmBlockLayer::split_update(PutBlobReq* blobReq, std::deque<sector_type>& needed,
         // Queue the update against the map
         auto complete = (blob::TRUNCATE == blobReq->blob_mode ? true : (obj_size == part_length));
         sector_type update {blobReq, aligned_off, part_off, objBuf, complete};
-        auto result = offset_queue->queue_update(update);
-        if (offset_queue_type::queue_result_type::MergedEntry != result) {
-            // This is a RMW and we don't have the data already
-            if (offset_queue_type::queue_result_type::FirstEntry == result) {
-                // We need to dispatch a get to DM/SM for this data
-                needed.emplace_back(update);
-            }
-        } else {
-            // This block is ready to be written to SM
-            ready.emplace_back(update);
+        if (offset_queue->queue_update(update)) {
+            // This is a RMW and we don't have the data already, and
+            // we need to dispatch a get to DM/SM for this data
+            needed.emplace_back(update);
         }
     }
     return objects;
-}
-
-void
-AmBlockLayer::dispatchPut(AmRequest* parent_request, sector_type& need_dispatch) {
-    auto putReq = new PutObjectReq(parent_request->io_vol_id,
-                                   parent_request->volume_name,
-                                   parent_request->getBlobName(),
-                                   need_dispatch.data(),
-                                   need_dispatch.id(),
-                                   need_dispatch.objectLength());
-    putReq->blob_offset = need_dispatch.offset();
-    putReq->volInfoCopy(parent_request);
-    AmDataProvider::putObject(putReq);
 }
 
 void

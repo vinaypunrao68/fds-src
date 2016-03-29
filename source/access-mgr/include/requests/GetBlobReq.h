@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "AmRequest.h"
+#include "BlobDescriptor.h"
 
 namespace fds
 {

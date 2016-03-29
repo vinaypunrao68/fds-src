@@ -63,9 +63,8 @@ struct AmBlockLayer :
     volume_map_type block_queue;
     std::mutex block_update_lock;
 
-    void dispatchPut(AmRequest* parent_request, sector_type& need_dispatch);
     void dispatchReads(AmRequest* parent_request, std::deque<sector_type>& need_dispatch);
-    size_t split_update(PutBlobReq* blobReq, std::deque<sector_type>& needed, std::deque<sector_type>& ready);
+    size_t split_update(PutBlobReq* blobReq, std::deque<sector_type>& needed);
     offset_queue_ptr lookup_offset_queue(fds_volid_t const vol_id,
                                          sector_type::data_type const& blob,
                                          bool const create_too = false);
