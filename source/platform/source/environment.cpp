@@ -64,17 +64,16 @@ EnvironmentMap& Environment::getEnvironmentForService(int service) {
     return getEnv()->envs[service];
 }
 
+// had to remove logging form this function because it is called after PM forks and ends up making a new log file
 void Environment::setEnvironment(EnvironmentMap& env) {
     if (env.size() != 0) {
         for(auto i : env) {
-            GLOGDEBUG << "Launching with env var " << i.first << "=" << i.second;
             setenv(i.first.c_str(), i.second.c_str(), 1);
         }
     }
 }
 
 void Environment::setEnvironment(int service) {
-    GLOGDEBUG << "Called for service index: " << service;
     setEnvironment(getEnvironmentForService(service));
 }
 
