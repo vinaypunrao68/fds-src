@@ -990,8 +990,6 @@ int DataMgr::mod_init(SysParams const *const param)
 {
     Error err(ERR_OK);
 
-
-
     initHandlers();
     standalone = MODULEPROVIDER()->get_fds_config()->get<bool>("fds.dm.testing.standalone", false);
     numTestVols = 10;

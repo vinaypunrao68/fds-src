@@ -12,7 +12,7 @@ user_fds_ar_libs  := \
                     fds-volume-checker
 
 user_non_fds_libs := pcrecpp sqlite3  \
-					fdsStatsUtil-debug \
+    fdsStatsUtil-debug \
     curl \
     jansson
 user_cpp_flags    :=
