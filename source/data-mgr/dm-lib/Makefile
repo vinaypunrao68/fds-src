@@ -19,7 +19,6 @@ user_non_fds_libs := \
 # TODO: remove this once we have correct placement of header API.
 #
 user_incl_dir     := $(topdir) ../include
-user_ld_flags     :=
 user_cpp_flags    := -DDMGR_LIVE_DEBUG
 user_cpp          := $(wildcard *.cpp)
 user_ar_libs      := fds-dm-lib
