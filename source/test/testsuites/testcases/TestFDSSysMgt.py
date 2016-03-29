@@ -17,9 +17,9 @@ from fdslib.TestUtils import get_localDomain_service
 import time
 from fdscli.model.fds_error import FdsError
 from fdslib.TestUtils import node_is_up
-from fabric.contrib.files import *
 from fdslib.TestUtils import disconnect_fabric
 from fdslib.TestUtils import connect_fabric
+from fdslib.TestUtils import execute_command_with_fabric
 from fdslib.TestUtils import get_log_count_dict
 
 # This class contains the attributes and methods to test
@@ -530,7 +530,7 @@ class TestNodeReboot(TestCase.FDSTestCase):
         pre_reboot_count = get_log_count_dict(self,om_node.nd_conf_dict['ip'],node_ip,service_list,log_entry_list)
         self.log.info("%s is going down for reboot NOW!" % self.passedNode_ip)
         assert connect_fabric(node_ip) is True
-        run('reboot')
+        execute_command_with_fabric("reboot",remote_env=True,node_ip=node_ip)
         disconnect_fabric()
 
         # This if will confirm that node is back up again after reboot

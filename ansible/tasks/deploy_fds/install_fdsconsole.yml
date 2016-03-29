@@ -8,3 +8,8 @@
     copy: src=../../../source/tools/fdsconsole.py
       dest=/fds/sbin/
       mode=0755
+
+-   name: copy fds.debug to host
+    copy: src=../../../source/Build/linux-x86_64.debug/tools/fds.debug
+      dest=/fds/sbin/
+      mode=0755

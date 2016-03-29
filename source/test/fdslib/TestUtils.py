@@ -37,7 +37,6 @@ RELPATH_TEMPLATES = "../testsuites/templates/"
 RELPATH_DEVROOT = "../../../"
 TESTSUITES_INVENTORY = "%sansible-inventory/" % RELPATH_TEMPLATES
 DEFAULT_INVENTORY = "%sansible/inventory/" % RELPATH_DEVROOT
-global inventory_file
 
 
 def _setup_logging(log_name, dir, log_level, max_bytes=100 * 1024 * 1024, rollover_count=5):
@@ -356,6 +355,9 @@ def get_config(pyUnit=False, pyUnitConfig=None, pyUnitVerbose=False, pyUnitDryru
     else:
         setattr(options, "sudo_password", "dummy")
 
+    # Set a global variable inventory_file, so no need to pass for each method.
+    global inventory_file
+    inventory_file = pyUnitInventory
     if "inventory_file" in params:
         if params["inventory_file"] is None:
             if pyUnitInventory is None:
@@ -363,10 +365,8 @@ def get_config(pyUnit=False, pyUnitConfig=None, pyUnitVerbose=False, pyUnitDryru
             else:
                 params["inventory_file"] = pyUnitInventory
         setattr(options, "inventory_file", params["inventory_file"])
-        inventory_file = params["inventory_file"]
     else:
         setattr(options, "inventory_file", "generic-lxc-nodes")
-        inventory_file = params["inventory_file"]
     global run_as_root
     if params["run_as_root"] == True:
         run_as_root = True
@@ -581,7 +581,7 @@ def core_hunter_aws(self,node_ip):
     if exists(core_dir, use_sudo=True):
         for dir in {'/fds/var/log/corefiles'}:
             with cd(dir):
-                files = run('ls').split()
+                files = run('ls', quiet=True).split()
                 for file in files:
                     if fnmatch.fnmatch(file, "*.core") or fnmatch.fnmatch(file, "*.hprof") or fnmatch.fnmatch(file,
                                                                                                               "*hs_err_pid*.log"):
@@ -625,13 +625,13 @@ def connect_fabric(node_ip):
     timeout = 600  # Max 10 minutes wait considering bare metal/ pxe reboot
     while time.time() < timeout_start + timeout:
         try:
-            internal_ip = run("hostname")
+            internal_ip = run("hostname", quiet=True)
         except Exception as e:
             # Sleep for 20 sec before retrying to connect node
             time.sleep(20)
             continue
         else:
-            sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
+            sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip, quiet=True)
             return True
 
     print('Node %s unreachable after 10 mins retry time' % node_ip)
@@ -640,6 +640,25 @@ def connect_fabric(node_ip):
 
 def disconnect_fabric():
     fabric.network.disconnect_all()
+
+
+def execute_command_with_fabric(cmd, use_sudo=False, remote_env=None, node_ip=None):
+    if remote_env:
+        if node_ip is None:
+            print "Can not connect to remote node without IP address"
+            raise Exception
+        connect_fabric(node_ip)
+        if use_sudo:
+            op = sudo(cmd, quiet=True)
+        else:
+            op = run(cmd, quiet=True)
+    else:
+        if use_sudo:
+            cmd = "sudo "+cmd
+        with hide('output', 'running'):
+            op = local(cmd, capture=True)
+    disconnect_fabric()
+    return op
 
 
 # This method returns occurrences of 'log_entry' in `service*.log` on node `node_ip`
