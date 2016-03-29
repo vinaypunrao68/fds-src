@@ -191,7 +191,7 @@ def canonMatch(canon, fileToCheck, adjustLines = False, moreVersions=False):
 
 
 def areTokenFilesUpdated_AWS(self, node_ip, dev_dir, media_type):
-    connect_fabric(self,node_ip)
+    connect_fabric(node_ip)
 
     with cd(dev_dir):
         drives_string = run('ls')

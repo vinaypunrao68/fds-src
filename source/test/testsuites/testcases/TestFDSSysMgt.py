@@ -529,12 +529,12 @@ class TestNodeReboot(TestCase.FDSTestCase):
 
         pre_reboot_count = get_log_count_dict(self,om_node.nd_conf_dict['ip'],node_ip,service_list,log_entry_list)
         self.log.info("%s is going down for reboot NOW!" % self.passedNode_ip)
-        assert connect_fabric(self, node_ip) is True
+        assert connect_fabric(node_ip) is True
         run('reboot')
         disconnect_fabric()
 
         # This if will confirm that node is back up again after reboot
-        if not connect_fabric(self, node_ip):
+        if not connect_fabric(node_ip):
             return False
         else:
             verify_reboot = verify_with_logs(self, node_ip, service_list, log_entry_list, self.maxwait, pre_reboot_count)
@@ -544,7 +544,7 @@ class TestNodeReboot(TestCase.FDSTestCase):
 # This method to verifies if node is in good state for IO after reboot
 # by confirming passed log entry count has increased after reboot.
 def verify_with_logs(self, node_ip, service_list, log_entry_list, maxwait, pre_count_dict):
-    assert connect_fabric(self, node_ip) is True
+    assert connect_fabric(node_ip) is True
     disconnect_fabric()
     wait_for_log_time = maxwait  # It's in minutes
     om_node = self.parameters["fdscfg"].rt_om_node
