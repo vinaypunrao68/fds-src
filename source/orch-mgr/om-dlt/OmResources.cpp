@@ -2309,10 +2309,7 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                         {
                             if (cm->getAddedServices(fpi::FDSP_STOR_MGR).size() > 0)
                             {
-                                LOGDEBUG << "Clearing out any pending added nodes";
                                 cm->resetPendingAddedService(fpi::FDSP_STOR_MGR, node_uuid);
-                            } else {
-                                LOGDEBUG << "No added svcs yet";
                             }
                         }
                     }
@@ -2326,8 +2323,12 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                         cm->updateMap( fpi::FDSP_DATA_MGR, addNodes, rmNodes );
                         // we want to remove service from pending services
                         // only if it is not in discovered state
-                        if ( svc.svc_status != fpi::SVC_STATUS_DISCOVERED ) {
-                            cm->resetPendingAddedService(fpi::FDSP_DATA_MGR, node_uuid);
+                        if ( svc.svc_status != fpi::SVC_STATUS_DISCOVERED )
+                        {
+                            if (cm->getAddedServices(fpi::FDSP_DATA_MGR).size() > 0)
+                            {
+                                cm->resetPendingAddedService(fpi::FDSP_DATA_MGR, node_uuid);
+                            }
                         }
                     }
                 }
