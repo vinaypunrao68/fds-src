@@ -10,6 +10,9 @@
 #include <string>
 #include <vector>
 
+// System includes.
+#include <gtest/gtest_prod.h>
+
 // Internal includes.
 #include "concurrency/SynchronizedTaskExecutor.hpp"
 #include "dm-tvc/CommitLog.h"
@@ -108,6 +111,7 @@ class DmTimeVolCatalog : public HasModuleProvider,
      * @return none
      */
     void notifyVolCatalogSync(BlobTxList::const_ptr sycndTxList);
+
 
   protected:
     void createCommitLog(const VolumeDesc& voldesc);

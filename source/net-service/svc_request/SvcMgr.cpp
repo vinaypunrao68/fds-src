@@ -27,6 +27,7 @@
 #include <fiu-control.h>
 #include <util/fiu_util.h>
 #include <json/json.h>
+#include <OmExtUtilApi.h>
 
 namespace fds {
 
@@ -45,7 +46,8 @@ std::string logString(const FDS_ProtocolInterface::SvcInfo &info)
     ss << "Svc handle svc_uuid: "
         << SvcMgr::mapToSvcUuidAndName(info.svc_id.svc_uuid)
         << " ip: " << info.ip << " port: " << info.svc_port
-        << " incarnation: " << info.incarnationNo << " status: " << info.svc_status;
+        << " incarnation: " << info.incarnationNo << " status: "
+        << OmExtUtilApi::printSvcStatus(info.svc_status);
     return ss.str();
 }
 
@@ -69,7 +71,7 @@ std::string logDetailedString(const FDS_ProtocolInterface::SvcInfo &info)
 template<class ClientT>
 boost::shared_ptr<ClientT> allocRpcClient(const std::string &ip, const int &port,
     const int &retryCnt,
-    const std::string &strThriftServiceName,
+    const std::string &thriftServiceName,
     const boost::shared_ptr<FdsConfig> plc)
 {
     auto sock = bo::make_shared<net::Socket>(ip, port);
@@ -88,7 +90,7 @@ boost::shared_ptr<ClientT> allocRpcClient(const std::string &ip, const int &port
         bool enableSubscriptions = configAccess.get<bool>("common.enable_multiplexed_services", false);
         if (enableSubscriptions) {
             boost::shared_ptr<::apache::thrift::protocol::TMultiplexedProtocol> multiproto =
-                boost::make_shared<tp::TMultiplexedProtocol>(proto, strThriftServiceName);
+                boost::make_shared<tp::TMultiplexedProtocol>(proto, thriftServiceName);
             client = bo::make_shared<ClientT>(multiproto);
         }
     }
@@ -138,10 +140,9 @@ std::size_t SvcUuidHash::operator()(const fpi::SvcUuid& svcId) const {
 }
 
 SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
-               PlatNetSvcHandlerPtr handler,
-               fpi::PlatNetSvcProcessorPtr processor,
-               const fpi::SvcInfo &svcInfo,
-               const std::string &strServiceName)
+               PlatNetSvcHandlerPtr asyncHandler,
+               TProcessorMap& processors,
+               const fpi::SvcInfo &svcInfo)
     : HasModuleProvider(moduleProvider),
     Module("SvcMgr")
 {
@@ -161,7 +162,7 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
     fds_assert(omSvcUuid_.svc_uuid != 0);
     fds_assert(omPort_ != 0);
 
-    svcRequestHandler_ = handler;
+    svcRequestHandler_ = asyncHandler;
     svcInfo_ = svcInfo;
 
     /* Create the server */
@@ -189,11 +190,11 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
     LOGNOTIFY << "Initializing Service Layer server for " << SvcMgr::mapToSvcName( svcInfo_.svc_type ) <<
             "[" << svcInfo_.ip << ":" << svcInfo_.svc_port << "]";
 
-    svcServer_ = boost::make_shared<SvcServer>(port, processor, strServiceName, moduleProvider);
+    svcServer_ = boost::make_shared<SvcServer>(port, processors, moduleProvider);
 
     taskExecutor_ = new SynchronizedTaskExecutor<uint64_t>(*MODULEPROVIDER()->proc_thrpool());
 
-    svcRequestMgr_ = new SvcRequestPool(MODULEPROVIDER(), getSelfSvcUuid(), handler);
+    svcRequestMgr_ = new SvcRequestPool(MODULEPROVIDER(), getSelfSvcUuid(), asyncHandler);
     gSvcRequestPool = svcRequestMgr_;
 
     dltMgr_.reset(new DLTManager());
@@ -897,6 +898,7 @@ SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr &current, const fpi::SvcI
 {
     fds_bool_t ret(false);
 
+    std::string error = "uninitialized";
     if ( current->incarnationNo < incoming->incarnationNo ) {
         ret = true;
     } else if ( (current->incarnationNo == incoming->incarnationNo) &&
@@ -927,8 +929,7 @@ SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr &current, const fpi::SvcI
          * configDB. Until all areas of PM and OM are sending incarnation number,
          * this has to be here... and bugs may be coming in.
          */
-        LOGWARN << "Allowing update with zero incarnatioNo!";
-        LOGDEBUG << "THIS NEEDS TO BE FIXED. Should be passing in with complete info.";
+        LOGWARN << "Allowing update with zero incarnatioNo! Should never come to this";
         ret = true;
     } else {
         LOGDEBUG << "Criteria not met, will not allow update of svcMap";
@@ -944,7 +945,8 @@ void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
     auto newPtr = boost::make_shared<fpi::SvcInfo>(newInfo);
     GLOGDEBUG << "Incoming update: " << fds::logString(*newPtr) << " vs current status: "
             << fds::logString(*currentPtr);
-    if (shouldUpdateSvcHandle(currentPtr, newPtr)) {
+
+    if (OmExtUtilApi::isIncomingUpdateValid(*newPtr, *currentPtr)) {
         svcInfo_ = newInfo;
         svcClient_.reset();
         GLOGDEBUG << "Operation Applied.";

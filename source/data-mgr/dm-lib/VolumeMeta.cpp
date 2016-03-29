@@ -13,6 +13,10 @@
 #include <util/stringutils.h>
 #include <dmhandler.h>
 #include <json/json.h>
+#include <ObjectId.h>
+#include <catalogKeys/BlobObjectKey.h>
+#include <catalogKeys/BlobMetadataKey.h>
+#include <catalogKeys/VolumeMetadataKey.h>
 
 namespace fds {
 
@@ -28,16 +32,14 @@ VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
           dataManager(_dm),
           cbToVGMgr(NULL),
           initializerTriesCnt(0),
-          maxInitializerTriesCnt(10)
+          maxInitializerTriesCnt(10),
+          hashCalcContextPtr(nullptr)
 {
     const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
 
     vol_mtx = new fds_mutex("Volume Meta Mutex");
     vol_desc = new VolumeDesc(_name, _uuid);
     dmCopyVolumeDesc(vol_desc, _desc);
-
-    root->fds_mkdir(root->dir_sys_repo_dm().c_str());
-    root->fds_mkdir(root->dir_user_repo_dm().c_str());
 
     /* Enable ability to query state via StateProvider api */
     stateProviderId = "volume." + std::to_string(_uuid.get());
@@ -46,7 +48,7 @@ VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
     selfSvcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
 
     // this should be overwritten when volume add triggers read of the persisted value
-    sequence_id = 0;
+    sequence_id = VolumeGroupConstants::INVALID_SEQUENCEID;
 
     opId = VolumeGroupConstants::OPSTARTID;
     version = VolumeGroupConstants::VERSION_INVALID;
@@ -147,7 +149,8 @@ Error VolumeMeta::applyActiveTxState(const int64_t &highestOpId,
 void VolumeMeta::setSequenceId(sequence_id_t new_seq_id){
     fds_mutex::scoped_lock l(sequence_lock);
 
-    if (new_seq_id > sequence_id) {
+    if (sequence_id == VolumeGroupConstants::INVALID_SEQUENCEID ||
+        new_seq_id > sequence_id) {
         sequence_id = new_seq_id;
     }
 }
@@ -176,7 +179,9 @@ void VolumeMeta::setState(const fpi::ResourceState &state,
 {
     // TODO(Rao): Ensure setState is invoked under volume synchronized context
     vol_desc->state = state;
-    if (state == fpi::ResourceState::Loading) {
+    if (state == fpi::ResourceState::Offline) {
+        setOpId(VolumeGroupConstants::OPSTARTID);
+    } else if (state == fpi::ResourceState::Loading) {
         /* Every time volume goes into loading state version is incremented */
         version = dataManager->getPersistDB(vol_desc->volUUID)->updateVersion();
     } else if (state == fpi::ResourceState::Active) {
@@ -248,7 +253,7 @@ void VolumeMeta::notifyInitializerComplete(const Error &completionError)
     LOGDEBUG << "Cleanedup initializer: " << logString();
 
     if (completionError != ERR_OK) {
-        scheduleInitializer(false);
+        // scheduleInitializer(false);
     } else {
         initializerTriesCnt = 0;
     }
@@ -576,65 +581,112 @@ void VolumeMeta::handleVolumegroupUpdate(DmRequest *dmRequest)
     DmIoVolumegroupUpdate* request = static_cast<DmIoVolumegroupUpdate*>(dmRequest);
     auto &group = request->reqMessage->group;
 
-    LOGDEBUG << logString() << " volume group update ";
-    if (getCoordinatorId() != group.coordinator.id) {
-        LOGDEBUG << logString() << " Coordinator mismatch.  Ignoring volume group update";
+    if (isInitializerInProgress()) {
+        LOGDEBUG << logString() << " - Initializer in progress.  Ignoring volume group update";
         return;
     }
-    if (getState() == fpi::Active) {
-        if (group.nonfunctionalReplicas.end() !=
-            std::find(group.nonfunctionalReplicas.begin(),
-                      group.nonfunctionalReplicas.end(),
-                      selfSvcUuid)) {
-            setState(fpi::Offline,
-                     " - VolumegroupUpdateHandler:coordinator has this volume as nonfunctional");
-            scheduleInitializer(false);
-        }
-        return;
-    } else if (isInitializerInProgress()) {
-        LOGDEBUG << "Initializer in progress.  Ignoring volume group update";
-        return;
-    } else if (getState() == fpi::Loading) {  // This branch is when open is in progress
-        if (group.functionalReplicas.end() !=
-            std::find(group.functionalReplicas.begin(),
-                      group.functionalReplicas.end(),
-                      selfSvcUuid)) {
-            fds_assert(getSequenceId() == static_cast<uint64_t>(group.lastCommitId));
-            setOpId(group.lastOpId);
-            setState(fpi::Active, " - VolumegroupUpdateHandler:state matched with coordinator");
-        } else {
-            fds_assert(getSequenceId() != static_cast<uint64_t>(group.lastCommitId));
-            LOGWARN << "vol: " << request->volId << " doesn't have active state."
-                    << " current sequence id: " << getSequenceId()
-                    << " expected sequence id: " << group.lastCommitId;
-            setState(fpi::Offline, " - VolumegroupUpdateHandler:sequence id mismatch");
-            scheduleInitializer(false);
-        }
+
+    /* Following are cases when we can become functional */
+    if (getState() == fpi::Loading &&
+        getCoordinator().id == group.coordinator.id &&
+        getSequenceId() == static_cast<uint64_t>(group.lastCommitId) &&
+        (group.functionalReplicas.end() !=
+         std::find(group.functionalReplicas.begin(),
+                   group.functionalReplicas.end(),
+                   selfSvcUuid))) {
+        setOpId(group.lastOpId);
+        setCoordinator(group.coordinator);
+        setState(fpi::Active, " - VolumegroupUpdateHandler:state matched with coordinator after open");
         return;
     }
+
+    /* Following are cases when sync is required */
+    if (group.coordinator.id != getCoordinatorId() &&
+        group.coordinator.version >= getCoordinatorVersion()) {
+       setCoordinator(group.coordinator);
+       setState(fpi::Offline,
+                "- VolumegroupUpdateHandler: coordinator updated. Will go through sync");
+       scheduleInitializer(true);
+       return;
+    } else if (group.coordinator.id == getCoordinatorId() &&
+        (group.functionalReplicas.end() ==
+         std::find(group.functionalReplicas.begin(),
+                   group.functionalReplicas.end(),
+                   selfSvcUuid))) {
+        setCoordinator(group.coordinator);
+        setState(fpi::Offline,
+                 "- VolumegroupUpdateHandler: not a functional member as per coordinator.  Will go through sync");
+        scheduleInitializer(true);
+        return;
+    }
+
+    LOGTRACE << logString() << "- volume group update ignored";
 }
 
-VolumeMeta::hashCalcContext::hashCalcContext(DmRequest *req,
-                                             fpi::SvcUuid _reqUUID,
+VolumeMeta::HashCalcContext::HashCalcContext(fpi::SvcUuid _reqUUID,
                                              int _batchSize) :
         requesterUUID(_reqUUID),
         contextErr(ERR_OK),
-        batchSize(_batchSize),
-        hashResult(0)
+        batchSize(_batchSize)
 {
-    typedRequest = static_cast<DmIoVolumeCheck*>(req);
-}
-
-VolumeMeta::hashCalcContext::~hashCalcContext() {
-    sendCb();
-    // typedRequest gets deleted as callback of registerDmVolumeReqHandler<DmIoVolumeCheck>();
+    hashResult[0] = '\0';
 }
 
 void
-VolumeMeta::hashCalcContext::sendCb() {
-    typedRequest->respStatus = contextErr;
-    typedRequest->respMessage->hash_result = hashResult;
-    typedRequest->cb(contextErr, typedRequest);
+VolumeMeta::printDebugSlice(CatalogKVPair &pair) {
+LEVELCHECK(debug) {
+    auto keyType = reinterpret_cast<CatalogKeyType const*>(pair.first.data());
+    int type = ((unsigned char)(*keyType) - (unsigned char)CatalogKeyType::ERROR);
+    auto objID = ObjIdGen::genObjectId((const char*)&pair, sizeof(pair));
+    LOGDEBUG << "Hashing one KV pair type: " << type << " with hash: " << objID.ToString();
+}
+}
+
+void
+VolumeMeta::HashCalcContext::hashThisSlice(CatalogKVPair &pair) {
+    auto keyType = reinterpret_cast<CatalogKeyType const*>(pair.first.data());
+    int type = ((unsigned char)(*keyType) - (unsigned char)CatalogKeyType::ERROR);
+    // We do a whitelist type of hashing.
+    switch (*keyType) {
+        case CatalogKeyType::BLOB_METADATA:
+        {
+            BlobMetadataKey key {pair.first};
+            auto keyString = key.toString();
+            hasher.update(reinterpret_cast<const unsigned char *>(keyString.c_str()),
+                          keyString.size());
+            std::string value {pair.second.data()};
+            hasher.update(reinterpret_cast<const unsigned char *>(value.c_str()), value.size());
+            break;
+        }
+        case CatalogKeyType::BLOB_OBJECTS:
+        {
+            BlobObjectKey key {pair.first};
+            auto keyString = key.toString();
+            hasher.update(reinterpret_cast<const unsigned char *>(keyString.c_str()),
+                          keyString.size());
+            ObjectID value {pair.second.data()};
+            auto valueString = value.ToString();
+            hasher.update(reinterpret_cast<const unsigned char *>(valueString.c_str()),
+                          valueString.size());
+            break;
+        }
+        case CatalogKeyType::VOLUME_METADATA:
+        {
+            // Volume Metadata Key is simply just the key type of VOLUME_METADATA
+            std::string valueString {pair.second.data()};
+            hasher.update(reinterpret_cast<const unsigned char *>(valueString.c_str()),
+                          valueString.size());
+            break;
+        }
+        default:
+            // Skip anything else
+            break;
+    }
+}
+
+void
+VolumeMeta::HashCalcContext::computeCompleteHash() {
+    hasher.final(hashResult);
 }
 
 Error
@@ -645,24 +697,91 @@ VolumeMeta::createHashCalcContext(DmRequest *req,
         LOGERROR << "A hash request has already been sent and is processing.";
         return ERR_DUPLICATE;
     } else {
-        hashCalcContextPtr = new hashCalcContext (req,
-                                                  _reqUUID,
-                                                  batchSize);
+        // As part of development, execute this in an online fashion
+#if 0
         if (getState() != fpi::Offline) {
             LOGERROR << "Volume is not offline.";
 
             // For now, just set it offline... this needs another code path
             setState(fpi::Offline, " Volume hash operation requested.");
         }
+#endif
+
+        scanReq = static_cast<DmIoVolumeCheck*>(req);
+
+        // Pass everything needed to HashCalcContext's constructor
+        hashCalcContextPtr = new HashCalcContext (_reqUUID,
+                                                  batchSize);
+
         auto req = std::bind(&VolumeMeta::doHashTaskOnContext, this);
         dataManager->addToQueue(req, FdsDmSysTaskId);
         return ERR_OK;
     }
 }
+void
+VolumeMeta::cleanupHashOnContext() {
+    if (hashCalcContextPtr != nullptr) {
+        scanReq->respStatus = hashCalcContextPtr->contextErr;
+        scanReq->respMessage->hash_result = std::string(reinterpret_cast<char*>(hashCalcContextPtr->hashResult), SHA_DIGEST_LENGTH);
+        scanReq->cb(scanReq->respStatus, scanReq);
+        delete hashCalcContextPtr;
+        hashCalcContextPtr = nullptr;
+    }
+    if (scannerPtr) {
+        delete scannerPtr;
+        scannerPtr = nullptr;
+    }
+}
 
 void
 VolumeMeta::doHashTaskOnContext() {
-    // For now, this is just a test for async - delete and send cb to test vc side
-    delete hashCalcContextPtr;
+
+    fds_assert(hashCalcContextPtr);
+    if (hashCalcContextPtr == nullptr) {
+        LOGERROR << "Hash calculation error";
+        return;
+    }
+    // We first init the CatalogScanner
+    auto catalogPtr = dataManager->getPersistDB(vol_desc->volUUID)->getCatalog();
+    auto threadPoolPtr = dataManager->qosCtrl->threadPool;
+
+    // For each batch, what do we do?
+    auto batchCb = [this](std::list<CatalogKVPair> &batchSlice) {
+        for (auto &kvPair : batchSlice) {
+            printDebugSlice(kvPair);
+            hashCalcContextPtr->hashThisSlice(kvPair);
+        }
+    };
+
+    // For the last batch, batchCb ALWAYS gets called before scannerCb
+    auto scannerCb = [this](CatalogScanner::progress scannerProgress) {
+        switch (scannerProgress) {
+            case (CatalogScanner::CS_DONE):
+            {
+                hashCalcContextPtr->computeCompleteHash();
+                break;
+            }
+            case (CatalogScanner::CS_ERROR):
+            {
+                break;
+            }
+            default:
+            {
+                fds_assert(!"We shouldn't hit this in dev.");
+                LOGERROR << "This is a weird case.";
+                break;
+            }
+        }
+        cleanupHashOnContext();
+    };
+
+    scannerPtr = new CatalogScanner(*catalogPtr,
+                                 threadPoolPtr,
+                                 static_cast<unsigned>(hashCalcContextPtr->batchSize),
+                                 batchCb,
+                                 scannerCb,
+                                 vol_desc->volUUID.v);
+
+    scannerPtr->start();
 }
 }  // namespace fds

@@ -24,7 +24,7 @@
 #include <DmMigrationSrc.h>
 #include <VolumeInitializer.h>
 #include <dm-vol-cat/DmPersistVolDB.h>
-
+#include <CatalogScanner.h>
 #include <FdsCrypto.h>
 
 namespace fds {
@@ -134,14 +134,21 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
     inline int32_t getVersion() const { return version; }
     inline void setVersion(int32_t version) { this->version = version; }
 
+    inline void setCoordinator(const fpi::VolumeGroupCoordinatorInfo &coordinator) {
+        vol_desc->setCoordinatorId(coordinator.id);
+        vol_desc->setCoordinatorVersion(coordinator.version);
+    }
+    inline fpi::VolumeGroupCoordinatorInfo getCoordinator() const {
+        return vol_desc->getCoordinatorInfo();
+    }
     inline void setCoordinatorId(const fpi::SvcUuid &svcUuid) {
         vol_desc->setCoordinatorId(svcUuid);
     }
     inline fpi::SvcUuid getCoordinatorId() const { return vol_desc->getCoordinatorId(); }
-    inline void setCoordinatorVersion(int32_t version) {
+    inline void setCoordinatorVersion(int64_t version) {
         vol_desc->setCoordinatorVersion(version);
     }
-    inline int32_t getCoordinatorVersion() const { return vol_desc->getCoordinatorVersion(); }
+    inline int64_t getCoordinatorVersion() const { return vol_desc->getCoordinatorVersion(); }
     inline bool isCoordinatorSet() const { return vol_desc->isCoordinatorSet(); }
 
     std::string logString() const;
@@ -355,11 +362,10 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
 
     // Context for requests that ask for hash calculations, such as volume checker
     // Everything done here must be synchronized on FdsSysTaskQueueId
-    struct hashCalcContext {
-        explicit hashCalcContext(DmRequest *req,
-                                fpi::SvcUuid _reqUUID,
+    struct HashCalcContext {
+        explicit HashCalcContext(fpi::SvcUuid _reqUUID,
                                 int _batchSize);
-        ~hashCalcContext();
+        ~HashCalcContext() = default;
 
         /**
          * The sha1 class related to this context.
@@ -368,14 +374,8 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
          */
         hash::Sha1 hasher;
 
-        // Sends the callback with an error code
-        void sendCb();
-
         // Node (could be self) that requested the operation
         fpi::SvcUuid requesterUUID;
-
-        // typedRequest to send back to the requester
-        DmIoVolumeCheck *typedRequest;
 
         // Current context error code
         Error contextErr;
@@ -384,18 +384,37 @@ struct VolumeMeta : HasLogger,  HasModuleProvider, StateProvider {
         int batchSize;
 
         // Result to be sent back as part of the cb
-        unsigned hashResult;
+        unsigned char hashResult[SHA_DIGEST_LENGTH];
 
+        // Given a slice, hash the data
+        void hashThisSlice(CatalogKVPair &pair);
+
+        // Computes the hash and store the result in hashResult
+        void computeCompleteHash();
     };
     // nullptr if no operation is ongoing, otherwise, we only allow 1 hashing op to occur
     // No need for locking since we require things to be done in synchronized context
-    hashCalcContext *hashCalcContextPtr;
+    HashCalcContext *hashCalcContextPtr;
+
+    // Used to iteratively get all the data for hashing
+    CatalogScanner *scannerPtr;
+
+    // Used to hold the cb info
+    DmIoVolumeCheck *scanReq;
+
+    void printDebugSlice(CatalogKVPair &pair);
 
     /**
-     * Given a hashCalcContext that's been established, execute the next step.
+     * Given a HashCalcContext that's been established, execute the next step.
      * Either do the initial hash, continue hash, or send result back
      */
     void doHashTaskOnContext();
+
+    /**
+     * Does the cleanup of the context, as well as sending the cb back to checker
+     * if needed.
+     */
+    void cleanupHashOnContext();
 };
 
 using VolumeMetaPtr = SHPTR<VolumeMeta>;

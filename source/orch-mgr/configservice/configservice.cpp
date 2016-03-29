@@ -23,7 +23,7 @@
 #include <OmResources.h>
 #include <convert.h>
 #include <orchMgr.h>
-#include <omutils.h>
+#include <OmIntUtilApi.h>
 #include "fds_version.h"
 #include <util/stringutils.h>
 #include <util/timeutils.h>
@@ -819,7 +819,6 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
          * Currently (3/18/2015) only support for one Local Domain.
          * So the specified name is ignored. Also, we should be using Domain UUID.
          */
-
         std::vector<fpi::SvcInfo> svcinfos;
         if ( configDB->getSvcMap( svcinfos ) )
         {
@@ -1517,7 +1516,6 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
         desc.srcVolumeId = *volumeId;
         desc.timelineTime = *timelineTime;
         desc.createTime = util::getTimeStampSeconds();
-        desc.coordinator.id.svc_uuid = 0;
 
         if (parentVol->vol_get_properties()->lookupVolumeId == invalid_vol_id) {
             desc.lookupVolumeId = *volumeId;
@@ -2219,6 +2217,7 @@ class ConfigurationServiceHandler : virtual public ConfigurationServiceIf {
 
     void getNodeInfo( ::FDS_ProtocolInterface::SvcInfo& _return,
                       boost::shared_ptr< ::FDS_ProtocolInterface::SvcUuid>& nodeUuid) {
+
         std::vector<fpi::SvcInfo> svcInfos;
         getAllNodeInfo(svcInfos);
         for (fpi::SvcInfo svcInfo : svcInfos) {

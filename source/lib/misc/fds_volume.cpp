@@ -36,7 +36,7 @@ VolumeDesc::VolumeDesc(const fpi::FDSP_VolumeDescType& volinfo,
 
     iscsiSettings = volinfo.iscsi;
     nfsSettings = volinfo.nfs;
-    
+
     coordinator = volinfo.coordinator;
 }
 

@@ -262,9 +262,9 @@ void DataMgr::sampleDMStatsForVol(fds_volid_t volume_id,
         return;
     }
 
-    //err = timeVolCat_->queryIface()->statVolumePhysical(volume_id,
-    //                                                    &total_pbytes,
-    //                                                    &total_pobjects);
+    err = timeVolCat_->queryIface()->statVolumePhysical(volume_id,
+                                                        &total_pbytes,
+                                                        &total_pobjects);
     if (!err.ok()) {
         if (err.GetErrno() != ERR_VOL_NOT_FOUND) {
             LOGERROR << "Failed to get physical usage for vol " << volume_id << " " << err;
@@ -567,7 +567,6 @@ Error DataMgr::addVolume(const std::string& vol_name,
 
     Error err(ERR_OK);
     bool fActivated = false;
-    bool fSyncRequired  = false;
     // create vol catalogs, etc first
 
     bool fPrimary = false;
@@ -612,7 +611,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
             fShouldBeHere = amIinVolumeGroup(vdesc->srcVolumeId);
         } else if (vdesc->isClone()) {
             // TODO(prem,rao) : dig deeper
-            fShouldBeHere = (amIinVolumeGroup(vdesc->volUUID) || 
+            fShouldBeHere = (amIinVolumeGroup(vdesc->volUUID) ||
                              amIinVolumeGroup(vdesc->srcVolumeId));
         } else {
             fShouldBeHere = amIinVolumeGroup(vdesc->volUUID);
@@ -735,17 +734,8 @@ Error DataMgr::addVolume(const std::string& vol_name,
             if (features.isVolumegroupingEnabled() &&
                 !(vdesc->isSnapshot())) {
                 // volmeta->setPersistVolDB(getPersistDB(vol_uuid));
-                if (volmeta->isCoordinatorSet()) {
-                    /* Coordinator is set. We can go through sync protocol */
-                    fSyncRequired = true;
-                    volmeta->setState(fpi::Offline,
-                                      " - addVolume:coordinator set. Will start initializer");
-                } else {
-                    /* Coordinator isn't available yet.  We wait until coordinator tries to
-                     * do an open
-                     */
-                    volmeta->setState(fpi::Offline, " - addVolume:coordinator not set");
-                }
+                /* We wait until coordinator tries to do an open */
+                volmeta->setState(fpi::Offline, " - addVolume:coordinator not set");
             } else {
                 volmeta->setState(fpi::Active, " - addVolume");
             }
@@ -792,10 +782,6 @@ Error DataMgr::addVolume(const std::string& vol_name,
     // now load all the snapshots for the volume
     if (fOldVolume) {
         timelineMgr->loadSnapshot(vol_uuid);
-    }
-
-    if (fSyncRequired) {
-        volmeta->scheduleInitializer(true);
     }
 
     return err;
@@ -991,6 +977,13 @@ int DataMgr::mod_init(SysParams const *const param)
     Error err(ERR_OK);
 
     initHandlers();
+
+    // make sure all vital directories exist
+    const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
+    FdsRootDir::fds_mkdir(root->dir_sys_repo_dm().c_str());
+    FdsRootDir::fds_mkdir(root->dir_user_repo_dm().c_str());
+    FdsRootDir::fds_mkdir(root->dir_timeline_dm().c_str());
+
     standalone = MODULEPROVIDER()->get_fds_config()->get<bool>("fds.dm.testing.standalone", false);
     numTestVols = 10;
     scheduleRate = 10000;
@@ -1032,12 +1025,6 @@ int DataMgr::mod_init(SysParams const *const param)
     dmFullnessThreshold = MODULEPROVIDER()->get_fds_config()->\
             get<fds_uint32_t>("fds.dm.disk_fullness_threshold", 75);
 
-    /**
-     * FEATURE TOGGLE: Volume Open Support
-     * Thu 02 Apr 2015 12:39:27 PM PDT
-     */
-    features.setVolumeTokensEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
-        "fds.feature_toggle.common.volume_open_support", false));
 
     features.setExpungeEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
         "fds.feature_toggle.common.periodic_expunge", false));
@@ -1050,6 +1037,13 @@ int DataMgr::mod_init(SysParams const *const param)
 
     features.setVolumegroupingEnabled(MODULEPROVIDER()->get_fds_config()->get<bool>(
         "fds.feature_toggle.common.enable_volumegrouping", false));
+    /**
+     * FEATURE TOGGLE: Volume Open Support
+     * Thu 02 Apr 2015 12:39:27 PM PDT
+     */
+    features.setVolumeTokensEnabled(!features.isVolumegroupingEnabled() &&
+                                    MODULEPROVIDER()->get_fds_config()->get<bool>(
+                                        "fds.feature_toggle.common.volume_open_support", false));
 
     /**
      * FEATURE TOGGLE: Sample DM stats for a volume with each Volume update. If not enabled,
@@ -1139,7 +1133,7 @@ void DataMgr::_submitGenerationCallback (
 }
 
 void DataMgr::initHandlers() {
-    // TODO: Inject these.
+    // NOTE: For the new way of creating handler, see registerDmVolumeReqHandler()
     handlers[FDS_LIST_BLOB] = new dm::GetBucketHandler(*this);
     handlers[FDS_DELETE_BLOB] = new dm::DeleteBlobHandler(*this);
     handlers[FDS_DM_SYS_STATS] = new dm::DmSysStatsHandler(*this);
@@ -1218,7 +1212,7 @@ void DataMgr::mod_startup()
 
 void DataMgr::mod_enable_service() {
     Error err(ERR_OK);
-    const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
+
     auto svcmgr = MODULEPROVIDER()->getSvcMgr();
     auto diskIOPsMin = standalone ? 60*1000 :
             atoi(svcmgr->getSvcProperty(svcmgr->getMappedSelfPlatformUuid(),
@@ -1283,11 +1277,6 @@ void DataMgr::mod_enable_service() {
         getAllVolumeDescriptors();
     }
     LOGNORMAL << "Finished stat collection and pulling volume descriptors";
-
-    root->fds_mkdir(root->dir_sys_repo_dm().c_str());
-    root->fds_mkdir(root->dir_user_repo_dm().c_str());
-
-    LOGNORMAL << "Finished creating DM directory layout";
 
     // finish setting up time volume catalog
     timeVolCat_->mod_startup();
@@ -2165,7 +2154,7 @@ float_t getUsedCapacityOfSysRepo(const FdsRootDir* _root) {
     float_t result = ((1. * cap.usedCapacity) / cap.totalCapacity) * 100;
     GLOGDEBUG << "Found DM user-repo disk capacity of (" << cap.usedCapacity << "/" << cap.totalCapacity << ") = " << result;
 
-    return result;	
+    return result;
 }
 
 

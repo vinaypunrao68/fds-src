@@ -14,7 +14,7 @@
 #include <OmResources.h>
 #include <OmDataPlacement.h>
 #include <OmVolumePlacement.h>
-#include <omutils.h>
+#include <OmIntUtilApi.h>
 #include <fds_process.h>
 #include <net/net_utils.h>
 #include <net/SvcMgr.h>
@@ -744,8 +744,8 @@ NodeDomainFSM::DACT_WaitDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
         OM_Module *om     = OM_Module::om_singleton();
         ClusterMap *cm    = om->om_clusmap_mod();
 
-        bool smMigAbort =  DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue();
-        bool dmMigAbort =  DltDmtUtil::getInstance()->isDMAbortAfterRestartTrue();
+        bool smMigAbort =  OmExtUtilApi::getInstance()->isSMAbortAfterRestartTrue();
+        bool dmMigAbort =  OmExtUtilApi::getInstance()->isDMAbortAfterRestartTrue();
 
         if ( smMigAbort ) {
             LOGDEBUG << "OM needs to send abortMigration to all SMs,"
@@ -985,12 +985,6 @@ NodeDomainFSM::DACT_ShutAm::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     try {
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         OM_NodeContainer *dom_ctrl = domain->om_loc_domain_ctrl();
-
-        /**
-         * Volume coordinator currently lives as part of the AM.
-         * We'll clear the VC information from the OM as part of the AM shutdown.
-         */
-        dom_ctrl->clearVolumesCoordinatorInfo();
 
         // broadcast shutdown message to all AMs
         dst.am_acks_to_wait = dom_ctrl->om_bcast_shutdown_msg(fpi::FDSP_ACCESS_MGR);
@@ -1336,7 +1330,6 @@ OM_NodeDomainMod::OM_NodeDomainMod(char const *const name)
           fsm_lock("OM_NodeDomainMod fsm lock"),
           configDB(nullptr),
           domainDown(false),
-          dbLock("ConfigDB access lock"),
           dmClusterPresent_(false)
 {
     om_locDomain = new OM_NodeContainer();
@@ -1532,8 +1525,8 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                  * does not already exists or if the incarnation is newer then
                  * then the existing service.
                  */
-                
-                MODULEPROVIDER()->getSvcMgr()->updateSvcMap(svcinfos);
+				// This independent update should be okay
+                MODULEPROVIDER()->getSvcMgr()->updateSvcMap(svcinfos);              
             } else {
                 LOGNORMAL << "No persisted Service Map found.";
             }
@@ -1569,7 +1562,7 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                         }
                     } else {
                             LOGDEBUG << "Adding to the remove list";
-                            DltDmtUtil::getInstance()->addToRemoveList(svc.svc_id.svc_uuid.svc_uuid, svc.svc_type);
+                            OmExtUtilApi::getInstance()->addToRemoveList(svc.svc_id.svc_uuid.svc_uuid, svc.svc_type);
                         }
                 }
             }
@@ -1627,14 +1620,14 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         // if it is. The unset flag will cause this NULL set of newDlt so prevent it.
         // At the end of error handling we will explicitly clear "next" version
         // and newDlt out as a part of clearSMAbortParams()
-        bool unsetTarget = !(DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue());
+        bool unsetTarget = !(OmExtUtilApi::getInstance()->isSMAbortAfterRestartTrue());
         bool committed = dp->commitDlt( unsetTarget );
 
         LOGNOTIFY << "OM has persisted "
                   << deployed_sm_services.size() << " SM nodes, committedDlt? " << committed;
 
         // Same reasoning as above
-        unsetTarget = !(DltDmtUtil::getInstance()->isDMAbortAfterRestartTrue());
+        unsetTarget = !(OmExtUtilApi::getInstance()->isDMAbortAfterRestartTrue());
         vp->commitDMT( unsetTarget );
 
         if ( isAnyNonePlatformSvcActive( &pmSvcs, &amSvcs, &smSvcs, &dmSvcs ) ) {
@@ -2109,12 +2102,15 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
          * Update the service layer service map up front so that any subsequent
          * communication with that service will work.
          */
-        MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
-        om_locDomain->om_bcast_svcmap();
+        // Can we afford to remove this call? This map will get updated and
+        // broadcasted when svcmaps get updated at the end of setupnewnode
+        // MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
+        // om_locDomain->om_bcast_svcmap();
 
         if (svcInfo->svc_type == fpi::FDSP_PLATFORM) {
-            configDB->updateSvcMap(*svcInfo);
-
+            updateSvcMaps<kvstore::ConfigDB>( configDB,  MODULEPROVIDER()->getSvcMgr(),
+                           svcInfo->svc_id.svc_uuid.svc_uuid,
+                           svcInfo->svc_status, fpi::FDSP_PLATFORM, false, true , *svcInfo );
         }
     }
     catch(const Exception& e)
@@ -2363,10 +2359,9 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                      svc.svc_status == fpi::SVC_STATUS_INACTIVE_STOPPED ||
                      svc.svc_status == fpi::SVC_STATUS_STANDBY) ) )
             {
-                svc.svc_status = fpi::SVC_STATUS_ACTIVE;
-
-                fds_mutex::scoped_lock l(dbLock);
-                configDB->updateSvcMap( svc );
+                updateSvcMaps<kvstore::ConfigDB>( configDB,  MODULEPROVIDER()->getSvcMgr(),
+                               svc.svc_id.svc_uuid.svc_uuid,
+                               fpi::SVC_STATUS_ACTIVE, fpi::FDSP_PLATFORM );
             }
 
             spoofed.push_back( svc );
@@ -2376,13 +2371,6 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
             LOGWARN << "OM Restart, Failed to Register ( spoof ) Service: "
                     << fds::logDetailedString( svc );
         }
-    }
-    
-    if ( spoofed.size() > 0  )
-    {    
-        LOGDEBUG << "OM Restart, updating and broadcasting service map ( spoof )";
-        MODULEPROVIDER()->getSvcMgr()->updateSvcMap( spoofed );
-        om_locDomain->om_bcast_svcmap();
     }
 }
     
@@ -2425,7 +2413,7 @@ void OM_NodeDomainMod::handlePendingSvcRemoval(std::vector<fpi::SvcInfo> removed
                      << uuid.uuid_get_val() << std::dec
                      << " in configDB, skip processing of removed svc:"
                      << std::hex << svcId << std::dec;
-            DltDmtUtil::getInstance()->clearFromRemoveList(svc.svc_id.svc_uuid.svc_uuid);
+            OmExtUtilApi::getInstance()->clearFromRemoveList(svc.svc_id.svc_uuid.svc_uuid);
             continue;
         }
 
@@ -3098,7 +3086,9 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
                       << infoPtr->svc_id.svc_uuid.svc_uuid
                       << std::dec;
 
-            configDB->updateSvcMap(*infoPtr);
+            updateSvcMaps<kvstore::ConfigDB>( configDB,  MODULEPROVIDER()->getSvcMgr(),
+                           infoPtr->svc_id.svc_uuid.svc_uuid,
+                           infoPtr->svc_status, infoPtr->svc_type, false, true, *infoPtr);
 
             // Now erase the svc from the the local tracking vector
             removeRegisteredSvc(infoPtr->svc_id.svc_uuid.svc_uuid);
@@ -3365,10 +3355,9 @@ OM_NodeDomainMod::removeNodeComplete(NodeUuid uuid) {
     if (ret) {
         LOGDEBUG << "Deleting from svcMap, uuid:" << std::hex << svcuuid.svc_uuid << std::dec;
 
-        fds_mutex::scoped_lock l(dbLock);
-
         configDB->deleteSvcMap(svcInfo);
-        DltDmtUtil::getInstance()->clearFromRemoveList(uuid.uuid_get_val());
+
+        OmExtUtilApi::getInstance()->clearFromRemoveList(uuid.uuid_get_val());
     }
 }
 
@@ -3573,11 +3562,12 @@ OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap(boost::shared_ptr<fpi::Sv
                                                         const fpi::ServiceStatus status)
 {
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-    {
-        fds_mutex::scoped_lock l(dbLock);
-        change_service_state( configDB, svcInfo, status, true );
-    }
-    om_locDomain->om_bcast_svcmap();
+    // Not sure whether passing this reference to the object managed by the shared ptr is safe
+    updateSvcMaps<kvstore::ConfigDB>( configDB,  MODULEPROVIDER()->getSvcMgr(),
+                   svcInfo->svc_id.svc_uuid.svc_uuid,
+                   status, svcType, true, false, *svcInfo );
+
+    //om_locDomain->om_bcast_svcmap();
 }
 
 void

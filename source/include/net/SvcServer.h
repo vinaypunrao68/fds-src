@@ -9,6 +9,7 @@
 #include <memory>
 #include <atomic>
 #include <set>
+#include <unordered_map>
 #include <boost/enable_shared_from_this.hpp>
 #include <concurrency/Mutex.h>
 #include <thrift/server/TServer.h>
@@ -53,8 +54,13 @@ struct SvcServer : boost::enable_shared_from_this<SvcServer>,
     apache::thrift::server::TServerEventHandler,
     apache::thrift::TProcessorEventHandler
 {
-    SvcServer(int port, boost::shared_ptr<at::TProcessor> currentProcessor,
-        const std::string &strThriftServiceName,
+    /**
+     * Supports multiplexing Thrift services on one transport.
+     *
+     * @param processors A collection of unique processors keyed by service name.
+     *   A processor has a service handler.
+     */
+    SvcServer(int port, std::unordered_map<std::string, boost::shared_ptr<at::TProcessor>>& processors,
         CommonModuleProviderIf *moduleProvider);
     virtual ~SvcServer();
 

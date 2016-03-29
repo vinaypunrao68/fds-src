@@ -47,6 +47,14 @@ StatConstants::StatConstants() {
     fds_assert(FdsStatFGStreamPeriodFactorSec % FdsStatPushAndAggregatePeriodSec == 0);
 
     FdsStatRunForever = FDS_ProtocolInterface::g_common_constants.STAT_STREAM_RUN_FOR_EVER_DURATION;  // The duration setting for a stats stream that is to run indefinitely.
+
+    /**
+     * Disabled Volume stats.
+     */
+    disabledVolStats.insert(FdsVolStatType::STAT_DM_BYTES_ADDED);   // Probably never used or deprecated as it is not collected anywhere.
+    disabledVolStats.insert(FdsVolStatType::STAT_DM_BYTES_REMOVED); // Probably never used or deprecated as it is not collected anywhere.
+    disabledVolStats.insert(FdsVolStatType::STAT_DM_CUR_PBYTES);    // Too costly, performance-wise, to collect for volumes whose data object counts become "large" (for iSCSI with default block data object size, when the volume size is approximately 2TB it was taking about 7 minutes to collect).
+    disabledVolStats.insert(FdsVolStatType::STAT_DM_CUR_POBJECTS);  // Too costly, performance-wise, to collect for volumes whose data object counts become "large" (for iSCSI with default block data object size, when the volume size is approximately 2TB it was taking about 7 minutes to collect).
 }
 
 const StatConstants* StatConstants::singleton() {

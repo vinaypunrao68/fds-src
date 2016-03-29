@@ -2,6 +2,7 @@
  * Copyright 2015 by Formation Data Systems, Inc.
  */
 #include <arpa/inet.h>
+#include <stdexcept>
 #include <util/Log.h>
 #include <fds_assert.h>
 #include <thrift/server/TThreadedServer.h>
@@ -32,8 +33,11 @@ static std::string getTransportKey(
     return ret.str();
 }
 
-SvcServer::SvcServer(int port, boost::shared_ptr<at::TProcessor> currentProcessor,
-    const std::string &strThriftServiceName, CommonModuleProviderIf *moduleProvider)
+/**
+ * Can support multiplexing services using the same transport. 
+ */
+SvcServer::SvcServer(int port, std::unordered_map<std::string, boost::shared_ptr<at::TProcessor>>& processors,
+    CommonModuleProviderIf *moduleProvider)
 {
     port_ = port;
     boost::shared_ptr<tp::TProtocolFactory>  proto(new tp::TBinaryProtocolFactory());
@@ -53,18 +57,28 @@ SvcServer::SvcServer(int port, boost::shared_ptr<at::TProcessor> currentProcesso
         enableMultiplexedServices = configAccess.get<bool>("common.enable_multiplexed_services", false);
     }
     if (enableMultiplexedServices) {
-        // Note on Thrift service compatibility:
-        // If a backward incompatible change arises, pass additional pairs of
-        // processor and Thrift service name to SvcProcess::init(). Similarly,
-        // if the Thrift service API wants to be broken up.
+        // Runs a processor for each service or supported major service version.
+        // Please refer to:
+        //     https://formationds.atlassian.net/wiki/display/ENG/Thrift+API+Versions
         processor_.reset(new ::apache::thrift::TMultiplexedProcessor());
-        processor_->registerProcessor(strThriftServiceName, currentProcessor);
-        processor_->registerProcessor(fpi::commonConstants().PLATNET_SERVICE_NAME, currentProcessor);
+        for (auto& p : processors) {
+
+            if (!p.second) {
+                continue; // for safety, never expected
+            }
+            processor_->registerProcessor(p.first, p.second);
+        }
+        // Multiplexed server
         server_ = boost::shared_ptr<ts::TThreadedServer>(
             new ts::TThreadedServer(processor_, serverTransport_, tfact, proto));
     } else {
+        if (processors.size() == 0 || (processors.size() == 1 && !processors.begin()->second)) {
+            LOGERROR << "Failed to create Thrift server. No processor.";
+            throw std::runtime_error("Failed to create Thrift server. No processor");
+        }
+        // Non-multiplexed server
         server_ = boost::shared_ptr<ts::TThreadedServer>(
-            new ts::TThreadedServer(currentProcessor, serverTransport_, tfact, proto));
+            new ts::TThreadedServer(processors.begin()->second, serverTransport_, tfact, proto));
     }
     stopped_ = true;
 }

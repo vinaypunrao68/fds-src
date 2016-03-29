@@ -47,7 +47,7 @@ struct DmGroupFixture : BaseTestFixture {
         numOfNodes = numDms;
 
         auto roots = getRootDirectories();
-        omHandle.start({"am",
+        omHandle.start({"om",
                        roots[0],
                        "--fds.pm.platform_uuid=1024",
                        "--fds.pm.platform_port=7000",
@@ -87,6 +87,8 @@ struct DmGroupFixture : BaseTestFixture {
 
     void setupVolumeGroup(uint32_t quorumCnt)
     {
+        VolumeGroupHandle::GROUPCHECK_INTERVAL_SEC = 2;
+
         /* Create a coordinator with quorum of quorumCnt */
         v1 = MAKE_SHARED<VolumeGroupHandle>(amHandle.proc, v1Id, quorumCnt);
         amHandle.proc->setVolumeHandle(v1.get());
