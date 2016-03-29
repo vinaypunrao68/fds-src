@@ -1102,6 +1102,10 @@ int DataMgr::mod_init(SysParams const *const param)
                                                               statsServicePort,
                                                               "stats-service",
                                                               "$t@t$");
+
+        metrics.setSubmitter(std::bind(&DataMgr::_submitGenerationCallback,
+                                       this,
+                                       std::placeholders::_1));
     }
 
     fileTransfer.reset(new net::FileTransferService(MODULEPROVIDER()->proc_fdsroot()->dir_filetransfer(), MODULEPROVIDER()->getSvcMgr()));
