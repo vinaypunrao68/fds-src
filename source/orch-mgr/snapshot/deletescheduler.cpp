@@ -124,6 +124,7 @@ void DeleteScheduler::run() {
                 if (handleptr == handleMap.end()) {
                     LOGERROR << "major error . volumeid is missing from the map : "
                              << task->volumeId;
+                    continue;
                 }
 
                 if (nextTime != 0) {
