@@ -198,7 +198,7 @@ BlockOperations::getBlobResp(const fpi::ErrorCode &error,
     BlockTask* resp = nullptr;
     auto handle = requestId.handle;
 
-    LOGDEBUG << "handle: " << handle
+    LOGDEBUG << "handle:" << handle
              << " err:" << error << " length:" << length << " getBlob response";
 
     {
@@ -262,7 +262,7 @@ BlockOperations::finishResponse(BlockTask* response) {
     if (response_removed) {
         blockResp->respondTask(response);
     } else {
-        LOGNOTIFY << "handle:0x" << std::hex << response->getHandle() << std::dec << " missing from response map";
+        LOGNOTIFY << "handle:" << response->getHandle() << std::dec << " missing from response map";
     }
 
     // Only one response will ever see shutting_down == true and

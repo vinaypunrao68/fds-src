@@ -110,27 +110,29 @@ SectorLock::get_resp(entry_type& complete, error_type const error) {
 SectorLock::QueueResult
 SectorLock::write_resp(entry_type& complete, error_type const error) {
     QueueResult result {QueueResult::Missing};
-    if (unstable_data && complete.id() == unstable_data->id()) {
-        if (ERR_OK != error) {
-            if (!waiting_for_get.empty()) {
-                // Roll ourselves into the next command who may succeed
-                for (auto update : waiting_for_get) {
-                    *unstable_data << update;
+    if (unstable_data) {
+        if (complete.id() == unstable_data->id()) {
+            if (ERR_OK != error) {
+                if (!waiting_for_get.empty()) {
+                    // Roll ourselves into the next command who may succeed
+                    for (auto update : waiting_for_get) {
+                        *unstable_data << update;
+                    }
+                    waiting_for_get.clear();
+                    complete = *unstable_data;
+                    return QueueResult::MergedEntry;
                 }
-                waiting_for_get.clear();
-                complete = *unstable_data;
-                return QueueResult::MergedEntry;
-            } 
-            // This command failed, remove from queue and notify parents
-            complete = std::move(*unstable_data);
-            unstable_data.reset();
-        } else {
-            // The cache may have stashed this successful put
-            unstable_data->setCached();
-            *unstable_data >> complete;
+                // This command failed, remove from queue and notify parents
+                complete = std::move(*unstable_data);
+                unstable_data.reset();
+            } else {
+                // The cache may have stashed this successful put
+                unstable_data->setCached();
+                *unstable_data >> complete;
+            }
+            auto done = complete.notifyAll(error);
+            result = (done ? QueueResult::Finished : QueueResult::Delayed);
         }
-        auto done = complete.notifyAll(error);
-        result = (done ? QueueResult::Finished : QueueResult::Delayed);
     }
     return result;
 }

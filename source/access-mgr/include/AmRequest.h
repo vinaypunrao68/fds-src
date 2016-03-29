@@ -126,10 +126,8 @@ struct AmMultiReq : public AmRequest {
     }
 
     std::pair<bool, Error> notifyResponse(const Error &e, size_t const offset) {
-        bool done {false};
         if (0 < expected_offset.erase(offset) || !e.ok()) {
             op_err = e.ok() ? op_err : e;
-            done = expected_offset.empty();
 
             if (!op_err.ok() && dependencies) {
                 for (auto req : *dependencies) {
@@ -137,6 +135,7 @@ struct AmMultiReq : public AmRequest {
                 }
             }
         }
+        bool done = expected_offset.empty();
         return std::make_pair(done, (done ? op_err : ERR_OK));
     }
 

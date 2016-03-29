@@ -53,6 +53,7 @@ AmBlockLayer::getBlobCb(AmRequest* amReq, Error const error) {
             auto const& obj_size = blobReq->object_size;
             auto cb = std::dynamic_pointer_cast<GetObjectCallback>(blobReq->cb);
             auto buf_it = cb->return_buffers->begin();
+            bool done {false};
             for (; blobReq->blob_offset_end >= offset; offset += obj_size) {
                 sector_type update { offset };
                 if (ERR_OK == err || ERR_BLOB_NOT_FOUND == err) {
@@ -76,8 +77,11 @@ AmBlockLayer::getBlobCb(AmRequest* amReq, Error const error) {
 
                 // True if done with writes on this blob
                 if (sector_lock->read_resp(update, err)) {
-                    cleanup_sector_lock(blobReq->io_vol_id, blobReq->getBlobName());
+                    done = true;
                 }
+            }
+            if (done) {
+                cleanup_sector_lock(blobReq->io_vol_id, blobReq->getBlobName());
             }
         }
     }
@@ -159,7 +163,9 @@ AmBlockLayer::cleanup_sector_lock(fds_volid_t const vol_id, std::string const& b
         auto& blob_map = blob_map_it->second;
         auto blob_it = blob_map.find(blob);
         if (blob_map.end() != blob_it) {
-            if (blob_it->second->empty()) {
+            // If no one is operating on this map but us and it's empty:
+            auto use = blob_it->second.use_count();
+            if (2 == use && blob_it->second->empty()) {
                 blob_map.erase(blob_it);
             }
         }
@@ -179,8 +185,12 @@ AmBlockLayer::split_update(PutBlobReq* blobReq, std::deque<sector_type>& needed)
     auto const& offset      = blobReq->blob_offset;
     auto const blob_name = blobReq->getBlobName();
 
+    // Create a queue-map for this volume-blob nexus if needed
+    auto sector_lock = lookup_sector_lock(blobReq->io_vol_id, blob_name, true);
+
     // While we have data to write, find the aligned block and create an update
     // for it, accumulate the data for that write and continue
+    std::deque<sector_type> updates;
     while (data_written < length) {
         auto const curr_offset = offset + data_written;     // Absolute offset
         auto const part_off = curr_offset % obj_size;       // Offset within block
@@ -193,21 +203,19 @@ AmBlockLayer::split_update(PutBlobReq* blobReq, std::deque<sector_type>& needed)
             bytes : boost::make_shared<std::string>(*bytes, data_written, part_length);
         data_written += part_length;
         blobReq->expectResponseOn(aligned_off);
-        ++objects;
-
-        // Create a queue-map for this volume-blob nexus if needed
-        auto sector_lock = lookup_sector_lock(blobReq->io_vol_id, blob_name, true);
-
-        // Queue the update against the map
         auto complete = (blob::TRUNCATE == blobReq->blob_mode ? true : (obj_size == part_length));
-        sector_type update {blobReq, aligned_off, part_off, objBuf, complete};
+        updates.emplace_back(blobReq, aligned_off, part_off, objBuf, complete);
+    }
+
+    for (auto& update : updates) {
+        // Queue the update against the map
         if (sector_lock->queue_update(update)) {
             // This is a RMW and we don't have the data already, and
             // we need to dispatch a get to DM/SM for this data
             needed.emplace_back(update);
         }
     }
-    return objects;
+    return updates.size();
 }
 
 void
