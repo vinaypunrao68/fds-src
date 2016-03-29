@@ -22,7 +22,7 @@
 namespace fds {
 
 AmTxManager::AmTxManager(AmDataProvider* prev)
-    : AmDataProvider(prev, new AmCache(this))
+    : AmDataProvider(prev, std::make_shared<AmCache>(this))
 {
 }
 

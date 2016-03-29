@@ -49,11 +49,9 @@ class WaitQueue : public AmDataProvider {
     mutable std::mutex wait_lock;
 
  public:
-    explicit WaitQueue(AmDataProvider* next) : AmDataProvider(nullptr, next) {}
+    explicit WaitQueue(std::shared_ptr<AmDataProvider> const& next) : AmDataProvider(nullptr, next) {}
     WaitQueue(WaitQueue const&) = delete;
     WaitQueue& operator=(WaitQueue const&) = delete;
-    ~WaitQueue() override
-    { _next_in_chain.release(); } // This is a hack so we don't double delete.
 
     void cancel_if(std::string const&, Error const error);
     void resume_if(std::string const&);
@@ -125,10 +123,8 @@ bool WaitQueue::empty() const {
 AmVolumeTable::AmVolumeTable(AmDataProvider* prev,
                              size_t const max_thrds,
                              fds_log *parent_log) :
-    AmDataProvider(prev, new AmQoSCtrl(this, max_thrds, parent_log)),
-    volume_map(),
-    read_queue(new WaitQueue(this)),
-    write_queue(new WaitQueue(this))
+    AmDataProvider(prev, std::make_shared<AmQoSCtrl>(this, max_thrds, parent_log)),
+    volume_map()
 {
     if (parent_log) {
         SetLog(parent_log);
@@ -138,6 +134,11 @@ AmVolumeTable::AmVolumeTable(AmDataProvider* prev,
 AmVolumeTable::~AmVolumeTable() = default;
 
 void AmVolumeTable::start() {
+    if (!read_queue) {
+        read_queue.reset(new WaitQueue(shared_from_this()));
+        write_queue.reset(new WaitQueue(shared_from_this()));
+    }
+
     /**
      * FEATURE TOGGLE: "VolumeGroup" support in Dispatcher
      * Fri Jan 15 10:24:22 2016

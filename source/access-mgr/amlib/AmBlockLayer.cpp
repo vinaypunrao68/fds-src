@@ -13,7 +13,7 @@
 namespace fds {
 
 AmBlockLayer::AmBlockLayer(AmDataProvider* prev) :
-    AmDataProvider(prev, new AmTxManager(this)),
+    AmDataProvider(prev, std::make_shared<AmTxManager>(this)),
     block_queue()
 {
 }
@@ -46,8 +46,8 @@ AmBlockLayer::getBlobCb(AmRequest* amReq, Error const error) {
 
     if (blobReq->for_rmw) {
         // Here's the block map with pending requests
-        auto offset_queue = lookup_offset_queue(blobReq->io_vol_id, blobReq->getBlobName());
-        if (offset_queue) {
+        auto sector_lock = lookup_sector_lock(blobReq->io_vol_id, blobReq->getBlobName());
+        if (sector_lock) {
             sector_type::data_buf_type empty_buffer;
             auto offset = blobReq->blob_offset;
             auto const& obj_size = blobReq->object_size;
@@ -74,7 +74,10 @@ AmBlockLayer::getBlobCb(AmRequest* amReq, Error const error) {
                     err = ERR_OK;
                 }
 
-                offset_queue->read_resp(update, err);
+                // True if done with writes on this blob
+                if (sector_lock->read_resp(update, err)) {
+                    cleanup_sector_lock(blobReq->io_vol_id, blobReq->getBlobName());
+                }
             }
         }
     }
@@ -86,11 +89,14 @@ AmBlockLayer::putObjectCb(AmRequest* amReq, Error const error) {
     auto blobReq = static_cast<PutObjectReq*>(amReq);
 
     // Here's the block map with pending requests
-    auto offset_queue = lookup_offset_queue(blobReq->io_vol_id, blobReq->getBlobName());
-    if (offset_queue) {
+    auto sector_lock = lookup_sector_lock(blobReq->io_vol_id, blobReq->getBlobName());
+    if (sector_lock) {
         sector_type update { blobReq->blob_offset };
         update.setId(blobReq->obj_id);
-        offset_queue->write_resp(update, error);
+        // True if done with writes on this blob
+        if (sector_lock->write_resp(update, error)) {
+            cleanup_sector_lock(blobReq->io_vol_id, blobReq->getBlobName());
+        }
     }
     delete amReq;
 }
@@ -102,8 +108,8 @@ AmBlockLayer::updateCatalogCb(AmRequest* amReq, Error const error)  {
 
     if (!blobReq->object_list.empty()) {
         // Here's the block map with pending requests
-        auto offset_queue = lookup_offset_queue(blobReq->io_vol_id, blobReq->getBlobName());
-        if (offset_queue) {
+        auto sector_lock = lookup_sector_lock(blobReq->io_vol_id, blobReq->getBlobName());
+        if (sector_lock) {
             // Build a matching Update for the sector lock to find
             ObjectID object_id;
             std::pair<uint64_t, size_t> object_pair;
@@ -111,7 +117,10 @@ AmBlockLayer::updateCatalogCb(AmRequest* amReq, Error const error)  {
             sector_type update { nullptr, object_pair.first, 0, nullptr };
             update.setId(object_id);
 
-            offset_queue->catalog_resp(update, err);
+            // true if the queue is now empty and can be removed
+            if (sector_lock->catalog_resp(update, err)) {
+                cleanup_sector_lock(blobReq->io_vol_id, blobReq->getBlobName());
+            }
         }
     } else {
         // This was an empty write, just respond to the parent
@@ -122,8 +131,8 @@ AmBlockLayer::updateCatalogCb(AmRequest* amReq, Error const error)  {
     delete blobReq;
 }
 
-AmBlockLayer::offset_queue_ptr
-AmBlockLayer::lookup_offset_queue(fds_volid_t const vol_id,
+AmBlockLayer::sector_lock_shared
+AmBlockLayer::lookup_sector_lock(fds_volid_t const vol_id,
                                   std::string const& blob,
                                   bool const create_too) {
     std::lock_guard<std::mutex> g(block_update_lock);
@@ -134,12 +143,30 @@ AmBlockLayer::lookup_offset_queue(fds_volid_t const vol_id,
             bool happened {false};
             std::tie(blob_it, happened) = blob_map.emplace(blob,
                                                            std::make_shared<
-                                                           offset_queue_type>(this));
+                                                           sector_lock_type>(shared_from_this()));
             fds_assert(happened);
         }
         return blob_it->second;
     }
     return nullptr;
+}
+
+void
+AmBlockLayer::cleanup_sector_lock(fds_volid_t const vol_id, std::string const& blob) {
+    std::lock_guard<std::mutex> g(block_update_lock);
+    auto blob_map_it = block_queue.find(vol_id);
+    if (block_queue.end() != blob_map_it) {
+        auto& blob_map = blob_map_it->second;
+        auto blob_it = blob_map.find(blob);
+        if (blob_map.end() != blob_it) {
+            if (blob_it->second->empty()) {
+                blob_map.erase(blob_it);
+            }
+        }
+        if (block_queue[vol_id].empty()) {
+            block_queue.erase(vol_id);
+        }
+    }
 }
 
 size_t
@@ -161,9 +188,6 @@ AmBlockLayer::split_update(PutBlobReq* blobReq, std::deque<sector_type>& needed)
         auto const part_length = std::min((obj_size - part_off), // Data for this part
                                           (length - data_written));
 
-        LOGTRACE  << "Will write offset: 0x" << std::hex << curr_offset
-                  << " for length: 0x" << part_length;
-
         // Trim (if needed) the buffer to create an update solely for this block
         auto objBuf = (part_length == length) ?
             bytes : boost::make_shared<std::string>(*bytes, data_written, part_length);
@@ -172,12 +196,12 @@ AmBlockLayer::split_update(PutBlobReq* blobReq, std::deque<sector_type>& needed)
         ++objects;
 
         // Create a queue-map for this volume-blob nexus if needed
-        auto offset_queue = lookup_offset_queue(blobReq->io_vol_id, blob_name, true);
+        auto sector_lock = lookup_sector_lock(blobReq->io_vol_id, blob_name, true);
 
         // Queue the update against the map
         auto complete = (blob::TRUNCATE == blobReq->blob_mode ? true : (obj_size == part_length));
         sector_type update {blobReq, aligned_off, part_off, objBuf, complete};
-        if (offset_queue->queue_update(update)) {
+        if (sector_lock->queue_update(update)) {
             // This is a RMW and we don't have the data already, and
             // we need to dispatch a get to DM/SM for this data
             needed.emplace_back(update);

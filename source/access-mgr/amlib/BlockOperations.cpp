@@ -198,7 +198,7 @@ BlockOperations::getBlobResp(const fpi::ErrorCode &error,
     BlockTask* resp = nullptr;
     auto handle = requestId.handle;
 
-    LOGDEBUG << "handle:0x" << std::hex << handle
+    LOGDEBUG << "handle: " << handle
              << " err:" << error << " length:" << length << " getBlob response";
 
     {

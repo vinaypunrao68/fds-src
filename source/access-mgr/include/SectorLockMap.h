@@ -146,19 +146,24 @@ struct SectorLockMap : public AmDataProvider {
     using error_type = SectorLock::error_type;
     using queue_result_type = SectorLock::QueueResult;
 
-    explicit SectorLockMap(AmDataProvider* next) :
+    explicit SectorLockMap(std::shared_ptr<AmDataProvider> const& next) :
         AmDataProvider(nullptr, next),
         map_lock(), sector_map()
     {}
     ~SectorLockMap() = default;
 
+    bool empty() {
+        std::lock_guard<std::mutex> g(map_lock);
+        return request_map.empty() && sector_map.empty();
+    }
+
     bool queue_update(entry_type& e);
 
-    void read_resp(entry_type& response, error_type const error);
+    bool read_resp(entry_type& response, error_type const error);
 
-    void write_resp(entry_type& response, error_type const error);
+    bool write_resp(entry_type& response, error_type const error);
 
-    void catalog_resp(entry_type& response, error_type const error);
+    bool catalog_resp(entry_type& response, error_type const error);
 
  private:
     explicit SectorLockMap(SectorLockMap const& rhs) = delete;  // Non-copyable

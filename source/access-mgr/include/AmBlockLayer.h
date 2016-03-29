@@ -53,10 +53,10 @@ struct AmBlockLayer :
     // to create a barrier to do RMW and write amortization.
     using sector_type = SectorLockMap::entry_type;
 
-    using offset_queue_type = SectorLockMap;
-    using offset_queue_ptr = std::shared_ptr<SectorLockMap>;
+    using sector_lock_type = SectorLockMap;
+    using sector_lock_shared = std::shared_ptr<SectorLockMap>;
 
-    using blob_map_type = std::unordered_map<sector_type::data_type, offset_queue_ptr>;
+    using blob_map_type = std::unordered_map<sector_type::data_type, sector_lock_shared>;
 
     using volume_map_type = std::unordered_map<fds_volid_t, blob_map_type>;
 
@@ -65,9 +65,12 @@ struct AmBlockLayer :
 
     void dispatchReads(AmRequest* parent_request, std::deque<sector_type>& need_dispatch);
     size_t split_update(PutBlobReq* blobReq, std::deque<sector_type>& needed);
-    offset_queue_ptr lookup_offset_queue(fds_volid_t const vol_id,
-                                         sector_type::data_type const& blob,
-                                         bool const create_too = false);
+    sector_lock_shared lookup_sector_lock(fds_volid_t const vol_id,
+                                          sector_type::data_type const& blob,
+                                          bool const create_too = false);
+    void cleanup_sector_lock(fds_volid_t const vol_id,
+                             sector_type::data_type const& blob);
+                              
 };
 
 }  // namespace fds

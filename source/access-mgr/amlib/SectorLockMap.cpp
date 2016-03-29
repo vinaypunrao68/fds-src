@@ -198,7 +198,7 @@ SectorLockMap::queue_update(entry_type& e) {
     return (queue_result_type::FirstEntry == result);
 }
 
-void
+bool
 SectorLockMap::read_resp(entry_type& response, error_type const error) {
     queue_result_type result {queue_result_type::Missing};
     entry_deque_type need_dispatch;
@@ -226,9 +226,10 @@ SectorLockMap::read_resp(entry_type& response, error_type const error) {
         }
         _send_reads(need_dispatch); // These can now be processed normally
     }
+    return empty();
 }
 
-void
+bool
 SectorLockMap::write_resp(entry_type& response, error_type const error) {
     queue_result_type result {queue_result_type::Missing};
     entry_deque_type need_dispatch;
@@ -260,9 +261,10 @@ SectorLockMap::write_resp(entry_type& response, error_type const error) {
         }
         _send_reads(need_dispatch); // These can now be processed normally
     }
+    return empty();
 }
 
-void
+bool
 SectorLockMap::catalog_resp(entry_type& response, error_type const error) {
     queue_result_type result {queue_result_type::Missing};
     entry_deque_type need_dispatch;
@@ -293,6 +295,7 @@ SectorLockMap::catalog_resp(entry_type& response, error_type const error) {
     } else {
         _send_reads(need_dispatch); // These can now be processed normally
     }
+    return empty();
 }
 
 void
