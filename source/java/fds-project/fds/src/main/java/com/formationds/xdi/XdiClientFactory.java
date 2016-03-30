@@ -7,10 +7,11 @@ import com.formationds.apis.ConfigurationService;
 import com.formationds.apis.ConfigurationService.Iface;
 import com.formationds.util.thrift.ConfigServiceClientFactory;
 import com.formationds.util.thrift.ThriftClientFactory;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 public class XdiClientFactory {
-    protected static final Logger LOG = Logger.getLogger(XdiClientFactory.class);
+    protected static final Logger LOG = LogManager.getLogger(XdiClientFactory.class);
 
     private final ThriftClientFactory<Iface>    configService;
 

@@ -2,14 +2,15 @@ package com.formationds.nfs;
 
 import com.formationds.apis.ObjectOffset;
 import com.formationds.util.IoConsumer;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class MemoryIoOps implements IoOps {
-    private static final Logger LOG = Logger.getLogger(MemoryIoOps.class);
+    private static final Logger LOG = LogManager.getLogger(MemoryIoOps.class);
     private Map<ObjectKey, FdsObject> objectCache;
     private Map<MetaKey, Map<String, String>> metadataCache;
     private int maxObjectSize;

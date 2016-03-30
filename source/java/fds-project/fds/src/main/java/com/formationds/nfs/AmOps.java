@@ -9,7 +9,8 @@ import com.formationds.util.IoFunction;
 import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.RecoverableException;
 import com.google.common.collect.Sets;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -19,7 +20,7 @@ import java.util.stream.Collectors;
 import static com.formationds.hadoop.FdsFileSystem.unwindExceptions;
 
 public class AmOps implements IoOps {
-    private static final Logger LOG = Logger.getLogger(AmOps.class);
+    private static final Logger LOG = LogManager.getLogger(AmOps.class);
     private AsyncAm asyncAm;
 
     public static final ErrorCode[] RECOVERABLE_ERRORS = new ErrorCode[]{

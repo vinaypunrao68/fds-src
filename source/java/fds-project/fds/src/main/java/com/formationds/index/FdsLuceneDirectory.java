@@ -7,7 +7,8 @@ import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.RealAsyncAm;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.apache.lucene.store.*;
 import org.joda.time.Duration;
 import org.junit.Ignore;
@@ -20,7 +21,7 @@ import java.util.concurrent.ExecutionException;
 
 @Ignore
 public class FdsLuceneDirectory extends Directory {
-    private static final Logger LOG = Logger.getLogger(FdsLuceneDirectory.class);
+    private static final Logger LOG = LogManager.getLogger(FdsLuceneDirectory.class);
     public static final String INDEX_FILE_PREFIX = "index/";
     public static final OwnerGroupInfo OWNER = new OwnerGroupInfo("fds", "fds");
     public static final String SIZE = "SIZE";

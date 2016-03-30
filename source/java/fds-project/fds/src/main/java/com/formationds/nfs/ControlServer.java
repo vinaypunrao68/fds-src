@@ -1,13 +1,14 @@
 package com.formationds.nfs;
 
 import com.formationds.web.toolkit.*;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.eclipse.jetty.server.Request;
 
 import java.util.Map;
 
 public class ControlServer {
-    private static final Logger LOG = Logger.getLogger(ControlServer.class);
+    private static final Logger LOG = LogManager.getLogger(ControlServer.class);
     private IoOps ops;
     private final HttpConfiguration configuration;
     private final WebApp webApp;

@@ -10,15 +10,15 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
 import java.util.Map;
 
 public class AttachSnapshotPolicyIdToVolumeId implements RequestHandler {
-    private static final Logger logger =
-      Logger.getLogger(AttachSnapshotPolicyIdToVolumeId.class);
+    private static final Logger logger = LogManager.getLogger(AttachSnapshotPolicyIdToVolumeId.class);
 
     private static final String REQ_PARAM_VOLUME_ID = "volumeId";
     private static final String REQ_PARAM_POLICY_ID = "policyId";
