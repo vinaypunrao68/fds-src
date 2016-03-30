@@ -2,6 +2,16 @@
 #
 # Copyright 2014 by Formation Data Systems, Inc.
 #
+
+# Unit tests should be run with every refactoring. Minimal execution time
+# is critical, otherwise developers will not run with every refactoring.
+# Every unit test must pass on a single developer machine, without using
+# a deployment.
+
+# A unit test should not cross process boundaries. This means no dependency
+# on IPC, databases, or the network. If the test needs to depend on one of
+# those, put the test into run-integration-tests.py instead.
+
 import os, sys
 import inspect
 import argparse
@@ -10,7 +20,17 @@ import re
 from multiprocessing import Process, Array
 import time
 
+def about_to_quit(start_time):
+    '''
+    Arguments:
+    ----------
+    start_time :
+    '''
+    print("--- duration wall clock: %.3f seconds ---" % (time.time() - start_time))
+    return
+
 if __name__ == "__main__":
+    start_time = time.time()
     parser = argparse.ArgumentParser(description='Start FDS Processes...')
     parser.add_argument('--cfg_file', default='test.cfg',
                         help='???')
@@ -40,6 +60,7 @@ if __name__ == "__main__":
 
     if failure_count > 0:
         print "C++ Unit test failure count:  %d" %(failure_count)
+        about_to_quit(start_time)
         exit (failure_count)
 
     # Run Java unit tests
@@ -49,4 +70,7 @@ if __name__ == "__main__":
 
     if status > 0:
         print "Java Unit test failure"
+        about_to_quit(start_time)
         exit (status)
+
+    about_to_quit(start_time)
