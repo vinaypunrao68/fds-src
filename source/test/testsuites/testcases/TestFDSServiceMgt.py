@@ -504,6 +504,9 @@ class TestDMActivate(TestCase.FDSTestCase):
                 self.log.error(" Add DM service failed on node %s"%(each_node.id))
                 return False
 
+            # sleep for a few seconds to allow the add request to complete     
+            time.sleep(5)
+
             self.log.info("Activate service DM for node %s." % (each_node.id))
             start_service = node_service.start_service(each_node.id,add_service.id)
             time.sleep(3)
@@ -1128,6 +1131,9 @@ class TestSMActivate(TestCase.FDSTestCase):
             if type(add_service).__name__ == 'FdsError':
                 self.log.error(" Add SM service failed on node %s"%(each_node.id))
                 return False
+            
+            # sleep for a few seconds to allow the add request to complete
+            time.sleep(5)
 
             self.log.info("Activate service SM for node %s." % (each_node.id))
             start_service = node_service.start_service(each_node.id,add_service.id)
@@ -2721,6 +2727,9 @@ class TestAMActivate(TestCase.FDSTestCase):
             if type(add_service).__name__ == 'FdsError':
                 self.log.error(" Add AM service failed on node %s"%(each_node.id))
                 return False
+
+            # sleep for a few seconds to allow the add request to complete
+            time.sleep(5)
 
             self.log.info("Activate service AM for node %s." % (each_node.id))
             start_service = node_service.start_service(each_node.id,add_service.id)
