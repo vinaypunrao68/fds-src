@@ -40,7 +40,9 @@ user_non_fds_libs :=  \
     rt \
     fiu \
     dl \
-    tcmalloc
+    tcmalloc \
+    cpr \
+    curl
 
 user_static_libs  := \
     ev

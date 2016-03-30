@@ -52,6 +52,8 @@ BlockOperations::init(boost::shared_ptr<std::string> vol_name,
         // We assume the client wants R/W with a cache for now
         handle_type reqId{resp->getHandle(), 0};
         auto mode = boost::make_shared<fpi::VolumeAccessMode>();
+        mode->can_write = false;
+        mode->can_cache = false;
         amAsyncDataApi->attachVolume(reqId, domainName, volumeName, mode);
     } else {
         fds_assert(!resp); // Shouldn't have a task

@@ -12,7 +12,9 @@ import com.formationds.util.ConsumerWithException;
 import com.formationds.util.Retry;
 import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.util.thrift.ThriftClientFactory;
-import org.apache.log4j.Logger;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.thrift.TException;
 import org.apache.thrift.TMultiplexedProcessor;
 import org.apache.thrift.server.TNonblockingServer;
@@ -26,7 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public class RealAsyncAm implements AsyncAm {
-    private static final Logger LOG = Logger.getLogger(RealAsyncAm.class);
+    private static final Logger LOG = LogManager.getLogger(RealAsyncAm.class);
     private final AsyncAmResponseListener responseListener;
     private AsyncXdiServiceRequest.Iface oneWayAm;
     private String amHost;

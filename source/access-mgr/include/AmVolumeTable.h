@@ -65,6 +65,13 @@ struct AmVolumeTable :
     // Renews volume leases
     void renewTokens();
 
+    /**
+     * Returns volume if found in volume map.
+     * if volume does not exist, returns 'nullptr'
+     */
+    volume_ptr_type getVolume(const std::string& vol_name) const;
+    volume_ptr_type getVolume(fds_volid_t const vol_uuid) const;
+
  protected:
 
     /**
@@ -72,6 +79,11 @@ struct AmVolumeTable :
      */
     void openVolumeCb(AmRequest *amReq, const Error error) override;
     void statVolumeCb(AmRequest *amReq, const Error error) override;
+
+    void setVolumeMetadataCb(AmRequest * amReq, Error const error) override;
+    void commitBlobTxCb(AmRequest * amReq, Error const error) override;
+    void renameBlobCb(AmRequest * amReq, Error const error) override;
+    void putBlobOnceCb(AmRequest * amReq, Error const error) override;
 
   private:
     /// volume uuid -> AmVolume map
@@ -82,8 +94,8 @@ struct AmVolumeTable :
 
     boost::shared_ptr<FdsTimerTask> renewal_task;
 
-    std::unique_ptr<WaitQueue> read_queue;
-    std::unique_ptr<WaitQueue> write_queue;
+    std::unique_ptr<WaitQueue> lookup_queue;
+    std::unique_ptr<WaitQueue> open_queue;
 
     /// Timer for token renewal
     boost::shared_ptr<FdsTimer> token_timer;
@@ -102,15 +114,12 @@ struct AmVolumeTable :
                         const Error& error,
                         boost::shared_ptr<std::string> payload);
 
-    /**
-     * Returns volume if found in volume map.
-     * if volume does not exist, returns 'nullptr'
-     */
-    volume_ptr_type getVolume(const std::string& vol_name) const;
-    volume_ptr_type getVolume(fds_volid_t const vol_uuid) const;
 
+    void continueRequest(AmRequest *amReq, volume_ptr_type const vol, void (AmDataProvider::*func)(AmRequest*));
     void read(AmRequest *amReq, void (AmDataProvider::*func)(AmRequest*));
     void write(AmRequest *amReq, void (AmDataProvider::*func)(AmRequest*));
+
+    void checkFailureResponse(AmRequest * amReq, Error const error);
 };
 
 }  // namespace fds

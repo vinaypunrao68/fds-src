@@ -920,6 +920,9 @@ OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_ty
             services.am = svc_agent->get_uuid();
             LOGDEBUG << " am: " <<  std::hex << services.am.uuid_get_val() << std::dec;
             break;
+        case FDS_ProtocolInterface::FDSP_CHECKER_TYPE:
+            LOGDEBUG << "Checker does not need to be registered.";
+            break;
         default:
             fds_verify(false);
     };
@@ -3670,7 +3673,13 @@ OM_NodeContainer::om_bcast_dlt(const DLT* curDlt,
     LOGNOTIFY << "Will broadcast DLT version:" << curDlt->getVersion()
               << " to all SM, DM, AM svcs in domain";
 
-    curDlt->dump();
+    if ( curDlt != NULL )
+    {
+        curDlt->dump();
+    } else {
+        LOGWARN << "Broadcasting invalid DLT object!!";
+        return 0;
+    }
 
     if (to_sm) {
         count = dc_sm_nodes->agent_ret_foreach<const DLT*>(curDlt, om_send_dlt);

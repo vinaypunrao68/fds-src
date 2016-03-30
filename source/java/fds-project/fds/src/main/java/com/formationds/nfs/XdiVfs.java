@@ -2,7 +2,8 @@ package com.formationds.nfs;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.Sets;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.dcache.acl.ACE;
 import org.dcache.auth.GidPrincipal;
 import org.dcache.auth.UidPrincipal;
@@ -23,7 +24,7 @@ import java.util.List;
 import java.util.Optional;
 
 public class XdiVfs implements VirtualFileSystem, AclCheckable {
-    private static final Logger LOG = Logger.getLogger(XdiVfs.class);
+    private static final Logger LOG = LogManager.getLogger(XdiVfs.class);
     private InodeMap inodeMap;
     private PersistentCounter allocator;
     private InodeIndex inodeIndex;

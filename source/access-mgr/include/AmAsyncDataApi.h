@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <AmAsyncResponseApi.h>
+#include <AsyncResponseHandlers.h>
 
 namespace fds {
 
@@ -17,6 +18,7 @@ struct AmProcessor;
  * AM's async data API that is exposed to XDI. This interface is the
  * basic data API that XDI and connectors are programmed to.
  */
+
 class AmAsyncDataApi {
  public:
     template <typename M> using sp = boost::shared_ptr<M>;

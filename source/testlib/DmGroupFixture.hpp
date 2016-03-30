@@ -29,7 +29,7 @@ struct DmGroupFixture : BaseTestFixture {
     {}
 
     std::vector<std::string> &getRootDirectories() {
-        if (!roots.size()) {
+        if (roots.size() == 0) {
             std::string fdsSrcPath;
             auto findRet = findFdsSrcPath(fdsSrcPath);
             fds_verify(findRet);
@@ -43,11 +43,20 @@ struct DmGroupFixture : BaseTestFixture {
         return roots;
     }
 
+    int getPlatformUuid(int idx)
+    {
+        return 2048 + (256 * idx);
+    }
+    int getPlatformPort(int idx)
+    {
+        return 9850 + (10 * idx);
+    }
+
     void createCluster(int numDms) {
         numOfNodes = numDms;
 
         auto roots = getRootDirectories();
-        omHandle.start({"am",
+        omHandle.start({"om",
                        roots[0],
                        "--fds.pm.platform_uuid=1024",
                        "--fds.pm.platform_port=7000",
@@ -58,41 +67,30 @@ struct DmGroupFixture : BaseTestFixture {
 
         amHandle.start({"am",
                        roots[0],
-                       "--fds.pm.platform_uuid=2048",
-                       "--fds.pm.platform_port=9850",
+                       util::strformat("--fds.pm.platform_uuid=%d", getPlatformUuid(0)),
+                       util::strformat("--fds.pm.platform_port=%d", getPlatformPort(0)),
                        "--fds.am.threadpool.num_threads=3"
                        });
 
-        int uuid = 2048;
-        int port = 9850;
         dmGroup.resize(numOfNodes);
         for (int i = 0; i < numOfNodes; i++) {
             dmGroup[i].reset(new DmHandle);
-            std::string platformUuid = util::strformat("--fds.pm.platform_uuid=%d", uuid);
-            std::string platformPort = util::strformat("--fds.pm.platform_port=%d", port);
             dmGroup[i]->start({"dm",
                               roots[i],
-                              platformUuid,
-                              platformPort,
+                              util::strformat("--fds.pm.platform_uuid=%d", getPlatformUuid(i)),
+                              util::strformat("--fds.pm.platform_port=%d", getPlatformPort(i)),
                               "--fds.dm.threadpool.num_threads=3",
                               "--fds.dm.qos.default_qos_threads=3",
                               "--fds.feature_toggle.common.enable_volumegrouping=true",
                               "--fds.feature_toggle.common.enable_timeline=false"
                               });
-
-            uuid +=256;
-            port += 10;
         }
+
+        VolumeGroupHandle::GROUPCHECK_INTERVAL_SEC = 2;
     }
 
-    void setupVolumeGroup(uint32_t quorumCnt)
+    void createVolumeV1()
     {
-        VolumeGroupHandle::GROUPCHECK_INTERVAL_SEC = 2;
-
-        /* Create a coordinator with quorum of quorumCnt */
-        v1 = MAKE_SHARED<VolumeGroupHandle>(amHandle.proc, v1Id, quorumCnt);
-        amHandle.proc->setVolumeHandle(v1.get());
-
         /* Add DMT to AM with the DM group */
         std::vector<fpi::SvcUuid> dms;
         for (const auto &dm : dmGroup) {
@@ -100,18 +98,14 @@ struct DmGroupFixture : BaseTestFixture {
         }
 
         /* Add the DMT to om and am */
-        std::string dmtData;
         dmt = DMT::newDMT(dms);
         dmt->getSerialized(dmtData);
         omHandle.proc->addDmt(dmt);
-        Error e = amHandle.proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
-                                                                          nullptr,
-                                                                          DMT_COMMITTED);
-        ASSERT_TRUE(e == ERR_OK);
 
         /* Add volume to DM group */
         v1Desc = generateVolume(v1Id);
         omHandle.proc->addVolume(v1Id, v1Desc);
+        Error e;
         for (uint32_t i = 0; i < dmGroup.size(); i++) {
             e = dmGroup[i]->proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
                                                                                  nullptr,
@@ -122,6 +116,23 @@ struct DmGroupFixture : BaseTestFixture {
             ASSERT_TRUE(dmGroup[i]->proc->getDataMgr()->\
                         getVolumeMeta(v1Id)->getState() == fpi::Offline);
         }
+    }
+
+    void setupVolumeGroupHandleOnAm1(uint32_t quorumCnt)
+    {
+        /* Set up the volume on om and dms */
+        if (!v1Desc) {
+            createVolumeV1();
+        }
+        Error e = amHandle.proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
+                                                                                nullptr,
+                                                                                DMT_COMMITTED);
+        ASSERT_TRUE(e == ERR_OK);
+
+        /* Create a coordinator with quorum of quorumCnt */
+        v1 = MAKE_SHARED<VolumeGroupHandle>(amHandle.proc, v1Id, quorumCnt);
+        amHandle.proc->setVolumeHandle(v1.get());
+
         /* open should succeed */
         openVolume(*v1, waiter);
         ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
@@ -169,14 +180,28 @@ struct DmGroupFixture : BaseTestFixture {
         return vdesc;
     }
 
+    /* Issues open volume with write mode */
     void openVolume(VolumeGroupHandle &v, Waiter &w)
     {
         w.reset(1);
-        v.open(MAKE_SHARED<fpi::OpenVolumeMsg>(),
+        auto msg = MAKE_SHARED<fpi::OpenVolumeMsg>();
+        msg->mode.can_write = true;
+        v.open(msg,
                [this, &w](const Error &e, const fpi::OpenVolumeRspMsgPtr& resp) {
                    if (e == ERR_OK) {
                        sequenceId = resp->sequence_id;
                    }
+                   w.doneWith(e);
+               });
+    }
+
+    void openVolumeReadonly(VolumeGroupHandle &v, Waiter &w)
+    {
+        w.reset(1);
+        auto msg = MAKE_SHARED<fpi::OpenVolumeMsg>();
+        msg->mode.can_write = false;
+        v.open(msg,
+               [this, &w](const Error &e, const fpi::OpenVolumeRspMsgPtr& resp) {
                    w.doneWith(e);
                });
     }
@@ -258,6 +283,7 @@ struct DmGroupFixture : BaseTestFixture {
         ASSERT_TRUE(dmGroup[idx]->proc->getDataMgr()->counters->totalMigrationsAborted.value() == 0);
     }
 
+    
     OmHandle                                omHandle;
     AmHandle                                amHandle;
     std::vector<std::unique_ptr<DmHandle>>  dmGroup;
@@ -269,6 +295,7 @@ struct DmGroupFixture : BaseTestFixture {
     SHPTR<VolumeGroupHandle>                v1;
     SHPTR<VolumeDesc>                       v1Desc;
     DMTPtr                                  dmt;
+    std::string                             dmtData;
     int                                     numOfNodes;
     std::vector<std::string>                roots;
 };

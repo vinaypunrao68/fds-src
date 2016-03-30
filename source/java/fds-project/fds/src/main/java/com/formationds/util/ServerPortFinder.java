@@ -1,12 +1,13 @@
 package com.formationds.util;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.net.ServerSocket;
 
 public class ServerPortFinder {
-    private static final Logger LOG = Logger.getLogger(ServerPortFinder.class);
+    private static final Logger LOG = LogManager.getLogger(ServerPortFinder.class);
 
     public int findPort(String description, int startPort) throws IOException {
         for (int i = startPort; i < Short.MAX_VALUE; i++) {

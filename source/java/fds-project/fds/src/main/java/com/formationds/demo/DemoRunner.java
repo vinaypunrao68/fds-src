@@ -3,7 +3,8 @@ package com.formationds.demo;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.Iterator;
 import java.util.Optional;
@@ -12,7 +13,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
 
 public class DemoRunner {
-    private static final Logger LOG = Logger.getLogger(DemoRunner.class);
+    private static final Logger LOG = LogManager.getLogger(DemoRunner.class);
 
     private String searchExpression;
     private int readParallelism;
