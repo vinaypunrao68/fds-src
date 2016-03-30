@@ -144,7 +144,7 @@ fds: {
         logfile = "pm"
 
         /* Log severity */
-        log_severity = "trace"
+        log_severity = "normal"
 
         /* Platform uuid.  From this base uuid other service runnig on this node detrive their uuids */
         platform_uuid = 1024
@@ -264,7 +264,7 @@ fds: {
         logfile = "dm"
 
         /* Log severity */
-        log_severity = "trace"
+        log_severity = "normal"
 
             /* Lease time (seconds) for volume access tokens */
             token_lease_time=60
@@ -372,7 +372,7 @@ fds: {
         logfile="sm"
 
         /* Log severity */
-        log_severity = "trace"
+        log_severity = "normal"
 
         /* verify data on datapath */
         data_verify = true
@@ -528,7 +528,7 @@ fds: {
         /* process id */
             id = "am"
 
-        log_severity = "trace"
+        log_severity = "normal"
         logfile      = "am"
 
         /* TODO(Rao): Get this from platform */
@@ -674,7 +674,7 @@ fds: {
         }
         id="om"
         prefix=""
-        log_severity = "trace"
+        log_severity = "normal"
         logfile="om"
         config_port=9090
         config_cache_update_interval_ms=10000
@@ -736,7 +736,7 @@ fds: {
         id = "checker"
         path = "/home/bao_pham/temp/skinet2"
         logfile = "checker"
-        log_severity = "trace"
+        log_severity = "normal"
 
         /* Control path port */
         control_port = 6991
