@@ -42,7 +42,7 @@ void Environment::initialize() {
 
 }
 
-/* takes a sting of the form "key1=val1;key2=val2;..." and produces a map with pairs (key1, val1) (key2, val2) ...*/
+/* takes a string of the form "key1=val1;key2=val2;..." and produces a map with pairs (key1, val1) (key2, val2) ...*/
 void Environment::ingest(int idx, std::string str){
     EnvironmentMap& env = getEnvironmentForService(idx);
 
@@ -55,7 +55,21 @@ void Environment::ingest(int idx, std::string str){
         auto prev = *tok_iter;
         ++tok_iter;
         if (tok_iter != tokens.end()) {
-            env[prev] = *tok_iter;
+            /* A hack for tcmalloc. set the high bit of the first byte to cause tcmalloc to append pid to profile file name.
+               otherwise we overwrite files when OOM killer forces a process to exit */
+            if (prev == "HEAPPROFILE") {
+                char* tmp = (char*)malloc(tok_iter->size()+1);
+
+                strncpy(tmp, tok_iter->c_str(), tok_iter->size()+1);
+
+                tmp[0] |= 128;
+
+                env.emplace(prev, std::string(tmp));
+
+                free(tmp);
+            }else{
+                env[prev] = *tok_iter;
+            }
         }
     }
 }
@@ -64,11 +78,17 @@ EnvironmentMap& Environment::getEnvironmentForService(int service) {
     return getEnv()->envs[service];
 }
 
-// had to remove logging form this function because it is called after PM forks and ends up making a new log file
+/* had to remove happy path logging from this function because it is called after PM forks and ends up making a new log file,
+   which breaks system tests that look for PM log messages in the latest file only. */
 void Environment::setEnvironment(EnvironmentMap& env) {
     if (env.size() != 0) {
         for(auto i : env) {
-            setenv(i.first.c_str(), i.second.c_str(), 1);
+            auto err = setenv(i.first.c_str(), i.second.c_str(), 1);
+
+            if (err) {
+                // since this is called after forking, message will end up in an incremented log file
+                GLOGDEBUG << "Failed setting environment variable " << i.first << "=" << i.second;
+            }
         }
     }
 }
