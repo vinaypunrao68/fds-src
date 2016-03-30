@@ -492,11 +492,9 @@ void OmSvcHandler::healthReportRunning( boost::shared_ptr<fpi::NotifyHealthRepor
                      << " to state ACTIVE, uuid: "
                      << ":0x" << std::hex << service_UUID.uuid_get_val() << std::dec;
 
-           auto svcInfoPtr = boost::make_shared<fpi::SvcInfo>(dbInfo);
+           domain->om_change_svc_state_and_bcast_svcmap(dbInfo, service_type, fpi::SVC_STATUS_ACTIVE);
 
-           domain->om_change_svc_state_and_bcast_svcmap(svcInfoPtr, service_type, fpi::SVC_STATUS_ACTIVE);
-
-           NodeUuid nodeUuid(svcInfoPtr->svc_id.svc_uuid);
+           NodeUuid nodeUuid(dbInfo.svc_id.svc_uuid);
            domain->om_service_up(nodeUuid, service_type);
        }
        break;
@@ -670,8 +668,7 @@ void OmSvcHandler::healthReportError(fpi::FDSP_MgrIdType &svc_type,
             LOGNOTIFY << "Received Flapping error from PM for service:"
                       << std::hex << uuid.uuid_get_val() << std::dec
                       << ", setting to state INACTIVE_FAILED";
-            auto svcPtr = boost::make_shared<fpi::SvcInfo>(msg->healthReport.serviceInfo);
-            domain->om_change_svc_state_and_bcast_svcmap( svcPtr, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
+            domain->om_change_svc_state_and_bcast_svcmap( msg->healthReport.serviceInfo, svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
 
         } else if (status == fpi::SVC_STATUS_INACTIVE_FAILED) {
             LOGNOTIFY << "Flapping service:"<< std::hex << uuid.uuid_get_val() << std::dec
