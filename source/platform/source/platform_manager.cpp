@@ -941,13 +941,13 @@ namespace fds
 
                 case fpi::FDSP_STOR_MGR:
                 {
-                    LOGDEBUG << "SM state: " + m_nodeInfo.smState;
+                    LOGDEBUG << "SM state: " << m_nodeInfo.smState;
                     return m_nodeInfo.smState;
                 } break;
 
                 case fpi::FDSP_DATA_MGR:
                 {
-                    LOGDEBUG << "DM state: " + m_nodeInfo.dmState;
+                    LOGDEBUG << "DM state: " << m_nodeInfo.dmState;
                     return m_nodeInfo.dmState;
                 } break;
                 default:
