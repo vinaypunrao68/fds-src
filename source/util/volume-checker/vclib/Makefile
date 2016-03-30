@@ -31,6 +31,8 @@ user_non_fds_libs :=  \
     boost_program_options \
     boost_filesystem \
     boost_regex \
+    fdsStatsUtil \
+    statsclient \
     thrift \
     jansson \
     config++ \

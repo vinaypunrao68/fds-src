@@ -13,11 +13,6 @@
 #include <map>
 #include <unordered_map>
 
-// System includes.
-#include <Accumulator.h>
-#include <StatDescriptor.h>
-#include <StatsConnFactory.h>
-
 // Internal includes.
 #include "concurrency/ThreadPool.h"
 #include "blob/BlobTypes.h"
@@ -225,8 +220,6 @@ public:
      * Migration mgr for managing DM migrations
      */
     std::unique_ptr<DmMigrationMgr> dmMigrationMgr;
-
-    stats::util::Accumulator metrics;
 
     static void InitMsgHdr(const fpi::FDSP_MsgHdrTypePtr& msg_hdr);
 
@@ -448,8 +441,6 @@ public:
 
 private:
 
-    std::shared_ptr<StatsConnection> _statsServiceClient;
-
     ///
     /// Don't shut down until this gate is opened.
     ///
@@ -468,10 +459,6 @@ private:
      * Implementation of amIPrimary
      */
     fds_bool_t _amIPrimaryImpl(fds_volid_t &volUuid, bool topPrimary);
-
-    void _submitGenerationCallback (
-            std::unordered_map<stats::StatDescriptor,
-                               stats::util::StatData> const& generation);
 
 };
 

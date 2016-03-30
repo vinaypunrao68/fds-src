@@ -1,29 +1,39 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#include <stdlib.h>
-#include <stdarg.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <string>
-#include <iostream>
-#include <fiu-local.h>
-#include <fds_assert.h>
-#include <fds_process.h>
-#include <net/net_utils.h>
-#include <util/process.h>  // For print_stacktrace().
-#include <util/stringutils.h>
-#include <unistd.h>
-#include <syslog.h>
-#include <execinfo.h>
-#include <chrono>
 
-#include <sys/time.h>
+// Standard includes.
+#include <chrono>
+#include <cstdarg>
+#include <cstdlib>
+#include <iostream>
+#include <string>
+
+// System includes.
 #include <sys/resource.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <execinfo.h>
+#include <fiu-local.h>
+#include <syslog.h>
+#include <unistd.h>
+
+// Internal includes.
+#include "net/net_utils.h"
+#include "net/SvcMgr.h"
+#include "util/process.h"  // For print_stacktrace().
+#include "util/stringutils.h"
+#include "fds_assert.h"
+
+// Class include.
+#include "fds_process.h"
+
 extern const char * versRev;
 extern const char * versDate;
 extern const char * machineArch;
 extern const char * buildStrTmpl;
+
 namespace fds {
 
 /*
@@ -110,11 +120,17 @@ CommonModuleProviderIf* getModuleProvider() {
     return g_fdsprocess;
 }
 
+
+std::shared_ptr<stats::util::Accumulator> FdsProcess::getMetrics () const
+{
+    return metrics_;
+}
+
 /**
 * @brief Constructor.  Keep it as bare shell.  Do the initialization work
 * in init()
 */
-FdsProcess::FdsProcess()
+FdsProcess::FdsProcess() : metrics_ { nullptr }
 {
     mod_vectors_ = nullptr;
     proc_root = nullptr;
@@ -153,6 +169,7 @@ FdsProcess::FdsProcess(int argc, char *argv[],
                        const std::string &def_cfg_file,
                        const std::string &base_path,
                        const std::string &def_log_file, fds::Module **mod_vec)
+        : metrics_ { nullptr }
 {
     init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec);
 }
@@ -162,6 +179,12 @@ void FdsProcess::init(int argc, char *argv[],
                       const std::string &base_path,
                       const std::string &def_log_file, fds::Module **mod_vec)
 {
+    metrics_.reset(new stats::util::Accumulator {
+            std::unique_ptr<stats::util::UserClock>(new stats::util::UserClock { }),
+            std::unique_ptr<stats::util::SystemClock>(new stats::util::SystemClock { }),
+            std::chrono::seconds { 30 }
+    });
+
     std::string  fdsroot, cfgfile;
 
     fds_verify(g_fdsprocess == NULL);
@@ -267,6 +290,26 @@ void FdsProcess::init(int argc, char *argv[],
     timer_servicePtr_->scheduledFunctionRepeated(std::chrono::seconds(10),
                                                  []() { g_fdslog->flush(); });
 
+    {
+        std::string statsServiceIp;
+        {
+            fds_uint32_t dummy;
+            getSvcMgr()->getOmIPPort(statsServiceIp, dummy);
+        }
+
+        auto statsServicePort = get_fds_config()->get<int>("fds.common.stats_port", 11011);
+
+        // UN & PW is not yet configurable.
+        statsServiceClient_ = StatsConnFactory::newConnection(statsServiceIp,
+                                                              statsServicePort,
+                                                              "stats-service",
+                                                              "$t@t$");
+    }
+
+    metrics_->setSubmitter(std::bind(&FdsProcess::_submitGenerationCallback,
+                                     this,
+                                     std::placeholders::_1));
+
     const libconfig::Setting& fdsSettings = conf_helper_.get_fds_config()->getConfig().getRoot();
     LOGNORMAL << "Configurations as modified by the command line:";
     log_config(fdsSettings);
@@ -294,6 +337,32 @@ void FdsProcess::init(int argc, char *argv[],
         }
     }
 
+}
+
+void FdsProcess::_submitGenerationCallback (
+        std::unordered_map<stats::StatDescriptor, stats::util::StatData> const& generation)
+{
+    // TODO: Replace with a version that does error handling and retries.
+    for (auto& stat : generation)
+    {
+        auto descriptor = stat.first;
+        auto data = stat.second;
+
+        StatDataPoint dataPoint { };
+        dataPoint.setAggregationType(descriptor.getAggregationType());
+        dataPoint.setCollectionPeriod(data.getDuration());
+        dataPoint.setCollectionTimeUnit(data.getDurationUnit());
+        dataPoint.setContextId(descriptor.getContextId());
+        dataPoint.setContextType(descriptor.getContextType());
+        dataPoint.setMaximumValue(data.getMaximum());
+        dataPoint.setMetricName(descriptor.getName());
+        dataPoint.setMetricValue(data.getValue());
+        dataPoint.setMinimumValue(data.getMinimum());
+        dataPoint.setNumberOfSamples(data.getSampleCount());
+        dataPoint.setReportTime(data.getStartSecondsFromUnixEpoch());
+
+        statsServiceClient_->publishStatistic(dataPoint);
+    }
 }
 
 FdsProcess::~FdsProcess()

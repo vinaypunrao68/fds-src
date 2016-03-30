@@ -14,6 +14,9 @@ user_fds_ar_libs  := \
 	fds-osdep
 
 user_non_fds_libs := \
+	fdsStatsUtil \
+	statsclient \
+	SimpleAmqpClient \
     boost_log \
 	boost_system \
 	boost_thread \

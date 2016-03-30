@@ -27,6 +27,10 @@ struct TracebufferPoolProvider : CommonModuleProviderIf {
         pool_.reset(new TracebufferPool(poolEntryCnt));
     }
     virtual TracebufferPool* getTracebufferPool() {return pool_.get(); }
+    std::shared_ptr<stats::util::Accumulator> getMetrics () const override
+    {
+        return { nullptr };
+    }
 
     std::unique_ptr<TracebufferPool> pool_;
 };

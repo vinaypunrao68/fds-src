@@ -19,6 +19,7 @@ user_non_fds_libs := \
 	boost_filesystem \
 	boost_thread \
 	boost_date_time \
+	fdsStatsUtil \
 	ssl crypto \
 	sqlite3
 
