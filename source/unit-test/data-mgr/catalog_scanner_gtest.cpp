@@ -25,7 +25,7 @@ TEST_F(VolumeGroupFixture, scannerInitialization) {
     // Create 1 DM
     unsigned clusterSize = 1;
     createCluster(1);
-    setupVolumeGroup(1);
+    setupVolumeGroupHandleOnAm1(1);
 
     auto catalogPtr = dmGroup[0]->proc->getDataMgr()->getPersistDB(v1Id)->getCatalog();
     auto threadpoolPtr = dmGroup[0]->proc->getDataMgr()->qosCtrl->threadPool;

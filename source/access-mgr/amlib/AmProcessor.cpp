@@ -16,6 +16,7 @@
 #include "AccessMgr.h"
 #include "AmDataProvider.h"
 #include "AmRequest.h"
+#include "AmVolume.h"
 #include "AmVolumeTable.h"
 #include "net/SvcMgr.h"
 
@@ -51,6 +52,7 @@ class AmProcessor_impl : public AmDataProvider
     bool haveTables();
 
     void getVolumes(std::vector<VolumeDesc>& volumes);
+    VolumeDesc* getVolume(fds_volid_t const vol_uuid) const;
 
     bool isShuttingDown() const
     { std::lock_guard<std::mutex> lk(shut_down_lock); return shut_down; }
@@ -63,6 +65,8 @@ class AmProcessor_impl : public AmDataProvider
     void stop() override;
     void registerVolume(VolumeDesc const& volDesc) override;
     void removeVolume(VolumeDesc const& volDesc) override;
+
+    void flushVolume(AmRequest* req, std::string const& vol);
 
   protected:
     /**
@@ -237,6 +241,21 @@ void AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     AmDataProvider::removeVolume(volDesc);
 }
 
+void AmProcessor_impl::flushVolume(AmRequest* req, std::string const& vol) {
+    parent_mod->volumeFlushed(req, vol);
+}
+
+VolumeDesc* AmProcessor_impl::getVolume(fds_volid_t const vol_uuid) const {
+    auto volTable = dynamic_cast<AmVolumeTable*>(_next_in_chain.get());
+    if (nullptr == volTable) {
+        return nullptr;
+    } else {
+        auto vol = volTable->getVolume(vol_uuid);
+        if (nullptr == vol) return nullptr;
+        else return vol->voldesc;
+    }
+}
+
 Error
 AmProcessor_impl::updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb) {
     std::lock_guard<std::mutex> lg(shut_down_lock);
@@ -333,7 +352,7 @@ Error AmProcessor::modifyVolumePolicy(const VolumeDesc& vdesc)
 {
     auto err = _impl->modifyVolumePolicy(vdesc);
     if (ERR_VOL_NOT_FOUND == err) {
-        _impl->registerVolume(vdesc);
+        err = ERR_OK;
     }
     return err;
 }
@@ -348,6 +367,12 @@ void AmProcessor::registerVolume(const VolumeDesc& volDesc)
 
 void AmProcessor::removeVolume(const VolumeDesc& volDesc)
 { return _impl->removeVolume(volDesc); }
+
+void AmProcessor::flushVolume(AmRequest* req, std::string const& vol)
+{ return _impl->flushVolume(req, vol); }
+
+VolumeDesc* AmProcessor::getVolume(fds_volid_t const vol_uuid) const
+{ return _impl->getVolume(vol_uuid); }
 
 Error AmProcessor::updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb)
 { return _impl->updateDlt(dlt_type, dlt_data, cb); }

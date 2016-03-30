@@ -19,19 +19,21 @@ struct AmVolume : public FDS_Volume {
 
     ~AmVolume() override;
 
-    bool cacheable() const;
-    bool writable() const;
+    bool isCacheable() const;
+    bool isWritable() const;
+    bool isOpen() const;
 
     bool startOpen() { if (opening) { return false; } return opening = true; }
     void stopOpen() { opening = false; }
 
     fds_int64_t getToken() const;
     void setToken(AmVolumeAccessToken const& token);
+    fds_int64_t clearToken();
 
  private:
 
     /** access token */
-    AmVolumeAccessToken access_token;
+    std::unique_ptr<AmVolumeAccessToken> access_token;
 
     bool opening {false};
 };

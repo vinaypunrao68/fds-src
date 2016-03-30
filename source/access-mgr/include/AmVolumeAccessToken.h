@@ -27,6 +27,8 @@ struct AmVolumeAccessToken
     { }
 
     ~AmVolumeAccessToken() = default;
+    AmVolumeAccessToken(AmVolumeAccessToken const& rhs) = default;
+    AmVolumeAccessToken& operator=(AmVolumeAccessToken const& rhs) = default;
 
     bool cacheAllowed() const
     { return mode.can_cache; }
