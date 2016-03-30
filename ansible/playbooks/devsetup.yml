@@ -190,6 +190,7 @@
         - libgoogle-perftools-dev
         - libconfig++-dev
         - libcurl4-openssl-dev
+        - libcpr-1.2.0
         - npm
         - nodejs-legacy
         - open-iscsi
@@ -216,6 +217,10 @@
         - python-coverage-test-runner
         - python-mock
         - valgrind
+
+
+    - name: Install libnfs and libnfs-python for NFS IO
+      command: bash ../scripts/install_libnfs.sh
 
     - name: create pip config directory at ~/.pip
       file: path="{{ lookup('env','HOME') }}/.pip"
@@ -314,3 +319,5 @@
 
     -   name: set local for error messages
         command: update-locale LC_MESSAGES=POSIX
+
+

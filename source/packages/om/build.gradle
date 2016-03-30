@@ -15,6 +15,10 @@ task buildDeb(type: Deb) {
 
 	def build_num = "$System.env.BUILD_NUMBER"
 
+    if ( null == build_type || '' == build_type || 'nul' == build_type ) {
+        build_type = 'dbg'
+    }
+
 	if ( null == build_num || '' == build_num || 'null' == build_num ) {
 		build_num = 'dev'
 	}
@@ -22,7 +26,7 @@ task buildDeb(type: Deb) {
 	version = '1.0.0'
 	ext.packagePrefix = 'fds-orchestration-manager'
 	release = build_num
-	packageName = packagePrefix + '-' + version + '-' + release
+	packageName = packagePrefix + '-' + build_type + '-' + version + '-' + release
 	arch = "amd64"
 
 	def baseDir = main_dir_build

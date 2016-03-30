@@ -546,19 +546,12 @@ namespace fds
                 return;
             }
 
-            if (m_serviceFlapDetector->isServiceFlapping (procIndex))
-            {
-                // Flap detector handles error logging.
-                notifyOmServiceStateChange (procIndex, 0, fpi::HealthState::HEALTH_STATE_FLAPPING_DETECTED_EXIT, "is flapping, PM will not auto restart (until another start service is requested by the OM).");
-                return;
-            }
-
             if (JAVA_AM == procIndex)
             {
                 // don't start JAVA_AM if BARE_AM is not in a RUNNING state
                 if (fpi::SERVICE_RUNNING != m_nodeInfo.bareAMState)
                 {
-                    LOGNORMAL << "Received a request to start " << procName << ", but bare_am is not running.  Not doing anything.";
+                    LOGWARN << "Received a request to start " << procName << ", but bare_am is not running.  Not doing anything.";
                     return;
                 }
 
@@ -941,13 +934,13 @@ namespace fds
 
                 case fpi::FDSP_STOR_MGR:
                 {
-                    LOGDEBUG << "SM state: " + m_nodeInfo.smState;
+                    LOGDEBUG << "SM state: " << m_nodeInfo.smState;
                     return m_nodeInfo.smState;
                 } break;
 
                 case fpi::FDSP_DATA_MGR:
                 {
-                    LOGDEBUG << "DM state: " + m_nodeInfo.dmState;
+                    LOGDEBUG << "DM state: " << m_nodeInfo.dmState;
                     return m_nodeInfo.dmState;
                 } break;
                 default:
@@ -1335,16 +1328,25 @@ namespace fds
 
                             if (m_autoRestartFailedProcesses && !m_inShutdownState)
                             {
+                                if (m_serviceFlapDetector->isServiceFlapping (appIndex))
+                                {
+                                    // Flap detector handles error logging.
+                                    notifyOmServiceStateChange (appIndex, 0, fpi::HealthState::HEALTH_STATE_FLAPPING_DETECTED_EXIT, "is flapping, PM will not auto restart (until another start service is requested by the OM).");
+                                    if (JAVA_AM == appIndex)
+                                    {
+                                        LOGWARN << "Discovered a flapping XDI process, also bringing down bare_am";
+                                        stopProcess (BARE_AM);
+                                    }
+                                }
+                                else // restart the process
                                 {   // context for lock_guard
                                     deadProcessesFound = true;
                                     std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
                                     m_startQueue.push_back (appIndex);
-                                }
-
-                                if (BARE_AM == appIndex)
-                                {
-                                    std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
-                                    m_startQueue.push_back (JAVA_AM);
+                                    if (BARE_AM == appIndex)
+                                    {
+                                        m_startQueue.push_back (JAVA_AM);
+                                    }
                                 }
                             }
                         }

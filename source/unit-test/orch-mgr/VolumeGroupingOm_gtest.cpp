@@ -147,7 +147,8 @@ struct DmGroupFixture : BaseTestFixture {
         addNewFakeDMSvc(newUuid);
 
         // Fake the setupNewNode info
-        om_locDomain->dc_register_node(newUuid, msgPtr, &newNode);
+        // 03/28/2016 don't need to do this since setupNewNode will now do this
+        //om_locDomain->dc_register_node(newUuid, msgPtr, &newNode);
 
         // Call setupNewNode directly instead of scheduling it
         domainMod->setupNewNode(newUuid, msgPtr, newNode, false);

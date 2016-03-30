@@ -1,3 +1,6 @@
+/**
+ * Copyright (c) 2014 Formation Data Systems, Inc.
+ */
 package com.formationds.xdi;
 
 import com.formationds.apis.AsyncXdiServiceResponse;
@@ -11,7 +14,8 @@ import com.formationds.protocol.VolumeAccessMode;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalCause;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.apache.thrift.TException;
 import org.joda.time.Duration;
 
@@ -23,11 +27,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Copyright (c) 2014 Formation Data Systems, Inc.
- */
 public class AsyncAmResponseListener implements AsyncXdiServiceResponse.Iface {
-    private static final Logger LOG = Logger.getLogger(AsyncAmResponseListener.class);
+    private static final Logger LOG = LogManager.getLogger(AsyncAmResponseListener.class);
     private Cache<String, CompletableFuture> pending;
     private ExecutorService executor;
 

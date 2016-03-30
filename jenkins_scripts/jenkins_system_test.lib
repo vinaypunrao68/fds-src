@@ -437,20 +437,20 @@ function run_coroner
 
 function run_aws_test_scenarios
 {
-    message "Packaging fds-platform"
-    make package fds-platform BUILD_TYPE=debug || deployment_error
-
-    message "Packaging fds-deps"
-    make package fds-deps || deployment_error
-
-    start_time=$(date +%s)
-
     INVENTORY=$1; shift
     AWS_LST_TEST_SCENARIO_LIST=( "$@" )
 
-    # --reusecluster arg indicates same aws nodes are used for each test.so deploy fds before running tests.
+    message "Packaging fds-platform"
+    sudo make package fds-platform BUILD_TYPE=debug || deployment_error
+
+    chown -R pairing /home/pairing/*
+    chown -R pairing /home/pairing/.*
+    echo 'Formation1234' > /home/pairing/.vault_pass.txt
+
     message "Deploying local build on 4 aws nodes"
     ansible/scripts/deploy_fds_ec2.sh $INVENTORY 4 local || deployment_error
+
+    start_time=$(date +%s)
 
     for scenario in ${AWS_LST_TEST_SCENARIO_LIST[@]}; do
         aws_test_scenario_wrapper $INVENTORY $scenario

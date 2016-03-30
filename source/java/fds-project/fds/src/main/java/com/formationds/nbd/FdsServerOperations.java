@@ -7,7 +7,8 @@ import com.formationds.protocol.PatternSemantics;
 import com.formationds.xdi.RealAsyncAm;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.apache.thrift.TException;
 import org.joda.time.Duration;
 import com.formationds.commons.Fds;
@@ -20,7 +21,7 @@ import java.util.concurrent.*;
 import com.formationds.apis.*;
 
 public class FdsServerOperations implements NbdServerOperations {
-    private static final Logger LOG = Logger.getLogger(FdsServerOperations.class);
+    private static final Logger LOG = LogManager.getLogger(FdsServerOperations.class);
 
     public static final String BLOCK_DEV_NAME = "block_dev_0";
     public static final String FDS = "fds";

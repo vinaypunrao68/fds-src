@@ -62,6 +62,7 @@ inline bool isVolumeGroupError(const Error &e)
         case ERR_DM_VOL_NOT_ACTIVATED:
         case ERR_VOL_NOT_FOUND:
         case ERR_NODE_NOT_ACTIVE:
+        case ERR_INVALID_COORDINATOR:
             return true;
         default:
             return false;

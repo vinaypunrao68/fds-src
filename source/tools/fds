@@ -70,6 +70,7 @@ TESTS["restart-activeio"]="ActiveIORestartTest/ActiveIORestartTest"
 TESTS["smoke"]="BuildSmokeTest_onpr"
 TESTS["4node"]="FourNodeStart"
 TESTS["2node"]="TwoNodeStart"
+TESTS["vg"]="VolumeGroupTest"
 TESTS["unit"]="unit tests"
 
 function usage() {

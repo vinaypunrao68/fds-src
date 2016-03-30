@@ -119,6 +119,7 @@ void PolicyDispatcher::run() {
             if (!volumeDesc.isStateActive()) {
                 LOGWARN << "skipping non-active volume : " << volId
                         << " : " << fpi::_ResourceState_VALUES_TO_NAMES.find(volumeDesc.getState())->second; //NOLINT
+                continue;
             }
 
             // create the structure

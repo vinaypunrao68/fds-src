@@ -133,6 +133,10 @@ struct CommitBlobTxCallback {
     BlobTxId      blobTxId;
 };
 
+template<typename T, typename C>
+CallbackPtr
+create_async_handler(C&& c)
+{ return std::make_shared<AsyncResponseHandler<T, C>>(std::forward<C>(c)); }
 
 }  // namespace fds
 
