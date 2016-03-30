@@ -4,7 +4,7 @@ include $(topdir)/Makefile.incl
 
 real_main_dir_build=$(realpath $(main_dir_build))
 
-build=dbg
+build_type=dbg
 
 ifeq ($(BUILD), release)
 build_type=rel
