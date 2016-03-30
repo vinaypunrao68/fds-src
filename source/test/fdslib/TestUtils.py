@@ -357,19 +357,20 @@ def get_config(pyUnit=False, pyUnitConfig=None, pyUnitVerbose=False, pyUnitDryru
 
     # Set a global variable inventory_file, so no need to pass for each method.
     global inventory_file
+    inventory_file = "generic-lxc-nodes"
     if "inventory_file" in params:
         if params["inventory_file"] is None:
             if pyUnitInventory is None:
                 params["inventory_file"] = "generic-lxc-nodes"
-                inventory_file = "generic-lxc-nodes"
             else:
                 params["inventory_file"] = pyUnitInventory
                 inventory_file = pyUnitInventory
         setattr(options, "inventory_file", params["inventory_file"])
+        inventory_file = params["inventory_file"]
     else:
         setattr(options, "inventory_file", "generic-lxc-nodes")
     global run_as_root
-    if params["run_as_root"] == True:
+    if params["run_as_root"]:
         run_as_root = True
     else:
         run_as_root = False

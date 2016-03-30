@@ -176,3 +176,7 @@
 -   name: Install fio
     when: fds_only_install is defined and fds_only_install == "yes"
     apt: name=fio
+
+-   name: Install rpcbind
+    when: fds_only_install is defined and fds_only_install == "yes"
+    apt: name=rpcbind
