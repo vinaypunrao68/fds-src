@@ -69,14 +69,13 @@ task buildDeb(type: Deb) {
 		fileMode 755
  	}
   
-	from( '../../tools' ){
-		include 'coroner.py'
-		into 'bin'
+	from( 'etc' ){
+		into 'etc'
 		fileMode 755
 	}
 
-	from( 'etc' ){
-		into 'etc'
+	from( 'bin' ){
+		into 'bin'
 		fileMode 755
 	}
 
