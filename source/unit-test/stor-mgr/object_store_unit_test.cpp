@@ -32,6 +32,7 @@ namespace fds {
 
 static fds_uint32_t hddCount = 0;
 static fds_uint32_t ssdCount = 10;
+static diskio::DataTier tier = diskio::diskTier;
 static StorMgrVolumeTable* volTbl;
 static ObjectStore::unique_ptr objectStore;
 static TestVolume::ptr volume1;
@@ -81,7 +82,6 @@ class SmObjectStoreTest: public ::testing::Test {
     // this has to be initialized before running
     // multi-threaded tests
     fds_uint32_t numOps;
-    diskio::DataTier tier = diskio::diskTier;
 };
 
 void SmObjectStoreTest::TearDown() {
@@ -111,6 +111,15 @@ void setupTests(fds_uint32_t concurrency,
     DLT* dlt = new DLT(16, cols, 1, true);
     SmUtUtils::populateDlt(dlt, sm_count);
     objectStore->handleNewDlt(dlt);
+
+    if (ssdCount > 0) {
+        tier = diskio::flashTier;
+    } else if (hddCount > 0) {
+        tier = diskio::diskTier;
+    } else {
+        tier = diskio::maxTier;
+    }
+
     LOGTRACE << "Starting...";
 
     // volume for single-volume test
