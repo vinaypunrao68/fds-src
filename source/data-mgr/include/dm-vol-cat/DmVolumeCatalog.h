@@ -348,6 +348,8 @@ class DmVolumeCatalog : public HasModuleProvider,
         }
     }
 
+    void _updateLBytes (fds_volid_t volId);
+
     // vars
     std::unordered_map<fds_volid_t, DmPersistVolCat::ptr> volMap_;
     fds_mutex volMapLock_;
