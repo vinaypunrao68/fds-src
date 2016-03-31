@@ -2377,6 +2377,11 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
             LOGWARN << "OM Restart, Failed to Register ( spoof ) Service: "
                     << fds::logDetailedString( svc );
         }
+
+        // We have to explicitly broadcast here because the ::updateSvcMaps function will not do it.
+        // That's because we don't want to spam the system with updates for every single svc state
+        // change. So do it here so all svcs have the latest info
+        om_locDomain->om_bcast_svcmap();
     }
 }
     
