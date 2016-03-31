@@ -96,7 +96,7 @@ void ScstDisk::setupModePages(size_t const lba_size, size_t const pba_size, size
 void ScstDisk::execSessionCmd() {
     auto attaching = (SCST_USER_ATTACH_SESS == cmd.subcode) ? true : false;
     auto& sess = cmd.sess;
-    LOGNOTIFY << "request:" << (attaching ? "attachment" : "detachment")
+    LOGNOTIFY << "type:" << (attaching ? "attach" : "detach")
               << " handle:" << sess.sess_h
               << " initiator:" << sess.initiator_name
               << " target:" << sess.target_name;

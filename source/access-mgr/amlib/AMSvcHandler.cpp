@@ -156,7 +156,7 @@ AMSvcHandler::RemoveVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     Error err(ERR_OK);
 
     fds_volid_t vol_uuid (vol_msg->vol_desc.volUUID);
-    GLOGNOTIFY << "volid:" << vol_uuid << " received volume detach event from OM";
+    GLOGNOTIFY << "volid:" << vol_uuid << " received volume remove event from OM";
 
     if (amProcessor->isShuttingDown())
     {

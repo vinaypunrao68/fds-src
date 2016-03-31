@@ -115,8 +115,10 @@ BlockOperations::detachVolume() {
     if (volumeName) {
         // Only close the volume if it's the last connection
         std::unique_lock<std::mutex> lk(assoc_map_lock);
-        if (0 == --assoc_map[*volumeName]) {
+        auto itr = assoc_map.find(*volumeName);
+        if ((assoc_map.end() != itr) && (0 == --assoc_map[*volumeName])) {
             handle_type reqId{0, 0};
+            assoc_map.erase(*volumeName);
             return amAsyncDataApi->detachVolume(reqId, domainName, volumeName);
         }
     }
@@ -130,7 +132,7 @@ BlockOperations::detachVolumeResp(const fpi::ErrorCode& error,
                                 handle_type const& requestId) {
     // Volume detach has completed, we shaln't use the volume again
     LOGDEBUG << "err:" << error << " detach response";
-    if (shutting_down) {
+    if ((true == shutting_down) && (nullptr != blockResp)) {
         blockResp->terminate();
         blockResp = nullptr;
         amAsyncDataApi.reset();

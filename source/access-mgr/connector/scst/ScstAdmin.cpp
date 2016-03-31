@@ -134,7 +134,7 @@ void ScstAdmin::toggleTarget(std::string const& target_name, bool const enable) 
         dev << "0" << std::endl;
     }
     LOGNORMAL << "target:" << target_name
-              << (enable ? "enabled" : "disabled");
+              << " " << (enable ? "enabled" : "disabled");
 }
 
 /**
