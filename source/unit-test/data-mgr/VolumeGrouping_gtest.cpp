@@ -297,6 +297,16 @@ TEST_F(VolumeGroupFixture, singleWriterSingleReader) {
     /* Reads should succeed now */
     sendQueryCatalogMsg(*readonlyV1, blobName, waiter);
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+
+    /* Close volumegroup handle */
+    waiter.reset(1);
+    v1->close([this]() { waiter.doneWith(ERR_OK); });
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+
+    /* Close readonly volumegroup handle */
+    waiter.reset(1);
+    readonlyV1->close([this]() { waiter.doneWith(ERR_OK); });
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
 TEST_F(VolumeGroupFixture, multiWriter) {
@@ -324,7 +334,17 @@ TEST_F(VolumeGroupFixture, multiWriter) {
 
     /* Any writes access via 1st AM should fail */
     sendUpdateOnceMsg(*v1, blobName, waiter);
-    ASSERT_TRUE(waiter.awaitResult() != ERR_OK);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_VOLUMEGROUP_DOWN);
+
+    /* Close volumegroup handle */
+    waiter.reset(1);
+    v1->close([this]() { waiter.doneWith(ERR_OK); });
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
+
+    /* Close readonly volumegroup handle */
+    waiter.reset(1);
+    am2VolumeHandle->close([this]() { waiter.doneWith(ERR_OK); });
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
 TEST_F(VolumeGroupFixture, allDownFollowedBySequentialUp) {
@@ -369,9 +389,13 @@ TEST_F(VolumeGroupFixture, allDownFollowedBySequentialUp) {
     doVolumeStateCheck(0, v1Id, fpi::Active);
     doVolumeStateCheck(1, v1Id, fpi::Active, 1000, 10000);
     doVolumeStateCheck(2, v1Id, fpi::Active, 1000, 10000);
+
+    /* Close volumegroup handle */
+    waiter.reset(1);
+    v1->close([this]() { waiter.doneWith(ERR_OK); });
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
 
-#if 0
 TEST_F(VolumeGroupFixture, sequenceIdMismatch) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);
 
@@ -398,7 +422,8 @@ TEST_F(VolumeGroupFixture, sequenceIdMismatch) {
 
     /* Now all replicas should have different sequence ids */
     /* close and cleanup volume group handle */
-    v1->close([this, &waiter]() { waiter.doneWith(ERR_OK); });
+    waiter.reset(1);
+    v1->close([this]() { waiter.doneWith(ERR_OK); });
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 
     /* Start the dms that were stopped */
@@ -408,10 +433,8 @@ TEST_F(VolumeGroupFixture, sequenceIdMismatch) {
     /* Recreate and open the volume group.  Though sequnce ids mismatch, open should
      * go through.
      */
-    v1 = MAKE_SHARED<VolumeGroupHandle>(amHandle.proc, v1Id, quorumCnt);
+    v1 = MAKE_SHARED<VolumeGroupHandle>(amHandle.proc, v1Id, 2);
     amHandle.proc->setVolumeHandle(v1.get());
-
-    /* open should succeed */
     openVolume(*v1, waiter);
     ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 
@@ -430,8 +453,12 @@ TEST_F(VolumeGroupFixture, sequenceIdMismatch) {
     doVolumeStateCheck(0, v1Id, fpi::Active);
     doVolumeStateCheck(1, v1Id, fpi::Active);
     doVolumeStateCheck(2, v1Id, fpi::Active);
+
+    /* Close volumegroup handle */
+    waiter.reset(1);
+    v1->close([this]() { waiter.doneWith(ERR_OK); });
+    ASSERT_TRUE(waiter.awaitResult() == ERR_OK);
 }
-#endif
 
 TEST_F(DmGroupFixture, VolumeTargetCopy) {
     g_fdslog->setSeverityFilter(fds_log::severity_level::debug);

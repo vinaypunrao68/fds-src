@@ -186,8 +186,15 @@ struct VolumeGroupFailoverRequest : VolumeGroupRequest {
     virtual void invoke() override;
     virtual void handleResponse(SHPTR<fpi::AsyncHdr>& header,
                                 SHPTR<std::string>& payload) override;
+    inline void setAvailableReplicas(const std::vector<VolumeReplicaHandle> &replicas) {
+        availableReplicas_ = replicas;
+    }
+
+
  protected:
     virtual void invokeWork_() override;
+
+    std::vector<VolumeReplicaHandle>   availableReplicas_;
 };
 
 /**
@@ -295,6 +302,7 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     std::vector<VolumeReplicaHandle*> getWriteableReplicaHandles();
     VolumeReplicaHandle* getFunctionalReplicaHandle();
     std::vector<fpi::SvcUuid> getAllReplicas() const;
+    std::vector<fpi::SvcUuid> getFunctionalReplicas() const;
 
     inline const uint32_t& getQuorumCnt() const { return quorumCnt_; }
     inline bool isFunctional() const { return state_ == fpi::ResourceState::Active; }
@@ -411,6 +419,7 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     static const uint32_t               WRITEOPS_BUFFER_SZ = 1024;
 
     friend class VolumeGroupBroadcastRequest;
+    friend class VolumeGroupFailoverRequest;
 };
 
 template<class MsgT>
@@ -427,6 +436,9 @@ void VolumeGroupHandle::sendReadMsg(const fpi::FDSPMsgTypeId &msgTypeId,
         req->setPayload(msgTypeId, msg);
         req->responseCb_ = cb;
         req->setTaskExecutorId(groupId_);
+        if (!isCoordinator_) {
+            req->setAvailableReplicas(functionalReplicas_);
+        }
         req->invoke();
     });
 }
