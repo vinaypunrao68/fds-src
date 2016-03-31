@@ -81,6 +81,7 @@ class SmObjectStoreTest: public ::testing::Test {
     // this has to be initialized before running
     // multi-threaded tests
     fds_uint32_t numOps;
+    diskio::DataTier tier = diskio::diskTier;
 };
 
 void SmObjectStoreTest::TearDown() {
@@ -251,7 +252,6 @@ TEST_F(SmObjectStoreTest, evaluate_object_sets) {
         boost::shared_ptr<std::string> data =
                 (vlargeCapVolume->testdata_).dataset_map_[oid].getObjectData();
         if ((SmDiskMap::smTokenId(oid, bitsPerDltToken) == smToken)) {
-            diskio::DataTier tier = diskio::maxTier;
             err = objectStore->putObject((vlargeCapVolume->voldesc_).volUUID, oid, data, false, tier);
             if (ignorePut) {
                 bf->add(oid);
@@ -281,7 +281,7 @@ TEST_F(SmObjectStoreTest, evaluate_object_sets) {
         tokStats.tkn_id = 0;
         tokStats.tkn_tot_size = 0;
         tokStats.tkn_reclaim_size = 0;
-        objectStore->evaluateObjectSets(smToken, diskio::maxTier, tokStats);
+        objectStore->evaluateObjectSets(smToken, tier, tokStats);
 
         // object will be ready to be claimed only when the delete count threshold is reached.
         if (incDelCount < (fds::objDelCountThresh - 1)) {
@@ -326,7 +326,7 @@ TEST_F(SmObjectStoreTest, one_thread_gets) {
     for (fds_uint32_t i = 0; i < (volume1->testdata_).dataset_.size(); ++i) {
         ObjectID oid = (volume1->testdata_).dataset_[i];
         boost::shared_ptr<const std::string> objData;
-        diskio::DataTier usedTier = diskio::maxTier;
+        diskio::DataTier usedTier = tier;
         objData = objectStore->getObject((volume1->voldesc_).volUUID, oid, usedTier, err);
         EXPECT_TRUE(err.ok());
         EXPECT_TRUE((volume1->testdata_).dataset_map_[oid].isValid(objData));
@@ -341,7 +341,6 @@ TEST_F(SmObjectStoreTest, one_thread_dup_puts) {
         ObjectID oid = (volume1->testdata_).dataset_[i];
         boost::shared_ptr<std::string> data =
                 (volume1->testdata_).dataset_map_[oid].getObjectData();
-        diskio::DataTier tier = diskio::maxTier;
         err = objectStore->putObject((volume1->voldesc_).volUUID, oid, data, false, tier);
         EXPECT_TRUE(err.ok());
         if (!err.ok()) {
@@ -430,7 +429,7 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
 
         // read and see if data is there...
         boost::shared_ptr<const std::string> retData;
-        diskio::DataTier usedTier = diskio::maxTier;
+        diskio::DataTier usedTier = tier;
         retData = objectStore->getObject((migrVolume->voldesc_).volUUID, oid, usedTier, err);
         EXPECT_TRUE(err.ok());
         EXPECT_TRUE((migrVolume->testdata_).dataset_map_[oid].isValid(retData));
@@ -464,7 +463,7 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
     EXPECT_TRUE(err.ok());
     // read and see if data is there...
     boost::shared_ptr<const std::string> retNewData;
-    diskio::DataTier usedTierNew = diskio::maxTier;
+    diskio::DataTier usedTierNew = tier;
     retNewData = objectStore->getObject((migrVolume->voldesc_).volUUID, newOid, usedTierNew, err);
     EXPECT_TRUE(err.ok());
     EXPECT_TRUE((migrVolume->testdata_).dataset_map_[newOid].isValid(retNewData));
@@ -492,7 +491,7 @@ TEST_F(SmObjectStoreTest, apply_deltaset) {
 
         // read and see if data is there...
         boost::shared_ptr<const std::string> retData;
-        diskio::DataTier usedTier = diskio::maxTier;
+        diskio::DataTier usedTier = tier;
         retData = objectStore->getObject((migrVolume->voldesc_).volUUID, oid, usedTier, err);
         EXPECT_TRUE(err.ok());
         EXPECT_TRUE((migrVolume->testdata_).dataset_map_[oid].isValid(retData));
