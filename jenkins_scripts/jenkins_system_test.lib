@@ -271,6 +271,18 @@ function run_python_unit_tests
     performance_report PYTHON_UNIT_TESTS $(( ${end_time} - ${start_time} ))
 }
 
+function check_cpp_cit_results
+{
+    error_count=$( find ../source/cit -name "*.xml" |xargs grep "errors=\"" |grep -v "errors=\"0" |wc -l )
+    failure_count=$( find ../source/cit -name "*.xml" |xargs grep "failures=\"" |grep -v "failures=\"0" |wc -l  )
+
+    if [[ ${error_count} -gt 0 || ${failure_count} -gt 0 ]]
+    then
+        message "EEEEE Unit test errors (${error_count}) and/or failures (${failure_count}) detected"
+        run_coroner 1
+    fi
+}
+
 function run_cpp_unit_tests
 {
     message "IIIII RUNNING unit tests"
@@ -285,6 +297,8 @@ function run_cpp_unit_tests
         message "EEEEE Unit test problem(s) detected"
         run_coroner 1
     fi
+
+    check_cpp_cit_results
 
     end_time=$(date +%s)
     performance_report UNIT_TESTS $(( ${end_time} - ${start_time} ))
