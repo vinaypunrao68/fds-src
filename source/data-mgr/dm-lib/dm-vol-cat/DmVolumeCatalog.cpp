@@ -971,6 +971,28 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         }
     }
 
+    // Yes, this is duplicating code above. However, it doesn't fit well with the scoping and if()
+    // statement, and that code is intended to be removed anyway.
+    {
+        static stats::StatDescriptor const lbytesDescriptor { "LBYTES",
+                                                              ContextType::VOLUME,
+                                                              static_cast<std::int64_t>(volId.get()),
+                                                              AggregationType::LATEST };
+        static std::chrono::milliseconds const timeBudget { 20 };
+
+        fds_uint64_t size;
+        fds_uint64_t dummy1;
+        fds_uint64_t dummy2;
+        rc = statVolumeLogical(volId, &size, &dummy1, &dummy2);
+        if (!rc.ok())
+        {
+            LOGERROR << "Failed to stat volume ID " << volId << ". Error: " << rc;
+            return rc;
+        }
+
+        getModuleProvider()->getMetrics()->put(lbytesDescriptor, size, timeBudget);
+    }
+
     // actually expunge objects that were dereferenced by the blob
     // TODO(xxx): later that should become part of GC and done in background
     return ERR_OK;
