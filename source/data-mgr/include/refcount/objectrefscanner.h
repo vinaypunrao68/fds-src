@@ -182,6 +182,7 @@ struct ObjectRefScanMgr : HasModuleProvider, Module {
     virtual void mod_shutdown();
     /* Use this to manually start scan. Don't use it when timer based scan is enabled */
     void scanOnce();
+    bool isRunning();
 
     void setScanDoneCb(const ScanDoneCb &cb);
 
@@ -235,10 +236,7 @@ struct ObjectRefScanMgr : HasModuleProvider, Module {
     /* Controls whether scanning based on timer is enabled or not.   NOTE it is still possible
      * to run the scanner manually
      */
-    bool                                        timeBasedEnabled;
     uint32_t                                    maxEntriesToScan;
-    std::chrono::seconds                        scanIntervalSec;
-    FdsTimerTaskPtr                             scanTask;
     std::mutex                                  scannerLock;
     std::list<VolumeRefScannerContext>          scanList;
     std::list<VolumeRefScannerContext>::iterator currentItr;
