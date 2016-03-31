@@ -13,6 +13,7 @@ extern "C" {
 }
 #include <platform/process.h>
 #include <platform/valgrind.h>
+#include <platform/environment.h>
 #include <vector>
 
 #include "util/Log.h"
@@ -55,7 +56,7 @@ namespace fds
          * fds_spawn
          * ---------
          */
-        pid_t fds_spawn(char *const argv[], int daemonize)
+        pid_t fds_spawn(char *const argv[], int daemonize, int procIndex)
         {
             int      flim, fd, res;
             pid_t    child_pid;
@@ -127,6 +128,8 @@ namespace fds
             }
             printf("Child to write stderr/stdout to %s.", stdouterr);
 
+            Environment::setEnvironment(procIndex);
+
             if (daemonize)
             {
                 res = daemon(1, 1);
@@ -143,7 +146,7 @@ namespace fds
             abort();
         }
 
-        pid_t fds_spawn_service(const std::string& prog, const std::string& fds_root, const std::vector<std::string>& args, bool daemonize)
+        pid_t fds_spawn_service(const std::string& prog, const std::string& fds_root, const std::vector<std::string>& args, bool daemonize, int procIndex)
         {
             std::vector<const char*>    c_args;
 
@@ -154,7 +157,7 @@ namespace fds
 
             c_args.push_back(NULL);
 
-            return fds_spawn_service(prog.c_str(), fds_root.c_str(), c_args.size(), &c_args[0], daemonize ? 1 : 0);
+            return fds_spawn_service(prog.c_str(), fds_root.c_str(), c_args.size(), &c_args[0], daemonize ? 1 : 0, procIndex);
         }
 
         /*
@@ -162,7 +165,7 @@ namespace fds
          * -----------------
          */
         pid_t fds_spawn_service(const char *prog, const char *fds_root,
-                                const int argc, const char** extra_args, int daemonize)
+                                const int argc, const char** extra_args, int daemonize, int procIndex)
         {
             const int max_args = 256;
             size_t    len {0}, ret;
@@ -272,7 +275,7 @@ namespace fds
             printf("Spawn %s %s\n", exec, root);
             LOGDEBUG << "Spawn " << exec ;
 
-            return (fds_spawn(argv, daemonize));
+            return (fds_spawn(argv, daemonize, procIndex));
         }
     }  // namespace pm
 }  // namespace fds
