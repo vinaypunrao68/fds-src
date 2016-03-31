@@ -291,24 +291,28 @@ void FdsProcess::init(int argc, char *argv[],
                                                  []() { g_fdslog->flush(); });
 
     {
-        std::string statsServiceIp;
+        auto svcMgr = getSvcMgr();
+        if (svcMgr)
         {
-            fds_uint32_t dummy;
-            getSvcMgr()->getOmIPPort(statsServiceIp, dummy);
+            std::string statsServiceIp;
+            {
+                fds_uint32_t dummy;
+                getSvcMgr()->getOmIPPort(statsServiceIp, dummy);
+            }
+
+            auto statsServicePort = get_fds_config()->get<int>("fds.common.stats_port", 11011);
+
+            // UN & PW is not yet configurable.
+            statsServiceClient_ = StatsConnFactory::newConnection(statsServiceIp,
+                                                                  statsServicePort,
+                                                                  "stats-service",
+                                                                  "$t@t$");
+
+            metrics_->setSubmitter(std::bind(&FdsProcess::_submitGenerationCallback,
+                                             this,
+                                             std::placeholders::_1));
         }
-
-        auto statsServicePort = get_fds_config()->get<int>("fds.common.stats_port", 11011);
-
-        // UN & PW is not yet configurable.
-        statsServiceClient_ = StatsConnFactory::newConnection(statsServiceIp,
-                                                              statsServicePort,
-                                                              "stats-service",
-                                                              "$t@t$");
     }
-
-    metrics_->setSubmitter(std::bind(&FdsProcess::_submitGenerationCallback,
-                                     this,
-                                     std::placeholders::_1));
 
     const libconfig::Setting& fdsSettings = conf_helper_.get_fds_config()->getConfig().getRoot();
     LOGNORMAL << "Configurations as modified by the command line:";
