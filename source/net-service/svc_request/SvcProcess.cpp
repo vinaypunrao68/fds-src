@@ -226,6 +226,7 @@ void SvcProcess::shutdown_modules()
         LOGNOTIFY << "Stopping timer";
         timer_servicePtr_->destroy();
     }
+
     if (cntrs_mgrPtr_)
     {
         LOGNOTIFY << "Destroying cntrs mgr";
