@@ -54,7 +54,7 @@ UpdateCatalogReq::UpdateCatalogReq(PutBlobReq* blobReq, bool const _atomic)
                 blobReq->getBlobName(),
                 nullptr,
                 0,
-                0),
+                blobReq->data_len),
       AmTxReq(blobReq->tx_desc),
       metadata(blobReq->metadata),
       blob_mode(blobReq->blob_mode),

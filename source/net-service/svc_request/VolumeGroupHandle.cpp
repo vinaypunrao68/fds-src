@@ -87,6 +87,15 @@ VolumeGroupHandle::VolumeGroupHandle(CommonModuleProviderIf* provider,
 
 VolumeGroupHandle::~VolumeGroupHandle()
 {
+    int tries = 0;
+    while (state_ != fpi::Unknown && refCnt_ > 0 && tries < 100) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        tries++;
+    }
+    if (refCnt_ > 0) {
+        LOGWARN << logString() << " destroying handle when refcount:" << refCnt_;
+    }
+
     if (MODULEPROVIDER()->get_cntrs_mgr()) {
         MODULEPROVIDER()->get_cntrs_mgr()->remove_from_export(this);
     }
@@ -255,7 +264,13 @@ void VolumeGroupHandle::runOpenProtocol_(const OpenResponseCb &openCb)
              /* NOTE: We don't care about the returned error here.  We want to be sure
               * the broadcasted group information reached the group members
               */
-             changeState_(fpi::ResourceState::Active,
+
+             auto targetState = fpi::ResourceState::Active;
+             if (functionalReplicas_.size() < quorumCnt_) {
+                targetState = fpi::ResourceState::Offline;
+             }
+
+             changeState_(targetState,
                           false, /* This value is noop */
                           "Open volume");
              auto openResp = MAKE_SHARED<fpi::OpenVolumeRspMsg>();
@@ -347,6 +362,7 @@ std::string VolumeGroupHandle::getStateInfo()
 {
     /* NOTE: Getting the stateinfo isn't synchronized.  It may be a bit stale */
     Json::Value state;
+    state["coordinator"] = isCoordinator_;
     state["state"] = fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(state_));
     state["version"] = static_cast<Json::Value::Int64>(version_);
     state["quorumcnt"] = quorumCnt_;
@@ -532,10 +548,7 @@ VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
 
     /* Figure out if quorum # of replicas rejected the coordinator */
     if (cachedCoordinators.size() >= quorumCnt_) {
-        /* We only support quorum of 2, if this changes below conditions need to be
-         * reviisted
-         */
-        fds_assert(quorumCnt_ == 2);
+        fds_assert(quorumCnt_ == 2);            // NOTE: We only support quorum of 2 for now
         if (cachedCoordinators[0] == cachedCoordinators[1]) {
             if (!switchCtx_) {
                 /* We will go through a coordinator switch protocol */
@@ -545,6 +558,7 @@ VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
         }
         return;
     } else {
+        /* Following is check to see if we received different sequence id from each replica */
         if (size() == 3 && seqIdMap.size() == static_cast<size_t>(size())) {
             /* We don't have a quorum on sequence id match.  However we received
              * sequence id from everyone. In this case matching sequence id is
@@ -563,8 +577,7 @@ VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
                  << ". Other replicas will go through sync";
         }
 
-        if (quorumSeqId != -1) {
-            /* We have a quorum with matching sequence ids */
+        if (quorumSeqId != -1) {        // we hava a sequence id for the group
             const auto& quorumResps = seqIdMap[quorumSeqId];
             for (const auto &resp : quorumResps) {
                 auto volumeHandle = getVolumeReplicaHandle_(resp.first);
@@ -788,12 +801,13 @@ void VolumeGroupHandle::handleVolumeResponse(const fpi::SvcUuid &srcSvcUuid,
                  * replicas.  Only reads are allowed and it just cycles through replicas
                  * in a failover manner.
                  * We move the failed replica to end of functional list as an optimiation
-                 * to not send reads immediately.
+                 * to not send reads immediately for subsequent reads
                  */
-                fds_verify(volumeHandle == functionalReplicas_.begin());
-                /* Left shift and rotate by one */
-                std::rotate(functionalReplicas_.begin(), functionalReplicas_.begin()+1,
-                            functionalReplicas_.end());
+                if (volumeHandle == functionalReplicas_.begin()) {
+                    /* Left shift and rotate by one */
+                    std::rotate(functionalReplicas_.begin(), functionalReplicas_.begin()+1,
+                                functionalReplicas_.end());
+                }
                 return;
             }
             auto changeErr = changeVolumeReplicaState_(volumeHandle,
@@ -842,6 +856,14 @@ std::vector<fpi::SvcUuid> VolumeGroupHandle::getAllReplicas() const
     std::for_each(functionalReplicas_.begin(), functionalReplicas_.end(), appendF);
     std::for_each(nonfunctionalReplicas_.begin(), nonfunctionalReplicas_.end(), appendF);
     std::for_each(syncingReplicas_.begin(), syncingReplicas_.end(), appendF);
+    return svcs;
+}
+
+std::vector<fpi::SvcUuid> VolumeGroupHandle::getFunctionalReplicas() const
+{
+    std::vector<fpi::SvcUuid> svcs;
+    auto appendF = [&svcs](const VolumeReplicaHandle& h) { svcs.push_back(h.svcUuid); };
+    std::for_each(functionalReplicas_.begin(), functionalReplicas_.end(), appendF);
     return svcs;
 }
 
@@ -1158,11 +1180,25 @@ void VolumeGroupFailoverRequest::invoke()
 
 void VolumeGroupFailoverRequest::invokeWork_()
 {
-    auto replica = groupHandle_->getFunctionalReplicaHandle();
-    addEndpoint(replica->svcUuid,
-                groupHandle_->getDmtVersion(),
-                groupHandle_->getGroupId(),
-                replica->version);
+    /* First try and get the next replica from availableReplicas_,
+     * otherwise check with VolumeGroupHandle
+     */
+    if (availableReplicas_.size() > 0) {
+        fds_assert(!groupHandle_->isCoordinator_);
+        addEndpoint(availableReplicas_.front().svcUuid,
+                    groupHandle_->getDmtVersion(),
+                    groupHandle_->getGroupId(),
+                    availableReplicas_.front().version);
+        availableReplicas_.erase(availableReplicas_.begin());
+    } else {
+        fds_assert(groupHandle_->isCoordinator_);
+        auto replica = groupHandle_->getFunctionalReplicaHandle();
+        addEndpoint(replica->svcUuid,
+                    groupHandle_->getDmtVersion(),
+                    groupHandle_->getGroupId(),
+                    replica->version);
+    }
+
     auto &ep = epReqs_.back();
     ep->setPayloadBuf(msgTypeId_, payloadBuf_);
     ep->setTimeoutMs(timeoutMs_);
