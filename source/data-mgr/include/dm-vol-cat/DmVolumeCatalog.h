@@ -337,6 +337,15 @@ class DmVolumeCatalog : public HasModuleProvider,
 
     Error getVersion(fds_volid_t volId, int32_t &version) override;
   private:
+
+    // vars
+    std::unordered_map<fds_volid_t, DmPersistVolCat::ptr> volMap_;
+    fds_mutex volMapLock_;
+
+    expunge_objs_cb_t expungeCb_;
+
+    bool _ft_newStats;
+
     // methods
     Error statVolumeInternal(fds_volid_t volId, fds_uint64_t * volSize,
                              fds_uint64_t * blobCount, fds_uint64_t * objCount);
@@ -348,12 +357,6 @@ class DmVolumeCatalog : public HasModuleProvider,
     }
 
     void _updateLBytes (fds_volid_t volId);
-
-    // vars
-    std::unordered_map<fds_volid_t, DmPersistVolCat::ptr> volMap_;
-    fds_mutex volMapLock_;
-
-    expunge_objs_cb_t expungeCb_;
 };
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMVOLUMECATALOG_H_

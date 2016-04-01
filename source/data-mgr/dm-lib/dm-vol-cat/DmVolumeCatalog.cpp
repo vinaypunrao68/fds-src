@@ -56,7 +56,12 @@ namespace fds {
 DmVolumeCatalog::DmVolumeCatalog(CommonModuleProviderIf* modProvider,
                                  char const * const name)
     : HasModuleProvider(modProvider),
-    Module(name), expungeCb_(0) {}
+      Module(name),
+      expungeCb_(0),
+      _ft_newStats { false }
+{
+    _ft_newStats = CONFIG_BOOL("fds.feature_toggle.common.send_to_new_stats_service", true);
+}
 
 DmVolumeCatalog::~DmVolumeCatalog() {}
 
