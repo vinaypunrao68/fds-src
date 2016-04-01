@@ -996,7 +996,11 @@ void DmVolumeCatalog::_updateLBytes (fds_volid_t volId)
         return;
     }
 
-    getModuleProvider()->getMetrics()->put(lbytesDescriptor, size, timeBudget);
+    auto metrics = getModuleProvider()->getMetrics();
+    if (metrics)
+    {
+        metrics->put(lbytesDescriptor, size, timeBudget);
+    }
 }
 
 // NOTE: used by the Batch ifdef, not currently called by compiled code

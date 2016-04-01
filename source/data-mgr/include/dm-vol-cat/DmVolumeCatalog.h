@@ -52,8 +52,7 @@ class DmVolumeCatalog : public HasModuleProvider,
         return (blobSize - getLastObjSize(blobSize, objSize));
     }
 
-    DmVolumeCatalog(CommonModuleProviderIf* modProvider,
-                             char const * const name);
+    DmVolumeCatalog(CommonModuleProviderIf* modProvider, char const* const name);
     ~DmVolumeCatalog();
 
     // Methods

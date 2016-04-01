@@ -32,7 +32,7 @@ user_fds_ar_libs  :=                   \
     fds-fdsp
 
 user_non_fds_libs := \
-	fdsStatsUtil \
+    fdsStatsUtil-debug \
     boost_timer \
     leveldb \
     ssl \

@@ -120,7 +120,6 @@ CommonModuleProviderIf* getModuleProvider() {
     return g_fdsprocess;
 }
 
-
 std::shared_ptr<stats::util::Accumulator> FdsProcess::getMetrics () const
 {
     return metrics_;
@@ -297,7 +296,7 @@ void FdsProcess::init(int argc, char *argv[],
             std::string statsServiceIp;
             {
                 fds_uint32_t dummy;
-                getSvcMgr()->getOmIPPort(statsServiceIp, dummy);
+                svcMgr->getOmIPPort(statsServiceIp, dummy);
             }
 
             auto statsServicePort = get_fds_config()->get<int>("fds.common.stats_port", 11011);

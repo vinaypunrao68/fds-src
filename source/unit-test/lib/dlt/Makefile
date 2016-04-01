@@ -14,7 +14,7 @@ user_fds_ar_libs  := \
 	fds-osdep
 
 user_non_fds_libs := \
-	fdsStatsUtil \
+	fdsStatsUtil-debug \
 	statsclient \
 	SimpleAmqpClient \
     boost_log \
