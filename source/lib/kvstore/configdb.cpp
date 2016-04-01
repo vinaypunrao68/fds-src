@@ -2624,6 +2624,8 @@ bool ConfigDB::changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr)
         {
             LOGNOTIFY << "ConfigDB changed service"
                        << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid << std::dec
+                       << " type: " << svcInfoPtr->svc_type
+                       << " ip: " << svcInfoPtr->ip
                        << " from [incarnation:" << dbInfo.incarnationNo << ", status:"
                        << OmExtUtilApi::printSvcStatus(dbInfo.svc_status) << "]"
                        << " to [incarnation:" << svcInfoPtr->incarnationNo << ", status:"
