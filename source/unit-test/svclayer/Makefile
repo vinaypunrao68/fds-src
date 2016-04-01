@@ -15,7 +15,7 @@ user_fds_ar_libs  := \
     fds-plat-lib
 
 user_non_fds_libs := \
-	fdsStatsUtil \
+	fdsStatsUtil-debug \
     jemalloc \
     leveldb \
     ical \

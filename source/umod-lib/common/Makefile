@@ -14,7 +14,7 @@ user_no_style    := \
 
 user_ar_libs      := fds-umod
 user_so_libs      := fds-umod
-user_non_fds_libs := fdsStatsUtil statsclient
+user_non_fds_libs := fdsStatsUtil-debug statsclient
 fds-umod          := $(user_cpp)
 
 include $(topdir)/Makefile.incl

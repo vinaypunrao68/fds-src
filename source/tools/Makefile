@@ -19,7 +19,7 @@ user_fds_ar_libs  := \
 
 user_non_fds_libs := \
     leveldb \
-    fdsStatsUtil
+    fdsStatsUtil-debug
 
 user_hh           := $(wildcard *.h)
 user_cpp          := \
