@@ -9,6 +9,7 @@
 #include <unordered_map>
 
 #include "AmAsyncDataApi.h"
+#include "BlobDescriptor.h"
 #include "shared/fds_types.h"
 #include "blob/BlobTypes.h"
 

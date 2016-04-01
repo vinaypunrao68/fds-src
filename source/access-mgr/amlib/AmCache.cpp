@@ -23,7 +23,7 @@ static constexpr fds_uint32_t Ki { 1024 };
 static constexpr fds_uint32_t Mi { 1024 * Ki };
 
 AmCache::AmCache(AmDataProvider* prev)
-    : AmDataProvider(prev, new AmDispatcher(this)),
+    : AmDataProvider(prev, std::make_shared<AmDispatcher>(this)),
       max_metadata_entries(0)
 {
     /**
@@ -192,7 +192,7 @@ AmCache::getObject(GetBlobReq* blobReq,
 
 void
 AmCache::getObjectCb(AmRequest* amReq, Error const error) {
-    auto const& obj_id = *static_cast<GetObjectReq*>(amReq)->obj_id;
+    auto const obj_id = *static_cast<GetObjectReq*>(amReq)->obj_id;
     std::unique_ptr<std::deque<GetObjectReq*>> queue;
     {
         // Find the waiting get request queue
@@ -214,7 +214,7 @@ AmCache::getObjectCb(AmRequest* amReq, Error const error) {
     // data member from the first request (the one that was actually dispatched)
     // and populate the volume's cache
     auto buf = queue->front()->obj_data;
-    for (auto& objReq : *queue) {
+    for (auto objReq : *queue) {
         if (error.ok()) {
             objReq->obj_data = buf;
             object_cache.add_dirty(objReq->io_vol_id, obj_id, objReq->obj_data);
