@@ -16,7 +16,7 @@ public class ChunkedOutputStreamTest {
 
     @Test
     public void testWrite() throws Exception {
-        IoOps io = new MemoryIoOps(MAX_OBJECT_SIZE);
+        IoOps io = new MemoryIoOps();
         int objectSize = 8;
         String DOMAIN = "foo";
         String VOLUME = "bar";

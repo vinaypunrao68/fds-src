@@ -14,7 +14,7 @@ public class PersistentCounterTest {
     @Test
     public void testAccept() throws Exception {
         AtomicInteger commits = new AtomicInteger();
-        IoOps io = new MemoryIoOps(MAX_OBJECT_SIZE) {
+        IoOps io = new MemoryIoOps() {
             @Override
             public void commitMetadata(String domain, String volumeName, String blobName) throws IOException {
                 commits.incrementAndGet();
@@ -31,7 +31,7 @@ public class PersistentCounterTest {
 
     @Test
     public void testAllocate() throws Exception {
-        IoOps io = new MemoryIoOps(MAX_OBJECT_SIZE);
+        IoOps io = new MemoryIoOps();
         String counterName = "foo";
         long startValue = 42;
         String panda = "panda";
