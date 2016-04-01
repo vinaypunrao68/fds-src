@@ -289,6 +289,12 @@ void FdsProcess::init(int argc, char *argv[],
     timer_servicePtr_->scheduledFunctionRepeated(std::chrono::seconds(10),
                                                  []() { g_fdslog->flush(); });
 
+    auto& config = *conf_helper_.get_fds_config();
+    const libconfig::Setting& fdsSettings = config.getConfig().getRoot();
+    LOGNORMAL << "Configurations as modified by the command line:";
+    log_config(fdsSettings);
+
+    if (config.get<bool>("fds.feature_toggle.common.send_to_new_stats_service", true))
     {
         auto svcMgr = getSvcMgr();
         if (svcMgr)
@@ -299,7 +305,7 @@ void FdsProcess::init(int argc, char *argv[],
                 svcMgr->getOmIPPort(statsServiceIp, dummy);
             }
 
-            auto statsServicePort = get_fds_config()->get<int>("fds.common.stats_port", 11011);
+            auto statsServicePort = config.get<int>("fds.common.stats_port", 11011);
 
             // UN & PW is not yet configurable.
             statsServiceClient_ = StatsConnFactory::newConnection(statsServiceIp,
@@ -312,10 +318,6 @@ void FdsProcess::init(int argc, char *argv[],
                                              std::placeholders::_1));
         }
     }
-
-    const libconfig::Setting& fdsSettings = conf_helper_.get_fds_config()->getConfig().getRoot();
-    LOGNORMAL << "Configurations as modified by the command line:";
-    log_config(fdsSettings);
 
     /* detect the core file size limit and print to log */
     struct rlimit crlim;

@@ -971,7 +971,10 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         }
     }
 
-    _updateLBytes(volId);
+    if (_ft_newStats)
+    {
+        _updateLBytes(volId);
+    }
 
     // actually expunge objects that were dereferenced by the blob
     // TODO(xxx): later that should become part of GC and done in background
@@ -1105,7 +1108,10 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         }
     }
 
-    _updateLBytes(volId);
+    if (_ft_newStats)
+    {
+        _updateLBytes(volId);
+    }
 
     return rc;
 }
@@ -1210,7 +1216,10 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volId, const std::string& blobName
             }
         }
 
-        _updateLBytes(volId);
+        if (_ft_newStats)
+        {
+            _updateLBytes(volId);
+        }
     }
 
     return rc;
