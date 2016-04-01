@@ -93,6 +93,10 @@ class BlockOperations
   private:
     void finishResponse(task_type* response);
 
+    // use if already holding respLock
+    void _detachVolumeResp(const error_type &error,
+                           handle_type const& requestId);
+
     // api we've built
     std::unique_ptr<req_api_type> amAsyncDataApi;
     boost::shared_ptr<std::string> volumeName;
