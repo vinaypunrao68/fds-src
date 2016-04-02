@@ -2,8 +2,9 @@ package com.formationds.nfs;
 
 import com.formationds.apis.ObjectOffset;
 import com.formationds.util.Retry;
-import org.apache.logging.log4j.Logger;
+import com.formationds.xdi.FdsObjectFrame;
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.joda.time.Duration;
 
 import java.io.FileNotFoundException;
@@ -67,57 +68,44 @@ public class Chunker {
         });
     }
 
-    public int read(String domain, String volume, String blobName, int maxObjectSize, byte[] destination, long offset, int length) throws IOException {
-        final int[] remaining = new int[]{Math.min(destination.length, length)};
-        if (remaining[0] == 0) {
+    public int read(String domain, String volume, String blobName, long blobLength, int maxObjectSize, byte[] destination, long offset, int length) throws IOException {
+        if (offset > blobLength) {
             return 0;
         }
 
-        long totalObjects = (long) Math.ceil((double) (length + (offset % maxObjectSize)) / (double) maxObjectSize);
-        long startObject = Math.floorDiv(offset, maxObjectSize);
-        final int[] startOffset = new int[]{(int) (offset % maxObjectSize)};
-        final int[] readSoFar = new int[]{0};
-        ByteBuffer output = ByteBuffer.wrap(destination);
+        long readLength = Math.min(length, destination.length);
+        readLength = Math.min(readLength, blobLength - offset);
 
-        for (long i = 0; i < totalObjects; i++) {
-            Optional<Map<String, String>> opt = io.readMetadata(domain, volume, blobName);
-            if (!opt.isPresent()) {
-                throw new FileNotFoundException("Volume=" + volume + ", blobName=" + blobName);
-            }
-            ObjectOffset objectOffset = new ObjectOffset(startObject + i);
-            ObjectKey key = new ObjectKey(domain, volume, blobName, objectOffset);
-            objectLock.lock(key, () -> {
-                FdsObject fdsObject = io.readCompleteObject(domain, volume, blobName, objectOffset, maxObjectSize);
-                int maxAvailable = Math.min(fdsObject.limit() - startOffset[0], (maxObjectSize - startOffset[0]));
-                int toBeRead = Math.min(maxAvailable, output.remaining());
+        ByteBuffer output = ByteBuffer.wrap(destination);
+        Optional<Map<String, String>> opt = io.readMetadata(domain, volume, blobName);
+
+        if (!opt.isPresent()) {
+            throw new FileNotFoundException("Volume=" + volume + ", blobName=" + blobName);
+        }
+
+        FdsObjectFrame.FrameIterator iterator = new FdsObjectFrame.FrameIterator(offset, readLength, maxObjectSize);
+
+        while (iterator.hasNext()) {
+            FdsObjectFrame frame = iterator.next();
+            ObjectKey objectKey = new ObjectKey(domain, volume, blobName, new ObjectOffset(frame.objectOffset));
+            objectLock.lock(objectKey, () -> {
+                // Work around a probable and obscure AM caching issue
+                Retry retry = new Retry((x, y) -> {
+                    FdsObject fdsObject = io.readCompleteObject(domain, volume, blobName, new ObjectOffset(frame.objectOffset), maxObjectSize);
+                    output.put(fdsObject.bytes(), frame.internalOffset, frame.internalLength);
+                    return null;
+                }, 5, Duration.millis(10), "object read");
+
                 try {
-                    // Yep, ugly. Workaround for what looks like an AM caching issue
-                    new Retry((x, y) -> {
-                        ByteBuffer buf = fdsObject.asByteBuffer();
-                        buf.limit(startOffset[0] + toBeRead);
-                        buf.position(startOffset[0]);
-                        output.put(buf);
-                        startOffset[0] = 0;
-                        remaining[0] -= toBeRead;
-                        readSoFar[0] += toBeRead;
-                        return null;
-                    }, 5, Duration.millis(10), "Chunker read")
-                            .apply(null);
+                    return retry.apply(null);
                 } catch (Exception e) {
-                    LOG.error("BEGIN -------------------");
-                    LOG.error("Read error, volume=" + volume + ", blobName=" + blobName);
-                    LOG.error("maxObjectSize=" + maxObjectSize + ", destination=" + destination.length + "bytes, offset=" + offset + ", length=" + length);
-                    LOG.error("Object capacity=" + fdsObject.capacity() + ", object limit=" + fdsObject.limit() + ", startOffset=" + startOffset[0]);
-                    LOG.error("To be read: " + toBeRead);
-                    LOG.error("Stack trace: ", e);
-                    LOG.error("END   -------------------");
+                    LOG.error("Error reading object", e);
                     throw new IOException(e);
                 }
-                return null;
             });
         }
 
-        return readSoFar[0];
+        return output.limit();
     }
 
 }

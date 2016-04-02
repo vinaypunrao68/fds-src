@@ -16,7 +16,6 @@ import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
 import org.dcache.nfs.vfs.DirectoryEntry;
 import org.dcache.nfs.vfs.Stat;
-import org.eclipse.jetty.io.ArrayByteBufferPool;
 import org.joda.time.Duration;
 import org.junit.*;
 
@@ -44,7 +43,7 @@ public class AsyncAmTest extends BaseAmTest {
         new Random().nextBytes(bytes);
         chunker.write(domainName, volumeName, blobName, OBJECT_SIZE, bytes, 0, length, m -> m.put("foo", "bar"));
         byte[] read = new byte[length];
-        chunker.read(domainName, volumeName, blobName, OBJECT_SIZE, read, 0, length);
+        chunker.read(domainName, volumeName, blobName, Long.MAX_VALUE, OBJECT_SIZE, read, 0, length);
         assertArrayEquals(bytes, read);
     }
 

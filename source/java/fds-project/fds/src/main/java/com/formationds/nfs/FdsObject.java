@@ -51,7 +51,7 @@ public class FdsObject {
         return byteBuffer;
     }
 
-    public byte[] toByteArray() {
+    public byte[] bytes() {
         return bytes;
     }
 }

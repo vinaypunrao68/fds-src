@@ -953,7 +953,8 @@ public class CustomNfsV3Server extends nfs3_protServerStub {
             res.resok.count.value = new uint32();
 
             byte[] b = new byte[count];
-            res.resok.count.value.value = fs.read(inode, b, offset, count);
+            int readCount = fs.read(inode, b, offset, count);
+            res.resok.count.value.value = readCount;
             if (res.resok.count.value.value < 0) {
                 throw new NfsIoException("IO not allowed");
             }
@@ -964,7 +965,7 @@ public class CustomNfsV3Server extends nfs3_protServerStub {
                 System.arraycopy(b, 0, res.resok.data, 0, res.resok.count.value.value);
             }
 
-            if (res.resok.count.value.value + offset == inodeStat.getSize()) {
+            if (readCount < count || readCount + offset == inodeStat.getSize()) {
                 res.resok.eof = true;
             }
 
