@@ -427,6 +427,7 @@ AmCache::getBlob(AmRequest *amReq) {
         blobReq->object_ids.assign(numObjs, boost::make_shared<ObjectID>(NullObjectID));
     }
 
+    blobReq->metadata_cached = false;
     AmDataProvider::getOffsets(blobReq);
 }
 
