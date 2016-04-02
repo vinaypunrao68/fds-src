@@ -173,6 +173,12 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     err = objStorMgr->objectStore->openStore(smTokens);
 
     // start migration
+
+    if (objStorMgr->getDLT() == NULL) {
+        // Try to get the DLT again, just to be sure nothing has changed.
+        err = MODULEPROVIDER()->getSvcMgr()->getDLT();
+    }
+
     const DLT* dlt = objStorMgr->getDLT();
 
     if (dlt != NULL) {
