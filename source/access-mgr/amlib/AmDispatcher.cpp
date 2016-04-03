@@ -123,8 +123,15 @@ AmDispatcher::start() {
         message_timeout_io = conf.get_abs<fds_uint32_t>("fds.am.svc.timeout.io_message", message_timeout_io);
         message_timeout_open = conf.get_abs<fds_uint32_t>("fds.am.svc.timeout.open_message", message_timeout_open);
         message_timeout_default = conf.get_abs<fds_uint32_t>("fds.am.svc.timeout.thrift_message", message_timeout_default);
+        VolumeGroupHandle::IO_TIMEOUT_MS = message_timeout_io;
+        VolumeGroupHandle::COORDINATOR_SWITCH_TIMEOUT_MS = conf.get_abs<fds_uint32_t>(
+            "fds.am.svc.timeout.coordinator_switch",
+            VolumeGroupHandle::COORDINATOR_SWITCH_TIMEOUT_MS);
+
         LOGNOTIFY << "AM Thrift timeout:" << message_timeout_default << " ms"
-                  << " IO timeout:" << message_timeout_io  << " ms";
+                  << " IO timeout:" << message_timeout_io  << " ms"
+                  << " Coordinator switch timeout: "
+                  << VolumeGroupHandle::COORDINATOR_SWITCH_TIMEOUT_MS << " ms";
     }
 
     if (conf.get<bool>("standalone", false)) {

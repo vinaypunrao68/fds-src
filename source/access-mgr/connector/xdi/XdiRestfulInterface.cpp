@@ -11,6 +11,8 @@
 
 namespace fds {
 
+unsigned int XdiRestfulInterface::TIMEOUT = 10 * 60 * 1000;     // 10 minutes in millis
+
 XdiRestfulInterface::XdiRestfulInterface(std::string const& host, unsigned int const port)
                                 : _host(host), _port(port)
 {
