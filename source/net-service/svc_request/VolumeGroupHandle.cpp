@@ -9,7 +9,11 @@ namespace fds {
 
 #define NONE_RET
 
+#ifdef DEBUG
+#define ASSERT_SYNCHRONIZED() isSynchronized()
+#else
 #define ASSERT_SYNCHRONIZED()
+#endif
 
 #define INVALID_REAPLICA_HANDLE() functionalReplicas_.end()
 
@@ -26,7 +30,8 @@ namespace fds {
         GET_VOLUMEREPLICA_HANDLE_RETURN(volumeHandle__, svcUuid__, NONE_RET)
 
 uint32_t VolumeGroupHandle::GROUPCHECK_INTERVAL_SEC = 30;
-uint32_t VolumeGroupHandle::COORDINATOR_SWITCH_TIMEOUT_MS = 5000;      // 60 seconds
+uint32_t VolumeGroupHandle::IO_TIMEOUT_MS = 5000;                      // set low for testing
+uint32_t VolumeGroupHandle::COORDINATOR_SWITCH_TIMEOUT_MS = 5000;      // set low for testing
 
 std::ostream& operator << (std::ostream &out, const fpi::VolumeIoHdr &h)
 {
@@ -58,6 +63,7 @@ VolumeGroupHandle::VolumeGroupHandle(CommonModuleProviderIf* provider,
 : HasModuleProvider(provider)
 {
     taskExecutor_ = MODULEPROVIDER()->getSvcMgr()->getTaskExecutor();
+    threadId_ = MODULEPROVIDER()->proc_thrpool()->getThreadId(volId.get());
     requestMgr_ = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
     groupSize_ = 0;
     quorumCnt_ = quorumCnt;
@@ -397,11 +403,15 @@ std::string VolumeGroupHandle::getStateProviderId()
 
 void VolumeGroupHandle::incRef()
 {
+    ASSERT_SYNCHRONIZED();
+
     ++refCnt_;
 }
 
 void VolumeGroupHandle::decRef()
 {
+    ASSERT_SYNCHRONIZED();
+
     --refCnt_;
     fds_assert(refCnt_ >= 0);
     if (refCnt_ <= 0 && closeCb_) {
@@ -1073,14 +1083,10 @@ VolumeGroupRequest::VolumeGroupRequest(CommonModuleProviderIf* provider,
     groupHandle_(groupHandle),
     nAcked_(0)
 {
-    /* NOTE: This should be under coordinator synchronized context */
-    groupHandle_->incRef();
 }
 
 VolumeGroupRequest::~VolumeGroupRequest()
 {
-    /* NOTE: This should be under coordinator synchronized context */
-    groupHandle_->decRef();
 }
 
 std::string VolumeGroupRequest::logString()
@@ -1090,9 +1096,16 @@ std::string VolumeGroupRequest::logString()
     return ss.str();
 }
 
-void VolumeGroupBroadcastRequest::invoke()
+void VolumeGroupRequest::invoke()
 {
+    groupHandle_->incRef();     // Don't want to handle to close while request is inprogress
     invokeWork_();
+}
+
+void VolumeGroupRequest::complete(const Error& error)
+{
+    groupHandle_->decRef();
+    MultiEpSvcRequest::complete(error);
 }
 
 void VolumeGroupBroadcastRequest::invokeWork_()
@@ -1171,11 +1184,6 @@ void VolumeGroupBroadcastRequest::handleResponse(SHPTR<fpi::AsyncHdr>& header,
             complete(ERR_OK);
         }
     }
-}
-
-void VolumeGroupFailoverRequest::invoke()
-{
-    invokeWork_();
 }
 
 void VolumeGroupFailoverRequest::invokeWork_()

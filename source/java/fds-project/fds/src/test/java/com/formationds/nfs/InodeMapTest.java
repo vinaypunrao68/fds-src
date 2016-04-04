@@ -17,7 +17,7 @@ public class InodeMapTest {
     public void testMaxCapacityIsEnforced() throws Exception {
         long maxVolumeCapacityInBytes = 100;
         StubExportResolver exportResolver = new StubExportResolver(VOLUME, MAX_OBJECT_SIZE, maxVolumeCapacityInBytes);
-        InodeMap inodeMap = new InodeMap(new MemoryIoOps(MAX_OBJECT_SIZE), exportResolver);
+        InodeMap inodeMap = new InodeMap(new MemoryIoOps(), exportResolver);
         Inode inode = inodeMap.create(new InodeMetadata(Stat.Type.REGULAR, new Subject(), 0644, 257), exportResolver.nfsExportId(VOLUME));
         inodeMap.write(inode, new byte[100], 0, 100);
 

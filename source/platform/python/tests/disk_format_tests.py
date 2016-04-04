@@ -625,8 +625,9 @@ class testDiskManager (unittest.TestCase):
 
     DISK_DATA="#ants\n/dev/os   1       0          HDD         NA    32"
 
+    @mock.patch ('disk_format.logging.handlers.RotatingFileHandler')
     @mock.patch ('disk_format.os')
-    def setUp (self, mock_os):
+    def setUp (self, mock_os, mock_rotatingfilehandler):
         mock_os.getuid.return_value = 0
         self.manager = disk_format.DiskManager()
         self.manager.process_command_line(['--map', 'test_data/disk-config.conf'])
@@ -641,8 +642,9 @@ class testDiskManager (unittest.TestCase):
         self.assertEqual (cm.exception.code, 8)
 
 
+    @mock.patch ('disk_format.logging.handlers.RotatingFileHandler')
     @mock.patch ('disk_format.os')
-    def testDiskManagerNoCliArgs (self, mock_os):
+    def testDiskManagerNoCliArgs (self, mock_os, mock_rotatingfilehandler):
         mock_os.getuid.return_value = 0
         self.manager.process_command_line()      # override the setUp version of the command line
 
@@ -867,13 +869,14 @@ class testDiskManager (unittest.TestCase):
         self.assertEqual (cm.exception.code, 8)
 
 
+    @mock.patch ('disk_format.logging.handlers.RotatingFileHandler')
     @mock.patch ('disk_format.DiskManager.partition_and_format_disks')
     @mock.patch ('disk_format.subprocess.Popen')
     @mock.patch ('disk_format.os')
     @mock.patch ('disk_format.DiskUtils.get_uuid')
 #    @mock.patch ('disk_format.RaidDevice.get_uuid')
 #    def testDiskManagerProcessFormatExisting (self, mock_uuid, mock_uuid_diskutils, mock_os, mock_popen):
-    def testDiskManagerProcessFormatExisting (self, mock_uuid_diskutils, mock_os, mock_popen, mock_partition_and_format_disks):
+    def testDiskManagerProcessFormatExisting (self, mock_uuid_diskutils, mock_os, mock_popen, mock_partition_and_format_disks, mock_rotatingfilehandler):
 #        mock_uuid.return_value = uuid_mock.return_value
 
 #        uuid_mock = mock.Mock (return_value = 'cazzoomar')
@@ -906,10 +909,11 @@ class testDiskManager (unittest.TestCase):
         self.assertEqual (cm.exception.code, 8)
 
 
+    @mock.patch ('disk_format.logging.handlers.RotatingFileHandler')
     @mock.patch ('disk_format.os')
 #    @mock.patch ('disk_format.RaidDevice.get_uuid')
 #    def testDiskManagerProcessFDSPath (self, mock_uuid, mock_os):
-    def testDiskManagerProcessFDSPath (self, mock_os):
+    def testDiskManagerProcessFDSPath (self, mock_os, mock_rotatingfilehandler):
 #        uuid_mock = mock.Mock (return_value = 'fazzoomar')
 #        mock_uuid.return_value = uuid_mock.return_value
 
@@ -933,10 +937,11 @@ class testDiskManager (unittest.TestCase):
         self.assertEqual (cm.exception.code, 8)
 
 
+    @mock.patch ('disk_format.logging.handlers.RotatingFileHandler')
     @mock.patch ('disk_format.os')
 #    @mock.patch ('disk_format.RaidDevice.get_uuid')
 #    def testDiskManagerProcessDiskMap (self, mock_uuid, mock_os):
-    def testDiskManagerProcessDiskMap (self, mock_os):
+    def testDiskManagerProcessDiskMap (self, mock_os, mock_rotatingfilehandler):
 #        uuid_mock = mock.Mock (return_value = 'dazzoomar')
 #        mock_uuid.return_value = uuid_mock.return_value
 
@@ -949,6 +954,7 @@ class testDiskManager (unittest.TestCase):
         assert disk_map == self.manager.disk_config_file
 
     #@mock.patch ('disk_format.fstab')
+    @mock.patch ('disk_format.logging.handlers.RotatingFileHandler')
     @mock.patch ('disk_format.subprocess.Popen')
     @mock.patch ('disk_format.os')
     @mock.patch ('disk_format.Disk.verifySystemDiskPartitionSize')
@@ -957,7 +963,7 @@ class testDiskManager (unittest.TestCase):
     @mock.patch ('disk_format.DiskUtils.get_uuid')
 #    @mock.patch ('disk_format.RaidDevice.get_uuid')
 #    def testDiskManagerProcessFormatReset (self, mock_uuid, mock_uuid_diskutils, mock_part_and_format, mock_os, mock_popen):
-    def testDiskManagerProcessFormatReset (self, mock_uuid_diskutils, mock_verifySystemDiskPartitionSize, mock_format, mock_partition, mock_os, mock_popen):
+    def testDiskManagerProcessFormatReset (self, mock_uuid_diskutils, mock_verifySystemDiskPartitionSize, mock_format, mock_partition, mock_os, mock_popen, mock_rotatingfilehandler):
 #        uuid_mock = mock.Mock (return_value = 'cazzoomar')
 #        mock_uuid.return_value = uuid_mock.return_value
         self.uuid_mock = mock.Mock (return_value = 'cazzoomar')

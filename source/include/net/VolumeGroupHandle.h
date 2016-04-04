@@ -152,6 +152,9 @@ struct VolumeGroupRequest : MultiEpSvcRequest {
                         VolumeGroupHandle *groupHandle);
     virtual ~VolumeGroupRequest();
 
+    virtual void invoke() override;
+    void complete(const Error& error) override;
+
     virtual std::string logString() override;
 
     VolumeGroupHandle          *groupHandle_; 
@@ -170,7 +173,6 @@ struct VolumeGroupRequest : MultiEpSvcRequest {
 struct VolumeGroupBroadcastRequest : VolumeGroupRequest {
     /* Constructors inherited */
     using VolumeGroupRequest::VolumeGroupRequest;
-    virtual void invoke() override;
     virtual void handleResponse(SHPTR<fpi::AsyncHdr>& header,
                                 SHPTR<std::string>& payload) override;
  protected:
@@ -183,13 +185,11 @@ struct VolumeGroupBroadcastRequest : VolumeGroupRequest {
 struct VolumeGroupFailoverRequest : VolumeGroupRequest {
     /* Constructors inherited */
     using VolumeGroupRequest::VolumeGroupRequest;
-    virtual void invoke() override;
     virtual void handleResponse(SHPTR<fpi::AsyncHdr>& header,
                                 SHPTR<std::string>& payload) override;
     inline void setAvailableReplicas(const std::vector<VolumeReplicaHandle> &replicas) {
         availableReplicas_ = replicas;
     }
-
 
  protected:
     virtual void invokeWork_() override;
@@ -235,6 +235,7 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
      * Exposed as public/non-const so that it can be tuned for unit testing
      */
     static uint32_t                     GROUPCHECK_INTERVAL_SEC;
+    static uint32_t                     IO_TIMEOUT_MS;
     static uint32_t                     COORDINATOR_SWITCH_TIMEOUT_MS;
 
     VolumeGroupHandle(CommonModuleProviderIf* provider,
@@ -317,6 +318,9 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     inline uint32_t getFunctionalReplicasCnt() const { return functionalReplicas_.size(); }
     std::string logString() const;
     inline int32_t getRefCnt() const { return refCnt_; }
+    inline bool isSynchronized() const {
+        return std::this_thread::get_id() == threadId_;
+    }
 
  protected:
     template<class MsgT, class ReqT>
@@ -336,6 +340,7 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
             writeOpsBuffer_->push_back(std::make_pair(msgTypeId, payload));
         }
         req->setPayloadBuf(msgTypeId, payload);
+        req->setTimeoutMs(IO_TIMEOUT_MS);
         req->responseCb_ = cb;
         req->setTaskExecutorId(groupId_);
         req->invoke();
@@ -373,6 +378,11 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     void closeHandle_();
 
     SynchronizedTaskExecutor<uint64_t>  *taskExecutor_;
+    /* ID of the thread on which all work related to this handle is done on.
+     * Cached here for ensuring all synchronized tasks are done on this thread id 
+     */
+    std::thread::id                     threadId_;
+
     SvcRequestPool                      *requestMgr_;
     VolumeGroupHandleListener           *listener_ {nullptr};
     VolumeReplicaHandleList             functionalReplicas_;
@@ -434,6 +444,7 @@ void VolumeGroupHandle::sendReadMsg(const fpi::FDSPMsgTypeId &msgTypeId,
         /* Create a request and send */
         auto req = requestMgr_->newSvcRequest<VolumeGroupFailoverRequest>(this);
         req->setPayload(msgTypeId, msg);
+        req->setTimeoutMs(IO_TIMEOUT_MS);
         req->responseCb_ = cb;
         req->setTaskExecutorId(groupId_);
         if (!isCoordinator_) {

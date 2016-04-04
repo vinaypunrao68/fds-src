@@ -1343,6 +1343,14 @@ OM_PmAgent::send_add_service
             break;
     }
 
+    // Add this PM to the well-known PMs map
+    fpi::SvcUuid svcUuid;
+    svcUuid.svc_uuid     = get_uuid().uuid_get_val();
+    auto curTime         = std::chrono::system_clock::now().time_since_epoch();
+    double timeInMinutes = std::chrono::duration<double,std::ratio<60>>(curTime).count();
+
+    gl_orch_mgr->omMonitor->updateKnownPMsMap(svcUuid, timeInMinutes, false );
+
     // The svcInfos list usually also contains the OM and the PM
     // so ensure we update svc states only for sm,dm,am
     for (auto item: svcInfos) {

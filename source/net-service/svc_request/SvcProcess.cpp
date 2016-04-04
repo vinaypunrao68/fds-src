@@ -215,14 +215,23 @@ void SvcProcess::shutdown_modules()
     mod_vectors_->mod_shutdown_locksteps();
     mod_vectors_->mod_shutdown();
 
-    LOGNOTIFY << "Stopping server";
-    svcMgr_->stopServer();
+    if (svcMgr_)
+    {
+        LOGNOTIFY << "Stopping server";
+        svcMgr_->stopServer();
+    }
 
-    LOGNOTIFY << "Stopping timer";
-    timer_servicePtr_->destroy();
+    if (timer_servicePtr_)
+    {
+        LOGNOTIFY << "Stopping timer";
+        timer_servicePtr_->destroy();
+    }
 
-    LOGNOTIFY << "Destroying cntrs mgr";
-    cntrs_mgrPtr_->reset();
+    if (cntrs_mgrPtr_)
+    {
+        LOGNOTIFY << "Destroying cntrs mgr";
+        cntrs_mgrPtr_->reset();
+    }
 
     if (proc_thrp) {
         LOGNOTIFY << "Stopping threadpool";
