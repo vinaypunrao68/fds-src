@@ -19,6 +19,7 @@ public class NfsOptions
         public Builder allSquash() { allSquash = true; noAllSquash = false; return this; }
         public Builder noAllSquash() { noAllSquash = true; allSquash = false; return this; }
         public Builder withRootSquash() { rootSquash = true; return this; }
+        public Builder withInsecure() { secure = false; return this; }
 
         public NfsOptions build( )
         {
@@ -32,11 +33,12 @@ public class NfsOptions
         private boolean noAllSquash = false;
         private boolean rootSquash = false;
         private boolean async = false;
+        private boolean secure = true;
     }
 
     private String options;
 
-    NfsOptions( final Builder builder )
+    private NfsOptions( final Builder builder )
     {
         final StringBuilder sb = new StringBuilder( );
 
@@ -65,6 +67,8 @@ public class NfsOptions
             sb.append( "," )
               .append( "no_all_squash" );
         }
+
+        sb.append( "," ).append( builder.secure ? "secure" : "insecure" );
 
         this.options = sb.toString();
     }
