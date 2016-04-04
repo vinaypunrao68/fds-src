@@ -14,6 +14,7 @@ constexpr const char* const BufferReplay::progressStr[];
 
 BufferReplay::BufferReplay(const std::string &bufferFileName,
                            int32_t maxReplayCnt,
+                           int64_t affinity,
                            fds_threadpool *threadpool)
 {
     threadpool_ = threadpool;
@@ -36,6 +37,7 @@ BufferReplay::~BufferReplay()
 
 Error BufferReplay::init()
 {
+    fds_mutex::scoped_lock l(lock_);
     writefd_ = open(bufferFileName_.c_str(), O_WRONLY | O_CREAT | O_TRUNC,
                S_IRUSR | S_IWUSR | S_IRGRP);
     if (writefd_ < 0) {
@@ -66,9 +68,13 @@ void BufferReplay::abort()
     bool doCb = false;
     {
         fds_mutex::scoped_lock l(lock_);
+        doCb = (progress_ == BUFFERING);
         progress_ = ABORTED;
-        doCb = (nOutstandingReplayOps_ == 0);
     }
+    /* Invoke progressCb_ from  here only if replay hasn't started.
+     * Once replay starts all progress callbacks must be done
+     * in replayWork_
+     */
     if (doCb) progressCb_(ABORTED);
 }
 
@@ -101,9 +107,10 @@ void BufferReplay::startReplay()
         fds_mutex::scoped_lock l(lock_);
         if (progress_ == ABORTED) return;
         progress_ = BUFFERING_REPLAYING;
+
+        replayWorkPosted_  = true;
     }
-    replayWorkPosted_  = true;      // lock protection isn't required
-    threadpool_->schedule(&BufferReplay::replayWork_, this);
+    threadpool_->scheduleWithAffinity(affinity_, &BufferReplay::replayWork_, this);
 }
 
 BufferReplay::Progress BufferReplay::getProgress()
@@ -112,38 +119,34 @@ BufferReplay::Progress BufferReplay::getProgress()
     return progress_;
 }
 
+/**
+* @brief Client will call this function to notify cnt # of ops have been replayed.
+* Once all the outstanding ops have been replayed, replayWork_() will be
+* scheduled to send more ops for replay.
+* NOTE: This function is mutually exclusive with replayWork_()
+*
+* @param cnt # of ops that have been replayed.
+*/
 void BufferReplay::notifyOpsReplayed(int32_t cnt)
 {
     do {
         fds_mutex::scoped_lock l(lock_);
+        /* Do the accounting of outstanding ops even if abort is issued */
         nOutstandingReplayOps_ -= cnt;
+        
+        fds_assert(!replayWorkPosted_);
         fds_assert(nOutstandingReplayOps_ >= 0);
         
-        if (progress_ == ABORTED) break;
-
-        fds_assert(progress_ == BUFFERING_REPLAYING || progress_  == REPLAY_CAUGHTUP);
-        if (nOutstandingReplayOps_ == 0 &&
-            progress_ == REPLAY_CAUGHTUP) {
-            /* Replayed all the ops */
-            progress_ = COMPLETE;
+        fds_assert(progress_ == BUFFERING_REPLAYING ||
+                   progress_  == REPLAY_CAUGHTUP ||
+                   progress_ == ABORTED);
+        if (nOutstandingReplayOps_ == 0) {
+            replayWorkPosted_ = true;
         }
     } while (false);
 
-    /* Do any necessary callbacks outside the lock
-     * When we ABORTED/COMPLETED notify the client so that appropriate cleanups
-     * can take place 
-     */
-    if (nOutstandingReplayOps_ == 0) {  // lock protection not required
-        if (progress_ == ABORTED) {
-           progressCb_(ABORTED); 
-           return;
-        } else if (progress_ == COMPLETE) {
-           progressCb_(COMPLETE); 
-           return;
-        }
-        /* Still have more to replay.  schedule next batch for replay */
-        replayWorkPosted_ = true;           // lock protection not required
-        threadpool_->schedule(&BufferReplay::replayWork_, this);
+    if (replayWorkPosted_) {        // Ok to read out side lock
+        threadpool_->scheduleWithAffinity(affinity_, &BufferReplay::replayWork_, this);
     }
 }
 
@@ -153,6 +156,12 @@ int32_t BufferReplay::getOutstandingReplayOpsCnt()
     return nOutstandingReplayOps_;
 }
 
+/**
+* @brief Ops are read from file and sent out for replay
+* Once replay starts all progress_ transitions (abort is special) are performed here.
+* Once replay starts all progress callbacks are done here as well.
+* NOTE: This function is mutually exclusive with notifyOpsReplayed()
+*/
 void BufferReplay::replayWork_()
 {
     Error err(ERR_OK);
@@ -162,7 +171,12 @@ void BufferReplay::replayWork_()
     do {
         fds_mutex::scoped_lock l(lock_);
 
+        /* replayWork_() and notifyOpsReplayed() are mutually exclusive */ 
         fds_assert(nOutstandingReplayOps_  == 0);
+        fds_assert(replayWorkPosted_);
+        fds_assert(progress_ == BUFFERING_REPLAYING ||
+                   progress_  == REPLAY_CAUGHTUP ||
+                   progress_ == ABORTED);
 
         replayWorkPosted_ = false;
 
@@ -205,7 +219,6 @@ void BufferReplay::replayWork_()
     } while (false);
 
     if (!err.ok()) {
-        fds_assert(nOutstandingReplayOps_ == 0);
         progressCb_(ABORTED);
         return;
     } else if (complete) {
@@ -219,15 +232,17 @@ void BufferReplay::replayWork_()
     /* Check if replay's been caughtup with buffering.  Once replay's been caught up
      * we disallow further buffering
      */
+    bool replayCaughtup = false;
     {
         fds_mutex::scoped_lock l(lock_);
         if (progress_ == ABORTED) return;
         if (nReplayOpsIssued_ == nBufferedOps_) {
             progress_ = REPLAY_CAUGHTUP;
+            replayCaughtup = true;
         }
     }
 
-    if (progress_ == REPLAY_CAUGHTUP) {
+    if (replayCaughtup) {
         progressCb_(REPLAY_CAUGHTUP);
     }
 }
