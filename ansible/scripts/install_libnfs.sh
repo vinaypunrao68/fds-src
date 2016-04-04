@@ -16,4 +16,4 @@ cd ${LIBNFS_DIR} && ./bootstrap && ./configure --prefix=/usr && make && sudo mak
 cd ${LIBNFS_PYTHON_DIR} && sudo python setup.py install
 cd ${LIBNFS_PYTHON_DIR}/libnfs && make clean && make
 printf " import libnfs check"
-python -c "import pooja"
+python -c "import libnfs"
