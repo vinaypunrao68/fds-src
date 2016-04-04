@@ -73,21 +73,20 @@ AsyncAmServiceRequestIfCloneFactory::getHandler(const xdi_at::TConnectionInfo& c
 
 void
 AsyncAmServiceRequestIfCloneFactory::releaseHandler(request_if* handler) {
-    if (nullptr != handler) {
-        {
-            std::lock_guard<std::mutex> l(_connectedXdiLock);
-            auto it = _connectedXdi.find(handler);
-            if (_connectedXdi.end() != it) {
-                _connectedXdi.erase(it);
-            }
+    {
+        std::lock_guard<std::mutex> l(_connectedXdiLock);
+        auto it = _connectedXdi.find(handler);
+        if (_connectedXdi.end() != it) {
+            _connectedXdi.erase(it);
         }
-        delete handler;
     }
+    delete handler;
 }
 
 void AsyncAmServiceRequestIfCloneFactory::getIps(std::unordered_set<std::string>& ip) {
     // loop through all the handles and by inserting into an unordered_set we will
     // get a list of all the unique IPs from the map.
+    std::lock_guard<std::mutex> l(_connectedXdiLock);
     for (auto const& i : _connectedXdi) {
         ip.insert(i.second);
     }
