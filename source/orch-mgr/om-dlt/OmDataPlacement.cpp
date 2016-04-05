@@ -532,7 +532,7 @@ DataPlacement::beginRebalance()
         DltTokenGroupPtr tgtCol = newDlt->getNodes(tokId);
 
         // find all SMs in target column that need re-sync: either they
-        // got a new responsibility for a DLT token or became a primary
+        // got a new responsibility for a DLT token [or became a primary (handling removed 4/5/16)]
         NodeUuidSet destSms = tgtCol->getNewAndNewPrimaryUuids(*cmtCol, getNumOfPrimarySMs());
 
         if (destSms.size() == 0)

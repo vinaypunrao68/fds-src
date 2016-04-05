@@ -3192,24 +3192,7 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
                       << std::hex << uuid.uuid_get_val() << std::dec
                       << " has finished registering, update DLT now";
 
-            ClusterMap *cm = om->om_clusmap_mod();
-            auto knownSMs = cm->getNonfailedServices(fpi::FDSP_STOR_MGR);
-            auto addedSMs = cm->getAddedServices(fpi::FDSP_STOR_MGR);
-
-            OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
-            OM_SmContainer::pointer smNodes = local->om_sm_nodes();
-            auto registeringSMs = smNodes->om_nodes_up();
-
-            if (knownSMs.size() == 0) {
-                LOGNORMAL << "!!!!FIRST SM";
-                om_dlt_update_cluster();
-            } else if ((registeringSMs >= 3 || addedSMs.size() >= 3)) {
-                LOGNORMAL << "!!!!ADDING 3 TOGETHER NOW";
-                om_dlt_update_cluster();
-            } else {
-                LOGNORMAL << "!!!!Only " << addedSMs.size() << "added SMs or" << registeringSMs
-                          << " registering SMs so far, will wait until, known SMs:" << knownSMs.size();
-            }
+            om_dlt_update_cluster();
 
         } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
             // Check if this is a re-registration of an existing DM executor
