@@ -1888,9 +1888,6 @@ OM_NodeDomainMod::om_load_volumes()
                      << "[" << volume.volUUID << ":" << volume.name << "]";
         }
 
-        if (volume.isStateMarkedForDeletion()) {
-            volContainer->addToDeleteVols(volume);
-        }
     }
 
     // load snapshots
