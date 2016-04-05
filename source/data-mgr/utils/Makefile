@@ -13,7 +13,8 @@ user_fds_ar_libs  := \
     fds-lib
 
 user_non_fds_libs := \
-	statsclient \
+    fdsStatsUtil-debug \
+    statsclient \
     jemalloc \
     leveldb \
     ssl \

@@ -23,7 +23,7 @@ user_fds_ar_libs  := \
     fds-fdsp
 
 user_non_fds_libs := \
-    leveldb ical
+    leveldb ical fdsStatsUtil
 
 # TODO: need to move Catalog.h to include, avoid cross module include ref.
 #
