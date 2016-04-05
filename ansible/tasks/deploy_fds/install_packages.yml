@@ -74,3 +74,22 @@
     apt: deb="/root/fds-stats-client-c.deb"
     tags:
       - install-local
+
+-   name: install fds-stats-util_1.0.0 from remote
+    when: (fds_deploy_local_deps is not defined or fds_deploy_local_deps != "yes")
+    apt: name=fds-stats-util=1.0.0 force=yes state=present update_cache=yes
+
+-   name: copy fds-stats-util_1.0.0 into the offline install
+    when: (fds_deploy_local_deps is defined and fds_deploy_local_deps == "yes")
+    copy: src={{ item }}
+      dest="/root/fds-stats-util.deb"
+    with_fileglob:
+       - '../../../omnibus/omnibus-fds-stats-util/pkg/fds-stats-util*.deb'
+    tags:
+      - install-local
+
+-   name: install the fds-stats-util_1.0.0 package from local deps
+    when: (fds_deploy_local_deps is defined and fds_deploy_local_deps == "yes")
+    apt: deb="/root/fds-stats-util.deb"
+    tags:
+      - install-local
