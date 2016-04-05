@@ -594,11 +594,12 @@ DataPlacement::beginRebalance()
                 }
             } else {
 
+                LOGWARN << "WARNING: All new SMs in target column, will handle but should not be the case!!";
+
                 // This means this column of tokens has all new SMs.
                 // This is possible if 3(going by tgt col length =3) new SMs
                 // were added at once. All we need to verify is that a source
                 // uuid of this token exists in the new dlt
-
                 if ( addedSMs.size() == destSms.size() )
                 {
                     auto newDltNodes = newDlt->getAllNodes();
@@ -622,12 +623,6 @@ DataPlacement::beginRebalance()
                 }
             }
 
-
-            // ToDo @meena FS-5284 here we need to say, if no source found, then look
-            // at committed dlt to find sources that owned the tokens and see
-            // if they are still in the new Dlt. If so, sync from them.
-            // Also in getNewAndNewPrimaryUuids, eliminate the check for existing
-            // SM that moves up in the rows.
             if (nosyncSm.uuid_get_val() > 0) {
                 // secondary SM survived, but both primaries didn't
                 // do not sync to this SM
