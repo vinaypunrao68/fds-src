@@ -12,7 +12,7 @@ PYTHON_UNITTEST_DISCOVERY_DIRECTORIES="source/tools"
 # This list of tests to be run
 # The list of system test scenarios, do not include the .ini"
 SYSTEM_TEST_SCENARIO_LIST="SnapshotTest ExpungeTest ActiveIORestartTest RestartDataPersistence ActiveIORndKillTest MultiAMVolOpsTest RestartClusterKillServices BuildSmokeTest_onpr QosTest ActiveMigration DmMigrationFailover"
-# Jenkins job runs tests on AWS nodes
+# Jenkins job runs tests on real nodes
 function performance_report
 {
     unit=${1}
@@ -449,10 +449,10 @@ function run_coroner
     run_node_cleanup ${1}
 }
 
-function run_aws_test_scenarios
+function run_test_scenarios_on_real_nodes
 {
     INVENTORY=$1; shift
-    AWS_LST_TEST_SCENARIO_LIST=( "$@" )
+    REAL_LST_TEST_SCENARIO_LIST=( "$@" )
 
     message "Packaging fds-platform"
     sudo make package fds-platform BUILD_TYPE=debug || deployment_error
@@ -461,13 +461,13 @@ function run_aws_test_scenarios
     chown -R pairing /home/pairing/.*
     echo 'Formation1234' > /home/pairing/.vault_pass.txt
 
-    message "Deploying local build on 4 aws nodes"
-    ansible/scripts/deploy_fds_ec2.sh $INVENTORY 4 local || deployment_error
+    message "Deploying local build on 4 bare metal"
+    ansible/scripts/deploy_fds.sh $INVENTORY local || deployment_error
 
     start_time=$(date +%s)
 
-    for scenario in ${AWS_LST_TEST_SCENARIO_LIST[@]}; do
-        aws_test_scenario_wrapper $INVENTORY $scenario
+    for scenario in ${REAL_LST_TEST_SCENARIO_LIST[@]}; do
+        real_test_scenario_wrapper $INVENTORY $scenario
     done
 
     end_time=$(date +%s)
@@ -475,14 +475,14 @@ function run_aws_test_scenarios
     performance_report SYSTEM_TESTS $(( ${end_time} - ${start_time} ))
 }
 
-function aws_test_scenario_wrapper
+function real_test_scenario_wrapper
 {
     INVENTORY=$1
     scenario=$2
 
     do_pushd source/test/testsuites
     # TODO pooja: fix  fs-4375
-    message " *** In AWS environment: RUNNING System Test: ${scenario}"
+    message " *** In real environment: RUNNING System Test: ${scenario}"
     ./ScenarioDriverSuite.py -q ./${scenario}.ini -d dummy --verbose -l ../../cit/ --install -z $INVENTORY --reusecluster || system_test_error $scenario
     echo " *** Scenario completed :  ${scenario} passed"
     do_popd
