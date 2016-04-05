@@ -65,7 +65,7 @@ mv fds-stats-client-c*.deb ../omnibus-fds-stats-client-c/pkg
 
 apt-get download fds-stats-util=1.0.0
 [[ $? -ne 0 ]] && echo 'Failure downloading the fds-stats-util package from apt repo' && exit 99
-mv fds-stats-client-c*.deb ../omnibus-fds-stats-util/pkg
+mv fds-stats-util*.deb ../omnibus-fds-stats-util/pkg
 
 if [[ ${#JENKINS_URL} -gt 0 ]]
 then
