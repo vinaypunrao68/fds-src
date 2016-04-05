@@ -460,6 +460,7 @@ function run_test_scenarios_on_real_nodes
     chown -R pairing /home/pairing/*
     chown -R pairing /home/pairing/.*
     echo 'Formation1234' > /home/pairing/.vault_pass.txt
+    echo 'Formation1234' > /root/.vault_pass.txt
 
     message "Deploying local build on 4 bare metal"
     ansible/scripts/deploy_fds.sh $INVENTORY local || deployment_error
