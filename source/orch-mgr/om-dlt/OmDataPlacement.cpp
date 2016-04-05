@@ -532,7 +532,7 @@ DataPlacement::beginRebalance()
         DltTokenGroupPtr tgtCol = newDlt->getNodes(tokId);
 
         // find all SMs in target column that need re-sync: either they
-        // got a new responsibility for a DLT token [or became a primary (handling removed 4/5/16)]
+        // got a new responsibility for a DLT token or became a primary
         NodeUuidSet destSms = tgtCol->getNewAndNewPrimaryUuids(*cmtCol, getNumOfPrimarySMs());
 
         if (destSms.size() == 0)
@@ -567,9 +567,7 @@ DataPlacement::beginRebalance()
 
             // LegacyComment[there must be one SM that is in committed and target column
             // and in a primary row. Otherwise all SMs failed in that column]
-            //
-            // With the change in getNewAndNewPrimaryUuids, if we are in this code
-            // it means we are NOT going to find a intersection, all SMs in column are new
+
             NodeUuidSet intersectSMs = tgtCol->getIntersection(*cmtCol);
 
             NodeUuid nosyncSm;
