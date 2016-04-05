@@ -1,12 +1,13 @@
-package com.formationds.hadoop;
 /*
  * Copyright 2014 Formation Data Systems, Inc.
  */
+package com.formationds.hadoop;
 
 import com.formationds.apis.ObjectOffset;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.xdi.AsyncAm;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -18,7 +19,7 @@ import java.util.Map;
 import static com.formationds.hadoop.FdsFileSystem.unwindExceptions;
 
 public class FdsOutputStream extends OutputStream {
-    private static final Logger LOG = Logger.getLogger(FdsOutputStream.class);
+    private static final Logger LOG = LogManager.getLogger(FdsOutputStream.class);
     private final int objectSize;
     private final String domain;
     private final String volume;

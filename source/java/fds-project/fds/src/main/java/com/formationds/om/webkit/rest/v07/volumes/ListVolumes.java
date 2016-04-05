@@ -34,7 +34,8 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONArray;
@@ -50,7 +51,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class ListVolumes implements RequestHandler {
-    private static final Logger LOG = Logger.getLogger(ListVolumes.class);
+    private static final Logger LOG = LogManager.getLogger(ListVolumes.class);
 
     private ConfigurationApi config;
     private AuthenticationToken token;

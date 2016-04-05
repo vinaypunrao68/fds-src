@@ -15,6 +15,10 @@
 #include <fdsp_utils.h>
 #include <gtest/gtest_prod.h>
 #include <MigrationUtility.h>
+#include <FdsCrypto.h>
+#include <boost/bimap.hpp>
+#include <boost/bimap/unordered_set_of.hpp>
+#include <boost/bimap/list_of.hpp>
 
 namespace fds {
 
@@ -42,7 +46,10 @@ public:
     enum StatusCode {
         VC_NOT_STARTED,     // First started
         VC_RUNNING,         // Finished initializing
-        VC_DM_HASHING       // VC has finished initializing and is running phase 1
+        VC_DM_NOT_SENT,     // Unable to start DM hashing operation
+        VC_DM_HASHING,      // VC has finished initializing and is running phase 1
+        VC_DM_DONE,         // VC has finished running phase 1
+        VC_ERROR            // VC has seen some errors
     };
     // For the future, may return more than just status code, but progress as well
     using VcStatus = StatusCode;
@@ -91,7 +98,7 @@ private:
      * Internal data structure of keeping track of each DM that is responsible
      * for the volume's metadata (phase 1)
      */
-    Error runPhase1();
+    void runPhase1();
 
     struct DmCheckerMetaData {
         DmCheckerMetaData(fds_volid_t _volId,
@@ -101,7 +108,6 @@ private:
             svcUuid(_svcUuid),
             status(NS_NOT_STARTED),
             batchSize(_batchSize),
-            hashResult(0),
             time_out(1000*10*60)    // 10 minutes
             {}
 
@@ -121,6 +127,7 @@ private:
             NS_NOT_STARTED,       // Just created
             NS_CONTACTED,         // Volume list has been sent to the node and should be working
             NS_FINISHED,          // The node has responded with a result
+            NS_OUT_OF_SYNC,       // Mark this DM as out of sync
             NS_ERROR              // Error state, idle
         };
         chkNodeStatus status;
@@ -129,7 +136,7 @@ private:
         int batchSize;
 
         // stored result
-        unsigned hashResult;
+        std::string hashResult;
 
         // stored timeout
         unsigned time_out;
@@ -157,10 +164,25 @@ private:
     Error waitForVolChkMsg();
 
     /**
+     * Use a bimap to keep a sorted count of number of hashes
+     */
+    typedef boost::bimap<boost::bimaps::unordered_set_of<std::string>,
+            boost::bimaps::list_of<unsigned>> bm_type;
+
+    bm_type hashQuorumCheckMap;
+
+    /**
      * If an error occurs during volume checking process, this will send out the
      * abort message to everyone to stop churning through levelDBs and wasting resources
      */
     void handleVolumeCheckerError();
+
+    /**
+     * Checks to see if any DM is out of sync from the hash map,
+     * and mark the corresponding DM metadata out of sync.
+     * Returns ERR_OK if everything's ok.
+     */
+    Error checkDMHashQuorum();
 };
 
 } // namespace fds

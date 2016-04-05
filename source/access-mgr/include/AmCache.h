@@ -8,6 +8,7 @@
 
 #include "AmAsyncDataApi.h"
 #include "AmDataProvider.h"
+#include "BlobDescriptor.h"
 #include <blob/BlobTypes.h>
 #include <cache/VolumeSharedKvCache.h>
 
@@ -57,8 +58,6 @@ class AmCache :
      * Everything else is pass-thru.
      */
     bool done() override;
-    void registerVolume(const VolumeDesc& volDesc) override;
-    void removeVolume(const VolumeDesc& volDesc) override;
     void closeVolume(AmRequest *amReq) override;
     void statBlob(AmRequest * amReq) override;
     void getBlob(AmRequest * amReq) override;

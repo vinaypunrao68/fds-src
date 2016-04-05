@@ -12,6 +12,7 @@ user_fds_ar_libs  := \
     fds-fdsp \
 
 user_non_fds_libs := \
+	fdsStatsUtil-debug \
     gmock \
     curl \
     leveldb \

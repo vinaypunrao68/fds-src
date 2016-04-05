@@ -96,12 +96,13 @@ void RequestManager::sendHealthCheckMsgToOM(fpi::HealthState serviceState,
 
     // Send health check thrift message to OM
     fpi::NotifyHealthReportPtr healthRepMsg(new fpi::NotifyHealthReport());
-    healthRepMsg->healthReport.serviceInfo.svc_id = info.svc_id;
-    healthRepMsg->healthReport.serviceInfo.name = info.name;
-    healthRepMsg->healthReport.serviceInfo.svc_port = info.svc_port;
-    healthRepMsg->healthReport.serviceState = serviceState;
-    healthRepMsg->healthReport.statusCode = statusCode;
-    healthRepMsg->healthReport.statusInfo = statusInfo;
+    healthRepMsg->healthReport.serviceInfo.svc_id        = info.svc_id;
+    healthRepMsg->healthReport.serviceInfo.name          = info.name;
+    healthRepMsg->healthReport.serviceInfo.svc_port      = info.svc_port;
+    healthRepMsg->healthReport.serviceInfo.incarnationNo = info.incarnationNo;
+    healthRepMsg->healthReport.serviceState              = serviceState;
+    healthRepMsg->healthReport.statusCode                = statusCode;
+    healthRepMsg->healthReport.statusInfo                = statusInfo;
 
     auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
     auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());

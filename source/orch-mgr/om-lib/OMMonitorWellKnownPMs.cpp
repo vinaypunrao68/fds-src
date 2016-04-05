@@ -7,7 +7,6 @@
 #include "OmResources.h"
 #include <orchMgr.h>
 #include <net/SvcMgr.h>
-#include "omutils.h"
 
 namespace fds
 {
@@ -230,19 +229,10 @@ namespace fds
             if ( (gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.svc_uuid) ) == fpi::SVC_STATUS_INACTIVE_FAILED ||
                  (gl_orch_mgr->getConfigDB()->getStateSvcMap(uuid.svc_uuid) ) == fpi::SVC_STATUS_INACTIVE_STOPPED )
             {
-                UPDATE_CONFIGDB_SERVICE_STATE(gl_orch_mgr->getConfigDB(), uuid, fpi::SVC_STATUS_ACTIVE);
-
-                OM_NodeContainer *local         = OM_NodeDomainMod::om_loc_domain_ctrl();
-                OM_PmContainer::pointer pmNodes = local->om_pm_nodes();
-
-                auto pm = OM_PmAgent::agt_cast_ptr(pmNodes->agent_info(NodeUuid(uuid.svc_uuid)));
-
-                if ( pm != NULL ) {
-                    pm->set_node_state(fpi::FDS_Node_Up);
-                } else {
-                    LOGWARN << "Unable to retrieve PM node agent, could not set node to up, uuid:"
-                            << std::hex << uuid.svc_uuid << std::dec;
-                }
+                updateSvcMaps<kvstore::ConfigDB>( gl_orch_mgr->getConfigDB(),  MODULEPROVIDER()->getSvcMgr(),
+                               uuid.svc_uuid,
+                               fpi::SVC_STATUS_ACTIVE, fpi::FDSP_PLATFORM );
+                // do not modify node state
 
             }
         }
@@ -311,17 +301,11 @@ namespace fds
 
         // Update service state in the configDB, svclayer Map
         {
-		    UPDATE_CONFIGDB_SERVICE_STATE(gl_orch_mgr->getConfigDB(), svcUuid, fpi::SVC_STATUS_INACTIVE_FAILED);
+		    updateSvcMaps<kvstore::ConfigDB>( gl_orch_mgr->getConfigDB(),  MODULEPROVIDER()->getSvcMgr(),
+		                   svcUuid.svc_uuid,
+		                   fpi::SVC_STATUS_INACTIVE_FAILED, fpi::FDSP_PLATFORM );
 
-            OM_NodeContainer *local         = OM_NodeDomainMod::om_loc_domain_ctrl();
-            OM_PmContainer::pointer pmNodes = local->om_pm_nodes();
-            auto pm = OM_PmAgent::agt_cast_ptr(pmNodes->agent_info(NodeUuid(svcUuid.svc_uuid)));
-            if ( pm != NULL ) {
-                pm->set_node_state(fpi::FDS_Node_Down);
-            } else {
-                LOGWARN << "Unable to retrieve PM node agent, could not set node to down";
-            }
-
+		    // do not modify node state
         }
         auto iter = wellKnownPMsMap.find(svcUuid);
         if (iter != wellKnownPMsMap.end()) {

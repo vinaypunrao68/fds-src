@@ -11,7 +11,8 @@ import java.util.Optional;
 
 public class FdsIndexInput extends IndexInput {
     private Chunker chunker;
-    private final long length;
+    private final long blobLength;
+    private final long logicalLength;
     private final long offset;
     private long position;
     private String domain;
@@ -34,10 +35,11 @@ public class FdsIndexInput extends IndexInput {
         if (!opt.isPresent()) {
             throw new FileNotFoundException("Volume=" + volume + ", blobName=" + blobName);
         }
-        this.length = Long.parseLong(opt.get().get(FdsLuceneDirectory.SIZE));
+        this.blobLength = Long.parseLong(opt.get().get(FdsLuceneDirectory.SIZE));
+        this.logicalLength = blobLength;
     }
 
-    private FdsIndexInput(Chunker chunker, IoOps io, String resourceName, String domain, String volume, String blobName, int objectSize, long offset, long length) {
+    private FdsIndexInput(Chunker chunker, IoOps io, String resourceName, String domain, String volume, String blobName, int objectSize, long offset, long blobLength, long logicalLength) {
         super(resourceName);
         this.io = io;
         this.chunker = chunker;
@@ -47,12 +49,13 @@ public class FdsIndexInput extends IndexInput {
         this.objectSize = objectSize;
         this.offset = offset;
         this.position = offset;
-        this.length = length;
+        this.blobLength = blobLength;
+        this.logicalLength = logicalLength;
     }
 
     @Override
     public IndexInput clone() {
-        FdsIndexInput indexInput = new FdsIndexInput(chunker, io, toString(), domain, volume, blobName, objectSize, offset, length);
+        FdsIndexInput indexInput = new FdsIndexInput(chunker, io, toString(), domain, volume, blobName, objectSize, offset, blobLength, logicalLength);
         indexInput.position = this.position;
         return indexInput;
     }
@@ -73,12 +76,12 @@ public class FdsIndexInput extends IndexInput {
 
     @Override
     public long length() {
-        return length;
+        return logicalLength;
     }
 
     @Override
     public IndexInput slice(String name, long offset, long length) throws IOException {
-        return new FdsIndexInput(chunker, io, name, domain, volume, blobName, objectSize, offset + this.offset, length);
+        return new FdsIndexInput(chunker, io, name, domain, volume, blobName, objectSize, offset + this.offset, blobLength, length);
     }
 
     @Override
@@ -91,7 +94,7 @@ public class FdsIndexInput extends IndexInput {
     @Override
     public void readBytes(byte[] bytes, int offset, int length) throws IOException {
         byte[] buf = new byte[length];
-        chunker.read(domain, volume, blobName, objectSize, buf, position, length);
+        chunker.read(domain, volume, blobName, blobLength, objectSize, buf, position, length);
         position += length;
         System.arraycopy(buf, 0, bytes, offset, length);
     }

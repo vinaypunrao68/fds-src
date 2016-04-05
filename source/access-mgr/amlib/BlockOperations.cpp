@@ -1,15 +1,8 @@
 /**
- * Copyright 2015 by Formation Data Systems, Inc.
+ * Copyright 2015-2016 by Formation Data Systems, Inc.
  */
 
 #include "connector/BlockOperations.h"
-
-#include <algorithm>
-#include <deque>
-#include <map>
-#include <string>
-#include <thread>
-#include <utility>
 
 #include "fds_volume.h"
 #include "util/Log.h"
@@ -31,8 +24,7 @@ BlockOperations::BlockOperations(BlockOperations::ResponseIFace* respIface)
           domainName(new std::string("TestDomain")),
           blobName(new std::string("BlockBlob")),
           emptyMeta(new std::map<std::string, std::string>()),
-          blobMode(new int32_t(0)),
-          sector_map()
+          blobMode(new int32_t(0))
 {
 }
 
@@ -60,6 +52,8 @@ BlockOperations::init(boost::shared_ptr<std::string> vol_name,
         // We assume the client wants R/W with a cache for now
         handle_type reqId{resp->getHandle(), 0};
         auto mode = boost::make_shared<fpi::VolumeAccessMode>();
+        mode->can_write = false;
+        mode->can_cache = false;
         amAsyncDataApi->attachVolume(reqId, domainName, volumeName, mode);
     } else {
         fds_assert(!resp); // Shouldn't have a task
@@ -147,7 +141,6 @@ void
 BlockOperations::read(BlockTask* resp) {
     fds_assert(amAsyncDataApi);
 
-    resp->setMaxObjectSize(maxObjectSizeInBytes);
     auto length = resp->getLength();
     auto offset = resp->getOffset();
 
@@ -166,7 +159,7 @@ BlockOperations::read(BlockTask* resp) {
     // we will read region of length from AM
     boost::shared_ptr<int32_t> blobLength = boost::make_shared<int32_t>(length);
     boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
-    off->value = offset / maxObjectSizeInBytes;
+    off->value = (offset / maxObjectSizeInBytes) * maxObjectSizeInBytes;
 
     handle_type reqId{resp->getHandle(), 0};
     amAsyncDataApi->getBlob(reqId,
@@ -174,7 +167,8 @@ BlockOperations::read(BlockTask* resp) {
                             volumeName,
                             blobName,
                             blobLength,
-                            off);
+                            off,
+                            true);
 }
 
 void
@@ -183,10 +177,6 @@ BlockOperations::write(typename req_api_type::shared_buffer_type& bytes, task_ty
     // calculate how many FDS objects we will write
     auto length = resp->getLength();
     auto offset = resp->getOffset();
-    uint32_t objCount = getObjectCount(length, offset);
-
-    resp->setMaxObjectSize(maxObjectSizeInBytes);
-    resp->setObjectCount(objCount);
 
     {   // add response that we will fill in with data
         std::unique_lock<std::mutex> l(respLock);
@@ -194,65 +184,12 @@ BlockOperations::write(typename req_api_type::shared_buffer_type& bytes, task_ty
             { throw BlockError::connection_closed; }
     }
 
-    size_t amBytesWritten = 0;
-    uint32_t seqId = 0;
-    while (amBytesWritten < length) {
-        uint64_t curOffset = offset + amBytesWritten;
-        uint64_t objectOff = curOffset / maxObjectSizeInBytes;
-        uint32_t iOff = curOffset % maxObjectSizeInBytes;
-        size_t iLength = length - amBytesWritten;
-
-        if ((iLength + iOff) >= maxObjectSizeInBytes) {
-            iLength = maxObjectSizeInBytes - iOff;
-        }
-
-        LOGTRACE  << "offset:0x" << std::hex << curOffset << " length:0x" << iLength << std::dec << " write request";
-
-        auto objBuf = (iLength == bytes->length()) ?
-            bytes : boost::make_shared<std::string>(*bytes, amBytesWritten, iLength);
-
-        // write an object
-        boost::shared_ptr<int32_t> objLength = boost::make_shared<int32_t>(maxObjectSizeInBytes);
-        boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
-        off->value = objectOff;
-
-        // request id is 64 bit of handle + 32 bit of sequence Id
-        handle_type reqId{resp->getHandle(), seqId};
-
-        // To prevent a race condition we lock the sector (object) for the
-        // duration of the operation and queue other requests to that offset
-        // behind it. When the operation finishes it pull the next op off the
-        // queue and enqueue it to QoS
-        auto partial_write = (iLength != maxObjectSizeInBytes);
-        resp->keepBufferForWrite(seqId, objectOff, objBuf);
-        if (sector_type::QueueResult::FirstEntry ==
-                sector_map.queue_update(objectOff, reqId)) {
-            if (partial_write) {
-                // For objects that we are only updating a part of, we need to
-                // perform a Read-Modify-Write operation, keep the data for the
-                // update to the first and last object in the response so that
-                // we can apply the update to the object on read response
-                amAsyncDataApi->getBlob(reqId,
-                                        domainName,
-                                        volumeName,
-                                        blobName,
-                                        objLength,
-                                        off);
-            } else {
-                amAsyncDataApi->updateBlobOnce(reqId,
-                                               domainName,
-                                               volumeName,
-                                               blobName,
-                                               blobMode,
-                                               objBuf,
-                                               objLength,
-                                               off,
-                                               emptyMeta);
-            }
-        }
-        amBytesWritten += iLength;
-        ++seqId;
-    }
+    handle_type reqId{resp->getHandle(), 0};
+    boost::shared_ptr<int32_t> objLength = boost::make_shared<int32_t>(length);
+    boost::shared_ptr<apis::ObjectOffset> off(new apis::ObjectOffset());
+    off->value = offset;
+    amAsyncDataApi->updateBlobOnce(reqId, domainName, volumeName, blobName, blobMode,
+                                   bytes, objLength, off, emptyMeta, true);
 }
 
 void
@@ -262,9 +199,8 @@ BlockOperations::getBlobResp(const fpi::ErrorCode &error,
                            int& length) {
     BlockTask* resp = nullptr;
     auto handle = requestId.handle;
-    uint32_t seqId = requestId.seq;
 
-    LOGDEBUG << "handle:0x" << std::hex << handle << std::dec << " seqid:" << seqId
+    LOGDEBUG << "handle:" << handle
              << " err:" << error << " length:" << length << " getBlob response";
 
     {
@@ -280,24 +216,10 @@ BlockOperations::getBlobResp(const fpi::ErrorCode &error,
         resp = it->second;
     }
 
-    fds_verify(resp);
-    if (!resp->isRead()) {
-        static BlockTask::buffer_ptr_type const null_buff(nullptr);
-        // this is a response for read during a write operation from Block connector
-        LOGDEBUG << "handle:0x" << std::hex << handle << std::dec << " seqid:" << seqId << " write after read";
-
-        // RMW only operates on a single buffer...
-        auto buf = (bufs && !bufs->empty()) ? bufs->front() : null_buff;
-
-        // Chain all pending updates together and issue update
-        return drainUpdateChain(resp->getOffset(seqId), buf, &requestId, error);
-    }
-
-    // this is response for read operation,
     if (fpi::OK == error || fpi::MISSING_RESOURCE == error) {
         // Adjust the buffers in our vector so they align and are of the
         // correct length according to the original request
-        resp->handleReadResponse(*bufs, empty_buffer, length);
+        resp->handleReadResponse(*bufs, empty_buffer, length, maxObjectSizeInBytes);
     } else {
         resp->setError(error);
     }
@@ -308,10 +230,8 @@ void
 BlockOperations::updateBlobOnceResp(const fpi::ErrorCode &error, handle_type const& requestId) {
     BlockTask* resp = nullptr;
     auto const& handle = requestId.handle;
-    auto const& seqId = requestId.seq;
-    uint64_t offset {0};
 
-    LOGDEBUG << "handle:" << handle << " seqid:" << seqId
+    LOGDEBUG << "handle:" << handle
              << " err:" << error << " updateBlobOnce response";
 
     {
@@ -326,109 +246,11 @@ BlockOperations::updateBlobOnceResp(const fpi::ErrorCode &error, handle_type con
         // get response
         resp = it->second;
         fds_assert(resp);
-
-        offset = resp->getOffset(seqId);
     }
 
-    // Unblock other updates on the same object if they exist
-    drainUpdateChain(offset, resp->getBuffer(seqId), nullptr, error);
-
-    // respond to all chained requests FIRST
-    std::deque<BlockTask*> chained_responses;
-    resp->getChain(seqId, chained_responses);
-    for (auto chained_resp : chained_responses) {
-        if (chained_resp->handleWriteResponse(error)) {
-            finishResponse(chained_resp);
-        }
-    }
-
-    if (resp->handleWriteResponse(error)) {
-        finishResponse(resp);
-    }
+    resp->setError(error);
+    finishResponse(resp);
 }
-
-void
-BlockOperations::drainUpdateChain(uint64_t const offset,
-                                BlockTask::buffer_ptr_type buf,
-                                handle_type const* queued_handle_ptr,
-                                fpi::ErrorCode const error) {
-    // The first call to handleRMWResponse will create a null buffer if this is
-    // an error, afterwards fpi::OK for everyone.
-    auto err = error;
-    bool update_queued {true};
-    handle_type queued_handle;
-    BlockTask* last_chained = nullptr;
-    std::deque<BlockTask*> chain;
-
-    //  Either we explicitly are handling a RMW or checking to see if there are
-    //  any new ones in the queue
-    if (nullptr == queued_handle_ptr) {
-        std::tie(update_queued, queued_handle) = sector_map.pop(offset, true);
-    } else {
-        queued_handle = *queued_handle_ptr;
-    }
-
-    while (update_queued) {
-        BlockTask* queued_resp = nullptr;
-        {
-            std::unique_lock<std::mutex> l(respLock);
-            auto it = responses.find(queued_handle.handle);
-            if (responses.end() != it) {
-                queued_resp = it->second;
-            }
-        }
-        if (queued_resp) {
-            auto new_data = queued_resp->getBuffer(queued_handle.seq);
-            if (maxObjectSizeInBytes != new_data->length()) {
-                std::tie(err, new_data) = queued_resp->handleRMWResponse(buf,
-                                                                         maxObjectSizeInBytes,
-                                                                         queued_handle.seq,
-                                                                         err);
-            }
-
-            // Respond to request if error
-            if (fpi::OK != err) {
-                if (queued_resp->handleWriteResponse(err)) {
-                    finishResponse(queued_resp);
-                }
-            } else {
-                buf = new_data;
-                if (nullptr != last_chained) {
-                    // If we're chaining, use the last chain, copy the chain
-                    // and add it to the chain
-                    chain.push_back(last_chained);
-                }
-                last_chained = queued_resp;
-            }
-        } else {
-            fds_panic("Missing response vector for update!");
-        }
-        handle_type next_handle;
-        std::tie(update_queued, next_handle) = sector_map.pop(offset, nullptr == last_chained);
-        // Leave queued_handle pointing to the last handle
-        if (update_queued) {
-            queued_handle = next_handle;
-        }
-    }
-
-    // Update the blob if we have updates to make
-    if (nullptr != last_chained) {
-        last_chained->setChain(queued_handle.seq, std::move(chain));
-        auto objLength = boost::make_shared<int32_t>(maxObjectSizeInBytes);
-        auto off = boost::make_shared<apis::ObjectOffset>();
-        off->value = offset;
-        amAsyncDataApi->updateBlobOnce(queued_handle,
-                                       domainName,
-                                       volumeName,
-                                       blobName,
-                                       blobMode,
-                                       buf,
-                                       objLength,
-                                       off,
-                                       emptyMeta);
-    }
-}
-
 
 void
 BlockOperations::finishResponse(BlockTask* response) {
@@ -442,7 +264,7 @@ BlockOperations::finishResponse(BlockTask* response) {
     if (response_removed) {
         blockResp->respondTask(response);
     } else {
-        LOGNOTIFY << "handle:0x" << std::hex << response->getHandle() << std::dec << " missing from response map";
+        LOGNOTIFY << "handle:" << response->getHandle() << std::dec << " missing from response map";
     }
 
     // Only one response will ever see shutting_down == true and
@@ -463,24 +285,6 @@ BlockOperations::shutdown()
     if (responses.empty()) {
         detachVolume();
     }
-}
-
-/**
- * Calculate number of objects that are contained in a request with length
- * 'length' at offset 'offset'
- */
-uint32_t
-BlockOperations::getObjectCount(uint32_t length,
-                              uint64_t offset) {
-    uint32_t objCount = length / maxObjectSizeInBytes;
-    uint32_t firstObjLen = maxObjectSizeInBytes - (offset % maxObjectSizeInBytes);
-    if ((length % maxObjectSizeInBytes) != 0) {
-        ++objCount;
-    }
-    if ((firstObjLen + (objCount - 1) * maxObjectSizeInBytes) < length) {
-        ++objCount;
-    }
-    return objCount;
 }
 
 }  // namespace fds

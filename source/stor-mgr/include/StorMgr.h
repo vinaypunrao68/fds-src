@@ -290,7 +290,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
          return volTbl;
      }
 
-     bool haveAllObjectSets() const;
+     void handleRefScanDone(fpi::SvcUuid& dmuuid);
+     bool haveAllObjectSets(util::TimeStamp after = 0) const;
      void startRefscanOnDMs();
 
      /**
@@ -323,7 +324,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void abortMigration(SmIoReq* ioReq);
      void notifyDLTClose(SmIoReq* ioReq);
      void handleResyncDoneOrPending(fds_bool_t startResync, fds_bool_t resyncDone);
-
+     void handleGenericRequest(SmIoReq *io);
      void changeTokensState(const std::set<fds_token_id>& dltTokens);
      void handleDiskChanges(const bool &added,
                             const DiskId &diskId,

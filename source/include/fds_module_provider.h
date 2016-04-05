@@ -4,9 +4,17 @@
 #ifndef SOURCE_INCLUDE_FDS_MODULE_PROVIDER_H_
 #define SOURCE_INCLUDE_FDS_MODULE_PROVIDER_H_
 
+// Standard includes.
+#include <memory>
+
+// System includes.
 #include <boost/shared_ptr.hpp>
-#include <fds_config.hpp>
-#include <util/properties.h>
+#include <Accumulator.h>
+
+// Internal includes.
+#include "util/properties.h"
+#include "fds_config.hpp"
+
 namespace fds {
 
 /* Forward declarations */
@@ -32,9 +40,14 @@ struct SvcMgr;
 // TODO(Rao):
 // 1. Make all the returns below implement Module interface
 // 2. Have a consistent method naming
-class CommonModuleProviderIf {
- public:
-    virtual ~CommonModuleProviderIf() {}
+class CommonModuleProviderIf
+{
+public:
+
+    virtual ~CommonModuleProviderIf() {};
+
+    virtual std::shared_ptr<stats::util::Accumulator> getMetrics () const = 0;
+
     virtual FdsConfigAccessor get_conf_helper() const { return FdsConfigAccessor(); }
 
     virtual boost::shared_ptr<FdsConfig> get_fds_config() const { return nullptr; }

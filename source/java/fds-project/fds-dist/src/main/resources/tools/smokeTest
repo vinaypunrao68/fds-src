@@ -1,10 +1,20 @@
 #!/bin/bash
 
-for i in ../lib/java/\* ; do {
-    CLASSPATH=$CLASSPATH:$i;
-} done
+# resolve location of this script (for loading test log configuration)
+SOURCE="${BASH_SOURCE[0]}"
+# resolve $SOURCE until the file is no longer a symlink
+while [ -h "$SOURCE" ]; do
+  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+TOOLSDIR=$(dirname ${SOURCE})
 
-CLASSPATH=$CLASSPATH
+# expect java libraries in path relative to location of script
+CLASSPATH=${CLASSPATH}:${TOOLSDIR}/../lib/java/\*
+
+## TODO: add cmdline option to enable/disable debug logging
+## i.e: sed -i -r 's/level="(\w+)"/level="DEBUG"/g' smoketest-log4j2.xml 
 
 if [ $# -eq 0 ]; then
     echo "Usage: ./smokeTest targetHost"
@@ -12,7 +22,9 @@ if [ $# -eq 0 ]; then
 fi
 tgthost=$1
 shift
+
 java -classpath $CLASSPATH \
+     -Dlog4j.configurationFile=${TOOLSDIR}/smoketest-log4j2.xml \
      -Dfds.host=${tgthost} \
      -Dcom.formationds.smoketest.RNG_CLASS=java.util.Random \
      com.formationds.smoketest.SmokeTestRunner "$@"

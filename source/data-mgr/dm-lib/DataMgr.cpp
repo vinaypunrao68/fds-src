@@ -2,33 +2,38 @@
  * Copyright 2013 Formation Data Systems, Inc.
  */
 
+// Standard includes.
 #include <chrono>
-#include <string>
 #include <list>
+#include <string>
 #include <vector>
-#include <net/net_utils.h>
-#include <fds_timestamp.h>
-#include <lib/StatsCollector.h>
-#include <DataMgr.h>
-#include <DmMigrationMgr.h>
-#include <dmhandler.h>
-#include "fdsp/sm_api_types.h"
-#include <dmhandler.h>
-#include <counters.h>
-#include <util/stringutils.h>
-#include <util/path.h>
-#include <util/disk_utils.h>
+
+// System includes.
+#include <boost/filesystem.hpp>
 #include <fiu-control.h>
 #include <fiu-local.h>
-#include <fdsp/event_api_types.h>
-#include <fdsp/svc_types_types.h>
-#include <net/volumegroup_extensions.h>
-#include <dm-vol-cat/DmPersistVolDB.h>
 
-#include <timeline/timelinemanager.h>
-#include <refcount/refcountmanager.h>
-#include <requestmanager.h>
-#include <boost/filesystem.hpp>
+// Internal includes.
+#include "dm-vol-cat/DmPersistVolDB.h"
+#include "fdsp/event_api_types.h"
+#include "fdsp/sm_api_types.h"
+#include "fdsp/svc_types_types.h"
+#include "lib/StatsCollector.h"
+#include "net/net_utils.h"
+#include "net/volumegroup_extensions.h"
+#include "refcount/refcountmanager.h"
+#include "timeline/timelinemanager.h"
+#include "util/disk_utils.h"
+#include "util/path.h"
+#include "util/stringutils.h"
+#include "counters.h"
+#include "dmhandler.h"
+#include "DmMigrationMgr.h"
+#include "fds_timestamp.h"
+#include "requestmanager.h"
+
+// Class include.
+#include "DataMgr.h"
 
 #define VOLUME_REQUEST_CHECK() \
     auto volMeta = parentDm->getVolumeMeta(io->volId); \
@@ -1075,7 +1080,7 @@ int DataMgr::mod_init(SysParams const *const param)
 }
 
 void DataMgr::initHandlers() {
-    // TODO: Inject these.
+    // NOTE: For the new way of creating handler, see registerDmVolumeReqHandler()
     handlers[FDS_LIST_BLOB] = new dm::GetBucketHandler(*this);
     handlers[FDS_DELETE_BLOB] = new dm::DeleteBlobHandler(*this);
     handlers[FDS_DM_SYS_STATS] = new dm::DmSysStatsHandler(*this);

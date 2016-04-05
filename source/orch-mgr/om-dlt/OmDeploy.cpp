@@ -921,6 +921,9 @@ DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     OM_Module *om = OM_Module::om_singleton();
     DataPlacement *dp = om->om_dataplace_mod();
     fds_verify(dp != NULL);
+
+    fds_bool_t rollbackNeeded = false;
+
     if (dp->hasNoTargetDlt()) {
         LOGNORMAL << "No target DLT computed/commited or new DLT was already commited"
                   << ", nothing to recover";
@@ -932,8 +935,8 @@ DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         // revert to previously commited DLT locally in OM
         fds_uint64_t targetDltVersion = dp->getTargetDltVersion();
 
-        if ( DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue() ) {
-            targetDltVersion = DltDmtUtil::getInstance()->getSMTargetVersionForAbort();
+        if ( OmExtUtilApi::getInstance()->isSMAbortAfterRestartTrue() ) {
+            targetDltVersion = OmExtUtilApi::getInstance()->getSMTargetVersionForAbort();
             LOGDEBUG << "Setting target DLT version to:" << targetDltVersion;
         }
 
@@ -945,8 +948,8 @@ DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         // want to do undoTarget since it resets newDlt/committedDlt values
         // which have already been set to what they should be in ::loadDltsFromConfigDb.
         // The "next" version will be explicitly cleared at the end of error mode
-        if ( !DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue() ) {
-            dp->undoTargetDltCommit();
+        if ( !OmExtUtilApi::getInstance()->isSMAbortAfterRestartTrue() ) {
+            rollbackNeeded = dp->undoTargetDltCommit();
         }
 
         // we already computed target DLT, so most likely sent start migration msg
@@ -969,7 +972,7 @@ DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
 
         // send dlt commit to AMs and DMs if target was commited
         fds_uint32_t commitCnt = 0;
-        if (!dp->hasNonCommitedTarget()) {
+        if (rollbackNeeded) {
             // has target DLT (see the first if) and it is commited
             commitCnt = dom_ctrl->om_bcast_dlt(dp->getCommitedDlt(), false, true, true);
             dst.commitDltAcksToWait = 0;
@@ -1046,7 +1049,7 @@ DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
 
 
 
-    if ( DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue() ) {
+    if ( OmExtUtilApi::getInstance()->isSMAbortAfterRestartTrue() ) {
 
         LOGDEBUG << "Will try re-compute DLT in a minute, abortMigrationMsg has been sent on restart";
         if (!dst.tryAgainTimer->schedule(dst.tryAgainTimerTask,
@@ -1058,7 +1061,7 @@ DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
 
         dp->clearTargetDlt();
 
-        DltDmtUtil::getInstance()->clearSMAbortParams();
+        OmExtUtilApi::getInstance()->clearSMAbortParams();
     }
 }
 

@@ -5,7 +5,8 @@ package com.formationds.demo;
 
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.S3ClientOptions;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.joda.time.DateTime;
 import org.joda.time.Duration;
 
@@ -16,7 +17,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public class RealDemoState implements DemoState {
-    private static final Logger LOG = Logger.getLogger(RealDemoState.class);
+    private static final Logger LOG = LogManager.getLogger(RealDemoState.class);
 
     private static final ObjectStoreType DEFAULT_OBJECT_STORE = ObjectStoreType.apiS3;
     public static final int MAX_AGE_SECONDS = 10;

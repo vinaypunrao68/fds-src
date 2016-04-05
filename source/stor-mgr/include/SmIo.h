@@ -643,6 +643,25 @@ class SmIoNotifyDLTClose: public SmIoReq {
     cbType closeDLTCb;
 };  // class SmIoNotifyDLTClose
 
+struct SmIoGenericRequest : SmIoReq {
+    SmIoGenericRequest(const fds_volid_t &volId,
+                     const std::function<void()>& f,
+                     const std::function<void()>& cb = NULL) : func(f), cb(cb) {
+        volUuid = volId;
+        io_type = FDS_GENERIC_REQUEST;
+    }
+
+    void process() {
+        if (func) func();
+    }
+
+    void done() {
+        if (cb) cb();
+    }
+
+  protected:
+    std::function<void()> func, cb;
+};
 
 }  // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_SMIO_H_

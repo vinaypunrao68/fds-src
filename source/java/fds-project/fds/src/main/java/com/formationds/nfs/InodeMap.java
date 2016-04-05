@@ -1,6 +1,7 @@
 package com.formationds.nfs;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.dcache.nfs.status.NoEntException;
 import org.dcache.nfs.status.NoSpcException;
 import org.dcache.nfs.vfs.FileHandle;
@@ -14,7 +15,7 @@ import java.util.Map;
 import java.util.Optional;
 
 public class InodeMap {
-    private static final Logger LOG = Logger.getLogger(InodeMap.class);
+    private static final Logger LOG = LogManager.getLogger(InodeMap.class);
     private final IoOps io;
     private PersistentCounter usedBytes;
     private PersistentCounter usedFiles;

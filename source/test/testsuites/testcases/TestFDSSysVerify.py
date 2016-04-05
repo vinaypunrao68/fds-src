@@ -313,6 +313,37 @@ class TestVerifyDMStaticMigration_byFileCompare(TestCase.FDSTestCase):
             self.log.error("Unequal DM Names directories %s and %s." % (dm_names_dir1, dm_names_dir2))
             return False
 
+class TestVolumeChecker(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, volumeId=None):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_VolumeChecker,
+                                             "Volume verification")
+        self.passedVolumeId = volumeId
+
+    def test_VolumeChecker(self):
+        fdscfg = self.parameters["fdscfg"]
+        bin_dir = fdscfg.rt_env.get_bin_dir(debug=False)
+        node = fdscfg.rt_om_node
+        if 'fds_port' in node.nd_conf_dict:
+            port = node.nd_conf_dict['fds_port']
+        else:
+            self.log.error("Unable to find OM node port")
+            return False
+
+        nd_uuid = node.nd_uuid
+        if not nd_uuid:
+            self.log.error("Unable to find OM node UUID")
+            return False
+
+        self.log.info("Command is: bash -c \"(nohup %s/VolumeChecker -v %s) \"" % (bin_dir, self.passedVolumeId))
+        status, stdout = node.nd_agent.exec_wait('bash -c \"(nohup %s/VolumeChecker -u %s -p %s -v %s) \"' %
+                                               (bin_dir, str(int(nd_uuid, 16)), port, self.passedVolumeId), return_stdin=True)
+
+        if status != 0:
+            self.log.error("Volume Verification failed")
+            return False
+        return True
 
 class TestDMChecker(TestCase.FDSTestCase):
     def __init__(self, parameters=None):

@@ -50,6 +50,61 @@ struct ErrorHandler : public VolumeGroupHandleListener {
     bool isError(fpi::FDSPMsgTypeId const& msgType, Error const& e) override;
 };
 
+std::pair<AmDispatcher::ProtectedVGH::uniq_lock, AmDispatcher::ProtectedVGH::vgh_ptr>
+AmDispatcher::ProtectedVGH::getVGH(uint32_t const timeout)
+{
+    vgh_ptr handle;
+    std::chrono::milliseconds duration(timeout);
+    uniq_lock guard(swap_lock);
+    if (swapping.wait_for(guard, duration, [this]{ return !!group_handle; })) {
+        handle = group_handle;
+    }
+    if (!handle) guard.unlock();
+    return std::make_pair(std::move(guard), group_handle);
+}
+
+template<typename Cb>
+void
+AmDispatcher::ProtectedVGH::close(fds_volid_t const vol_id, Cb callback) {
+    vgh_ptr old_handle;
+    {
+        std::lock_guard<std::mutex> g(swap_lock);
+        old_handle = group_handle;
+        group_handle.reset();
+    }
+    if (old_handle) {
+        // We're gonna close
+        auto closeReq = new DetachVolumeReq(vol_id, "", nullptr);
+        old_handle->close([this, old_handle, closeReq, callback] { delete closeReq; callback(); });
+    } else {
+        callback();
+    }
+}
+
+template<typename Cb>
+void
+AmDispatcher::ProtectedVGH::open(fds_volid_t const vol_id,
+                                 boost::shared_ptr<fpi::OpenVolumeMsg> msg,
+                                 CommonModuleProviderIf* modProvider,
+                                 ErrorHandler* handler,
+                                 Cb callback) {
+    close(vol_id, []{});
+    auto quorum = std::max(modProvider->getSvcMgr()->getCurrentDMT()->getDepth() - 1,
+                           static_cast<uint32_t>(1));
+    vgh_ptr new_vgh = std::make_shared<VolumeGroupHandle>(modProvider, vol_id, quorum);
+    new_vgh->setListener(handler);
+    new_vgh->open(msg,
+                  [this, new_vgh, callback] (Error const& e, fpi::OpenVolumeRspMsgPtr const& p) mutable
+                  -> void {
+                      if (e.ok()) {
+                          std::lock_guard<std::mutex> g(swap_lock);
+                          group_handle = new_vgh;
+                      }
+                      swapping.notify_all();
+                      callback(e, p);
+                  });
+}
+
 AmDispatcher::AmDispatcher(AmDataProvider* prev)
         : AmDataProvider(prev, nullptr)
 {
@@ -68,8 +123,15 @@ AmDispatcher::start() {
         message_timeout_io = conf.get_abs<fds_uint32_t>("fds.am.svc.timeout.io_message", message_timeout_io);
         message_timeout_open = conf.get_abs<fds_uint32_t>("fds.am.svc.timeout.open_message", message_timeout_open);
         message_timeout_default = conf.get_abs<fds_uint32_t>("fds.am.svc.timeout.thrift_message", message_timeout_default);
+        VolumeGroupHandle::IO_TIMEOUT_MS = message_timeout_io;
+        VolumeGroupHandle::COORDINATOR_SWITCH_TIMEOUT_MS = conf.get_abs<fds_uint32_t>(
+            "fds.am.svc.timeout.coordinator_switch",
+            VolumeGroupHandle::COORDINATOR_SWITCH_TIMEOUT_MS);
+
         LOGNOTIFY << "AM Thrift timeout:" << message_timeout_default << " ms"
-                  << " IO timeout:" << message_timeout_io  << " ms";
+                  << " IO timeout:" << message_timeout_io  << " ms"
+                  << " Coordinator switch timeout: "
+                  << VolumeGroupHandle::COORDINATOR_SWITCH_TIMEOUT_MS << " ms";
     }
 
     if (conf.get<bool>("standalone", false)) {
@@ -179,8 +241,13 @@ AmDispatcher::addToVolumeGroup(const fpi::AddToVolumeGroupCtrlMsgPtr &addMsg,
         ReadGuard rg(volumegroup_lock);
         auto it = volumegroup_map.find(vol_id);
         if (volumegroup_map.end() != it) {
-            it->second->handleAddToVolumeGroupMsg(addMsg, cb);
-            return;
+            ProtectedVGH::vgh_ptr vgh;
+            ProtectedVGH::uniq_lock lock;
+            std::tie(lock, vgh) = it->second.getVGH(message_timeout_io);
+            if (vgh) {
+                vgh->handleAddToVolumeGroupMsg(addMsg, cb);
+                return;
+            }
         }
     }
 
@@ -265,11 +332,7 @@ AmDispatcher::closeVolume(AmRequest * amReq) {
         if (volumegroup_map.end() != it) {
             // Give ownership of the volume handle to the handle itself, we're
             // done with it
-            std::shared_ptr<VolumeGroupHandle> vg = std::move(it->second);
-            volumegroup_map.erase(it);
-            vg->close([this, volReq, vg] () mutable -> void {
-                            _closeVolumeCb(volReq);
-                        });
+            it->second.close(volReq->io_vol_id, [this, volReq] { _closeVolumeCb(volReq); });
             return;
         }
     }
@@ -283,12 +346,17 @@ Error AmDispatcher::modifyVolumePolicy(const VolumeDesc& vdesc) {
         // Check to see if another AM has claimed ownership of coordinating the volume
         ReadGuard rg(volumegroup_lock);
         auto it = volumegroup_map.find(vdesc.GetID());
-        if (volumegroup_map.end() != it &&
-            vdesc.getCoordinatorId() != MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() &&
-            vdesc.getCoordinatorVersion() > it->second->getVersion()) {
-            // Inform peers that they should not perform IO on this volume
-            // as another client is accessing it
-            err = ERR_VOLUME_ACCESS_DENIED;
+        if (volumegroup_map.end() != it) {
+            ProtectedVGH::vgh_ptr vgh;
+            ProtectedVGH::uniq_lock lock;
+            std::tie(lock, vgh) = it->second.getVGH(message_timeout_io);
+            if (vgh &&
+                vdesc.getCoordinatorId() != MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid() &&
+                vdesc.getCoordinatorVersion() > vgh->getVersion()) {
+                // Inform peers that they should not perform IO on this volume
+                // as another client is accessing it
+                err = ERR_VOLUME_ACCESS_DENIED;
+            }
         }
     }
     return err;
@@ -410,8 +478,7 @@ AmDispatcher::openVolume(AmRequest* amReq) {
     auto volReq = static_cast<fds::AttachVolumeReq*>(amReq);
 
     LOGDEBUG << "volid:" << amReq->io_vol_id
-             << "token:" << volReq->token
-             << " open volume";
+             << " with write: " << (volReq->mode.can_write ? "enabled" : "disabled");
 
     auto volMDMsg = boost::make_shared<fpi::OpenVolumeMsg>();
     volMDMsg->volume_id = amReq->io_vol_id.get();
@@ -425,31 +492,23 @@ AmDispatcher::openVolume(AmRequest* amReq) {
     if (!volume_grouping_support) {
         volReq->dmt_version = dmtMgr->getAndLockCurrentVersion();
         writeToDM(volReq, volMDMsg, &AmDispatcher::openVolumeCb, message_timeout_open);
-        return;
     } else {
-        WriteGuard wg(volumegroup_lock);
-        auto& vol_id = amReq->io_vol_id;
         bool happened {false};
+        auto& vol_id = amReq->io_vol_id;
         auto it = volumegroup_map.end();
-        std::tie(it, happened) = volumegroup_map.emplace(vol_id, nullptr);
-        if (happened) {
-            auto quorum = std::max(MODULEPROVIDER()->getSvcMgr()->getCurrentDMT()->getDepth() - 1,
-                                   static_cast<uint32_t>(1));
-            it->second.reset(new VolumeGroupHandle(MODULEPROVIDER(), vol_id, quorum));
-            if (!it->second) {
-                LOGERROR << "volid:" << vol_id << " could not create volume group handle";
-                AmDataProvider::openVolumeCb(amReq, ERR_VOLUME_ACCESS_DENIED);
-                return;
-            }
-            it->second->setListener(volumegroup_handler.get());
-        }
+
+        WriteGuard wg(volumegroup_lock);
+        auto& pvgh = volumegroup_map[vol_id];
 
         volMDMsg->volume_id = vol_id.get();
-        it->second->open(volMDMsg,
-                         [volReq, this] (Error const& e, fpi::OpenVolumeRspMsgPtr const& p) mutable -> void {
-                            _openVolumeCb(volReq, e, p);
-                            });
-        return;
+        pvgh.open(volReq->io_vol_id,
+                  volMDMsg,
+                  MODULEPROVIDER(),
+                  volumegroup_handler.get(),
+                  [volReq, this] (Error const& e, fpi::OpenVolumeRspMsgPtr const& p) mutable
+                  -> void {
+                      _openVolumeCb(volReq, e, p);
+                      });
     }
 }
 
@@ -506,7 +565,6 @@ AmDispatcher::updateCatalog(AmRequest* amReq) {
     message->blob_mode    = blobReq->blob_mode;
 
     // Setup blob offset updates
-    // TODO(Andrew): Today we only expect one offset update
     // TODO(Andrew): Remove lastBuf when we have real transactions
     for (auto const& obj_upd : blobReq->object_list) {
         auto const& obj_id = obj_upd.first;

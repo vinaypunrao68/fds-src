@@ -27,6 +27,7 @@
 #include <fiu-control.h>
 #include <util/fiu_util.h>
 #include <json/json.h>
+#include <OmExtUtilApi.h>
 
 namespace fds {
 
@@ -45,7 +46,8 @@ std::string logString(const FDS_ProtocolInterface::SvcInfo &info)
     ss << "Svc handle svc_uuid: "
         << SvcMgr::mapToSvcUuidAndName(info.svc_id.svc_uuid)
         << " ip: " << info.ip << " port: " << info.svc_port
-        << " incarnation: " << info.incarnationNo << " status: " << info.svc_status;
+        << " incarnation: " << info.incarnationNo << " status: "
+        << OmExtUtilApi::printSvcStatus(info.svc_status);
     return ss.str();
 }
 
@@ -718,8 +720,9 @@ Error SvcMgr::updateDmt(bool dmt_type, std::string& dmt_data, OmUpdateRespCbType
     }
 
     err = dmtMgr_->addSerializedDMT(dmt_data, cb, DMT_COMMITTED);
-    if (!err.ok()) {
-        LOGERROR << "Failed to update DMT! check dmt_data was set";
+
+    if (!(err == ERR_OK || err == ERR_DUPLICATE)) {
+        LOGERROR << "Failed to update DMT! check dmt_data was set " << err;
     }
 
     return err;
@@ -896,6 +899,7 @@ SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr &current, const fpi::SvcI
 {
     fds_bool_t ret(false);
 
+    std::string error = "uninitialized";
     if ( current->incarnationNo < incoming->incarnationNo ) {
         ret = true;
     } else if ( (current->incarnationNo == incoming->incarnationNo) &&
@@ -926,8 +930,7 @@ SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr &current, const fpi::SvcI
          * configDB. Until all areas of PM and OM are sending incarnation number,
          * this has to be here... and bugs may be coming in.
          */
-        LOGWARN << "Allowing update with zero incarnatioNo!";
-        LOGDEBUG << "THIS NEEDS TO BE FIXED. Should be passing in with complete info.";
+        LOGWARN << "Allowing update with zero incarnatioNo! Should never come to this";
         ret = true;
     } else {
         LOGDEBUG << "Criteria not met, will not allow update of svcMap";
@@ -943,7 +946,8 @@ void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
     auto newPtr = boost::make_shared<fpi::SvcInfo>(newInfo);
     GLOGDEBUG << "Incoming update: " << fds::logString(*newPtr) << " vs current status: "
             << fds::logString(*currentPtr);
-    if (shouldUpdateSvcHandle(currentPtr, newPtr)) {
+
+    if (OmExtUtilApi::isIncomingUpdateValid(*newPtr, *currentPtr)) {
         svcInfo_ = newInfo;
         svcClient_.reset();
         GLOGDEBUG << "Operation Applied.";

@@ -1,12 +1,13 @@
 package com.formationds.util;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.joda.time.Duration;
 
 import java.util.concurrent.ExecutionException;
 
 public class Retry<In, Out> implements FunctionWithExceptions<In, Out> {
-    private static final Logger LOG = Logger.getLogger(Retry.class);
+    private static final Logger LOG = LogManager.getLogger(Retry.class);
 
     private BiFunctionWithExceptions<In, Integer, Out> function;
     private int maxTries;

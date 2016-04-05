@@ -39,7 +39,7 @@ struct BufferReplayTest : BaseTestFixture {
 void BufferReplayTest::SetUp()
 {
     tp.reset(new fds_threadpool(2));
-    br.reset(new BufferReplay("ops", maxOpsToReplay, tp.get()));
+    br.reset(new BufferReplay("ops", maxOpsToReplay, 1, tp.get()));
     auto e = br->init();
     ASSERT_TRUE(e == ERR_OK);
     br->setProgressCb(std::bind(&BufferReplayTest::progressCb, this,

@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <AmAsyncResponseApi.h>
+#include <AsyncResponseHandlers.h>
 
 namespace fds {
 
@@ -17,6 +18,7 @@ struct AmProcessor;
  * AM's async data API that is exposed to XDI. This interface is the
  * basic data API that XDI and connectors are programmed to.
  */
+
 class AmAsyncDataApi {
  public:
     template <typename M> using sp = boost::shared_ptr<M>;
@@ -110,14 +112,15 @@ class AmAsyncDataApi {
                  shared_string_type& volumeName,
                  shared_string_type& blobName,
                  shared_int_type& length,
-                 shared_offset_type& objectOffset);
+                 shared_offset_type& offset,
+                 bool const absolute_offset = false);
 
     void getBlobWithMeta(handle_type const& requestId,
                          shared_string_type& domainName,
                          shared_string_type& volumeName,
                          shared_string_type& blobName,
                          shared_int_type& length,
-                         shared_offset_type& objectOffset);
+                         shared_offset_type& offset);
 
     void renameBlob(handle_type const& requestId,
                     shared_string_type& domainName,
@@ -139,8 +142,9 @@ class AmAsyncDataApi {
                         shared_int_type& blobMode,
                         shared_buffer_type& bytes,
                         shared_int_type& length,
-                        shared_offset_type& objectOffset,
-                        shared_meta_type& metadata);
+                        shared_offset_type& offset,
+                        shared_meta_type& metadata,
+                        bool const absolute_offset = false);
 
     void updateBlob(handle_type const& requestId,
                     shared_string_type& domainName,
@@ -149,7 +153,7 @@ class AmAsyncDataApi {
                     shared_tx_ctx_type& txDesc,
                     shared_buffer_type& bytes,
                     shared_int_type& length,
-                    shared_offset_type& objectOffset);
+                    shared_offset_type& offset);
 
     void deleteBlob(handle_type const& requestId,
                     shared_string_type& domainName,

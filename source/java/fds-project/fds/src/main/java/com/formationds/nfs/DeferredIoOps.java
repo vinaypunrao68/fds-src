@@ -5,7 +5,8 @@ import com.formationds.nfs.deferred.CacheEntry;
 import com.formationds.nfs.deferred.EvictingCache;
 import com.formationds.util.IoConsumer;
 import com.formationds.util.IoFunction;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.util.*;
@@ -16,7 +17,7 @@ import java.util.stream.Collectors;
 
 
 public class DeferredIoOps implements IoOps {
-    private static final Logger LOG = Logger.getLogger(DeferredIoOps.class);
+    private static final Logger LOG = LogManager.getLogger(DeferredIoOps.class);
     private IoOps io;
     private final EvictingCache<MetaKey, Map<String, String>> metadataCache;
     private final EvictingCache<ObjectKey, FdsObject> objectCache;

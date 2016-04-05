@@ -10,7 +10,8 @@ import com.formationds.xdi.AsyncAm;
 import com.formationds.xdi.FdsObjectFrame;
 import org.apache.hadoop.fs.PositionedReadable;
 import org.apache.hadoop.fs.Seekable;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -20,7 +21,7 @@ import java.nio.ByteBuffer;
 import static com.formationds.hadoop.FdsFileSystem.unwindExceptions;
 
 public class FdsInputStream extends InputStream implements Seekable, PositionedReadable {
-    private static final Logger LOG = Logger.getLogger(FdsInputStream.class);
+    private static final Logger LOG = LogManager.getLogger(FdsInputStream.class);
     private final int objectSize;
     private final String domain;
     private final String volume;

@@ -7,5 +7,5 @@ for i in ../lib/java/\* ; do {
 CLASSPATH=$CLASSPATH
 
 java -classpath $CLASSPATH \
-     com.formationds.util.RunOneTest "$@"
+     com.formationds.smoketest.RunOneTest "$@"
 
