@@ -469,9 +469,11 @@ BlockOperations::finishResponse(BlockTask* response) {
 void
 BlockOperations::shutdown()
 {
-    std::unique_lock<std::mutex> l(respLock);
-    if (shutting_down) return;
-    shutting_down = true;
+    {
+        std::unique_lock<std::mutex> l(respLock);
+        if (shutting_down) return;
+        shutting_down = true;
+    }
     // If we don't have any outstanding requests, we're done
     if (responses.empty()) {
         {
