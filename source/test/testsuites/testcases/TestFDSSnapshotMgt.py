@@ -55,7 +55,7 @@ class TestCreateSnapshot(TestCase.FDSTestCase):
                 vol_snapshot.retention = self.passedRetention
                 # from fs-4999 when the disk space reaches 75%, snapshots should NOT happen.
                 # Threshhold might change in future
-                assert verify_disk_free(self,75) is True
+                #assert verify_disk_free(self,75) is True
                 status = vol_service.create_snapshot(vol_snapshot)
 
                 snapshot_list = vol_service.list_snapshots(vol_snapshot.volume_id)
@@ -161,8 +161,8 @@ class TestCreateVolClone(TestCase.FDSTestCase):
 
         # Case1: neither of snapshot1 and snapshot2 are passed -> timeline = now
         if self.passedSnapshort_start is None and self.passedSnapshort_end is None:
-            # This time format is same as `snapshot.created` time format
-            timeline = int(time.time())
+            # pass 0 as timeline to clone volume with current timestamp
+            timeline = 0
 
         # Case2: only one snapshot is passed -> snapshot_start/end < timeline < now
         elif self.passedSnapshort_start is None or self.passedSnapshort_end is None:
@@ -192,7 +192,7 @@ class TestCreateVolClone(TestCase.FDSTestCase):
 
         assert timeline is not None
         create_fdsConf_file(om_node.nd_conf_dict['ip'])
-        cmd = 'fds volume clone -name {0} -volume_id {1} -time {2}'.format(self.passedClone_name,passed_volume.id, timeline)
+        cmd = 'fds volume clone -name {0} -volume_id {1} -time {2}'.format(self.passedClone_name, passed_volume.id, timeline)
         status = local(cmd, capture=True)
         time.sleep(3)  # let clone volume creation propogate
         status = local(cmd, capture=False)
