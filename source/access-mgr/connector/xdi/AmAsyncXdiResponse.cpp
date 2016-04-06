@@ -5,7 +5,6 @@
 #include <string>
 #include <vector>
 #include "AmAsyncResponseApi.h"
-#include "BlobDescriptor.h"
 #include "connector/xdi/AmAsyncXdi.h"
 
 #include <arpa/inet.h>
