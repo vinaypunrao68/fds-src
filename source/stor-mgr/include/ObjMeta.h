@@ -137,6 +137,8 @@ class ObjMetaData : public serialize::Serializable {
     // Tiering/Physical Location update routines
     fds_bool_t onFlashTier() const;
     fds_bool_t onTier(diskio::DataTier tier) const;
+    fds_bool_t isRemovedFromTier(diskio::DataTier tier) const;
+    void removeFromTier(diskio::DataTier tier);
 
     void updatePhysLocation(obj_phy_loc_t *in_phy_loc);
     void removePhyLocation(diskio::DataTier tier);

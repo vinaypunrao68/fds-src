@@ -13,6 +13,8 @@
 #include <object-store/TokenCompactor.h>
 #include <object-store/ObjectPersistData.h>
 #include <object-store/Scavenger.h>
+#include <object-store/LiveObjectsDB.h>
+#include <util/bloomfilter.h>
 
 using diskio::DiskStat;
 
@@ -315,8 +317,7 @@ void ScavControl::scheduleScavengerStart() {
     }
 }
 
-void ScavControl::startScavengeProcess()
-{
+void ScavControl::startScavengeProcess() {
     fds_bool_t _enabled = std::atomic_load(&enabled);
     if (!_enabled) {
         LOGNOTIFY << "Cannot start Scavenger process because scavenger"
@@ -361,7 +362,8 @@ void ScavControl::startScavengeProcess()
         if (diskScav != NULL) {
             Error err = diskScav->startScavenge(verifyData, std::bind(
                 &ScavControl::diskCompactionDoneCb, this,
-                std::placeholders::_1, std::placeholders::_2));
+                std::placeholders::_1, std::placeholders::_2)
+            );
             if (err.ok()) {
                 ++count;
             }
