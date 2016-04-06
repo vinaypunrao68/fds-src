@@ -276,7 +276,8 @@ class TestVolumeDetach(TestCase.FDSTestCase):
             cmd = ('detach %s' % (volName))
 
             if check_localhost(ip):
-                cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'source/cinder')
+                src_path = os.path.abspath(fdscfg.rt_env.get_fds_source())
+                cinder_dir = os.path.join(src_path, 'cinder')
             else:
                 cinder_dir= os.path.join('/fds/sbin')
 

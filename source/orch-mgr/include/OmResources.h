@@ -988,7 +988,7 @@ class OM_NodeDomainMod : public Module
      * Changes the state of a service and broadcasts its service map
      */
     virtual void
-    om_change_svc_state_and_bcast_svcmap(boost::shared_ptr<fpi::SvcInfo> svcInfo,
+    om_change_svc_state_and_bcast_svcmap(fpi::SvcInfo svcInfo,
                                          fpi::FDSP_MgrIdType svcType,
                                          const fpi::ServiceStatus status);
     

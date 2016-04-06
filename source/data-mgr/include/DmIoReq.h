@@ -701,6 +701,7 @@ struct DmIoVolumeOpen : DmRequest {
     fpi::VolumeAccessMode   access_mode;
     sequence_id_t           sequence_id;
     int32_t                 version;
+    fpi::VolumeGroupCoordinatorInfo coordinator; 
 
     // response callback
     CbType                  dmio_get_volmd_resp_cb;

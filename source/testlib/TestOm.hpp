@@ -66,6 +66,7 @@ struct TestOmHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler {
     }
 
     void registerService(const fpi::SvcInfo& svcInfo) {}
+
     void getSvcInfo(fpi::SvcInfo &_return,
                     const  fpi::SvcUuid& svcUuid) override {}
     void getSvcMap(std::vector<fpi::SvcInfo> & _return, const int64_t nullarg) {}

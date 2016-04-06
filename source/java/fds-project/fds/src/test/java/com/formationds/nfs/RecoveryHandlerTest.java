@@ -24,7 +24,7 @@ public class RecoveryHandlerTest {
     @Test
     public void testHandleRecoverySuccess() throws Exception {
         AtomicInteger exceptionCount = new AtomicInteger(0);
-        IoOps ops = new MemoryIoOps(MAX_OBJECT_SIZE) {
+        IoOps ops = new MemoryIoOps() {
             int invocationCount = 0;
 
             @Override
@@ -49,7 +49,7 @@ public class RecoveryHandlerTest {
 
     @Test(expected = FileNotFoundException.class)
     public void testBubbleExceptions() throws Exception {
-        IoOps ops = new MemoryIoOps(1024) {
+        IoOps ops = new MemoryIoOps() {
             @Override
             public FdsObject readCompleteObject(String domain, String volumeName, String blobName, ObjectOffset objectOffset, int maxObjectSize) throws IOException {
                 throw new FileNotFoundException();
@@ -64,7 +64,7 @@ public class RecoveryHandlerTest {
     public void testHandleRecoveryFailure() throws Exception {
         AtomicInteger exceptionCount = new AtomicInteger(0);
 
-        IoOps ops = new MemoryIoOps(MAX_OBJECT_SIZE) {
+        IoOps ops = new MemoryIoOps() {
             @Override
             public Optional<Map<String, String>> readMetadata(String domain, String volumeName, String blobName) throws IOException {
                 exceptionCount.incrementAndGet();

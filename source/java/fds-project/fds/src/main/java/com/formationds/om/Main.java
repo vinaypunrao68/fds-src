@@ -56,6 +56,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.io.IOException;
 
 public class Main {
     private static final Logger logger = LogManager.getLogger( Main.class );
@@ -221,6 +222,7 @@ public class Main {
                           .retryOn( RuntimeException.class )
                           .retryOn( TTransportException.class )
                           .retryOn( ConnectException.class )
+                          .retryOn( IOException.class )
             /*
              * retry on ApiException, because we try and get the configuration
              * version number. Which can fail because the native OM isn't

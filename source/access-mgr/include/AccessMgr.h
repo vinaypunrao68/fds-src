@@ -18,6 +18,8 @@ struct AmDataApi;
 struct AmProcessor;
 struct AsyncDataServer;
 
+class AmRequest;
+
 /**
  * AM module class.
  */
@@ -45,6 +47,7 @@ class AccessMgr : public Module, public boost::noncopyable {
      */
     void volumeAdded(VolumeDesc const& volDesc);
     void volumeRemoved(VolumeDesc const& volDesc);
+    void volumeFlushed(AmRequest* req, std::string const& vol);
 
     std::shared_ptr<AmProcessor> getProcessor()
     { return amProcessor; }

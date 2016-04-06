@@ -35,6 +35,7 @@ extern "C"
 #include <net/SvcRequestPool.h>
 
 #include "platform/platform_manager.h"
+#include <platform/environment.h>
 
 #include "file_system_table.h"
 
@@ -141,6 +142,8 @@ namespace fds
             }
 
             loadEnvironmentVariables();
+
+            Environment::initialize();
 
             return 0;
         }
@@ -546,19 +549,12 @@ namespace fds
                 return;
             }
 
-            if (m_serviceFlapDetector->isServiceFlapping (procIndex))
-            {
-                // Flap detector handles error logging.
-                notifyOmServiceStateChange (procIndex, 0, fpi::HealthState::HEALTH_STATE_FLAPPING_DETECTED_EXIT, "is flapping, PM will not auto restart (until another start service is requested by the OM).");
-                return;
-            }
-
             if (JAVA_AM == procIndex)
             {
                 // don't start JAVA_AM if BARE_AM is not in a RUNNING state
                 if (fpi::SERVICE_RUNNING != m_nodeInfo.bareAMState)
                 {
-                    LOGNORMAL << "Received a request to start " << procName << ", but bare_am is not running.  Not doing anything.";
+                    LOGWARN << "Received a request to start " << procName << ", but bare_am is not running.  Not doing anything.";
                     return;
                 }
 
@@ -593,7 +589,7 @@ namespace fds
             args.push_back (util::strformat ("--fds.common.om_ip_list=%s", fdsConfig->get_abs <std::string> ("fds.common.om_ip_list").c_str()));
             args.push_back (util::strformat ("--fds.pm.platform_port=%d", fdsConfig->get <int> ("platform_port")));
 
-            pid = fds_spawn_service (command, rootDir, args, false);
+            pid = fds_spawn_service (command, rootDir, args, false, procIndex);
 
             if (pid > 0)
             {
@@ -941,13 +937,13 @@ namespace fds
 
                 case fpi::FDSP_STOR_MGR:
                 {
-                    LOGDEBUG << "SM state: " + m_nodeInfo.smState;
+                    LOGDEBUG << "SM state: " << m_nodeInfo.smState;
                     return m_nodeInfo.smState;
                 } break;
 
                 case fpi::FDSP_DATA_MGR:
                 {
-                    LOGDEBUG << "DM state: " + m_nodeInfo.dmState;
+                    LOGDEBUG << "DM state: " << m_nodeInfo.dmState;
                     return m_nodeInfo.dmState;
                 } break;
                 default:
@@ -1327,7 +1323,7 @@ namespace fds
 
                             if (JAVA_AM != appIndex)
                             { // do not notify OM on the xdi process exit; this message will only be sent if the XDI service is flapping
-                                notifyOmServiceStateChange (appIndex, mapIter->second, fpi::HealthState::HEALTH_STATE_UNEXPECTED_EXIT, "unexpectedly exited");
+                                notifyOmServiceStateChange (appIndex, pid, fpi::HealthState::HEALTH_STATE_UNEXPECTED_EXIT, "unexpectedly exited");
                             }
                             m_appPidMap.erase (mapIter++);
 
@@ -1335,16 +1331,25 @@ namespace fds
 
                             if (m_autoRestartFailedProcesses && !m_inShutdownState)
                             {
+                                if (m_serviceFlapDetector->isServiceFlapping (appIndex))
+                                {
+                                    // Flap detector handles error logging.
+                                    notifyOmServiceStateChange (appIndex, 0, fpi::HealthState::HEALTH_STATE_FLAPPING_DETECTED_EXIT, "is flapping, PM will not auto restart (until another start service is requested by the OM).");
+                                    if (JAVA_AM == appIndex)
+                                    {
+                                        LOGWARN << "Discovered a flapping XDI process, also bringing down bare_am";
+                                        stopProcess (BARE_AM);
+                                    }
+                                }
+                                else // restart the process
                                 {   // context for lock_guard
                                     deadProcessesFound = true;
                                     std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
                                     m_startQueue.push_back (appIndex);
-                                }
-
-                                if (BARE_AM == appIndex)
-                                {
-                                    std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
-                                    m_startQueue.push_back (JAVA_AM);
+                                    if (BARE_AM == appIndex)
+                                    {
+                                        m_startQueue.push_back (JAVA_AM);
+                                    }
                                 }
                             }
                         }
@@ -1450,6 +1455,7 @@ namespace fds
             healthMessage->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid = serviceRecord->svc_id.svc_uuid.svc_uuid;
             healthMessage->healthReport.serviceInfo.svc_id.svc_name = serviceRecord->name;
             healthMessage->healthReport.serviceInfo.svc_port = serviceRecord->svc_port;
+            healthMessage->healthReport.serviceInfo.incarnationNo = serviceRecord->incarnationNo;
             healthMessage->healthReport.platformUUID.svc_uuid.svc_uuid = m_nodeInfo.uuid;
             healthMessage->healthReport.serviceState = state;
             healthMessage->healthReport.statusCode = fds::PLATFORM_ERROR_UNEXPECTED_CHILD_DEATH;

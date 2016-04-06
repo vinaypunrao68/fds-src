@@ -57,6 +57,7 @@ struct BufferReplay {
 
     explicit BufferReplay(const std::string &bufferFileName,
                           int32_t maxReplayCnt,
+                          int64_t affinity,
                           fds_threadpool *threadpool);
     virtual ~BufferReplay();
     /**
@@ -140,6 +141,7 @@ struct BufferReplay {
 
     fds_mutex                                   lock_;
     fds_threadpool                              *threadpool_;
+    int64_t                                     affinity_;
     std::string                                 bufferFileName_;
     int32_t                                     writefd_;
     std::unique_ptr<serialize::Serializer>      serializer_;

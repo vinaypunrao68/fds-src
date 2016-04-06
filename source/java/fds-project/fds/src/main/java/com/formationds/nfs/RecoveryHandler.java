@@ -4,7 +4,8 @@ import com.formationds.apis.ObjectOffset;
 import com.formationds.util.IoConsumer;
 import com.formationds.util.IoSupplier;
 import com.formationds.xdi.RecoverableException;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.joda.time.Duration;
 
 import java.io.IOException;
@@ -13,7 +14,7 @@ import java.util.Map;
 import java.util.Optional;
 
 public class RecoveryHandler implements IoOps {
-    private static final Logger LOG = Logger.getLogger(RecoveryHandler.class);
+    private static final Logger LOG = LogManager.getLogger(RecoveryHandler.class);
     private final IoOps ops;
     private int retryCount;
     private Duration retryInterval;

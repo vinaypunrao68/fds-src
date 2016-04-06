@@ -1955,8 +1955,11 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
     TimeStamp ts;
     liveObjectsTable->findMinTimeStamp(smToken, ts);
 
+    // TODO(brian): Should this really be a lambda? It's pretty large for a lambda
+    // is isn't exactly a one off function, I think it might benefit from being pulled
+    // out so that tools like cscope and CLion have an easier time indexing it and making this function more readable
     std::function<void (const ObjectID&)> checkAndModifyMeta =
-            [this, &objectSets, &ts, &tokStats, &smToken] (const ObjectID& oid) {
+            [this, &objectSets, &ts, &tokStats, &smToken, &tier] (const ObjectID& oid) {
         ++tokStats.tkn_tot_size;
         ObjSetIter iter = objectSets.begin();
         for (iter; iter != objectSets.end(); ++iter) {
@@ -1974,12 +1977,13 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                 Error err(ERR_OK);
                 ObjMetaData::const_ptr objMeta =
                         metaStore->getObjectMetadata(invalid_vol_id, oid, err);
+
                 /**
                  * TODO(Gurpreet) Error propogation from here to TC.
                  * And in case of error here, TC should fail compaction for this
                  * token.
                  */
-                if (!objMeta || !err.ok()) {
+                if (!objMeta || !err.ok() || !objMeta->onTier(tier)) {
                     return;
                 }
 
@@ -1991,6 +1995,10 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                  * metadata information.
                  */
                 auto objDelCnt = objMeta->getDeleteCount();
+
+                // add counter to see how many inactive objects are actually present
+                if ((fds_uint16_t)objDelCnt > 0) OBJECTSTOREMGR(objStorMgr)->counters->inactiveObjectCount.incr();
+
                 auto objTS = objMeta->getTimeStamp();
                 if (!ts || (objTS < ts)) {
                     ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
@@ -2003,6 +2011,7 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                      * If the delete count for this object has reached the threshold
                      * then let the Scavenger know about it.
                      */
+                    if ((fds_uint16_t)objDelCnt == 0) OBJECTSTOREMGR(objStorMgr)->counters->inactiveObjectCount.incr();
                     if (updatedMeta->incrementDeleteCount() >= fds::objDelCountThresh) {
                         ++tokStats.tkn_reclaim_size;
                     }

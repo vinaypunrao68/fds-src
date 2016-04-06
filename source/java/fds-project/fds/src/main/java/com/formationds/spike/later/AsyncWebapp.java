@@ -5,7 +5,8 @@ import com.formationds.spike.later.pathtemplate.RoutingMap;
 import com.formationds.util.async.AsyncSemaphore;
 import com.formationds.web.toolkit.FourOhFour;
 import com.formationds.web.toolkit.HttpsConfiguration;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.eclipse.jetty.server.*;
 import org.eclipse.jetty.server.handler.HandlerCollection;
 import org.eclipse.jetty.servlet.ServletContextHandler;
@@ -27,7 +28,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
 
 public class AsyncWebapp extends HttpServlet {
-    private static final Logger LOG = Logger.getLogger(AsyncWebapp.class);
+    private static final Logger LOG = LogManager.getLogger(AsyncWebapp.class);
 
     private com.formationds.web.toolkit.HttpConfiguration httpConfiguration;
     private HttpsConfiguration httpsConfiguration;

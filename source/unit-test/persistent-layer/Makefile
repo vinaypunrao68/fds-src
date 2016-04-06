@@ -10,7 +10,7 @@ user_fds_ar_libs  := \
     fds-dsk-mgnt \
     fds-dsk-io
 
-user_non_fds_libs :=
+user_non_fds_libs := fdsStatsUtil-debug
 
 user_cpp          :=                   \
     dm_service_test.cpp                \

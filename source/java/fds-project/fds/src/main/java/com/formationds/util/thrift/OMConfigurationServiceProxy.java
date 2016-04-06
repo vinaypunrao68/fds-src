@@ -9,7 +9,8 @@ import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.protocol.ErrorCode;
 import com.formationds.security.AuthenticatedRequestContext;
 import com.formationds.security.AuthenticationToken;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.apache.thrift.TException;
 
 import java.lang.reflect.InvocationHandler;
@@ -26,7 +27,7 @@ import javax.crypto.SecretKey;
  */
 public class OMConfigurationServiceProxy implements InvocationHandler {
 
-    private static final Logger logger = Logger.getLogger(OMConfigurationServiceProxy.class);
+    private static final Logger logger = LogManager.getLogger(OMConfigurationServiceProxy.class);
 
     /**
      *

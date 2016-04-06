@@ -63,7 +63,7 @@ public class FdsLuceneDirectoryTest {
 
     @Before
     public void setUp() throws Exception {
-        IoOps ops = new MemoryIoOps(MAX_OBJECT_SIZE);
+        IoOps ops = new MemoryIoOps();
         directory = new FdsLuceneDirectory(ops, "", "foo", MAX_OBJECT_SIZE);
     }
 }

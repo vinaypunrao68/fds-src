@@ -17,6 +17,8 @@ import stat
 import optparse
 import subprocess
 import math
+import logging
+import logging.handlers
 
 # TODO(donavan)
 #  Global todo list
@@ -27,6 +29,7 @@ import math
 DEFAULT_FDS_ROOT = '/fds/'
 DEFAULT_SHORT_PATH_AND_HINTS = 'dev/disk-config.conf'
 FSTAB_PATH_AND_FILENAME = "/etc/fstab"
+LOG_FILENAME="var/log/disk_format.log" 
 
 # Thes semi-arbitrary looking numbers are documented in the google doc titled:  "DM and SM Partition Size"
 DM_INDEX_BYTES_PER_OBJECT = 32
@@ -64,6 +67,9 @@ global_debug_on = False
 
 # Header displayed
 header_output = False
+
+# Initialize logger
+logger = logging.getLogger('DiskFormatLogger')
 
 class extendedFstab (fstab.Fstab):
     ''' This calls extends the fstab adding
@@ -134,7 +140,8 @@ class Base (object):
 
     def system_exit (self, msg):
         if len (msg) > 0:
-            print "Fatal Error:  " + msg
+            print("Fatal Error:  " + msg)
+            logger.critical(msg)
         sys.exit (8)
 
 
@@ -146,10 +153,15 @@ class Base (object):
             self.system_exit ('')
 
 
+    def log(self, msg):
+        print msg
+        logger.info(msg)
+
     def dbg_print (self, msg):
         global global_debug_on
         if global_debug_on:
             print 'Debug: ' + msg
+        logger.debug(msg)
 
 
     def dbg_print_list (self, list):
@@ -157,6 +169,7 @@ class Base (object):
         if global_debug_on:
             print 'Debug: ',
             print list
+        logger.debug(list)
 
 
 class BaseDisk (object):
@@ -265,7 +278,7 @@ class Disk (Base):
             return False
 
         if DISK_MARKER == self.marker:
-            print ('Device (%s) is already FDS formatted.' % (self.path))
+            self.log ('Device (%s) is already FDS formatted.' % (self.path))
             return True
         return False
 
@@ -627,6 +640,17 @@ class DiskManager (Base):
             self.disk_config_file = self.options.disk_config_file
 
 
+        # set up logging
+        global logger
+        logfile = fds_root + LOG_FILENAME
+        handler = logging.handlers.RotatingFileHandler(logfile) # append by default
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+
+        logger.addHandler(handler)
+        logger.setLevel(logging.DEBUG) # log everything
+        logger.info("=============disk_format.py started")
+
     def load_disk_config_file (self):
         ''' Loads the disk information stored in the disk-config.conf file (or CLI argument). '''
 
@@ -664,9 +688,9 @@ class DiskManager (Base):
 
             if items is None:
                 if not fault_header:
-                    print ("Can not parse the following line(s) from: " + self.disk_config_file)
+                    self.log ("Can not parse the following line(s) from: " + self.disk_config_file)
                     fault_header = True
-                print line
+                self.log(line)
                 continue
 
             disk = Disk (items.group(1), distutils.util.strtobool (items.group(2)), distutils.util.strtobool (items.group(3)), items.group(4), items.group(5), items.group(6))
@@ -696,8 +720,8 @@ class DiskManager (Base):
         for d in self.disk_list:
             d.print_disk()
 
-        print "\nTo format or reformat disk(s), please use --format or --reset.  See --help for additional information"
-        self.system_exit('')
+        msg = "\nTo format or reformat disk(s), please use --format or --reset.  See --help for additional information"
+        self.system_exit(msg)
 
 
     def find_formatted_disks(self):
@@ -778,9 +802,9 @@ class DiskManager (Base):
                 disk.verifySystemDiskPartitionSize()
                 if not self.options.reset:
                     continue
-                print("Formatting FDS superblock partition on %s" % disk.path)
+                self.log("Formatting FDS superblock partition on %s" % disk.path)
             else:
-                print("Partitioning and formatting  disk %s" % disk.path)
+                self.log("Partitioning and formatting  disk %s" % disk.path)
 #            disk.partition (self.dm_index_MB, self.sm_index_MB / len (self.sm_index_partition_list))
             disk.partition (self.dm_index_MB, 0)
             mkfs_proc_list += disk.format()
@@ -790,7 +814,7 @@ class DiskManager (Base):
         for proc in mkfs_proc_list:
             res = proc.wait()
             if res != 0:
-                print "Error: mkfs failed with %d" % res
+                self.log("Error: mkfs failed with %d" % res)
                 completed = False
         if not completed:
             sys.exit(1)
@@ -803,7 +827,7 @@ class DiskManager (Base):
             if uuid not in uuid_str : # different uuid
                 device = self.disk_utils.find_device_by_uuid_str(uuid_str)
                 if not device:
-                    print "Found an entry for %s in fstab corresponding to a non-existent device, deleting" % mount_point
+                    self.log("Found an entry for %s in fstab corresponding to a non-existent device, deleting" % mount_point)
                     self.fstab.remove_mount_point_by_uuid (uuid_str)
 
     def is_ssd_mount_point (self, mount_point):
@@ -851,7 +875,7 @@ class DiskManager (Base):
               continue
            mount_dev = self.disk_utils.is_mounted(cur_name)
            if mount_dev:
-               print "%s is already mounted on %s " % (cur_name, mount_dev)
+               self.log("%s is already mounted on %s " % (cur_name, mount_dev))
                index += 1
                continue
            return index

@@ -74,7 +74,6 @@ public class S3SmokeTest {
         host = Fds.getFdsHost();
 
         String omUrl = "https://" + host + ":7443";
-        SmokeTestRunner.turnLog4jOff();
         JSONObject adminUserObject =
                 getObject(Uris.withQueryParameters(Fds.Api.getAuthToken(),
                                                    Fds.USERNAME_QUERY_PARAMETER,
