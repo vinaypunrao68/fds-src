@@ -476,7 +476,17 @@ BlockOperations::shutdown()
     if (responses.empty()) {
         {
             std::unique_lock<std::mutex> lk(assoc_map_lock);
-            assoc_map.erase(*volumeName);
+            auto itr = assoc_map.find(*volumeName);
+            if (assoc_map.end() != itr) {
+                if (0 < itr->second) {
+                    // If there are still associations then we haven't sent a detach yet
+                    handle_type reqId{0, 0};
+                    assoc_map.erase(itr);
+                    return amAsyncDataApi->detachVolume(reqId, domainName, volumeName);
+                } else {
+                    assoc_map.erase(itr);
+                }
+            }
         }
         handle_type fake_req;
         _detachVolumeResp(fpi::OK, fake_req);
