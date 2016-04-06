@@ -267,7 +267,7 @@ void ObjectRefScanMgr::prescanInit()
 
     /* Build a list of volumes to scan */
     std::vector<fds_volid_t> vols;
-    dataMgr->getActiveVolumes(vols);
+    dataMgr->getAllVolumes(vols);
     for (const auto &v : vols) {
         if (dataMgr->amIPrimary(v)) {
             scanList.push_back(VolumeRefScannerContext(this, v));
