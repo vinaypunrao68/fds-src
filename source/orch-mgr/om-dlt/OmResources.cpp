@@ -1888,9 +1888,6 @@ OM_NodeDomainMod::om_load_volumes()
                      << "[" << volume.volUUID << ":" << volume.name << "]";
         }
 
-        if (volume.isStateMarkedForDeletion()) {
-            volContainer->addToDeleteVols(volume);
-        }
     }
 
     // load snapshots
@@ -2105,12 +2102,7 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
             svcInfo->svc_status = fpi::SVC_STATUS_INVALID;
         }
 
-        /*
-         * Update the service layer service map up front so that any subsequent
-         * communication with that service will work.
-         */
-        // Can we afford to remove this call? This map will get updated and
-        // broadcasted when svcmaps get updated at the end of setupnewnode
+        // This will happen with updateSvcMaps call in setupnewNode
         // MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
         // om_locDomain->om_bcast_svcmap();
 
@@ -3198,6 +3190,7 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
                       << " has finished registering, update DLT now";
 
             om_dlt_update_cluster();
+
         } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
             // Check if this is a re-registration of an existing DM executor
             LOGDEBUG << "Firing reregister event for DM node " << uuid;
@@ -3527,6 +3520,7 @@ OM_NodeDomainMod::om_dlt_update_cluster()
 
         // Added nodes should be in the node_up_pend list
         int64_t smAgentsRegistered = smNodes->om_nodes_up();
+        int64_t replicas           = g_fdsprocess->get_conf_helper().get<int>("replica_factor");
 
         if ( smAgentsRegistered > 0 )
         {
@@ -3535,8 +3529,6 @@ OM_NodeDomainMod::om_dlt_update_cluster()
 
         if ( svcAddition )
         {
-            int64_t replicas = g_fdsprocess->get_conf_helper().get<int>("replica_factor");
-
             // We use the value from agent_registration because we now
             // set this up AFTER services are set to ACTIVE. So, checking for an ACTIVE status
             // could lead us to a replica_factor # of SMs who haven't completed agent_registration
@@ -3569,6 +3561,21 @@ OM_NodeDomainMod::om_dlt_update_cluster()
                 return;
             }
         } else {
+
+            int64_t currentlyKnownSMs = cm->getNumNonfailedMembers(fpi::FDSP_STOR_MGR);
+
+            // Could be that this is a call initiated by the domain state machine on a restart
+            // In this case, the agent nodes in added, removed lists are cleared out, by-passing
+            // the if check for this else.
+            // If there isn't a committed DLT yet, and replica check fails don't allow the update
+            if (dp->getCommitedDlt() == DLT_VER_INVALID && currentlyKnownSMs < replicas)
+            {
+                LOGWARN << currentlyKnownSMs << " known SM(s) in the domain."
+                        << " Will not calculate DLT until there are at least " << replicas
+                        << " SM(s) to satisfy configured replica factor";
+                return;
+            }
+
             // Service removal, or safety re-try, so let it through
             // ToDo @meena FS-5283 Restrict node remove if it causes known SM to drop below
             // replica_factor

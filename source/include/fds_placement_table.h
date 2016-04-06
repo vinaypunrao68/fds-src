@@ -115,7 +115,7 @@ namespace fds {
             for (fds_uint32_t j = 0; j < length; ++j) {
                 NodeUuid uuid = p[j];
                 int index = oldColumn.find(uuid);
-                if ((index < 0) ||   // new UUID in this column
+                if ((index < 0) ||  // new UUID in this column
                     ((j < numPrimRows) && (index >= (int)numPrimRows))) {  // moved up
                     retSet.insert(uuid);
                 }

@@ -517,7 +517,8 @@ DataPlacement::beginRebalance()
     // at this point we have committed DLT
     // find all SMs that will either get a new responsibility for a DLT token
     // or need re-sync because an SM became a primary
-    NodeUuidSet rmSMs = curClusterMap->getRemovedServices(fpi::FDSP_STOR_MGR);
+    NodeUuidSet addedSMs  = curClusterMap->getAddedServices(fpi::FDSP_STOR_MGR);
+    NodeUuidSet rmSMs     = curClusterMap->getRemovedServices(fpi::FDSP_STOR_MGR);
     NodeUuidSet failedSMs = curClusterMap->getFailedServices(fpi::FDSP_STOR_MGR);
     // NodeUuid.uuid_get_val() for source SM to CtrlNotifySMStartMigrationPtr msg
 
@@ -564,37 +565,63 @@ DataPlacement::beginRebalance()
             // place all new SMs into the same column -- will need to fix that!
             fds_verify(getNumOfPrimarySMs() > 0);
 
-            // there must be one SM that is in committed and target column
-            // and in a primary row. Otherwise all SMs failed in that column
+            // LegacyComment[there must be one SM that is in committed and target column
+            // and in a primary row. Otherwise all SMs failed in that column]
+
             NodeUuidSet intersectSMs = tgtCol->getIntersection(*cmtCol);
 
             NodeUuid nosyncSm;
 
-            for (auto sm: intersectSMs)
+            if (intersectSMs.size() > 0)
             {
-                int index = tgtCol->find(sm);
-                if ((index >= 0) && (index < (int)getNumOfPrimarySMs()))
+                for (auto sm: intersectSMs)
                 {
-                    if (nosyncSm.uuid_get_val() == 0)
+                    int index = tgtCol->find(sm);
+                    if ((index >= 0) && (index < (int)getNumOfPrimarySMs()))
                     {
-                        nosyncSm = sm;
-                    } else {
-                        // if we are here, means the whole column fail
-                        // and we just skip doing anything for that column
-                        nosyncSm.uuid_set_val(0);
-                        break;
+                        if (nosyncSm.uuid_get_val() == 0)
+                        {
+                            nosyncSm = sm;
+                        } else {
+                            // if we are here, means the whole column fail
+                            // and we just skip doing anything for that column
+                            nosyncSm.uuid_set_val(0);
+                            break;
+                        }
                     }
+                }
+            } else {
+
+                LOGWARN << "WARNING: All new SMs in target column, will handle but should not be the case!!";
+
+                // This means this column of tokens has all new SMs.
+                // This is possible if 3(going by tgt col length =3) new SMs
+                // were added at once. All we need to verify is that a source
+                // uuid of this token exists in the new dlt
+                if ( addedSMs.size() == destSms.size() )
+                {
+                    auto newDltNodes = newDlt->getAllNodes();
+
+                    for ( auto sourceNode : srcCandidates )
+                    {
+                        for ( auto newNode : newDltNodes )
+                        {
+                            if ( sourceNode.uuid_get_val() == newNode.uuid_get_val() )
+                            {
+                                nosyncSm = sourceNode;
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    LOGWARN << "Only" << addedSMs.size() << " new SMs, but " << destSms.size()
+                            << " SMs in this column, all of which seem new, something is not right for"
+                            << " token: "<< tokId << " . Skipping this token!!";
+                    continue;
                 }
             }
 
-            // ToDo @meena FS-5284 here we need to say, if no source found, then look
-            // at committed dlt to find sources that owned the tokens and see
-            // if they are still in the new Dlt. If so, sync from them.
-            // Also in getNewAndNewPrimaryUuids, eliminate the check for existing
-            // SM that moves up in the rows.
-
-            if (nosyncSm.uuid_get_val() > 0)
-            {
+            if (nosyncSm.uuid_get_val() > 0) {
                 // secondary SM survived, but both primaries didn't
                 // do not sync to this SM
                 destSms.erase(nosyncSm);

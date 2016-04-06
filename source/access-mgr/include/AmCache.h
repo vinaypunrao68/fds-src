@@ -8,7 +8,6 @@
 
 #include "AmAsyncDataApi.h"
 #include "AmDataProvider.h"
-#include "BlobDescriptor.h"
 #include <blob/BlobTypes.h>
 #include <cache/VolumeSharedKvCache.h>
 

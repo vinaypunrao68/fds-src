@@ -55,6 +55,7 @@ ARTIFACTORY_INTERNAL_URL="http://jenkins:UP93STXWFy5c@bld-artifactory:8081/artif
 # If these aren't defined - we assign default values
 DEPS="${DEPS:-fds-deps_2015.06.19-32_amd64.deb}"
 PLATFORM="${PLATFORM:-fds-platform-rel_2015.06.19-32_amd64.deb}"
+STATSUTIL="${STATSUTIL:-fds-stats-util_1.0.0_amd64.deb}"
 RABBITMQC="${RABBITMQC:-rabbitmq-c-0.7.1.deb}"
 SIMPLEAMQPCLIENT="${SIMPLEAMQPCLIENT:-simpleamqpclient-0.7.1.deb}"
 FDSSTATSCLIENT="${FDSSTATSCLIENT:-fds-stats-client-c-1.0.deb}"
@@ -79,6 +80,7 @@ mkdir -p "${INSTALLDIR}/omnibus/omnibus-fds-stats-deps/pkg"
 mkdir -p "${INSTALLDIR}/omnibus/omnibus-rabbitmq-c/pkg"
 mkdir -p "${INSTALLDIR}/omnibus/omnibus-simpleamqpclient/pkg"
 mkdir -p "${INSTALLDIR}/omnibus/omnibus-fds-stats-client-c/pkg"
+mkdir -p "${INSTALLDIR}/omnibus/omnibus-fds-stats-util/pkg"
 mkdir -p "${DLTMP}"
 
 # If download is true - we download the artifacts vs. relying on them being local
@@ -97,6 +99,7 @@ if [ $download == "true" ] ; then
   rsync -av ${DLTMP}/${RABBITMQC} ${INSTALLDIR}/omnibus/omnibus-rabbitmq-c/pkg
   rsync -av ${DLTMP}/${SIMPLEAMQPCLIENT} ${INSTALLDIR}/omnibus/omnibus-simpleamqpclient/pkg
   rsync -av ${DLTMP}/${FDSSTATSCLIENT} ${INSTALLDIR}/omnibus/omnibus-fds-stats-client-c/pkg
+  rsync -av ${DLTMP}/${STATSUTIL} ${INSTALLDIR}/omnibus/omnibus-fds-stats-util/pkg
   rsync -av ${DLTMP}/${STATSSERVICE} ${INSTALLDIR}/omnibus/omnibus-fds-stats-service/pkg
   rsync -av ${DLTMP}/${STATSDEPS} ${INSTALLDIR}/omnibus/omnibus-fds-stats-deps/pkg
 else
@@ -108,6 +111,7 @@ else
   rsync -av ../omnibus-rabbitmq-c/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-rabbitmq-c/pkg
   rsync -av ../omnibus-simpleamqpclient/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-simpleamqpclient/pkg
   rsync -av ../omnibus-fds-stats-client-c/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-stats-client-c/pkg
+  rsync -av ../omnibus-fds-stats-util/pkg/*.deb ${INSTALLDIR}/omnibus/omnibus-fds-stats-util/pkg
 fi
 
 # Make sure we have package files

@@ -41,6 +41,7 @@ mkdir -p ../omnibus-fds-stats-deps/pkg
 mkdir -p ../omnibus-rabbitmq-c/pkg
 mkdir -p ../omnibus-simpleamqpclient/pkg
 mkdir -p ../omnibus-fds-stats-client-c/pkg
+mkdir -p ../omnibus-fds-stats-util/pkg
 
 apt-get download fds-stats-service-2.0.0
 [[ $? -ne 0 ]] && echo 'Failure downloading the fds-stats-service from apt repo' && exit 99
@@ -61,6 +62,10 @@ mv simpleamqpclient*.deb ../omnibus-simpleamqpclient/pkg
 apt-get download fds-stats-client-c-2.0.0
 [[ $? -ne 0 ]] && echo 'Failure downloading the fds-stats-client-c package from apt repo' && exit 99
 mv fds-stats-client-c*.deb ../omnibus-fds-stats-client-c/pkg
+
+apt-get download fds-stats-util=1.0.0
+[[ $? -ne 0 ]] && echo 'Failure downloading the fds-stats-util package from apt repo' && exit 99
+mv fds-stats-util*.deb ../omnibus-fds-stats-util/pkg
 
 if [[ ${#JENKINS_URL} -gt 0 ]]
 then
