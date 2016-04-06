@@ -523,47 +523,62 @@ public class QueryHelper {
      * @param series
      * @return
      */
-    protected List<PercentageConsumed> getTieringPercentage( List<Series> series ){
+    protected List<PercentageConsumed> getTieringPercentage( List<Series> series )
+    {
+        Optional<Series> optionalHddGets =
+            series.stream()
+                  .filter( s -> s.getType()
+                                 .equals( Metrics.HDD_GETS.name() ) )
+                  .findFirst();
+        Series hddGets;
+        double hddGetsSummed = 0.0;
+        if( optionalHddGets.isPresent() )
+        {
+            hddGets = optionalHddGets.get();
+            hddGetsSummed = hddGets.getDatapoints().stream().mapToDouble( Datapoint::getY ).sum();
+            logger.trace( "HDD GETS: series size {} Gets summed {}",
+                          hddGets.getDatapoints().size(),
+                          hddGetsSummed );
+        }
 
-//    	Series gets = series.stream().filter( s -> s.getType().equals( Metrics.HDD_GETS.name() ) )
-//        	.findFirst().get();
-//    	Double getsHdd = gets.getDatapoints().stream().mapToDouble( Datapoint::getY ).sum();
+        Optional<Series> optionalSsdGets =
+            series.stream()
+                  .filter( s -> s.getType()
+                                 .equals( Metrics.SSD_GETS.name() ) )
+                  .findFirst();
+        Series ssdGets;
+        double ssdGetsSummed = 0.0;
+        if( optionalSsdGets.isPresent() )
+        {
+            ssdGets = optionalSsdGets.get();
+            ssdGetsSummed = ssdGets.getDatapoints().stream().mapToDouble( Datapoint::getY ).sum();
+            logger.trace( "SSD GETS: series size {} Gets summed {}",
+                          ssdGets.getDatapoints().size(),
+                          ssdGetsSummed );
+        }
 
-    	Double getsHdd = RedisSingleton.INSTANCE
-                                       .api()
-                                       .getDomainUsedCapacity()
-                                       .getValue( SizeUnit.B )
-                                       .doubleValue();
+        double summed = hddGetsSummed + ssdGetsSummed;
+        long HddPercentage = 0L;
+        long SsdPercentage = 0L;
+        if( summed > 0.0 )
+        {
+            HddPercentage = Math.round( ( hddGetsSummed / summed ) * 100.0 );
+            SsdPercentage = Math.round( ( ssdGetsSummed / summed ) * 100.0 );
+            logger.trace( "HDD Percentage {} SSD Percentage {}", HddPercentage, SsdPercentage );
+        }
 
-    	Series getsssd = series.stream().filter( s -> s.getType().equals( Metrics.SSD_GETS.name() ) )
-        		.findFirst().get();
+        final PercentageConsumed hdd = new PercentageConsumed( );
+        hdd.setPercentage( ( double ) HddPercentage );
+        final PercentageConsumed ssd = new PercentageConsumed( );
+        ssd.setPercentage( ( double ) SsdPercentage );
 
-    	Double getsSsd = getsssd.getDatapoints().stream().mapToDouble( Datapoint::getY ).sum();
+        List<PercentageConsumed> percentages = new ArrayList<>( );
+        percentages.add( ssd );
+        percentages.add( hdd );
 
-    	Double sum = getsHdd + getsSsd;
+        logger.trace( "HDD/SSD Percentages {}", percentages );
 
-    	long ssdPerc = 0L;
-    	long hddPerc = 0L;
-
-    	if ( sum > 0 ){
-    		ssdPerc = Math.round( (getsSsd / sum) * 100.0 );
-    		hddPerc = Math.round( (getsHdd / sum) * 100.0 );
-    	}
-
-        logger.trace( "Tiering Percentage::HDD Capacity: {} ({}%)::SDD Capacity: {} ({}%)::Sum: {}",
-                      getsHdd, hddPerc, getsSsd, ssdPerc, sum );
-
-    	PercentageConsumed ssd = new PercentageConsumed();
-    	ssd.setPercentage( (double)ssdPerc );
-
-    	PercentageConsumed hdd = new PercentageConsumed();
-    	hdd.setPercentage( (double)hddPerc );
-
-    	List<PercentageConsumed> percentages = new ArrayList<>( );
-    	percentages.add( ssd );
-    	percentages.add( hdd );
-
-    	return percentages;
+        return percentages;
     }
 
     /**
