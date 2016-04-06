@@ -435,6 +435,19 @@ fds_bool_t ObjMetaData::onTier(diskio::DataTier tier) const {
     return (phy_loc[tier].obj_tier == tier);
 }
 
+/**
+ * @return true if data was removed from tier (-2 is used for GC reclaimed phys loc)
+ */
+fds_bool_t ObjMetaData::isRemovedFromTier(diskio::DataTier tier) const {
+    return (phy_loc[tier].obj_tier == -2);
+}
+
+/**
+ * @param tier -- remove data from the given tier and mark so it isn't removed more than once (-2 is reclaimed phys loc)
+ */
+void ObjMetaData::removeFromTier(diskio::DataTier tier) {
+    phy_loc[tier].obj_tier = -2;
+}
 
 /**
  *

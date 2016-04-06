@@ -71,7 +71,7 @@ ObjectStore::ObjectStore(const std::string &modName,
                                                       std::placeholders::_3))),
           tierEngine(new TierEngine("SM Tier Engine",
                                     TierEngine::FDS_RANDOM_RANK_POLICY,
-                                    diskMap, data_store)),
+                                    diskMap, data_store, this)),
           SMCheckCtrl(new SMCheckControl("SM Checker",
                                          diskMap, data_store)),
           liveObjectsTable(new LiveObjectsDB(g_fdsprocess->proc_fdsroot()->dir_user_repo() + "liveobj.db")),
@@ -1927,7 +1927,7 @@ ObjectStore::removeObjectSet(const fds_volid_t &volId) {
 }
 
 /**
- * Check all the objects beloging to a given SM token
+ * Check all the objects belonging to a given SM token
  * for delete object criteria and let Scavenger know of it.
  *
  *
@@ -1961,11 +1961,32 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
     std::function<void (const ObjectID&)> checkAndModifyMeta =
             [this, &objectSets, &ts, &tokStats, &smToken, &tier] (const ObjectID& oid) {
         ++tokStats.tkn_tot_size;
+        Error err(ERR_OK);
+        ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(invalid_vol_id, oid, err);
         ObjSetIter iter = objectSets.begin();
+
+        if (!objMeta || !err.ok()) {
+            return;
+        }
+
         for (iter; iter != objectSets.end(); ++iter) {
             if (iter->lookup(oid)) {
-                LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid
-                         << " found in object set(s) ";
+                LOGDEBUG << "Token : "<< smToken << " Object : " << oid
+                         << " found in object set(s)";
+
+                // If the object is valid on the bloom filter but not on this tier - delete the data
+                // MAKE SURE THE DATA IS ON ANOTHER VALID TIER BEFORE OFFERING FOR REMOVAL
+                if (!objMeta->onTier(tier) &&
+                    objMeta->dataPhysicallyExists() &&
+                    !objMeta->isRemovedFromTier(tier)) {
+
+                    // Remove from tier
+                    ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
+                    updatedMeta->updateTimestamp();
+                    updatedMeta->removeFromTier(tier);
+                    ++tokStats.tkn_reclaim_size;
+                    metaStore->putObjectMetadata(invalid_vol_id, oid, updatedMeta);
+                }
                 break;
             }
         }
@@ -1974,10 +1995,6 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                 LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid
                          << " not found in object set(s) ";
                 auto tokenLock = this->tokenLockFn(oid, true);
-                Error err(ERR_OK);
-                ObjMetaData::const_ptr objMeta =
-                        metaStore->getObjectMetadata(invalid_vol_id, oid, err);
-
                 /**
                  * TODO(Gurpreet) Error propogation from here to TC.
                  * And in case of error here, TC should fail compaction for this
