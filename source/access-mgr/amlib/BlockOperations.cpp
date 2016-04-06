@@ -135,7 +135,7 @@ BlockOperations::detachVolume() {
     detachVolumeResp(fpi::OK, fake_req);
 }
 
-// Will aquire respLock and then call _detachVolumeResp
+// Will acquire respLock and then call _detachVolumeResp
 void
 BlockOperations::detachVolumeResp(const fpi::ErrorCode& error,
                                   handle_type const& requestId) {
