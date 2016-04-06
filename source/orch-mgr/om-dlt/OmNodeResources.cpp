@@ -1432,8 +1432,8 @@ OM_PmAgent::send_add_service
 
     while (true) {
 
-        std::unique_lock<std::mutex> sentQLock(addRespMutex);
-        respRecCondition.wait(sentQLock, [this] { return respReceived; });
+        std::unique_lock<std::mutex> respLock(addRespMutex);
+        respRecCondition.wait(respLock, [this] { return respReceived; });
 
         // As soon as response is received break
         break;
