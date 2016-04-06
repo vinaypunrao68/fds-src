@@ -816,7 +816,10 @@ OM_NodeAgent::init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const
 // ---------------------------------------------------------------------------------
 OM_PmAgent::~OM_PmAgent() {}
 OM_PmAgent::OM_PmAgent(const NodeUuid &uuid)
-        : OM_NodeAgent(uuid, fpi::FDSP_PLATFORM){}
+        : OM_NodeAgent(uuid, fpi::FDSP_PLATFORM)
+{
+    respReceived = false;
+}
 
 void
 OM_PmAgent::init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const
@@ -1417,12 +1420,51 @@ OM_PmAgent::send_add_service
                             boost::make_shared<fpi::NotifyAddServiceMsg>();
     std::vector<fpi::SvcInfo>& svcInfoVector = addServiceMsg->services;
     svcInfoVector = svcInfos;
-
     auto req =  gSvcRequestPool->newEPSvcRequest(svc_uuid);
     req->setPayload(FDSP_MSG_TYPEID(fpi::NotifyAddServiceMsg), addServiceMsg);
+
+
+    req->onResponseCb(std::bind(&OM_PmAgent::send_add_service_resp, this,
+                                svcUuid,
+                                std::placeholders::_1, std::placeholders::_2,
+                                std::placeholders::_3));
     req->invoke();
 
+    while (true) {
+
+        std::unique_lock<std::mutex> sentQLock(addRespMutex);
+        respRecCondition.wait(sentQLock, [this] { return respReceived; });
+
+        // As soon as response is received break
+        break;
+    }
+
+    // Reset the response received value
+    {
+        std::lock_guard<std::mutex> lock(addRespMutex);
+        respReceived = false;
+    }
+
+    LOGDEBUG << "Notified of PM response for add request, returning..";
+
     return err;
+}
+
+void
+OM_PmAgent::send_add_service_resp ( fpi::SvcUuid pmSvcUuid,
+                                    EPSvcRequest* req,
+                                    const Error& error,
+                                    boost::shared_ptr<std::string> payload )
+{
+    LOGNOTIFY << "Add service response received from PM: "
+              << std::hex << pmSvcUuid.svc_uuid << std::dec
+              << " for request id:" << static_cast<SvcRequestId>(req->getRequestId());
+    {
+        std::lock_guard<std::mutex> lock(addRespMutex);
+        respReceived = true;
+    }
+
+    respRecCondition.notify_one();
 }
 
 /**
