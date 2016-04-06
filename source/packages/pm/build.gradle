@@ -14,7 +14,7 @@ apply plugin: 'nebula.deb'
 task buildDeb(type: Deb) {
 
     if ( null == build_type || '' == build_type || 'nul' == build_type ) {
-        build_type = 'dbg'
+        build_type = 'debug'
     }
 
 	def build_num = "$System.env.BUILD_NUMBER"
