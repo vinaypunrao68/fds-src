@@ -81,7 +81,14 @@ namespace fds
                                 }
                                 break;
                             }
-                            default: //SVC_STATUS_ACTIVE, SVC_STATUS_DISCOVERED
+                            case FDS_ProtocolInterface::SVC_STATUS_DISCOVERED:
+                            {
+                                LOGDEBUG << "Will not monitor PM:"
+                                         << std::hex << svcUuid.svc_uuid << std::dec
+                                         << " in DISCOVERED state!";
+                                break;
+                            }
+                            default: //SVC_STATUS_ACTIVE
                             {
 
                                 if ( gl_orch_mgr->getConfigDB()->getStateSvcMap(svcUuid.svc_uuid)  == fpi::SVC_STATUS_INACTIVE_FAILED ||
@@ -167,7 +174,7 @@ namespace fds
         }
         else
         {
-            LOGDEBUG << "PM added to well known map with ID:"
+            LOGNOTIFY << "PM added to well known map with ID:"
                      << std::hex << svcUuid.svc_uuid << std::dec;
         }
 
