@@ -381,11 +381,18 @@ namespace fds
         }
         else
         {
-            LOGDEBUG << "Received heartbeat from PM: "
-                     << std::hex << svc_uuid << std::dec
-                     << ", re-adding to the well-known map";
+            if ( gl_orch_mgr->getConfigDB()->getStateSvcMap(svc_uuid) != fpi::SVC_STATUS_DISCOVERED)
+            {
+                LOGDEBUG << "Received heartbeat from PM: "
+                         << std::hex << svc_uuid << std::dec
+                         << ", re-adding to the well-known map";
 
-            updateKnownPMsMap(svcUuid, curTimeInMin, true);
+                updateKnownPMsMap(svcUuid, curTimeInMin, true);
+            } else {
+                LOGWARN << "Will not re-add PM: "
+                        << std::hex << svc_uuid << std::dec
+                        << " in DISCOVERED state to the well-known map";
+            }
 
         }
 
