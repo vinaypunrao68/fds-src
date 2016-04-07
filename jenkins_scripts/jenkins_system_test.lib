@@ -285,7 +285,7 @@ function check_cpp_cit_results
 
 function run_cpp_unit_tests
 {
-    message "IIIII RUNNING unit tests"
+    message "IIIII RUNNING c++ unit tests"
 
     # Run Unit Test
     do_pushd jenkins_scripts
@@ -462,8 +462,8 @@ function run_test_scenarios_on_real_nodes
     echo 'Formation1234' > /home/pairing/.vault_pass.txt
     echo 'Formation1234' > /root/.vault_pass.txt
 
-    message "Deploying local build on 4 bare metal"
-    ansible/scripts/deploy_fds.sh $INVENTORY local || deployment_error
+    message "IIIII Deploying local build on 4 bare metal nodes with inventory ${INVENTORY}"
+    ansible/scripts/deploy_fds.sh ${INVENTORY} local || deployment_error
 
     start_time=$(date +%s)
 
@@ -483,7 +483,7 @@ function real_test_scenario_wrapper
 
     do_pushd source/test/testsuites
     # TODO pooja: fix  fs-4375
-    message " *** In real environment: RUNNING System Test: ${scenario}"
+    message " IIIII In real environment: RUNNING System Test: ${scenario}"
     ./ScenarioDriverSuite.py -q ./${scenario}.ini -d dummy --verbose -l ../../cit/ --install -z $INVENTORY --reusecluster || system_test_error $scenario
     echo " *** Scenario completed :  ${scenario} passed"
     do_popd
