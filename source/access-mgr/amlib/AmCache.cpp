@@ -23,7 +23,7 @@ static constexpr fds_uint32_t Ki { 1024 };
 static constexpr fds_uint32_t Mi { 1024 * Ki };
 
 AmCache::AmCache(AmDataProvider* prev)
-    : AmDataProvider(prev, std::make_shared<AmDispatcher>(this)),
+    : AmDataProvider(prev, new AmDispatcher(this)),
       max_metadata_entries(0)
 {
     /**

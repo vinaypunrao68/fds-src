@@ -6,7 +6,6 @@
 #define SOURCE_ACCESS_MGR_INCLUDE_AMREQUEST_H_
 
 #include <atomic>
-#include <set>
 #include <string>
 
 #include "fds_volume.h"
@@ -32,11 +31,10 @@ struct AmRequest : public FDS_IOType {
 
     std::size_t    object_size;
     std::size_t    data_len;
-    std::size_t    blob_offset;
-    std::size_t    blob_offset_end;
+    fds_uint64_t   blob_offset;
+    fds_uint64_t   blob_offset_end;
     std::string    volume_name;
 
-    bool           absolute_offset {false};
     bool           forced_unit_access {true};
     bool           page_out_cache {false};
 
@@ -50,8 +48,8 @@ struct AmRequest : public FDS_IOType {
               const std::string&  _vol_name,
               const std::string&  _blob_name,
               CallbackPtr         _cb,
-              size_t              _blob_offset = 0,
-              size_t              _data_len = 0)
+              fds_uint64_t        _blob_offset = 0,
+              fds_uint64_t        _data_len = 0)
         : FDS_IOType(),
         volume_name(_vol_name),
         completed(false),
@@ -73,12 +71,6 @@ struct AmRequest : public FDS_IOType {
         hash_perf_ctx.reset_volid(io_vol_id);
         dm_perf_ctx.reset_volid(io_vol_id);
         sm_perf_ctx.reset_volid(io_vol_id);
-    }
-
-    void volInfoCopy(AmRequest* const req) {
-        object_size = req->object_size;
-        page_out_cache = req->page_out_cache;
-        forced_unit_access = req->forced_unit_access;
     }
 
     virtual ~AmRequest()
@@ -110,35 +102,6 @@ struct AmMultiReq : public AmRequest {
         resp_acks = cnt;
     }
 
-    void expectResponseOn(size_t const offset) {
-        expected_offset.insert(offset);
-    }
-
-    bool dependenciesDone() const {
-        if (dependencies) {
-            for (auto req : *dependencies) {
-                if (!req->expected_offset.empty()) return false;
-            }
-        } else if (!expected_offset.empty()) {
-            return false;
-        }
-        return true;
-    }
-
-    std::pair<bool, Error> notifyResponse(const Error &e, size_t const offset) {
-        if (0 < expected_offset.erase(offset) || !e.ok()) {
-            op_err = e.ok() ? op_err : e;
-
-            if (!op_err.ok() && dependencies) {
-                for (auto req : *dependencies) {
-                    req->op_err = op_err;
-                }
-            }
-        }
-        bool done = expected_offset.empty();
-        return std::make_pair(done, (done ? op_err : ERR_OK));
-    }
-
     std::pair<bool, Error> notifyResponse(const Error &e) {
         size_t acks_left = 0;
         {
@@ -152,48 +115,11 @@ struct AmMultiReq : public AmRequest {
         return std::make_pair(false, ERR_OK);
     }
 
-    Error errorCode() const { return op_err; }
-
-    void mergeDependencies(AmMultiReq* req)
-    {
-        // Create a set with ourselves if we don't have one yet
-        if (!dependencies) {
-            dependencies = std::make_shared<std::set<AmMultiReq*>>();
-            dependencies->insert(this);
-        }
-
-            // If this is a new dependency add it and reset set
-        if (dependencies->insert(req).second) {
-            // If the other request had dependencies
-            if (req->dependencies) {
-                for (auto request : *req->dependencies) {
-                    // If not already a dependency, add and reset set
-                    if (dependencies->insert(request).second) {
-                        request->dependencies = dependencies;
-                    }
-                }
-            }
-            // Now reset parent
-            req->dependencies = dependencies;
-        }
-    }
-
-    std::set<AmMultiReq*> const& allDependencies() {
-        if (!dependencies) {
-            dependencies = std::make_shared<std::set<AmMultiReq*>>();
-            dependencies->insert(this);
-        }
-        return *dependencies;
-    }
-
  protected:
     /* ack cnt for responses, decremented when response from SM and DM come back */
-    mutable std::mutex resp_lock;
-    size_t resp_acks {1};
-
-    std::set<size_t> expected_offset;
-    std::shared_ptr<std::set<AmMultiReq*>> dependencies;
+    std::mutex resp_lock;
     Error op_err {ERR_OK};
+    size_t resp_acks;
 };
 
 struct AmTxReq {
