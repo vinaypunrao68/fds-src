@@ -274,7 +274,10 @@ void VolumeGroupHandle::runOpenProtocol_(const OpenResponseCb &openCb)
              auto targetState = fpi::ResourceState::Active;
              if (functionalReplicas_.size() < quorumCnt_) {
                 targetState = fpi::ResourceState::Offline;
-                scheduleCheckOnNonfunctionalReplicas_();
+             }
+             if (nonfunctionalReplicas_.size() > 0 &&
+                 functionalReplicas_.size() >= 1) {
+                 scheduleCheckOnNonfunctionalReplicas_();
              }
 
              changeState_(targetState,
