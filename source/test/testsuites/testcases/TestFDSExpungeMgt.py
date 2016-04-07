@@ -159,15 +159,23 @@ def parse_counters_output(op):
     return op_dict
 
 
-# This method runs given command with tool fds.debug from terminal
-# @param cmd : command to run from terminal
-# @param remote_env: if remote env then run command of remote node else on local machine
-# @param om_ip: fds.debug runs on om node only
+# fds.debug is a tool and supports many functions which are not supported by fdscli
+# (as need of these functions is for developers not customers) such as smchk. gc, counters info etc
 def run_fds_debug(cmd, remote_env, om_ip):
+    """
+    Arguments
+    ----------
+    cmd : str : command to run using fds.debug tool
+    remote_env: bool: If true then run fds.debug tool on remote node else locally
+    om_ip: str : IP address of OM
+
+    Returns:
+    --------
+    op : Output of command using fds.debug too
+    """
     if remote_env:
         cmd = debug_tool_path_remote + " "+cmd
-        op = execute_command_with_fabric(cmd,remote_env=remote_env,node_ip=om_ip)
     else:
         cmd = debug_tool_path_local + " "+cmd
-        op = execute_command_with_fabric(cmd,remote_env=remote_env,node_ip=om_ip)
+    op = execute_command_with_fabric(cmd, remote_env=remote_env, node_ip=om_ip)
     return op

@@ -646,6 +646,17 @@ def disconnect_fabric():
 
 
 def execute_command_with_fabric(cmd, use_sudo=False, remote_env=None, node_ip=None):
+    """
+    Args:
+        cmd: str : command to run using fabric
+        use_sudo: boolean : if command should needs to be run as sudo or not
+        remote_env: boolean : If False or None use fabric to run local commands else remote nodes
+        node_ip: str : Use this ip address to connect remote machine
+
+    Returns:
+    --------
+    op : Output of command ran using fabric
+    """
     if remote_env:
         if node_ip is None:
             print "Can not connect to remote node without IP address"
