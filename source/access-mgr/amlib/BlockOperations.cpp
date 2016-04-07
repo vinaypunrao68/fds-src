@@ -124,7 +124,7 @@ BlockOperations::detachVolume() {
         // Only close the volume if it's the last connection
         std::unique_lock<std::mutex> lk(assoc_map_lock);
         auto itr = assoc_map.find(*volumeName);
-        if ((assoc_map.end() != itr) && (0 == --assoc_map[*volumeName])) {
+        if ((assoc_map.end() != itr) && ((true == shutting_down) || (0 == --assoc_map[*volumeName]))) {
             handle_type reqId{0, 0};
             assoc_map.erase(*volumeName);
             return amAsyncDataApi->detachVolume(reqId, domainName, volumeName);
@@ -465,22 +465,7 @@ BlockOperations::shutdown()
     shutting_down = true;
     // If we don't have any outstanding requests, we're done
     if (responses.empty()) {
-        {
-            std::unique_lock<std::mutex> lk(assoc_map_lock);
-            auto itr = assoc_map.find(*volumeName);
-            if (assoc_map.end() != itr) {
-                if (0 < itr->second) {
-                    // If there are still associations then we haven't sent a detach yet
-                    handle_type reqId{0, 0};
-                    assoc_map.erase(itr);
-                    return amAsyncDataApi->detachVolume(reqId, domainName, volumeName);
-                } else {
-                    assoc_map.erase(itr);
-                }
-            }
-        }
-        handle_type fake_req;
-        detachVolumeResp(fpi::OK, fake_req);
+        detachVolume();
     }
 }
 
