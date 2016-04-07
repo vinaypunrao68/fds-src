@@ -1441,25 +1441,28 @@ namespace fds
                 }
             }
 
-            if (nullptr == serviceRecord)
-            {
-                LOGERROR << "Unable to find a service map record for a process that platformd wished to send a Health Report on behalf of.";
-                return;
-            }
-
             std::ostringstream textualContent;
             textualContent << "Platform detected that " << procName << " (pid = " << procPid << ") " << message << ".";
 
             fpi::NotifyHealthReportPtr healthMessage (new fpi::NotifyHealthReport());
-
-            healthMessage->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid = serviceRecord->svc_id.svc_uuid.svc_uuid;
-            healthMessage->healthReport.serviceInfo.svc_id.svc_name = serviceRecord->name;
-            healthMessage->healthReport.serviceInfo.svc_port = serviceRecord->svc_port;
-            healthMessage->healthReport.serviceInfo.incarnationNo = serviceRecord->incarnationNo;
             healthMessage->healthReport.platformUUID.svc_uuid.svc_uuid = m_nodeInfo.uuid;
             healthMessage->healthReport.serviceState = state;
             healthMessage->healthReport.statusCode = fds::PLATFORM_ERROR_UNEXPECTED_CHILD_DEATH;
             healthMessage->healthReport.statusInfo = textualContent.str();
+
+            if (nullptr == serviceRecord)
+            {
+                LOGWARN << "Unable to find a service map record for a process that platformd wished to send a Health Report on behalf of.";
+                // for some reason, we have not yet received a service map with an entry for this service, so spoof one
+                healthMessage->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid = getNodeUUID(serviceType);
+            }
+            else
+            {
+                healthMessage->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid = serviceRecord->svc_id.svc_uuid.svc_uuid;
+                healthMessage->healthReport.serviceInfo.svc_id.svc_name = serviceRecord->name;
+                healthMessage->healthReport.serviceInfo.svc_port = serviceRecord->svc_port;
+                healthMessage->healthReport.serviceInfo.incarnationNo = serviceRecord->incarnationNo;
+            }
 
             auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
             auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
