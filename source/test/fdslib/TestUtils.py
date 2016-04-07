@@ -356,24 +356,24 @@ def get_config(pyUnit=False, pyUnitConfig=None, pyUnitVerbose=False, pyUnitDryru
         setattr(options, "sudo_password", "dummy")
 
     # Set a global variable inventory_file, so no need to pass for each method.
-    global inventory_file
-    inventory_file = "generic-lxc-nodes"
+    global __inventory_file__
+    __inventory_file__ = "generic-lxc-nodes"
     if "inventory_file" in params:
         if params["inventory_file"] is None:
             if pyUnitInventory is None:
                 params["inventory_file"] = "generic-lxc-nodes"
             else:
                 params["inventory_file"] = pyUnitInventory
-                inventory_file = pyUnitInventory
+                __inventory_file__ = pyUnitInventory
         setattr(options, "inventory_file", params["inventory_file"])
         inventory_file = params["inventory_file"]
     else:
         setattr(options, "inventory_file", "generic-lxc-nodes")
-    global run_as_root
+    global __run_as_root__
     if params["run_as_root"]:
-        run_as_root = True
+        __run_as_root__ = True
     else:
-        run_as_root = False
+        __run_as_root__ = False
 
     # FDS: We must have an FDS config file specified in the qaautotest .ini file for the suite.
     if params["fds_config_file"] is None:
@@ -456,7 +456,7 @@ def create_fdsConf_file(om_ip):
 
 def get_inventory_value(key_name):
     '''
-    Parse the  Ansible inventory file from global variable 'inventory_file' to this
+    Parse the  Ansible inventory file from global variable '__inventory_file__' to this
     function, and find a value for the given key.
 
     Arguments:
@@ -476,10 +476,10 @@ def get_inventory_value(key_name):
     if not isinstance(key_name, str):
         print("Invalid argument")
         raise Exception
-    inventory_path = os.path.join(TESTSUITES_INVENTORY, inventory_file)
+    inventory_path = os.path.join(TESTSUITES_INVENTORY, __inventory_file__)
     if not os.path.isfile(inventory_path):
         # Fall back to default inventory location
-        inventory_path = os.path.join(DEFAULT_INVENTORY, inventory_file)
+        inventory_path = os.path.join(DEFAULT_INVENTORY, __inventory_file__)
         if not os.path.isfile(inventory_path):
             print ('Inventory file {0} not found'.format(inventory_path))
             raise Exception
@@ -534,6 +534,8 @@ def getAuth(self, om_ip):
             continue
 
 
+# This method returns an array of IP addresses from /tmp/<inventory_file_name>+'_ips.txt' file
+# Ansible deploy dumps IP addresses after deployment in /tmp dir with name ' __inventory_file__ + '_ips.txt'
 def read_ips_from_tmp(inventory_file_name):
     filepath = '/tmp/' + inventory_file_name + '_ips.txt'
     f = open(filepath, "r")
@@ -614,7 +616,6 @@ def connect_fabric(node_ip):
 
     Parameters
     ----------
-    inventory_file : inventory_file_name
     node_ip : str
     """
     # 'env' is a global dictionary-like object driving many of Fabric's settings.

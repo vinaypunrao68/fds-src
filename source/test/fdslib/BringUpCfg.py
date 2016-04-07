@@ -14,7 +14,7 @@ import FdsSetup as inst
 import socket
 import requests
 from requests.adapters import HTTPAdapter
-import TestUtils
+from TestUtils import read_ips_from_tmp
 ###
 # Base config class, which is key/value dictionary.
 #
@@ -74,7 +74,7 @@ class FdsNodeConfig(FdsConfig):
                     log.error("Need to provide inventory file name to run tests against deployed nodes")
                     sys.exit(1)
 
-                ips_array = TestUtils.read_ips_from_tmp(cmd_line_options['inventory_file'])
+                ips_array = read_ips_from_tmp(cmd_line_options['inventory_file'])
                 if (ips_array.__len__() < (nodeId+1)):
                     # In this IPs count mismatch, we ignore extra IPs in cfg file
                     log.warning ("Number of ips give in inventory are less than nodes in cfg file")
