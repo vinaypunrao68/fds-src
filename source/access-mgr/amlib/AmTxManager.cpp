@@ -22,7 +22,7 @@
 namespace fds {
 
 AmTxManager::AmTxManager(AmDataProvider* prev)
-    : AmDataProvider(prev, std::make_shared<AmCache>(this))
+    : AmDataProvider(prev, new AmCache(this))
 {
 }
 
@@ -398,10 +398,12 @@ AmTxManager::renameBlobCb(AmRequest *amReq, Error const error) {
 void
 AmTxManager::getBlob(AmRequest *amReq) {
     GetBlobReq *blobReq = static_cast<GetBlobReq *>(amReq);
+    blobReq->blob_offset = (amReq->blob_offset * blobReq->object_size);
     blobReq->blob_offset_end = blobReq->blob_offset;
 
     // If this is a large read, the number of end offset needs to encompass
     // the extra objects required.
+    amReq->object_size = blobReq->object_size;
     if (blobReq->object_size < amReq->data_len) {
         auto const extra_objects = (amReq->data_len / blobReq->object_size) - 1
                                  + ((0 != amReq->data_len % blobReq->object_size) ? 1 : 0);
@@ -429,6 +431,7 @@ void
 AmTxManager::putBlob(AmRequest *amReq) {
     // Use a stock object ID if the length is 0.
     auto blobReq = static_cast<PutBlobReq *>(amReq);
+    blobReq->blob_offset = (blobReq->blob_offset * blobReq->object_size);
     if (amReq->data_len == 0) {
         blobReq->obj_id = ObjectID();
     } else {
@@ -465,10 +468,20 @@ AmTxManager::putBlob(AmRequest *amReq) {
 }
 
 void
-AmTxManager::updateCatalog(AmRequest *amReq) {
-    auto blobReq = static_cast<UpdateCatalogReq*>(amReq);
-    blobReq->tx_desc = boost::make_shared<BlobTxId>(randNumGen->genNumSafe());
-    AmDataProvider::updateCatalog(amReq);
+AmTxManager::putBlobOnce(AmRequest *amReq) {
+    // Use a stock object ID if the length is 0.
+    PutBlobReq *blobReq = static_cast<PutBlobReq *>(amReq);
+    blobReq->blob_offset = (blobReq->blob_offset * blobReq->object_size);
+    if (amReq->data_len == 0) {
+        blobReq->obj_id = ObjectID();
+    } else {
+        SCOPED_PERF_TRACEPOINT_CTX(amReq->hash_perf_ctx);
+        blobReq->obj_id = ObjIdGen::genObjectId(blobReq->dataPtr->c_str(), amReq->data_len);
+    }
+
+    blobReq->setTxId(randNumGen->genNumSafe());
+    auto objReq = new PutObjectReq(blobReq);
+    AmDataProvider::putObject(objReq);
 }
 
 void
@@ -497,13 +510,21 @@ void
 AmTxManager::putObjectCb(AmRequest *amReq, Error const error) {
     auto objReq = static_cast<PutObjectReq*>(amReq);
     auto blobReq = objReq->parent;
+    delete objReq;
     auto err = error;
-    if (blobReq && fds::FDS_PUT_BLOB == blobReq->io_type) {
-        delete objReq;
+    if (fds::FDS_PUT_BLOB == blobReq->io_type) {
         _putBlobCb(blobReq, err);
         return;
     }
-    AmDataProvider::putObjectCb(objReq, err);
+    if (err.ok()) {
+        // Commit the change to DM
+        auto catUpdateReq = new UpdateCatalogReq(blobReq);
+        catUpdateReq->object_list.emplace(blobReq->obj_id,
+                                          std::make_pair(blobReq->blob_offset, blobReq->data_len));
+        AmDataProvider::updateCatalog(catUpdateReq);
+        return;
+    }
+    AmDataProvider::putBlobOnceCb(blobReq, err);
 }
 
 void
@@ -538,17 +559,16 @@ void
 AmTxManager::updateCatalogCb(AmRequest* amReq, Error const error) {
     auto catReq = static_cast<UpdateCatalogReq *>(amReq);
     auto blobReq = catReq->parent;
+    delete catReq;
 
     if (fds::FDS_PUT_BLOB == blobReq->io_type) {
         _putBlobCb(blobReq, error);
-        delete catReq;
         return;
     } else if (fds::FDS_COMMIT_BLOB_TX == blobReq->io_type) {
         commitBlobTxCb(blobReq, error);
-        delete catReq;
         return;
     }
-    AmDataProvider::updateCatalogCb(catReq, error);
+    AmDataProvider::putBlobOnceCb(blobReq, error);
 }
 
 }  // namespace fds

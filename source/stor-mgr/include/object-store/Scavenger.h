@@ -284,6 +284,7 @@ class ScavControl : public Module {
      * Start scavenging
      */
     void startScavengeProcess();
+
     /**
      * Stop scavenging if it is in progress
      */

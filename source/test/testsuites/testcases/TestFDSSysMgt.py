@@ -227,7 +227,7 @@ class TestNodeActivate(TestCase.FDSTestCase):
                         return False
 
                 #sleep for 5 seconds to allow the add request to complete
-                time.sleep(5)
+                # time.sleep(5)
                 
                 if not self.expect_to_fail:
                     self.log.info("Activate service %s for node %s." % (service_name, n.nd_conf_dict['node-name']))

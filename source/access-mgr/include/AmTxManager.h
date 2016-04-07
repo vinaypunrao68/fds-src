@@ -62,7 +62,7 @@ struct AmTxManager :
     void renameBlob(AmRequest *amReq) override;
     void getBlob(AmRequest *amReq) override;
     void putBlob(AmRequest *amReq) override;
-    void updateCatalog(AmRequest *amReq) override;
+    void putBlobOnce(AmRequest *amReq) override;
 
   protected:
 

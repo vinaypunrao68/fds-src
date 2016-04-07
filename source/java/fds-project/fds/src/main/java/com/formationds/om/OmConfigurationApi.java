@@ -737,6 +737,12 @@ public class OmConfigurationApi implements com.formationds.util.thrift.Configura
         if (v == null) {
             v = refreshCacheMaybe().getVolume( volumeId );
         }
+
+        if( v == null )
+        {
+            return null;
+        }
+
         return v.getName();
     }
 
