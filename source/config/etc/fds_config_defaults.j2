@@ -74,7 +74,7 @@
 {% set sm_tiering_hybrid_frequency = fds_sm_tiering_hybrid_frequency if fds_sm_tiering_hybrid_frequency is defined else '604800' %}
 {% set sm_tiering_hybrid_enable = fds_sm_tiering_hybrid_enable if fds_sm_tiering_hybrid_enable is defined else 'true' %}
 {% set sm_scavenger_max_disks_compact = sm_scavenger_max_disks_compact if sm_scavenger_max_disks_compact is defined else '2' %}
-{% set sm_scavenger_interval_seconds = sm_scavenger_interval_seconds if sm_scavenger_interval_seconds is defined else '7200' %}
+{% set sm_scavenger_interval_seconds = sm_scavenger_interval_seconds if sm_scavenger_interval_seconds is defined else '86400' %}
 {% set sm_scavenger_expunge_threshold = sm_scavenger_expunge_threshold if sm_scavenger_expunge_threshold is defined else '3' %}
 {% set sm_scavenger_verify_data = fds_sm_scavenger_verify_data if fds_sm_scavenger_verify_data is defined else 'true' %}
 {% set sm_req_serialization = fds_sm_req_serialization if fds_sm_req_serialization is defined else 'false' %}
