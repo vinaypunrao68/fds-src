@@ -117,6 +117,7 @@ ClusterMap::getTotalStorWeight() const {
 void
 ClusterMap::resetPendServices(fpi::FDSP_MgrIdType svc_type) {
     TRACEFUNC;
+    LOGNOTIFY << "Will reset added, removed, resyncDms list";
     fds_mutex::scoped_lock l(mapMutex);
     switch (svc_type) {
         case fpi::FDSP_STOR_MGR:
@@ -148,10 +149,12 @@ ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
     fds_mutex::scoped_lock l(mapMutex);
 
     // Remove nodes from the map
-    for (NodeList::const_iterator it = rmNodes.cbegin();
-         it != rmNodes.cend();
-         it++) {
+    for (NodeList::const_iterator it = rmNodes.cbegin();it != rmNodes.cend(); it++)
+    {
         uuid = (*it)->get_uuid();
+        LOGNOTIFY << "Updating cluster map with removed svc:"
+                  << std::hex << uuid.uuid_get_val() << std::dec;
+
         if (svc_type == fpi::FDSP_STOR_MGR) {
             removed = curSmMap.erase(uuid);
             // For now, assume it's incorrect to try and remove
@@ -168,10 +171,11 @@ ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
     }
 
     // Add nodes to the map
-    for (NodeList::const_iterator it = addNodes.cbegin();
-         it != addNodes.cend();
-         it++) {
+    for (NodeList::const_iterator it = addNodes.cbegin(); it != addNodes.cend(); it++)
+    {
         uuid = (*it)->get_uuid();
+        LOGNOTIFY << "Updating cluster map with added svc:"
+                  << std::hex << uuid.uuid_get_val() << std::dec;
         if (svc_type == fpi::FDSP_STOR_MGR) {
             curSmMap[uuid] = (*it);
             addedSMs.insert(uuid);
@@ -249,6 +253,9 @@ void
 ClusterMap::rmPendingAddedService(fpi::FDSP_MgrIdType svc_type,
                                   const NodeUuid& svc_uuid) {
     TRACEFUNC;
+    LOGNOTIFY << "Attempt to remove svc uuid:"
+              << std::hex << svc_uuid.uuid_get_val() << std::dec
+              << " from added svcs list and current svcs map";
     fds_mutex::scoped_lock l(mapMutex);
     switch (svc_type) {
         case fpi::FDSP_STOR_MGR:
@@ -275,6 +282,10 @@ void
 ClusterMap::resetPendingAddedService(fpi::FDSP_MgrIdType svc_type,
                                      const NodeUuid& svc_uuid) {
     TRACEFUNC;
+    LOGNOTIFY << "Attempt to remove svc uuid:"
+              << std::hex << svc_uuid.uuid_get_val() << std::dec
+              << " from added svcs list";
+
     fds_mutex::scoped_lock l(mapMutex);
     switch (svc_type) {
         case fpi::FDSP_STOR_MGR:

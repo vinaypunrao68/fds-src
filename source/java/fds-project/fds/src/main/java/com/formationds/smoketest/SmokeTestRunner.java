@@ -1,6 +1,5 @@
 package com.formationds.smoketest;
 
-import org.apache.log4j.PropertyConfigurator;
 import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunNotifier;
 import org.junit.runners.BlockJUnit4ClassRunner;
@@ -11,7 +10,6 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Properties;
 /**
  * Copyright (c) 2014 Formation Data Systems.
  * All rights reserved.
@@ -35,7 +33,7 @@ public class SmokeTestRunner {
     }
 
     void run(String[] args) {
-        
+
         if (args.length == 0) {
             System.out.println("running all tests");
             map.values().forEach(k -> runTest(k));
@@ -65,8 +63,14 @@ public class SmokeTestRunner {
     }
 
     public static void main(String[] args) throws Exception {
+        // NOTE: for debug logging recommend passing in a -Dlog4j2.configurationFile=<file>
+        // with file containing required log configuration.  Some considerations include:
+        // rootLogger = DEBUG
+        // com.amazonaws = WARN
+        // com.amazonaws.request = DEBUG
+        // org.apache.http.wire" = DEBUG
+
         SmokeTestRunner testRunner = new SmokeTestRunner();
-        testRunner.turnLog4jOff();
         testRunner.run(args);
         System.out.flush();
         System.out.println("Smoke tests done.");
@@ -117,7 +121,7 @@ public class SmokeTestRunner {
                         }
                         return null;
                     }
-                    
+
                     @Override
                     protected void runChild(FrameworkMethod method, RunNotifier notifier) {
                         System.out.println("Running test " + klass.getName() + "." + method.getName());
@@ -138,31 +142,5 @@ public class SmokeTestRunner {
                 System.exit(1);
             }
         });
-    }
-
-
-
-    public static void turnLog4jOff() {
-        Properties properties = new Properties();
-        properties.put("log4j.rootCategory", "OFF, console");
-        properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
-        properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
-        properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");
-        PropertyConfigurator.configure(properties);
-    }
-
-    public static void turnLog4jOn(boolean enableS3Debug) {
-        Properties properties = new Properties();
-        properties.put("log4j.rootCategory", "DEBUG, console");
-        properties.put("log4j.appender.console", "org.apache.log4j.ConsoleAppender");
-        properties.put("log4j.appender.console.layout", "org.apache.log4j.PatternLayout");
-        properties.put("log4j.appender.console.layout.ConversionPattern", "%-4r [%t] %-5p %c %x - %m%n");
-
-        if(enableS3Debug) {
-            properties.put("log4j.logger.com.amazonaws", "WARN");
-            properties.put("log4j.logger.com.amazonaws.request", "DEBUG");
-            properties.put("log4j.logger.org.apache.http.wire", "DEBUG");
-        }
-        PropertyConfigurator.configure(properties);
     }
 }

@@ -7,6 +7,8 @@
 #include <fdsp/dm_api_types.h>
 #include "net/SvcRequest.h"
 #include "AmProcessor.h"
+#include "AmVolume.h"
+#include "requests/DetachVolumeReq.h"
 #include "fds_process.h"
 
 namespace fds {
@@ -29,6 +31,7 @@ AMSvcHandler::AMSvcHandler(CommonModuleProviderIf *provider,
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
     REGISTER_FDSP_MSG_HANDLER(fpi::PrepareForShutdownMsg, shutdownAM);
     REGISTER_FDSP_MSG_HANDLER(fpi::AddToVolumeGroupCtrlMsg, addToVolumeGroup);
+    REGISTER_FDSP_MSG_HANDLER(fpi::SwitchCoordinatorMsg, switchCoordinator);
 }
 
 // notifySvcChange
@@ -110,7 +113,7 @@ AMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
 
     fds_volid_t vol_uuid (vol_msg->vol_desc.volUUID);
     VolumeDesc vdesc(vol_msg->vol_desc);
-    GLOGNOTIFY << vdesc << "received modify event from OM";
+    GLOGDEBUG << vdesc << "received modify event from OM";
 
     if (amProcessor->isShuttingDown())
     {
@@ -137,32 +140,8 @@ void
 AMSvcHandler::AddVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                         boost::shared_ptr<fpi::CtrlNotifyVolAdd> &vol_msg)
 {
+    // We do nothing here...we really shouldn't get these messages at all
     Error err(ERR_OK);
-
-    fds_volid_t vol_uuid (vol_msg->vol_desc.volUUID);
-    GLOGNOTIFY << "vol:" << vol_msg->vol_desc.vol_name << " volid:" << vol_uuid << " received add event from OM";
-
-    if (amProcessor->isShuttingDown())
-    {
-        LOGDEBUG << "request rejected due to shutdown";
-        err = ERR_SHUTTING_DOWN;
-    }
-    else
-    {
-        VolumeDesc vdesc(vol_msg->vol_desc);
-
-        if (vol_uuid != invalid_vol_id) {
-            /** Registration is always a success, but the VolumeOpen may fail */
-            try {
-                amProcessor->registerVolume(vdesc);
-            } catch(Exception& e) {
-                err = e.getError();
-                GLOGWARN << "err:" << err << " volume registration failed";
-            }
-        }
-    }
-
-    // we return without wait for that to be clearly finish, not big deal.
     hdr->msg_code = err.GetErrno();
     sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolAdd), *vol_msg);
 }
@@ -345,5 +324,104 @@ AMSvcHandler::addToVolumeGroup(fpi::AsyncHdrPtr& asyncHdr,
                       *payload);
         });
 }
+
+/**
+ * Handler to handle switching of coordinator from another AM.
+ * If we can't look up the volume we immediately reply.
+ */
+void
+AMSvcHandler::switchCoordinator(boost::shared_ptr<fpi::AsyncHdr>&           hdr,
+                                fpi::SwitchCoordinatorMsgPtr&               msg)
+{
+    auto vol = amProcessor->getVolume(static_cast<fds_volid_t>(msg->volumeId));
+    if (nullptr == vol) {
+        LOGDEBUG << "volid:" << msg->volumeId << " unable to find volume";
+        completeFlush(hdr, ERR_OK);
+    } else {
+        LOGDEBUG << "vol:" << vol->name << " switching coordinator";
+        addPendingFlush(vol->name, hdr);
+    }
+}
+
+/**
+ * Track which AMs are waiting for a volume to flush.
+ * If a flush is already happening we just add it to the
+ * pending list. If this is the first flush for a volume
+ * we trigger the flush and pass it a DetachVolumeReq to queue
+ * up when it's done, which will call our callback upon completion.
+ * This ensures that all AMs will be responded to, but that we only
+ * have one flush in transit.
+ */
+void
+AMSvcHandler::addPendingFlush(std::string const&                  volName,
+                              boost::shared_ptr<fpi::AsyncHdr>&   hdr)
+{
+    std::lock_guard<std::mutex> l(_flush_map_lock);
+    auto it = _pendingFlushes.end();
+    bool happened {false};
+    std::tie(it, happened) = _pendingFlushes.emplace(volName, nullptr);
+    if (happened) {
+        it->second.reset(new std::set<boost::shared_ptr<fpi::AsyncHdr>>());
+    }
+    it->second->emplace(hdr);
+    if (happened) {
+        if (amProcessor->isShuttingDown())
+        {
+            LOGDEBUG << "request ignored due to shutdown already in progress";
+            flushCb(volName, ERR_OK);
+        } else {
+            // Closure for response call
+            auto closure = [this, volName] (DetachCallback* cb, fpi::ErrorCode const& e) mutable -> void {
+                _flushCb(volName, e);
+            };
+
+            auto callback = create_async_handler<DetachCallback>(std::move(closure));
+
+            AmRequest *volReq = new DetachVolumeReq(invalid_vol_id, volName, callback);
+            amProcessor->flushVolume(volReq, volName);
+        }
+    }
+}
+
+/**
+ * Callback that will be called when the DetachVolumeReq completes
+ * after flushing a volume. We will reply to all AMs waiting for this
+ * volume to be flushed.
+ * This call is not thread safe and if the _flush_map_lock isn't
+ * already being held, then _flushCb should be called instead.
+ */
+void
+AMSvcHandler::flushCb(std::string const& volName, Error const& err) {
+    auto it = _pendingFlushes.find(volName);
+    if (_pendingFlushes.end() != it) {
+        LOGDEBUG << "vol:" << volName << " completing flush of volume";
+        for (auto& hdr : *(it->second)) {
+            completeFlush(hdr, err);
+        }
+        _pendingFlushes.erase(it);
+    } else {
+        LOGERROR << "vol:" << volName << " unable to find pending flush";
+    }
+}
+
+/**
+ * Should be called when lock isn't already held, such as the callback case.
+ */
+void
+AMSvcHandler::_flushCb(std::string const& volName, Error const& err) {
+    std::lock_guard<std::mutex> l(_flush_map_lock);
+    flushCb(volName, err);
+}
+
+/**
+ * Reply to AM when switching of coordinator is complete.
+ */
+void
+AMSvcHandler::completeFlush(boost::shared_ptr<fpi::AsyncHdr> const& hdr, Error const& err) {
+    hdr->msg_code = err.GetErrno();
+    fpi::SwitchCoordinatorRespMsg vol_msg{};
+    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::SwitchCoordinatorRespMsg), vol_msg);
+}
+
 
 }  // namespace fds

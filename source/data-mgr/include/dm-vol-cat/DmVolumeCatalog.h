@@ -4,23 +4,25 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMVOLUMECATALOG_H_
 #define SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMVOLUMECATALOG_H_
 
-#include <string>
+// Standard includes.
 #include <set>
+#include <string>
 #include <vector>
 
-#include <fds_error.h>
-#include <fds_types.h>
-#include <fds_volume.h>
-#include <util/Log.h>
-#include <concurrency/Mutex.h>
-
-#include <VcQueryIface.h>
-#include <blob/BlobTypes.h>
-#include <DmBlobTypes.h>
-#include <dm-vol-cat/DmPersistVolCat.h>
+// Internal includes.
+#include "blob/BlobTypes.h"
+#include "concurrency/Mutex.h"
+#include "dm-vol-cat/DmPersistVolCat.h"
+#include "util/Log.h"
+#include "DmBlobTypes.h"
+#include "fds_error.h"
+#include "fds_types.h"
+#include "fds_volume.h"
+#include "VcQueryIface.h"
 
 namespace fds {
-    class VolumeMeta;
+
+class VolumeMeta;
 
 /**
  * This modules stores all blob metadata and object ids for
@@ -50,9 +52,7 @@ class DmVolumeCatalog : public HasModuleProvider,
         return (blobSize - getLastObjSize(blobSize, objSize));
     }
 
-    // ctor and dtor
-    explicit DmVolumeCatalog(CommonModuleProviderIf* modProvider,
-                             char const * const name);
+    DmVolumeCatalog(CommonModuleProviderIf* modProvider, char const* const name);
     ~DmVolumeCatalog();
 
     // Methods
@@ -337,6 +337,15 @@ class DmVolumeCatalog : public HasModuleProvider,
 
     Error getVersion(fds_volid_t volId, int32_t &version) override;
   private:
+
+    // vars
+    std::unordered_map<fds_volid_t, DmPersistVolCat::ptr> volMap_;
+    fds_mutex volMapLock_;
+
+    expunge_objs_cb_t expungeCb_;
+
+    bool _ft_newStats;
+
     // methods
     Error statVolumeInternal(fds_volid_t volId, fds_uint64_t * volSize,
                              fds_uint64_t * blobCount, fds_uint64_t * objCount);
@@ -347,11 +356,7 @@ class DmVolumeCatalog : public HasModuleProvider,
         }
     }
 
-    // vars
-    std::unordered_map<fds_volid_t, DmPersistVolCat::ptr> volMap_;
-    fds_mutex volMapLock_;
-
-    expunge_objs_cb_t expungeCb_;
+    void _updateLBytes (fds_volid_t volId);
 };
 }  // namespace fds
 #endif  // SOURCE_DATA_MGR_INCLUDE_DM_VOL_CAT_DMVOLUMECATALOG_H_

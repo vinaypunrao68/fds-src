@@ -1,3 +1,6 @@
+/**
+ * Copyright (c) 2014 Formation Data Systems, Inc.
+ */
 package com.formationds.hadoop;
 
 import com.formationds.apis.ConfigurationService;
@@ -15,7 +18,8 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.joda.time.Duration;
 
 import java.io.FileNotFoundException;
@@ -26,9 +30,6 @@ import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 
-/**
- * Copyright (c) 2014 Formation Data Systems, Inc.
- */
 
 // NOTE: this class has limitations
 //
@@ -46,7 +47,7 @@ import java.util.concurrent.ExecutionException;
 // - platform support does not exist for rename() - it does a copy and then a delete instead
 //
 public class FdsFileSystem extends FileSystem {
-    private static final Logger LOG = Logger.getLogger(FdsFileSystem.class);
+    private static final Logger LOG = LogManager.getLogger(FdsFileSystem.class);
     public static final String DOMAIN = "HDFS";
     public static final String DIRECTORY_SPECIFIER_KEY = "directory";
     public static final String LAST_MODIFIED_KEY = "last-modified";

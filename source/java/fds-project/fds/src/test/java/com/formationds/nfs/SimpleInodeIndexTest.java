@@ -19,7 +19,7 @@ public class SimpleInodeIndexTest {
     @Test
     public void testIndex() throws Exception {
         ExportResolver exportResolver = new StubExportResolver(VOLUME, MAX_OBJECT_SIZE, Long.MAX_VALUE);
-        IoOps io = new MemoryIoOps(MAX_OBJECT_SIZE);
+        IoOps io = new MemoryIoOps();
         SimpleInodeIndex index = new SimpleInodeIndex(io, exportResolver);
         int exportId = exportResolver.nfsExportId(VOLUME);
         int parentId = 3;

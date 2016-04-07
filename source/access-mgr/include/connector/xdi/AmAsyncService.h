@@ -23,6 +23,7 @@
 
 namespace fds {
 
+struct AmRequest;
 struct AmProcessor;
 
 namespace xdi_at  = apache::thrift;
@@ -30,6 +31,8 @@ namespace xdi_att = apache::thrift::transport;
 namespace xdi_atc = apache::thrift::concurrency;
 namespace xdi_atp = apache::thrift::protocol;
 namespace xdi_ats = apache::thrift::server;
+
+class AsyncAmServiceRequestIfCloneFactory;
 
 /**
  * RPC-based async server for XDI. Exposes AM data interface via
@@ -44,9 +47,14 @@ class AsyncDataServer {
     boost::shared_ptr<xdi_atp::TProtocolFactory>  protocolFactory;
     boost::shared_ptr<xdi_at::TProcessorFactory>  processorFactory;
 
+    boost::shared_ptr<AsyncAmServiceRequestIfCloneFactory> cloneFactory;
+
     std::unique_ptr<xdi_ats::TThreadedServer>    ttServer;
 
-    std::shared_ptr<std::thread> listen_thread;
+    std::shared_ptr<std::thread>                 listen_thread;
+
+    std::weak_ptr<AmProcessor>                   _processor;
+    fds_uint32_t                                 _pmPort;
 
   public:
     AsyncDataServer(std::weak_ptr<AmProcessor> processor, fds_uint32_t pmPort);
@@ -57,6 +65,8 @@ class AsyncDataServer {
 
     void start();
     void stop();
+
+    void flushVolume(AmRequest* req, std::string const& vol);
 };
 
 }  // namespace fds

@@ -816,7 +816,10 @@ OM_NodeAgent::init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const
 // ---------------------------------------------------------------------------------
 OM_PmAgent::~OM_PmAgent() {}
 OM_PmAgent::OM_PmAgent(const NodeUuid &uuid)
-        : OM_NodeAgent(uuid, fpi::FDSP_PLATFORM){}
+        : OM_NodeAgent(uuid, fpi::FDSP_PLATFORM)
+{
+    respReceived = false;
+}
 
 void
 OM_PmAgent::init_msg_hdr(fpi::FDSP_MsgHdrTypePtr msgHdr) const
@@ -1343,6 +1346,14 @@ OM_PmAgent::send_add_service
             break;
     }
 
+    // Add this PM to the well-known PMs map
+    fpi::SvcUuid svcUuid;
+    svcUuid.svc_uuid     = get_uuid().uuid_get_val();
+    auto curTime         = std::chrono::system_clock::now().time_since_epoch();
+    double timeInMinutes = std::chrono::duration<double,std::ratio<60>>(curTime).count();
+
+    gl_orch_mgr->omMonitor->updateKnownPMsMap(svcUuid, timeInMinutes, false );
+
     // The svcInfos list usually also contains the OM and the PM
     // so ensure we update svc states only for sm,dm,am
     for (auto item: svcInfos) {
@@ -1409,12 +1420,51 @@ OM_PmAgent::send_add_service
                             boost::make_shared<fpi::NotifyAddServiceMsg>();
     std::vector<fpi::SvcInfo>& svcInfoVector = addServiceMsg->services;
     svcInfoVector = svcInfos;
-
     auto req =  gSvcRequestPool->newEPSvcRequest(svc_uuid);
     req->setPayload(FDSP_MSG_TYPEID(fpi::NotifyAddServiceMsg), addServiceMsg);
+
+
+    req->onResponseCb(std::bind(&OM_PmAgent::send_add_service_resp, this,
+                                svcUuid,
+                                std::placeholders::_1, std::placeholders::_2,
+                                std::placeholders::_3));
     req->invoke();
 
+    while (true) {
+
+        std::unique_lock<std::mutex> respLock(addRespMutex);
+        respRecCondition.wait(respLock, [this] { return respReceived; });
+
+        // As soon as response is received break
+        break;
+    }
+
+    // Reset the response received value
+    {
+        std::lock_guard<std::mutex> lock(addRespMutex);
+        respReceived = false;
+    }
+
+    LOGDEBUG << "Notified of PM response for add request, returning..";
+
     return err;
+}
+
+void
+OM_PmAgent::send_add_service_resp ( fpi::SvcUuid pmSvcUuid,
+                                    EPSvcRequest* req,
+                                    const Error& error,
+                                    boost::shared_ptr<std::string> payload )
+{
+    LOGNOTIFY << "Add service response received from PM: "
+              << std::hex << pmSvcUuid.svc_uuid << std::dec
+              << " for request id:" << static_cast<SvcRequestId>(req->getRequestId());
+    {
+        std::lock_guard<std::mutex> lock(addRespMutex);
+        respReceived = true;
+    }
+
+    respRecCondition.notify_one();
 }
 
 /**
@@ -2913,7 +2963,12 @@ om_prepare_services_start
 {
     TRACEFUNC;
 
-    LOGDEBUG << "!!om_prepare_services_start";
+    LOGDEBUG << "Prepare start services for node:"
+             << std::hex << node->get_uuid().uuid_get_val() << std::dec
+             << " start_sm?" << start_sm
+             << " start_dm?" << start_dm
+             << " start_am?" << start_am;
+
     std::vector<fpi::SvcInfo> svcInfoList;
     Error err(ERR_OK);
 
@@ -2933,7 +2988,8 @@ om_prepare_services_start
     // First add the services
     err = OM_NodeDomainMod::om_loc_domain_ctrl()->om_add_service(pmSvcUuid,
                                                                  svcInfoList);
-    if (err == ERR_OK) {
+    if (err == ERR_OK)
+    {
         bool domainRestart = false;
         bool startNode     = true;
         // Now start the services
@@ -3221,9 +3277,6 @@ om_prepare_services_stop(fds_bool_t stop_sm,
                          fds_bool_t stop_am,
                          NodeAgent::pointer node)
 {
-    LOGDEBUG << "stop_sm " << stop_sm << ", stop_dm "
-             << stop_dm << ", stop_am " <<stop_am;
-
     std::vector<fpi::SvcInfo> svcInfoList;
     Error err(ERR_OK);
 
@@ -3235,30 +3288,82 @@ om_prepare_services_stop(fds_bool_t stop_sm,
         NodeServices services;
         kvstore::ConfigDB *configDB = gl_orch_mgr->getConfigDB();
 
-        if (configDB->getNodeServices(node->get_uuid(), services)) {
+        if (configDB->getNodeServices(node->get_uuid(), services))
+        {
             fpi::SvcInfo svcInfo;
             fpi::SvcUuid svcUuid;
-            if (services.am.uuid_get_val() != 0) {
-                stop_am = true;
+            if (services.am.uuid_get_val() != 0)
+            {
                 svcUuid.svc_uuid = services.am.uuid_get_val();
                 bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo);
                 if (ret) {
+                    stop_am = true;
+                    svcInfoList.push_back(svcInfo);
+                }
+            } else {
+                fpi::SvcUuid svcUuid;
+                fpi::SvcInfo svcInfo;
+
+                fds::retrieveSvcId(node->get_uuid().uuid_get_val(), svcUuid, fpi::FDSP_ACCESS_MGR);
+
+                // If the uuid in nodeServices is 0, but there is a svcInfo in configDB, it
+                // implies the service was either added or started but never registered.
+                // We don't care either way, let it go down the stop path and get set to
+                // the correct state so we don't mess up on OM restart
+                if (configDB->getSvcInfo(svcUuid.svc_uuid, svcInfo))
+                {
+                    LOGNOTIFY << "Will stop unregistered AM:" << std::hex
+                              << svcUuid.svc_uuid << std::dec
+                              << " in state:" << OmExtUtilApi::printSvcStatus(svcInfo.svc_status);
+
+                    stop_am = true;
                     svcInfoList.push_back(svcInfo);
                 }
             }
-            if (services.sm.uuid_get_val() != 0) {
-                stop_sm = true;
+            if (services.sm.uuid_get_val() != 0)
+            {
                 svcUuid.svc_uuid = services.sm.uuid_get_val();
                 bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo);
                 if (ret) {
+                    stop_sm = true;
+                    svcInfoList.push_back(svcInfo);
+                }
+            } else {
+                fpi::SvcUuid svcUuid;
+                fpi::SvcInfo svcInfo;
+
+                fds::retrieveSvcId(node->get_uuid().uuid_get_val(), svcUuid, fpi::FDSP_STOR_MGR);
+
+                if (configDB->getSvcInfo(svcUuid.svc_uuid, svcInfo))
+                {
+                    LOGNOTIFY << "Will stop unregistered SM:" << std::hex
+                              << svcUuid.svc_uuid << std::dec
+                              << " in state:" << OmExtUtilApi::printSvcStatus(svcInfo.svc_status);
+                    stop_sm = true;
                     svcInfoList.push_back(svcInfo);
                 }
             }
-            if (services.dm.uuid_get_val() != 0) {
-                stop_dm = true;
+
+            if (services.dm.uuid_get_val() != 0)
+            {
                 svcUuid.svc_uuid = services.dm.uuid_get_val();
                 bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, svcInfo);
                 if (ret) {
+                    stop_dm = true;
+                    svcInfoList.push_back(svcInfo);
+                }
+            } else {
+                fpi::SvcUuid svcUuid;
+                fpi::SvcInfo svcInfo;
+
+                fds::retrieveSvcId(node->get_uuid().uuid_get_val(), svcUuid, fpi::FDSP_DATA_MGR);
+
+                if (configDB->getSvcInfo(svcUuid.svc_uuid, svcInfo))
+                {
+                    LOGNOTIFY << "Will stop unregistered DM:" << std::hex
+                              << svcUuid.svc_uuid << std::dec
+                              << " in state:" << OmExtUtilApi::printSvcStatus(svcInfo.svc_status);
+                    stop_dm = true;
                     svcInfoList.push_back(svcInfo);
                 }
             }

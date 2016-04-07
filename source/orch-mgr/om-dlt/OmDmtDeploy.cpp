@@ -1126,11 +1126,16 @@ DmtDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
       */
     // In case new DMs got added or DMs got removed while we were
     // deploying current DMT, start timer to try deploy a DMT again
-//    if (!src.tryAgainTimer->schedule(src.tryAgainTimerTask,
-//                                     std::chrono::seconds(1))) {
-//        LOGWARN << "Failed to start try again timer!!!"
-//                << " DM additions/deletions may be pending for long time";
-//    }
+
+    // 4/1/2016 @meena from what I have observed in the current behavior, the very
+    // first DMT deploy from DM registration in setupNewNode is still in process when
+    // rest of registrations come in (causing a noTransition from the DmtDeployEvt in
+    // ::setupNewNode for all other DMs. So re-enable this to ensure all DMs are included in the DMT
+    if (!src.tryAgainTimer->schedule(src.tryAgainTimerTask,
+                                     std::chrono::seconds(1))) {
+        LOGWARN << "Failed to start try again timer!!!"
+                << " DM additions/deletions may be pending for long time";
+    }
 
     LOGNOTIFY << "DM Migration Completed" << "(migrationid: " << vp->getCommittedDMTVersion() << ")";
 }

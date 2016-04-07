@@ -161,8 +161,10 @@ struct OpenVolumeMsg {
   2: required common.VolumeAccessMode   mode;
   /** Existing token */
   3: optional i64                       token = 0;
+  /** Whether to force setting the coordinator. Only valid in write mode */
+  4: bool                               force = false;
   /** Volume group handle requesting the open */
-  4: svc_types.VolumeGroupCoordinatorInfo coordinator;
+  5: svc_types.VolumeGroupCoordinatorInfo coordinator;
 }
 
 /**

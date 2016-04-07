@@ -11,18 +11,31 @@
 #include <net/volumegroup_extensions.h>
 #include <boost/circular_buffer.hpp>
 
-#define GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb, msg) \
+#define GROUPHANDLE_ACCESS_CHECK_CB(isWrite, cb, msg) \
     if (state_ != fpi::ResourceState::Active) { \
-        LOGWARN << logString() << fds::logString(*msg) << " Unavailable"; \
-        cb(ERR_VOLUMEGROUP_DOWN, nullptr); \
+        if (state_ == fpi::ResourceState::Loading) { \
+            LOGWARN << logString() << fds::logString(*msg) << " open in progress"; \
+            cb(ERR_VOLUMEGROUP_NOT_OPEN, nullptr); \
+            return; \
+        } else { \
+            if (isWrite || \
+                state_ != fpi::ResourceState::Offline || \
+                functionalReplicas_.size() == 0) { \
+                LOGWARN << logString() << fds::logString(*msg) << " Unavailable"; \
+                cb(ERR_VOLUMEGROUP_DOWN, nullptr); \
+                return; \
+            } \
+            /* Read request when state is offline with at least one functional replica is ok */ \
+        } \
+    } else if (isWrite && !isCoordinator_) { \
+        LOGWARN << logString() << fds::logString(*msg) << " must be a coordinator to do write"; \
+        cb(ERR_INVALID, nullptr); \
+        return; \
+    } else if (closeCb_) { \
+        LOGWARN << logString() << fds::logString(*msg) << " invalid request on a closed handle"; \
+        cb(ERR_INVALID, nullptr); \
         return; \
     }
-#define GROUPHANDLE_FUNCTIONAL_CHECK() \
-    if (state_ != fpi::ResourceState::Active) { \
-        LOGWARN << logString() << " Unavailable"; \
-        return; \
-    }
-
 
 namespace fds {
 // Some logging routines have external linkage
@@ -139,6 +152,9 @@ struct VolumeGroupRequest : MultiEpSvcRequest {
                         VolumeGroupHandle *groupHandle);
     virtual ~VolumeGroupRequest();
 
+    virtual void invoke() override;
+    void complete(const Error& error) override;
+
     virtual std::string logString() override;
 
     VolumeGroupHandle          *groupHandle_; 
@@ -157,7 +173,6 @@ struct VolumeGroupRequest : MultiEpSvcRequest {
 struct VolumeGroupBroadcastRequest : VolumeGroupRequest {
     /* Constructors inherited */
     using VolumeGroupRequest::VolumeGroupRequest;
-    virtual void invoke() override;
     virtual void handleResponse(SHPTR<fpi::AsyncHdr>& header,
                                 SHPTR<std::string>& payload) override;
  protected:
@@ -170,11 +185,16 @@ struct VolumeGroupBroadcastRequest : VolumeGroupRequest {
 struct VolumeGroupFailoverRequest : VolumeGroupRequest {
     /* Constructors inherited */
     using VolumeGroupRequest::VolumeGroupRequest;
-    virtual void invoke() override;
     virtual void handleResponse(SHPTR<fpi::AsyncHdr>& header,
                                 SHPTR<std::string>& payload) override;
+    inline void setAvailableReplicas(const std::vector<VolumeReplicaHandle> &replicas) {
+        availableReplicas_ = replicas;
+    }
+
  protected:
     virtual void invokeWork_() override;
+
+    std::vector<VolumeReplicaHandle>   availableReplicas_;
 };
 
 /**
@@ -182,6 +202,12 @@ struct VolumeGroupFailoverRequest : VolumeGroupRequest {
 */
 struct VolumeGroupHandleListener {
     virtual bool isError(const fpi::FDSPMsgTypeId &reqMsgTypeId, const Error &e) = 0;
+};
+
+struct CoordinatorSwitchCtx {
+    fpi::SvcUuid            currentCoordinator;
+    /* # of times switch was attempted */
+    int                     triesCnt {0};
 };
 
 /**
@@ -195,7 +221,9 @@ struct VolumeGroupHandleListener {
 * Following are states for VolumeGroupHandle
 * Unknown - Prior open is called
 * Initing - Open is in progress
-* Active - # of functional replicas >= quorum count
+* Active - # of functional replicas >= quorum count.  When active, if close is called, we drain
+* all the pending requests before calling close cb.  After close is called, the expectation is,
+* no new requests can come in.
 * Offline - # of function replicas < qourm count
 */
 struct VolumeGroupHandle : HasModuleProvider, StateProvider {
@@ -207,6 +235,8 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
      * Exposed as public/non-const so that it can be tuned for unit testing
      */
     static uint32_t                     GROUPCHECK_INTERVAL_SEC;
+    static uint32_t                     IO_TIMEOUT_MS;
+    static uint32_t                     COORDINATOR_SWITCH_TIMEOUT_MS;
 
     VolumeGroupHandle(CommonModuleProviderIf* provider,
                       const fds_volid_t& volId,
@@ -270,9 +300,10 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     void incRef();
     void decRef();
 
-    std::vector<VolumeReplicaHandle*> getIoReadyReplicaHandles();
+    std::vector<VolumeReplicaHandle*> getWriteableReplicaHandles();
     VolumeReplicaHandle* getFunctionalReplicaHandle();
     std::vector<fpi::SvcUuid> getAllReplicas() const;
+    std::vector<fpi::SvcUuid> getFunctionalReplicas() const;
 
     inline const uint32_t& getQuorumCnt() const { return quorumCnt_; }
     inline bool isFunctional() const { return state_ == fpi::ResourceState::Active; }
@@ -286,6 +317,10 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     }
     inline uint32_t getFunctionalReplicasCnt() const { return functionalReplicas_.size(); }
     std::string logString() const;
+    inline int32_t getRefCnt() const { return refCnt_; }
+    inline bool isSynchronized() const {
+        return std::this_thread::get_id() == threadId_;
+    }
 
  protected:
     template<class MsgT, class ReqT>
@@ -305,6 +340,7 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
             writeOpsBuffer_->push_back(std::make_pair(msgTypeId, payload));
         }
         req->setPayloadBuf(msgTypeId, payload);
+        req->setTimeoutMs(IO_TIMEOUT_MS);
         req->responseCb_ = cb;
         req->setTaskExecutorId(groupId_);
         req->invoke();
@@ -312,12 +348,17 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
         return req;
     }
 
+    void runOpenProtocol_(const OpenResponseCb &cb);
+    void runCoordinatorSwitchProtocol_(const OpenResponseCb &cb);
+
     bool replayFromWriteOpsBuffer_(const VolumeReplicaHandle &handle, const int64_t fromOpId);
     void toggleWriteOpsBuffering_(bool enable);
     void resetGroup_(fpi::ResourceState state);
     EPSvcRequestPtr createSetVolumeGroupCoordinatorMsgReq_(bool clearCoordinator = false);
     QuorumSvcRequestPtr createPreareOpenVolumeGroupMsgReq_();
-    fpi::OpenVolumeRspMsgPtr determineFunctaionalReplicas_(QuorumSvcRequest* openReq);
+    void determineFunctaionalReplicas_(QuorumSvcRequest* openReq);
+    void handleOpenResponseForNonCoordinator_(QuorumSvcRequest* openReq,
+                                              const OpenResponseCb &cb);
     QuorumSvcRequestPtr createBroadcastGroupInfoReq_();
     void changeState_(const fpi::ResourceState &targetState,
                       bool cleanReplicas,
@@ -334,8 +375,14 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     VolumeReplicaHandleList& getVolumeReplicaHandleList_(const fpi::ResourceState& s);
     void scheduleCheckOnNonfunctionalReplicas_();
     void checkOnNonFunctaionalReplicas_();
+    void closeHandle_();
 
     SynchronizedTaskExecutor<uint64_t>  *taskExecutor_;
+    /* ID of the thread on which all work related to this handle is done on.
+     * Cached here for ensuring all synchronized tasks are done on this thread id 
+     */
+    std::thread::id                     threadId_;
+
     SvcRequestPool                      *requestMgr_;
     VolumeGroupHandleListener           *listener_ {nullptr};
     VolumeReplicaHandleList             functionalReplicas_;
@@ -371,10 +418,18 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
     VoidCb                              closeCb_;
     /* Whether check on non-functional replicas is in progress */
     bool                                checkOnNonFunctionalScheduled_;
+    /* Whether the group handle is coordinator or not.  Coordinator has write access/
+     * as well as responsibility to coordinate replication
+     */
+    bool                                isCoordinator_;
+
+    /* Context kept around when coordinator switch is in progress */
+    std::unique_ptr<CoordinatorSwitchCtx> switchCtx_;
 
     static const uint32_t               WRITEOPS_BUFFER_SZ = 1024;
 
     friend class VolumeGroupBroadcastRequest;
+    friend class VolumeGroupFailoverRequest;
 };
 
 template<class MsgT>
@@ -384,13 +439,17 @@ void VolumeGroupHandle::sendReadMsg(const fpi::FDSPMsgTypeId &msgTypeId,
     fds_assert(!closeCb_);
 
     runSynchronized([this, msgTypeId, msg, cb]() mutable {
-        GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb, msg);
+        GROUPHANDLE_ACCESS_CHECK_CB(false, cb, msg);
 
         /* Create a request and send */
         auto req = requestMgr_->newSvcRequest<VolumeGroupFailoverRequest>(this);
         req->setPayload(msgTypeId, msg);
+        req->setTimeoutMs(IO_TIMEOUT_MS);
         req->responseCb_ = cb;
         req->setTaskExecutorId(groupId_);
+        if (!isCoordinator_) {
+            req->setAvailableReplicas(functionalReplicas_);
+        }
         req->invoke();
     });
 }
@@ -401,7 +460,7 @@ void VolumeGroupHandle::sendModifyMsg(const fpi::FDSPMsgTypeId &msgTypeId,
     fds_assert(!closeCb_);
 
     runSynchronized([this, msgTypeId, msg, cb]() mutable {
-        GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb, msg);
+        GROUPHANDLE_ACCESS_CHECK_CB(true, cb, msg);
 
         opSeqNo_++;
         sendWriteReq_<MsgT, VolumeGroupBroadcastRequest>(msgTypeId, msg, cb);
@@ -414,7 +473,7 @@ void VolumeGroupHandle::sendCommitMsg(const fpi::FDSPMsgTypeId &msgTypeId,
     fds_assert(!closeCb_);
 
     runSynchronized([this, msgTypeId, msg, cb]() mutable {
-        GROUPHANDLE_FUNCTIONAL_CHECK_CB(cb, msg);
+        GROUPHANDLE_ACCESS_CHECK_CB(true, cb, msg);
 
         opSeqNo_++;
         commitNo_++;

@@ -15,6 +15,7 @@ user_fds_ar_libs  := \
     fds-plat-lib
 
 user_non_fds_libs := \
+	fdsStatsUtil-debug \
     jemalloc \
     leveldb \
     ical \
@@ -26,6 +27,7 @@ user_cpp          := \
     OMSvcProcess.cpp \
     SvcRequestMgr_gtest.cpp \
     SvcServer_gtest.cpp \
+    SvcServerMultiplex_t.cpp \
     SvcMgr_gtest.cpp \
     SvcMapChecker.cpp \
     VolumeGroupHandle_gtest.cpp
@@ -34,6 +36,7 @@ user_cpp          := \
 user_no_style     :=
 
 user_bin_exe      := \
+    svcserver_multiplex_gtest \
 	testsvc \
 	omsvc \
 	svcrequestmgr_gtest \
@@ -46,6 +49,7 @@ omsvc := OMSvcProcess.cpp
 testsvc := TestSvcProcess.cpp
 svcrequestmgr_gtest := SvcRequestMgr_gtest.cpp
 svcserver_gtest := SvcServer_gtest.cpp
+svcserver_multiplex_gtest := SvcServerMultiplex_t.cpp
 svcmgr_gtest := SvcMgr_gtest.cpp
 svcmapchecker := SvcMapChecker.cpp
 volumegrouphandle_gtest := VolumeGroupHandle_gtest.cpp

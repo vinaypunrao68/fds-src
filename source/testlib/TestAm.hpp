@@ -45,6 +45,8 @@ struct TestAm : SvcProcess {
              "fds.am.", "am.log", nullptr, handler_, processors);
         REGISTER_FDSP_MSG_HANDLER_GENERIC(handler_, \
                                           fpi::AddToVolumeGroupCtrlMsg, addToVolumeGroup);
+        REGISTER_FDSP_MSG_HANDLER_GENERIC(handler_, \
+                                          fpi::SwitchCoordinatorMsg, switchCoordinator);
     }
     virtual int run() override
     {
@@ -68,6 +70,14 @@ struct TestAm : SvcProcess {
                                     FDSP_MSG_TYPEID(fpi::AddToVolumeGroupRespCtrlMsg),
                                     *payload);
             });
+    }
+    void switchCoordinator(fpi::AsyncHdrPtr& asyncHdr,
+                          fpi::SwitchCoordinatorMsgPtr& msg) {
+        vc_->close([]() {});
+        auto resp = MAKE_SHARED<fpi::SwitchCoordinatorRespMsg>();
+        handler_->sendAsyncResp(*asyncHdr,
+                                FDSP_MSG_TYPEID(fpi::SwitchCoordinatorRespMsg),
+                                *resp);
     }
     PlatNetSvcHandlerPtr handler_;
     VolumeGroupHandle *vc_{nullptr};

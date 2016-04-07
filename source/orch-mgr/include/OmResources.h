@@ -247,6 +247,10 @@ class OM_PmAgent : public OM_NodeAgent
      * Send 'add service' message to Platform
      */
     Error send_add_service(const fpi::SvcUuid svc_uuid, std::vector<fpi::SvcInfo> svcInfos);
+    void  send_add_service_resp ( fpi::SvcUuid pmSvcUuid,
+                                  EPSvcRequest* req,
+                                  const Error& error,
+                                  boost::shared_ptr<std::string> payload );
     /**
      * Send 'start service' message to Platform
      */
@@ -365,6 +369,11 @@ class OM_PmAgent : public OM_NodeAgent
 
   private:
     fds_mutex               dbNodeInfoLock;
+    // Used to block add service requests from returning
+    // until PM response has been received
+    bool                    respReceived;
+    std::mutex              addRespMutex;
+    std::condition_variable respRecCondition;
 };
 
 // -------------------------------------------------------------------------------------
@@ -988,7 +997,7 @@ class OM_NodeDomainMod : public Module
      * Changes the state of a service and broadcasts its service map
      */
     virtual void
-    om_change_svc_state_and_bcast_svcmap(boost::shared_ptr<fpi::SvcInfo> svcInfo,
+    om_change_svc_state_and_bcast_svcmap(fpi::SvcInfo svcInfo,
                                          fpi::FDSP_MgrIdType svcType,
                                          const fpi::ServiceStatus status);
     

@@ -70,7 +70,7 @@ public class VolumeStateSequencer {
             VolumeAccessMode vam = new VolumeAccessMode();
             vam.setCan_write(true);
             vam.setCan_cache(true);
-            return dm.openVolume(new OpenVolumeMsg(volumeId, vam, null))
+            return dm.openVolume(new OpenVolumeMsg(volumeId, vam, false, null))
                     .thenAccept(msg -> responses.add(msg));
         }).thenCompose(_null -> makeStateFromResults(responses));
     }

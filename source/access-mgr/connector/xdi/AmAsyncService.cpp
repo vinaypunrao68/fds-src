@@ -12,10 +12,15 @@
 #include <concurrency/Mutex.h>
 #include <fds_process.h>
 
+#include "AmProcessor.h"
+
 #include "connector/xdi/AmAsyncService.h"
 #include "connector/xdi/AmAsyncXdi.h"
+#include "connector/xdi/XdiRestfulInterface.h"
 
 namespace fds {
+
+using ip_list = std::unordered_set<std::string>;
 
 struct AmProcessor;
 
@@ -34,6 +39,12 @@ class AsyncAmServiceRequestIfCloneFactory
 
     request_if* getHandler(const xdi_at::TConnectionInfo& connInfo);
     void releaseHandler(request_if* handler);
+
+    void getIps(ip_list& ip);
+ private:
+    // Stores a list of IPs of currently connected XDIs
+    std::map<request_if*, std::string>       _connectedXdi;
+    std::mutex                               _connectedXdiLock;
 };
 
 AsyncAmServiceRequestIfCloneFactory::request_if*
@@ -51,17 +62,38 @@ AsyncAmServiceRequestIfCloneFactory::getHandler(const xdi_at::TConnectionInfo& c
         boost::dynamic_pointer_cast<xdi_att::TSocket>(connInfo.transport);
     fds_assert(sock.get());
     LOGNORMAL << "peer:" << sock->getPeerAddress() << " asynchronous Xdi connection";
-    return new AmAsyncXdiRequest(amProcessor,
-                                 boost::make_shared<AmAsyncXdiResponse>(sock->getPeerAddress()));
+    request_if* ri = new AmAsyncXdiRequest(amProcessor,
+            boost::make_shared<AmAsyncXdiResponse>(sock->getPeerAddress()));
+    {
+        std::lock_guard<std::mutex> l(_connectedXdiLock);
+        _connectedXdi.insert(std::make_pair(ri, sock->getPeerAddress()));
+    }
+    return ri;
 }
 
 void
 AsyncAmServiceRequestIfCloneFactory::releaseHandler(request_if* handler) {
+    {
+        std::lock_guard<std::mutex> l(_connectedXdiLock);
+        auto it = _connectedXdi.find(handler);
+        if (_connectedXdi.end() != it) {
+            _connectedXdi.erase(it);
+        }
+    }
     delete handler;
 }
 
+void AsyncAmServiceRequestIfCloneFactory::getIps(std::unordered_set<std::string>& ip) {
+    // loop through all the handles and by inserting into an unordered_set we will
+    // get a list of all the unique IPs from the map.
+    std::lock_guard<std::mutex> l(_connectedXdiLock);
+    for (auto const& i : _connectedXdi) {
+        ip.insert(i.second);
+    }
+}
+
 AsyncDataServer::AsyncDataServer(std::weak_ptr<AmProcessor> processor,
-                                 fds_uint32_t pmPort)
+                                 fds_uint32_t pmPort) : _processor(processor), _pmPort(pmPort)
 {
     FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.am.");
     int xdiServicePortOffset = conf.get<int>("xdi_service_port_offset");
@@ -71,8 +103,12 @@ AsyncDataServer::AsyncDataServer(std::weak_ptr<AmProcessor> processor,
     transportFactory.reset(new xdi_att::TFramedTransportFactory());
     protocolFactory.reset(new xdi_atp::TBinaryProtocolFactory());
     // Setup API processor
-    processorFactory.reset(new apis::AsyncXdiServiceRequestProcessorFactory(
-            boost::make_shared<AsyncAmServiceRequestIfCloneFactory>(processor) ));
+    cloneFactory = boost::make_shared<AsyncAmServiceRequestIfCloneFactory>(processor);
+    processorFactory.reset(new apis::AsyncXdiServiceRequestProcessorFactory(cloneFactory));
+
+    // Timeout for flush request to xdi in ms
+    XdiRestfulInterface::TIMEOUT = conf.get_abs<uint32_t>(
+        "fds.am.svc.timeout.coordinator_switch", XdiRestfulInterface::TIMEOUT);
 }
 
 /**
@@ -102,5 +138,31 @@ AsyncDataServer::stop() {
         listen_thread->join();
         listen_thread.reset();
     }
+}
+
+void
+AsyncDataServer::flushVolume(AmRequest* req, std::string const& vol) {
+    ip_list ip;
+    cloneFactory->getIps(ip);
+
+    FdsConfigAccessor conf(g_fdsprocess->get_fds_config(), "fds.xdi.");
+    int xdiControlPortOffset = conf.get<int>("control_port_offset");
+    int xdiRestfulPort = _pmPort + xdiControlPortOffset;
+
+    for (auto const& i : ip) {
+        LOGDEBUG << "vol:" << vol
+                 << " ip:" << i
+                 << " port:" << xdiRestfulPort
+                 << " flushing volume";
+        auto x = XdiRestfulInterface(i, xdiRestfulPort);
+        x.flushVolume(vol);
+    }
+
+    auto amProcessor = _processor.lock();
+    if (!amProcessor) {
+        LOGNORMAL << "vol:" << vol << " no processing layer, unable to flush";
+        return;
+    }
+    amProcessor->enqueueRequest(req);
 }
 }  // namespace fds

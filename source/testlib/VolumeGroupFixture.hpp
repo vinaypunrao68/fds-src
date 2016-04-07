@@ -9,10 +9,37 @@
 #include <VolumeChecker.h>
 
 struct VolumeGroupFixture : DmGroupFixture {
+    using VcHandle = ProcessHandle<VolumeChecker>;
     VolumeGroupFixture() {
     }
-    using VcHandle = ProcessHandle<VolumeChecker>;
-    VcHandle   vcHandle;
+
+    void startAm2()
+    {
+        amHandle2.start({"am",
+                        roots[1],
+                        util::strformat("--fds.pm.platform_uuid=%d", getPlatformUuid(1)),
+                        util::strformat("--fds.pm.platform_port=%d", getPlatformPort(1)),
+                        "--fds.am.threadpool.num_threads=3"
+                        });
+    }
+
+    SHPTR<VolumeGroupHandle> setupVolumeGroupHandleOnAm2(uint32_t quorumCnt)
+    {
+        /* Set up the volume on om and dms */
+        if (!v1Desc) {
+            createVolumeV1();
+        }
+        Error e = amHandle2.proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
+                                                                                 nullptr,
+                                                                                 DMT_COMMITTED);
+        EXPECT_TRUE(e == ERR_OK);
+
+        /* Create a volumegroup handle with quorum of quorumCnt */
+        auto volumeHandle = MAKE_SHARED<VolumeGroupHandle>(amHandle2.proc, v1Id, quorumCnt);
+        amHandle2.proc->setVolumeHandle(volumeHandle.get());
+
+        return volumeHandle;
+    }
 
     void addDMTToVC(DMTPtr DMT, unsigned clusterSize) {
         ASSERT_TRUE(vcHandle.isRunning());
@@ -68,6 +95,8 @@ struct VolumeGroupFixture : DmGroupFixture {
         vcHandle.stop();
     }
 
+    VcHandle   vcHandle;
+    AmHandle   amHandle2;
 };
 
 
