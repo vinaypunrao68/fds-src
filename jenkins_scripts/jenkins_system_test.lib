@@ -131,6 +131,7 @@ function configure_limits
 
 function clean_up_environment
 {
+   message "IIIII Clean up pre build environment "
    message "KILLING any extraneous running processes"
    for proc in ${KILL_LIST[@]}
    do
@@ -163,7 +164,8 @@ function clean_up_environment
            echo find ${dir} -type f -name "${mask}" -delete
        done
    done
-
+   echo " Remove old source/cit logs"
+    rm -rf ${TEST_WORKSPACE}/source/cit/*
    capture_process_list ${FUNCNAME}
 }
 
@@ -441,6 +443,7 @@ function run_coroner
     rm -rf /tmp/fdscoroner*
     rm -f fds/var/log/corefiles/*
     rm -f /fds/var/cores/*
+    rm -rf ${TEST_WORKSPACE}/source/cit/*
 
     end_time=$(date +%s)
 
