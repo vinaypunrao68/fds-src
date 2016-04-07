@@ -118,8 +118,16 @@ BlockOperations::attachVolumeResp(const fpi::ErrorCode& error,
     finishResponse(resp);
 }
 
+// Use this if shutdownLock is not being held already.
 void
 BlockOperations::detachVolume() {
+    std::lock_guard<std::mutex> lg(shutdownLock);
+    _detachVolume();
+}
+
+// This call assumes that shutdownLock is being held.
+void
+BlockOperations::_detachVolume() {
     if (volumeName) {
         // Only close the volume if it's the last connection
         std::unique_lock<std::mutex> lk(assoc_map_lock);
@@ -451,21 +459,23 @@ BlockOperations::finishResponse(BlockTask* response) {
 
     // Only one response will ever see shutting_down == true and
     // no responses left, safe to do this now.
+    std::lock_guard<std::mutex> lg(shutdownLock);
     if (shutting_down && done_responding) {
         LOGDEBUG << "vol:" << *volumeName << " block responses drained, detaching";
-        detachVolume();
+        _detachVolume();
     }
 }
 
 void
 BlockOperations::shutdown()
 {
-    std::unique_lock<std::mutex> l(respLock);
+    std::lock_guard<std::mutex> lg(shutdownLock);
     if (shutting_down) return;
     shutting_down = true;
+    std::unique_lock<std::mutex> l(respLock);
     // If we don't have any outstanding requests, we're done
     if (responses.empty()) {
-        detachVolume();
+        _detachVolume();
     }
 }
 

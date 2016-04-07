@@ -108,6 +108,8 @@ class BlockOperations
 
     uint32_t getObjectCount(uint32_t length, uint64_t offset);
 
+    void _detachVolume();
+
     // api we've built
     std::unique_ptr<req_api_type> amAsyncDataApi;
     boost::shared_ptr<std::string> volumeName;
@@ -116,6 +118,7 @@ class BlockOperations
 
     // interface to respond to block passed down in constructor
     ResponseIFace* blockResp;
+    std::mutex shutdownLock;
     bool shutting_down {false};
 
     // for all reads/writes to AM
