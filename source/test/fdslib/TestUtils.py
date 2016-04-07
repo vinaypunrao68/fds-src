@@ -628,7 +628,7 @@ def connect_fabric(node_ip):
     timeout = 600  # Max 10 minutes wait considering bare metal/ pxe reboot
     while time.time() < timeout_start + timeout:
         try:
-            internal_ip = run("hostname", quiet=True)
+            internal_ip = run("hostname")
         except Exception as e:
             # Sleep for 20 sec before retrying to connect node
             time.sleep(20)
