@@ -24,6 +24,6 @@ all:
 	./gradlew ${gradle_arg} --stacktrace
 
 clean:
-	./gradlew clean -Pmain_dir_build=' '
+	./gradlew clean -Pmain_dir_build=' ' -Pbuild_type=${build_type}
 
 #Do it here
