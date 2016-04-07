@@ -118,25 +118,20 @@ BlockOperations::attachVolumeResp(const fpi::ErrorCode& error,
     finishResponse(resp);
 }
 
-// Use this if shutdownLock is not being held already.
 void
 BlockOperations::detachVolume() {
-    std::lock_guard<std::mutex> lg(shutdownLock);
-    _detachVolume();
-}
-
-// This call assumes that shutdownLock is being held.
-void
-BlockOperations::_detachVolume() {
     if (volumeName) {
         // Only close the volume if it's the last connection
         std::unique_lock<std::mutex> lk(assoc_map_lock);
         auto itr = assoc_map.find(*volumeName);
+        std::unique_lock<std::mutex> ul(shutdownLock);
         if ((assoc_map.end() != itr) && ((true == shutting_down) || (0 == --assoc_map[*volumeName]))) {
+            ul.unlock();
             handle_type reqId{0, 0};
             assoc_map.erase(*volumeName);
             return amAsyncDataApi->detachVolume(reqId, domainName, volumeName);
         }
+        ul.unlock();
     }
     // If we weren't attached, pretend if we had been to be DRY
     handle_type fake_req;
@@ -147,6 +142,7 @@ void
 BlockOperations::detachVolumeResp(const fpi::ErrorCode& error,
                                 handle_type const& requestId) {
     // Volume detach has completed, we shaln't use the volume again
+    std::lock_guard<std::mutex> lg(shutdownLock);
     LOGDEBUG << "err:" << error << " detach response";
     if ((true == shutting_down) && (nullptr != blockResp)) {
         blockResp->terminate();
@@ -459,23 +455,25 @@ BlockOperations::finishResponse(BlockTask* response) {
 
     // Only one response will ever see shutting_down == true and
     // no responses left, safe to do this now.
-    std::lock_guard<std::mutex> lg(shutdownLock);
+    std::unique_lock<std::mutex> ul(shutdownLock);
     if (shutting_down && done_responding) {
+        ul.unlock();
         LOGDEBUG << "vol:" << *volumeName << " block responses drained, detaching";
-        _detachVolume();
+        detachVolume();
     }
 }
 
 void
 BlockOperations::shutdown()
 {
-    std::lock_guard<std::mutex> lg(shutdownLock);
+    std::unique_lock<std::mutex> ul(shutdownLock);
     if (shutting_down) return;
     shutting_down = true;
+    ul.unlock();
     std::unique_lock<std::mutex> l(respLock);
     // If we don't have any outstanding requests, we're done
     if (responses.empty()) {
-        _detachVolume();
+        detachVolume();
     }
 }
 
