@@ -1122,9 +1122,10 @@ Error ObjectStore::updateLocationFromFlashToDisk(const ObjectID& objId,
         return ERR_SM_TIER_WRITEBACK_NOT_DONE;
     }
 
-    /* Remove flash as the phsycal location */
+    /* Remove flash as the physical location */
     ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
-    updatedMeta->removePhyLocation(diskio::DataTier::flashTier);
+    // Actual cleanup will happen during GC cycle.
+    updatedMeta->removePhysReferenceOnly(diskio::DataTier::flashTier);
     fds_assert(updatedMeta->onTier(diskio::DataTier::diskTier) == true);
     fds_assert(updatedMeta->onTier(diskio::DataTier::flashTier) == false);
 
@@ -1976,14 +1977,12 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
 
                 // If the object is valid on the bloom filter but not on this tier - delete the data
                 // MAKE SURE THE DATA IS ON ANOTHER VALID TIER BEFORE OFFERING FOR REMOVAL
-                if (!objMeta->onTier(tier) &&
-                    objMeta->dataPhysicallyExists() &&
-                    !objMeta->isRemovedFromTier(tier)) {
-
+                if (objMeta->onlyPhysReferenceRemoved(tier) &&
+                    objMeta->dataPhysicallyExists()) {
                     // Remove from tier
                     ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
                     updatedMeta->updateTimestamp();
-                    updatedMeta->removeFromTier(tier);
+                    updatedMeta->removePhyLocation(tier);
                     ++tokStats.tkn_reclaim_size;
                     metaStore->putObjectMetadata(invalid_vol_id, oid, updatedMeta);
                 }
