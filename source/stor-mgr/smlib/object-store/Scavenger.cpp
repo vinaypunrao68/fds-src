@@ -36,7 +36,8 @@ ScavControl::ScavControl(const std::string &modName,
           noPersistScavStats(false),
           verifyData(true),
           scav_timer(new FdsTimer()),
-          scav_timer_task(new ScavTimerTask(*scav_timer, this))
+          scav_timer_task(new ScavTimerTask(*scav_timer, this)),
+	  isBackgroundScavProcess(false)
 {
     enabled = ATOMIC_VAR_INIT(false);
     whoDisabledMe = SM_CMD_INITIATOR_NOT_SET;
@@ -99,6 +100,7 @@ void ScavControl::updateDiskStats()
         }
     }
     if (sendRefScanReq) {
+	isBackgroundScavProcess = true;
         ObjectStorMgr* storMgr = dynamic_cast<ObjectStorMgr*>(dataStoreReqHandler);
         storMgr->startRefscanOnDMs();
     }
@@ -447,6 +449,7 @@ ScavControl::diskCompactionDoneCb(fds_uint16_t diskId, const Error& error) {
     if (!err.ok()) {
         // did not find next scavenger to start
         nextDiskToCompact = SM_INVALID_DISK_ID;
+	isBackgroundScavProcess = false;
     }
 }
 
