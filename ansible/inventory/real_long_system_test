@@ -12,7 +12,6 @@ deploy_artifact=nightly
 fds_ft_platform_use_new_superblock=true
 fds_build=debug
 fds_default_nic=em1
-auto_disk_id=yes
 fds_om_host=10.1.16.132
 fds_metrics_enables=false
 fds_metricsdb_ip=127.0.0.1

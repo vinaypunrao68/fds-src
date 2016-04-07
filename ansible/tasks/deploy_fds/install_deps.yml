@@ -155,14 +155,12 @@
     tags:
       - install-local
 
--   name: Copy fds.debug, fdsconsole and  fds-stats deps from local machine to deployed nodes
+-   name: Copy fds.debug from local machine to deployed nodes
     when: fds_for_system_test is defined and fds_for_system_test == "yes"
     copy: src={{ item }}
        dest=/fds/sbin/
        mode=0755
     with_fileglob:
-       - '../../../source/tools/fdsconsole.py'
-       - '../../../source/tools/fdsconsole'
        - '../../../source/Build/linux-x86_64.debug/tools/fds.debug'
     tags:
       - install-local
