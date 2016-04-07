@@ -414,6 +414,7 @@ ScavControl::diskCompactionDoneCb(fds_uint16_t diskId, const Error& error) {
         }
         if (allDone) {
             LOGNORMAL << "Scavenger cycle - Done";
+	    isBackgroundScavProcess = false;
             auto configuredThreshold = CONFIG_UINT32("fds.sm.scavenger.expunge_threshold",3);
             if (fds::objDelCountThresh != configuredThreshold) {
                 LOGNORMAL << "resetting force.expunge back to [" << configuredThreshold << "]";
@@ -449,7 +450,6 @@ ScavControl::diskCompactionDoneCb(fds_uint16_t diskId, const Error& error) {
     if (!err.ok()) {
         // did not find next scavenger to start
         nextDiskToCompact = SM_INVALID_DISK_ID;
-	isBackgroundScavProcess = false;
     }
 }
 
