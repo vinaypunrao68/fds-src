@@ -135,17 +135,8 @@ BlockOperations::detachVolume() {
     detachVolumeResp(fpi::OK, fake_req);
 }
 
-// Will acquire respLock and then call _detachVolumeResp
 void
 BlockOperations::detachVolumeResp(const fpi::ErrorCode& error,
-                                  handle_type const& requestId) {
-    std::unique_lock<std::mutex> l(respLock);
-    _detachVolumeResp(error, requestId);
-}
-
-// Use if already holding respLock
-void
-BlockOperations::_detachVolumeResp(const fpi::ErrorCode& error,
                                 handle_type const& requestId) {
     // Volume detach has completed, we shaln't use the volume again
     LOGDEBUG << "err:" << error << " detach response";
@@ -469,11 +460,9 @@ BlockOperations::finishResponse(BlockTask* response) {
 void
 BlockOperations::shutdown()
 {
-    {
-        std::unique_lock<std::mutex> l(respLock);
-        if (shutting_down) return;
-        shutting_down = true;
-    }
+    std::unique_lock<std::mutex> l(respLock);
+    if (shutting_down) return;
+    shutting_down = true;
     // If we don't have any outstanding requests, we're done
     if (responses.empty()) {
         {
@@ -491,7 +480,7 @@ BlockOperations::shutdown()
             }
         }
         handle_type fake_req;
-        _detachVolumeResp(fpi::OK, fake_req);
+        detachVolumeResp(fpi::OK, fake_req);
     }
 }
 

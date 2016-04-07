@@ -101,9 +101,6 @@ class BlockOperations
   private:
     void finishResponse(task_type* response);
 
-    // use if already holding respLock
-    void _detachVolumeResp(const error_type &error,
-                           handle_type const& requestId);
     void drainUpdateChain(uint64_t const offset,
                           boost::shared_ptr<std::string> buf,
                           handle_type const* queued_handle_ptr,
