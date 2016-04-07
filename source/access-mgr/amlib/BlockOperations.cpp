@@ -218,7 +218,7 @@ BlockOperations::write(typename req_api_type::shared_buffer_type& bytes, task_ty
             iLength = maxObjectSizeInBytes - iOff;
         }
 
-        LOGTRACE  << "offset:0x" << std::hex << curOffset << " length:0x" << iLength << std::dec << " write request";
+        LOGTRACE  << "offset: " << curOffset << " length:" << iLength << " write request";
 
         auto objBuf = (iLength == bytes->length()) ?
             bytes : boost::make_shared<std::string>(*bytes, amBytesWritten, iLength);
@@ -276,7 +276,7 @@ BlockOperations::getBlobResp(const fpi::ErrorCode &error,
     auto handle = requestId.handle;
     uint32_t seqId = requestId.seq;
 
-    LOGDEBUG << "handle:0x" << std::hex << handle << std::dec << " seqid:" << seqId
+    LOGDEBUG << "handle:" << handle << " seqid:" << seqId
              << " err:" << error << " length:" << length << " getBlob response";
 
     {
@@ -296,7 +296,7 @@ BlockOperations::getBlobResp(const fpi::ErrorCode &error,
     if (!resp->isRead()) {
         static BlockTask::buffer_ptr_type const null_buff(nullptr);
         // this is a response for read during a write operation from Block connector
-        LOGDEBUG << "handle:0x" << std::hex << handle << std::dec << " seqid:" << seqId << " write after read";
+        LOGDEBUG << "handle:" << handle << " seqid:" << seqId << " write after read";
 
         // RMW only operates on a single buffer...
         auto buf = (bufs && !bufs->empty()) ? bufs->front() : null_buff;
@@ -454,7 +454,7 @@ BlockOperations::finishResponse(BlockTask* response) {
     if (response_removed) {
         blockResp->respondTask(response);
     } else {
-        LOGNOTIFY << "handle:0x" << std::hex << response->getHandle() << std::dec << " missing from response map";
+        LOGNOTIFY << "handle:" << response->getHandle() << " missing from response map";
     }
 
     // Only one response will ever see shutting_down == true and

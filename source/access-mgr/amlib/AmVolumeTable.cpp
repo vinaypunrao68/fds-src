@@ -214,7 +214,7 @@ AmVolumeTable::registerVolume(VolumeDesc const& volDesc)
         volume_map[vol_uuid] = std::move(new_vol);
 
         LOGNOTIFY << "vol:" << volDesc.name
-                  << " volid:" << std::hex << vol_uuid << std::dec
+                  << " volid:" << vol_uuid
                   << " policy:" << volDesc.volPolicyId
                   << " iops_throttle:" << volDesc.iops_throttle
                   << " iops_assured:" << volDesc.iops_assured
