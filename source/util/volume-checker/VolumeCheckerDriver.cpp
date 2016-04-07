@@ -14,11 +14,12 @@
 
 /* Globals to drive Volume Checker */
 bool help_flag;
-int pm_uuid = -1;
+unsigned long long pm_uuid = 0;
 int pm_port = -1;
 int min_argc = 0;
 std::vector<fds::fds_volid_t> volumes;
 namespace po = boost::program_options;
+static std::string logname = "VolumeChecker";
 
 /**
  * Helper Functions
@@ -42,10 +43,11 @@ void populateVolumeList(std::string &volumeList) {
  *          roots[0],
  *          "--fds.pm.platform_uuid=<uuid>",
  *          "--fds.pm.platform_port=<port>",
+ *          "--fds.checker.threadpool.use_lftp=true",
  *          "-v=1,2,3
  *          }
  *
- *  internal_argc == 5 above + 1 for original prog name
+ *  internal_argc == 6 above + 1 for original prog name
  *
  */
 void populateInternalArgs(int argc, char **argv, int *internal_argc, char ***internal_argv, std::string root) {
@@ -56,7 +58,7 @@ void populateInternalArgs(int argc, char **argv, int *internal_argc, char ***int
     int new_argc = *internal_argc;
 
     // see above for magic number here
-    *internal_argc = 6;
+    *internal_argc = 7;
 
     // one for NULL ptr
     *internal_argv = (char **)malloc(sizeof(char*) * (*internal_argc) + 1);
@@ -78,6 +80,8 @@ void populateInternalArgs(int argc, char **argv, int *internal_argc, char ***int
         } else if (i == 4) {
             currentArg = "--fds.pm.platform_port=" + std::to_string(pm_port);
         } else if (i == 5) {
+            currentArg = "--fds.checker.threadpool.use_lftp=true";
+        } else if (i == 6) {
             currentArg = "-v=" + volumeList;
         } else {
             break;
@@ -97,7 +101,7 @@ void parsePoArgs(int argc, char **argv) {
     po::positional_options_description m_positional;
     desc.add_options()
             ("help,h", "help/ usage message")
-            ("uuid,u", po::value<int>(&pm_uuid), "Current node PM's UUID in decimal")
+            ("uuid,u", po::value<unsigned long long>(&pm_uuid), "Current node PM's UUID in decimal")
             ("port,p", po::value<int>(&pm_port), "Current node PM's Port")
             ("volume,v", po::value<std::vector<uint64_t>>()->multitoken(), "Volume IDs to be checked");
 
@@ -136,6 +140,7 @@ int main(int argc, char **argv) {
     char **internal_argv = NULL;
     int internal_argc = 0;
 
+    fds::init_process_globals(logname);
     parsePoArgs(argc, argv);
 
     // Set up internal args to pass to checker
@@ -145,6 +150,5 @@ int main(int argc, char **argv) {
     populateInternalArgs(argc, argv, &internal_argc, &internal_argv, roots[0]);
 
     fds::VolumeChecker checker(internal_argc, internal_argv, false);
-    checker.run();
-    return checker.main();
+    return checker.run();
 }

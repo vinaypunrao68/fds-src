@@ -41,6 +41,11 @@
 {% set svc_plat_thrift_message_timeout = fds_svc_plat_timeout_thrift_message if fds_svc_plat_timeout_thrift_message is defined else '5000' %}
 {% set force_disk_simulation = fds_force_disk_simulation if fds_force_disk_simulation is defined else 'false' %}
 {% set use_new_superblock = fds_use_new_superblock if ft_platform_use_new_superblock is defined else 'false' %}
+{% set pm_environment_am = fds_pm_environment_am if fds_pm_environment_am is defined else '' %}
+{% set pm_environment_dm = fds_pm_environment_dm if fds_pm_environment_dm is defined else '' %}
+{% set pm_environment_sm = fds_pm_environment_sm if fds_pm_environment_sm is defined else '' %}
+{% set pm_environment_xdi = fds_pm_environment_xdi if fds_pm_environment_xdi is defined else '' %}
+
 {#
    fds.dm. specific entries
 #}
@@ -84,6 +89,7 @@
 #}
 {% set am_svc_io_message_timeout = fds_am_svc_io_message_timeout if fds_am_svc_io_message_timeout is defined else '25000' %}
 {% set am_svc_open_message_timeout = fds_am_svc_open_message_timeout if fds_am_svc_open_message_timeout is defined else '2500' %}
+{% set am_svc_coordinator_switch_timeout = fds_am_svc_coordinator_switch_timeout if fds_am_svc_coordinator_switch_timeout is defined else '30000' %}
 {% set am_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
 {% set am_cache_max_volume_data = fds_am_cache_max_volume_data if fds_am_cache_max_volume_data is defined else '400' %}
 {% set am_cache_max_metadata_entries = fds_am_cache_max_metadata_entries if fds_am_cache_max_metadata_entries is defined else '200' %}

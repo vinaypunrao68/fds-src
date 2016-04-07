@@ -91,7 +91,7 @@ fds: {
 
            configsvc_rest_client_proxy_v08         = {{ ft_configsvc_rest_client_proxy_v08 }}
            use_shared_queryhelper                  = {{ ft_use_shared_queryhelper }}
-           
+
            /* if enabled, adds a web filter that checks if the domain is up before
              attempting to contact the configuration service for operations that require
              the domain is up */
@@ -244,6 +244,15 @@ fds: {
             /* Graphite server port */
             port = 2003
             period = 5
+        }
+
+        /* used to launch services with environment variables set */
+        environment: {
+                /* expected format is "key1=val1;key2=val2;..." */
+                am = "{{ pm_environment_am }}"
+                dm = "{{ pm_environment_dm }}"
+                sm = "{{ pm_environment_sm }}"
+                xdi = "{{ pm_environment_xdi }}"
         }
     }
 
@@ -542,6 +551,7 @@ fds: {
                 io_message = {{ am_svc_io_message_timeout }}
                 open_message = {{ am_svc_open_message_timeout }}
                 thrift_message = {{ svc_plat_thrift_message_timeout }}
+                coordinator_switch = {{ am_svc_coordinator_switch_timeout }}
             }
         }
         perf: { enable = {{ perf_tracing }} }
@@ -752,7 +762,6 @@ fds: {
 
     checker: {
         id = "checker"
-        path = "/home/bao_pham/temp/skinet2"
         logfile = "checker"
         log_severity = "{{ checker_log_severity }}"
 
@@ -763,6 +772,9 @@ fds: {
 
         threadpool: {
             num_threads = 10
+
+            /* Use lock free threadpool  */
+            use_lftp = true
         }
     }
 

@@ -187,7 +187,31 @@ struct AmDispatcher : public AmDataProvider
 
     std::unique_ptr<ErrorHandler> volumegroup_handler;
     fds_rwlock volumegroup_lock;
-    std::unordered_map<fds_volid_t, std::unique_ptr<VolumeGroupHandle>> volumegroup_map;
+
+    struct ProtectedVGH {
+        using vgh_ptr = std::shared_ptr<VolumeGroupHandle>;
+        using lock = std::mutex;
+        using uniq_lock = std::unique_lock<lock>;
+
+        template<typename Cb>
+        void close(fds_volid_t const vol_id, Cb callback);
+
+        template<typename Cb>
+        void open(fds_volid_t const vol_id,
+                  boost::shared_ptr<fpi::OpenVolumeMsg> msg,
+                  CommonModuleProviderIf* modProvider,
+                  ErrorHandler* handler,
+                  Cb callback);
+
+        std::pair<uniq_lock, vgh_ptr> getVGH(uint32_t const timeout);
+
+     private:
+        vgh_ptr     group_handle;
+        std::condition_variable swapping;
+        std::mutex  swap_lock;
+    };
+
+    std::unordered_map<fds_volid_t, ProtectedVGH> volumegroup_map;
     void _abortBlobTxCb(AbortBlobTxReq *amReq, const Error& error, shared_str payload);
     void _commitBlobTxCb(CommitBlobTxReq* amReq, const Error& error, shared_str payload);
     void _closeVolumeCb(DetachVolumeReq* amReq);

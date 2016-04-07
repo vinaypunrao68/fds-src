@@ -63,13 +63,11 @@ apps["redis"]="redis-server"
 apps["influxdb"]="influxd"
 
 declare -A TESTS
-TESTS["restart-full"]="FullRestartMultiNodeTest"
-TESTS["restart-simple"]="SimpleRestartMultiNodeTest"
-TESTS["restart"]="SimpleRestartTest"
-TESTS["restart-activeio"]="ActiveIORestartTest/ActiveIORestartTest"
+TESTS["restart"]="FullRestartMultiNodeTest"
 TESTS["smoke"]="BuildSmokeTest_onpr"
 TESTS["4node"]="FourNodeStart"
 TESTS["2node"]="TwoNodeStart"
+TESTS["vg"]="VolumeGroupTest"
 TESTS["unit"]="unit tests"
 
 function usage() {
@@ -257,10 +255,10 @@ function startApp() {
                         if [[ ! -z "${OM_DEBUG_PORT}" ]]; then
                             params="--fds.feature_toggle.common.volumegrouping_dm_cluster_size=1 \
                                     --fds.feature_toggle.om.enforce_minimum_replicas=false \
-			            --debug-port=${OM_DEBUG_PORT}"
+                                    --debug-port=${OM_DEBUG_PORT}"
                         else
                             params="--fds.feature_toggle.common.volumegrouping_dm_cluster_size=1 \
-			            --fds.feature_toggle.om.enforce_minimum_replicas=false"
+                                    --fds.feature_toggle.om.enforce_minimum_replicas=false"
                         fi
                         ;;
                     xdi)
@@ -589,7 +587,7 @@ function taillog() {
         apps="am om dm sm pm"
     fi
 
-    for app in $apps ; 
+    for app in $apps ;
     do
         case "${app}" in
             om|am|dm|sm|pm)
@@ -776,9 +774,24 @@ function runTest() {
         runScenario ${TESTS[$testname]}
         #(cd ${TESTSUITEDIR}; ./ScenarioDriverSuite.py -q ${TESTS[$testname]})
     else
-        logerror "no matching tests for [$testname]"
-        logwarn  "should be one of : "
-        echo -e "${!TESTS[@]}" | tr " " "\n" | sort | sed -e "s/^/    - /g"
+        # check if there is a scenario file with that name
+        local SCENENAME=$testname
+        local SCENEDIR=${SOURCEDIR}/test/cfg
+        local SCENENAME="${SCENENAME%%.cfg}.cfg"
+        if [[ -f ${SCENEDIR}/${SCENENAME} ]]; then
+            runScenario $testname
+        else
+            logerror "no matching tests for [$testname]"
+            logwarn  "should be one of -- >>> : "
+            (
+                cd ${SCENEDIR};
+                (
+                    find . -type f -iname "*${SCENENAME%%.cfg}*.cfg" | sed -e 's|^\./||' -e 's|\.cfg$||'
+                    echo '------------'
+                    echo -e "${!TESTS[@]}" | sed -e 's/ /*\n/g' | sort ;
+                ) | nl
+            )
+        fi
     fi
 }
 
@@ -817,6 +830,8 @@ function deploy() {
     local ansibledir="${SOURCEDIR}/../ansible"
     if [[ ! -f  ${ansibledir}/inventory/${cluster} ]]; then
         logwarn "deploy: cluster file [$cluster] missing from inventory dir"
+        loginfo "did you mean one of : "
+        (cd ${ansibledir}/inventory/; ls -1d *${cluster}* | nl)
         return
     fi
     loginfo "deploying local build to  : $cluster "

@@ -5,7 +5,7 @@ user_install      := python_bind_ut.py
 user_install_loc  := test
 
 user_python       := true
-user_fds_so_libs  :=
+user_fds_so_libs  := fds-svc-request
 user_fds_ar_libs  := \
     fds-hash \
     fds-lib \
@@ -24,6 +24,9 @@ user_non_fds_libs := boost_log \
     boost_system \
    	boost_date_time \
     boost_program_options \
+    fdsStatsUtil \
+    statsclient \
+    SimpleAmqpClient \
     config++ \
     thrift \
     pthread \

@@ -271,6 +271,18 @@ function run_python_unit_tests
     performance_report PYTHON_UNIT_TESTS $(( ${end_time} - ${start_time} ))
 }
 
+function check_cpp_cit_results
+{
+    error_count=$( find ../source/cit -name "*.xml" |xargs grep "errors=\"" |grep -v "errors=\"0" |wc -l )
+    failure_count=$( find ../source/cit -name "*.xml" |xargs grep "failures=\"" |grep -v "failures=\"0" |wc -l  )
+
+    if [[ ${error_count} -gt 0 || ${failure_count} -gt 0 ]]
+    then
+        message "EEEEE Unit test errors (${error_count}) and/or failures (${failure_count}) detected"
+        run_coroner 1
+    fi
+}
+
 function run_cpp_unit_tests
 {
     message "IIIII RUNNING unit tests"
@@ -285,6 +297,8 @@ function run_cpp_unit_tests
         message "EEEEE Unit test problem(s) detected"
         run_coroner 1
     fi
+
+    check_cpp_cit_results
 
     end_time=$(date +%s)
     performance_report UNIT_TESTS $(( ${end_time} - ${start_time} ))
@@ -437,20 +451,20 @@ function run_coroner
 
 function run_aws_test_scenarios
 {
-    message "Packaging fds-platform"
-    make package fds-platform BUILD_TYPE=debug || deployment_error
-
-    message "Packaging fds-deps"
-    make package fds-deps || deployment_error
-
-    start_time=$(date +%s)
-
     INVENTORY=$1; shift
     AWS_LST_TEST_SCENARIO_LIST=( "$@" )
 
-    # --reusecluster arg indicates same aws nodes are used for each test.so deploy fds before running tests.
+    message "Packaging fds-platform"
+    sudo make package fds-platform BUILD_TYPE=debug || deployment_error
+
+    chown -R pairing /home/pairing/*
+    chown -R pairing /home/pairing/.*
+    echo 'Formation1234' > /home/pairing/.vault_pass.txt
+
     message "Deploying local build on 4 aws nodes"
     ansible/scripts/deploy_fds_ec2.sh $INVENTORY 4 local || deployment_error
+
+    start_time=$(date +%s)
 
     for scenario in ${AWS_LST_TEST_SCENARIO_LIST[@]}; do
         aws_test_scenario_wrapper $INVENTORY $scenario

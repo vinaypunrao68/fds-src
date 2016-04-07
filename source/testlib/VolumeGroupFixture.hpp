@@ -9,10 +9,37 @@
 #include <VolumeChecker.h>
 
 struct VolumeGroupFixture : DmGroupFixture {
+    using VcHandle = ProcessHandle<VolumeChecker>;
     VolumeGroupFixture() {
     }
-    using VcHandle = ProcessHandle<VolumeChecker>;
-    VcHandle   vcHandle;
+
+    void startAm2()
+    {
+        amHandle2.start({"am",
+                        roots[1],
+                        util::strformat("--fds.pm.platform_uuid=%d", getPlatformUuid(1)),
+                        util::strformat("--fds.pm.platform_port=%d", getPlatformPort(1)),
+                        "--fds.am.threadpool.num_threads=3"
+                        });
+    }
+
+    SHPTR<VolumeGroupHandle> setupVolumeGroupHandleOnAm2(uint32_t quorumCnt)
+    {
+        /* Set up the volume on om and dms */
+        if (!v1Desc) {
+            createVolumeV1();
+        }
+        Error e = amHandle2.proc->getSvcMgr()->getDmtManager()->addSerializedDMT(dmtData,
+                                                                                 nullptr,
+                                                                                 DMT_COMMITTED);
+        EXPECT_TRUE(e == ERR_OK);
+
+        /* Create a volumegroup handle with quorum of quorumCnt */
+        auto volumeHandle = MAKE_SHARED<VolumeGroupHandle>(amHandle2.proc, v1Id, quorumCnt);
+        amHandle2.proc->setVolumeHandle(volumeHandle.get());
+
+        return volumeHandle;
+    }
 
     void addDMTToVC(DMTPtr DMT, unsigned clusterSize) {
         ASSERT_TRUE(vcHandle.isRunning());
@@ -36,6 +63,9 @@ struct VolumeGroupFixture : DmGroupFixture {
         volListString += std::to_string(volIdList[0]);
         fds_volid_t volId0(volIdList[0]);
 
+        if (g_fdsprocess == NULL) {
+            g_fdsprocess = omHandle.proc;
+        }
         // As volume checker, we init as an AM
         vcHandle.start({"checker",
                        roots[0],
@@ -44,32 +74,29 @@ struct VolumeGroupFixture : DmGroupFixture {
                        volListString
                        });
 
-
         // Phase 1 test
         ASSERT_FALSE(vcHandle.proc->getStatus() == fds::VolumeChecker::VC_NOT_STARTED);
-        ASSERT_TRUE(vcHandle.proc->getStatus() == fds::VolumeChecker::VC_DM_HASHING);
 
         // vgCheckerList should have 1 volume element in it
         ASSERT_TRUE(vcHandle.proc->testGetVgCheckerListSize() == 1);
         // That one should have "clusterSize" in it
         ASSERT_TRUE(vcHandle.proc->testGetVgCheckerListSize(0) == clusterSize);
 
-        // Sleep for a second for msgs to be sent
-        sleep(1);
+        // Sleep for seconds for msgs to be sent and to do work
+        sleep(3);
 
         // Each DM in the cluster should have received the command
-//        for (auto &dmHandlePtr : dmGroup) {
-//            auto volMeta = dmHandlePtr->proc->dm->getVolumeMeta(volId0, false);
-//            ASSERT_TRUE(volMeta->hashCalcContextExists());
-//        }
         // Check if all DMs have responded (NS_FINISHED)
         ASSERT_TRUE(vcHandle.proc->testVerifyCheckerListStatus(2));
+        ASSERT_TRUE(vcHandle.proc->getStatus() == fds::VolumeChecker::VC_DM_DONE);
     }
 
     void stopVolumeChecker() {
         vcHandle.stop();
     }
 
+    VcHandle   vcHandle;
+    AmHandle   amHandle2;
 };
 
 

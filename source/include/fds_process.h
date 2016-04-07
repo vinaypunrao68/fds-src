@@ -5,22 +5,28 @@
 #ifndef SOURCE_INCLUDE_FDS_PROCESS_H_
 #define SOURCE_INCLUDE_FDS_PROCESS_H_
 
-#include <pthread.h>
+// Standard includes.
 #include <csignal>
-
 #include <string>
-#include <boost/utility.hpp>
-#include <boost/shared_ptr.hpp>
-#include <fds_module_provider.h>
-#include <fds_globals.h>
-#include <fds_module.h>
-#include <fds_config.hpp>
-#include <graphite_client.h>
-#include <util/Log.h>
-#include <concurrency/ThreadPool.h>
-#include <concurrency/taskstatus.h>
-#include <util/ExecutionGate.h>
 #include <unordered_map>
+
+// System includes.
+#include <boost/shared_ptr.hpp>
+#include <boost/utility.hpp>
+#include <Accumulator.h>
+#include <pthread.h>
+#include <StatsConnFactory.h>
+
+// Internal includes.
+#include "concurrency/ThreadPool.h"
+#include "concurrency/taskstatus.h"
+#include "util/ExecutionGate.h"
+#include "util/Log.h"
+#include "fds_config.hpp"
+#include "fds_globals.h"
+#include "fds_module.h"
+#include "fds_module_provider.h"
+#include "graphite_client.h"
 
 namespace fds {
 
@@ -252,6 +258,8 @@ class FdsProcess : public boost::noncopyable,
 
     virtual util::Properties* getProperties() override;
 
+    virtual std::shared_ptr<stats::util::Accumulator> getMetrics () const override;
+
     /**
     * @brief Deamonize the process if '--foreground' arg isn't specified
     *
@@ -295,6 +303,10 @@ class FdsProcess : public boost::noncopyable,
     virtual void setup_timer_service();
     virtual void setup_graphite();
     virtual void setupAtExitHandler();
+
+    virtual void _submitGenerationCallback (
+            std::unordered_map<stats::StatDescriptor,
+                               stats::util::StatData> const& generation);
 
     /*
      * Signal handler thread and its condition variable (and _its_ mutex) to ensure serial access to the signal handler thread state.
@@ -346,6 +358,11 @@ class FdsProcess : public boost::noncopyable,
 
     /* Whether process is going through shutdown process or not */
     util::ExecutionGate     shutdownGate_;
+
+    std::shared_ptr<stats::util::Accumulator> metrics_;
+
+    std::shared_ptr<StatsConnection> statsServiceClient_;
+
 };
 
 }  // namespace fds

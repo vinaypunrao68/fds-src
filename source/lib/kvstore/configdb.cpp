@@ -1639,7 +1639,6 @@ bool ConfigDB::getDmt(DMT& dmt, fds_uint64_t version, int localDomain) {
 
 bool ConfigDB::addNode(const NodeInfoType& node)
 {
-    LOGDEBUG << "!!ScopedWrite nodeLock";
     SCOPEDWRITE(nodeLock);
 
     TRACKMOD();
@@ -1675,7 +1674,6 @@ bool ConfigDB::updateNode(const NodeInfoType& node)
 
 bool ConfigDB::removeNode(const NodeUuid& uuid)
 {
-    LOGDEBUG << "!!ScopedWritenodeLock";
     SCOPEDWRITE(nodeLock);
 
     TRACKMOD();
@@ -1701,7 +1699,6 @@ bool ConfigDB::removeNode(const NodeUuid& uuid)
 
 bool ConfigDB::setNodeServices(const NodeUuid& uuid, const NodeServices& services)
 {
-    LOGDEBUG << "!!ScopedWrite nodeLock";
     SCOPEDWRITE(nodeLock);
 
     try{
@@ -1719,7 +1716,6 @@ bool ConfigDB::setNodeServices(const NodeUuid& uuid, const NodeServices& service
 
 bool ConfigDB::setCapacityUsedNode( const int64_t svcUuid, const unsigned long usedCapacityInBytes )
 {
-    LOGDEBUG << "!!ScopedWrite nodeLock";
     SCOPEDWRITE(nodeLock);
 
     bool bRetCode = false;
@@ -2628,6 +2624,8 @@ bool ConfigDB::changeStateSvcMap( fpi::SvcInfoPtr svcInfoPtr)
         {
             LOGNOTIFY << "ConfigDB changed service"
                        << " uuid: " << std::hex << svcInfoPtr->svc_id.svc_uuid << std::dec
+                       << " type: " << svcInfoPtr->svc_type
+                       << " ip: " << svcInfoPtr->ip
                        << " from [incarnation:" << dbInfo.incarnationNo << ", status:"
                        << OmExtUtilApi::printSvcStatus(dbInfo.svc_status) << "]"
                        << " to [incarnation:" << svcInfoPtr->incarnationNo << ", status:"

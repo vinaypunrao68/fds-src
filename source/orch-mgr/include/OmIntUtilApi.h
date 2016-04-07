@@ -128,11 +128,11 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
         bool dbRecordFound = false;
 
 
-        if (incomingSvcInfo.incarnationNo == 0) // Can only be the case if a service is being added
-        {
-            LOGDEBUG << "Updating zero incarnation number!";
-            incomingSvcInfo.incarnationNo = util::getTimeStampSeconds();
-        }
+        //if (incomingSvcInfo.incarnationNo == 0) // Can only be the case if a service is being added
+        //{
+        //    LOGDEBUG << "Updating zero incarnation number!";
+        //    incomingSvcInfo.incarnationNo = util::getTimeStampSeconds();
+        //}
         /*
          * ======================================================
          *  Retrieve svcLayer record
@@ -144,9 +144,9 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
             svcLayerRecordFound = true;
         } else {
 
-            LOGWARN << "Could not find svcInfo for uuid:"
-                      << std::hex << svc_uuid << std::dec
-                      << " in the svcMap";
+            //LOGDEBUG << "Could not find svcInfo for uuid:"
+            //          << std::hex << svc_uuid << std::dec
+            //          << " in the svcMap";
 
             svcLayerInfoUpdate = incomingSvcInfo;
         }
@@ -163,9 +163,9 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
             dbRecordFound = true;
             dbInfoPtr = boost::make_shared<fpi::SvcInfo>(dbInfoUpdate);
         } else {
-            LOGWARN << "Could not find SvcInfo for uuid:"
-                    << std::hex << svc_uuid << std::dec
-                    << " in the OM's configDB";
+            //LOGDEBUG << "Could not find SvcInfo for uuid:"
+            //        << std::hex << svc_uuid << std::dec
+            //        << " in the OM's configDB";
 
             dbInfoUpdate    = incomingSvcInfo;
             dbInfoPtr = boost::make_shared<fpi::SvcInfo>(dbInfoUpdate);
@@ -195,6 +195,9 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
         } else if ((svc_status == fpi::SVC_STATUS_ADDED || svc_status == fpi::SVC_STATUS_STARTED)) {
             svcAddition = true;
         }
+
+        LOGNORMAL << "Is this svcAddition for uuid:" << std::hex << svc_uuid << std::dec
+                  << " ? " << svcAddition;
 
         /*
          * ========================================================
@@ -259,7 +262,8 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
             if ( !svcAddition )
             {
-                LOGNORMAL << "Case: No svcLayer or DB record found, updating both with incoming";
+                LOGNORMAL << "Case: No svcLayer or DB record found, updating both with incoming"
+                          << ", svc:" << std::hex << svc_uuid << std::dec;
                 svcMgr->updateSvcMap( {svcLayerInfoUpdate} );
             } else {
                 LOGNORMAL << "Case: No svcLayer or DB record found, updating only DB with incoming";
@@ -272,7 +276,9 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
             if (validUpdate)
             {
-                LOGNORMAL << "Case: No svcLayer record, found DB record, updating both with incoming";
+                LOGNORMAL << "Case: No svcLayer record, found DB record, updating both with incoming"
+                          << ", svc:" << std::hex << svc_uuid << std::dec;
+
                 // 1. Update DB to incoming
                 // 2. Update svcLayer to incoming
 
@@ -285,12 +291,29 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                 }
 
             } else {
-                LOGNORMAL << "Case: No svcLayer record, found DB record, updating svcLayer with DB record";
+
                 // 1. No update to DB
-                // 2. Update svcLayer to DB
-                if ( !svcAddition )
+                // 2. Update svcLayer to DB (ONLY if the current state in DB is not
+                //    started or added). If incoming is ACTIVE, update svcLayer alone
+
+                if ( !svcAddition &&
+                     (dbInfoUpdate.svc_status != fpi::SVC_STATUS_STARTED ||
+                      dbInfoUpdate.svc_status != fpi::SVC_STATUS_ADDED) )
                 {
+                    LOGNORMAL << "Case: No svcLayer record, found DB record, updating svcLayer with DB record"
+                              << ", svc:" << std::hex << svc_uuid << std::dec;
                     svcMgr->updateSvcMap( {dbInfoUpdate} );
+                } else {
+
+                    if ( incomingSvcInfo.svc_status == fpi::SVC_STATUS_ACTIVE)
+                    {
+                        LOGNORMAL << "Case: No svcLayer record,updating svcLayer with incoming, "
+                                  << " no update to DB, svc:" << std::hex << svc_uuid << std::dec;
+                        svcMgr->updateSvcMap( {incomingSvcInfo} );
+                    } else {
+                    LOGWARN << "Case: No svcLayer record, incoming is NOT valid so no updates"
+                              << ", svc:" << std::hex << svc_uuid << std::dec;
+                    }
                 }
             }
 
@@ -301,7 +324,8 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
             if (validUpdate)
             {
-                LOGNORMAL << "Case: No DB record, found svcLayer record, updating both with incoming";
+                LOGNORMAL << "Case: No DB record, found svcLayer record, updating both with incoming"
+                          << ", svc:" << std::hex << svc_uuid << std::dec;
                 // 1. Update DB to incoming
                 // 2. Update svcLayer to incoming
 
@@ -309,7 +333,8 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                 svcMgr->updateSvcMap( {incomingSvcInfo} );
 
             } else {
-                LOGNORMAL << "Case: No DB record, found svcLayer record, updating DB with svcLayer";
+                LOGNORMAL << "Case: No DB record, found svcLayer record, updating DB with svcLayer"
+                          << ", svc:" << std::hex << svc_uuid << std::dec;
                 // svcLayer has most current info, update the DB since it has no record of this svc
                 // 1. Update DB to svcLayer
                 // 2. No update to svcLayer
@@ -335,7 +360,8 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
             if ( validUpdate && dbHasOlderRecord )
             {
-                LOGNORMAL << "Case: Both svcLayer & DB record found, updating both with incoming";
+                LOGNORMAL << "Case: Both svcLayer & DB record found, updating both with incoming"
+                          << ", svc:" << std::hex << svc_uuid << std::dec;
                 // incoming >= svcLayer
                 // svcLayer > configDB
                 // 1. Update DB to incoming
@@ -353,7 +379,8 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
                 if ( validUpdate )
                 {
-                    LOGNORMAL << "Case: Both svcLayer & DB record found, updating both with incoming";
+                    LOGNORMAL << "Case: Both svcLayer & DB record found, updating both with incoming"
+                              << ", svc:" << std::hex << svc_uuid << std::dec;
                     configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(incomingSvcInfo) );
                     svcMgr->updateSvcMap( {incomingSvcInfo} );
 
@@ -362,13 +389,15 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                     // 1. No update to DB
                     // 2. Update svcLayer to DB
 
-                    LOGNORMAL << "Case: Both svcLayer & DB record found, updating svcLayer with DB record";
+                    LOGNORMAL << "Case: Both svcLayer & DB record found, updating svcLayer with DB record"
+                              << ", svc:" << std::hex << svc_uuid << std::dec;
                     svcMgr->updateSvcMap( {dbInfoUpdate} );
                 }
 
             } else if ( validUpdate && !dbHasOlderRecord && sameRecords ) {
 
-                LOGNORMAL << "Case: Both svcLayer & DB record found, updating both to incoming";
+                LOGNORMAL << "Case: Both svcLayer & DB record found, updating both to incoming"
+                          << ", svc:" << std::hex << svc_uuid << std::dec;
                 // incoming >= svcLayer
                 // svcLayer == configDB
                 // 1. Update DB to incoming
@@ -379,7 +408,8 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
             } else if ( !validUpdate && dbHasOlderRecord ) {
 
-                LOGNORMAL << "Case: Both svcLayer & DB record found, updating DB with svcLayer record";
+                LOGNORMAL << "Case: Both svcLayer & DB record found, updating DB with svcLayer record"
+                          << ", svc:" << std::hex << svc_uuid << std::dec;
                 // incoming < svcLayer
                 // svcLayer > configDB
                 // 1. Update DB to svcLayer
@@ -389,7 +419,8 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
             }  else if ( !validUpdate && !dbHasOlderRecord && sameRecords ) {
 
-                LOGNORMAL << "Case: Both svcLayer & DB record found, no updates necessary";
+                LOGNORMAL << "Case: Both svcLayer & DB record found, no updates necessary"
+                          << ", svc:" << std::hex << svc_uuid << std::dec;
 
                 // Reuse the svcAddition flag simply to prevent the broadcasting of the map
                 svcAddition = true;
@@ -401,7 +432,8 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                 //svcMgr->updateSvcMap( {dbInfoUpdate} );
             }   else if ( !validUpdate && !dbHasOlderRecord && !sameRecords ) {
 
-                LOGNORMAL << "Case: Both svcLayer & DB record found, updating svcLayer with DB record";
+                LOGNORMAL << "Case: Both svcLayer & DB record found, updating svcLayer with DB record"
+                          << ", svc:" << std::hex << svc_uuid << std::dec;
                 // incoming < svcLayer
                 // svcLayer < configDB
                 // 1. No update to DB
@@ -418,7 +450,8 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
     } else {
 
-        LOGNORMAL << "Update coming from a non-registration/handler path";
+        LOGNORMAL << "Update coming from a non-registration/handler path"
+                  << ", svc:" << std::hex << svc_uuid << std::dec;
 
         // In this path it is fair to assume that the update is coming in
         // for exactly the same incarnationNo but the service status is potentially
@@ -445,9 +478,9 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
             dbInfoUpdate.svc_status = svc_status;
 
         } else {
-            LOGWARN << "Could not find SvcInfo for uuid:"
-                    << std::hex << svc_uuid << std::dec
-                    << " in the OM's configDB";
+            //LOGWARN << "Could not find SvcInfo for uuid:"
+            //        << std::hex << svc_uuid << std::dec
+            //        << " in the OM's configDB";
 
             dbInfoUpdate.svc_id.svc_uuid.svc_uuid = svc_uuid;
             dbInfoUpdate.svc_status    = svc_status;
@@ -475,9 +508,9 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
             svcLayerInfoUpdate.svc_status = svc_status;
 
         } else {
-            LOGWARN << "Could not find svcInfo for uuid:"
-                      << std::hex << svc_uuid << std::dec
-                      << " in the svcMap, generating new";
+            //LOGWARN << "Could not find svcInfo for uuid:"
+            //          << std::hex << svc_uuid << std::dec
+            //          << " in the svcMap, generating new";
 
             svcLayerInfoUpdate.svc_id.svc_uuid.svc_uuid = uuid.svc_uuid;
             svcLayerInfoUpdate.svc_status    = svc_status;
@@ -508,6 +541,9 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
             svcAddition = true;
         }
 
+        LOGNORMAL << "Is this svcAddition for uuid:" << std::hex << svc_uuid << std::dec
+                  << " ? " << svcAddition;
+
         /*
          * ======================================================
          *  (1) Determine which entity has the most current info
@@ -522,7 +558,8 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
         if ( dbHasOlderRecord )
         {
-            LOGNORMAL << "ConfigDB has older record, updating it with svcLayer record";
+            LOGNORMAL << "ConfigDB has older record, updating it with svcLayer record"
+                      << ", svc:" << std::hex << svc_uuid << std::dec;
 
             // If the flag is true implies that svcLayer has a more recent
             // record of the service in question, so first update the record
@@ -543,14 +580,17 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
                 if (!ret)
                 {
-                    LOGWARN << "Could not retrieve updated svc record from configDB, potentially making outdated updates ";
+                    LOGWARN << "Could not retrieve updated svc record from configDB"
+                            << ", svc:" << std::hex << svc_uuid << std::dec
+                            << " potentially making outdated updates ";
 
                 } else {
                     dbInfoUpdate.svc_status = svc_status;
                 }
             } else {
 
-                LOGWARN << "Svc state transition check failed, will return without update";
+                LOGWARN << "Svc state transition check failed for svc:"
+                        << std::hex << svc_uuid << std::dec << " will return without update";
 
                 return;
             }
@@ -571,7 +611,8 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                     configDB->changeStateSvcMap( dbInfoPtr );
 
                 } else {
-                    LOGWARN << "Svc state transition check failed, will return without update";
+                    LOGWARN << "Svc state transition check failed, will return without update"
+                            << ", svc:" << std::hex << svc_uuid << std::dec;
 
                     return;
                 }

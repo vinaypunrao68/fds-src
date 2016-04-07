@@ -91,12 +91,17 @@ struct VolumeFSM: public msm::front::state_machine_def<VolumeFSM>, public HasLog
      * Timer task to schedule delete event for a volume
      */
     class DelTimerTask : public FdsTimerTask {
+        VolumeDesc* volumeDesc;
       public:
         explicit DelTimerTask(FdsTimer &timer)  // NOLINT
         : FdsTimerTask(timer) {}
         ~DelTimerTask() {}
 
         virtual void runTimerTask() override;
+
+        inline void setVolDesc(VolumeDesc* desc) {
+            volumeDesc = desc;
+        }
     };
 
     /**
@@ -304,23 +309,23 @@ void VolumeFSM::no_transition(Event const &evt, Fsm &fsm, int state)
 
 void VolumeFSM::DelTimerTask::runTimerTask()
 {
+    if (volumeDesc == NULL) {
+        GLOGWARN << "Invalid volume descriptor in delete task!!! Returning..";
+        return;
+    }
+
+    GLOGNORMAL << "Volume " << "[" << volumeDesc->volUUID << ":" << volumeDesc->name << "]"
+             << " previously marked for delete, processing now";
+
     VolumeInfo::pointer volInfo;
 
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolumeContainer::pointer volContainer = local->om_vol_mgr();
 
-    std::vector<VolumeDesc> volsToDelete = volContainer->getVolumesToDelete();
+    volInfo = VolumeInfo::vol_cast_ptr(volContainer->rs_get_resource(volumeDesc->volUUID.get()));
 
-    for (auto volDesc : volsToDelete)
-    {
-        GLOGDEBUG << "Volume " << "[" << volDesc.volUUID << ":" << volDesc.name << "]"
-                 << " previously marked for delete, processing now";
-
-        volInfo = VolumeInfo::vol_cast_ptr(volContainer->rs_get_resource(volDesc.volUUID.get()));
-
-        gl_orch_mgr->counters->volumesBeingDeleted.incr();
-        volInfo->vol_event(VolDeleteEvt(volInfo->rs_get_uuid(), volInfo.get()));
-    }
+    gl_orch_mgr->counters->volumesBeingDeleted.incr();
+    volInfo->vol_event(VolDeleteEvt(volInfo->rs_get_uuid(), volInfo.get()));
 }
 
 /**
@@ -347,6 +352,8 @@ bool VolumeFSM::GRD_NotifCrt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
                   << "Will delay volume creation until rebalancing is finished";
     }
 
+    GLOGDEBUG << "VolumeFSM GRD_NotifCrt";
+
     return !is_rebal;
 }
 
@@ -363,6 +370,9 @@ VolumeFSM::VACT_NotifCrt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
 
     VolumeInfo* vol = evt.vol_ptr;
     fds_verify(vol != NULL);
+
+    GLOGNORMAL << "VolumeFSM::VACT_NotifCrt for volume:" << vol->vol_get_name()
+              << "[evt:" << fds::util::type(evt) << "]";
 
     if ( vol->isStateMarkedForDeletion() )
     {
@@ -442,6 +452,11 @@ void VolumeFSM::VACT_CrtDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
         return;
     }
 
+    GLOGNORMAL << "VolumeFSM::VACT_CrtDone for volume:" << vol->vol_get_name()
+              << "[evt:" << fds::util::type(evt) << "]";
+
+    VolumeDesc* volDesc = vol->vol_get_properties();
+
     if (vol->isStateMarkedForDeletion()) {
         GLOGDEBUG << "VACT_CrtDone: volume " << vol->vol_get_name()
                   << " marked for deletion, scheduling delete evt";
@@ -451,16 +466,32 @@ void VolumeFSM::VACT_CrtDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
         // At this point, the next state is VST_ACTIVE. If this volume is marked for
         // deletion, schedule a volumeDeleteEvt
 
-        if (!dst.delTimer->schedule(dst.delTimerTask,
-                                     std::chrono::seconds(5))) {
-            GLOGWARN << "VACT_CrtDone: Failed to start timer to process delete of volumes"
-                     << " previously marked for deletion";
+        try {
+            FdsTimerTaskPtr fdsTaskPtr = dst.delTimerTask;
+            DelTimerTask& delTask = dynamic_cast<DelTimerTask&>(*fdsTaskPtr);
+
+            delTask.setVolDesc(volDesc);
+
+            if (!dst.delTimer->schedule(dst.delTimerTask,
+                                         std::chrono::seconds(5))) {
+                GLOGWARN << "VACT_CrtDone: Failed to start timer to process delete of volumes"
+                         << " previously marked for deletion";
+            }
+
+        } catch(std::bad_cast& e) {
+
+            GLOGWARN << "Bad cast exception:" << e.what()
+                     << " while trying to retrieve DelTimerTask!!"
+                     << " Return without scheduling delete for volume:" << vol->vol_get_name();
+        } catch(Exception& e) {
+            GLOGWARN << "Encountered exception:" << e.what()
+                     << " while trying to retrieve DelTimerTask!!"
+                     << " Return without scheduling delete for volume:" << vol->vol_get_name();
         }
 
         return;
     }
 
-    VolumeDesc* volDesc = vol->vol_get_properties();
     volDesc->state = fpi::ResourceState::Active;
     GLOGDEBUG << "VolumeFSM VACT_CrtDone for " << volDesc->name;
     gl_orch_mgr->counters->volumesBeingCreated.decr();
@@ -508,8 +539,18 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void VolumeFSM::VACT_VolOp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     STATELOG();
-    Error err(ERR_OK);
     VolumeInfo* vol = evt.vol_ptr;
+
+    if (vol == NULL)
+    {
+        GLOGWARN << "VolumeFSM::VACT_VolOp: VolumeInfo object is NULL, returning..";
+        return;
+    }
+
+    GLOGNORMAL << "VolumeFSM::VACT_VolOp for volume:" << vol->vol_get_name()
+              << "[evt:" << fds::util::type(evt) << "]";
+
+    Error err(ERR_OK);
     switch (evt.op_type) {
         case FDS_ProtocolInterface::FDSP_MSG_MODIFY_VOL:
             GLOGDEBUG << "VACT_VolOp:: modify volume [ " << vol->vol_get_name() << " ] [ " << vol->vol_get_id() << " ]";
@@ -551,7 +592,7 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 bool VolumeFSM::GRD_OpResp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     STATELOG();
-    GLOGDEBUG << "VolumeFSM GRD_OpResp wait_for_type " << src.wait_for_type
+    GLOGDEBUG << "VolumeFSM::GRD_OpResp wait_for_type " << src.wait_for_type
               << " result: " << evt.op_err.GetErrstr();
     // check if we received the number of responses we need
     if (src.wait_for_type != evt.resp_type)
@@ -571,7 +612,16 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void VolumeFSM::VACT_OpResp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     STATELOG();
-    GLOGDEBUG << "VolumeFSM VACT_OpResp";
+    VolumeInfo* vol = evt.vol_ptr;
+
+    if ( vol != NULL )
+    {
+        GLOGNORMAL << "VolumeFSM::VACT_OpResp for volume:" << vol->vol_get_name()
+                  << "[evt:" << fds::util::type(evt) << "]";
+    } else {
+        GLOGNORMAL << "VolumeFSM::VACT_OpResp [evt:" << fds::util::type(evt) << "]";
+    }
+
     // send reponse back to node that initiated the operation
 }
 
@@ -589,7 +639,14 @@ VolumeFSM::VACT_DelChk::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     STATELOG();
     OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolumeInfo* vol = evt.vol_ptr;
-    GLOGDEBUG << "VACT_DelChk for volume " << vol->vol_get_name();
+
+    if ( vol != NULL )
+    {
+        GLOGNORMAL << "VolumeFSM::VACT_DelChk for volume:" << vol->vol_get_name()
+                  << "[evt:" << fds::util::type(evt) << "]";
+    } else {
+        GLOGNORMAL << "VolumeFSM::VACT_DelChk [evt:" << fds::util::type(evt) << "]";
+    }
 
     dst.del_chk_ack_wait = local->om_bcast_vol_delete(vol, true);
     if (dst.del_chk_ack_wait == 0) {
@@ -618,7 +675,8 @@ bool VolumeFSM::GRD_QueueDel::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
     // check if we have detached all the nodes
     fds_verify(src.detach_ack_wait > 0);
     src.detach_ack_wait--;
-    GLOGDEBUG << " GRD_Detach: acks to wait " << src.detach_ack_wait
+
+    GLOGDEBUG << "VolumeFSM::GRD_Detach: acks to wait " << src.detach_ack_wait
               << " detach done: " << (src.detach_ack_wait == 0);
 
     return (src.detach_ack_wait == 0);
@@ -629,6 +687,9 @@ bool VolumeFSM::GRD_CrtPendDel::operator()(Evt const &evt, Fsm &fsm, SrcST &src,
 {
     STATELOG();
     VolumeInfo* vol = evt.vol_ptr;
+
+    GLOGDEBUG << "VolumeFSM::GRD_CrtPendDel for volume [evt:" << fds::util::type(evt) << "]";
+
     if (vol == NULL)
     {
         GLOGWARN << "GRD_CrtPendDel: VolumeInfo object is NULL, return false";
@@ -654,6 +715,9 @@ bool
 VolumeFSM::GRD_Detach::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     STATELOG();
+
+    GLOGDEBUG << "VolumeFSM::GRD_Detach [evt:" << fds::util::type(evt) << "]";
+
     // to return true, we should not be rebalancing this volume,
     // otherwise we return false, and continue with volume deletion
     // when rebalancing is finished
@@ -690,7 +754,7 @@ bool VolumeFSM::GRD_DelSent::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
         return false;;
     }
 
-    GLOGDEBUG << "GRD_DelSent volume " << vol->vol_get_name()
+    GLOGDEBUG << "VolumeFSM::GRD_DelSent volume " << vol->vol_get_name()
              << "result : " << evt.chk_err.GetErrstr();
 
     if (evt.recvd_ack && (src.del_chk_ack_wait > 0)) {
@@ -751,8 +815,8 @@ VolumeFSM::VACT_Detach::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         GLOGWARN << "VACT_Detach: VolumeInfo object is NULL, returning..";
         return;
     }
-
-    GLOGDEBUG << "VolumeFSM VACT_Detach";
+    GLOGNORMAL << "VolumeFSM::VACT_Detach for volume:" << vol->vol_get_name()
+              << "[evt:" << fds::util::type(evt) << "]";
 
     if (vol->isStateMarkedForDeletion())
     {
@@ -798,6 +862,9 @@ VolumeFSM::VACT_QueueDel::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
         return;
     }
 
+    GLOGNORMAL << "VolumeFSM::VACT_QueueDel for volume:" << vol->vol_get_name()
+              << "[evt:" << fds::util::type(evt) << "]";
+
     VolumeDesc* volDesc = vol->vol_get_properties();
 
     if (vol->isStateMarkedForDeletion())
@@ -833,7 +900,14 @@ VolumeFSM::VACT_DelNotify::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
 {
     STATELOG();
     VolumeInfo *vol = evt.vol_ptr;
-    GLOGDEBUG << "VACT_DelNotify for volume " << vol->vol_get_name();
+
+    if ( vol != NULL )
+    {
+        GLOGNORMAL << "VolumeFSM::VACT_DelNotify for volume:" << vol->vol_get_name()
+                  << "[evt:" << fds::util::type(evt) << "]";
+    } else {
+        GLOGNORMAL << "VolumeFSM::VACT_DelNotify [evt:" << fds::util::type(evt) << "]";
+    }
 
     // broadcast delete volume notification to all DMs/SMs
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
@@ -855,7 +929,7 @@ bool VolumeFSM::GRD_DelDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
     src.del_notify_ack_wait--;
     bool ret = (src.del_notify_ack_wait == 0);
 
-    GLOGDEBUG << "VolumeFSM GRD_DelDone: acks to wait " << src.del_notify_ack_wait
+    GLOGDEBUG << "VolumeFSM::GRD_DelDone: acks to wait " << src.del_notify_ack_wait
              << " return " << ret;
     return ret;
 }
@@ -869,9 +943,19 @@ template <class Evt, class Fsm, class SrcST, class TgtST>
 void VolumeFSM::VACT_DelDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     STATELOG();
+
     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
     VolumeContainer::pointer volumes = local->om_vol_mgr();
     VolumeInfo::pointer vol = VolumeInfo::vol_cast_ptr(volumes->rs_get_resource(evt.vol_uuid));
+
+    if ( vol != NULL )
+    {
+        GLOGNORMAL << "VolumeFSM::VACT_DelDone for volume:" << vol->vol_get_name()
+                  << "[evt:" << fds::util::type(evt) << "]";
+    } else {
+        GLOGNORMAL << "VolumeFSM::VACT_DelDone [evt:" << fds::util::type(evt) << "]";
+    }
+
     VolumeDesc* volDesc = vol->vol_get_properties();
     volDesc->state = fpi::ResourceState::Deleted;
 
@@ -884,7 +968,6 @@ void VolumeFSM::VACT_DelDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
         gl_orch_mgr->getConfigDB()->setVolumeState(volDesc->volUUID, volDesc->state);
     }
 
-    GLOGDEBUG << "VolumeFSM VACT_DelDone";
     // TODO(anna) Send response to delete volume msg
 
     // do final cleanup
@@ -1766,16 +1849,6 @@ void VolumeContainer::om_vol_cmd_resp(VolumeInfo::pointer volinfo,
         default:
             break;
       }
-}
-
-std::vector<VolumeDesc> VolumeContainer::getVolumesToDelete()
-{
-    return volumesToBeDeleted;
-}
-
-void VolumeContainer::addToDeleteVols(const VolumeDesc volumeDesc)
-{
-    volumesToBeDeleted.push_back(volumeDesc);
 }
 
 bool VolumeContainer::addVolume(const VolumeDesc& volumeDesc) {

@@ -5,28 +5,20 @@ import com.formationds.protocol.BlobDescriptor;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authenticator;
 import com.formationds.security.Authorizer;
-import com.formationds.util.blob.Mode;
-import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.AsyncAm;
-import com.formationds.xdi.BlobWithMetadata;
-import com.formationds.xdi.XdiConfigurationApi;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.collect.Maps;
-import org.apache.log4j.Logger;
-import org.apache.thrift.TException;
-
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import javax.security.auth.login.LoginException;
-import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 public class XdiAuthorizer {
-    private static final Logger LOG = Logger.getLogger(XdiAuthorizer.class);
+    private static final Logger LOG = LogManager.getLogger(XdiAuthorizer.class);
     private Authenticator authenticator;
     private Authorizer authorizer;
     private final Cache<String, Map<String, String>> volumeMetadataCache;

@@ -187,15 +187,15 @@ void ScstDisk::execDeviceCmd(ScstTask* task) {
     case READ_CAPACITY_16:
         {
             LOGTRACE << "iotype:readcapacity";
-            uint64_t num_blocks = volume_size / logical_block_size;
+            uint64_t last_lba = (volume_size / logical_block_size) - 1;
             uint32_t blocks_per_object = physical_block_size / logical_block_size;
 
             if (READ_CAPACITY == op_code && 8 >= buflen) {
-                *reinterpret_cast<uint32_t*>(&buffer[0]) = htobe32(std::min(num_blocks, (uint64_t)UINT_MAX));
+                *reinterpret_cast<uint32_t*>(&buffer[0]) = htobe32(std::min(last_lba, (uint64_t)UINT_MAX));
                 *reinterpret_cast<uint32_t*>(&buffer[4]) = htobe32(logical_block_size);
                 task->setResponseLength(8);
             } else if (32 >= buflen) {
-                *reinterpret_cast<uint64_t*>(&buffer[0]) = htobe64(num_blocks);
+                *reinterpret_cast<uint64_t*>(&buffer[0]) = htobe64(last_lba);
                 *reinterpret_cast<uint32_t*>(&buffer[8]) = htobe32(logical_block_size);
                 // Number of logic blocks per object as a power of 2
                 buffer[13] = (uint8_t)__builtin_ctz(blocks_per_object) & 0xFF;
@@ -284,10 +284,25 @@ ScstDisk::respondDeviceTask(ScstTask* task) {
     auto const& err = task->getError();
     if (fpi::OK != err) {
         if (task->isRead() && fpi::INTERNAL_SERVER_ERROR == err) {
+            LOGCRITICAL << "iotype:read"
+                        << " handle:" << task->getHandle()
+                        << " offset:" << task->getOffset()
+                        << " length:" << task->getLength()
+                        << " had critical failure.";
             task->checkCondition(SCST_LOAD_SENSE(scst_sense_read_error));
         } else if (task->isWrite() && fpi::MISSING_RESOURCE == err) {
+            LOGCRITICAL << "iotype:write"
+                        << " handle:" << task->getHandle()
+                        << " offset:" << task->getOffset()
+                        << " length:" << task->getLength()
+                        << " had critical failure.";
             task->checkCondition(SCST_LOAD_SENSE(scst_sense_write_error));
         } else {
+            LOGIO << "iotype:" << (task->isRead() ? "read" : "write")
+                  << " handle:" << task->getHandle()
+                  << " offset:" << task->getOffset()
+                  << " length:" << task->getLength()
+                  << " had retriable failure.";
             task->checkCondition(SCST_LOAD_SENSE(scst_sense_rebuild_in_progress));
         }
     } else if (task->isRead()) {

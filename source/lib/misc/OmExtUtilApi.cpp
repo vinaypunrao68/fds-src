@@ -345,8 +345,22 @@ bool OmExtUtilApi::isIncomingUpdateValid( fpi::SvcInfo& incomingSvcInfo,
         ret          = true;
 
     } else if (incomingSvcInfo.incarnationNo == 0) {
-        incomingSvcInfo.incarnationNo = util::getTimeStampSeconds();
-        zeroIncNo =
+        //incomingSvcInfo.incarnationNo = util::getTimeStampSeconds();
+
+        // This really should ONLY be the case if incoming status is STARTED or ADDED.
+        // (given a STARTED service successfully transitioned to ACTIVE at some point)
+        // if not, let's allow it but put a warning, best we can do considering all the
+        // flakiness in behavior (and unpredictable user actions)
+        if ( incomingSvcInfo.svc_status != fpi::SVC_STATUS_ADDED ||
+            incomingSvcInfo.svc_status != fpi::SVC_STATUS_STARTED ) {
+
+            LOGWARN << "Update for svc:" << std::hex << incomingSvcInfo.svc_id.svc_uuid.svc_uuid << std::dec
+                    << " coming in with ZERO incarnation for status:"
+                    << OmExtUtilApi::printSvcStatus(incomingSvcInfo.svc_status);
+        }
+
+
+        zeroIncNo = true;
         ret       = true;
     }
 
@@ -364,10 +378,12 @@ bool OmExtUtilApi::isIncomingUpdateValid( fpi::SvcInfo& incomingSvcInfo,
         }
     }
 
-    LOGNOTIFY << "IsIncomingUpdateValid? " << ret
-              << " SameIncarnationNo? " << sameIncNo
-              << " GreaterIncomingIncNo? " << greaterIncNo
-              << " ZeroIncarnationNo? " << zeroIncNo;
+    //LOGNOTIFY << "IsIncomingUpdateValid for uuid:"
+    //          << std::hex << currentInfo.svc_id.svc_uuid.svc_uuid
+    //          << std::dec << " ? " << ret
+    //           << " SameIncarnationNo? " << sameIncNo
+    //          << " GreaterIncomingIncNo? " << greaterIncNo
+    //          << " ZeroIncarnationNo? " << zeroIncNo;
     return ret;
 }
 

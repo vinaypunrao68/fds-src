@@ -17,6 +17,7 @@
 namespace fds {
 
 class RankEngine;
+class ObjectStore;
 
 const fds_uint32_t max_migration_threads = 30;
 
@@ -40,7 +41,8 @@ class TierEngine : public Module {
     TierEngine(const std::string &modName,
             rankPolicyType _rank_type,
             const SmDiskMap::ptr& diskMap,
-            SmIoReqHandler* storMgr);
+            SmIoReqHandler* storMgr,
+            ObjectStore* parent);
     ~TierEngine();
 
     typedef std::unique_ptr<TierEngine> unique_ptr;

@@ -279,6 +279,7 @@ typedef enum {
     FDS_DM_VOLUME_IO,
     FDS_DM_MIG_REQ_TX_STATE,
     FDS_DM_VOLUME_CHK_MSG,
+    FDS_GENERIC_REQUEST,
     FDS_OP_INVALID
 } fds_io_op_t;
 

@@ -37,7 +37,7 @@ public class XdiConnector implements ConnectorData, ConnectorConfig {
             String volumeName = configApi.getVolumeName(readRequest.getVolumeId());
             int objectSize = configApi.statVolume("", volumeName).getPolicy().getMaxObjectSizeInBytes();
             byte[] dest = new byte[readRequest.getReadLength()];
-            chunker.read("", volumeName, readRequest.getObjectName(), objectSize, dest, readRequest.getReadOffset(), readRequest.getReadLength());
+            chunker.read("", volumeName, readRequest.getObjectName(), Long.MAX_VALUE, objectSize, dest, readRequest.getReadOffset(), readRequest.getReadLength());
             ReadResponse readResponse = new ReadResponse(ByteBuffer.wrap(dest));
             return CompletableFuture.completedFuture(readResponse);
         } catch (Exception e) {
