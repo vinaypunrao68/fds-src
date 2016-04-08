@@ -1805,7 +1805,8 @@ OM_PmAgent::send_stop_service
             } else {
                 LOGERROR << "Service: " << std::hex
                          << smSvcId.svc_uuid << std::dec
-                         << " is not in the right state so cannot stop";
+                         << " is not in the right state so cannot stop,"
+                         << "current state:" << OmExtUtilApi::printSvcStatus(serviceStatus);
             }
 
             stop_sm = false;
@@ -1855,7 +1856,8 @@ OM_PmAgent::send_stop_service
              } else {
                  LOGERROR << "Service: " << std::hex
                           << dmSvcId.svc_uuid << std::dec
-                          << " is not in the right state so cannot stop";
+                          << " is not in the right state so cannot stop,"
+                         << "current state:" << OmExtUtilApi::printSvcStatus(serviceStatus);
              }
 
              stop_dm = false;
@@ -1892,7 +1894,8 @@ OM_PmAgent::send_stop_service
              } else {
                  LOGERROR << "Service: " << std::hex
                           << amSvcId.svc_uuid << std::dec
-                          << " is not in the right state so cannot stop";
+                          << " is not in the right state so cannot stop,"
+                         << "current state:" << OmExtUtilApi::printSvcStatus(serviceStatus);
              }
 
              stop_am = false;

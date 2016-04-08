@@ -94,7 +94,7 @@ class DiskScavenger {
 
     Error startScavenge(fds_bool_t verify,
                         disk_compaction_done_handler_t done_hdlr,
-                        fds_uint32_t token_reclaim_threshold = 1);
+                        fds_uint32_t token_reclaim_threshold = 2);
     void stopScavenge();
 
     void handleScavengeError(const Error& err);
@@ -394,6 +394,8 @@ class ScavControl : public Module {
     // so they can enqueue messages to qos queues
     SmIoReqHandler *dataStoreReqHandler;
     SmPersistStoreHandler* persistStoreGcHandler;
+
+    bool isBackgroundScavProcess;
 };
 
 class ScavTimerTask: public FdsTimerTask {

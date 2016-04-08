@@ -385,6 +385,15 @@ DMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     }
 
     NotifyDMTUpdateCb(hdr, err);
+
+    // get all volumes descriptors after every DMT update
+    if (dataManager_.features.isVolumegroupingEnabled()) {
+        auto lambda = [this] () {
+            LOGNORMAL << "pulling all volumes after DMT update";
+            dataManager_.getAllVolumeDescriptors();
+        };
+        dataManager_.addToQueue(lambda);
+    }
 }
 
 void DMSvcHandler::NotifyDMTUpdateCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,

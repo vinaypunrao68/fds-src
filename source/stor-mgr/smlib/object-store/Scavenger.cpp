@@ -36,7 +36,8 @@ ScavControl::ScavControl(const std::string &modName,
           noPersistScavStats(false),
           verifyData(true),
           scav_timer(new FdsTimer()),
-          scav_timer_task(new ScavTimerTask(*scav_timer, this))
+          scav_timer_task(new ScavTimerTask(*scav_timer, this)),
+          isBackgroundScavProcess(false)
 {
     enabled = ATOMIC_VAR_INIT(false);
     whoDisabledMe = SM_CMD_INITIATOR_NOT_SET;
@@ -122,6 +123,7 @@ void ScavControl::updateDiskStats()
         }
     }
     if (sendRefScanReq) {
+	isBackgroundScavProcess = true;
         ObjectStorMgr* storMgr = dynamic_cast<ObjectStorMgr*>(dataStoreReqHandler);
         storMgr->startRefscanOnDMs();
     }
@@ -383,7 +385,7 @@ void ScavControl::startScavengeProcess() {
             ++count;  // so that we can check if we updated next disk ID
             break;
         }
-        if (diskScav != NULL) {
+        if (diskScav != NULL && (!isBackgroundScavProcess || diskScav->updateDiskStats())) {
             Error err = diskScav->startScavenge(verifyData, std::bind(
                 &ScavControl::diskCompactionDoneCb, this,
                 std::placeholders::_1, std::placeholders::_2)
@@ -436,6 +438,7 @@ ScavControl::diskCompactionDoneCb(fds_uint16_t diskId, const Error& error) {
             if (!allDone) break;
         }
         if (allDone) {
+	    isBackgroundScavProcess = false;
             auto configuredThreshold = CONFIG_UINT32("fds.sm.scavenger.expunge_threshold",3);
             if (fds::objDelCountThresh != configuredThreshold) {
                 LOGNORMAL << "resetting force.expunge back to [" << configuredThreshold << "]";
@@ -457,7 +460,7 @@ ScavControl::diskCompactionDoneCb(fds_uint16_t diskId, const Error& error) {
     Error err(ERR_NOT_FOUND);
     while (cit != diskScavTbl.cend()) {
         DiskScavenger *diskScav = cit->second;
-        if (diskScav) {
+        if (diskScav && (!isBackgroundScavProcess || diskScav->updateDiskStats())) {
             err = diskScav->startScavenge(verifyData, std::bind(
                 &ScavControl::diskCompactionDoneCb, this,
                 std::placeholders::_1, std::placeholders::_2));
