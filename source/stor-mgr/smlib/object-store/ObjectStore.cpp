@@ -71,7 +71,7 @@ ObjectStore::ObjectStore(const std::string &modName,
                                                       std::placeholders::_3))),
           tierEngine(new TierEngine("SM Tier Engine",
                                     TierEngine::FDS_RANDOM_RANK_POLICY,
-                                    diskMap, data_store, this)),
+                                    diskMap, data_store)),
           SMCheckCtrl(new SMCheckControl("SM Checker",
                                          diskMap, data_store)),
           liveObjectsTable(new LiveObjectsDB(g_fdsprocess->proc_fdsroot()->dir_user_repo() + "liveobj.db")),
@@ -1999,7 +1999,8 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                  * And in case of error here, TC should fail compaction for this
                  * token.
                  */
-                if (!objMeta || !err.ok() || !objMeta->onTier(tier)) {
+                if (!objMeta || !err.ok() ||
+                    (!objMeta->onTier(tier) && !objMeta->onlyPhysReferenceRemoved(tier))) {
                     return;
                 }
 

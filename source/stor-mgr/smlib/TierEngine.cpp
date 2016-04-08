@@ -8,18 +8,16 @@
 #include <object-store/RankEngine.h>
 #include <TierEngine.h>
 #include <object-store/RandomRankPolicy.h>
-#include <object-store/ObjectStore.h>
 
 namespace fds {
 
 TierEngine::TierEngine(const std::string &modName,
         rankPolicyType _rank_type,
         const SmDiskMap::ptr& diskMap,
-        SmIoReqHandler* storMgr,
-        ObjectStore* objectStore_) :
+        SmIoReqHandler* storMgr) :
         Module(modName.c_str()),
         migrator(nullptr),
-        hybridTierCtrlr(storMgr, diskMap, objectStore_) {
+        hybridTierCtrlr(storMgr, diskMap) {
     switch (_rank_type) {
         case FDS_RANDOM_RANK_POLICY:
             rankEngine = boost::shared_ptr<RankEngine>(new RandomRankPolicy(storMgr, 50));
