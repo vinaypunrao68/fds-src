@@ -687,18 +687,26 @@ MigrationMgr::finishClientResync(fds_uint64_t executorId)
     }
 
     {  // scope for client lock
-        SCOPEDWRITE(clientLock);
+        // SCOPEDWRITE(clientLock);
+        clientLock.read_lock();
         // ok if migration client does not exist
         if (migrClients.count(executorId) > 0) {
+            clientLock.read_unlock();
             LOGDEBUG << "Remove migration client for executor " << std::hex << executorId
                      << std::dec << " which means that forwarding from this client will stop too"
                      << ". Migration clients " << migrClients.size();
             // the destination SM told us it does not need this client anymore
             // just remove it, which will also stop forwarding IO from this client
             migrClients[executorId]->waitForIOReqsCompletion(executorId);
+
+            clientLock.write_lock();
             migrClients.erase(executorId);
+            clientLock.write_unlock();
             doneWithClients = (migrClients.size() == 0);
             LOGMIGRATE << "Removed one client, clients left so far " << migrClients.size();
+        } else {
+            // Failed the if, still need to release the lock
+            clientLock.read_unlock();
         }
     }
 
