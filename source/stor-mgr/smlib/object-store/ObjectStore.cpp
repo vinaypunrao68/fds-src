@@ -1963,30 +1963,32 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
             [this, &objectSets, &ts, &tokStats, &smToken, &tier] (const ObjectID& oid) {
         ++tokStats.tkn_tot_size;
         Error err(ERR_OK);
-        ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(invalid_vol_id, oid, err);
         ObjSetIter iter = objectSets.begin();
-
-        if (!objMeta || !err.ok()) {
-            return;
-        }
 
         for (iter; iter != objectSets.end(); ++iter) {
             if (iter->lookup(oid)) {
-                LOGDEBUG << "Token : "<< smToken << " Object : " << oid
-                         << " found in object set(s)";
+                if (this->tokenLockFn) {
+                    LOGDEBUG << "Token : "<< smToken << " Object : " << oid
+                             << " found in object set(s)";
 
-                // If the object is valid on the bloom filter but not on this tier - delete the data
-                // MAKE SURE THE DATA IS ON ANOTHER VALID TIER BEFORE OFFERING FOR REMOVAL
-                if (objMeta->onlyPhysReferenceRemoved(tier) &&
-                    objMeta->dataPhysicallyExists()) {
-                    // Remove from tier
-                    ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
-                    updatedMeta->updateTimestamp();
-                    updatedMeta->removePhyLocation(tier);
-                    ++tokStats.tkn_reclaim_size;
-                    metaStore->putObjectMetadata(invalid_vol_id, oid, updatedMeta);
+                    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(invalid_vol_id, oid, err);
+                    if (!objMeta || !err.ok()) {
+                        return;
+                    }
+
+                    // If the object is valid on the bloom filter but not on this tier - delete the data
+                    // MAKE SURE THE DATA IS ON ANOTHER VALID TIER BEFORE OFFERING FOR REMOVAL
+                    if (objMeta->onlyPhysReferenceRemoved(tier) &&
+                        objMeta->dataPhysicallyExists()) {
+                        // Remove from tier
+                        ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
+                        updatedMeta->updateTimestamp();
+                        updatedMeta->removePhyLocation(tier);
+                        ++tokStats.tkn_reclaim_size;
+                        metaStore->putObjectMetadata(invalid_vol_id, oid, updatedMeta);
+                    }
+                    break;
                 }
-                break;
             }
         }
         if (iter == objectSets.end()) {
@@ -1999,8 +2001,17 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                  * And in case of error here, TC should fail compaction for this
                  * token.
                  */
-                if (!objMeta || !err.ok() ||
-                    (!objMeta->onTier(tier) && !objMeta->onlyPhysReferenceRemoved(tier))) {
+                ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(invalid_vol_id, oid, err);
+                if (!objMeta || !err.ok()) {
+                    return;
+                }
+
+                /**
+                 * Even if the object is not valid on this tier, make sure the data does on
+                 * physically exists on this tier. If data exists on the tier storage, we
+                 * need to remove it from this tier.
+                 */
+                if (!objMeta->onTier(tier) && !objMeta->onlyPhysReferenceRemoved(tier)) {
                     return;
                 }
 
