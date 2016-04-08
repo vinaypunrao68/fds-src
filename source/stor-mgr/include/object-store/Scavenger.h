@@ -233,6 +233,20 @@ class ScavControl : public Module {
     typedef std::shared_ptr<ScavControl> ptr;
     typedef std::shared_ptr<const ScavControl> const_ptr;
 
+
+    enum State {
+        SCAV_CTRL_IDLE,     // gc is idle
+        SCAV_CTRL_INPROG,   // gc is in progress
+    };
+
+    State getState() const {
+        return atomic_load(&state);
+    }
+
+    Error setStateInProgress();
+
+    Error setStateIdle();
+
     /**
      * Enable means that we start running automatic scavenging
      * for disks that are in a given disk map
@@ -358,6 +372,9 @@ class ScavControl : public Module {
 
     // lock protecting diskScavTbl
     fds_mutex  scav_lock;
+
+    // state of compaction progress
+    std::atomic<State> state;
 
     /// configurable parameters
     fds_uint32_t  max_disks_compacting;
