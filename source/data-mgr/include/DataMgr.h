@@ -97,6 +97,7 @@ public:
         DEF_FEATURE(TestMode     , false);
         DEF_FEATURE(Expunge      , true);
         DEF_FEATURE(Volumegrouping, false);
+        DEF_FEATURE(VolumegroupingSerializedReads, false);
         DEF_FEATURE(RealTimeStatSampling, false);
         DEF_FEATURE(SendToNewStatsService, false);
     } features;
