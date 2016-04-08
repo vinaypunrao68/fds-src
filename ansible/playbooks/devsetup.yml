@@ -255,6 +255,7 @@
         - python-iptables
         - pyscsi-linux
         - retry
+        - retrying
         - humanize
         - numpy
 

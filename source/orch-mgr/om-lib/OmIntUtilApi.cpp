@@ -56,6 +56,7 @@ namespace fds
             case fpi::SVC_STATUS_INACTIVE_FAILED:
             case fpi::SVC_STATUS_STOPPED:
             case fpi::SVC_STATUS_ADDED:
+            case fpi::SVC_STATUS_STARTED:
             case fpi::SVC_STATUS_REMOVED:
                 nodeInfo.node_state = fpi::FDS_Node_Down;
                 break;
@@ -63,7 +64,6 @@ namespace fds
                 nodeInfo.node_state = fpi::FDS_Node_Down;
                 break;
             case fpi::SVC_STATUS_ACTIVE:
-            case fpi::SVC_STATUS_STARTED:
                 nodeInfo.node_state = fpi::FDS_Node_Up;
                 break;
             case fpi::SVC_STATUS_DISCOVERED:
@@ -88,6 +88,7 @@ namespace fds
             case fpi::SVC_STATUS_INACTIVE_FAILED:
             case fpi::SVC_STATUS_STOPPED:
             case fpi::SVC_STATUS_ADDED:
+            case fpi::SVC_STATUS_STARTED:
             case fpi::SVC_STATUS_REMOVED:
                 retNodeState = fpi::FDS_Node_Down;
                 break;
@@ -95,7 +96,6 @@ namespace fds
                 retNodeState = fpi::FDS_Node_Down;
                 break;
             case fpi::SVC_STATUS_ACTIVE:
-            case fpi::SVC_STATUS_STARTED:
                 retNodeState = fpi::FDS_Node_Up;
                 break;
             case fpi::SVC_STATUS_DISCOVERED:

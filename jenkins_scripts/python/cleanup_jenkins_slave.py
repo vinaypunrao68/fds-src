@@ -59,8 +59,8 @@ for proc in psutil.process_iter():
         print "OK: {} {} {}".format(proc.name(), proc.pid, cmd)
     elif proc.name() in global_whitelist:
         print "OK: {} {} {}".format(proc.name(), proc.pid, cmd)
-    # aws_long_system_test runs with parameter as list of tests which can be changed for every run so ignore this case
-    elif proc.name().startswith('aws_long_system'):
+    # real_long_system_test runs with parameter as list of tests which can be changed for every run so ignore this case
+    elif proc.name().startswith('real_long_system'):
         print "OK: {}".format(proc.name(), proc.pid, cmd)
     else:
         print "KILL: {} {} {}".format(proc.name(), proc.pid, cmd)

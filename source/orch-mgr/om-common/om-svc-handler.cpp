@@ -585,54 +585,33 @@ void OmSvcHandler<DataStoreT>::healthReportRunning( boost::shared_ptr<fpi::Notif
 
 template <class DataStoreT>
 void OmSvcHandler<DataStoreT>::healthReportUnexpectedExit(fpi::FDSP_MgrIdType &comp_type,
-		boost::shared_ptr<fpi::NotifyHealthReport> &msg) {
-	/**
-	 * When a PM pings this OM with the state of an individual service
-	 * restart (AM/DM/SM) that the PM originally spawned, then we will
-	 * find the AM/DM/SM agent that corresponds to the report, and use the
-	 * PM method to deactivate the AM/DM/SM that is currently registered
-	 * with the OM.
-	 * It should then reactivate because user is expecting the service to
-	 * be up since it's passed in as UNEXPECTED.
-	 */
-	 LOGNORMAL << "Cleaning up old process information.";
-	 std::list<fds::NodeSvcEntity> pm_services;
- 	 bool pm_found = false;
-	 NodeSvcEntity *actual_pm_service = nullptr;
-	 OM_PmContainer::pointer pm_nodes = OM_Module::om_singleton()->
-								om_nodedomain_mod()-> om_loc_domain_ctrl()->om_pm_nodes();
-	 pm_nodes->populate_nodes_in_container(pm_services);
+		                                                  boost::shared_ptr<fpi::NotifyHealthReport> &msg)
+{
+    NodeUuid uuid(msg->healthReport.serviceInfo.svc_id.svc_uuid);
 
-	 /**
-	  * We need to find the right PM agent who is in charge of the service
-	  * that just died.
-	  */
-	 for (std::list<NodeSvcEntity>::iterator i = pm_services.begin();
-			i != pm_services.end(); i++) {
-		 // Technically node_uuid should be unsigned too...
-		 if (i->node_uuid.uuid_get_val() ==
-			(fds_uint64_t)(msg->healthReport.platformUUID.svc_uuid.svc_uuid)) {
-			pm_found = true;
-			actual_pm_service = &(*i);
-			break;
-		 }
-	 }
+    LOGNORMAL << "Received unexpected exit error for svc:" << std::hex
+            << uuid.uuid_get_val() << std::dec << " will set to failed.";
 
-   if ( pm_found )
-   {
-     OM_PmAgent::pointer om_pm_agt = OM_Module::om_singleton()->om_nodedomain_mod()->
-        om_loc_domain_ctrl()->om_pm_agent(actual_pm_service->node_uuid);
-     /**
-      * PM doesn't want to hear about the actual deactivate service but
-      * OM side needs to deactivate it. So just call the response
-      * which will do the OM side cleanup.
-      */
-     Error dummyErr (ERR_OK);
-     om_pm_agt->send_deactivate_services_resp(comp_type == fpi::FDSP_STOR_MGR,
-        comp_type == fpi::FDSP_DATA_MGR,
-        comp_type == fpi::FDSP_ACCESS_MGR,
-        nullptr, dummyErr, nullptr);
-	 }
+    auto domain = OM_NodeDomainMod::om_local_domain();
+
+    // Explicitly set the incarnation number from message
+    int64_t incarnationNo = msg->healthReport.serviceInfo.incarnationNo;
+
+    fpi::SvcInfo svcInfo;
+    bool ret = gl_orch_mgr->getConfigDB()->getSvcInfo(uuid.uuid_get_val(), svcInfo);
+
+    if (!ret)
+    {
+        // Should NEVER be the case.
+        LOGWARN << "Received unexpected exit error for svc:" << std::hex
+                << uuid.uuid_get_val() << std::dec << " but svc does not exist"
+                << " in DB, will not update!!";
+        return;
+    }
+
+    svcInfo.incarnationNo = incarnationNo;
+
+    domain->om_change_svc_state_and_bcast_svcmap( svcInfo, svcInfo.svc_type, fpi::SVC_STATUS_INACTIVE_FAILED );
 }
 
 template <class DataStoreT>
