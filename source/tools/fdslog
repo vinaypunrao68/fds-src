@@ -11,6 +11,7 @@ import gzip
 import subprocess
 import copy
 import errno
+import glob
 
 # --- logging init
 import logging
@@ -115,6 +116,14 @@ class LogParser:
     apps = ['om', 'sm', 'am', 'pm', 'dm', 'xdi', 'web']
     def __init__(self, args):
         self.args = args
+        rootdirs = self.args.fdsroot
+        self.args.fdsroot = []
+        for item in rootdirs:
+            self.args.fdsroot.extend(glob.glob(item))
+
+        # set the no.of of max logs according to number of dirs specified.
+        self.args.maxlogs +=  len(self.args.fdsroot)
+
         self.logdir = ['{}/var/logs'.format(f) for f in self.args.fdsroot]
         self.logdir.extend(['{}/var/logs/archive'.format(f) for f in self.args.fdsroot])
         self.files = []
@@ -265,10 +274,19 @@ class LogParser:
             # get the first time
             for app in files:
                 # first get the start time
-                flist=files[app]
-                for f in flist:
-                    f[1] = int(self.getFirstTime(f[0]).strftime('%s'))
+                filelist=[f[0] for f in files[app]]
+                count = -1
+                for f in filelist:
+                    count += 1
+                    firstTime = self.getFirstTime(f)
+                    if firstTime == None:
+                        log.warn('skipping log file {} because of no log statements'.format(f))
+                        del files[app][count]
+                        count -= 1
+                        continue
+                    files[app][count][1] = int(firstTime.strftime('%s'))
 
+                flist=files[app]
                 # sort the list based on start time
                 flist.sort(key=lambda x: x[1])
 
@@ -409,7 +427,7 @@ if __name__ == "__main__":
     parser.add_argument('-dry',dest='dryrun',action='store_true',default=False, help='dryrun - no searching')
     parser.add_argument('-a', '-attr', dest='key',default=None,help='attribute for the value to grep -  will have aliases')
     parser.add_argument('-t','-thread', dest='thread',default=None,help='thread id - matches ending')
-    parser.add_argument('-m','-maxlogs', dest='maxlogs',default=3,help='max no.of log files per app to process')
+    parser.add_argument('-m','-maxlogs', dest='maxlogs',default=3,help='max no.of log files per app to process',type=int)
     parser.add_argument('-from', dest='fromtime',  help='from time - def:last 1 hour')
     parser.add_argument('-to', dest='totime',  help='to time - def: current time')
     parser.add_argument('-around', dest='around', help='around from/to : def 1 hour')
