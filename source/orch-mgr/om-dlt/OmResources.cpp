@@ -2337,13 +2337,15 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                 break;
             case fpi::FDSP_PLATFORM:
                 // TODO how do we set the node state?
+                if ( svc.svc_status != fpi::SVC_STATUS_DISCOVERED )
                 {
                     auto curTime         = std::chrono::system_clock::now().time_since_epoch();
                     double timeInMinutes = std::chrono::duration<double,std::ratio<60>>(curTime).count();
 
                     gl_orch_mgr->omMonitor->updateKnownPMsMap(svc.svc_id.svc_uuid, timeInMinutes, false );
-                    error = om_handle_restart( node_uuid, reg_node_req );
                 }
+                error = om_handle_restart( node_uuid, reg_node_req );
+
                 break;    
             default:
                 // skip any other service types
@@ -2631,7 +2633,11 @@ bool OM_NodeDomainMod::isKnownPM(fpi::SvcInfo svcInfo)
 
                 if ( knownUUID == registerUUID )
                 {
-                    bRetCode = true;
+                    if (dbSvc.svc_status == fpi::SVC_STATUS_DISCOVERED) {
+                        bRetCode = false;
+                    } else {
+                        bRetCode = true;
+                    }
                     break;
                 }
             }
