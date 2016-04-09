@@ -41,6 +41,9 @@ fds: {
     	    /* Volume grouping allows IO to volumes to driven by a coordinator at AM */
     	    enable_volumegrouping = true
 
+            /* Whether to serialize reads when volume grouping is on */
+            volumegrouping_serializedreads = false
+
     	    /* applies to OM and XDI web toolkit */
             enable_web_logging_request_wrapper = false
 

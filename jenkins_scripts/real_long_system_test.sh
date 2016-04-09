@@ -1,5 +1,5 @@
 #!/bin/bash -l
-# This script is used for running system tests on AWS nodes for jenkins
+# This script is used for running system tests on AWS / bare metal nodes for jenkins
 # parameter1: first argument passed is always inventory
 # parameter2: second argument onwards is a list of the tests to run. Length on the this list can be varied for every run
 . jenkins_scripts/jenkins_system_test.lib
@@ -34,6 +34,6 @@ cache_report
 configure_console_access      # Must be complted after the build
 run_python_unit_tests
 run_cpp_unit_tests
-run_aws_test_scenarios $@
+run_test_scenarios_on_real_nodes $@
 
 run_node_cleanup 0            # Completed successfully, cleanup and exit with a 0

@@ -8,7 +8,7 @@
 #include <ObjMeta.h>
 #include <HybridTierCtrlr.h>
 #include <concurrency/Mutex.h>
-#include <stor-mgr/include/object-store/ObjectStore.h>
+#include <StorMgr.h>
 
 namespace fds {
 
@@ -21,11 +21,9 @@ uint32_t HybridTierCtrlr::FREQUENCY = 10;
 // -Start garbage collection for ssd
 // -Expose stats for testing
 HybridTierCtrlr::HybridTierCtrlr(SmIoReqHandler* storMgr,
-                                 SmDiskMap::ptr diskMap,
-                                 ObjectStore* objectStore)
+                                 SmDiskMap::ptr diskMap)
     : featureEnabled(false),
-      hybridTierLock("HybridTierLock"),
-      objectStore_(objectStore)
+      hybridTierLock("HybridTierLock")
 {
     threadpool_ = MODULEPROVIDER()->proc_thrpool();
     storMgr_ = storMgr;
@@ -150,11 +148,9 @@ void HybridTierCtrlr::moveToNextToken()
         tokenSet_.clear();
 
         /* Begin compaction on ssd since migration is now moved to hdd*/
-        SmScavengerCmd *scavCmd = new SmScavengerCmd();
-        scavCmd->command = SmScavengerCmd::SCAV_START;
-        scavCmd->initiator = SmCommandInitiator::SM_CMD_INITIATOR_TIERING_CHANGE;
-        LOGNOTIFY << "Starting GC after processing all tokens for hybrid tiering";
-        objectStore_->scavengerControlCmd(scavCmd);
+        LOGNOTIFY << "Starting GC process after hybrid tiering data movement";
+        ObjectStorMgr* storMgr = dynamic_cast<ObjectStorMgr*>(storMgr_);
+        storMgr->startRefscanOnDMs();
 
         scheduleNextRun_(FREQUENCY);
     }

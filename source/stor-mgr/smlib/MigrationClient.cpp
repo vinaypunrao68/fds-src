@@ -158,8 +158,14 @@ MigrationClient::fwdPutObjectCb(SmIoPutObjectReq* putReq,
                                 EPSvcRequest* svcReq,
                                 const Error& error,
                                 boost::shared_ptr<std::string> payload) {
-    LOGMIGRATE << "Ack for forwarded PUT request " << putReq->getObjId()
-               << " " << error;
+
+    // TODO(brian): We may have already deleted the putReq when we called the normal PUT path cb
+    // so maybe consider removing this line, or something?
+    // Until now just check to make sure putReq is valid before using it
+    if (putReq) {
+        LOGMIGRATE << "Ack for forwarded PUT request " << putReq->getObjId()
+                    << " " << error;
+    }
 
     // Stop tracking this request, that was sent to destination SM.
     trackIOReqs.finishTrackIOReqs();

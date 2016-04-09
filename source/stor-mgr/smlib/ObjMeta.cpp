@@ -24,7 +24,7 @@ ObjMetaData::ObjMetaData()
     phy_loc = &obj_map.loc_map[0];
     phy_loc[diskio::flashTier].obj_tier = -1;
     phy_loc[diskio::diskTier].obj_tier = -1;
-    phy_loc[3].obj_tier = -1;
+    phy_loc[2].obj_tier = -1;
 }
 
 ObjMetaData::ObjMetaData(const ObjectBuf& buf)
@@ -74,7 +74,7 @@ void ObjMetaData::initialize(const ObjectID& objid, fds_uint32_t obj_size) {
     phy_loc = &obj_map.loc_map[0];
     phy_loc[diskio::flashTier].obj_tier = -1;
     phy_loc[diskio::diskTier].obj_tier = -1;
-    phy_loc[3].obj_tier = -1;
+    phy_loc[2].obj_tier = -1;
 }
 
 
@@ -443,13 +443,6 @@ fds_bool_t ObjMetaData::isRemovedFromTier(diskio::DataTier tier) const {
 }
 
 /**
- * @param tier -- remove data from the given tier and mark so it isn't removed more than once (-2 is reclaimed phys loc)
- */
-void ObjMetaData::removeFromTier(diskio::DataTier tier) {
-    phy_loc[tier].obj_tier = -2;
-}
-
-/**
  *
  * @param in_phy_loc
  */
@@ -465,6 +458,22 @@ void ObjMetaData::removePhyLocation(diskio::DataTier tier) {
     phy_loc[tier].obj_tier = -1;
 }
 
+void ObjMetaData::removePhysReferenceOnly(diskio::DataTier tier) {
+    phy_loc[tier].obj_tier = ONDISK_DATA_EXISTS;
+}
+
+/**
+ * Evaluates the status of physical location of an object. Checks
+ * if the physical reference is removed from metadata but on disk
+ * data still exists.
+ */
+bool ObjMetaData::onlyPhysReferenceRemoved(diskio::DataTier tier) const {
+    if (phy_loc[tier].obj_tier == ONDISK_DATA_EXISTS) {
+        return true;
+    } else {
+        return false;
+    }
+}
 struct AssocEntryLess {
     bool operator() (const obj_assoc_entry_t &assocEntry1,
                      const obj_assoc_entry_t &assocEntry2)

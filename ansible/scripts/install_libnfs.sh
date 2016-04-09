@@ -15,3 +15,5 @@ if [ -d ${LIBNFS_PYTHON_DIR} ]; then (cd ${LIBNFS_PYTHON_DIR} && git pull); else
 cd ${LIBNFS_DIR} && ./bootstrap && ./configure --prefix=/usr && make && sudo make install
 cd ${LIBNFS_PYTHON_DIR} && sudo python setup.py install
 cd ${LIBNFS_PYTHON_DIR}/libnfs && make clean && make
+printf " import libnfs check"
+python -c "import libnfs"

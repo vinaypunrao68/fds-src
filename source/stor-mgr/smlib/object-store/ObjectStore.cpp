@@ -71,7 +71,7 @@ ObjectStore::ObjectStore(const std::string &modName,
                                                       std::placeholders::_3))),
           tierEngine(new TierEngine("SM Tier Engine",
                                     TierEngine::FDS_RANDOM_RANK_POLICY,
-                                    diskMap, data_store, this)),
+                                    diskMap, data_store)),
           SMCheckCtrl(new SMCheckControl("SM Checker",
                                          diskMap, data_store)),
           liveObjectsTable(new LiveObjectsDB(g_fdsprocess->proc_fdsroot()->dir_user_repo() + "liveobj.db")),
@@ -1122,9 +1122,10 @@ Error ObjectStore::updateLocationFromFlashToDisk(const ObjectID& objId,
         return ERR_SM_TIER_WRITEBACK_NOT_DONE;
     }
 
-    /* Remove flash as the phsycal location */
+    /* Remove flash as the physical location */
     ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
-    updatedMeta->removePhyLocation(diskio::DataTier::flashTier);
+    // Actual cleanup will happen during GC cycle.
+    updatedMeta->removePhysReferenceOnly(diskio::DataTier::flashTier);
     fds_assert(updatedMeta->onTier(diskio::DataTier::diskTier) == true);
     fds_assert(updatedMeta->onTier(diskio::DataTier::flashTier) == false);
 
@@ -1962,32 +1963,32 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
             [this, &objectSets, &ts, &tokStats, &smToken, &tier] (const ObjectID& oid) {
         ++tokStats.tkn_tot_size;
         Error err(ERR_OK);
-        ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(invalid_vol_id, oid, err);
         ObjSetIter iter = objectSets.begin();
-
-        if (!objMeta || !err.ok()) {
-            return;
-        }
 
         for (iter; iter != objectSets.end(); ++iter) {
             if (iter->lookup(oid)) {
-                LOGDEBUG << "Token : "<< smToken << " Object : " << oid
-                         << " found in object set(s)";
+                if (this->tokenLockFn) {
+                    LOGDEBUG << "Token : "<< smToken << " Object : " << oid
+                             << " found in object set(s)";
 
-                // If the object is valid on the bloom filter but not on this tier - delete the data
-                // MAKE SURE THE DATA IS ON ANOTHER VALID TIER BEFORE OFFERING FOR REMOVAL
-                if (!objMeta->onTier(tier) &&
-                    objMeta->dataPhysicallyExists() &&
-                    !objMeta->isRemovedFromTier(tier)) {
+                    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(invalid_vol_id, oid, err);
+                    if (!objMeta || !err.ok()) {
+                        return;
+                    }
 
-                    // Remove from tier
-                    ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
-                    updatedMeta->updateTimestamp();
-                    updatedMeta->removeFromTier(tier);
-                    ++tokStats.tkn_reclaim_size;
-                    metaStore->putObjectMetadata(invalid_vol_id, oid, updatedMeta);
+                    // If the object is valid on the bloom filter but not on this tier - delete the data
+                    // MAKE SURE THE DATA IS ON ANOTHER VALID TIER BEFORE OFFERING FOR REMOVAL
+                    if (objMeta->onlyPhysReferenceRemoved(tier) &&
+                        objMeta->dataPhysicallyExists()) {
+                        // Remove from tier
+                        ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
+                        updatedMeta->updateTimestamp();
+                        updatedMeta->removePhyLocation(tier);
+                        ++tokStats.tkn_reclaim_size;
+                        metaStore->putObjectMetadata(invalid_vol_id, oid, updatedMeta);
+                    }
+                    break;
                 }
-                break;
             }
         }
         if (iter == objectSets.end()) {
@@ -2000,7 +2001,17 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                  * And in case of error here, TC should fail compaction for this
                  * token.
                  */
-                if (!objMeta || !err.ok() || !objMeta->onTier(tier)) {
+                ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(invalid_vol_id, oid, err);
+                if (!objMeta || !err.ok()) {
+                    return;
+                }
+
+                /**
+                 * Even if the object is not valid on this tier, make sure the data does on
+                 * physically exists on this tier. If data exists on the tier storage, we
+                 * need to remove it from this tier.
+                 */
+                if (!objMeta->onTier(tier) && !objMeta->onlyPhysReferenceRemoved(tier)) {
                     return;
                 }
 

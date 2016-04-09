@@ -97,6 +97,7 @@ public:
         DEF_FEATURE(TestMode     , false);
         DEF_FEATURE(Expunge      , true);
         DEF_FEATURE(Volumegrouping, false);
+        DEF_FEATURE(VolumegroupingSerializedReads, false);
         DEF_FEATURE(RealTimeStatSampling, false);
         DEF_FEATURE(SendToNewStatsService, false);
     } features;
@@ -258,9 +259,9 @@ public:
         return vol_meta_map[volId]->vol_desc->name;
     }
 
-    virtual const VolumeDesc* getVolumeDesc(fds_volid_t volId) const;
-
-    void getActiveVolumes(std::vector<fds_volid_t>& vecVolIds);
+    virtual const VolumeDesc * getVolumeDesc(fds_volid_t volId) const;
+    void getActiveVolumes(std::vector<fds_volid_t>& vecVolIds) const;
+    void getAllVolumes(std::vector<fds_volid_t>& vecVolIds) const;
 
     SHPTR<DmPersistVolDB> getPersistDB(fds_volid_t volId);
 

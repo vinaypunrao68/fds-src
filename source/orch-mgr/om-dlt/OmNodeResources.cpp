@@ -1805,7 +1805,8 @@ OM_PmAgent::send_stop_service
             } else {
                 LOGERROR << "Service: " << std::hex
                          << smSvcId.svc_uuid << std::dec
-                         << " is not in the right state so cannot stop";
+                         << " is not in the right state so cannot stop,"
+                         << "current state:" << OmExtUtilApi::printSvcStatus(serviceStatus);
             }
 
             stop_sm = false;
@@ -1855,7 +1856,8 @@ OM_PmAgent::send_stop_service
              } else {
                  LOGERROR << "Service: " << std::hex
                           << dmSvcId.svc_uuid << std::dec
-                          << " is not in the right state so cannot stop";
+                          << " is not in the right state so cannot stop,"
+                         << "current state:" << OmExtUtilApi::printSvcStatus(serviceStatus);
              }
 
              stop_dm = false;
@@ -1892,7 +1894,8 @@ OM_PmAgent::send_stop_service
              } else {
                  LOGERROR << "Service: " << std::hex
                           << amSvcId.svc_uuid << std::dec
-                          << " is not in the right state so cannot stop";
+                          << " is not in the right state so cannot stop,"
+                         << "current state:" << OmExtUtilApi::printSvcStatus(serviceStatus);
              }
 
              stop_am = false;
@@ -1961,7 +1964,7 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
     // Now that we allow unreachable(down) nodes to be removed, it is
     // possible that OM receives a req invocation error. In this case
     // allow rest of the clean up to happen
-    if ( error.ok() || error.GetErrName() == "ERR_SVC_REQUEST_INVOCATION" ) {
+   // if ( error.ok() || error.GetErrName() == "ERR_SVC_REQUEST_INVOCATION" ) {
         
         LOGDEBUG << "PM response is good, setting svcs to inactive";
          // Set SM service state to inactive
@@ -2026,11 +2029,11 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
              }
              activeAmAgent = nullptr;
          }
-    } else {
-        LOGERROR << "Failed to stop services on node " << get_node_name()
-                 << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
-                 << " not updating local state of PM agent .... " << error;
-    }
+    //} else {
+    //    LOGERROR << "Failed to stop services on node " << get_node_name()
+    //             << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
+    //             << " not updating local state of PM agent .... " << error;
+    //}
 
     bool noSMTransition = false;
     bool noDMTransition = false;

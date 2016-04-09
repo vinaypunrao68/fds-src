@@ -41,6 +41,10 @@ class ObjMetaData : public serialize::Serializable {
   public:
     typedef boost::shared_ptr<ObjMetaData> ptr;
     typedef boost::shared_ptr<const ObjMetaData> const_ptr;
+    //TODO(Gurpreet) Combine 0, 1, -1, -2 values of phys location
+    // tier to some sort of enum, so that code looks more
+    // readable.
+    const fds_int8_t ONDISK_DATA_EXISTS = -2;
 
     ObjMetaData();
     explicit ObjMetaData(const ObjectBuf& buf);
@@ -138,10 +142,11 @@ class ObjMetaData : public serialize::Serializable {
     fds_bool_t onFlashTier() const;
     fds_bool_t onTier(diskio::DataTier tier) const;
     fds_bool_t isRemovedFromTier(diskio::DataTier tier) const;
-    void removeFromTier(diskio::DataTier tier);
+    bool onlyPhysReferenceRemoved(diskio::DataTier tier) const;
 
     void updatePhysLocation(obj_phy_loc_t *in_phy_loc);
     void removePhyLocation(diskio::DataTier tier);
+    void removePhysReferenceOnly(diskio::DataTier tier);
 
     bool operator==(const ObjMetaData &rhs) const;
     bool operator!= (const ObjMetaData &rhs) const

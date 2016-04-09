@@ -22,6 +22,31 @@ from fdslib.TestUtils import connect_fabric
 from fdslib.TestUtils import execute_command_with_fabric
 from fdslib.TestUtils import get_log_count_dict
 
+# For retries
+from retrying import retry
+class TestRetry(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None, sig="SIGKILL"):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_serviceRunningCheck,
+                                             "ServiceStateCheck Retry")
+ 
+        self.passedNode = node
+        self.passedSig = sig
+
+    # Wait 2^x * 2000 milliseconds between each retry, upto 8 seconds, then 8 more seconds afterward
+    # Stop retrying after 30 seconds anyway
+    @retry(wait_exponential_multiplier=2000, wait_exponential_max=8000, stop_max_delay=30000)
+    def test_serviceRunningCheck(self, node_service, n, started_service):
+        self.log.info("Checking services status...")
+        node_id = int(n.nd_uuid, 16)
+        get_service = node_service.get_service(node_id,started_service.id)
+    
+        if isinstance(get_service, FdsError) or get_service.status.state == "NOT_RUNNING":
+            raise Exception("SvcNotRunning exception");
+ 
+        return True
+
 # This class contains the attributes and methods to test
 # activation of an FDS domain starting the same, specified
 # services on each node.
@@ -65,14 +90,14 @@ class TestDomainActivateServices(TestCase.FDSTestCase):
                     return False
                 self.log.info("Activate service %s for node %s." % (service_name, n.nd_conf_dict['node-name']))
                 start_service = node_service.start_service(node_id,add_service.id)
-                time.sleep(3)
-                get_service = node_service.get_service(node_id,start_service.id)
-                if isinstance(get_service, FdsError) or get_service.status.state == "NOT_RUNNING":
-                    self.log.error("Service activation of node %s returned status %d." %
-                        (n.nd_conf_dict['node-name'], status))
-                    return False
+                
+                retry = TestRetry()
+                if(retry.test_serviceRunningCheck(node_service, n, start_service)):
+                    self.log.info("Service is in RUNNING state")
+                else:    
+                    self.log.error("Service activation of node %s returned status state NOT_RUNNING, will retry(upto 20 seconds)" %
+                        (n.nd_conf_dict['node-name']))             
         return True
-
 
 # This class contains the attributes and methods to test
 # the kill the services of an FDS node.
@@ -232,19 +257,19 @@ class TestNodeActivate(TestCase.FDSTestCase):
                 if not self.expect_to_fail:
                     self.log.info("Activate service %s for node %s." % (service_name, n.nd_conf_dict['node-name']))
                     start_service = node_service.start_service(node_id,add_service.id)
-                    time.sleep(3)
-                    get_service = node_service.get_service(node_id,start_service.id)
-                    if isinstance(get_service, FdsError) or get_service.status.state == "NOT_RUNNING":
-                        self.log.error("Service activation of node %s returned status state %s." %
-                                   (n.nd_conf_dict['node-name'], get_service.status.state))
-                        return False
+                    
+                    retry = TestRetry()
+                    if(retry.test_serviceRunningCheck(node_service, n, start_service)):
+                        self.log.info("Service is in RUNNING state")
+                    else:
+                        self.log.error("Service activation of node %s returned status state NOT_RUNNING, will retry(upto 20 seconds)" %
+                            (n.nd_conf_dict['node-name']))
 
             if self.passedNode is not None:
                 # If we were passed a specific node, exit now.
                 return True
 
         return True
-
 
 # This class contains the attributes and methods to test
 # node shutdown. (I.e. stop all services on the node)
