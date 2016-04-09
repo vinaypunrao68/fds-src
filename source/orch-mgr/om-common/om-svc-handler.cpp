@@ -523,64 +523,39 @@ void OmSvcHandler<DataStoreT>::healthReportRunning( boost::shared_ptr<fpi::Notif
 {
    LOGDEBUG << "Service Running health report";
 
-   ResourceUUID service_UUID (msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid);
-   fpi::FDSP_MgrIdType service_type = service_UUID.uuid_get_type();
-   fpi::FDSP_MgrIdType comp_type = fpi::FDSP_INVALID_SVC;
    fpi::SvcInfo dbInfo;
-   switch (service_type)
+
+   // Do not trust all fields in the incoming svcInfo to be set
+   // Retrieve current dbInfo and update the specific fields
+
+   int64_t svc_uuid = msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid;
+
+   if ( gl_orch_mgr->getConfigDB()->getSvcInfo(svc_uuid, dbInfo) )
    {
-     case fpi::FDSP_ACCESS_MGR:
-       comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_ACCESS_MGR : comp_type;
-       msg->healthReport.serviceInfo.svc_type = fpi::FDSP_ACCESS_MGR;
-       // no break
-     case fpi::FDSP_DATA_MGR:
-       comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_DATA_MGR : comp_type;
-       msg->healthReport.serviceInfo.svc_type = fpi::FDSP_DATA_MGR;
-       // no break
-     case fpi::FDSP_STOR_MGR:
-       comp_type = (comp_type == fpi::FDSP_INVALID_SVC) ? fpi::FDSP_STOR_MGR : comp_type;
-       msg->healthReport.serviceInfo.svc_type = fpi::FDSP_STOR_MGR;
-
-       // Do not trust all fields in the incoming svcInfo to be set
-       // Retrieve current dbInfo and update the specific fields
-
-       gl_orch_mgr->getConfigDB()->getSvcInfo(msg->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid, dbInfo);
-
        // Neither the DM or SM services that send us the HEALTH_STATE_RUNNING messages
        // ever set the service state correctly. So assuming RUNNING = ACTIVE
        dbInfo.svc_status    = fpi::SVC_STATUS_ACTIVE;
-       dbInfo.svc_type      = msg->healthReport.serviceInfo.svc_type;
        dbInfo.svc_port      = msg->healthReport.serviceInfo.svc_port;
        dbInfo.name          = msg->healthReport.serviceInfo.name;
        dbInfo.incarnationNo = msg->healthReport.serviceInfo.incarnationNo;
 
-       {
-           auto domain = OM_NodeDomainMod::om_local_domain();
+       auto domain = OM_NodeDomainMod::om_local_domain();
 
-           LOGNORMAL << "Will set service:" << msg->healthReport.serviceInfo.name
-                     << " to state ACTIVE, uuid: "
-                     << ":0x" << std::hex << service_UUID.uuid_get_val() << std::dec;
+       LOGNORMAL << "Will set service:" << msg->healthReport.serviceInfo.name
+                 << " type:" << dbInfo.svc_status
+                 << " to state ACTIVE, uuid: "
+                 << ":0x" << std::hex << svc_uuid << std::dec;
 
-           domain->om_change_svc_state_and_bcast_svcmap(dbInfo, service_type, fpi::SVC_STATUS_ACTIVE);
+       domain->om_change_svc_state_and_bcast_svcmap(dbInfo, dbInfo.svc_type , fpi::SVC_STATUS_ACTIVE);
 
-           NodeUuid nodeUuid(dbInfo.svc_id.svc_uuid);
-           domain->om_service_up(nodeUuid, service_type);
-       }
-       break;
-     default:
-       LOGDEBUG << "unimplemented health report running service: "
-     	          << msg->healthReport.serviceInfo.svc_id.svc_name.c_str()
-     	          << " with service type "
-     		        << service_type;
-       break;
+       NodeUuid nodeUuid(dbInfo.svc_id.svc_uuid);
+       domain->om_service_up(nodeUuid, dbInfo.svc_type);
+
+   } else {
+       LOGWARN << "Could not retrive a valid service info for svc:"
+               << std::hex << svc_uuid << std::dec
+               << ", will return without any action!";
    }
-
-   /*
-    * It is expected that if a service restarts, it will re-register with the
-    * OM. Which should update all the appropriate service dependencies.
-    *
-    * So I don't believe that is anything else to do here.
-    */
 }
 
 template <class DataStoreT>
