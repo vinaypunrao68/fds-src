@@ -35,8 +35,7 @@ struct HybridTierCtrlr {
     };
 
     HybridTierCtrlr(SmIoReqHandler* storMgr,
-                    SmDiskMap::ptr diskMap,
-                    ObjectStore* objectStore);
+                    SmDiskMap::ptr diskMap);
     void enableFeature();
     void start(bool manual=false);
     void stop();

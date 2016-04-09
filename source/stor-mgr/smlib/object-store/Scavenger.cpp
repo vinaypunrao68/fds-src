@@ -350,11 +350,6 @@ void ScavControl::startScavengeProcess() {
         return;
     }
 
-    if (!setStateInProgress().ok()) {
-        LOGNOTIFY << "Looks like GC is already in progress.. not going to start GC ";
-        return;
-    }
-
     bool periodic_expunge = g_fdsprocess->get_fds_config()->\
             get<bool>("fds.feature_toggle.common.periodic_expunge", false);
     if (periodic_expunge &&
@@ -362,6 +357,11 @@ void ScavControl::startScavengeProcess() {
     {
         LOGNOTIFY << "Object sets not present for all the volumes."
                   << "Cannot start scavenger";
+        return;
+    }
+
+    if (!setStateInProgress().ok()) {
+        LOGNOTIFY << "Looks like GC is already in progress.. not going to start GC ";
         return;
     }
 
