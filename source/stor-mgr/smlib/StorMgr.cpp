@@ -824,6 +824,7 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
                 LOGMIGRATE << "Forwarded PUT " << objId << " to destination SM ";
             }
         }
+
     }
 
     if (!err.ok()) {
@@ -1237,7 +1238,6 @@ ObjectStorMgr::applyRebalanceDeltaSet(SmIoReq* ioReq)
             LOGERROR << "Failed to apply object metadata/data " << objId
                      << ", " << err;
 
-            delete rebalReq;
             break;
         }
     }
@@ -1263,6 +1263,9 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
     SmIoReadObjDeltaSetReq *readDeltaSetReq = static_cast<SmIoReadObjDeltaSetReq *>(ioReq);
     if (!readDeltaSetReq) {
         LOGWARN << "Invalid read delta set request";
+        // TODO(brian): Should we markIODone here? Presumably if we got here something was queued, but if we're
+        // seeing a nullptr here the request wasn't valid, so the markIODone will bomb out if we try it.
+        // Will we end up with an off by one though because we don't decrement for this request?
         return;
     }
     LOGMIGRATE << "Filling DeltaSet:"

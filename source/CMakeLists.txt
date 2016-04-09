@@ -456,7 +456,6 @@ set(SOURCE_FILES
     ./include/data_mgr.h
     ./include/debughelpers.h
     ./include/dlt.h
-    ./include/DltDmtUtil.h
     ./include/dynamic_machine_arch.h
     ./include/dynamic_vers.h
     ./include/EclipseWorkarounds.h
@@ -535,7 +534,6 @@ set(SOURCE_FILES
     ./lib/misc/config.cpp
     ./lib/misc/disk_utils.cpp
     ./lib/misc/dlt.cpp
-    ./lib/misc/DltDmtUtil.cpp
     ./lib/misc/dmt.cpp
     ./lib/misc/fds_counters.cpp
     ./lib/misc/fds_error.cpp
@@ -611,7 +609,6 @@ set(SOURCE_FILES
     ./orch-mgr/include/OmDeploy.h
     ./orch-mgr/include/OmDmtDeploy.h
     ./orch-mgr/include/OmResources.h
-    ./orch-mgr/include/omutils.h
     ./orch-mgr/include/OmVolPolicy.hpp
     ./orch-mgr/include/OmVolume.h
     ./orch-mgr/include/OmVolumePlacement.h
@@ -631,7 +628,6 @@ set(SOURCE_FILES
     ./orch-mgr/om-dlt/volumedeletescheduler.cpp
     ./orch-mgr/om-lib/OmAdminCtrl.cpp
     ./orch-mgr/om-lib/OMMonitorWellKnownPMs.cpp
-    ./orch-mgr/om-lib/omutils.cpp
     ./orch-mgr/om-lib/OmVolPolicy.cpp
     ./orch-mgr/om-lib/orchMgr.cpp
     ./orch-mgr/snapshot/deletedispatcher.cpp

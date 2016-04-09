@@ -553,9 +553,17 @@ MigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSe
         // tokens were declined, we are finished with this migration client
         LOGMIGRATE << "This SM declined all DLT tokens for executor " << std::hex
                    << executorId << std::dec;
-        SCOPEDWRITE(clientLock);
-        migrClients[executorId]->waitForIOReqsCompletion(executorId);
+
+        clientLock.read_lock();
+        // Get reference to the client so we can release the read lock
+        MigrationClient::shared_ptr migrClient = migrClients[executorId];
+        clientLock.read_unlock();
+
+        migrClient->waitForIOReqsCompletion(executorId);
+
+        clientLock.write_lock();
         migrClients.erase(executorId);
+        clientLock.write_unlock();
     }
     if (!srcAccepted) {
         return ERR_SM_RESYNC_SOURCE_DECLINE;
@@ -686,20 +694,27 @@ MigrationMgr::finishClientResync(fds_uint64_t executorId)
         return ERR_NOT_FOUND;
     }
 
-    {  // scope for client lock
-        SCOPEDWRITE(clientLock);
-        // ok if migration client does not exist
-        if (migrClients.count(executorId) > 0) {
-            LOGDEBUG << "Remove migration client for executor " << std::hex << executorId
-                     << std::dec << " which means that forwarding from this client will stop too"
-                     << ". Migration clients " << migrClients.size();
-            // the destination SM told us it does not need this client anymore
-            // just remove it, which will also stop forwarding IO from this client
-            migrClients[executorId]->waitForIOReqsCompletion(executorId);
-            migrClients.erase(executorId);
-            doneWithClients = (migrClients.size() == 0);
-            LOGMIGRATE << "Removed one client, clients left so far " << migrClients.size();
-        }
+    clientLock.read_lock();
+    // ok if migration client does not exist
+    if (migrClients.count(executorId) > 0) {
+        // Get reference to the client so we can release the read lock
+        MigrationClient::shared_ptr migrClient = migrClients[executorId];
+        clientLock.read_unlock();
+        LOGDEBUG << "Remove migration client for executor " << std::hex << executorId
+                 << std::dec << " which means that forwarding from this client will stop too"
+                 << ". Migration clients " << migrClients.size();
+        // the destination SM told us it does not need this client anymore
+        // just remove it, which will also stop forwarding IO from this client
+        migrClient->waitForIOReqsCompletion(executorId);
+
+        clientLock.write_lock();
+        migrClients.erase(executorId);
+        clientLock.write_unlock();
+        doneWithClients = (migrClients.size() == 0);
+        LOGMIGRATE << "Removed one client, clients left so far " << migrClients.size();
+    } else {
+        // Failed the if, still need to release the lock
+        clientLock.read_unlock();
     }
 
     // check if the whole resync on restart is finished
