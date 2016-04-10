@@ -97,6 +97,7 @@ struct ReplicaInitializer : HasModuleProvider,
     T                                       *replica_;
     fpi::SvcUuid                            syncPeer_;
     std::unique_ptr<BufferReplay>           bufferReplay_;
+    uint32_t                                bufferReplayIoTimeout_;
     Error                                   completionError_;
     std::string                             logPrefix_;
 };
@@ -115,6 +116,8 @@ ReplicaInitializer<T>::ReplicaInitializer(CommonModuleProviderIf *provider, T *r
 {
     /* TODO(Rao): Don't hardcode string volid here */
     logPrefix_ = util::strformat("volid: %ld", replica_->getId());
+    bufferReplayIoTimeout_ = provider->get_fds_config()->get<fds_uint32_t>(
+        "fds.am.svc.timeout.io_message");
 }
 
 template <class T>
@@ -301,6 +304,8 @@ void ReplicaInitializer<T>::startBuffering_()
                 continue;
             }
             auto req = requestMgr->newEPSvcRequest(selfUuid);
+            req->setTimeoutMs(bufferReplayIoTimeout_);
+            req->setTaskExecutorId(replica_->getId());
             req->setPayloadBuf(static_cast<fpi::FDSPMsgTypeId>(op.type), op.payload);
             req->onResponseCb([this](EPSvcRequest*,
                                      const Error &e,
