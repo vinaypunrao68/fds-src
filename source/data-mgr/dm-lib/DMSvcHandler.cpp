@@ -567,7 +567,6 @@ DMSvcHandler::handleDbgOfflineVolumeGroupMsg(SHPTR<fpi::AsyncHdr>& hdr,
 
             volMeta->setState(fpi::Offline, "offline volume group");
             volMeta->setCoordinator(coordinator);
-            volMeta->scheduleInitializer(true);
             cb(ERR_OK);
         });
     func();
