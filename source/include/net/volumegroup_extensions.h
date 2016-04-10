@@ -63,6 +63,7 @@ inline bool isVolumeGroupError(const Error &e)
         case ERR_VOL_NOT_FOUND:
         case ERR_NODE_NOT_ACTIVE:
         case ERR_INVALID_COORDINATOR:
+        case ERR_ABORTED:
             return true;
         default:
             return false;
