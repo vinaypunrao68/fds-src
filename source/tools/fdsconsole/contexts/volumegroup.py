@@ -4,6 +4,7 @@ from common.ttypes import *
 from platformservice import *
 import FdspUtils
 import json
+import dmtdlt
 
 
 class VolumeGroupContext(Context):
@@ -71,3 +72,34 @@ class VolumeGroupContext(Context):
             else:
                 print "Initiated force sync"
 
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('volid', help= "volume id", type=str)
+    def offline(self, volid):
+        """
+        Offline volume group.  This will clear out cached coordinator id of each replica member
+        of volume group.
+        """
+        volid = self.config.getVolumeApi().getVolumeId(volid)
+
+        svc = self.config.getPlatform();
+
+        omClient = ServiceMap.client(1028)
+        msg = omClient.getDMT(0)
+        dmt = dmtdlt.DMT()
+        dmt.load(msg.dmt_data.dmt_data)
+
+        msg = FdspUtils.newSvcMsgByTypeId('DbgOfflineVolumeGroupMsg');
+        msg.volId = volid
+
+        for uuid in dmt.getNodesForVolume(volid) :
+            cb = WaitedCallback();
+            svc.sendAsyncSvcReq(uuid, msg, cb)
+
+            print('-->From service {}: '.format(uuid))
+            if not cb.wait(30):
+                print 'Failed to force sync: {}'.format(self.config.getServiceApi().getServiceName(uuid))
+            elif cb.header.msg_code != 0:
+                print 'Failed to offline volume group error: {}'.format(cb.header.msg_code)
+            else:
+                print "Initiated offline volume group"
