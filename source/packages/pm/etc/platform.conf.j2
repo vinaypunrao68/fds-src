@@ -44,6 +44,9 @@ fds: {
             /* Whether to serialize reads when volume grouping is on */
             volumegrouping_serializedreads = false
 
+            /* If volume grouping mode is on, calculate 1 DMT version once # of DMs have matched */
+            volumegrouping_dm_cluster_size = 4
+
     	    /* applies to OM and XDI web toolkit */
             enable_web_logging_request_wrapper = false
 
@@ -130,12 +133,6 @@ fds: {
                 results_option = "--xml-file="
                 results_suffix = ".%p.memcheck"
 	   }
-        }
-
-        /* volume grouping options */
-        volume_group: {
-            /* If volume grouping mode is on, calculate 1 DMT version once # of DMs have matched */
-            dm_cluster_size = 4
         }
     }
 
