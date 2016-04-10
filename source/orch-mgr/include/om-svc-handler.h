@@ -21,6 +21,15 @@ namespace fpi = FDS_ProtocolInterface;
 
 namespace fds {
 
+  /**
+   * @details
+   * Templated so that dependency injection can be used to substitute
+   * a fake data store for kvstore::ConfigDB. Enables component testing
+   * with no inter-process dependencies.
+   * If kvstore::ConfigDB implemented an interface, we would not need
+   * to use a template here.
+   */
+  template<class DataStoreT>
   class OmSvcHandler : virtual public fpi::OMSvcIf, public PlatNetSvcHandler
   {
     public:
@@ -61,6 +70,7 @@ namespace fds {
       virtual void getDLT( ::FDS_ProtocolInterface::CtrlNotifyDLTUpdate& _return, boost::shared_ptr<int64_t>& nullarg) override;
       virtual void getDMT( ::FDS_ProtocolInterface::CtrlNotifyDMTUpdate& _return, boost::shared_ptr<int64_t>& nullarg) override;
       virtual void getAllVolumeDescriptors(fpi::GetAllVolumeDescriptors& _return, boost::shared_ptr<int64_t>& nullarg) override;
+
       virtual void getSvcInfo(fpi::SvcInfo & _return,
                               boost::shared_ptr< fpi::SvcUuid>& svcUuid) override;
 
@@ -84,7 +94,7 @@ namespace fds {
       void AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                boost::shared_ptr<fpi::CtrlTokenMigrationAbort> &msg);
 
-      void setConfigDB(kvstore::ConfigDB* configDB);
+      void setConfigDB(DataStoreT* configDB);
 
       void notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
           boost::shared_ptr<fpi::NotifyHealthReport> &msg);
@@ -95,19 +105,20 @@ namespace fds {
       void svcStateChangeResp(boost::shared_ptr<fpi::AsyncHdr>& hdr,
                               boost::shared_ptr<fpi::SvcStateChangeResp>& msg);
 
-      void setVolumeGroupCoordinator(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-                                     boost::shared_ptr<fpi::SetVolumeGroupCoordinatorMsg> &msg);
-
       DECL_ASYNC_HANDLER(genericCommand         , GenericCommandMsg);
-      template <typename T, typename Cb>
-      std::unique_ptr<TrackerBase<NodeUuid>>
-      create_tracker(Cb&& cb, std::string event, fds_uint32_t d_w = 0, fds_uint32_t d_t = 0);
 
     protected:
-      OM_NodeDomainMod         *om_mod;
+
       EventTracker<NodeUuid, Error, UuidHash, ErrorHash> event_tracker;
 
       std::pair<int64_t, int32_t> lastHeardResp;
+
+      /**
+       * @details
+       * Enables xUnit override to supply fake/mock client object
+       */
+      virtual fpi::OMSvcClientPtr createOMSvcClient(const std::string& strIPAddress,
+        const int32_t& port);
 
     private:
       void init_svc_event_handlers();
@@ -119,7 +130,12 @@ namespace fds {
       void healthReportError(fpi::FDSP_MgrIdType &svc_type,
                              boost::shared_ptr<fpi::NotifyHealthReport> &msg);
 
-      kvstore::ConfigDB* configDB = NULL;
+      /**
+       * @brief Supports look-up of global domain objects
+       * @details
+       * Templated so that unit tests can substitute fake/mock objects
+       */
+      DataStoreT* pConfigDB_;
   };
 
 }  // namespace fds

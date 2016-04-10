@@ -1126,11 +1126,16 @@ DmtDplyFSM::DACT_UpdDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
       */
     // In case new DMs got added or DMs got removed while we were
     // deploying current DMT, start timer to try deploy a DMT again
-//    if (!src.tryAgainTimer->schedule(src.tryAgainTimerTask,
-//                                     std::chrono::seconds(1))) {
-//        LOGWARN << "Failed to start try again timer!!!"
-//                << " DM additions/deletions may be pending for long time";
-//    }
+
+    // 4/1/2016 @meena from what I have observed in the current behavior, the very
+    // first DMT deploy from DM registration in setupNewNode is still in process when
+    // rest of registrations come in (causing a noTransition from the DmtDeployEvt in
+    // ::setupNewNode for all other DMs. So re-enable this to ensure all DMs are included in the DMT
+    if (!src.tryAgainTimer->schedule(src.tryAgainTimerTask,
+                                     std::chrono::seconds(1))) {
+        LOGWARN << "Failed to start try again timer!!!"
+                << " DM additions/deletions may be pending for long time";
+    }
 
     LOGNOTIFY << "DM Migration Completed" << "(migrationid: " << vp->getCommittedDMTVersion() << ")";
 }
@@ -1156,8 +1161,8 @@ DmtDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
 
         fds_uint64_t targetDmtVersion = vp->getTargetDMTVersion();
 
-        if ( DltDmtUtil::getInstance()->isDMAbortAfterRestartTrue() ) {
-            targetDmtVersion = DltDmtUtil::getInstance()->getDMTargetVersionForAbort();
+        if ( OmExtUtilApi::getInstance()->isDMAbortAfterRestartTrue() ) {
+            targetDmtVersion = OmExtUtilApi::getInstance()->getDMTargetVersionForAbort();
             LOGDEBUG << "Setting target DMT version for abort to:" << targetDmtVersion;
         }
 
@@ -1174,7 +1179,7 @@ DmtDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         // We prevented targetVersion in DMTmgr from being cleared out to enter this
         // error mode, checks in undoTarget will falsely assume the target has been committed
         // and take action. Target version will be explicitly cleared out in the end of error mode
-        if ( !DltDmtUtil::getInstance()->isDMAbortAfterRestartTrue() ) {
+        if ( !OmExtUtilApi::getInstance()->isDMAbortAfterRestartTrue() ) {
             // Revert to previously committed DMT locally in OM
             am_dm_needs_dmt_rollback = vp->undoTargetDmtCommit();
         }
@@ -1200,7 +1205,7 @@ DmtDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         // send DMT commit to AMs and SMs if target was committed
         fds_uint32_t commitCnt = 0;
         if (am_dm_needs_dmt_rollback) {
-            LOGDEBUG << "AM and SM has already committed target DMT. Need to roll them back.";
+            LOGNOTIFY << "AM and SM has already committed target DMT. Need to roll them back.";
             // has target DMT (see the first if) and it is commited
             commitCnt = dom_ctrl->om_bcast_dmt(fpi::FDSP_ACCESS_MGR,
                                                vp->getCommittedDMT());
@@ -1240,10 +1245,10 @@ DmtDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     ClusterMap* cm = om->om_clusmap_mod();
     cm->ongoingMigrationDMs.clear();
 
-    if ( DltDmtUtil::getInstance()->isDMAbortAfterRestartTrue() ) {
+    if ( OmExtUtilApi::getInstance()->isDMAbortAfterRestartTrue() ) {
         vp->clearTargetDmt();
 
-        DltDmtUtil::getInstance()->clearDMAbortParams();
+        OmExtUtilApi::getInstance()->clearDMAbortParams();
     }
 
     if (vp->canRetryMigration()) {

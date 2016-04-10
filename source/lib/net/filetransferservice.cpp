@@ -15,8 +15,8 @@
 #include <net/SvcRequestPool.h>
 #include <net/PlatNetSvcHandler.h>
 
+#include <boost/filesystem.hpp>
 
-#define FT_CHUNKSIZE 2*MB
 #define INVALID_OFFSET -1
 
 namespace fds { namespace net {
@@ -67,6 +67,7 @@ bool FileTransferService::Handle::isComplete() const {
 }
 
 bool FileTransferService::Handle::getNextChunk(std::string& data) {
+    const auto FT_CHUNKSIZE = ftService->getChunkSize();
     GLOGDEBUG << "here : " << (*this);
     data.reserve(FT_CHUNKSIZE);
     data.clear();
@@ -105,6 +106,18 @@ FileTransferService::Handle::ptr FileTransferService::get(fds_uint64_t hashCode)
         return transferMap.at(hashCode);
     }
     return NULL;
+}
+
+fds_uint32_t FileTransferService::getChunkSize() const {
+    return chunkSize;
+}
+
+void FileTransferService::setChunkSize(fds_uint32_t size) {
+    if (size > 0) {
+        chunkSize = size;
+    } else {
+        GLOGWARN << "invalid chunk size : " << size;
+    }
 }
 
 FileTransferService::FileTransferService(const std::string& destDir, SvcMgr* svcMgr_)
@@ -181,6 +194,7 @@ bool FileTransferService::sendNextChunk(FileTransferService::Handle::ptr handle)
 
     request->setPayload(FDSP_MSG_TYPEID(fpi::FileTransferMsg), msg);
     request->onResponseCb(RESPONSE_MSG_HANDLER(FileTransferService::handleTransferResponse, handle));
+    request->setTimeoutMs(30*1000);
     request->invoke();
     GLOGDEBUG << "after send : " << handle;
     return true;
@@ -223,6 +237,7 @@ void FileTransferService::sendVerifyRequest(FileTransferService::Handle::ptr han
     auto request =  svcMgr->getSvcRequestMgr()->newEPSvcRequest(handle->svcId);
     request->setPayload(FDSP_MSG_TYPEID(fpi::FileTransferVerifyMsg), msg);
     request->onResponseCb(RESPONSE_MSG_HANDLER(FileTransferService::handleVerifyResponse, handle));
+    request->setTimeoutMs(30*1000);
     request->invoke();
 }
 
@@ -272,7 +287,12 @@ void FileTransferService::handleTransferRequest(SHPTR<fpi::AsyncHdr>& asyncHdr,
     std::ios_base::openmode mode =  std::ios::out;
 
     if (util::fileExists(destFile)) {
-        mode |= std::ios::in;
+        if (0 == message->offset) {
+            // if the offset is zero & the file exists, delete the file first
+            boost::filesystem::remove(destFile);
+        } else {
+            mode |= std::ios::in;
+        }
     }
 
     GLOGDEBUG << "will write data @ offset:" << message->offset << " to " << destFile;

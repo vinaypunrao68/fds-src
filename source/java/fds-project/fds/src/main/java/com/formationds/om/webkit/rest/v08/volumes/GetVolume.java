@@ -13,8 +13,8 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.List;
 import java.util.Map;
@@ -22,7 +22,7 @@ import java.util.Map;
 public class GetVolume  implements RequestHandler {
 	
 	public static final String VOLUME_ARG = "volume_id";
-    private static final Logger logger = LoggerFactory.getLogger(ListVolumes.class);
+    private static final Logger logger = LogManager.getLogger(ListVolumes.class);
     private Authorizer authorizer;
     private AuthenticationToken token;
    

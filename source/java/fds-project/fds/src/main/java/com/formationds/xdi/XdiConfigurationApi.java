@@ -17,7 +17,8 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.google.common.collect.Lists;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.apache.thrift.TException;
 
 import java.util.List;
@@ -28,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class XdiConfigurationApi implements ConfigurationApi {
     public static final String SYSTEM_VOLUME_PREFIX = "SYSTEM_VOLUME_";
 
-    private static final Logger LOG = Logger.getLogger(XdiConfigurationApi.class);
+    private static final Logger LOG = LogManager.getLogger(XdiConfigurationApi.class);
     private static final long   KEY = 0;
     private final ConfigurationService.Iface                   config;
     private final ConcurrentHashMap<Long, CachedConfiguration> map;
@@ -45,6 +46,37 @@ public class XdiConfigurationApi implements ConfigurationApi {
                 throw new RuntimeException( e );
             }
         } );
+    }
+
+    /**
+     * Get API version used by service handler.
+     */
+    @Override
+    public Version getVersion() throws ApiException, TException {
+
+        return config.getVersion();
+    }
+
+    /**
+     * Get the API version table for the service.
+     */
+    @Override
+    public List<ServiceAPIVersion> getVersionTable() throws ApiException, TException {
+
+        return config.getVersionTable();
+    }
+
+    /**
+     * Handshake with the server to negotiate API version.
+     * @param suggestedVersion - Version: The API version suggested by the client.
+     *  Using Thrift, the client is the code using a Thrift generated service.client
+     *  instance.
+     * @return Version: The API version acceptable to the server
+     */
+    @Override
+    public Version suggestVersion(Version suggestedVersion) throws ApiException, TException {
+
+       return config.suggestVersion(suggestedVersion);
     }
 
     /**

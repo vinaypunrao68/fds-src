@@ -7,16 +7,32 @@
 #include "fds_qos.h"
 #include "fds_error.h"
 #include "qos_htb.h"
+#include <json/json.h>
 
 namespace fds {
 
 FDS_QoSControl::FDS_QoSControl() {
 }
 
-FDS_QoSControl::FDS_QoSControl(fds_uint32_t _max_threads, dispatchAlgoType algo, fds_log *log,
-                                       const std::string& prefix) :qos_max_threads(_max_threads)
+FDS_QoSControl::FDS_QoSControl(fds_uint32_t _max_threads,
+                               dispatchAlgoType algo,
+                               fds_log *log,
+                               const std::string& prefix)
+: FDS_QoSControl(_max_threads, 0, algo, log, prefix)
+{
+}
+
+FDS_QoSControl::FDS_QoSControl(fds_uint32_t _max_threads,
+                               uint32_t lowpriThreadpoolSz,
+                               dispatchAlgoType algo,
+                               fds_log *log,
+                               const std::string& prefix)
+:qos_max_threads(_max_threads)
 {
     threadPool = new fds_threadpool("QosThreadpool", qos_max_threads);
+    if (lowpriThreadpoolSz > 0) {
+        lowpriThreadPool = new fds_threadpool("QosLowPriThreadpool", lowpriThreadpoolSz);
+    }
     dispatchAlgo = algo;
     qos_log = log;
     total_rate = 20000;  // IOPS
@@ -24,10 +40,16 @@ FDS_QoSControl::FDS_QoSControl(fds_uint32_t _max_threads, dispatchAlgoType algo,
 
 FDS_QoSControl::~FDS_QoSControl()  {
     delete threadPool;
+    if (lowpriThreadPool) {
+        delete lowpriThreadPool;
+    }
 }
 
 void FDS_QoSControl::stop() {
     threadPool->stop();
+    if (lowpriThreadPool) {
+        lowpriThreadPool->stop();
+    }
     if (dispatcher) {
         dispatcher->stop();
         if (dispatcherThread) {
@@ -124,6 +146,25 @@ Error FDS_QoSControl::processIO(FDS_IOType *io_type) {
 
 Error FDS_QoSControl::markIODone(FDS_IOType* io) {
     return dispatcher->markIODone(io);
+}
+
+std::string FDS_QoSControl::getStateInfo()
+{
+    Json::Value state;
+    state["total"] = static_cast<Json::Value::Int64>(dispatcher->total_svc_iops);
+    state["max_outstanding_ios"] = dispatcher->max_outstanding_ios;
+    state["num_pending_ios"] = dispatcher->num_pending_ios.load(std::memory_order_relaxed);
+    state["num_outstanding_ios"] = dispatcher->num_outstanding_ios.load(std::memory_order_relaxed); 
+    state["queue_map_size"] = static_cast<Json::Value::UInt>(dispatcher->queue_map.size());
+
+    std::stringstream ss;
+    ss << state;
+    return ss.str();
+}
+
+std::string FDS_QoSControl::getStateProviderId()
+{
+    return "qos";
 }
 
 }  // namespace fds

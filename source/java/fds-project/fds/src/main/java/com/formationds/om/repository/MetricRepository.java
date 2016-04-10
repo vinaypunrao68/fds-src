@@ -12,8 +12,8 @@ import com.formationds.commons.model.type.Metrics;
 import com.formationds.om.helper.EndUserMessages;
 import com.formationds.om.helper.SingletonConfigAPI;
 import org.apache.thrift.TException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -34,7 +34,7 @@ public interface MetricRepository extends CRUDRepository<IVolumeDatapoint, Long>
      */
     public static class MetricsEntityPersistListener implements EntityPersistListener<IVolumeDatapoint> {
         private static final Logger logger =
-            LoggerFactory.getLogger( MetricsEntityPersistListener.class );
+            LogManager.getLogger( MetricsEntityPersistListener.class );
 
         public void prePersist( VolumeDatapoint dp ) {
             try {
@@ -79,6 +79,16 @@ public interface MetricRepository extends CRUDRepository<IVolumeDatapoint, Long>
      * @return the total number of used bytes gathered via vfstat looking at mount points.
      */
     Double sumUsedBytes();
+
+    /**
+     * @return the total number of de-duped bytes.
+     */
+    Double sumDomainDedupBytesFraction();
+
+    /**
+     * @return calculate pbytes using summed up logical bytes + summed up domain dedup fraction bytes.
+     */
+    Double calculatePBytes( );
 
     /**
      *

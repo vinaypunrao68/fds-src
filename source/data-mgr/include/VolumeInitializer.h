@@ -223,7 +223,7 @@ syncPreemptionChecks(const fpi::AddToVolumeGroupRespCtrlMsgPtr &responseMsg)
         replica_->setState(fpi::ResourceState::Syncing,
                            "- Sync prevented. No writes since last open. About to become functional");
         notifyCoordinator_();
-        complete_(ERR_OK, "- Sync prevente. dNo writes since last open. Become functional");
+        complete_(ERR_OK, "- Sync prevented. No writes since last open. Become functional");
         return true;
     } else if (responseMsg->group.functionalReplicas.size() == 0) {
         complete_(ERR_SYNCPEER_UNAVAILABLE, " - no sync peer is available");
@@ -254,6 +254,7 @@ void ReplicaInitializer<T>::startBuffering_()
     /* Create buffer replay instance */
     bufferReplay_.reset(new BufferReplay(bufferfilePath,
                                          512,  /* Replay batch size */
+                                         replica_->getId(),
                                          MODULEPROVIDER()->proc_thrpool()));
     auto err = bufferReplay_->init();
     if (!err.ok()) {
@@ -262,7 +263,7 @@ void ReplicaInitializer<T>::startBuffering_()
     }
 
     /* Callback to get the progress of replay */
-    bufferReplay_->setProgressCb(replica_->synchronizedProgressCb([this](BufferReplay::Progress progress) {
+    bufferReplay_->setProgressCb(replica_->makeSynchronized([this](BufferReplay::Progress progress) {
         // TODO(Rao): Current state validity checks
         LOGNOTIFY << "BufferReplay progressCb: " << replica_->logString()
             << bufferReplay_->logString();
@@ -281,6 +282,7 @@ void ReplicaInitializer<T>::startBuffering_()
      * NOTE: This doesn't need to be done on a volume synchronized context
      */
     bufferReplay_->setReplayOpsCb([this](int64_t opCntr, std::list<BufferReplay::Op> &ops) {
+        /* We replay ops as if client is sending the ops over service layer */
         auto requestMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
         auto selfUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
         for (const auto &op : ops) {

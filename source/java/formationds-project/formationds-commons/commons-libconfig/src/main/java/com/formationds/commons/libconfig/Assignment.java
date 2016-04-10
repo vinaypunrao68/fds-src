@@ -3,8 +3,8 @@ package com.formationds.commons.libconfig;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.Optional;
 
@@ -17,7 +17,7 @@ public class Assignment
     implements Node {
 
     private static final Logger logger =
-        LoggerFactory.getLogger( Assignment.class );
+        LogManager.getLogger( Assignment.class );
 
     public static final String NOT_FOUND =
         "The specified name '%s' was not found or was not set.";

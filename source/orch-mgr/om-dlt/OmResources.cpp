@@ -14,7 +14,7 @@
 #include <OmResources.h>
 #include <OmDataPlacement.h>
 #include <OmVolumePlacement.h>
-#include <omutils.h>
+#include <OmIntUtilApi.h>
 #include <fds_process.h>
 #include <net/net_utils.h>
 #include <net/SvcMgr.h>
@@ -744,8 +744,8 @@ NodeDomainFSM::DACT_WaitDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
         OM_Module *om     = OM_Module::om_singleton();
         ClusterMap *cm    = om->om_clusmap_mod();
 
-        bool smMigAbort =  DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue();
-        bool dmMigAbort =  DltDmtUtil::getInstance()->isDMAbortAfterRestartTrue();
+        bool smMigAbort =  OmExtUtilApi::getInstance()->isSMAbortAfterRestartTrue();
+        bool dmMigAbort =  OmExtUtilApi::getInstance()->isDMAbortAfterRestartTrue();
 
         if ( smMigAbort ) {
             LOGDEBUG << "OM needs to send abortMigration to all SMs,"
@@ -985,12 +985,6 @@ NodeDomainFSM::DACT_ShutAm::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     try {
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         OM_NodeContainer *dom_ctrl = domain->om_loc_domain_ctrl();
-
-        /**
-         * Volume coordinator currently lives as part of the AM.
-         * We'll clear the VC information from the OM as part of the AM shutdown.
-         */
-        dom_ctrl->clearVolumesCoordinatorInfo();
 
         // broadcast shutdown message to all AMs
         dst.am_acks_to_wait = dom_ctrl->om_bcast_shutdown_msg(fpi::FDSP_ACCESS_MGR);
@@ -1336,7 +1330,6 @@ OM_NodeDomainMod::OM_NodeDomainMod(char const *const name)
           fsm_lock("OM_NodeDomainMod fsm lock"),
           configDB(nullptr),
           domainDown(false),
-          dbLock("ConfigDB access lock"),
           dmClusterPresent_(false)
 {
     om_locDomain = new OM_NodeContainer();
@@ -1361,7 +1354,7 @@ OM_NodeDomainMod::mod_init(SysParams const *const param)
     om_test_mode = conf_helper.get<bool>("test_mode");
     om_locDomain->om_init_domain();
     dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
-                             get<uint32_t>("fds.feature_toggle.common.volumegrouping_dm_cluster_size", 1));
+                             get<uint32_t>("fds.feature_toggle.common.volumegrouping_dm_cluster_size"));
     return 0;
 }
 
@@ -1532,8 +1525,8 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                  * does not already exists or if the incarnation is newer then
                  * then the existing service.
                  */
-                
-                MODULEPROVIDER()->getSvcMgr()->updateSvcMap(svcinfos);
+				// This independent update should be okay
+                MODULEPROVIDER()->getSvcMgr()->updateSvcMap(svcinfos);              
             } else {
                 LOGNORMAL << "No persisted Service Map found.";
             }
@@ -1569,7 +1562,7 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                         }
                     } else {
                             LOGDEBUG << "Adding to the remove list";
-                            DltDmtUtil::getInstance()->addToRemoveList(svc.svc_id.svc_uuid.svc_uuid, svc.svc_type);
+                            OmExtUtilApi::getInstance()->addToRemoveList(svc.svc_id.svc_uuid.svc_uuid, svc.svc_type);
                         }
                 }
             }
@@ -1627,14 +1620,14 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         // if it is. The unset flag will cause this NULL set of newDlt so prevent it.
         // At the end of error handling we will explicitly clear "next" version
         // and newDlt out as a part of clearSMAbortParams()
-        bool unsetTarget = !(DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue());
+        bool unsetTarget = !(OmExtUtilApi::getInstance()->isSMAbortAfterRestartTrue());
         bool committed = dp->commitDlt( unsetTarget );
 
-        LOGNOTIFY << "OM deployed DLT with "
-                  << deployed_sm_services.size() << " nodes, committedDlt? " << committed;
+        LOGNOTIFY << "OM has persisted "
+                  << deployed_sm_services.size() << " SM nodes, committedDlt? " << committed;
 
         // Same reasoning as above
-        unsetTarget = !(DltDmtUtil::getInstance()->isDMAbortAfterRestartTrue());
+        unsetTarget = !(OmExtUtilApi::getInstance()->isDMAbortAfterRestartTrue());
         vp->commitDMT( unsetTarget );
 
         if ( isAnyNonePlatformSvcActive( &pmSvcs, &amSvcs, &smSvcs, &dmSvcs ) ) {
@@ -1643,6 +1636,10 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                       << amSvcs.size() << " AMs. "
                       << dmSvcs.size() << " DMs. "
                       << smSvcs.size() << " SMs.";
+
+            // This should contain currently just the OM. Broadcast here first
+            // so that any PMs trying to send heartbeats to the OM will succeed
+            om_locDomain->om_bcast_svcmap();
 
             spoofRegisterSvcs(pmSvcs);
 
@@ -1891,9 +1888,6 @@ OM_NodeDomainMod::om_load_volumes()
                      << "[" << volume.volUUID << ":" << volume.name << "]";
         }
 
-        if (volume.isStateMarkedForDeletion()) {
-            volContainer->addToDeleteVols(volume);
-        }
     }
 
     // load snapshots
@@ -2040,6 +2034,11 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 
                     gl_orch_mgr->addToSendQ(msg, false);
 
+                    auto curTime         = std::chrono::system_clock::now().time_since_epoch();
+                    double timeInMinutes = std::chrono::duration<double,std::ratio<60>>(curTime).count();
+
+                    gl_orch_mgr->omMonitor->updateKnownPMsMap(svcInfo->svc_id.svc_uuid, timeInMinutes, true );
+
                 } else {
                     LOGDEBUG << "Platform Manager Service UUID ( "
                              << std::hex 
@@ -2052,11 +2051,9 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
                     auto pmNodes = om_locDomain->om_pm_nodes();
                     auto pmAgent = OM_PmAgent::agt_cast_ptr(pmNodes->agent_info(node_uuid));
                     pmAgent->set_node_state(fpi::FDS_Node_Discovered);
-                }
-                auto curTime         = std::chrono::system_clock::now().time_since_epoch();
-                double timeInMinutes = std::chrono::duration<double,std::ratio<60>>(curTime).count();
 
-                gl_orch_mgr->omMonitor->updateKnownPMsMap(svcInfo->svc_id.svc_uuid, timeInMinutes, false );
+                    // DISCOVERED PMs will only be added to the well-known map when it is added
+                }
             } 
             else if ( isStorageMgrSvc( *svcInfo ) || isDataMgrSvc( *svcInfo ) ) 
             {    
@@ -2105,16 +2102,14 @@ OM_NodeDomainMod::om_register_service(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
             svcInfo->svc_status = fpi::SVC_STATUS_INVALID;
         }
 
-        /*
-         * Update the service layer service map up front so that any subsequent
-         * communication with that service will work.
-         */
-        MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
-        om_locDomain->om_bcast_svcmap();
+        // This will happen with updateSvcMaps call in setupnewNode
+        // MODULEPROVIDER()->getSvcMgr()->updateSvcMap({*svcInfo});
+        // om_locDomain->om_bcast_svcmap();
 
         if (svcInfo->svc_type == fpi::FDSP_PLATFORM) {
-            configDB->updateSvcMap(*svcInfo);
-
+            updateSvcMaps<kvstore::ConfigDB>( configDB,  MODULEPROVIDER()->getSvcMgr(),
+                           svcInfo->svc_id.svc_uuid.svc_uuid,
+                           svcInfo->svc_status, fpi::FDSP_PLATFORM, false, true , *svcInfo );
         }
     }
     catch(const Exception& e)
@@ -2309,8 +2304,12 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                         cm->updateMap( fpi::FDSP_STOR_MGR, addNodes, rmNodes );
                         // we want to remove service from pending services
                         // only if it is not in discovered state
-                        if ( svc.svc_status != fpi::SVC_STATUS_DISCOVERED ) {
-                            cm->resetPendingAddedService(fpi::FDSP_STOR_MGR, node_uuid);
+                        if ( svc.svc_status != fpi::SVC_STATUS_DISCOVERED )
+                        {
+                            if (cm->getAddedServices(fpi::FDSP_STOR_MGR).size() > 0)
+                            {
+                                cm->resetPendingAddedService(fpi::FDSP_STOR_MGR, node_uuid);
+                            }
                         }
                     }
                     else if ( svc.svc_type == fpi::FDSP_DATA_MGR )
@@ -2323,8 +2322,12 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                         cm->updateMap( fpi::FDSP_DATA_MGR, addNodes, rmNodes );
                         // we want to remove service from pending services
                         // only if it is not in discovered state
-                        if ( svc.svc_status != fpi::SVC_STATUS_DISCOVERED ) {
-                            cm->resetPendingAddedService(fpi::FDSP_DATA_MGR, node_uuid);
+                        if ( svc.svc_status != fpi::SVC_STATUS_DISCOVERED )
+                        {
+                            if (cm->getAddedServices(fpi::FDSP_DATA_MGR).size() > 0)
+                            {
+                                cm->resetPendingAddedService(fpi::FDSP_DATA_MGR, node_uuid);
+                            }
                         }
                     }
                 }
@@ -2334,13 +2337,15 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                 break;
             case fpi::FDSP_PLATFORM:
                 // TODO how do we set the node state?
+                if ( svc.svc_status != fpi::SVC_STATUS_DISCOVERED )
                 {
                     auto curTime         = std::chrono::system_clock::now().time_since_epoch();
                     double timeInMinutes = std::chrono::duration<double,std::ratio<60>>(curTime).count();
 
                     gl_orch_mgr->omMonitor->updateKnownPMsMap(svc.svc_id.svc_uuid, timeInMinutes, false );
-                    error = om_handle_restart( node_uuid, reg_node_req );
                 }
+                error = om_handle_restart( node_uuid, reg_node_req );
+
                 break;    
             default:
                 // skip any other service types
@@ -2363,27 +2368,22 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                      svc.svc_status == fpi::SVC_STATUS_INACTIVE_STOPPED ||
                      svc.svc_status == fpi::SVC_STATUS_STANDBY) ) )
             {
-                svc.svc_status = fpi::SVC_STATUS_ACTIVE;
-
-                fds_mutex::scoped_lock l(dbLock);
-                configDB->updateSvcMap( svc );
+                updateSvcMaps<kvstore::ConfigDB>( configDB,  MODULEPROVIDER()->getSvcMgr(),
+                               svc.svc_id.svc_uuid.svc_uuid,
+                               fpi::SVC_STATUS_ACTIVE, fpi::FDSP_PLATFORM );
             }
 
             spoofed.push_back( svc );
-        }
-        else 
-        {
+        } else {
             LOGWARN << "OM Restart, Failed to Register ( spoof ) Service: "
                     << fds::logDetailedString( svc );
         }
     }
-    
-    if ( spoofed.size() > 0  )
-    {    
-        LOGDEBUG << "OM Restart, updating and broadcasting service map ( spoof )";
-        MODULEPROVIDER()->getSvcMgr()->updateSvcMap( spoofed );
-        om_locDomain->om_bcast_svcmap();
-    }
+
+    // We have to explicitly broadcast here because the ::updateSvcMaps function will not do it.
+    // That's because we don't want to spam the system with updates for every single svc state
+    // change. So do it for all svcs that have been spoofed
+    om_locDomain->om_bcast_svcmap();
 }
     
 
@@ -2425,7 +2425,7 @@ void OM_NodeDomainMod::handlePendingSvcRemoval(std::vector<fpi::SvcInfo> removed
                      << uuid.uuid_get_val() << std::dec
                      << " in configDB, skip processing of removed svc:"
                      << std::hex << svcId << std::dec;
-            DltDmtUtil::getInstance()->clearFromRemoveList(svc.svc_id.svc_uuid.svc_uuid);
+            OmExtUtilApi::getInstance()->clearFromRemoveList(svc.svc_id.svc_uuid.svc_uuid);
             continue;
         }
 
@@ -2633,7 +2633,11 @@ bool OM_NodeDomainMod::isKnownPM(fpi::SvcInfo svcInfo)
 
                 if ( knownUUID == registerUUID )
                 {
-                    bRetCode = true;
+                    if (dbSvc.svc_status == fpi::SVC_STATUS_DISCOVERED) {
+                        bRetCode = false;
+                    } else {
+                        bRetCode = true;
+                    }
                     break;
                 }
             }
@@ -2974,14 +2978,21 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
             }
         }
     }
-        
-    Error err = om_locDomain->dc_register_node(uuid, msg, &newNode);
-    if (err == ERR_DUPLICATE) {
-        fPrevRegistered = true;
-        LOGNOTIFY << "Service already exists; probably is re-registering "
-                  << " after domain startup (re-activate after shutdown), "
-                  << "uuid " << std::hex << (msg->node_uuid).uuid << std::dec;
-        err = ERR_OK;  // this is ok, still want to continue re-registration
+
+    Error err(ERR_OK);
+
+    // Do the agent registeration for only PMs here. For all other services
+    // this step will happen as a part of ::setupNewNode
+    if ( msg->node_type == fpi::FDSP_PLATFORM )
+    {
+        err = om_locDomain->dc_register_node(uuid, msg, &newNode);
+        if (err == ERR_DUPLICATE) {
+            fPrevRegistered = true;
+            LOGNOTIFY << "Service already exists; probably is re-registering "
+                      << " after domain startup (re-activate after shutdown), "
+                      << "uuid " << std::hex << (msg->node_uuid).uuid << std::dec;
+            err = ERR_OK;  // this is ok, still want to continue re-registration
+        }
     }
 
     /**
@@ -2989,8 +3000,7 @@ OM_NodeDomainMod::om_reg_node_info(const NodeUuid&      uuid,
      * immediately and wait for 3 seconds before broadcast...
      * In test mode, the unit test has to manually call setupNewNode()
      */
-    
-    if (err.ok() && (msg->node_type != fpi::FDSP_PLATFORM)) {
+    if (msg->node_type != fpi::FDSP_PLATFORM) {
         auto timer = MODULEPROVIDER()->getTimer();
         auto task = boost::shared_ptr<FdsTimerTask>(
             new FdsTimerFunctionTask(
@@ -3056,7 +3066,49 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
     LOGNORMAL << "Scheduled task 'setupNewNode' started, uuid "
               << std::hex << uuid << std::dec;
 
+    /*
+     *  Update the configDB and svcLayer svcMap now for non-PM services
+    */
+    if ((msg->node_type != fpi::FDSP_PLATFORM) && !isInTestMode()) {
+
+        SvcInfoPtr infoPtr;
+        Error err = getRegisteringSvc(infoPtr, uuid.uuid_get_val());
+
+        if (err == ERR_OK) {
+            LOGNOTIFY <<"Update configDB svcMap for svc:"
+                      << std::hex
+                      << infoPtr->svc_id.svc_uuid.svc_uuid
+                      << std::dec;
+
+            updateSvcMaps<kvstore::ConfigDB>( configDB,  MODULEPROVIDER()->getSvcMgr(),
+                           infoPtr->svc_id.svc_uuid.svc_uuid,
+                           infoPtr->svc_status, infoPtr->svc_type, false, true, *infoPtr);
+
+            // Now erase the svc from the the local tracking vector
+            removeRegisteredSvc(infoPtr->svc_id.svc_uuid.svc_uuid);
+
+        } else {
+            LOGERROR << "Could not update ConfigDB svcMap for service:"
+                     << std::hex << uuid.uuid_get_val()
+                     << std::dec << " , not found";
+        }
+    }
+
+    /*
+     * Now set up the nodeAgent etc
+     */
+
     Error err(ERR_OK);
+
+    err = om_locDomain->dc_register_node(uuid, msg, &newNode);
+    if (err == ERR_DUPLICATE) {
+        fPrevRegistered = true;
+        LOGNOTIFY << "Service already exists; probably is re-registering "
+                  << " after domain startup (re-activate after shutdown), "
+                  << "uuid " << std::hex << (msg->node_uuid).uuid << std::dec;
+        err = ERR_OK;  // this is ok, still want to continue re-registration
+    }
+
     OM_PmContainer::pointer pmNodes;
     OM_Module *om = OM_Module::om_singleton();
     OM_DMTMod *dmtMod = om->om_dmt_mod();
@@ -3081,34 +3133,6 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
         if (!err.ok()) {
             LOGWARN << "handler_register_service returned error: " << err
                 << " type:" << msg->node_type;
-        }
-    }
-
-    /*
-     *  We have already performed svclayer map update and broadcast for all services.
-     *  For PM configDB updates are done along with svcLayer updates in om_register_svc
-     *  Update the configDB svcMap now for other services
-    */
-    if ((msg->node_type != fpi::FDSP_PLATFORM) && !isInTestMode()) {
-
-        SvcInfoPtr infoPtr;
-        Error err = getRegisteringSvc(infoPtr, uuid.uuid_get_val());
-
-        if (err == ERR_OK) {
-            LOGNOTIFY <<"Update configDB svcMap for svc:"
-                      << std::hex
-                      << infoPtr->svc_id.svc_uuid.svc_uuid
-                      << std::dec;
-
-            configDB->updateSvcMap(*infoPtr);
-
-            // Now erase the svc from the the local tracking vector
-            removeRegisteredSvc(infoPtr->svc_id.svc_uuid.svc_uuid);
-
-        } else {
-            LOGERROR << "Could not update ConfigDB svcMap for service:"
-                     << std::hex << uuid.uuid_get_val()
-                     << std::dec << " , not found";
         }
     }
 
@@ -3174,6 +3198,7 @@ void OM_NodeDomainMod::setupNewNode(const NodeUuid&      uuid,
                       << " has finished registering, update DLT now";
 
             om_dlt_update_cluster();
+
         } else if (msg->node_type == fpi::FDSP_DATA_MGR) {
             // Check if this is a re-registration of an existing DM executor
             LOGDEBUG << "Firing reregister event for DM node " << uuid;
@@ -3367,10 +3392,9 @@ OM_NodeDomainMod::removeNodeComplete(NodeUuid uuid) {
     if (ret) {
         LOGDEBUG << "Deleting from svcMap, uuid:" << std::hex << svcuuid.svc_uuid << std::dec;
 
-        fds_mutex::scoped_lock l(dbLock);
-
         configDB->deleteSvcMap(svcInfo);
-        DltDmtUtil::getInstance()->clearFromRemoveList(uuid.uuid_get_val());
+
+        OmExtUtilApi::getInstance()->clearFromRemoveList(uuid.uuid_get_val());
     }
 }
 
@@ -3454,7 +3478,7 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
         dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
     } else {
         auto dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
-                                        get<uint32_t>("fds.feature_toggle.common.volumegrouping_dm_cluster_size", 1));
+                                        get<uint32_t>("fds.feature_toggle.common.volumegrouping_dm_cluster_size"));
         if ((!dmClusterPresent()) && (awaitingDMs == dmClusterSize)) {
             LOGNOTIFY << "Volume Group Mode has reached quorum with " << dmClusterSize
                     << " DMs. Calculating DMT now.";
@@ -3486,26 +3510,118 @@ OM_NodeDomainMod::om_dmt_waiting_timeout() {
  * Drives the DLT deployment state machine.
  */
 void
-OM_NodeDomainMod::om_dlt_update_cluster() {
-    LOGNOTIFY << "Attempt to update DLT, will raise DltCompute event";
-    OM_Module *om = OM_Module::om_singleton();
-    OM_DLTMod *dltMod = om->om_dlt_mod();
+OM_NodeDomainMod::om_dlt_update_cluster()
+{
 
-    // this will check if we need to compute DLT
-    dltMod->dlt_deploy_event(DltComputeEvt());
+    OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
+    OM_SmContainer::pointer smNodes = local->om_sm_nodes();
+    OM_Module *om = OM_Module::om_singleton();
+    ClusterMap *cm = om->om_clusmap_mod();
+    DataPlacement *dp = om->om_dataplace_mod();
+
+    bool fEnforceMinimumReplicas = MODULEPROVIDER()->get_fds_config()->get<bool>
+                                     ("fds.feature_toggle.om.enforce_minimum_replicas", true);
+
+    if ( fEnforceMinimumReplicas )
+    {
+        bool svcAddition = false;
+
+        // Added nodes should be in the node_up_pend list
+        int64_t smAgentsRegistered = smNodes->om_nodes_up();
+        int64_t replicas           = g_fdsprocess->get_conf_helper().get<int>("replica_factor");
+
+        if ( smAgentsRegistered > 0 )
+        {
+            svcAddition = true;
+        }
+
+        if ( svcAddition )
+        {
+            // We use the value from agent_registration because we now
+            // set this up AFTER services are set to ACTIVE. So, checking for an ACTIVE status
+            // could lead us to a replica_factor # of SMs who haven't completed agent_registration
+            // leading us to a DLT compute with potentially < replica_factor #. Since the DLT
+            // computation only cares about agent_registration #.
+
+            std::vector<NodeUuid> nodesInCurDlt;
+            auto curCommittedDlt = dp->getCommitedDlt();
+
+            if ( curCommittedDlt != DLT_VER_INVALID )
+            {
+                nodesInCurDlt = curCommittedDlt->getAllNodes();
+            }
+
+            int64_t knownSMs = smAgentsRegistered + nodesInCurDlt.size();
+
+            if ( knownSMs >= replicas )
+            {
+                LOGNOTIFY << "Attempt to update DLT for svc addition, will raise DltCompute event";
+                OM_Module *om = OM_Module::om_singleton();
+                OM_DLTMod *dltMod = om->om_dlt_mod();
+
+                // this will check if we need to compute DLT
+                dltMod->dlt_deploy_event(DltComputeEvt());
+
+            } else {
+                LOGWARN << knownSMs << " known SM(s) in the domain."
+                        << " Will not calculate DLT until there are at least " << replicas
+                        << " SM(s) to satisfy configured replica factor";
+                return;
+            }
+        } else {
+
+            int64_t currentlyKnownSMs = cm->getNumNonfailedMembers(fpi::FDSP_STOR_MGR);
+
+            // Could be that this is a call initiated by the domain state machine on a restart
+            // In this case, the agent nodes in added, removed lists are cleared out, by-passing
+            // the if check for this else.
+            // If there isn't a committed DLT yet, and replica check fails don't allow the update
+            if (dp->getCommitedDlt() == DLT_VER_INVALID && currentlyKnownSMs < replicas)
+            {
+                LOGWARN << currentlyKnownSMs << " known SM(s) in the domain."
+                        << " Will not calculate DLT until there are at least " << replicas
+                        << " SM(s) to satisfy configured replica factor";
+                return;
+            }
+
+            // Service removal, or safety re-try, so let it through
+            // ToDo @meena FS-5283 Restrict node remove if it causes known SM to drop below
+            // replica_factor
+
+            LOGNOTIFY << "Attempt to update DLT, will raise DltCompute event";
+            OM_Module *om = OM_Module::om_singleton();
+            OM_DLTMod *dltMod = om->om_dlt_mod();
+
+            // this will check if we need to compute DLT
+            dltMod->dlt_deploy_event(DltComputeEvt());
+        }
+
+    } else {
+
+        // Implying old way of doing things: a single node can come up in a cluster where
+        // replica_factor is 3, and we will still update the DLT. By allowing this we risk
+        // running into a token distribution problem as hit by FS-4942
+        LOGNOTIFY << "Attempt to update DLT, will raise DltCompute event";
+
+        OM_Module *om = OM_Module::om_singleton();
+        OM_DLTMod *dltMod = om->om_dlt_mod();
+
+        // this will check if we need to compute DLT
+        dltMod->dlt_deploy_event(DltComputeEvt());
+    }
 }
 
 void
-OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap(boost::shared_ptr<fpi::SvcInfo> svcInfo,
+OM_NodeDomainMod::om_change_svc_state_and_bcast_svcmap( fpi::SvcInfo svcInfo,
                                                         fpi::FDSP_MgrIdType svcType,
-                                                        const fpi::ServiceStatus status)
+                                                        const fpi::ServiceStatus status )
 {
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-    {
-        fds_mutex::scoped_lock l(dbLock);
-        change_service_state( configDB, svcInfo, status, true );
-    }
-    om_locDomain->om_bcast_svcmap();
+    svcInfo.svc_status = status;
+
+    updateSvcMaps<kvstore::ConfigDB>( configDB,  MODULEPROVIDER()->getSvcMgr(),
+                   svcInfo.svc_id.svc_uuid.svc_uuid,
+                   status, svcType, true, false, svcInfo );
 }
 
 void
@@ -3567,7 +3683,7 @@ OM_NodeDomainMod::om_service_up(const NodeUuid& svcUuid,
                 LOGNOTIFY << "SM:" << std::hex
                           << svcUuid.uuid_get_val() << std::dec << " up.";
 
-                om_dlt_update_cluster();
+                //om_dlt_update_cluster();
             }
             else if (svcType == fpi::FDSP_DATA_MGR)
             {

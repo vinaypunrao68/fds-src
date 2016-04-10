@@ -4,6 +4,7 @@
 
 package com.formationds.util.thrift.svc;
 
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.commons.model.AccessManagerService;
 import com.formationds.commons.model.DataManagerService;
 import com.formationds.commons.model.Domain;
@@ -14,6 +15,7 @@ import com.formationds.commons.model.StorageManagerService;
 import com.formationds.commons.model.type.NodeState;
 import com.formationds.commons.model.type.ServiceStatus;
 import com.formationds.commons.model.type.ServiceType;
+import com.formationds.protocol.commonConstants;
 import com.formationds.protocol.svc.PlatNetSvc;
 import com.formationds.protocol.svc.types.DomainNodes;
 import com.formationds.protocol.svc.types.NodeSvcInfo;
@@ -26,8 +28,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.thrift.TException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  * @author ptinius
@@ -36,7 +38,7 @@ public class SvcLayerClient
     implements SvcLayerClientIface {
 
     private static final Logger logger =
-        LoggerFactory.getLogger( SvcLayerClient.class );
+        LogManager.getLogger( SvcLayerClient.class );
 
     private static final Integer DEF_PM_PORT = 7000;
 
@@ -54,14 +56,29 @@ public class SvcLayerClient
 
         this.host = host;
 
-        netsvc =
-            new ThriftClientFactory.Builder<>( PlatNetSvc.Iface.class )
-                .withClientFactory( PlatNetSvc.Client::new )
-                .withHostPort( host.getHostText(),
-                               host.getPortOrDefault(
-                                   DEF_PM_PORT ) )
-                .build();
+        /**
+         * FEATURE TOGGLE: enable multiplexed services
+         * Tue Feb 23 15:04:17 MST 2016
+         */
+        if ( FdsFeatureToggles.THRIFT_MULTIPLEXED_SERVICES.isActive() ) {
+            netsvc =
+                new ThriftClientFactory.Builder<>( PlatNetSvc.Iface.class )
+                    .withThriftServiceName( commonConstants.PLATNET_SERVICE_NAME )
+                    .withClientFactory( PlatNetSvc.Client::new )
+                    .withHostPort( host.getHostText(),
+                                   host.getPortOrDefault(
+                                       DEF_PM_PORT ) )
+                    .build();
 
+        } else {
+            netsvc =
+                new ThriftClientFactory.Builder<>( PlatNetSvc.Iface.class )
+                    .withClientFactory( PlatNetSvc.Client::new )
+                    .withHostPort( host.getHostText(),
+                                   host.getPortOrDefault(
+                                       DEF_PM_PORT ) )
+                    .build();
+        }
         logger.debug( "connecting to service on {}", host );
     }
 

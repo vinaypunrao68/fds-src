@@ -35,6 +35,7 @@ extern "C"
 #include <net/SvcRequestPool.h>
 
 #include "platform/platform_manager.h"
+#include <platform/environment.h>
 
 #include "file_system_table.h"
 
@@ -141,6 +142,8 @@ namespace fds
             }
 
             loadEnvironmentVariables();
+
+            Environment::initialize();
 
             return 0;
         }
@@ -356,7 +359,7 @@ namespace fds
 
                         if (m_diskUuidToDeviceMap.end() == item)
                         {
-                            LOGERROR << "Unable to the hardware path for partition with UUID:  " << uuid << ", as found in fstab";
+                            LOGERROR << "Unable to find the hardware path for partition with UUID:  " << uuid << ", as found in fstab";
                             continue;
                         }
 
@@ -546,15 +549,15 @@ namespace fds
                 return;
             }
 
-            if (m_serviceFlapDetector->isServiceFlapping (procIndex))
-            {
-                // Flap detector handles error logging.
-                notifyOmServiceStateChange (procIndex, 0, fpi::HealthState::HEALTH_STATE_FLAPPING_DETECTED_EXIT, "is flapping, PM will not auto restart (until another start service is requested by the OM).");
-                return;
-            }
-
             if (JAVA_AM == procIndex)
             {
+                // don't start JAVA_AM if BARE_AM is not in a RUNNING state
+                if (fpi::SERVICE_RUNNING != m_nodeInfo.bareAMState)
+                {
+                    LOGWARN << "Received a request to start " << procName << ", but bare_am is not running.  Not doing anything.";
+                    return;
+                }
+
                 command = m_javaXdiJavaCmd;
 
                 for (auto const &vectItem : m_javaOptions)
@@ -586,7 +589,7 @@ namespace fds
             args.push_back (util::strformat ("--fds.common.om_ip_list=%s", fdsConfig->get_abs <std::string> ("fds.common.om_ip_list").c_str()));
             args.push_back (util::strformat ("--fds.pm.platform_port=%d", fdsConfig->get <int> ("platform_port")));
 
-            pid = fds_spawn_service (command, rootDir, args, false);
+            pid = fds_spawn_service (command, rootDir, args, false, procIndex);
 
             if (pid > 0)
             {
@@ -636,6 +639,33 @@ namespace fds
             m_db->setNodeInfo (m_nodeInfo);
         }
 
+        bool PlatformManager::waitOrphanPid(pid_t const pid, std::string const &procName, uint64_t waitTimeoutNanoSeconds)
+        {
+            timespec startTime;
+            timespec timeNow;
+            timespec endTime;
+
+            clock_gettime (CLOCK_REALTIME, &startTime);
+
+            endTime.tv_sec = startTime.tv_sec + (waitTimeoutNanoSeconds / NANO_SECONDS_IN_1_SECOND) + (startTime.tv_nsec + waitTimeoutNanoSeconds) / NANO_SECONDS_IN_1_SECOND;
+            endTime.tv_nsec = (startTime.tv_nsec + waitTimeoutNanoSeconds) % NANO_SECONDS_IN_1_SECOND;
+
+            do
+            {
+                if (!procCheck(procName, pid))
+                {
+                    return true;
+                }
+                usleep (WAIT_PID_SLEEP_TIMER_MICROSECONDS);
+                clock_gettime (CLOCK_REALTIME, &timeNow);
+            }
+            while (timeNow.tv_sec < endTime.tv_sec || (timeNow.tv_sec <= endTime.tv_sec && timeNow.tv_nsec < endTime.tv_nsec));
+
+            LOGWARN << "Orphan process " << procName << " pid " << pid << " did not exit as expected.";
+
+            return false;
+        }
+
         bool PlatformManager::waitPid (pid_t const pid, uint64_t waitTimeoutNanoSeconds, bool monitoring)  // 1-%-9
         {
             int    status;
@@ -674,16 +704,27 @@ namespace fds
 
                     return true;
                 }
+                else if (-1 == waitPidRC)
+                {
+                    LOGERROR << "waitpid " << pid << " failed with error " << errno;
+                    return false;
+                }
+                // else return value is zero meaning the process is running
 
                 usleep (WAIT_PID_SLEEP_TIMER_MICROSECONDS);
                 clock_gettime (CLOCK_REALTIME, &timeNow);
             }
             while (timeNow.tv_sec < endTime.tv_sec || (timeNow.tv_sec <= endTime.tv_sec && timeNow.tv_nsec < endTime.tv_nsec));
 
+            if (!monitoring)
+            {
+                LOGWARN << "pid " << pid << " did not exit as expected.";
+            }
+
             return false;
         }
 
-        void PlatformManager::stopProcess (int procIndex)
+        void PlatformManager::stopProcess (int procIndex, bool force)
         {
             std::string    procName = getProcName (procIndex);
 
@@ -700,52 +741,53 @@ namespace fds
                 return;
             }
 
-            LOGNORMAL << "Preparing to stop " << procName << " via kill(pid, SIGTERM)";
-
             bool orphanChildProcess = mapIter->second & PROC_CHECK_BITMASK;
             int rc;
 
             pid_t pid = mapIter->second & ~PROC_CHECK_BITMASK;
 
-            // TODO(DJN): check for pid < 2 here and error
-
-            m_serviceFlapDetector->removeService (procIndex);
-
-            if (orphanChildProcess)
+            if (pid < 2)
             {
-                rc = kill (pid, SIGKILL);
-
-                if (rc < 0)
-                {
-                    LOGERROR << "Error sending signal (SIGKILL) to orphaned child process:  " << procName << "(pid = " << pid << ") errno = " << rc << "";
-                }
+                LOGERROR << "Can't stop pid " << pid;
+                return;
             }
-            else
+
+            bool forcekill = force;
+            if (!force)
             {
+                LOGNORMAL << "Preparing to stop " << (orphanChildProcess ? "orphan " : "") << "process "<< procName << " via kill(" << pid <<", SIGTERM)";
+
+                m_serviceFlapDetector->removeService (procIndex);
+
                 rc = kill (pid, SIGTERM);
 
                 if (rc < 0)
                 {
-                    LOGWARN << "Error sending signal (SIGTERM) to " << procName << "(pid = " << pid << ") errno = " << rc << ", will follow up with a SIGKILL";
+                    LOGWARN << "Error sending signal (SIGTERM) to " << procName << "(pid = " << pid << ") errno = " << errno;
+                    forcekill = true;
                 }
-
-                // Wait for the SIGTERM to shutdown the process, otherwise revert to using SIGKILL
-                if (rc < 0 || false == waitPid (pid, PROCESS_STOP_WAIT_PID_SLEEP_TIMER_NANOSECONDS))
+                else if (orphanChildProcess)
                 {
-                    rc = kill (pid, SIGKILL);
-
-                    if (rc < 0)
-                    {
-                        LOGERROR << "Error sending signal (SIGKILL) to " << procName << "(pid = " << pid << ") errno = " << rc << "";
-                    }
-
-                    waitPid (pid, PROCESS_STOP_WAIT_PID_SLEEP_TIMER_NANOSECONDS);
-
-                    if (rc < 0)
-                    {
-                        LOGERROR << "Error sending signal (SIGKILL) to " << procName << "(pid = " << pid << ") errno = " << errno << "";
-                    }
+                    forcekill = !waitOrphanPid(pid, procName, PROCESS_STOP_WAIT_PID_SLEEP_TIMER_NANOSECONDS);
                 }
+            }
+
+            if (forcekill)
+            {
+                LOGNORMAL << "Preparing to stop " << (orphanChildProcess ? "orphan " : "") << "process "<< procName << " via kill(" << pid <<", SIGKILL)";
+
+                rc = kill (pid, SIGKILL);
+                if (rc < 0)
+                {
+                    LOGERROR << "Error sending signal (SIGKILL) to process" << pid << "; errno = " << errno;
+                }
+            }
+
+            // Wait to shutdown the process; if we fail here, place pid on the killed processes list, so the monitor thread can wait on its exit
+            if (!orphanChildProcess && (false == waitPid (pid, PROCESS_STOP_WAIT_PID_SLEEP_TIMER_NANOSECONDS)))
+            {
+                std::lock_guard <decltype (m_killedProcessesMutex)> lock (m_killedProcessesMutex);
+                m_killedProcesses.push_back (pid);
             }
 
             m_appPidMap.erase (mapIter);
@@ -829,68 +871,25 @@ namespace fds
 
             for (auto const &vectItem : serviceList)
             {
-                LOGDEBUG << "received an add service for type:  " << vectItem.svc_type;
+                LOGNORMAL << "received an add service for type:  " << vectItem.svc_type;
 
-                switch (vectItem.svc_type)
+                if (vectItem.svc_type == fpi::FDSP_PLATFORM)
+                { // PM always sent by OM, ignore
+                    continue;
+                }
+
+                fpi::pmServiceStateTypeId state = getServiceState(vectItem.svc_type);
+                if (state == fpi::SERVICE_NOT_PRESENT)
                 {
-                    case fpi::FDSP_ACCESS_MGR:
-                    {
-                        if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.bareAMState && fpi::SERVICE_NOT_PRESENT == m_nodeInfo.javaAMState)
-                        {
-                            updateNodeInfoDbPidAndState (JAVA_AM, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
-                            updateNodeInfoDbPidAndState (BARE_AM, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
-                        }
-                        else if (fpi::SERVICE_RUNNING == m_nodeInfo.bareAMState && fpi::SERVICE_RUNNING == m_nodeInfo.javaAMState)
-                        {
-                            LOGERROR << "Received an unexpected add service for the AM when the AM services are already running.";
-                        }
-                        else             // SERVICE_PRESENT
-                        {
-                            LOGDEBUG << "No operation performed, received an add services request for AM services, but they are already added.";
-                        }
-
-
-                    } break;
-
-                    case fpi::FDSP_DATA_MGR:
-                    {
-                        if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.dmState)
-                        {
-                            updateNodeInfoDbPidAndState (DATA_MANAGER, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
-                        }
-                        else if (fpi::SERVICE_RUNNING == m_nodeInfo.dmState)
-                        {
-                            LOGERROR << "Received an unexpected add service request for the DM when the DM service is already running.";
-                        }
-                        else             // SERVICE_PRESENT
-                        {
-                            LOGDEBUG << "No operation performed, received an add service request for the DM service, but it is already added.";
-                        }
-
-                    } break;
-
-                    case fpi::FDSP_STOR_MGR:
-                    {
-                        if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.smState)
-                        {
-                            updateNodeInfoDbPidAndState (STORAGE_MANAGER, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
-                        }
-                        else if (fpi::SERVICE_RUNNING == m_nodeInfo.smState)
-                        {
-                            LOGERROR << "Received an unexpected add service request for the SM when the SM service is already running.";
-                        }
-                        else             // SERVICE_PRESENT
-                        {
-                            LOGDEBUG << "No operation performed, received an add service request for the SM service, but it is already added.";
-                        }
-
-                    } break;
-
-                    default:
-                    {
-                        LOGWARN << "Received an unexpected service type of " << vectItem.svc_type << " during an add service request.";
-
-                    } break;
+                    updateService(vectItem.svc_type, fpi::SERVICE_NOT_RUNNING);
+                }
+                else if (state == fpi::SERVICE_RUNNING)
+                {
+                    LOGERROR << "Received an unexpected add service request for a service when it is already running.";
+                }
+                else             // SERVICE_PRESENT
+                {
+                    LOGDEBUG << "No operation performed, received an add service request for a service, but it is already added.";
                 }
             }
         }
@@ -903,66 +902,138 @@ namespace fds
             {
                 LOGNORMAL << "received a remove service for type:  " << vectItem.svc_type;
 
-                switch (vectItem.svc_type)
-                {
-                    case fpi::FDSP_ACCESS_MGR:
-                    {
-                        if (fpi::SERVICE_NOT_RUNNING == m_nodeInfo.bareAMState && fpi::SERVICE_NOT_RUNNING == m_nodeInfo.javaAMState)
-                        {
-                            updateNodeInfoDbPidAndState (JAVA_AM, EMPTY_PID, fpi::SERVICE_NOT_PRESENT);
-                            updateNodeInfoDbPidAndState (BARE_AM, EMPTY_PID, fpi::SERVICE_NOT_PRESENT);
-                        }
-                        else if (fpi::SERVICE_RUNNING == m_nodeInfo.bareAMState || fpi::SERVICE_RUNNING == m_nodeInfo.javaAMState)
-                        {
-                            LOGERROR << "Received an unexpected remove service for the AM when the AM services are running.";
-                        }
-                        else        // SERVICE_NOT_PRESENT
-                        {
-                            LOGDEBUG << "No operation performed, received a remove services request for AM services, but they are already disabled.";
-                        }
-
-                    } break;
-
-                    case fpi::FDSP_DATA_MGR:
-                    {
-                        if (fpi::SERVICE_NOT_RUNNING == m_nodeInfo.dmState)
-                        {
-                            updateNodeInfoDbPidAndState (DATA_MANAGER, EMPTY_PID, fpi::SERVICE_NOT_PRESENT);
-                        }
-                        else if (fpi::SERVICE_RUNNING == m_nodeInfo.dmState)
-                        {
-                            LOGERROR << "Received an unexpected remove service request for the DM when the DM service is running.";
-                        }
-                        else        // SERVICE_NOT_PRESENT
-                        {
-                            LOGDEBUG << "No operation performed, received a remove service request for the DM service, but it is already disabled.";
-                        }
-
-                    } break;
-
-                    case fpi::FDSP_STOR_MGR:
-                    {
-                        if (fpi::SERVICE_NOT_RUNNING == m_nodeInfo.smState)
-                        {
-                            updateNodeInfoDbPidAndState (STORAGE_MANAGER, EMPTY_PID, fpi::SERVICE_NOT_PRESENT);
-                        }
-                        else if (fpi::SERVICE_RUNNING == m_nodeInfo.smState)
-                        {
-                            LOGERROR << "Received an unexpected remove service request for the SM when the SM service is running.";
-                        }
-                        else        // SERVICE_NOT_PRESENT
-                        {
-                            LOGDEBUG << "No operation performed, received a remove service request for the SM service, but it is already disabled.";
-                        }
-
-                    } break;
-
-                    default:
-                    {
-                        LOGWARN << "Received an unexpected service type of " << vectItem.svc_type;
-
-                    } break;
+                if (vectItem.svc_type == fpi::FDSP_PLATFORM)
+                { // PM always sent by OM, ignore
+                    continue;
                 }
+
+                fpi::pmServiceStateTypeId state = getServiceState(vectItem.svc_type);
+                if (state == fpi::SERVICE_NOT_RUNNING)
+                {
+                    updateService(vectItem.svc_type, fpi::SERVICE_NOT_PRESENT);
+                }
+                else if (state == fpi::SERVICE_RUNNING)
+                {
+                    LOGERROR << "Received an unexpected remove service request for a service when it is running.";
+                }
+                else        // SERVICE_NOT_PRESENT
+                {
+                    LOGDEBUG << "No operation performed, received a remove service request for a service, but it is already disabled.";
+                }
+            }
+        }
+
+        fpi::pmServiceStateTypeId PlatformManager::getServiceState (fpi::FDSP_MgrIdType svc_type)
+        {
+            fpi::pmServiceStateTypeId state = fpi::SERVICE_NOT_PRESENT;
+
+            switch (svc_type)
+            {
+                case fpi::FDSP_ACCESS_MGR:
+                {
+                    LOGDEBUG << "AM state. bare_am state: " << m_nodeInfo.bareAMState << ", xdi state: " << m_nodeInfo.javaAMState;
+                    return m_nodeInfo.bareAMState;
+                } break;
+
+                case fpi::FDSP_STOR_MGR:
+                {
+                    LOGDEBUG << "SM state: " << m_nodeInfo.smState;
+                    return m_nodeInfo.smState;
+                } break;
+
+                case fpi::FDSP_DATA_MGR:
+                {
+                    LOGDEBUG << "DM state: " << m_nodeInfo.dmState;
+                    return m_nodeInfo.dmState;
+                } break;
+                default:
+                {
+                    LOGERROR << "Received an unexpected service type of " << svc_type;
+                } break;
+            }
+            return state;
+        }
+
+        void PlatformManager::updateService (fpi::FDSP_MgrIdType svc_type, fpi::pmServiceStateTypeId state)
+        {
+            switch (svc_type)
+            {
+                case fpi::FDSP_ACCESS_MGR:
+                {
+                    updateNodeInfoDbPidAndState (JAVA_AM, EMPTY_PID, state);
+                    updateNodeInfoDbPidAndState (BARE_AM, EMPTY_PID, state);
+                } break;
+
+                case fpi::FDSP_DATA_MGR:
+                {
+                    updateNodeInfoDbPidAndState (DATA_MANAGER, EMPTY_PID, state);
+                } break;
+
+                case fpi::FDSP_STOR_MGR:
+                {
+                    updateNodeInfoDbPidAndState (STORAGE_MANAGER, EMPTY_PID, state);
+                } break;
+
+                default:
+                {
+                    LOGERROR << "Received an unexpected service type of " << svc_type;
+                } break;
+            }
+        }
+
+        void PlatformManager::stopService (fpi::FDSP_MgrIdType svc_type, bool force)
+        {
+            std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
+            switch (svc_type)
+            {
+                case fpi::FDSP_ACCESS_MGR:
+                {
+                    stopProcess(JAVA_AM, force);
+                    stopProcess(BARE_AM, force);
+                } break;
+
+                case fpi::FDSP_DATA_MGR:
+                {
+                    stopProcess(DATA_MANAGER, force);
+                } break;
+
+                case fpi::FDSP_STOR_MGR:
+                {
+                    stopProcess(STORAGE_MANAGER, force);
+                } break;
+
+                default:
+                {
+                    LOGERROR << "Received an unexpected service type of " << svc_type;
+                } break;
+            }
+        }
+
+        void PlatformManager::startService (fpi::FDSP_MgrIdType svc_type)
+        {
+            std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
+            switch (svc_type)
+            {
+                case fpi::FDSP_ACCESS_MGR:
+                {
+                    m_startQueue.push_back (BARE_AM);
+                    m_startQueue.push_back (JAVA_AM);
+                } break;
+
+                case fpi::FDSP_DATA_MGR:
+                {
+                    m_startQueue.push_back (DATA_MANAGER);
+                } break;
+
+                case fpi::FDSP_STOR_MGR:
+                {
+                    m_startQueue.push_back(STORAGE_MANAGER);
+                } break;
+
+                default:
+                {
+                    LOGERROR << "Received an unexpected service type of " << svc_type;
+                } break;
             }
         }
 
@@ -976,94 +1047,44 @@ namespace fds
             fpi::SvcStateChangeRespPtr message (new fpi::SvcStateChangeResp());
             message->pmSvcUuid.svc_uuid = m_nodeInfo.uuid;
 
+            auto force = startServiceMsg->force;
+
             for (auto const &vectItem : serviceList)
             {
-                LOGNORMAL << "received a start service for type:  " << vectItem.svc_type;
+                LOGNORMAL << "received a start service for type:  " << vectItem.svc_type << " force: " << force;
 
-                switch (vectItem.svc_type)
-                {
-                    case fpi::FDSP_ACCESS_MGR:
-                    {
-                        FDS_ProtocolInterface::SvcChangeReqInfo amChangeInfo;
-                        amChangeInfo.actionCode = fpi::STARTED;
-                        amChangeInfo.svcType    = fpi::FDSP_ACCESS_MGR;
-
-                        if ( fpi::SERVICE_NOT_RUNNING == m_nodeInfo.bareAMState && fpi::SERVICE_NOT_RUNNING == m_nodeInfo.javaAMState)
-                        {
-                            std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
-                            m_startQueue.push_back (BARE_AM);
-                            m_startQueue.push_back (JAVA_AM);
-                        }
-                        else if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.bareAMState || fpi::SERVICE_NOT_PRESENT == m_nodeInfo.javaAMState)
-                        {
-                            LOGERROR << "Received an unexpected start service request for the AM when the AM services are not expected to be present.";
-                        }
-                        else           // SERVICE_RUNNING
-                        {
-                            amChangeInfo.actionCode = fpi::NO_ACTION;
-                            LOGDEBUG << "No operation performed, received a start services request for AM services, but they are already running.";
-                        }
-
-                        message->changeList.push_back (amChangeInfo);
-
-                    } break;
-
-                    case fpi::FDSP_DATA_MGR:
-                    {
-                        FDS_ProtocolInterface::SvcChangeReqInfo dmChangeInfo;
-                        dmChangeInfo.actionCode = fpi::STARTED;
-                        dmChangeInfo.svcType    = fpi::FDSP_DATA_MGR;
-
-                        if (fpi::SERVICE_NOT_RUNNING == m_nodeInfo.dmState)
-                        {
-                            std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
-                            m_startQueue.push_back (DATA_MANAGER);
-                        }
-                        else if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.dmState)
-                        {
-                            LOGERROR << "Received an unexpected start service request for the DM when the DM service is not expected to be present.";
-                        }
-                        else           // SERVICE_RUNNING
-                        {
-                            dmChangeInfo.actionCode = fpi::NO_ACTION;
-                            LOGDEBUG << "No operation performed, received a start service request for the DM service, but it is already running.";
-                        }
-
-                        message->changeList.push_back (dmChangeInfo);
-
-                    } break;
-
-                    case fpi::FDSP_STOR_MGR:
-                    {
-                        FDS_ProtocolInterface::SvcChangeReqInfo smChangeInfo;
-                        smChangeInfo.actionCode = fpi::STARTED;
-                        smChangeInfo.svcType    = fpi::FDSP_STOR_MGR;
-
-                        if (fpi::SERVICE_NOT_RUNNING == m_nodeInfo.smState)
-                        {
-                            std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
-                            m_startQueue.push_back (STORAGE_MANAGER);
-                        }
-                        else if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.smState)
-                        {
-                            LOGERROR << "Received an unexpected start service request for the SM when the SM service is not expected to be present.";
-                        }
-                        else           // SERVICE_RUNNING
-                        {
-                            smChangeInfo.actionCode = fpi::NO_ACTION;
-                            LOGDEBUG << "No operation performed, received a start service request for the SM service, but it is already running.";
-                        }
-
-                        message->changeList.push_back (smChangeInfo);
-
-                    } break;
-
-                    default:
-                    {
-                        LOGWARN << "Received an unexpected service type of " << vectItem.svc_type;
-
-                    } break;
+                if (vectItem.svc_type == fpi::FDSP_PLATFORM)
+                { // PM always sent by OM, ignore
+                    continue;
                 }
+
+                fpi::pmServiceStateTypeId state = getServiceState(vectItem.svc_type);
+                if (state == fpi::SERVICE_NOT_PRESENT)
+                {
+                    LOGERROR << "Received an unexpected start service request for a service when it's not expected to be present.";
+                    continue;
+                }
+
+                FDS_ProtocolInterface::SvcChangeReqInfo svcChangeInfo;
+                svcChangeInfo.svcType    = vectItem.svc_type;
+                if (state == fpi::SERVICE_RUNNING)
+                {
+                    if (!force)
+                    {
+                       svcChangeInfo.actionCode = fpi::NO_ACTION;
+                       message->changeList.push_back (svcChangeInfo);
+                       LOGDEBUG << "No operation performed, received a start service request for a running service.";
+                       continue;
+                    }
+                    else
+                    {
+                        stopService(vectItem.svc_type, true);
+                    }
+                }
+
+                svcChangeInfo.actionCode = fpi::STARTED;
+                message->changeList.push_back (svcChangeInfo);
+                startService(vectItem.svc_type);
             }
 
             request->setPayload (FDSP_MSG_TYPEID (fpi::SvcStateChangeResp), message);
@@ -1080,79 +1101,34 @@ namespace fds
             {
                 LOGNORMAL << "received a stop service for type:  " << vectItem.svc_type;
 
-                switch (vectItem.svc_type)
+                if (vectItem.svc_type == fpi::FDSP_PLATFORM)
+                { // PM always sent by OM, ignore
+                    continue;
+                }
+
+                fpi::pmServiceStateTypeId state = getServiceState(vectItem.svc_type);
+                if (state == fpi::SERVICE_NOT_PRESENT)
                 {
-                    case fpi::FDSP_ACCESS_MGR:
-                    {
-                        if (fpi::SERVICE_RUNNING == m_nodeInfo.bareAMState && fpi::SERVICE_RUNNING == m_nodeInfo.javaAMState)
-                        {
-                            std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
-                            stopProcess (JAVA_AM);
-                            stopProcess (BARE_AM);
+                    LOGERROR << "Received an unexpected stop service request for a service when it's not expected to be present.";
+                    continue;
+                }
 
-                        }
-                        else if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.bareAMState || fpi::SERVICE_NOT_PRESENT == m_nodeInfo.javaAMState)
-                        {
-                            LOGERROR << "Received an unexpected stop service request for the AM when the AM services are not expected to be present.";
-                        }
-                        else            // SERVICE_NOT_RUNNING
-                        {
-                            LOGDEBUG << "No operation performed, received a stop services request for AM services, but they are already stopped.";
-                        }
-
-
-                    } break;
-
-                    case fpi::FDSP_DATA_MGR:
-                    {
-                        if (fpi::SERVICE_RUNNING == m_nodeInfo.dmState)
-                        {
-                            std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
-                            stopProcess (DATA_MANAGER);
-                        }
-                        else if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.dmState)
-                        {
-                            LOGERROR << "Received an unexpected start service request for the DM when the DM service is not expected to be present.";
-                        }
-                        else            // SERVICE_NOT_RUNNING
-                        {
-                            LOGDEBUG << "No operation performed, received a stop service request for the DM service, but it is already stopped.";
-                        }
-
-                    } break;
-
-                    case fpi::FDSP_STOR_MGR:
-                    {
-                        if (fpi::SERVICE_RUNNING == m_nodeInfo.smState)
-                        {
-                            std::lock_guard <decltype (m_pidMapMutex)> lock (m_pidMapMutex);
-                            stopProcess (STORAGE_MANAGER);
-                        }
-                        else if (fpi::SERVICE_NOT_PRESENT == m_nodeInfo.smState)
-                        {
-                            LOGERROR << "Received an unexpected stop service request for the SM when the SM service is not expected to be present.";
-                        }
-                        else            // SERVICE_NOT_RUNNING
-                        {
-                            LOGDEBUG << "No operation performed, received a stop service request for the SM service, but it is already stopped.";
-                        }
-
-                    } break;
-
-                    default:
-                    {
-                        LOGWARN << "Received an unexpected service type of " << vectItem.svc_type;
-
-                    } break;
+                if (state == fpi::SERVICE_NOT_RUNNING)
+                {
+                    LOGDEBUG << "No operation performed, received a stop service request for a stopped service.";
+                }
+                else
+                {
+                    stopService(vectItem.svc_type);
                 }
             }
         }
 
         void PlatformManager::heartbeatCheck (fpi::HeartbeatMessagePtr const &heartbeatMsg)
         {
-            LOGDEBUG << "Sending heartbeatMessage ack from PM uuid: "
-                     << std::hex << heartbeatMsg->svcUuid.uuid << std::dec
-                     << " [ " << usedDiskCapacity << " ]";
+            LOGNORMAL << "Sending heartbeatMessage ack from PM uuid: "
+                      << std::hex << heartbeatMsg->svcUuid.uuid << std::dec
+                      << " [ UsedDiskCapacity:" << usedDiskCapacity << " ]";
 
             auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
             auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
@@ -1324,7 +1300,7 @@ namespace fds
                             orphanAlive = procCheck (procName, pid);
                         }
 
-                        if (!orphanAlive || waitPid (mapIter->second, 1000, true))
+                        if (!orphanAlive || (!orphanChildProcess && waitPid (mapIter->second, 1000, true)))
                         {
 
                             int appIndex = -1;
@@ -1345,23 +1321,35 @@ namespace fds
                                 stopProcess (JAVA_AM);
                             }
 
-                            notifyOmServiceStateChange (appIndex, mapIter->second, fpi::HealthState::HEALTH_STATE_UNEXPECTED_EXIT, "unexpectedly exited");
+                            if (JAVA_AM != appIndex)
+                            { // do not notify OM on the xdi process exit; this message will only be sent if the XDI service is flapping
+                                notifyOmServiceStateChange (appIndex, pid, fpi::HealthState::HEALTH_STATE_UNEXPECTED_EXIT, "unexpectedly exited");
+                            }
                             m_appPidMap.erase (mapIter++);
 
                             updateNodeInfoDbPidAndState (appIndex, EMPTY_PID, fpi::SERVICE_NOT_RUNNING);
 
                             if (m_autoRestartFailedProcesses && !m_inShutdownState)
                             {
+                                if (m_serviceFlapDetector->isServiceFlapping (appIndex))
+                                {
+                                    // Flap detector handles error logging.
+                                    notifyOmServiceStateChange (appIndex, 0, fpi::HealthState::HEALTH_STATE_FLAPPING_DETECTED_EXIT, "is flapping, PM will not auto restart (until another start service is requested by the OM).");
+                                    if (JAVA_AM == appIndex)
+                                    {
+                                        LOGWARN << "Discovered a flapping XDI process, also bringing down bare_am";
+                                        stopProcess (BARE_AM);
+                                    }
+                                }
+                                else // restart the process
                                 {   // context for lock_guard
                                     deadProcessesFound = true;
                                     std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
                                     m_startQueue.push_back (appIndex);
-                                }
-
-                                if (BARE_AM == appIndex)
-                                {
-                                    std::lock_guard <decltype (m_startQueueMutex)> lock (m_startQueueMutex);
-                                    m_startQueue.push_back (JAVA_AM);
+                                    if (BARE_AM == appIndex)
+                                    {
+                                        m_startQueue.push_back (JAVA_AM);
+                                    }
                                 }
                             }
                         }
@@ -1372,12 +1360,38 @@ namespace fds
                     }
                 }  // lock_guard context
 
+                waitForKilledProcesses(); // wait for any processes we previously killed
+
                 if (deadProcessesFound)
                 {
                     m_startQueueCondition.notify_one();
                 }
 
                 usleep (PROCESS_MONITOR_SLEEP_TIMER_MICROSECONDS);
+            }
+        }
+
+        void PlatformManager::waitForKilledProcesses()
+        {
+            std::lock_guard <decltype (m_killedProcessesMutex)> lock (m_killedProcessesMutex);
+            for ( auto pidIter = m_killedProcesses.begin( ); m_killedProcesses.end( ) != pidIter; )
+            {
+                pid_t pid = *pidIter;
+                LOGDEBUG << "Trying to wait for previously killed process " << pid;
+                if (waitPid (pid, PROCESS_STOP_WAIT_PID_SLEEP_TIMER_NANOSECONDS))
+                {
+                    pidIter = m_killedProcesses.erase(pidIter);
+                }
+                else
+                {
+                    LOGNORMAL << "Preparing to stop process via kill(" << pid <<", SIGKILL)";
+                    int rc = kill (pid, SIGKILL);
+                    if (rc < 0)
+                    {
+                        LOGERROR << "Error sending signal (SIGKILL) to process" << pid << "; errno = " << errno;
+                    }
+                    ++pidIter;
+                }
             }
         }
 
@@ -1427,24 +1441,28 @@ namespace fds
                 }
             }
 
-            if (nullptr == serviceRecord)
-            {
-                LOGERROR << "Unable to find a service map record for a process that platformd wished to send a Health Report on behalf of.";
-                return;
-            }
-
             std::ostringstream textualContent;
             textualContent << "Platform detected that " << procName << " (pid = " << procPid << ") " << message << ".";
 
             fpi::NotifyHealthReportPtr healthMessage (new fpi::NotifyHealthReport());
-
-            healthMessage->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid = serviceRecord->svc_id.svc_uuid.svc_uuid;
-            healthMessage->healthReport.serviceInfo.svc_id.svc_name = serviceRecord->name;
-            healthMessage->healthReport.serviceInfo.svc_port = serviceRecord->svc_port;
             healthMessage->healthReport.platformUUID.svc_uuid.svc_uuid = m_nodeInfo.uuid;
             healthMessage->healthReport.serviceState = state;
             healthMessage->healthReport.statusCode = fds::PLATFORM_ERROR_UNEXPECTED_CHILD_DEATH;
             healthMessage->healthReport.statusInfo = textualContent.str();
+
+            if (nullptr == serviceRecord)
+            {
+                LOGWARN << "Unable to find a service map record for a process that platformd wished to send a Health Report on behalf of.";
+                // for some reason, we have not yet received a service map with an entry for this service, so spoof one
+                healthMessage->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid = getNodeUUID(serviceType);
+            }
+            else
+            {
+                healthMessage->healthReport.serviceInfo.svc_id.svc_uuid.svc_uuid = serviceRecord->svc_id.svc_uuid.svc_uuid;
+                healthMessage->healthReport.serviceInfo.svc_id.svc_name = serviceRecord->name;
+                healthMessage->healthReport.serviceInfo.svc_port = serviceRecord->svc_port;
+                healthMessage->healthReport.serviceInfo.incarnationNo = serviceRecord->incarnationNo;
+            }
 
             auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
             auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
@@ -1458,18 +1476,20 @@ namespace fds
             fpi::SvcUuid smUuid;
             std::vector <fpi::SvcInfo> serviceMap;
             MODULEPROVIDER()->getSvcMgr()->getSvcMap (serviceMap);
-            // Find DM and SM on the service map
+
+            LOGDEBUG << "Searching for a local SM";
             for (auto const &vectItem : serviceMap)
             {
                 fpi::SvcUuid svcUuid = vectItem.svc_id.svc_uuid;
                 ResourceUUID    uuid (vectItem.svc_id.svc_uuid.svc_uuid);
 
-                // Check if this is an SM/DM service on this node
+                LOGDEBUG << "Looking at serviceMap entry uuid " << uuid << " svcType " << vectItem.svc_type;
+                // Check if this is an SM service on this node
                 if (getNodeUUID (fpi::FDSP_PLATFORM) == uuid.uuid_get_base_val())
                 {
                     if (smUuid.svc_uuid == 0 && vectItem.svc_type == fpi::FDSP_STOR_MGR)
                     {
-                        LOGDEBUG << "Found local SM service " << svcUuid.svc_uuid;
+                        LOGNORMAL << "Found local SM service " << svcUuid.svc_uuid;
                         smUuid = svcUuid;
                         break;
                     }

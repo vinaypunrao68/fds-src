@@ -11,17 +11,17 @@ import com.formationds.spike.later.AsyncWebapp;
 import com.formationds.spike.later.HttpContext;
 import com.formationds.spike.later.HttpPath;
 import com.formationds.spike.later.SyncRequestHandler;
+import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.web.toolkit.*;
 import com.formationds.xdi.AsyncStreamer;
 import com.formationds.xdi.Xdi;
-import org.apache.commons.io.IOUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.joda.time.DateTime;
 import org.joda.time.format.ISODateTimeFormat;
 import javax.crypto.SecretKey;
 import java.util.HashMap;
 import java.util.Map;
-import java.io.ByteArrayInputStream;
-import java.io.FileOutputStream;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -30,7 +30,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 public class S3Endpoint {
-    private final static org.apache.log4j.Logger LOG = org.apache.log4j.Logger.getLogger(S3Endpoint.class);
+    private final static Logger LOG = LogManager.getLogger(S3Endpoint.class);
     private final S3Authenticator authenticator;
     public static final String FDS_S3 = "FDS_S3";
     public static final String X_AMZ_COPY_SOURCE = "x-amz-copy-source";
@@ -41,11 +41,11 @@ public class S3Endpoint {
     private SecretKey secretKey;
 
     public S3Endpoint(Xdi xdi, Supplier<AsyncStreamer> xdiAsync, SecretKey secretKey,
-                      HttpsConfiguration httpsConfiguration, HttpConfiguration httpConfiguration) {
+                      HttpsConfiguration httpsConfiguration, HttpConfiguration httpConfiguration, int maxConcurrentRequests) {
         this.xdi = xdi;
         this.xdiAsync = xdiAsync;
         this.secretKey = secretKey;
-        webApp = new AsyncWebapp(httpConfiguration, httpsConfiguration);
+        webApp = new AsyncWebapp(httpConfiguration, httpsConfiguration, maxConcurrentRequests);
         authenticator = new S3Authenticator(xdi.getAuthorizer(), secretKey);
     }
 
@@ -212,7 +212,7 @@ public class S3Endpoint {
 
             cf = function.apply(localContext, token);
         } catch (Exception e) {
-            cf.completeExceptionally(e);
+            cf = CompletableFutureUtility.exceptionFuture(e);
         }
 
         return cf.exceptionally(e -> {

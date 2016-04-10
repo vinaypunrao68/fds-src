@@ -1,0 +1,23 @@
+[real_long_system_test]
+10.1.16.132
+10.1.16.133
+10.1.16.134
+10.1.16.135
+
+[real_long_system_test:vars]
+instance_count=4
+clean_fds=yes
+force=yes
+deploy_artifact=nightly
+fds_ft_platform_use_new_superblock=true
+fds_build=debug
+fds_default_nic=em1
+fds_om_host=10.1.16.132
+fds_metrics_enables=false
+fds_metricsdb_ip=127.0.0.1
+fds_log_severity=debug
+fds_ssh_user=root
+fds_ssh_password=passwd
+ansible_ssh_user=root
+ansible_ssh_pass=passwd
+fds_for_system_test =yes

@@ -14,7 +14,8 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 
@@ -25,13 +26,13 @@ import java.util.Optional;
 /**
  * REST endpoint to retrieve a specific snapshot by its ID. This should be much
  * simpler when we have cycles to add this to the ConfigurationApi
- * 
+ *
  * @author nate
  *
  */
 public class GetSnapshot implements RequestHandler {
 
-	private static final Logger LOG = Logger.getLogger(GetSnapshot.class);
+	private static final Logger LOG = LogManager.getLogger(GetSnapshot.class);
 	private final static String REQ_PARAM_SNAPSHOT_ID = "snapshot_id";
 
 	private ConfigurationApi configApi;
@@ -47,7 +48,7 @@ public class GetSnapshot implements RequestHandler {
 		LOG.debug("Looking for a snapshot with ID: " + snapshotId);
 
 		Snapshot snapshot = findSnapshot( snapshotId );
-		
+
 		if (snapshot != null) {
 			LOG.debug("Snapshot found.");
 
@@ -59,13 +60,13 @@ public class GetSnapshot implements RequestHandler {
 		LOG.error("Could not find snapshot with ID: " + snapshotId);
 		throw new ApiException( "No snapshot was found with the ID: " + snapshotId, ErrorCode.MISSING_RESOURCE );
 	}
-	
+
 	public Snapshot findSnapshot( long snapshotId ) throws ApiException, TException{
 		/**
 		 * There is no easy way to do this at this time... there should be... So
 		 * instead we have to get each volume, get each volumes snapshots and
 		 * find the one that matchs. This should be a straight query.
-		 * 
+		 *
 		 * TODO: Extend configuration api to handle this
 		 */
 
@@ -77,7 +78,7 @@ public class GetSnapshot implements RequestHandler {
 
 			try {
 
-				List<com.formationds.protocol.svc.types.Snapshot> snapshots = 
+				List<com.formationds.protocol.svc.types.Snapshot> snapshots =
 						getConfigApi().listSnapshots(volume.getVolId());
 
 				Optional<com.formationds.protocol.svc.types.Snapshot> snapshotMatch = snapshots
@@ -108,18 +109,18 @@ public class GetSnapshot implements RequestHandler {
 		if ( snapshot == null ){
 			throw new ApiException( "Could not locate snapshot for the ID: " + snapshotId, ErrorCode.MISSING_RESOURCE );
 		}
-		
+
 		Snapshot externalSnapshot = ExternalModelConverter.convertToExternalSnapshot( snapshot );
-		
+
 		return externalSnapshot;
 	}
-	
+
 	private ConfigurationApi getConfigApi(){
-		
+
 		if ( configApi == null ){
 			configApi = SingletonConfigAPI.instance().api();
 		}
-		
+
 		return configApi;
 	}
 

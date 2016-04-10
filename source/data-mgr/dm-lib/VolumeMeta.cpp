@@ -13,6 +13,10 @@
 #include <util/stringutils.h>
 #include <dmhandler.h>
 #include <json/json.h>
+#include <ObjectId.h>
+#include <catalogKeys/BlobObjectKey.h>
+#include <catalogKeys/BlobMetadataKey.h>
+#include <catalogKeys/VolumeMetadataKey.h>
 
 namespace fds {
 
@@ -22,22 +26,20 @@ VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
                        fds_log* _dm_log,
                        VolumeDesc* _desc,
                        DataMgr *_dm)
-          : HasModuleProvider(modProvider),
-            fwd_state(VFORWARD_STATE_NONE),
-            dmVolQueue(0),
-            dataManager(_dm),
-            cbToVGMgr(NULL),
-            initializerTriesCnt(0),
-            maxInitializerTriesCnt(10)
+        : HasModuleProvider(modProvider),
+          fwd_state(VFORWARD_STATE_NONE),
+          dmVolQueue(0),
+          dataManager(_dm),
+          cbToVGMgr(NULL),
+          initializerTriesCnt(0),
+          maxInitializerTriesCnt(10),
+          hashCalcContextPtr(nullptr)
 {
     const FdsRootDir *root = MODULEPROVIDER()->proc_fdsroot();
 
     vol_mtx = new fds_mutex("Volume Meta Mutex");
     vol_desc = new VolumeDesc(_name, _uuid);
     dmCopyVolumeDesc(vol_desc, _desc);
-
-    root->fds_mkdir(root->dir_sys_repo_dm().c_str());
-    root->fds_mkdir(root->dir_user_repo_dm().c_str());
 
     /* Enable ability to query state via StateProvider api */
     stateProviderId = "volume." + std::to_string(_uuid.get());
@@ -46,7 +48,7 @@ VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
     selfSvcUuid = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
 
     // this should be overwritten when volume add triggers read of the persisted value
-    sequence_id = 0;
+    sequence_id = VolumeGroupConstants::INVALID_SEQUENCEID;
 
     opId = VolumeGroupConstants::OPSTARTID;
     version = VolumeGroupConstants::VERSION_INVALID;
@@ -60,14 +62,14 @@ VolumeMeta::~VolumeMeta()
 
     delete vol_desc;
     delete vol_mtx;
-    volDb.reset();
+    // volDb.reset();
 }
 
 std::string VolumeMeta::getBaseDirPath() const
 {
     return dmutil::getVolumeDir(MODULEPROVIDER()->proc_fdsroot(),
-                                     fds_volid_t(getId()),
-                                     invalid_vol_id);
+                                fds_volid_t(getId()),
+                                invalid_vol_id);
 }
 
 std::string VolumeMeta::getBufferfilePrefix() const
@@ -89,7 +91,7 @@ void VolumeMeta::finishForwarding() {
 
 void VolumeMeta::setPersistVolDB(DmPersistVolDB::ptr dbPtr)
 {
-    volDb = dbPtr;
+    // volDb = dbPtr;
 }
 
 void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
@@ -147,7 +149,8 @@ Error VolumeMeta::applyActiveTxState(const int64_t &highestOpId,
 void VolumeMeta::setSequenceId(sequence_id_t new_seq_id){
     fds_mutex::scoped_lock l(sequence_lock);
 
-    if (new_seq_id > sequence_id) {
+    if (sequence_id == VolumeGroupConstants::INVALID_SEQUENCEID ||
+        new_seq_id > sequence_id) {
         sequence_id = new_seq_id;
     }
 }
@@ -162,12 +165,12 @@ std::string VolumeMeta::logString() const
 {
     std::stringstream ss;
     ss << " ["
-        << "volid: " << vol_desc->volUUID
-        << " version: " << version
-        << " opid: " << getOpId()
-        << " sequenceid: " << sequence_id
-        << " state: " << fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(getState()))
-        << "] ";
+       << "volid: " << vol_desc->volUUID
+       << " version: " << version
+       << " opid: " << getOpId()
+       << " sequenceid: " << sequence_id
+       << " state: " << fpi::_ResourceState_VALUES_TO_NAMES.at(static_cast<int>(getState()))
+       << "] ";
     return ss.str();
 }
 
@@ -176,9 +179,11 @@ void VolumeMeta::setState(const fpi::ResourceState &state,
 {
     // TODO(Rao): Ensure setState is invoked under volume synchronized context
     vol_desc->state = state;
-    if (state == fpi::ResourceState::Loading) {
+    if (state == fpi::ResourceState::Offline) {
+        setOpId(VolumeGroupConstants::OPSTARTID);
+    } else if (state == fpi::ResourceState::Loading) {
         /* Every time volume goes into loading state version is incremented */
-        version = volDb->updateVersion();
+        version = dataManager->getPersistDB(vol_desc->volUUID)->updateVersion();
     } else if (state == fpi::ResourceState::Active) {
         initializerTriesCnt = 0;
     }
@@ -200,74 +205,33 @@ std::string VolumeMeta::getStateInfo()
     state["sequenceid"] = static_cast<Json::Value::Int64>(sequence_id);
     state["coordinator"] = static_cast<Json::Value::Int64>(getCoordinatorId().svc_uuid);
 
+    /* Qos realted */
+    auto volQueue = dataManager->getQosCtrl()->getQueue(vol_desc->volUUID);
+    if (volQueue) {
+        std::string qoskey = "qos";
+        state[qoskey]["throttle"] = static_cast<Json::Value::Int64>(volQueue->iops_throttle);
+        state[qoskey]["assured"] = static_cast<Json::Value::Int64>(volQueue->iops_assured);
+        state[qoskey]["count"] = volQueue->count();
+    }
+
     std::stringstream ss;
     ss << state;
     return ss.str();
 }
 
-std::function<void()> VolumeMeta::makeSynchronized(const std::function<void()> &f)
+void VolumeMeta::enqueDmIoReq(DataMgr &dataManager, DmRequest *dmReq)
 {
-    auto qosCtrl = dataManager->getQosCtrl();
-    fds_volid_t volId(getId());
-    auto newCb = [f, qosCtrl, volId]() {
-        auto ioReq = new DmFunctor(volId, std::bind(f));
-        auto err = qosCtrl->enqueueIO(volId, ioReq);
-        if (err != ERR_OK) {
-            GLOGWARN << "Failed to enqueue volume synchronized DmFunctor.  Dropping. " << err;
-            delete ioReq;
-        }
-    };
-    return newCb;
-}
-
-EPSvcRequestRespCb
-VolumeMeta::makeSynchronized(const EPSvcRequestRespCb &f)
-{
-    auto qosCtrl = dataManager->getQosCtrl();
-    fds_volid_t volId(getId());
-    auto newCb = [f, qosCtrl, volId](EPSvcRequest* req, const Error &e, StringPtr payload) {
-        auto ioReq = new DmFunctor(volId, std::bind(f, req, e, payload));
-        auto err = qosCtrl->enqueueIO(volId, ioReq);
-        if (err != ERR_OK) {
-            GLOGWARN << "Failed to enqueue volume synchronized DmFunctor.  Dropping. " << err;
-            delete ioReq;
-        }
-    };
-    return newCb;
-}
-
-StatusCb VolumeMeta::makeSynchronized(const StatusCb &f)
-{
-    auto qosCtrl = dataManager->getQosCtrl();
-    fds_volid_t volId(getId());
-    auto newCb = [f, qosCtrl, volId](const Error &e) {
-        auto ioReq = new DmFunctor(volId, std::bind(f, e));
-        auto err = qosCtrl->enqueueIO(volId, ioReq);
-        if (err != ERR_OK) {
-            GLOGWARN << "Failed to enqueue volume synchronized DmFunctor.  Dropping. " << err;
-            delete ioReq;
-        }
-    };
-    return newCb;
-}
-
-BufferReplay::ProgressCb VolumeMeta::synchronizedProgressCb(const BufferReplay::ProgressCb &f)
-{
-    auto qosCtrl = dataManager->getQosCtrl();
-    fds_volid_t volId(getId());
-    auto newCb = [f, qosCtrl, volId](BufferReplay::Progress status) {
-        auto ioReq = new DmFunctor(volId, std::bind(f, status));
-        auto err = qosCtrl->enqueueIO(volId, ioReq);
-        if (err != ERR_OK) {
-            GLOGWARN << "Failed to enqueue volume synchronized DmFunctor.  Dropping. " << err;
-            delete ioReq;
-        }
-    };
-    return newCb;
+    auto err = dataManager.getQosCtrl()->enqueueIO(dmReq->getVolId(), dmReq);
+    if (err != ERR_OK) {
+        GLOGWARN << "Failed to enqueue volume synchronized DmFunctor.  Dropping. "
+                 << err;
+        delete dmReq;
+    }
 }
 
 void VolumeMeta::startInitializer(bool force)
 {
+    fds_assert(isSynchronized());
     fds_assert(getState() == fpi::Offline);
     fds_assert(!isInitializerInProgress());
 
@@ -283,12 +247,13 @@ void VolumeMeta::startInitializer(bool force)
 
 void VolumeMeta::notifyInitializerComplete(const Error &completionError)
 {
+    fds_assert(isSynchronized());
     fds_assert(initializer->getProgress() == VolumeInitializer::COMPLETE);
     initializer.reset();
     LOGDEBUG << "Cleanedup initializer: " << logString();
 
     if (completionError != ERR_OK) {
-        scheduleInitializer(false);
+        // scheduleInitializer(false);
     } else {
         initializerTriesCnt = 0;
     }
@@ -297,25 +262,25 @@ void VolumeMeta::notifyInitializerComplete(const Error &completionError)
 void VolumeMeta::scheduleInitializer(bool fNow)
 {
     auto func = makeSynchronized([this]() {
-        if (getState() == fpi::Offline) {
-            startInitializer();
-        } else {
-            LOGNORMAL << "Not going to start initializer.  Volume is not offline"
+            if (getState() == fpi::Offline) {
+                startInitializer();
+            } else {
+                LOGNORMAL << "Not going to start initializer.  Volume is not offline"
                 << logString();
-        }
-    });
+            }
+        });
 
     if (fNow) {
         func();
     } else if (initializerTriesCnt > maxInitializerTriesCnt) {
         setState(fpi::Offline,
-                util::strformat(" - scheduleInitializer.  Failed too many times #: %d",
-                        initializerTriesCnt));
+                 util::strformat(" - scheduleInitializer.  Failed too many times #: %d",
+                                 initializerTriesCnt));
         LOGERROR << "Volume initialization failed too many times. Making the volume offline.";
     } else {
         auto nextScheduleTime =  std::min(1 << initializerTriesCnt, 60);
         LOGNORMAL << "Scheduling volume initializer retry in: " << nextScheduleTime
-            << " seconds. " << logString();
+                  << " seconds. " << logString();
         MODULEPROVIDER()->getTimer()->scheduleFunction(
             std::chrono::seconds(nextScheduleTime), func);
     }
@@ -325,6 +290,8 @@ Error VolumeMeta::startMigration(const fpi::SvcUuid &srcDmUuid,
                                  const int64_t &volId,
                                  const StatusCb &doneCb)
 {
+    fds_assert(isSynchronized());
+
     Error err(ERR_OK);
     fpi::FDSP_VolumeDescType vol;
     vol.volUUID = volId;
@@ -332,7 +299,7 @@ Error VolumeMeta::startMigration(const fpi::SvcUuid &srcDmUuid,
     fds_assert(migrationDest == nullptr);
     cbToVGMgr = doneCb;
     uint32_t deltaBlobTimeout = uint32_t(MODULEPROVIDER()->get_fds_config()->
-                                get<int32_t>("fds.dm.migration.migration_max_delta_blobs_to", 5));
+                                         get<int32_t>("fds.dm.migration.migration_max_delta_blobs_to", 5));
 
     // dataManager->counters->migrationLastRun.set(util::getTimeStampSeconds());
     dataManager->counters->numberOfActiveMigrExecutors.incr(1);
@@ -359,12 +326,14 @@ Error VolumeMeta::startMigration(const fpi::SvcUuid &srcDmUuid,
 
 Error VolumeMeta::handleMigrationDeltaBlobDescs(DmRequest *dmRequest)
 {
+    fds_assert(isSynchronized());
+
     auto typedRequest = static_cast<DmIoMigrationDeltaBlobDesc*>(dmRequest);
 
     auto err = migrationDest->checkVolmetaVersion(dmRequest->version);
     if (err.OK()) {
         err = migrationDest->processDeltaBlobDescs(typedRequest->deltaBlobDescMsg,
-                                                    typedRequest->localCb);
+                                                   typedRequest->localCb);
     } else {
         typedRequest->localCb(err);
     }
@@ -373,6 +342,8 @@ Error VolumeMeta::handleMigrationDeltaBlobDescs(DmRequest *dmRequest)
 
 Error VolumeMeta::handleMigrationDeltaBlobs(DmRequest *dmRequest)
 {
+    fds_assert(isSynchronized());
+
     auto typedRequest = static_cast<DmIoMigrationDeltaBlobs*>(dmRequest);
     auto err = migrationDest->checkVolmetaVersion(dmRequest->version);
     if (err.OK()) {
@@ -383,6 +354,8 @@ Error VolumeMeta::handleMigrationDeltaBlobs(DmRequest *dmRequest)
 
 Error VolumeMeta::handleMigrationActiveTx(DmRequest *dmRequest)
 {
+    fds_assert(isSynchronized());
+
     /**
      * This is a weird re-route to dest to executor then back to volmeta again
      * because we want to ensure similar failure handling path.
@@ -395,7 +368,9 @@ Error VolumeMeta::handleMigrationActiveTx(DmRequest *dmRequest)
     return err;
 }
 
-Error VolumeMeta::serveMigration(DmRequest *dmRequest) {
+Error VolumeMeta::serveMigration(DmRequest *dmRequest)
+{
+    fds_assert(isSynchronized());
 
     Error err(ERR_OK);
     NodeUuid mySvcUuid(MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid().svc_uuid);
@@ -406,13 +381,13 @@ Error VolumeMeta::serveMigration(DmRequest *dmRequest) {
 
     if (getState() != fpi::ResourceState::Active) {
         LOGWARN << "Rejecting serve migration request: " << *migReqMsg
-            << logString();
+                << logString();
         return ERR_NOT_READY;
     }
 
     LOGNOTIFY << "migrationid: " << migReqMsg->DMT_version
-        <<" received msg for volume " << migReqMsg->volume_id
-        << " on svcuuid: " << destDmUuid << " version: " << dmRequest->version;
+              <<" received msg for volume " << migReqMsg->volume_id
+              << " on svcuuid: " << destDmUuid << " version: " << dmRequest->version;
 
     err = createMigrationSource(destDmUuid,
                                 mySvcUuid,
@@ -430,9 +405,9 @@ Error VolumeMeta::createMigrationSource(NodeUuid destDmUuid,
                                         int32_t version) {
     Error err(ERR_OK);
     auto maxNumBlobs = uint64_t(MODULEPROVIDER()->get_fds_config()->
-                           get<int64_t>("fds.dm.migration.migration_max_delta_blobs"));
+                                get<int64_t>("fds.dm.migration.migration_max_delta_blobs"));
     auto maxNumBlobDesc = uint64_t(MODULEPROVIDER()->get_fds_config()->
-                              get<int64_t>("fds.dm.migration.migration_max_delta_blob_desc"));
+                                   get<int64_t>("fds.dm.migration.migration_max_delta_blob_desc"));
 
 
     auto fds_volid = fds_volid_t(filterSet->volume_id);
@@ -441,8 +416,8 @@ Error VolumeMeta::createMigrationSource(NodeUuid destDmUuid,
     auto search = migrationSrcMap.find(destDmUuid);
     if (search != migrationSrcMap.end()) {
         LOGERROR << "migrationid: " << filterSet->DMT_version
-            << " Source received request for destination node: " << destDmUuid
-            << " volume " << filterSet->volume_id << " but it already exists";
+                 << " Source received request for destination node: " << destDmUuid
+                 << " volume " << filterSet->volume_id << " but it already exists";
         err = ERR_DUPLICATE;
     } else {
         LOGMIGRATE << "Creating migration source for dest: " << destDmUuid <<
@@ -452,20 +427,20 @@ Error VolumeMeta::createMigrationSource(NodeUuid destDmUuid,
         {
             SCOPEDWRITE(migrationSrcMapLock);
             source = DmMigrationSrc::shared_ptr(
-                    new DmMigrationSrc(*dataManager,
-                                       mySvcUuid,
-                                       destDmUuid,
-                                       filterSet->DMT_version,
-                                       filterSet,
-                                       std::bind(&VolumeMeta::cleanUpMigrationSource,
-                                                 this,
-                                                 std::placeholders::_1,
-                                                 std::placeholders::_2,
-                                                 destDmUuid),
-                                       cleanup,
-                                       maxNumBlobs,
-                                       maxNumBlobDesc,
-                                       version));
+                new DmMigrationSrc(*dataManager,
+                                   mySvcUuid,
+                                   destDmUuid,
+                                   filterSet->DMT_version,
+                                   filterSet,
+                                   std::bind(&VolumeMeta::cleanUpMigrationSource,
+                                             this,
+                                             std::placeholders::_1,
+                                             std::placeholders::_2,
+                                             destDmUuid),
+                                   cleanup,
+                                   maxNumBlobs,
+                                   maxNumBlobDesc,
+                                   version));
             migrationSrcMap.insert(std::make_pair(destDmUuid, source));
         }
         source->run();
@@ -479,10 +454,10 @@ void VolumeMeta::cleanUpMigrationSource(fds_volid_t volId,
 
     if (!err.ok()) {
         LOGERROR << "Cleaning up DmMigrationSrc for vol: " << volId
-            << " dest node: " << destDmUuid << " with error: " << err;
+                 << " dest node: " << destDmUuid << " with error: " << err;
     } else {
         LOGNORMAL << "[migrate] Cleaning up DmMigrationSrc for vol: " << volId
-            << " dest node: " << destDmUuid << " with error: " << err;
+                  << " dest node: " << destDmUuid << " with error: " << err;
 
     }
     DmMigrationSrc::shared_ptr source;
@@ -509,6 +484,8 @@ void VolumeMeta::cleanUpMigrationSource(fds_volid_t volId,
 
 void VolumeMeta::handleFinishStaticMigration(DmRequest *dmRequest)
 {
+    fds_assert(isSynchronized());
+
     dm::QueueHelper helper(*dataManager, dmRequest);
     DmIoFinishStaticMigration *request = static_cast<DmIoFinishStaticMigration*>(dmRequest);
     NodeUuid srcUuid;
@@ -538,10 +515,10 @@ void VolumeMeta::cleanUpMigrationDestination(NodeUuid srcNodeUuid,
     fds_assert(isSynchronized());
     if (!err.ok()) {
         LOGERROR << "Cleaning up DmMigrationDest for vol: "
-            << volId << " dest node: " << srcNodeUuid << " with error: " << err;
+                 << volId << " dest node: " << srcNodeUuid << " with error: " << err;
     } else {
         LOGNORMAL << "[migrate] Cleaning up DmMigrationDest for vol: " << volId
-            << " dest node: " << srcNodeUuid << " with error: " << err;
+                  << " dest node: " << srcNodeUuid << " with error: " << err;
     }
 
     if (cbToVGMgr) {
@@ -566,33 +543,245 @@ void VolumeMeta::cleanUpMigrationDestination(NodeUuid srcNodeUuid,
 
 }
 
+Error VolumeMeta::initState() {
+    Error err;
+    // set the sequence id properly ..
+    sequence_id_t seqId;
+    auto volId = vol_desc->volUUID;
+
+    LOGNORMAL << "vol:" << volId << " calculating seqid";
+    err = dataManager->timeVolCat_->queryIface()->getVolumeSequenceId(volId, seqId);
+    LOGNORMAL << "vol:" << volId << " seqid:" << seqId << " calculating seqid";
+
+    if (!err.ok()) {
+        LOGERROR << "vol:" << volId << " failed to caculate sequence id error:" << err;
+        return err;
+    }
+
+    setSequenceId(seqId);
+    LOGNORMAL << logString() << " - sequence id read and set";
+
+    /* set version */
+    int32_t version;
+    err = dataManager->timeVolCat_->queryIface()->getVersion(volId, version);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get version for vol:"  << volId;
+        return err;
+    }
+
+    setVersion(version);
+    return err;
+}
 
 void VolumeMeta::handleVolumegroupUpdate(DmRequest *dmRequest)
 {
+    fds_assert(isSynchronized());
+
     dm::QueueHelper helper(*dataManager, dmRequest);
     DmIoVolumegroupUpdate* request = static_cast<DmIoVolumegroupUpdate*>(dmRequest);
+    auto &group = request->reqMessage->group;
 
-    LOGDEBUG << "Attempting to set volumegroup info for vol: '"
-             << std::hex << request->volId << std::dec << "'";
-    if (getState() != fpi::Loading) {
-        LOGWARN << "Failed setting volumegroup info vol: " << request->volId
-            << ". Volume isn't in loading state " << logString();
-        helper.err = ERR_INVALID;
-        return;
-    } else if (isInitializerInProgress()) {
-        LOGWARN << "Failed setting volumegroup info vol: " << logString();
-        helper.err = ERR_SYNC_INPROGRESS;
-        return;
-    } else if (getSequenceId() !=
-               static_cast<uint64_t>(request->reqMessage->group.lastCommitId)) {
-        LOGWARN << "vol: " << request->volId << " doesn't have active state."
-            << " current sequence id: " << getSequenceId()
-            << " expected sequence id: " << request->reqMessage->group.lastCommitId;
-        setState(fpi::Offline, " - VolumegroupUpdateHandler:sequence id mismatch");
-        scheduleInitializer(false);
+    if (isInitializerInProgress()) {
+        LOGDEBUG << logString() << " - Initializer in progress.  Ignoring volume group update";
         return;
     }
-    setOpId(request->reqMessage->group.lastOpId);
-    setState(fpi::Active, " - VolumegroupUpdateHandler:state matched with coordinator");
+
+    /* Following are cases when we can become functional */
+    if (getState() == fpi::Loading &&
+        getCoordinator().id == group.coordinator.id &&
+        getSequenceId() == static_cast<uint64_t>(group.lastCommitId) &&
+        (group.functionalReplicas.end() !=
+         std::find(group.functionalReplicas.begin(),
+                   group.functionalReplicas.end(),
+                   selfSvcUuid))) {
+        setOpId(group.lastOpId);
+        setCoordinator(group.coordinator);
+        setState(fpi::Active, " - VolumegroupUpdateHandler:state matched with coordinator after open");
+        return;
+    }
+
+    /* Following are cases when sync is required */
+    if (group.coordinator.id != getCoordinatorId() &&
+        group.coordinator.version >= getCoordinatorVersion()) {
+       setCoordinator(group.coordinator);
+       setState(fpi::Offline,
+                "- VolumegroupUpdateHandler: coordinator updated. Will go through sync");
+       scheduleInitializer(true);
+       return;
+    } else if (group.coordinator.id == getCoordinatorId() &&
+        (group.functionalReplicas.end() ==
+         std::find(group.functionalReplicas.begin(),
+                   group.functionalReplicas.end(),
+                   selfSvcUuid))) {
+        setCoordinator(group.coordinator);
+        setState(fpi::Offline,
+                 "- VolumegroupUpdateHandler: not a functional member as per coordinator.  Will go through sync");
+        scheduleInitializer(true);
+        return;
+    }
+
+    LOGTRACE << logString() << "- volume group update ignored";
+}
+
+VolumeMeta::HashCalcContext::HashCalcContext(fpi::SvcUuid _reqUUID,
+                                             int _batchSize) :
+        requesterUUID(_reqUUID),
+        contextErr(ERR_OK),
+        batchSize(_batchSize)
+{
+    hashResult[0] = '\0';
+}
+
+void
+VolumeMeta::printDebugSlice(CatalogKVPair &pair) {
+LEVELCHECK(debug) {
+    auto keyType = reinterpret_cast<CatalogKeyType const*>(pair.first.data());
+    int type = ((unsigned char)(*keyType) - (unsigned char)CatalogKeyType::ERROR);
+    auto objID = ObjIdGen::genObjectId((const char*)&pair, sizeof(pair));
+    LOGDEBUG << "Hashing one KV pair type: " << type << " with hash: " << objID.ToString();
+}
+}
+
+void
+VolumeMeta::HashCalcContext::hashThisSlice(CatalogKVPair &pair) {
+    auto keyType = reinterpret_cast<CatalogKeyType const*>(pair.first.data());
+    int type = ((unsigned char)(*keyType) - (unsigned char)CatalogKeyType::ERROR);
+    // We do a whitelist type of hashing.
+    switch (*keyType) {
+        case CatalogKeyType::BLOB_METADATA:
+        {
+            BlobMetadataKey key {pair.first};
+            auto keyString = key.toString();
+            hasher.update(reinterpret_cast<const unsigned char *>(keyString.c_str()),
+                          keyString.size());
+            std::string value {pair.second.data()};
+            hasher.update(reinterpret_cast<const unsigned char *>(value.c_str()), value.size());
+            break;
+        }
+        case CatalogKeyType::BLOB_OBJECTS:
+        {
+            BlobObjectKey key {pair.first};
+            auto keyString = key.toString();
+            hasher.update(reinterpret_cast<const unsigned char *>(keyString.c_str()),
+                          keyString.size());
+            ObjectID value {pair.second.data()};
+            auto valueString = value.ToString();
+            hasher.update(reinterpret_cast<const unsigned char *>(valueString.c_str()),
+                          valueString.size());
+            break;
+        }
+        case CatalogKeyType::VOLUME_METADATA:
+        {
+            // Volume Metadata Key is simply just the key type of VOLUME_METADATA
+            std::string valueString {pair.second.data()};
+            hasher.update(reinterpret_cast<const unsigned char *>(valueString.c_str()),
+                          valueString.size());
+            break;
+        }
+        default:
+            // Skip anything else
+            break;
+    }
+}
+
+void
+VolumeMeta::HashCalcContext::computeCompleteHash() {
+    hasher.final(hashResult);
+}
+
+Error
+VolumeMeta::createHashCalcContext(DmRequest *req,
+                                  fpi::SvcUuid _reqUUID,
+                                  int batchSize) {
+    if (hashCalcContextPtr) {
+        LOGERROR << "A hash request has already been sent and is processing.";
+        return ERR_DUPLICATE;
+    } else {
+        // As part of development, execute this in an online fashion
+#if 0
+        if (getState() != fpi::Offline) {
+            LOGERROR << "Volume is not offline.";
+
+            // For now, just set it offline... this needs another code path
+            setState(fpi::Offline, " Volume hash operation requested.");
+        }
+#endif
+
+        scanReq = static_cast<DmIoVolumeCheck*>(req);
+
+        // Pass everything needed to HashCalcContext's constructor
+        hashCalcContextPtr = new HashCalcContext (_reqUUID,
+                                                  batchSize);
+
+        auto req = std::bind(&VolumeMeta::doHashTaskOnContext, this);
+        dataManager->addToQueue(req, FdsDmSysTaskId);
+        return ERR_OK;
+    }
+}
+void
+VolumeMeta::cleanupHashOnContext() {
+    if (hashCalcContextPtr != nullptr) {
+        scanReq->respStatus = hashCalcContextPtr->contextErr;
+        scanReq->respMessage->hash_result = std::string(reinterpret_cast<char*>(hashCalcContextPtr->hashResult), SHA_DIGEST_LENGTH);
+        scanReq->cb(scanReq->respStatus, scanReq);
+        delete hashCalcContextPtr;
+        hashCalcContextPtr = nullptr;
+    }
+    if (scannerPtr) {
+        delete scannerPtr;
+        scannerPtr = nullptr;
+    }
+}
+
+void
+VolumeMeta::doHashTaskOnContext() {
+
+    fds_assert(hashCalcContextPtr);
+    if (hashCalcContextPtr == nullptr) {
+        LOGERROR << "Hash calculation error";
+        return;
+    }
+    // We first init the CatalogScanner
+    auto catalogPtr = dataManager->getPersistDB(vol_desc->volUUID)->getCatalog();
+    auto threadPoolPtr = dataManager->qosCtrl->threadPool;
+
+    // For each batch, what do we do?
+    auto batchCb = [this](std::list<CatalogKVPair> &batchSlice) {
+        for (auto &kvPair : batchSlice) {
+            printDebugSlice(kvPair);
+            hashCalcContextPtr->hashThisSlice(kvPair);
+        }
+    };
+
+    // For the last batch, batchCb ALWAYS gets called before scannerCb
+    auto scannerCb = [this](CatalogScanner::progress scannerProgress) {
+        switch (scannerProgress) {
+            case (CatalogScanner::CS_DONE):
+            {
+                hashCalcContextPtr->computeCompleteHash();
+                break;
+            }
+            case (CatalogScanner::CS_ERROR):
+            {
+                break;
+            }
+            default:
+            {
+                fds_assert(!"We shouldn't hit this in dev.");
+                LOGERROR << "This is a weird case.";
+                break;
+            }
+        }
+        cleanupHashOnContext();
+    };
+
+    scannerPtr = new CatalogScanner(*catalogPtr,
+                                 threadPoolPtr,
+                                 static_cast<unsigned>(hashCalcContextPtr->batchSize),
+                                 batchCb,
+                                 scannerCb,
+                                 vol_desc->volUUID.v);
+
+    scannerPtr->start();
 }
 }  // namespace fds

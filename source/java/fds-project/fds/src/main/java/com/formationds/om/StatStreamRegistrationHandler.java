@@ -15,14 +15,14 @@ import java.util.stream.Collectors;
 import com.formationds.util.Configuration;
 import com.google.common.collect.Lists;
 import org.apache.thrift.TException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  * Manage Statistic Stream Registrations.
  */
 public class StatStreamRegistrationHandler {
-    public static Logger logger = LoggerFactory.getLogger( StatStreamRegistrationHandler.class );
+    public static Logger logger = LogManager.getLogger( StatStreamRegistrationHandler.class );
 
     // TODO pull these values from the platform.conf file.
     private static final String URL = "http://%s:%d/fds/config/v08/stats";

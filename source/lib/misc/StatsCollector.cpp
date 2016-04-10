@@ -218,6 +218,14 @@ void StatsCollector::recordEvent(fds_volid_t volume_id,
                                  fds_uint64_t timestamp,
                                  FdsVolStatType event_type,
                                  fds_uint64_t value) {
+    /**
+     * For disabled Volume stats, just exit.
+     */
+    if (StatConstants::singleton()->disabledVolStats.find(event_type) !=
+            StatConstants::singleton()->disabledVolStats.end()) {
+        return;
+    }
+
     switch (event_type) {
         case STAT_AM_PUT_OBJ:       // end-to-end put in AM in usec
         case STAT_AM_GET_OBJ:       // end-to-end get in AM in usec
@@ -328,7 +336,7 @@ void StatsCollector::print()
 //
 void StatsCollector::sampleStats() {
     if (record_stats_cb_) {
-        record_stats_cb_(next_sample_ts_);
+        record_stats_cb_(util::getTimeStampNanos());
     }
 
     fds_uint64_t stat_slot_nanos = (fds_uint64_t)slotsec_stat_*(fds_uint64_t)NANOS_IN_SECOND;

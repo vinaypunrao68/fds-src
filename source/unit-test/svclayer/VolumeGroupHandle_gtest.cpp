@@ -62,9 +62,12 @@ struct VolumeCoordinatorTest : BaseTestFixture {
         h->updateHandler(
             FDSP_MSG_TYPEID(fpi::SetVolumeGroupCoordinatorMsg),
             [h](fpi::AsyncHdrPtr &hdr, StringPtr &payload) {
+                static int version = 0;
+                auto resp = MAKE_SHARED<fpi::SetVolumeGroupCoordinatorRspMsg>();
+                resp->version = ++version;
                 h->sendAsyncResp(*hdr,
-                                 FDSP_MSG_TYPEID(fpi::EmptyMsg),
-                                 fpi::EmptyMsg());
+                                 FDSP_MSG_TYPEID(fpi::SetVolumeGroupCoordinatorRspMsg),
+                                 *resp);
             });
     }
     void setAmHandlers(const PlatNetSvcHandlerPtr &h) {

@@ -7,7 +7,7 @@
 #include <map>
 #include <algorithm>
 #include <dlt.h>
-#include <DltDmtUtil.h>
+#include <OmExtUtilApi.h>
 #include <iostream>
 #include <string>
 #include <util/Log.h>
@@ -346,7 +346,7 @@ Error DLT::verify(const NodeUuidSet& expectedUuidSet) const {
     Error err(ERR_OK);
 
     // we should not have more rows than nodes
-    if (depth > (expectedUuidSet.size() + DltDmtUtil::getInstance()->getPendingNodeRemoves(fpi::FDSP_STOR_MGR) )) {
+    if (depth > (expectedUuidSet.size() + OmExtUtilApi::getInstance()->getPendingNodeRemoves(fpi::FDSP_STOR_MGR) )) {
         LOGERROR << "DLT has more rows (" << depth
                  << ") than nodes (" << expectedUuidSet.size() << ")";
         return ERR_INVALID_DLT;
@@ -361,7 +361,7 @@ Error DLT::verify(const NodeUuidSet& expectedUuidSet) const {
             NodeUuid uuid = column->get(j);
             if ((uuid.uuid_get_val() == 0) ||
                 (expectedUuidSet.count(uuid) == 0)) {
-                if (!DltDmtUtil::getInstance()->isMarkedForRemoval(uuid.uuid_get_val())) {
+                if (!OmExtUtilApi::getInstance()->isMarkedForRemoval(uuid.uuid_get_val())) {
                     // unexpected uuid in this DLT cell
                     LOGERROR << "DLT contains unexpected uuid " << std::hex
                              << uuid.uuid_get_val() << std::dec;
@@ -417,7 +417,8 @@ std::ostream& operator<< (std::ostream &oss, const DLT& dlt) {
     fds_uint64_t token = 0, prevToken = 0 , firstToken = 0;
 
     size_t listSize = dlt.distList->size()-1;
-    for (iter = dlt.distList->begin(); iter != dlt.distList->end(); iter++, count++) {
+    for (iter = dlt.distList->begin(); iter != dlt.distList->end(); iter++, count++)
+    {
         const DltTokenGroupPtr& nodeList= *iter;
         ossNodeList.str("");
         for (uint i = 0; i < dlt.getDepth(); i++) {
@@ -436,7 +437,7 @@ std::ostream& operator<< (std::ostream &oss, const DLT& dlt) {
                 } else {
                     oss << std::setw(8)
                         << firstToken
-                        << " : " << std::hex << prevNodeListStr << "\n";
+                        << " : " << std::hex << prevNodeListStr << std::dec << "\n";
                 }
                 firstToken =  count;
             }
@@ -458,42 +459,55 @@ std::ostream& operator<< (std::ostream &oss, const DLT& dlt) {
         }
     }
 
-    oss << "node -> token map :> \n";
+    oss << "\n ----------------------------- Node - Token map -----------------------------";
     NodeTokenMap::const_iterator tokenMapiter;
 
     // build the unique uuid list
     token = 0, prevToken = 0 , firstToken = 0;
 
-    for (tokenMapiter = dlt.mapNodeTokens->begin(); tokenMapiter != dlt.mapNodeTokens->end(); ++tokenMapiter) { // NOLINT
+    for (tokenMapiter = dlt.mapNodeTokens->begin(); tokenMapiter != dlt.mapNodeTokens->end(); ++tokenMapiter)
+    { // NOLINT
         TokenList::const_iterator tokenIter;
         const TokenList& tlist = tokenMapiter->second;
-        oss << std::setw(8) << std::hex << tokenMapiter->first.uuid_get_val() << std::dec << " : ";
-        prevToken = 0;
-        firstToken = 0;
+
+        oss << "\nNode:" <<  std::hex << tokenMapiter->first.uuid_get_val()
+                            << std::dec << ", tokens owned:" << tlist.size() << "\n";
+
         bool fFirst = true;
         size_t last = tlist.size() - 1;
-        count = 0;
-        for (tokenIter = tlist.begin(); tokenIter != tlist.end(); ++tokenIter, ++count) {
+        prevToken   = 0;
+        firstToken  = 0;
+        count       = 0;
+
+        for (tokenIter = tlist.begin(); tokenIter != tlist.end(); ++tokenIter, ++count)
+        {
             token = *tokenIter;
-            if (fFirst) {
+
+            if (fFirst)
+            {
                 firstToken = token;
                 oss << token;
                 fFirst = false;
+
             } else if (token == (prevToken + 1)) {
                 // do nothing .. this is a range
             } else {
-                if (prevToken != firstToken) {
+                if (prevToken != firstToken)
+                {
                     // this is a range
                     oss << "-" << prevToken;
                 }
-                oss << "," << token << "\n";
+                oss << "," << token;
                 firstToken = token;
             }
+
             prevToken = token;
 
-            if (count == last) {
+            if (count == last)
+            {
                 // end of loop
-                if (prevToken != firstToken) {
+                if (prevToken != firstToken)
+                {
                     // this is a range
                     oss << "-" << prevToken << "\n";
                 } else {

@@ -8,6 +8,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.Assert.assertEquals;
 
 public class PersistentCounterTest {
+
+    public static final int MAX_OBJECT_SIZE = 1024;
+
     @Test
     public void testAccept() throws Exception {
         AtomicInteger commits = new AtomicInteger();

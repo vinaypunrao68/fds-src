@@ -173,6 +173,12 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     err = objStorMgr->objectStore->openStore(smTokens);
 
     // start migration
+
+    if (objStorMgr->getDLT() == NULL) {
+        // Try to get the DLT again, just to be sure nothing has changed.
+        err = MODULEPROVIDER()->getSvcMgr()->getDLT();
+    }
+
     const DLT* dlt = objStorMgr->getDLT();
 
     if (dlt != NULL) {
@@ -628,13 +634,13 @@ void SMSvcHandler::putObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
 
     err = objStorMgr->enqueueMsg(putReq->getVolId(), putReq);
     if (err != fds::ERR_OK) {
-    	if (err != fds::ERR_VOL_NOT_FOUND) {
-    		/**
-    		 * Race cond: SM may not have the vol descriptors
-    		 * ready yet even though it's finished pulling the DLT.
-    		 */
-    		fds_assert(!"Hit an error in enqueing");
-    	} else {
+        if (err != fds::ERR_VOL_NOT_FOUND) {
+                /**
+                 * Race cond: SM may not have the vol descriptors
+                 * ready yet even though it's finished pulling the DLT.
+                 */
+                fds_assert(!"Hit an error in enqueing");
+        } else {
             /**
              * TODO(neil): This needs to be fixed. See FS-2229
              */
@@ -771,8 +777,8 @@ void SMSvcHandler::deleteObject(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         return;
     }
 
-    // DM sending the Ack to OM  for delete request can not  be timed correctly. we observed that 
-    // SM volume  queues are deleted  as part of the volume delete before expunge is complete. 
+    // DM sending the Ack to OM  for delete request can not  be timed correctly. we observed that
+    // SM volume  queues are deleted  as part of the volume delete before expunge is complete.
     // hence moved the delete queue to system queue. we will hav to  revisit this
 
     err = objStorMgr->enqueueMsg(delReq->getVolId(), delReq);
@@ -905,6 +911,16 @@ SMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     fds_volid_t volumeId(vol_msg->vol_desc.volUUID);
     std::string volName  = vol_msg->vol_desc.vol_name;
 
+    StorMgrVolume * vol = objStorMgr->getVol(volumeId);
+    if (!vol) {
+        LOGERROR << "Received delete request for unknown volume "
+                 << "[" << std::hex << volumeId << std::dec << ", "
+                 << volName << "]";
+        hdr->msg_code = ERR_VOL_NOT_FOUND;
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolRemove), *vol_msg);
+        return;
+    }
+
     if (vol_msg->vol_flag == FDSP_NOTIFY_VOL_CHECK_ONLY) {
         GLOGNOTIFY << "Received del chk for vol "
                    << "[" << volumeId
@@ -949,7 +965,15 @@ SMSvcHandler::NotifyModVol(boost::shared_ptr<fpi::AsyncHdr>         &hdr,
                << vdb->getName() << "]";
 
     StorMgrVolume * vol = objStorMgr->getVol(volumeId);
-    fds_assert(vol != NULL);
+    if (!vol) {
+        LOGERROR << "Received modifiy request for unknown volume "
+                 << "[" << std::hex << volumeId << std::dec << ", "
+                 << vdb->getName() << "]";
+        hdr->msg_code = ERR_VOL_NOT_FOUND;
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolMod), *vol_msg);
+        return;
+    }
+
     if (vol->voldesc->mediaPolicy != vdb->mediaPolicy) {
         // TODO(Rao): Total hack. This should go through some sort of synchronization.
         // I can't fina a better interface for doing this in the existing code
@@ -1254,51 +1278,68 @@ void SMSvcHandler::objectStoreCtrl(boost::shared_ptr<fpi::AsyncHdr> &hdr,
      **/
 }
 
-void
-SMSvcHandler::activeObjects(boost::shared_ptr<fpi::AsyncHdr> &hdr,
-                            boost::shared_ptr<fpi::ActiveObjectsMsg> &msg) {
-    Error err(ERR_OK);
-
+void SMSvcHandler::activeObjects(ASYNC_HANDLER_PARAMS(ActiveObjectsMsg)) {
     LOGDEBUG << hdr;
 
-    /**
-        msg->filename
-        msg->checksum
-        msg->volumeIds
-        msg->token
-    */
-    std::string filename;
-    // verify the file checksum
-    if (msg->filename.empty() && msg->checksum.empty()) {
-        LOGDEBUG << "no active objects for token:" << msg->token
-                    << " for [" << msg->volumeIds.size() << "]";
-    } else {
-        filename = objStorMgr->fileTransfer->getFullPath(msg->filename);
-        if (!util::fileExists(filename)) {
-            err = ERR_FILE_DOES_NOT_EXIST;
-            LOGERROR << "active object file ["
-                        << filename
-                        << "] does not exist";
+    auto lambda = [this, hdr, msg]() {
+        Error err(ERR_OK);
+        /**
+         * msg->filename, msg->checksum, msg->volumeIds, msg->token
+         */
+        std::string filename;
+        // verify the file checksum
+        if (msg->filename.empty() && msg->checksum.empty()) {
+            LOGDEBUG << "token:" << msg->token
+                     << " numvols:" << msg->volumeIds.size()
+                     << " no active objects";
         } else {
-            std::string chksum = util::getFileChecksum(filename);
-            if (chksum != msg->checksum) {
-                LOGERROR << "file checksum mismatch [orig:" << msg->checksum
-                            << " new:" << chksum << "]"
-                            << " file:" << filename;
-                err = ERR_CHECKSUM_MISMATCH;
+            filename = objStorMgr->fileTransfer->getFullPath(msg->filename);
+            if (!util::fileExists(filename)) {
+                err = ERR_FILE_DOES_NOT_EXIST;
+                LOGERROR << "file:" << filename
+                         << " does not exist";
+            } else {
+                std::string chksum = util::getFileChecksum(filename);
+                if (chksum != msg->checksum) {
+                    LOGERROR << "orig:" << msg->checksum
+                             << " new:" << chksum
+                             << " file:" << filename
+                             << " file checksum mismatch";
+                    err = ERR_CHECKSUM_MISMATCH;
+                }
             }
         }
-    }
 
-    TimeStamp ts = msg->scantimestamp * 1000 * 1000 * 1000;
-    for (auto volId : msg->volumeIds) {
-        objStorMgr->objectStore->addObjectSet(msg->token, fds_volid_t(volId),
-                                              ts, filename);
-    }
+        if (err.ok()) {
+            LOGDEBUG  << " dmtime:" << util::getLocalTimeString(msg->scantimestamp)
+                      << " time:"   << util::getLocalTimeString(util::getTimeStampSeconds())
+                      << " from:"   << SvcMgr::mapToSvcUuidAndName(hdr->msg_src_uuid)
+                      << " token:"  << msg->token;
 
-    fpi::ActiveObjectsRespMsgPtr resp(new fpi::ActiveObjectsRespMsg());
-    hdr->msg_code = static_cast<int32_t>(err.GetErrno());
-    sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::ActiveObjectsRspMsg), *resp);
+            TimeStamp ts;
+            // ts = msg->scantimestamp * 1000 * 1000 * 1000;
+            ts = util::getTimeStampSeconds() * 1000 * 1000 * 1000;
+            for (auto volId : msg->volumeIds) {
+                objStorMgr->objectStore->addObjectSet(msg->token, fds_volid_t(volId), ts, filename);
+            }
+        } else {
+            LOGWARN << " err:" << err
+                    << " token:" << msg->token
+                    << " numvols:"   << msg->volumeIds.size()
+                    << " time:"  << msg->scantimestamp
+                    << " file:"  << filename;
+        }
+
+        fpi::ActiveObjectsRespMsgPtr resp(new fpi::ActiveObjectsRespMsg());
+        hdr->msg_code = static_cast<int32_t>(err.GetErrno());
+        this->sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::ActiveObjectsRspMsg), *resp);
+    }; // end of lambda
+
+    auto genericRequest = new SmIoGenericRequest(FdsSysTaskQueueId, lambda);
+    Error err = objStorMgr->enqueueMsg(FdsSysTaskQueueId, genericRequest);
+    if (!err.ok()) {
+        LOGWARN << "err:" << err << " unable to enqueue message";
+    }
 }
 
 void SMSvcHandler::diskMapChange(ASYNC_HANDLER_PARAMS(NotifyDiskMapChange)) {
@@ -1307,16 +1348,13 @@ void SMSvcHandler::diskMapChange(ASYNC_HANDLER_PARAMS(NotifyDiskMapChange)) {
 }
 
 void SMSvcHandler::genericCommand(ASYNC_HANDLER_PARAMS(GenericCommandMsg)) {
+    LOGNORMAL << "cmd:" << msg->command << " received";
     if (msg->command == "refscan.done") {
-        // start the scavenger if we have enough data.
-        if (objStorMgr->objectStore->haveAllObjectSets()) {
-            LOGNORMAL << "auto starting scavenger due to enough data to process";
-            SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_START, SM_CMD_INITIATOR_NOT_SET);
-            Error err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
-        }
-    } else if (msg->command == "force.expunge") {
-        LOGCRITICAL << "force expunge command received";
-        objStorMgr->objectStore->setObjectDelCnt(1);
+        objStorMgr->handleRefScanDone(hdr->msg_src_uuid);
+    } else if (msg->command == "scavenger.start") {
+        // this command is for debugging,
+        // to simulate the whole gc process being triggered from SM
+        objStorMgr->startRefscanOnDMs();
     } else {
         LOGCRITICAL << "unexpected command received : " << msg;
     }

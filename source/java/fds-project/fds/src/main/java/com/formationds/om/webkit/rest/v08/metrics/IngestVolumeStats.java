@@ -23,8 +23,8 @@ import com.google.gson.reflect.TypeToken;
 
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.InputStreamReader;
 import java.lang.reflect.Type;
@@ -40,7 +40,7 @@ import javax.servlet.http.HttpServletRequest;
 public class IngestVolumeStats implements RequestHandler {
 
     private static final Logger logger =
-            LoggerFactory.getLogger( IngestVolumeStats.class );
+            LogManager.getLogger( IngestVolumeStats.class );
 
     private static final Type TYPE = new TypeToken<List<VolumeDatapoint>>(){}.getType();
 
@@ -53,6 +53,11 @@ public class IngestVolumeStats implements RequestHandler {
     @Override
     public Resource handle(Request request, Map<String, String> routeParameters)
             throws Exception {
+    	
+    	if ( !FdsFeatureToggles.INFLUX_WRITE_METRICS.isActive() ){
+    		logger.warn( "The toggle to write metrics to InfluxDB is turned off so no metrics will be sent to that persistent store." );
+    		return new JsonResource(new JSONObject().put("status", "OK"));
+    	}
 
         HttpServletRequest httpRequest = (HttpServletRequest)request;
         if ( FdsFeatureToggles.WEB_LOGGING_REQUEST_WRAPPER.isActive() ) {
@@ -78,7 +83,8 @@ public class IngestVolumeStats implements RequestHandler {
 
                     volid = SingletonConfigAPI.instance().api().getVolumeId( vdp.getVolumeName() );
                 } catch (Exception e) {
-                    throw new IllegalStateException( "Volume does not have an ID associated with the name." );
+                    throw new IllegalStateException( "Volume " + vdp.getVolumeName() + " does not " +
+                            "have an ID associated with the name." );
                 }
 
                 vdp.setVolumeId( String.valueOf( volid ) );

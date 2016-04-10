@@ -7,6 +7,7 @@ import com.formationds.commons.crud.EntityPersistListener;
 import com.formationds.commons.events.FirebreakType;
 import com.formationds.commons.model.Datapoint;
 import com.formationds.commons.model.Volume;
+import com.formationds.commons.model.builder.DatapointBuilder;
 import com.formationds.commons.model.builder.VolumeBuilder;
 import com.formationds.commons.model.entity.FirebreakEvent;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
@@ -14,9 +15,10 @@ import com.formationds.om.repository.MetricRepository;
 import com.formationds.om.repository.SingletonRepositoryManager;
 import com.formationds.om.repository.helper.FirebreakHelper;
 import com.formationds.om.repository.helper.FirebreakHelper.FirebreakEventCache;
+
 import org.apache.thrift.TException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -31,7 +33,7 @@ import java.util.Optional;
  */
 public class VolumeDatapointEntityPersistListener implements EntityPersistListener<IVolumeDatapoint> {
 
-    private static final Logger logger = LoggerFactory.getLogger(VolumeDatapointEntityPersistListener.class);
+    private static final Logger logger = LogManager.getLogger(VolumeDatapointEntityPersistListener.class);
 
     private MetricRepository mr = SingletonRepositoryManager.instance()
                                                             .getMetricsRepository();
@@ -81,7 +83,11 @@ public class VolumeDatapointEntityPersistListener implements EntityPersistListen
                 if ( !activeFbe.isPresent() ) {
                     logger.trace( "Firebreak event for '{}({})' with datapoints '{}'", v.getId(), v.getName(), volDp );
 
-                    Datapoint dp = volDp.getDatapoint();
+                    Datapoint dp = new DatapointBuilder()
+                    	.withX( volDp.getDatapoint().getX() )
+                    	.withY( volDp.getDatapoint().getY() )
+                    	.build();
+                    
                     FirebreakEvent fbe = new FirebreakEvent( v, fbtype,
                                                              Instant.ofEpochSecond( dp.getY().longValue() )
                                                                     .toEpochMilli(),

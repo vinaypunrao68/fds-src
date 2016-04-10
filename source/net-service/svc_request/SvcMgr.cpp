@@ -8,6 +8,8 @@
 #include <concurrency/Mutex.h>
 #include <arpa/inet.h>
 #include <thrift/protocol/TBinaryProtocol.h>
+#include <thrift/protocol/TMultiplexedProtocol.h>
+#include "fdsp/common_constants.h"
 #include <fdsp/PlatNetSvc.h>
 #include <fdsp/health_monitoring_api_types.h>
 #include <net/PlatNetSvcHandler.h>
@@ -25,6 +27,7 @@
 #include <fiu-control.h>
 #include <util/fiu_util.h>
 #include <json/json.h>
+#include <OmExtUtilApi.h>
 
 namespace fds {
 
@@ -43,7 +46,8 @@ std::string logString(const FDS_ProtocolInterface::SvcInfo &info)
     ss << "Svc handle svc_uuid: "
         << SvcMgr::mapToSvcUuidAndName(info.svc_id.svc_uuid)
         << " ip: " << info.ip << " port: " << info.svc_port
-        << " incarnation: " << info.incarnationNo << " status: " << info.svc_status;
+        << " incarnation: " << info.incarnationNo << " status: "
+        << OmExtUtilApi::printSvcStatus(info.svc_status);
     return ss.str();
 }
 
@@ -58,14 +62,41 @@ std::string logDetailedString(const FDS_ProtocolInterface::SvcInfo &info)
     return ss.str();
 }
 
-template<class T>
-boost::shared_ptr<T> allocRpcClient(const std::string &ip, const int &port,
-                                    const int &retryCnt)
+/**
+ * Conditionally (guarded by feature toggle) creates multiplexed service.client.
+ * Multiplexed servers enable us to break up existing large services.
+ * Multiplexed servers enable the introduction of new services for an IP/port
+ * when a change to an existing service would be backward incompatible.
+ */
+template<class ClientT>
+boost::shared_ptr<ClientT> allocRpcClient(const std::string &ip, const int &port,
+    const int &retryCnt,
+    const std::string &thriftServiceName,
+    const boost::shared_ptr<FdsConfig> plc)
 {
     auto sock = bo::make_shared<net::Socket>(ip, port);
     auto trans = bo::make_shared<tt::TFramedTransport>(sock);
     auto proto = bo::make_shared<tp::TBinaryProtocol>(trans);
-    boost::shared_ptr<T> client = bo::make_shared<T>(proto);
+    boost::shared_ptr<ClientT> client;
+    if (plc) {
+        // The module provider might not supply the base path we want,
+        // so make our own config access. This is libConfig data, not
+        // to be confused with FDS configuration (platform.conf).
+        FdsConfigAccessor configAccess(plc, "fds.feature_toggle.");
+        /**
+         * FEATURE TOGGLE: enable multiplexed services
+         * Tue Feb 23 15:04:17 MST 2016
+         */
+        bool enableSubscriptions = configAccess.get<bool>("common.enable_multiplexed_services", false);
+        if (enableSubscriptions) {
+            boost::shared_ptr<::apache::thrift::protocol::TMultiplexedProtocol> multiproto =
+                boost::make_shared<tp::TMultiplexedProtocol>(proto, thriftServiceName);
+            client = bo::make_shared<ClientT>(multiproto);
+        }
+    }
+    if (!client) {
+        client = bo::make_shared<ClientT>(proto);
+    }
     bool bConnected = sock->connect(retryCnt);
     if (!bConnected) {
         GLOGWARN << "Failed to connect to ip: " << ip << " port: " << port;
@@ -73,21 +104,33 @@ boost::shared_ptr<T> allocRpcClient(const std::string &ip, const int &port,
     }
     return client;
 }
+/*********************************************************************************
+ * Explicit template instantiations
+ ********************************************************************************/
 template
 boost::shared_ptr<fpi::PlatNetSvcClient> allocRpcClient<fpi::PlatNetSvcClient>(
     const std::string &ip, const int &port,
-    const int &retryCnt);
+    const int &retryCnt, const std::string &strServiceName,
+    const boost::shared_ptr<FdsConfig> plc);
+// Adding a new service method is a backward compatible change.
+// If an old client stub is used, the consumer code can not even know about
+// the new service method. If a new client stub is used against an older
+// server, 'invalid method name' is raised.
 template
 boost::shared_ptr<fpi::OMSvcClient> allocRpcClient<fpi::OMSvcClient>(
     const std::string &ip, const int &port,
-    const int &retryCnt);
+    const int &retryCnt, const std::string &strServiceName,
+    const boost::shared_ptr<FdsConfig> plc);
 template
 boost::shared_ptr<fpi::StreamingClient> allocRpcClient<fpi::StreamingClient>(
     const std::string &ip, const int &port,
-    const int &retryCnt);
+    const int &retryCnt, const std::string &strServiceName,
+    const boost::shared_ptr<FdsConfig> plc);
 template
-boost::shared_ptr<apis::ConfigurationServiceClient> allocRpcClient<apis::ConfigurationServiceClient>(const std::string &ip, const int &port,
-    const int &retryCnt);
+boost::shared_ptr<apis::ConfigurationServiceClient> allocRpcClient<apis::ConfigurationServiceClient>(
+    const std::string &ip, const int &port,
+    const int &retryCnt, const std::string &strServiceName,
+    const boost::shared_ptr<FdsConfig> plc);
 
 /*********************************************************************************
  * class methods
@@ -97,8 +140,8 @@ std::size_t SvcUuidHash::operator()(const fpi::SvcUuid& svcId) const {
 }
 
 SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
-               PlatNetSvcHandlerPtr handler,
-               fpi::PlatNetSvcProcessorPtr processor,
+               PlatNetSvcHandlerPtr asyncHandler,
+               TProcessorMap& processors,
                const fpi::SvcInfo &svcInfo)
     : HasModuleProvider(moduleProvider),
     Module("SvcMgr")
@@ -119,7 +162,7 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
     fds_assert(omSvcUuid_.svc_uuid != 0);
     fds_assert(omPort_ != 0);
 
-    svcRequestHandler_ = handler;
+    svcRequestHandler_ = asyncHandler;
     svcInfo_ = svcInfo;
 
     /* Create the server */
@@ -147,11 +190,11 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
     LOGNOTIFY << "Initializing Service Layer server for " << SvcMgr::mapToSvcName( svcInfo_.svc_type ) <<
             "[" << svcInfo_.ip << ":" << svcInfo_.svc_port << "]";
 
-    svcServer_ = boost::make_shared<SvcServer>(port, processor);
+    svcServer_ = boost::make_shared<SvcServer>(port, processors, moduleProvider);
 
     taskExecutor_ = new SynchronizedTaskExecutor<uint64_t>(*MODULEPROVIDER()->proc_thrpool());
 
-    svcRequestMgr_ = new SvcRequestPool(MODULEPROVIDER(), getSelfSvcUuid(), handler);
+    svcRequestMgr_ = new SvcRequestPool(MODULEPROVIDER(), getSelfSvcUuid(), asyncHandler);
     gSvcRequestPool = svcRequestMgr_;
 
     dltMgr_.reset(new DLTManager());
@@ -174,6 +217,8 @@ fpi::FDSP_MgrIdType SvcMgr::mapToSvcType(const std::string &svcName)
         return fpi::FDSP_ORCH_MGR;
     } else if (svcName == "console") {
         return fpi::FDSP_CONSOLE;
+    } else if (svcName == "checker") {
+        return fpi::FDSP_CHECKER_TYPE;
     } else if (svcName == "test") {
         return fpi::FDSP_TEST_APP;
     } else {
@@ -197,6 +242,8 @@ std::string SvcMgr::mapToSvcName(const fpi::FDSP_MgrIdType &svcType)
         return "om";
     case fpi::FDSP_CONSOLE:
         return "console";
+    case fpi::FDSP_CHECKER_TYPE:
+        return "checker";
     case fpi::FDSP_TEST_APP:
         return "test";
     default:
@@ -347,6 +394,10 @@ bool SvcMgr::getSvcHandle_(const fpi::SvcUuid &svcUuid, SvcHandlePtr& handle) co
 void SvcMgr::sendAsyncSvcReqMessage(fpi::AsyncHdrPtr &header,
                                  StringPtr &payload)
 {
+    LOGTRACE << "ASYNC_REQUEST_SEND  ["
+             << static_cast<SvcRequestId>(header->msg_src_id) << "]: "
+             << fds::logString(*header);
+
     SvcHandlePtr svcHandle;
     fpi::SvcUuid &svcUuid = header->msg_dst_uuid;
 
@@ -374,6 +425,11 @@ void SvcMgr::sendAsyncSvcReqMessage(fpi::AsyncHdrPtr &header,
 void SvcMgr::sendAsyncSvcRespMessage(fpi::AsyncHdrPtr &header,
                                      StringPtr &payload)
 {
+
+    LOGTRACE << "ASYNC_RESPONSE_SEND  ["
+             << static_cast<SvcRequestId>(header->msg_src_id) << "]: "
+             << fds::logString(*header);
+
     SvcHandlePtr svcHandle;
     fpi::SvcUuid &svcUuid = header->msg_dst_uuid;
 
@@ -488,7 +544,11 @@ fpi::OMSvcClientPtr SvcMgr::getNewOMSvcClient() const
         try {
             LOGTRACE << "Connecting to OM[" << omIp_ << ":" << omPort_ <<
                     "] with max retries of [" << omRetries << "]";
-            omClient = allocRpcClient<fpi::OMSvcClient>(omIp_, omPort_, omRetries);
+            omClient = allocRpcClient<fpi::OMSvcClient>(omIp_,
+                omPort_,
+                omRetries,
+                fpi::commonConstants().OM_SERVICE_NAME,
+                MODULEPROVIDER()->get_fds_config());
             break;
         } catch (std::exception &e) {
             GLOGWARN << "allocRpcClient failed.  Exception: " << e.what()
@@ -660,8 +720,9 @@ Error SvcMgr::updateDmt(bool dmt_type, std::string& dmt_data, OmUpdateRespCbType
     }
 
     err = dmtMgr_->addSerializedDMT(dmt_data, cb, DMT_COMMITTED);
-    if (!err.ok()) {
-        LOGERROR << "Failed to update DMT! check dmt_data was set";
+
+    if (!(err == ERR_OK || err == ERR_DUPLICATE)) {
+        LOGERROR << "Failed to update DMT! check dmt_data was set " << err;
     }
 
     return err;
@@ -796,7 +857,7 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
 
     if (isSvcDown_()) {
         /* No point trying to send when service is down */
-        GLOGDEBUG << "No point in sending when service is down! ( "
+        GLOGWARN << "No point in sending when service is down! ( "
                   << fds::logString(svcInfo_) << ")";
         return false;
     }
@@ -805,7 +866,9 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
             GLOGDEBUG << "Allocating PlatNetSvcClient for: " << logString();
             svcClient_ = allocRpcClient<fpi::PlatNetSvcClient>(svcInfo_.ip,
                                                                svcInfo_.svc_port,
-                                                               SvcMgr::MIN_CONN_RETRIES);
+                                                               SvcMgr::MIN_CONN_RETRIES,
+                                                               fpi::commonConstants().PLATNET_SERVICE_NAME,
+                                                               MODULEPROVIDER()->get_fds_config());
         }
         if (isAsyncReqt) {
             /**
@@ -836,6 +899,7 @@ SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr &current, const fpi::SvcI
 {
     fds_bool_t ret(false);
 
+    std::string error = "uninitialized";
     if ( current->incarnationNo < incoming->incarnationNo ) {
         ret = true;
     } else if ( (current->incarnationNo == incoming->incarnationNo) &&
@@ -866,8 +930,7 @@ SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr &current, const fpi::SvcI
          * configDB. Until all areas of PM and OM are sending incarnation number,
          * this has to be here... and bugs may be coming in.
          */
-        LOGWARN << "Allowing update with zero incarnatioNo!";
-        LOGDEBUG << "THIS NEEDS TO BE FIXED. Should be passing in with complete info.";
+        LOGWARN << "Allowing update with zero incarnatioNo! Should never come to this";
         ret = true;
     } else {
         LOGDEBUG << "Criteria not met, will not allow update of svcMap";
@@ -883,7 +946,8 @@ void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
     auto newPtr = boost::make_shared<fpi::SvcInfo>(newInfo);
     GLOGDEBUG << "Incoming update: " << fds::logString(*newPtr) << " vs current status: "
             << fds::logString(*currentPtr);
-    if (shouldUpdateSvcHandle(currentPtr, newPtr)) {
+
+    if (OmExtUtilApi::isIncomingUpdateValid(*newPtr, *currentPtr)) {
         svcInfo_ = newInfo;
         svcClient_.reset();
         GLOGDEBUG << "Operation Applied.";

@@ -1,8 +1,10 @@
 package com.formationds.xdi;
 
 import com.formationds.apis.*;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
+import com.formationds.protocol.commonConstants;
 import com.formationds.protocol.PatternSemantics;
 import com.formationds.protocol.VolumeAccessMode;
 import com.formationds.security.FastUUID;
@@ -10,8 +12,11 @@ import com.formationds.util.ConsumerWithException;
 import com.formationds.util.Retry;
 import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.util.thrift.ThriftClientFactory;
-import org.apache.log4j.Logger;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.thrift.TException;
+import org.apache.thrift.TMultiplexedProcessor;
 import org.apache.thrift.server.TNonblockingServer;
 import org.apache.thrift.transport.TNonblockingServerSocket;
 import org.joda.time.Duration;
@@ -23,7 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public class RealAsyncAm implements AsyncAm {
-    private static final Logger LOG = Logger.getLogger(RealAsyncAm.class);
+    private static final Logger LOG = LogManager.getLogger(RealAsyncAm.class);
     private final AsyncAmResponseListener responseListener;
     private AsyncXdiServiceRequest.Iface oneWayAm;
     private String amHost;
@@ -42,18 +47,38 @@ public class RealAsyncAm implements AsyncAm {
         try {
             AsyncXdiServiceResponse.Processor<AsyncAmResponseListener> processor = new AsyncXdiServiceResponse.Processor<>(responseListener);
 
-            TNonblockingServer server = new TNonblockingServer(
+            TNonblockingServer server;
+            if (FdsFeatureToggles.THRIFT_MULTIPLEXED_SERVICES.isActive()) {
+                // Multiplexed server
+                TMultiplexedProcessor mp = new TMultiplexedProcessor();
+                mp.registerProcessor(commonConstants.ASYNC_XDI_SERVICE_REQUEST_SERVICE_NAME, processor);
+                server = new TNonblockingServer(
                     new TNonblockingServer.Args(new TNonblockingServerSocket(responsePort))
-                            .processor(processor));
-
+                        .processor(mp));
+            } else {
+                // Non-multiplexed server
+                server = new TNonblockingServer(
+                    new TNonblockingServer.Args(new TNonblockingServerSocket(responsePort))
+                        .processor(processor));
+            }
             new Thread(() -> server.serve(), "AM async listener thread").start();
             LOG.debug("Started async AM listener on port " + responsePort);
 
             responseListener.start();
 
+            /**
+             * FEATURE TOGGLE: enable multiplexed services
+             * Tue Feb 23 15:04:17 MST 2016
+             */
+            String thriftServiceName = ""; // non-multiplexed when empty string
+            if (FdsFeatureToggles.THRIFT_MULTIPLEXED_SERVICES.isActive()) {
+                // Multiplexed server
+                thriftServiceName = commonConstants.ASYNC_XDI_SERVICE_REQUEST_SERVICE_NAME;
+            }
             ThriftClientFactory<AsyncXdiServiceRequest.Iface> factory = new ThriftClientFactory.Builder<>(AsyncXdiServiceRequest.Iface.class)
                     .withHostPort(amHost, amPort)
                     .withPoolConfig(100, 0, Integer.MAX_VALUE)
+                    .withThriftServiceName(thriftServiceName)
                     .withClientFactory(bp -> {
                         AsyncXdiServiceRequest.Client client = new AsyncXdiServiceRequest.Client(bp);
                         try {

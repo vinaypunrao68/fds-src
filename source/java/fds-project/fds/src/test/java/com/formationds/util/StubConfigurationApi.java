@@ -16,6 +16,7 @@ import com.google.common.collect.Multimap;
 import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -73,6 +74,35 @@ public class StubConfigurationApi implements ConfigurationApi {
         userTenants = HashMultimap.create();
         volumes = new CopyOnWriteArrayList<>();
         volumeId = new AtomicLong();
+    }
+
+    /**
+     * Get API version used by service handler.
+     */
+    @Override
+    public Version getVersion() throws ApiException, TException {
+        return new Version();
+    }
+
+    /**
+     * Get the API version table for the service.
+     */
+    @Override
+    public List<ServiceAPIVersion> getVersionTable() throws ApiException, TException {
+        List<ServiceAPIVersion> emptyList = Collections.emptyList();
+        return emptyList;
+    }
+
+    /**
+     * Handshake with the server to negotiate API version.
+     * @param suggestedVersion - Version: The API version suggested by the client.
+     *  Using Thrift, the client is the code using a Thrift generated service.client
+     *  instance.
+     * @return Version: The API version acceptable to the server
+     */
+    @Override
+    public Version suggestVersion(Version suggestedVersion) throws ApiException, TException {
+        return new Version();
     }
 
     @Override

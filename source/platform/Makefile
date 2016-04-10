@@ -8,10 +8,10 @@ user_build_dir   := include source python scripts
 user_incl_dir    := include $(topdir)
 
 user_fds_ar_libs := fds-pm-lib fds-disk-lib
-user_non_fds_libs :=           \
-                     udev      \
-                     rt        \
-                     uuid      \
+user_non_fds_libs := fdsStatsUtil \
+                     udev         \
+                     rt           \
+                     uuid         \
                      parted
 
 user_cpp         := platform-main.cpp

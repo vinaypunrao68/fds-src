@@ -5,8 +5,8 @@ import com.formationds.web.toolkit.route.QueryResult;
 
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.util.MultiMap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -18,7 +18,7 @@ public class RouteFinder {
     private LexicalTrie<Supplier<RequestHandler>> map;
     
     private static final Logger logger =
-            LoggerFactory.getLogger( RouteFinder.class );
+            LogManager.getLogger( RouteFinder.class );
     
     public RouteFinder() {
         map = LexicalTrie.newTrie();

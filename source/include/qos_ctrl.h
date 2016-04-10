@@ -11,6 +11,7 @@
 #include <fds_types.h>
 #include <fds_error.h>
 #include <fds_volume.h>
+#include <fds_counters.h>
 
 namespace fds { 
 
@@ -24,7 +25,7 @@ namespace fds {
  *  FDS_QosControl: Qos Control Class with a shared threadpool
  *
  **********************************************************/
-class FDS_QoSControl { 
+class FDS_QoSControl : public StateProvider { 
    public :
 
    typedef enum {
@@ -41,6 +42,7 @@ class FDS_QoSControl {
    fds_uint32_t  qos_max_threads; // Max number of threads in the pool
    std::unique_ptr<std::thread> dispatcherThread;
    fds_threadpool *threadPool; // This is the global threadpool
+   fds_threadpool *lowpriThreadPool {nullptr};  // threadpool for lower priority tasks
    fds_uint64_t   total_rate;
    
 
@@ -51,6 +53,11 @@ class FDS_QoSControl {
    void stop();
 
    FDS_QoSControl(fds_uint32_t _max_thrds, dispatchAlgoType algo, fds_log *log, const std::string& prefix);
+   FDS_QoSControl(fds_uint32_t _max_thrds,
+                  uint32_t lowpriThreadpoolSz,
+                  dispatchAlgoType algo,
+                  fds_log *log,
+                  const std::string& prefix);
    
    virtual FDS_VolumeQueue* getQueue(fds_volid_t queueId);
    Error   registerVolume(fds_volid_t voluuid, FDS_VolumeQueue *q);
@@ -72,6 +79,9 @@ class FDS_QoSControl {
    void resumeIOs(fds_volid_t volUUID);
 
    virtual fds_uint32_t queueSize(fds_volid_t volId);
+
+   std::string getStateInfo() override;
+   std::string getStateProviderId() override;
 };
 
 }

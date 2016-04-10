@@ -1,17 +1,20 @@
 package com.formationds.nfs;
 
 import com.formationds.apis.ObjectOffset;
+import com.formationds.util.IoConsumer;
 import com.formationds.util.IoSupplier;
 import com.formationds.xdi.RecoverableException;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.joda.time.Duration;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 
 public class RecoveryHandler implements IoOps {
-    private static final Logger LOG = Logger.getLogger(RecoveryHandler.class);
+    private static final Logger LOG = LogManager.getLogger(RecoveryHandler.class);
     private final IoOps ops;
     private int retryCount;
     private Duration retryInterval;
@@ -23,12 +26,12 @@ public class RecoveryHandler implements IoOps {
     }
 
     @Override
-    public Optional<FdsMetadata> readMetadata(String domain, String volumeName, String blobName) throws IOException {
+    public Optional<Map<String, String>> readMetadata(String domain, String volumeName, String blobName) throws IOException {
         return attempt(() -> ops.readMetadata(domain, volumeName, blobName));
     }
 
     @Override
-    public void writeMetadata(String domain, String volumeName, String blobName, FdsMetadata metadata) throws IOException {
+    public void writeMetadata(String domain, String volumeName, String blobName, Map<String, String> metadata) throws IOException {
         attempt(() -> {
             ops.writeMetadata(domain, volumeName, blobName, metadata);
             return null;
@@ -94,8 +97,21 @@ public class RecoveryHandler implements IoOps {
     }
 
     @Override
-    public void onVolumeDeletion(String domain, String volumeName) throws IOException {
+    public void commitAll(String domain, String volumeName) throws IOException {
+        attempt(() -> {
+            ops.commitAll(domain, volumeName);
+            return null;
+        });
+    }
 
+    @Override
+    public void onVolumeDeletion(String domain, String volumeName) throws IOException {
+        ops.onVolumeDeletion(domain, volumeName);
+    }
+
+    @Override
+    public void addCommitListener(IoConsumer<MetaKey> listener) {
+        ops.addCommitListener(listener);
     }
 
     private <T> T attempt(IoSupplier<T> supplier) throws IOException {

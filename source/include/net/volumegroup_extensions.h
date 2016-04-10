@@ -7,6 +7,7 @@
 #include <fdsp/volumegroup_types.h>
 #include <fds_defines.h>
 #include <fds_error.h>
+#include <fds_types.h>
 
 namespace fpi = FDS_ProtocolInterface;
 
@@ -19,6 +20,7 @@ struct VolumeGroupConstants {
     static const int32_t            VERSION_INVALID = 0;
     static const int32_t            VERSION_SKIPCHECK = 1;
     static const int32_t            VERSION_START = 2;
+    static const sequence_id_t      INVALID_SEQUENCEID = std::numeric_limits<sequence_id_t>::max();
 };
 
 template <class MsgT>
@@ -55,9 +57,13 @@ inline bool isVolumeGroupError(const Error &e)
         case ERR_SVC_REQUEST_INVOCATION:
         case ERR_SVC_REQUEST_FAILED:
         case ERR_IO_OPID_MISMATCH:
+        case ERR_IO_SEQUENCEID_MISMATCH:
         case ERR_SYNC_INPROGRESS:
         case ERR_DM_VOL_NOT_ACTIVATED:
         case ERR_VOL_NOT_FOUND:
+        case ERR_NODE_NOT_ACTIVE:
+        case ERR_INVALID_COORDINATOR:
+        case ERR_ABORTED:
             return true;
         default:
             return false;

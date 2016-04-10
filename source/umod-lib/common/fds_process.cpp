@@ -1,29 +1,39 @@
 /*
  * Copyright 2013 Formation Data Systems, Inc.
  */
-#include <stdlib.h>
-#include <stdarg.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <string>
-#include <iostream>
-#include <fiu-local.h>
-#include <fds_assert.h>
-#include <fds_process.h>
-#include <net/net_utils.h>
-#include <util/process.h>  // For print_stacktrace().
-#include <util/stringutils.h>
-#include <unistd.h>
-#include <syslog.h>
-#include <execinfo.h>
-#include <chrono>
 
-#include <sys/time.h>
+// Standard includes.
+#include <chrono>
+#include <cstdarg>
+#include <cstdlib>
+#include <iostream>
+#include <string>
+
+// System includes.
 #include <sys/resource.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <execinfo.h>
+#include <fiu-local.h>
+#include <syslog.h>
+#include <unistd.h>
+
+// Internal includes.
+#include "net/net_utils.h"
+#include "net/SvcMgr.h"
+#include "util/process.h"  // For print_stacktrace().
+#include "util/stringutils.h"
+#include "fds_assert.h"
+
+// Class include.
+#include "fds_process.h"
+
 extern const char * versRev;
 extern const char * versDate;
 extern const char * machineArch;
 extern const char * buildStrTmpl;
+
 namespace fds {
 
 /*
@@ -110,11 +120,16 @@ CommonModuleProviderIf* getModuleProvider() {
     return g_fdsprocess;
 }
 
+std::shared_ptr<stats::util::Accumulator> FdsProcess::getMetrics () const
+{
+    return metrics_;
+}
+
 /**
 * @brief Constructor.  Keep it as bare shell.  Do the initialization work
 * in init()
 */
-FdsProcess::FdsProcess()
+FdsProcess::FdsProcess() : metrics_ { nullptr }
 {
     mod_vectors_ = nullptr;
     proc_root = nullptr;
@@ -153,6 +168,7 @@ FdsProcess::FdsProcess(int argc, char *argv[],
                        const std::string &def_cfg_file,
                        const std::string &base_path,
                        const std::string &def_log_file, fds::Module **mod_vec)
+        : metrics_ { nullptr }
 {
     init(argc, argv, def_cfg_file, base_path, def_log_file, mod_vec);
 }
@@ -162,13 +178,19 @@ void FdsProcess::init(int argc, char *argv[],
                       const std::string &base_path,
                       const std::string &def_log_file, fds::Module **mod_vec)
 {
+    metrics_.reset(new stats::util::Accumulator {
+            std::unique_ptr<stats::util::UserClock>(new stats::util::UserClock { }),
+            std::unique_ptr<stats::util::SystemClock>(new stats::util::SystemClock { }),
+            std::chrono::seconds { 30 }
+    });
+
     std::string  fdsroot, cfgfile;
 
     fds_verify(g_fdsprocess == NULL);
 
     proc_thrp    = NULL;
     proc_id = argv[0];
-    
+
     /* Initialize process wide globals */
     g_fdsprocess = this;
     /* Set up the signal handler.  We should do this before creating any threads */
@@ -204,7 +226,7 @@ void FdsProcess::init(int argc, char *argv[],
         }
 
         syslog(LOG_NOTICE, "FDS service %s started.",
-               SERVICE_NAME_FROM_ID((g_fdsprocess != nullptr) ? g_fdsprocess->getProcId().c_str() : "unknown"));
+               SERVICE_NAME_FROM_ID());
 
         /*
          * Create a global logger.  Logger is created here because we need the file
@@ -269,9 +291,35 @@ void FdsProcess::init(int argc, char *argv[],
     timer_servicePtr_->scheduledFunctionRepeated(std::chrono::seconds(10),
                                                  []() { g_fdslog->flush(); });
 
-    const libconfig::Setting& fdsSettings = conf_helper_.get_fds_config()->getConfig().getRoot();
+    auto& config = *conf_helper_.get_fds_config();
+    const libconfig::Setting& fdsSettings = config.getConfig().getRoot();
     LOGNORMAL << "Configurations as modified by the command line:";
     log_config(fdsSettings);
+
+    if (config.get<bool>("fds.feature_toggle.common.send_to_new_stats_service", true))
+    {
+        auto svcMgr = getSvcMgr();
+        if (svcMgr)
+        {
+            std::string statsServiceIp;
+            {
+                fds_uint32_t dummy;
+                svcMgr->getOmIPPort(statsServiceIp, dummy);
+            }
+
+            auto statsServicePort = config.get<int>("fds.common.stats_port", 11011);
+
+            // UN & PW is not yet configurable.
+            statsServiceClient_ = StatsConnFactory::newConnection(statsServiceIp,
+                                                                  statsServicePort,
+                                                                  "stats-service",
+                                                                  "$t@t$");
+
+            metrics_->setSubmitter(std::bind(&FdsProcess::_submitGenerationCallback,
+                                             this,
+                                             std::placeholders::_1));
+        }
+    }
 
     /* detect the core file size limit and print to log */
     struct rlimit crlim;
@@ -296,6 +344,32 @@ void FdsProcess::init(int argc, char *argv[],
         }
     }
 
+}
+
+void FdsProcess::_submitGenerationCallback (
+        std::unordered_map<stats::StatDescriptor, stats::util::StatData> const& generation)
+{
+    // TODO: Replace with a version that does error handling and retries.
+    for (auto& stat : generation)
+    {
+        auto descriptor = stat.first;
+        auto data = stat.second;
+
+        StatDataPoint dataPoint { };
+        dataPoint.setAggregationType(descriptor.getAggregationType());
+        dataPoint.setCollectionPeriod(data.getDuration());
+        dataPoint.setCollectionTimeUnit(data.getDurationUnit());
+        dataPoint.setContextId(descriptor.getContextId());
+        dataPoint.setContextType(descriptor.getContextType());
+        dataPoint.setMaximumValue(data.getMaximum());
+        dataPoint.setMetricName(descriptor.getName());
+        dataPoint.setMetricValue(data.getValue());
+        dataPoint.setMinimumValue(data.getMinimum());
+        dataPoint.setNumberOfSamples(data.getSampleCount());
+        dataPoint.setReportTime(data.getStartSecondsFromUnixEpoch());
+
+        statsServiceClient_->publishStatistic(dataPoint);
+    }
 }
 
 FdsProcess::~FdsProcess()
@@ -477,7 +551,7 @@ FdsProcess::fds_catch_signal(int sig) {
     const char* signalNotificationTmplt = "FDS service %s caught signal ";
     char signalNotification[64];
     snprintf(signalNotification, sizeof(signalNotification), signalNotificationTmplt,
-             SERVICE_NAME_FROM_ID((g_fdsprocess != nullptr) ? g_fdsprocess->getProcId().c_str() : "unknown"));
+             SERVICE_NAME_FROM_ID());
 
     /* Find our signal for reporting. */
     std::string sigName(": unknown");
@@ -502,7 +576,7 @@ FdsProcess::fds_catch_signal(int sig) {
         const char* normalSignOffTmplt = "FDS service %s exiting normally.";
         char normalSignOff[64];
         snprintf(normalSignOff, sizeof(normalSignOff), normalSignOffTmplt,
-                 SERVICE_NAME_FROM_ID((g_fdsprocess != nullptr) ? g_fdsprocess->getProcId().c_str() : "unknown"));
+                 SERVICE_NAME_FROM_ID());
 
         if (g_fdsprocess) {
             g_fdsprocess->interrupt_cb(sig);
@@ -518,7 +592,7 @@ FdsProcess::fds_catch_signal(int sig) {
     const char* abnormalSignOffTmplt = "FDS service %s exiting abnormally.";
     char abnormalSignOff[64];
     snprintf(abnormalSignOff, sizeof(abnormalSignOff), abnormalSignOffTmplt,
-             SERVICE_NAME_FROM_ID((g_fdsprocess != nullptr) ? g_fdsprocess->getProcId().c_str() : "unknown"));
+             SERVICE_NAME_FROM_ID());
 
     GLOGERROR << abnormalSignOff;
     g_fdslog->flush();
@@ -681,8 +755,7 @@ void FdsProcess::setup_sig_handler()
                         char currentHandlerBuf[32];
                         snprintf(currentHandlerBuf, 32, "%p", currentHandler);
                         syslog(LOG_NOTICE, "FDS service %s restored signal handler %s for signal %s.",
-                               SERVICE_NAME_FROM_ID(
-                                       (g_fdsprocess != nullptr) ? g_fdsprocess->getProcId().c_str() : "unknown"),
+                               SERVICE_NAME_FROM_ID(),
                                (currentHandler == SIG_ERR) ? "SIG_ERR" :
                                (currentHandler == SIG_IGN) ? "SIG_IGN" : currentHandlerBuf,
                                sigp.signame.c_str());
@@ -693,7 +766,7 @@ void FdsProcess::setup_sig_handler()
     } else {
         // Our logging is not set up yet.
         syslog(LOG_NOTICE, "FDS service %s left with default signal handling.",
-               SERVICE_NAME_FROM_ID((g_fdsprocess != nullptr) ? g_fdsprocess->getProcId().c_str() : "unknown"));
+               SERVICE_NAME_FROM_ID());
     }
 }
 

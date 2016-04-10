@@ -8,15 +8,15 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
 
 import java.util.Map;
 
 public class DetachSnapshotPolicyIdToVolumeId implements RequestHandler {
-  private static final Logger LOG =
-    Logger.getLogger(DetachSnapshotPolicyIdToVolumeId.class);
+  private static final Logger LOG = LogManager.getLogger(DetachSnapshotPolicyIdToVolumeId.class);
 
     private static final String REQ_PARAM_VOLUME_ID = "volumeId";
     private static final String REQ_PARAM_POLICY_ID = "policyId";

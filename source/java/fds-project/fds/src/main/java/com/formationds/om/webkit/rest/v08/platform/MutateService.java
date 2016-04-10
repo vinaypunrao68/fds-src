@@ -22,8 +22,8 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import org.eclipse.jetty.server.Request;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.InputStreamReader;
@@ -35,8 +35,9 @@ public class MutateService implements RequestHandler {
 
     private static final String NODE_ARG = "node_id";
     private static final String SERVICE_ARG = "service_id";
+    private static final String FORCE_ARG = "force";
 
-    private static final Logger logger = LoggerFactory.getLogger( MutateService.class );
+    private static final Logger logger = LogManager.getLogger( MutateService.class );
 
     private ConfigurationApi configApi;
 
@@ -58,8 +59,9 @@ public class MutateService implements RequestHandler {
 
         Long nodeId = requiredLong(routeParameters, NODE_ARG );
         Long serviceId = requiredLong(routeParameters, SERVICE_ARG);
+        Boolean force = optionalBoolean(request, FORCE_ARG, Boolean.FALSE);
 
-        logger.debug( "Trying to change service: " + serviceId + " on node: " + nodeId );
+        logger.debug( "Trying to change service: " + serviceId + " on node: " + nodeId + ", force: " + force);
 
         Service service = null;
         try ( final InputStreamReader reader = new InputStreamReader( request.getInputStream(), "UTF-8" ) ) {
@@ -97,9 +99,10 @@ public class MutateService implements RequestHandler {
                                     ErrorCode.MISSING_RESOURCE );
         }
 
+        boolean checkState = !(force && newState); // don't check state transition if service is started with force
         switch( svcObj.getType() ){
             case AM:
-                if ( amState == newState) {
+                if ( checkState && amState == newState) {
                     throw new ApiException( "Service:AM is already in desired state",
                                             ErrorCode.BAD_REQUEST);
                 } else {
@@ -107,7 +110,7 @@ public class MutateService implements RequestHandler {
                 }
                 break;
             case DM:
-                if ( dmState == newState ) {
+                if ( checkState && dmState == newState ) {
                     throw new ApiException( "Service:DM is already in desired state",
                                             ErrorCode.BAD_REQUEST);
                 } else {
@@ -115,7 +118,7 @@ public class MutateService implements RequestHandler {
                 }
                 break;
             case SM:
-                if ( smState == newState) {
+                if ( checkState && smState == newState) {
                     throw new ApiException( "Service:SM is already in desired state",
                                             ErrorCode.BAD_REQUEST);
                 } else {
@@ -145,7 +148,9 @@ public class MutateService implements RequestHandler {
 
         if ( newState ) {
             // State change desired is from NOT_RUNNING to RUNNING
-            status = getConfigApi().StartService(new NotifyStartServiceMsg(svcInfList, false));
+        	NotifyStartServiceMsg msg = new NotifyStartServiceMsg(svcInfList, false);
+        	msg.setForce(force);
+            status = getConfigApi().StartService(msg);
         }
         else
         {   // State change desired is from RUNNING to NOT_RUNNING

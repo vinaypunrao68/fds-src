@@ -5,7 +5,10 @@ speedup           = -j $(threads)
 user_rtime_env    := user
 user_build_dir    := include dm-lib utils
 
-user_incl_dir     := include $(topdir)
+user_incl_dir     := include \
+                     $(topdir)/include \
+                     $(topdir)/lib \
+                     $(topdir)
 user_cpp_flags    :=
 user_fds_so_libs  :=
 user_fds_ar_libs  := \
@@ -17,6 +20,7 @@ user_fds_ar_libs  := \
 # boost_chrono and rabbitmq are used in the SimpleAmqpClient library
 # The SimpleAmqpClient is used in the statsclient library
 user_non_fds_libs := \
+    fdsStatsUtil-debug \
     statsclient \
     SimpleAmqpClient \
     rabbitmq \

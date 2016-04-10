@@ -54,7 +54,7 @@ static uint32_t const ieee_oui = 0x88A084;
 static uint8_t const vendor_name[] = { 'F', 'D', 'S', ' ', ' ', ' ', ' ', ' ' };
 
 static constexpr bool ensure(bool b)
-{ return (!b ? throw fds::BlockError::connection_closed : true); }
+{ return (!b ? throw fds::ScstError::scst_error : true); }
 
 namespace fds
 {
@@ -64,7 +64,6 @@ ScstDevice::ScstDevice(VolumeDesc const& vol_desc,
                        std::shared_ptr<AmProcessor> processor)
         : amProcessor(processor),
           scst_target(target),
-          scstOps(boost::make_shared<BlockOperations>(this)),
           volumeName(vol_desc.name),
           readyResponses(4000),
           inquiry_handler(new InquiryHandler()),
@@ -111,12 +110,13 @@ void ScstDevice::registerDevice(uint8_t const device_type, uint32_t const logica
     snprintf(scst_descriptor.name, SCST_MAX_NAME, "%s", volumeName.c_str());
     auto res = ioctl(scstDev, SCST_USER_REGISTER_DEVICE, &scst_descriptor);
     if (0 > res) {
-        GLOGERROR << "Failed to register the device! [" << strerror(errno) << "]";
+        LOGERROR << "failed to register device:" << strerror(errno);
         throw ScstError::scst_error;
     }
 
-    GLOGNORMAL << "New SCST device [" << volumeName
-               << "] BlockSize[" << logical_block_size << "]";
+    LOGNORMAL << "vol:" << volumeName
+              << " blocksize:" << logical_block_size
+              << " new device";
 }
 
 void ScstDevice::setupModePages()
@@ -169,6 +169,14 @@ void ScstDevice::setupInquiryPages(uint64_t const volume_id)
 }
 
 void
+ScstDevice::devicePoke(ConnectionState const state) {
+    if (ConnectionState::NOCHANGE != state) {
+        state_ = state;
+    }
+    asyncWatcher->send();
+}
+
+void
 ScstDevice::start(std::shared_ptr<ev::dynamic_loop> loop) {
     ioWatcher = std::unique_ptr<ev::io>(new ev::io());
     ioWatcher->set(*loop);
@@ -186,7 +194,7 @@ ScstDevice::~ScstDevice() {
         close(scstDev);
         scstDev = -1;
     }
-    GLOGNORMAL << "SCSI device " << volumeName << " stopped.";
+    LOGNORMAL << "vol:" << volumeName << " stopped";
 }
 
 void
@@ -195,32 +203,25 @@ ScstDevice::shutdown() {
     asyncWatcher->send();
 }
 
-void
-ScstDevice::terminate() {
-    state_ = ConnectionState::STOPPED;
-    asyncWatcher->send();
-}
-
 int
 ScstDevice::openScst() {
     int dev = open(DEV_USER_PATH DEV_USER_NAME, O_RDWR | O_NONBLOCK);
     if (0 > dev) {
-        LOGERROR << "Opening the SCST device failed: " << strerror(errno);
+        LOGERROR << "opening SCST device failed:" << strerror(errno);
     }
     return dev;
 }
 
 void
 ScstDevice::wakeupCb(ev::async &watcher, int revents) {
-    if (processing_) return;
     if (ConnectionState::RUNNING != state_) {
-        scstOps->shutdown();                        // We are shutting down
+        startShutdown();
         if (ConnectionState::STOPPED == state_ ||
             ConnectionState::DRAINED == state_) {
             asyncWatcher->stop();                   // We are not responding
             ioWatcher->stop();
             if (ConnectionState::STOPPED == state_) {
-                scstOps.reset();
+                stopped();
                 scst_target->deviceDone(volumeName);    // We are FIN!
                 return;
             }
@@ -230,14 +231,12 @@ ScstDevice::wakeupCb(ev::async &watcher, int revents) {
     // It's ok to keep writing responses if we've been shutdown
     if (!readyResponses.empty()) {
         ioEvent(*ioWatcher, ev::WRITE);
-    } else {
-        ioWatcher->start();
     }
 }
 
 void ScstDevice::execAllocCmd() {
     auto& length = cmd.alloc_cmd.alloc_len;
-    LOGTRACE << "Allocation of [0x" << std::hex << length << "] bytes requested.";
+    LOGTRACE << "length:" << length << " allocation requested";
 
     // Allocate a page aligned memory buffer for Scst usage
     ensure(0 == posix_memalign((void**)&fast_reply.alloc_reply.pbuf, sysconf(_SC_PAGESIZE), length));
@@ -247,13 +246,14 @@ void ScstDevice::execAllocCmd() {
 }
 
 void ScstDevice::execMemFree() {
-    LOGTRACE << "Deallocation requested.";
+    LOGTRACE << "deallocation requested";
     free((void*)cmd.on_cached_mem_free.pbuf);
+    fast_reply.result = 0;
     fastReply(); // Setup the reply for the next ioctl
 }
 
 void ScstDevice::execCompleteCmd() {
-    LOGTRACE << "Command complete: [0x" << std::hex << cmd.cmd_h << "]";
+    LOGTRACE << "cmd:" << cmd.cmd_h << " complete";
 
     auto it = repliedResponses.find(cmd.cmd_h);
     if (repliedResponses.end() != it) {
@@ -262,11 +262,12 @@ void ScstDevice::execCompleteCmd() {
     if (!cmd.on_free_cmd.buffer_cached && 0 < cmd.on_free_cmd.pbuf) {
         free((void*)cmd.on_free_cmd.pbuf);
     }
+    fast_reply.result = 0;
     fastReply(); // Setup the reply for the next ioctl
 }
 
 void ScstDevice::execParseCmd() {
-    LOGWARN << "Need parsing help.";
+    LOGWARN << "need parsing help";
     fds_panic("Should not be here!");
     fastReply(); // Setup the reply for the next ioctl
 }
@@ -275,15 +276,13 @@ void ScstDevice::execTaskMgmtCmd() {
     auto& tmf_cmd = cmd.tm_cmd;
     auto done = (SCST_USER_TASK_MGMT_DONE == cmd.subcode) ? true : false;
     if (SCST_TARGET_RESET == tmf_cmd.fn) {
-        LOGNOTIFY << "Target Reset request:"
-                  << " [0x" << std::hex << tmf_cmd.fn
-                  << "] on [" << volumeName << "]"
-                  << " " << (done ? "Done." : "Received.");
+        LOGNOTIFY << "fn:" << tmf_cmd.fn
+                  << "vol:" << volumeName
+                  << " target reset " << (done ? "done" : "received");
     } else {
-        LOGIO << "Task Management request:"
-              << " [0x" << std::hex << tmf_cmd.fn
-              << "] on [" << volumeName << "]"
-              << " " << (done ? "Done." : "Received.");
+        LOGIO << "fn:" << tmf_cmd.fn
+              << "vol:" << volumeName
+              << " task management request " << (done ? "done" : "received");
     }
 
     if (done) {
@@ -300,27 +299,7 @@ void ScstDevice::execTaskMgmtCmd() {
         }
     }
 
-    fastReply(); // Setup the reply for the next ioctl
-}
-
-void
-ScstDevice::execSessionCmd() {
-    auto attaching = (SCST_USER_ATTACH_SESS == cmd.subcode) ? true : false;
-    auto& sess = cmd.sess;
-    LOGNOTIFY << "Session "
-              << (attaching ? "attachment" : "detachment") << " requested"
-              << ", handle [" << sess.sess_h
-              << "] Init [" << sess.initiator_name
-              << "] Targ [" << sess.target_name << "]";
-
-    if (attaching) {
-        auto volName = boost::make_shared<std::string>(volumeName);
-        auto task = new ScstTask(cmd.cmd_h, SCST_USER_ATTACH_SESS);
-        scstOps->init(volName, amProcessor, task); // Defer
-        return deferredReply();
-    } else {
-        scstOps->detachVolume();
-    }
+    fast_reply.result = 0;
     fastReply(); // Setup the reply for the next ioctl
 }
 
@@ -365,7 +344,7 @@ void ScstDevice::execUserCmd() {
 
     switch (op_code) {
     case TEST_UNIT_READY:
-        LOGTRACE << "Test Unit Ready received.";
+        LOGTRACE << "test unit ready received";
         break;
     case INQUIRY:
         {
@@ -374,10 +353,10 @@ void ScstDevice::execUserCmd() {
             // Check EVPD bit
             if (scsi_cmd.cdb[1] & 0x01) {
                 auto& page = scsi_cmd.cdb[2];
-                LOGTRACE << "Page: [0x" << std::hex << (uint32_t)(page) << "] requested.";
+                LOGTRACE << "page:" << (uint32_t)(page) << " requested";
                 inquiry_handler->writeVPDPage(task, page);
             } else {
-                LOGTRACE << "Standard inquiry requested.";
+                LOGTRACE << "standard inquiry requested";
                 inquiry_handler->writeStandardInquiry(task);
             }
         }
@@ -389,11 +368,11 @@ void ScstDevice::execUserCmd() {
             uint8_t pc = scsi_cmd.cdb[2] / 0x40;
             uint8_t page_code = scsi_cmd.cdb[2] % 0x40;
             uint8_t& subpage = scsi_cmd.cdb[3];
-            LOGTRACE << "Mode Sense: "
-                     << " dbd[" << std::hex << dbd
-                     << "] pc[" << std::hex << (uint32_t)pc
-                     << "] page_code[" << (uint32_t)page_code
-                     << "] subpage[" << (uint32_t)subpage << "]";
+            LOGTRACE << "dbd:" << dbd
+                     << " pc:" << (uint32_t)pc
+                     << " pagecode:" << (uint32_t)page_code
+                     << " subpage:" << (uint32_t)subpage
+                     << " mode sense";
 
             // We do not support any persistent pages, subpages
             if (0x01 & pc || 0x00 != subpage) {
@@ -411,15 +390,15 @@ void ScstDevice::execUserCmd() {
         }
         break;
     case RESERVE:
-        LOGIO << "Reserving device [" << volumeName << "]";
+        LOGIO << "vol:" << volumeName << " reserving device";
         reservation_session_id = scsi_cmd.sess_h;
         break;
     case RELEASE:
         if (reservation_session_id == scsi_cmd.sess_h) {
-            LOGIO << "Releasing device [" << volumeName << "]";
+            LOGIO << "vol:" << " releasing device";
             reservation_session_id = invalid_session_id;
         } else {
-            LOGTRACE << "Initiator tried to release [" << volumeName <<"] with no reservation held.";
+            LOGTRACE << "vol:" << volumeName << " release without reservation";
         }
         break;
     default:
@@ -449,10 +428,10 @@ ScstDevice::getAndRespond() {
         cmd.subcode = 0x00;
         if (0 != cmd.preply) {
             auto const& reply = *reinterpret_cast<scst_user_reply_cmd*>(cmd.preply);
-            LOGTRACE << "Responding to: "
-                     << "[0x" << std::hex << reply.cmd_h
-                     << "] sc [0x" << reply.subcode
-                     << "] result [0x" << reply.result << "]";
+            LOGTRACE << "cmd:"<< reply.cmd_h
+                     << " subcode:" << reply.subcode
+                     << " result:" << reply.result
+                     << " responding";
         }
         do { // Make sure and finish the ioctl
         res = ioctl(scstDev, SCST_USER_REPLY_AND_GET_CMD, &cmd);
@@ -462,8 +441,8 @@ ScstDevice::getAndRespond() {
             switch (errno) {
             case ENOTTY:
             case EBADF:
-                LOGNOTIFY << "Scst device no longer has a valid handle to the kernel, terminating.";
-                throw BlockError::connection_closed;
+                LOGNOTIFY << "Scst device no longer has a valid handle to the kernel, terminating";
+                throw ScstError::scst_error;
             case EFAULT:
             case EINVAL:
                 fds_panic("Invalid Scst argument!");
@@ -478,9 +457,9 @@ ScstDevice::getAndRespond() {
             }
         }
 
-        LOGTRACE << "Received SCST command: "
-                 << "[0x" << std::hex << cmd.cmd_h
-                 << "] sc [0x" << cmd.subcode << "]";
+        LOGTRACE << "cmd:" << cmd.cmd_h
+                 << " subcode:" << cmd.subcode
+                 << " received SCST command";
         switch (cmd.subcode) {
         case SCST_USER_ATTACH_SESS:
         case SCST_USER_DETACH_SESS:
@@ -506,7 +485,9 @@ ScstDevice::getAndRespond() {
             execUserCmd();
             break;
         default:
-            LOGWARN << "Received unknown Scst subcommand: [" << cmd.subcode << "]";
+            LOGNOTIFY << "cmd:" << cmd.cmd_h
+                      << " subcode:" << cmd.subcode
+                      << " received unknown subcommand";
             break;
         }
     } while (true); // Keep replying while we have responses or requests
@@ -514,53 +495,21 @@ ScstDevice::getAndRespond() {
 
 void
 ScstDevice::ioEvent(ev::io &watcher, int revents) {
-    if (processing_ || (EV_ERROR & revents)) {
-        LOGERROR << "Got invalid libev event";
+    if (EV_ERROR & revents) {
+        LOGERROR << "invalid libev event";
         return;
     }
-
-    ioWatcher->stop();
-    processing_ = true;
-    // Unblocks the next thread to listen on the ev loop
-    scst_target->process();
 
     // We are guaranteed to be the only thread acting on this file descriptor
     try {
         // Get the next command, and/or reply to any existing finished commands
         getAndRespond();
-    } catch(BlockError const& e) {
+    } catch(ScstError const& e) {
         state_ = ConnectionState::DRAINING;
-        if (e == BlockError::connection_closed) {
+        if (e == ScstError::scst_error) {
             // If we had an error, stop the event loop too
             state_ = ConnectionState::DRAINED;
         }
-    }
-    // Unblocks the ev loop to handle events again on this connection
-    processing_ = false;
-    asyncWatcher->send();
-    scst_target->follow();
-}
-
-void
-ScstDevice::respondTask(BlockTask* response) {
-    auto scst_response = static_cast<ScstTask*>(response);
-    if (scst_response->isRead() || scst_response->isWrite()) {
-        respondDeviceTask(scst_response);
-    } else if (fpi::OK != scst_response->getError()) {
-        scst_response->setResult(scst_response->getError());
-    }
-
-    // add to queue
-    readyResponses.push(scst_response);
-
-    // We have something to write, so poke the loop
-    asyncWatcher->send();
-}
-
-void
-ScstDevice::attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) {
-    if (volDesc) {
-        LOGNORMAL << "Attached to volume: " << volDesc->name;
     }
 }
 

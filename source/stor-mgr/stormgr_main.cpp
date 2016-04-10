@@ -6,6 +6,7 @@
 
 #include <SMSvcHandler.h>
 #include <net/SvcProcess.h>
+#include "fdsp/common_constants.h"
 
 class SMMain : public SvcProcess
 {
@@ -23,9 +24,40 @@ class SMMain : public SvcProcess
             nullptr
         };
 
+        auto pHandler = boost::make_shared<fds::SMSvcHandler>(this);
+        auto pProcessor = boost::make_shared<FDS_ProtocolInterface::SMSvcProcessor>(pHandler);
+
+        /**
+         * Note on Thrift service compatibility:
+         *
+         * For service that extends PlatNetSvc, add the processor twice using
+         * Thrift service name as the key and again using 'PlatNetSvc' as the
+         * key. Only ONE major API version is supported for PlatNetSvc.
+         *
+         * All other services:
+         * Add Thrift service name and a processor for each major API version
+         * supported.
+         */
+        TProcessorMap processors;
+
+        /**
+         * When using a multiplexed server, handles requests from SMSvcClient.
+         */
+        processors.insert(std::make_pair<std::string,
+            boost::shared_ptr<apache::thrift::TProcessor>>(
+                FDS_ProtocolInterface::commonConstants().SM_SERVICE_NAME, pProcessor));
+
+        /**
+         * It is common for SvcLayer to route asynchronous requests using an
+         * instance of PlatNetSvcClient. When using a multiplexed server, the
+         * processor map must have a key for PlatNetSvc.
+         */
+        processors.insert(std::make_pair<std::string,
+            boost::shared_ptr<apache::thrift::TProcessor>>(
+                FDS_ProtocolInterface::commonConstants().PLATNET_SERVICE_NAME, pProcessor));
+
         /* Init platform process */
-        init<fds::SMSvcHandler, FDS_ProtocolInterface::SMSvcProcessor>(argc, argv, "platform.conf", "fds.sm.",
-                "sm.log", smVec);
+        init(argc, argv, "platform.conf", "fds.sm.", "sm.log", smVec, pHandler, processors);
 
         /* setup signal handler */
         setupSigHandler();

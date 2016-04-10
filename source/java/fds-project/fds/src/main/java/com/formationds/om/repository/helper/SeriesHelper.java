@@ -12,8 +12,8 @@ import com.formationds.commons.model.builder.SeriesBuilder;
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.type.Metrics;
 import com.formationds.commons.model.type.StatOperation;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,7 +31,7 @@ public class SeriesHelper {
 
 
     private static final Logger logger =
-            LoggerFactory.getLogger( SeriesHelper.class );
+            LogManager.getLogger( SeriesHelper.class );
 
     private static final Long SECONDS_IN_HOUR    = TimeUnit.HOURS.toSeconds( 1 );
     private static final Long SECONDS_IN_DAY     = TimeUnit.HOURS.toSeconds( 24 );
@@ -63,19 +63,19 @@ public class SeriesHelper {
         }
 
         if( diff <= SECONDS_IN_HOUR ) {
-            logger.trace( "HOUR::{}", diff );
+//            logger.trace( "HOUR::{}", diff );
             return RollupType.HOUR;
         } else if( diff <= SECONDS_IN_DAY ) {
-            logger.trace( "DAY::{}", diff );
+//            logger.trace( "DAY::{}", diff );
             return RollupType.DAY;
         } else if( diff <= SECONDS_IN_WEEK ) {
-            logger.trace( "WEEK::{}", diff );
+//            logger.trace( "WEEK::{}", diff );
             return RollupType.WEEK;
         } else if( diff <= SECONDS_IN_30_DAYS ) {
-            logger.trace( "30 DAYS::{}", diff );
+//            logger.trace( "30 DAYS::{}", diff );
             return RollupType.MONTH;
         } else if ( diff > 0 && diff > SECONDS_IN_30_DAYS ){
-            logger.trace( "More than 30 days::{}", diff );
+//            logger.trace( "More than 30 days::{}", diff );
             return RollupType.LONGTERM;
         }
         else {
@@ -304,20 +304,20 @@ public class SeriesHelper {
                     .filter( ( value ) -> {
                         return metrics.matches( value.getKey() );
                     })
-                    .peek( ( l ) -> logger.trace( l.toString() ) )
+//                    .peek( ( l ) -> logger.trace( l.toString() ) )
                     .mapToDouble( IVolumeDatapoint::getValue )
                     .sum();
 
-            logger.trace( "DOUBLE::{} LONG::{} TIMESTAMP::{}",
-                          d, d.longValue(), bytesTimestamp );
+//            logger.trace( "DOUBLE::{} LONG::{} TIMESTAMP::{}",
+//                          d, d.longValue(), bytesTimestamp );
 
             datapoints.add( new DatapointBuilder().withY( d )
                             .withX( (double)bytesTimestamp )
                             .build() );
         } );
 
-        logger.trace( "START::{} INTERVAL::{} MAX::{} SIZE::{}",
-                      startTimestampEpochSeconds, distributionMinutes, maxResults, datapoints.size() );
+//        logger.trace( "START::{} INTERVAL::{} MAX::{} SIZE::{}",
+//                      startTimestampEpochSeconds, distributionMinutes, maxResults, datapoints.size() );
 
         final List<Datapoint> results = new ArrayList<>( );
 

@@ -4,7 +4,8 @@ import com.formationds.apis.VolumeDescriptor;
 import com.formationds.apis.VolumeType;
 import com.formationds.util.ConsumerWithException;
 import com.formationds.xdi.XdiConfigurationApi;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.apache.thrift.TException;
 import org.dcache.nfs.ExportFile;
 
@@ -19,7 +20,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class DynamicExports implements ExportResolver {
-    private static final Logger LOG = Logger.getLogger(DynamicExports.class);
+    private static final Logger LOG = LogManager.getLogger(DynamicExports.class);
     public static final String EXPORTS = "./.exports";
     private XdiConfigurationApi config;
     private volatile Map<String, Integer> exportsByName;
@@ -126,13 +127,13 @@ public class DynamicExports implements ExportResolver {
         return exportFile;
     }
 
-    public int exportId(String volumeName) {
+    public int nfsExportId(String volumeName) {
         return exportsByName.get(volumeName);
     }
 
     @Override
-    public String volumeName(int volumeId) {
-        return exportsById.get(volumeId);
+    public String volumeName(int nfsExportId) {
+        return exportsById.get(nfsExportId);
     }
 
     @Override

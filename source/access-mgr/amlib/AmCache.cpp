@@ -52,30 +52,11 @@ AmCache::done() {
     return AmDataProvider::done();
 }
 
-void
-AmCache::registerVolume(const VolumeDesc& volDesc) {
-    auto const& vol_uuid = volDesc.volUUID;
-    descriptor_cache.addVolume(vol_uuid, max_metadata_entries);
-    offset_cache.addVolume(vol_uuid, max_metadata_entries);
-    object_cache.addVolume(vol_uuid, max_volume_data);
-    LOGDEBUG << "Created caches for volume: " << volDesc.name;
-    AmDataProvider::registerVolume(volDesc);
-}
-
-void
-AmCache::removeVolume(VolumeDesc const& volDesc) {
-    descriptor_cache.removeVolume(volDesc.volUUID);
-    offset_cache.removeVolume(volDesc.volUUID);
-    object_cache.removeVolume(volDesc.volUUID);
-    AmDataProvider::removeVolume(volDesc);
-}
-
 BlobDescriptor::ptr
 AmCache::getBlobDescriptor(AmRequest* amReq, Error &error) {
     auto const& volId = amReq->io_vol_id;
     auto const blobName = amReq->getBlobName();
-    LOGTRACE << "Cache lookup for volume " << volId
-             << " blob " << blobName;
+    LOGTRACE << "volid:" << volId << " blob:" << blobName << " cache lookup";
 
     BlobDescriptor::ptr blobDescPtr;
     error = descriptor_cache.get(volId, blobName, blobDescPtr);
@@ -101,11 +82,10 @@ AmCache::getBlobOffsetObjects(GetBlobReq* blobReq) {
         auto err = offset_cache.get(volId, offset_pair, obj_id);
         if (err == ERR_OK) {
             PerfTracer::incr(PerfEventType::AM_OFFSET_CACHE_HIT, volId);
-            LOGDEBUG << "Found offset, [0x" << std::hex << cur_off
-                     << "] id: " << *obj_id;
+            LOGDEBUG << "objid:" << *obj_id << " offset:" << cur_off << " cache hit";
             blobReq->object_ids.push_back(obj_id);
         } else {
-            LOGDEBUG << "Missing offset, [0x" << std::hex << cur_off << "]";
+            LOGDEBUG << "offset:" << cur_off << " cache miss";
             error = err;
             blobReq->object_ids.push_back(boost::make_shared<ObjectID>(NullObjectID));
         }
@@ -117,7 +97,7 @@ void
 AmCache::getObjects(GetBlobReq* blobReq) {
     static boost::shared_ptr<std::string> null_object = boost::make_shared<std::string>(0, '\0');
 
-    LOGDEBUG << "checking cache for: " << blobReq->object_ids.size() << " objects";
+    LOGDEBUG << "numobj:" << blobReq->object_ids.size() << " checking cache";
     auto cb = std::dynamic_pointer_cast<GetObjectCallback>(blobReq->cb);
     cb->return_buffers->assign(blobReq->object_ids.size(), nullptr);
     cb->return_buffers->shrink_to_fit();
@@ -132,8 +112,7 @@ AmCache::getObjects(GetBlobReq* blobReq) {
         // If this is a null object we don't know or it doesn't have an ObjectID
         Error err {ERR_OK};
         if (NullObjectID != *obj_id) {
-            LOGDEBUG << "Cache lookup for volume " << blobReq->io_vol_id << std::dec
-                     << " object " << *obj_id;
+            LOGDEBUG << "volid:" << blobReq->io_vol_id << " objid:" << *obj_id << " cache lookup";
             err = object_cache.get(blobReq->io_vol_id, *obj_id, blobObjectPtr);
         }
 
@@ -165,7 +144,7 @@ AmCache::getObjects(GetBlobReq* blobReq) {
 
     if (0 == miss_cnt) {
         // Data was found in cache, done
-        LOGTRACE << "Data found in cache!";
+        LOGTRACE << "data found in cache";
         getBlobCb(blobReq, ERR_OK);
         return;
     }
@@ -173,7 +152,7 @@ AmCache::getObjects(GetBlobReq* blobReq) {
     // We did not find all the data, so create some GetObjectReqs and defer to
     // SM for the rest by iterating and checking if the buffer is valid, if
     // not use the object to create a new GetObjectReq
-    LOGDEBUG << "Found: " << hit_cnt << "/" << (hit_cnt + miss_cnt) << " objects";
+    LOGDEBUG << "objects:" << hit_cnt << "/" << (hit_cnt + miss_cnt) << " found";
     blobReq->setResponseCount(miss_cnt);
     auto obj_it = blobReq->object_ids.cbegin();
     auto buf_it = cb->return_buffers->begin();
@@ -184,7 +163,7 @@ AmCache::getObjects(GetBlobReq* blobReq) {
     for (; 0 < miss_cnt; ++obj_it, ++buf_it) {
         if (!*buf_it) {
             --miss_cnt;
-            LOGDEBUG << "Instantiating GetObject for object: " << **obj_it;
+            LOGDEBUG << "obj:" << **obj_it << " instantiating GetObject";
             getObject(blobReq, *obj_it, *buf_it);
         }
     }
@@ -213,7 +192,7 @@ AmCache::getObject(GetBlobReq* blobReq,
 
 void
 AmCache::getObjectCb(AmRequest* amReq, Error const error) {
-    auto const& obj_id = *static_cast<GetObjectReq*>(amReq)->obj_id;
+    auto const obj_id = *static_cast<GetObjectReq*>(amReq)->obj_id;
     std::unique_ptr<std::deque<GetObjectReq*>> queue;
     {
         // Find the waiting get request queue
@@ -226,7 +205,7 @@ AmCache::getObjectCb(AmRequest* amReq, Error const error) {
     }
 
     if (!queue) {
-        LOGCRITICAL << "Missing response queue...assuming lost getObject request? Possible Leak";
+        LOGCRITICAL << "missing response queue, assuming lost getObject request? Possible Leak";
         return;
     }
 
@@ -235,7 +214,7 @@ AmCache::getObjectCb(AmRequest* amReq, Error const error) {
     // data member from the first request (the one that was actually dispatched)
     // and populate the volume's cache
     auto buf = queue->front()->obj_data;
-    for (auto& objReq : *queue) {
+    for (auto objReq : *queue) {
         if (error.ok()) {
             objReq->obj_data = buf;
             object_cache.add_dirty(objReq->io_vol_id, obj_id, objReq->obj_data);
@@ -265,8 +244,8 @@ Error
 AmCache::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint64_t const blobSize) {
     // If the transaction is a delete, we want to remove the cache entry
     if (txDesc->opType == FDS_DELETE_BLOB) {
-        LOGTRACE << "Cache remove tx descriptor for volume "
-                 << txDesc->volId << " blob " << txDesc->blobName;
+        LOGTRACE << "volid:" << txDesc->volId << " blob:" << txDesc->blobName
+                 << " cache remove tx descriptor";
         // Remove from blob caches
         if (cache_missing_cat) {
             /// FEATURE TOGGLE: cache missing entry
@@ -280,8 +259,8 @@ AmCache::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint6
                                });
     } else {
         fds_verify(txDesc->opType == FDS_PUT_BLOB);
-        LOGTRACE << "Cache insert tx descriptor for volume "
-                 << txDesc->volId << " blob " << txDesc->blobName;
+        LOGTRACE << "volid:" << txDesc->volId << " blob:" << txDesc->blobName
+                 << "c cache insert";
 
         for (auto& offset_pair : txDesc->stagedBlobOffsets) {
             auto const& obj_id = offset_pair.second.first;
@@ -303,8 +282,8 @@ AmCache::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint6
 
         // Add blob objects from tx to object cache
         for (const auto &object : txDesc->stagedBlobObjects) {
-            LOGTRACE << "Cache insert object data for " << object.first
-                     << " of length " << object.second->size();
+            LOGTRACE << "objid:" << object.first << " length:" << object.second->size()
+                     << " cache insert object";
             object_cache.add(txDesc->volId, object.first, object.second);
         }
     }
@@ -313,8 +292,9 @@ AmCache::putTxDescriptor(const std::shared_ptr<AmTxDescriptor> txDesc, fds_uint6
 
 void
 AmCache::closeVolume(AmRequest *amReq) {
-    descriptor_cache.clear(amReq->io_vol_id);
-    offset_cache.clear(amReq->io_vol_id);
+    descriptor_cache.removeVolume(amReq->io_vol_id);
+    offset_cache.removeVolume(amReq->io_vol_id);
+    object_cache.removeVolume(amReq->io_vol_id);
     AmDataProvider::closeVolume(amReq);
 }
 
@@ -329,11 +309,11 @@ AmCache::statBlob(AmRequest *amReq) {
         if (ERR_OK == err) {
             // FEATURE TOGGLE: read missing cat entries from cache
             if (cache_missing_cat && !cachedBlobDesc) {
-                LOGDEBUG << "Read for known missing blob: " << amReq->getBlobName();
+                LOGDEBUG << "blob:" << amReq->getBlobName() << " read missing blob descriptor";
                 AmDataProvider::statBlobCb(amReq, ERR_BLOB_NOT_FOUND);
             } else {
-                LOGTRACE << "Found cached blob descriptor for " << std::hex
-                    << amReq->io_vol_id << std::dec << " blob " << amReq->getBlobName();
+                LOGTRACE << "blob:" << amReq->getBlobName() << " volid:" << amReq->io_vol_id
+                         << " found cached blob descriptor";
 
                 auto cb = std::dynamic_pointer_cast<StatBlobCallback>(amReq->cb);
                 // Fill in the data here
@@ -342,8 +322,8 @@ AmCache::statBlob(AmRequest *amReq) {
             }
             return;
         }
-        LOGTRACE << "Did not find cached blob descriptor for " << std::hex
-            << amReq->io_vol_id << std::dec << " blob " << amReq->getBlobName();
+        LOGTRACE << "blob:" << amReq->getBlobName() << " volid:" << amReq->io_vol_id
+                 << " did not find cached blob descriptor";
     }
 
     return AmDataProvider::statBlob(amReq);
@@ -352,9 +332,17 @@ AmCache::statBlob(AmRequest *amReq) {
 void
 AmCache::openVolumeCb(AmRequest* amReq, Error const error) {
     // Let's dump our meta cache to be safe if we loose a lease on a volume
+    auto const& vol_uuid = amReq->io_vol_id;
     if (ERR_OK != error || !static_cast<AttachVolumeReq*>(amReq)->mode.can_cache) {
-        descriptor_cache.clear(amReq->io_vol_id);
-        offset_cache.clear(amReq->io_vol_id);
+        descriptor_cache.clear(vol_uuid);
+        offset_cache.clear(vol_uuid);
+        if (ERR_OK == error) {
+            object_cache.addVolume(vol_uuid, max_volume_data);
+        }
+    } else if (ERR_VOL_DUPLICATE != descriptor_cache.addVolume(vol_uuid, max_metadata_entries)) {
+        offset_cache.addVolume(vol_uuid, max_metadata_entries);
+        object_cache.addVolume(vol_uuid, max_volume_data);
+        LOGDEBUG << "Created caches for volume: " << amReq->volume_name;
     }
     AmDataProvider::openVolumeCb(amReq, error);
 }
@@ -409,18 +397,18 @@ AmCache::getBlob(AmRequest *amReq) {
             blobReq->metadata_cached = true;
             if (cache_missing_cat) {
                 if (!blobReq->blobDesc) {
-                    LOGDEBUG << "Read for known missing blob: " << blobReq->getBlobName();
+                    LOGDEBUG << "blob:" << blobReq->getBlobName() << " read for missing blob";
                     getBlobCb(blobReq, ERR_BLOB_NOT_FOUND);
                     return;
                 } else if (blobReq->blob_offset >= blobReq->blobDesc->getBlobSize()) {
-                    LOGDEBUG << "Read for offset outside known blob size: " << *blobReq->blobDesc
-                             << " offset [" << blobReq->blob_offset << "]";
+                    LOGDEBUG << "blob:" << *blobReq->blobDesc << " offset:" << blobReq->blob_offset
+                             << " read offset out of blob size";
                     getBlobCb(blobReq, ERR_OK);
                     return;
                 }
             }
-            LOGDEBUG << "Found cached blob descriptor for " << std::hex
-                     << blobReq->io_vol_id << std::dec << " blob " << blobReq->getBlobName();
+            LOGDEBUG << "blob:" << blobReq->getBlobName() << " volid:" << blobReq->io_vol_id
+                     << " found cached blob descriptor";
         }
 
         // Check cache for object IDs
@@ -434,11 +422,12 @@ AmCache::getBlob(AmRequest *amReq) {
             return;
         }
     } else {
-        LOGDEBUG << "Can't read from cache, dispatching to DM.";
+        LOGDEBUG << "can't read from cache, dispatching to DM";
         size_t numObjs = ((blobReq->blob_offset_end - blobReq->blob_offset) / blobReq->object_size) + 1;
         blobReq->object_ids.assign(numObjs, boost::make_shared<ObjectID>(NullObjectID));
     }
 
+    blobReq->metadata_cached = false;
     AmDataProvider::getOffsets(blobReq);
 }
 

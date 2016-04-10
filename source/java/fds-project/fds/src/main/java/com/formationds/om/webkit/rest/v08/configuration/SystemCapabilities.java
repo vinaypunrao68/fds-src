@@ -6,6 +6,7 @@ package com.formationds.om.webkit.rest.v08.configuration;
 
 import com.formationds.client.v08.model.MediaPolicy;
 import com.formationds.commons.model.SystemCapability;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.RequestHandler;
@@ -13,8 +14,8 @@ import com.formationds.web.toolkit.Resource;
 
 import org.eclipse.jetty.server.Request;
 import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,9 +27,11 @@ import java.util.Map;
 public class SystemCapabilities
     implements RequestHandler {
 
-	private Logger logger = LoggerFactory.getLogger( SystemCapabilities.class );
+	private Logger logger = LogManager.getLogger( SystemCapabilities.class );
 	
     private final ParsedConfig parsedConfig;
+    
+    private final String TOGGLES = "toggles";
 
     public SystemCapabilities( final ParsedConfig parsedConfig ) {
 
@@ -55,6 +58,17 @@ public class SystemCapabilities
         
         JSONObject capabilities = new JSONObject(
                 new SystemCapability( mediaPolicies.toArray( new String[mediaPolicies.size()] ) ) );
+        
+        JSONObject toggleObject = new JSONObject();
+        
+        if ( FdsFeatureToggles.STATS_SERVICE_QUERY.isActive() ){
+        	toggleObject.put( FdsFeatureToggles.STATS_SERVICE_QUERY.fdsname(), Boolean.TRUE );
+        }
+        else {
+        	toggleObject.put( FdsFeatureToggles.STATS_SERVICE_QUERY.fdsname(), Boolean.FALSE );
+        }
+        
+        capabilities.put( TOGGLES, toggleObject );
 
         return new JsonResource( capabilities );
     }

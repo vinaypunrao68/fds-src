@@ -10,8 +10,8 @@ import com.formationds.om.repository.query.QueryCriteria;
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.Database;
 import org.influxdb.dto.Serie;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -28,7 +28,7 @@ import java.util.function.Function;
 
 abstract public class InfluxRepository<T,PK extends Serializable> extends AbstractRepository<T, PK> {
 
-    public static final Logger logger = LoggerFactory.getLogger( InfluxRepository.class );
+    public static final Logger logger = LogManager.getLogger( InfluxRepository.class );
 
     public static final String CP_USER   = "om.repository.username";
     public static final String CP_CRED   = "om.repository.cred";
@@ -143,6 +143,13 @@ abstract public class InfluxRepository<T,PK extends Serializable> extends Abstra
                                                     dbConnectionProperties.getProperty( CP_USER ),
                                                     dbConnectionProperties.getProperty( CP_CRED ).toCharArray(),
                                                     getInfluxDatabaseName() );
+
+        // command is silently ignored if the database already exists.
+        try {
+            createDatabaseAsync( getDatabase() ).get();
+        } catch ( InterruptedException | ExecutionException e ) {
+            throw new IllegalStateException("Failed to create database " + getInfluxDatabaseName(), e);
+        }
     }
 
     /**

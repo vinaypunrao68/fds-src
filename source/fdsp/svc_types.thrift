@@ -73,7 +73,7 @@ enum FDSP_MgrIdType {
     FDSP_OMCLIENT_MGR   = 0x6,
     FDSP_MIGRATION_MGR  = 0x7,
     FDSP_PLATFORM_SVC   = 0x8,
-    FDSP_METASYNC_MGR   = 0x9,
+    FDSP_CHECKER_TYPE   = 0x9,
     FDSP_TEST_APP       = 0xa,
     FDSP_CONSOLE        = 0xb,
     FDSP_INVALID_SVC    = 0xc
@@ -155,7 +155,7 @@ enum ResourceState {
 /* Volumegroup coordinator information */
 struct VolumeGroupCoordinatorInfo {
     1: required SvcUuid		                id;
-    2: i32				        version;
+    2: i64                                      version = 0;
 }
 
 struct FDSP_VolumeDescType {
@@ -417,16 +417,27 @@ enum  FDSPMsgTypeId {
   CtrlNotifyRequestTxStateRspMsgTypeId	    = 20064;
   LoadFromArchiveMsgTypeId		    = 20065;
   CtrlNotifyFinishMigrationMsgTypeId	    = 20066;
+  CopyVolumeMsgTypeId                   = 20067;
+  ArchiveMsgTypeId                      = 20068;
+  ArchiveRespMsgTypeId                  = 20069;
+
 
   /* DM Debug Messages */
-  DbgForceVolumeSyncMsgTypeId               = 21000; 
+  DbgForceVolumeSyncMsgTypeId               = 21000;
 
   /* VolumeGroup messages */
   VolumeGroupInfoUpdateCtrlMsgTypeId        = 30000;
   SetVolumeGroupCoordinatorMsgTypeId        = 30002;
-  AddToVolumeGroupCtrlMsgTypeId             = 30003;
-  AddToVolumeGroupRespCtrlMsgTypeId         = 30004;
-  VolumeStateUpdateInfoCtrlMsgTypeId        = 30005;
+  SetVolumeGroupCoordinatorRspMsgTypeId     = 30003;
+  AddToVolumeGroupCtrlMsgTypeId             = 30004;
+  AddToVolumeGroupRespCtrlMsgTypeId         = 30005;
+  VolumeStateUpdateInfoCtrlMsgTypeId        = 30006;
+  SwitchCoordinatorMsgTypeId                = 30007;
+  SwitchCoordinatorRespMsgTypeId            = 30008;  
+
+  /** Volume Checker Messages */
+  CheckVolumeMetaDataMsgTypeId              = 40000;
+  CheckVolumeMetaDataRspMsgTypeId           = 40001;
 
   /** Health Status */
   NotifyHealthReportTypeId                  = 100000;

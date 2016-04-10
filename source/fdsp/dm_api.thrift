@@ -161,6 +161,10 @@ struct OpenVolumeMsg {
   2: required common.VolumeAccessMode   mode;
   /** Existing token */
   3: optional i64                       token = 0;
+  /** Whether to force setting the coordinator. Only valid in write mode */
+  4: bool                               force = false;
+  /** Volume group handle requesting the open */
+  5: svc_types.VolumeGroupCoordinatorInfo coordinator;
 }
 
 /**
@@ -172,8 +176,10 @@ struct OpenVolumeRspMsg {
   1: required i64                       token;
   /** Volume update sequencing */
   2: required i64                       sequence_id;
-  /* Volume version */
+  /** Volume replica version */
   3: i32                                replicaVersion;
+  /** Coordinator currently stored by the volume replica */
+  4: svc_types.VolumeGroupCoordinatorInfo coordinator;
 }
 
 /**
@@ -762,6 +768,20 @@ struct DbgForceVolumeSyncMsg  {
 struct LoadFromArchiveMsg {
     1: i64                      volId;
     2: string                   filename;
+}
+
+struct CopyVolumeMsg {
+    1: i64                      volId;
+    2: i64                      destDmUuid;
+    3: bool                     archivePolicy;
+
+}
+
+struct ArchiveMsg {
+    1: i64                      volId;
+}
+
+struct ArchiveRespMsg {
 }
 
 /* ------------------------------------------------------------

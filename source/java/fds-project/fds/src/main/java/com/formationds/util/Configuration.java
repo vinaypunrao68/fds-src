@@ -31,13 +31,18 @@ public class Configuration {
     public static final String FDS_ROOT_SYS_PROP = "fds-root";
     public static final String FDS_ROOT_ENV = "fds_root";
 
-    public static final String FDS_XDI_NFS_THREAD_POOL_SIZE                 = "fds.xdi.nfs_thread_pool_size";
+    public static final String FDS_SERVICE_CONFIG_PREFIX_COMMON = "fds.common";
+    public static final String FDS_SERVICE_CONFIG_PREFIX_OM = "fds.om";
+    public static final String FDS_SERVICE_CONFIG_PREFIX_XDI = "fds.xdi";
+
+    public static final String FDS_XDI_NFS_THREAD_POOL_SIZE = "fds.xdi.nfs_thread_pool_size";
     public static final String FDS_XDI_NFS_STATS = "fds.xdi.nfs_stats";
     public static final String FDS_XDI_NFS_DEFER_METADATA_UPDATES = "fds.xdi.nfs_defer_metatada_updates";
     public static final String FDS_XDI_NFS_MAX_LIVE_NFS_COOKIES = "fds.xdi.nfs_max_live_nfs_cookies";
     public static final String FDS_XDI_AM_TIMEOUT_SECONDS = "fds.xdi.am_timeout_seconds";
     public static final String FDS_XDI_AM_RETRY_ATTEMPTS = "fds.xdi.am_retry_attempts";
     public static final String FDS_XDI_AM_RETRY_INTERVAL_SECONDS = "fds.xdi.am_retry_interval_seconds";
+    public static final String FDS_XDI_CONTROL_PORT_OFFSET = "fds.xdi.control_port_offset";
     public static final String FDS_OM_IP_LIST = "fds.common.om_ip_list";
     public static final String FDS_OM_UUID = "fds.common.om_uuid";
     public static final String FDS_OM_NODE_UUID = "fds.pm.platform.uuid";
@@ -187,7 +192,7 @@ public class Configuration {
         Logger logger = LogManager.getLogger( Configuration.class );
         if ( ManagementFactory.getRuntimeMXBean().getVmVendor().toLowerCase().contains( "oracle" ) ) {
 
-            Path dfltCorefilesDir = Paths.get( "/corefiles" );
+            Path dfltCorefilesDir = Paths.get( fdsRoot.getAbsolutePath() + "/var/log/corefiles" );
             Optional<Path> systemCorePatternLocation = loadSystemCorePatternPath();
 
             if ( !systemCorePatternLocation.isPresent() ) {
@@ -369,6 +374,8 @@ public class Configuration {
                 platformConfig.lookup(FDS_XDI_AM_RETRY_ATTEMPTS).intValue(),
                 platformConfig.lookup(FDS_XDI_AM_RETRY_INTERVAL_SECONDS).intValue(),
                 // assign NFS statistics webapp port based on platform port number 7000 - 1445 == 5555
-                pmPort - 1445 );
+                pmPort - 1445,
+                // same for XDI control webapp port
+                pmPort + platformConfig.lookup(FDS_XDI_CONTROL_PORT_OFFSET).intValue());
     }
 }

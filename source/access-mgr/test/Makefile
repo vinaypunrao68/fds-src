@@ -30,6 +30,9 @@ user_non_fds_libs :=  \
     boost_program_options \
     boost_filesystem \
     boost_regex \
+    fdsStatsUtil-debug \
+    statsclient \
+    SimpleAmqpClient \
     thrift \
     jansson \
     config++ \
@@ -41,7 +44,9 @@ user_non_fds_libs :=  \
     fiu \
     dl \
     profiler \
-    tcmalloc
+    tcmalloc \
+    cpr \
+    curl
 
 user_cc           :=
 

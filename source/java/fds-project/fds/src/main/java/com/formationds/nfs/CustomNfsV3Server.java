@@ -35,8 +35,8 @@ import org.dcache.utils.GuavaCacheMXBean;
 import org.dcache.utils.GuavaCacheMXBeanImpl;
 import org.dcache.xdr.OncRpcException;
 import org.dcache.xdr.RpcCall;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.util.List;
@@ -54,7 +54,7 @@ public class CustomNfsV3Server extends nfs3_protServerStub {
     private static final int ENTRYPLUS3_SIZE = 124;
     private static final int READDIR3RESOK_SIZE = 104;
     private static final int READDIRPLUS3RESOK_SIZE = 104;
-    private static final Logger _log = LoggerFactory.getLogger(nfs3_protServerStub.class);
+    private static final Logger _log = LogManager.getLogger(nfs3_protServerStub.class);
 
     private final XdiVfs _vfs;
     private final ExportFile _exports;
@@ -953,7 +953,8 @@ public class CustomNfsV3Server extends nfs3_protServerStub {
             res.resok.count.value = new uint32();
 
             byte[] b = new byte[count];
-            res.resok.count.value.value = fs.read(inode, b, offset, count);
+            int readCount = fs.read(inode, b, offset, count);
+            res.resok.count.value.value = readCount;
             if (res.resok.count.value.value < 0) {
                 throw new NfsIoException("IO not allowed");
             }
@@ -964,7 +965,7 @@ public class CustomNfsV3Server extends nfs3_protServerStub {
                 System.arraycopy(b, 0, res.resok.data, 0, res.resok.count.value.value);
             }
 
-            if (res.resok.count.value.value + offset == inodeStat.getSize()) {
+            if (readCount < count || readCount + offset == inodeStat.getSize()) {
                 res.resok.eof = true;
             }
 

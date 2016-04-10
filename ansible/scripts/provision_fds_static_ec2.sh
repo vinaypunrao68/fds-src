@@ -120,13 +120,13 @@ case "$action" in
   clean)
     D "Cleaning..."
     ansible_args="${playbooks}/provision_fds_static_ec2.yml -i ${ansible_base_dir}/inventory/${inventory} \
-      -e clean_fds=yes -e force=yes -e fds_only_install=yes\
+      -e clean_fds=yes -e force=yes -e fds_for_system_test=yes\
       --skip-tags uninstall,install-deps,install-local,install-repo,post-install"
     ;;
   cleanstart)
     D "Cleaning and starting the domain..."
     ansible_args="${playbooks}/provision_fds_static_ec2.yml -i ${ansible_base_dir}/inventory/${inventory} \
-      -e clean_fds=yes -e force=yes -e fds_only_install=no\
+      -e clean_fds=yes -e force=yes -e fds_for_system_test=no\
       --skip-tags uninstall,install-deps,install-local,install-repo,post-install"
     ;;
   stop)

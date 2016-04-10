@@ -72,7 +72,8 @@ class BlockOperations
     typedef boost::shared_ptr<BlockOperations> shared_ptr;
     void init(req_api_type::shared_string_type vol_name,
               std::shared_ptr<AmProcessor> processor,
-              task_type* resp);
+              task_type* resp,
+              uint32_t const obj_size = 0);
 
     void read(task_type* resp);
     void write(req_api_type::shared_buffer_type& bytes, task_type* resp);
@@ -115,6 +116,7 @@ class BlockOperations
 
     // interface to respond to block passed down in constructor
     ResponseIFace* blockResp;
+    std::mutex shutdownLock;
     bool shutting_down {false};
 
     // for all reads/writes to AM

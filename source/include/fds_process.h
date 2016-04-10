@@ -5,22 +5,28 @@
 #ifndef SOURCE_INCLUDE_FDS_PROCESS_H_
 #define SOURCE_INCLUDE_FDS_PROCESS_H_
 
-#include <pthread.h>
+// Standard includes.
 #include <csignal>
-
 #include <string>
-#include <boost/utility.hpp>
-#include <boost/shared_ptr.hpp>
-#include <fds_module_provider.h>
-#include <fds_globals.h>
-#include <fds_module.h>
-#include <fds_config.hpp>
-#include <graphite_client.h>
-#include <util/Log.h>
-#include <concurrency/ThreadPool.h>
-#include <concurrency/taskstatus.h>
-#include <util/ExecutionGate.h>
 #include <unordered_map>
+
+// System includes.
+#include <boost/shared_ptr.hpp>
+#include <boost/utility.hpp>
+#include <Accumulator.h>
+#include <pthread.h>
+#include <StatsConnFactory.h>
+
+// Internal includes.
+#include "concurrency/ThreadPool.h"
+#include "concurrency/taskstatus.h"
+#include "util/ExecutionGate.h"
+#include "util/Log.h"
+#include "fds_config.hpp"
+#include "fds_globals.h"
+#include "fds_module.h"
+#include "fds_module_provider.h"
+#include "graphite_client.h"
 
 namespace fds {
 
@@ -48,13 +54,19 @@ static const std::string SM("Storage Manager");
  * The key here should match the value used for "id" configurations for the different services
  * in the config file.
  */
-static std::unordered_map<std::string, std::string> service_id_to_name =
+static std::unordered_map<std::string, const char*> service_id_to_name =
         {
-            {"am", AM},
-            {"dm", DM},
-            {"om", OM},
-            {"pm", PM},
-            {"sm", SM}
+            {"am", AM.c_str()},
+            {"dm", DM.c_str()},
+            {"om", OM.c_str()},
+            {"pm", PM.c_str()},
+            {"sm", SM.c_str()},
+            {"bare_am", AM.c_str()},
+            {"DataMgr", DM.c_str()},
+            {"platformd", PM.c_str()},
+            {"StorMgr", SM.c_str()},
+            {"orchMgr",OM.c_str()},
+            {"java", OM.c_str()}
         };
 /*
  * Search the map for our service ID. If we can't find it, it may be because we've
@@ -66,18 +78,26 @@ static std::unordered_map<std::string, std::string> service_id_to_name =
  * Note: Currently (Wed Aug 12 01:33:58 MDT 2015) the C++ OM library is driven by a JVM, hence
  * the search for "java". In addition, the JVM may have been started by the orchMgr bash script.
  */
-#define SERVICE_NAME_FROM_ID(unknown) \
-        ((g_fdsprocess == nullptr) ? \
-                 (unknown) : \
-                 (service_id_to_name.find(g_fdsprocess->getProcId()) == service_id_to_name.end()) ? \
-                        ((g_fdsprocess->getProcId().find("bare_am") != std::string::npos) ? AM.c_str() : \
-                         (g_fdsprocess->getProcId().find("DataMgr") != std::string::npos) ? DM.c_str() : \
-                         (g_fdsprocess->getProcId().find("platformd") != std::string::npos) ? PM.c_str() : \
-                         (g_fdsprocess->getProcId().find("StorMgr") != std::string::npos) ? SM.c_str() : \
-                         (g_fdsprocess->getProcId().find("orchMgr") != std::string::npos) ? OM.c_str() : \
-                         (g_fdsprocess->getProcId().find("java") != std::string::npos) ? OM.c_str() : \
-                         (unknown)) : \
-                        service_id_to_name.find(g_fdsprocess->getProcId())->second.c_str())
+
+ static const char* service_name_lookup_helper(const std::string& procId, char* unknown) {
+    const char* result = unknown;
+
+    if (!procId.empty()) {
+        auto it = std::find_if(service_id_to_name.begin(), service_id_to_name.end(),
+                               [procId](std::pair<const std::string, const char*>& foo) -> bool {
+                                   return procId.find(foo.first) != std::string::npos;});
+
+        if (it != service_id_to_name.end()) {
+            result = it->second;
+        }
+    }
+
+    return result;
+}
+
+#define SERVICE_NAME_FROM_ID_DEFAULT(unknown) (g_fdsprocess == nullptr ? unknown : \
+                                               service_name_lookup_helper(g_fdsprocess->getProcId(), unknown))
+#define SERVICE_NAME_FROM_ID() SERVICE_NAME_FROM_ID_DEFAULT("unknown")
 
 /* Helper functions to init process globals. Only invoke these if you
  * aren't deriving from fds_process
@@ -238,6 +258,8 @@ class FdsProcess : public boost::noncopyable,
 
     virtual util::Properties* getProperties() override;
 
+    virtual std::shared_ptr<stats::util::Accumulator> getMetrics () const override;
+
     /**
     * @brief Deamonize the process if '--foreground' arg isn't specified
     *
@@ -281,6 +303,10 @@ class FdsProcess : public boost::noncopyable,
     virtual void setup_timer_service();
     virtual void setup_graphite();
     virtual void setupAtExitHandler();
+
+    virtual void _submitGenerationCallback (
+            std::unordered_map<stats::StatDescriptor,
+                               stats::util::StatData> const& generation);
 
     /*
      * Signal handler thread and its condition variable (and _its_ mutex) to ensure serial access to the signal handler thread state.
@@ -329,9 +355,14 @@ class FdsProcess : public boost::noncopyable,
      * Set it in the derived run()
      */
     concurrency::TaskStatus readyWaiter;
-    
+
     /* Whether process is going through shutdown process or not */
-    util::ExecutionGate     shutdownGate_; 
+    util::ExecutionGate     shutdownGate_;
+
+    std::shared_ptr<stats::util::Accumulator> metrics_;
+
+    std::shared_ptr<StatsConnection> statsServiceClient_;
+
 };
 
 }  // namespace fds

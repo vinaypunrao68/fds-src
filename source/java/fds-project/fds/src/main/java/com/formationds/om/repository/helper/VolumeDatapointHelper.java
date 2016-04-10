@@ -6,8 +6,8 @@ package com.formationds.om.repository.helper;
 
 import com.formationds.commons.model.entity.IVolumeDatapoint;
 import com.formationds.commons.model.entity.VolumeDatapoint;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.Comparator;
 import java.util.HashMap;
@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 public class VolumeDatapointHelper {
 
     private static final Logger logger =
-        LoggerFactory.getLogger( VolumeDatapointHelper.class );
+        LogManager.getLogger( VolumeDatapointHelper.class );
 
     /**
      * default constructor
@@ -89,8 +89,8 @@ public class VolumeDatapointHelper {
 
         asList.forEach( ( key, value ) -> results.put( key, new HashSet<>( value ) ) );
 
-        results.forEach( ( key, set ) -> logger.trace( "KEY::{} SIZE::{}",
-                                                       key, set.size() ) );
+//        results.forEach( ( key, set ) -> logger.trace( "KEY::{} SIZE::{}",
+//                                                       key, set.size() ) );
 
         return results;
     }

@@ -63,13 +63,11 @@ apps["redis"]="redis-server"
 apps["influxdb"]="influxd"
 
 declare -A TESTS
-TESTS["restart-full"]="FullRestartMultiNodeTest"
-TESTS["restart-simple"]="SimpleRestartMultiNodeTest"
-TESTS["restart"]="SimpleRestartTest"
-TESTS["restart-activeio"]="ActiveIORestartTest/ActiveIORestartTest"
+TESTS["restart"]="FullRestartMultiNodeTest"
 TESTS["smoke"]="BuildSmokeTest_onpr"
 TESTS["4node"]="FourNodeStart"
 TESTS["2node"]="TwoNodeStart"
+TESTS["vg"]="VolumeGroupTest"
 TESTS["unit"]="unit tests"
 
 function usage() {
@@ -89,6 +87,7 @@ function usage() {
     log "   - $(yellow package)   : package fds-platform/ fds-deps(specify param deps)"
     log "   - $(yellow release)   : switch to $(green release) build"
     log "   - $(yellow restart)   : stop & start  the app "
+    log "   - $(yellow size)      : set the /fds size"
     log "   - $(yellow start)     : start the app "
     log "   - $(yellow start[2/4]): start 2/4 node cluster "
     log "   - $(yellow status)    : print status of the apps"
@@ -96,6 +95,7 @@ function usage() {
     log "   - $(yellow tail)      : tail the application log file"
     log "   - $(yellow test)      : run specific tests"
     log "   - $(yellow top)       : top command for fds apps"
+    log "   - $(yellow usage)       : print disk usage"
     log " options :"
     log "   : $(yellow --fds-root/-f) rootdir"
     log "   : $(yellow --om-debug-port) java debugger port #"
@@ -253,9 +253,12 @@ function startApp() {
                         ;;
                     om)
                         if [[ ! -z "${OM_DEBUG_PORT}" ]]; then
-                            params="--fds.feature_toggle.common.volumegrouping_dm_cluster_size=1 --debug-port=${OM_DEBUG_PORT}"
+                            params="--fds.feature_toggle.common.volumegrouping_dm_cluster_size=1 \
+                                    --fds.feature_toggle.om.enforce_minimum_replicas=false \
+                                    --debug-port=${OM_DEBUG_PORT}"
                         else
-                            params="--fds.feature_toggle.common.volumegrouping_dm_cluster_size=1"
+                            params="--fds.feature_toggle.common.volumegrouping_dm_cluster_size=1 \
+                                    --fds.feature_toggle.om.enforce_minimum_replicas=false"
                         fi
                         ;;
                     xdi)
@@ -451,6 +454,7 @@ function statusApp() {
             fi
             ;;
     esac
+    printDiskUsage
 }
 
 function getAppPid() {
@@ -577,23 +581,32 @@ function attachgdb() {
 }
 
 function taillog() {
-    local app=$1
+    local apps=$1
     local logfiles
-    case "${app}" in
-        om|am|dm|sm|pm)
-            ls -1 ${FDSLOGROOT}/${app}.log*.log
-            for n in $(seq 0 20); do
-                logfiles="$logfiles ${FDSLOGROOT}/${app}.log_${n}.log"
-            done
-            tail -qF ${logfiles} 2>/dev/null
-            ;;
-        redis)
-            tail -F /fds/logs/redis/*.log
-            ;;
-        *)
-            logerror "can tail logs of only om|am|dm|sm|pm|redis"
-            ;;
-    esac
+    if [[ $apps == 'all' || -z $apps ]]; then
+        apps="am om dm sm pm"
+    fi
+
+    for app in $apps ;
+    do
+        case "${app}" in
+            om|am|dm|sm|pm)
+                logfiles="$logfiles ${FDSLOGROOT}/${app}.log_{0..20}.log"
+                ;;
+            redis)
+                logfile="${logfiles} /fds/logs/redis/*.log"
+                ;;
+            *)
+                logerror "can tail logs of only om|am|dm|sm|pm|redis"
+                ;;
+        esac
+    done
+
+    if [[ -n $logfiles ]]; then
+        logfiles=$(eval echo $logfiles)
+        #echo ${logfiles}
+        tail -F ${logfiles} 2>/dev/null
+    fi
 }
 
 function showtop() {
@@ -622,7 +635,7 @@ function showtop() {
 
 function showerrors() {
     local apps="$@"
-    if [[ $1 == 'all' ]]; then
+    if [[ $apps == 'all' || -z $apps ]]; then
         apps="am om dm sm pm xdi"
     fi
     for app in ${apps}; do
@@ -718,6 +731,16 @@ function clean() {
     cleanBinDirs
 }
 
+function setdisksize() {
+    local size=$1
+    if [[ -z $size ]]; then
+        logerror "disk size needs to be specified"
+        return
+    fi
+    loginfo "setting the size of [${FDSROOT}] to $size"
+    mount -o size=$size -t tmpfs none ${FDSROOT}
+}
+
 function runUnitTests() {
     local TEMPTESTFILE=/tmp/gtests.${EUID}
     loginfo "running all jenkins unit tests"
@@ -751,9 +774,24 @@ function runTest() {
         runScenario ${TESTS[$testname]}
         #(cd ${TESTSUITEDIR}; ./ScenarioDriverSuite.py -q ${TESTS[$testname]})
     else
-        logerror "no matching tests for [$testname]"
-        logwarn  "should be one of : "
-        echo -e "${!TESTS[@]}" | tr " " "\n" | sort | sed -e "s/^/    - /g"
+        # check if there is a scenario file with that name
+        local SCENENAME=$testname
+        local SCENEDIR=${SOURCEDIR}/test/cfg
+        local SCENENAME="${SCENENAME%%.cfg}.cfg"
+        if [[ -f ${SCENEDIR}/${SCENENAME} ]]; then
+            runScenario $testname
+        else
+            logerror "no matching tests for [$testname]"
+            logwarn  "should be one of -- >>> : "
+            (
+                cd ${SCENEDIR};
+                (
+                    find . -type f -iname "*${SCENENAME%%.cfg}*.cfg" | sed -e 's|^\./||' -e 's|\.cfg$||'
+                    echo '------------'
+                    echo -e "${!TESTS[@]}" | sed -e 's/ /*\n/g' | sort ;
+                ) | nl
+            )
+        fi
     fi
 }
 
@@ -792,6 +830,8 @@ function deploy() {
     local ansibledir="${SOURCEDIR}/../ansible"
     if [[ ! -f  ${ansibledir}/inventory/${cluster} ]]; then
         logwarn "deploy: cluster file [$cluster] missing from inventory dir"
+        loginfo "did you mean one of : "
+        (cd ${ansibledir}/inventory/; ls -1d *${cluster}* | nl)
         return
     fi
     loginfo "deploying local build to  : $cluster "
@@ -816,6 +856,14 @@ function nfs() {
     if [[ -z $volname ]]; then logerror "volume name needs to be specified. usage: nfs <volname> [amip:localhost]"; return ; fi
     if [[ -z $amip ]]; then amip="localhost"; fi
 
+    loginfo "attempting o create volume $volname"
+    if [[ -f /usr/local/bin/fds ]]; then
+        /usr/local/bin/fds volume create -name $volname -type nfs
+    fi
+
+    loginfo "un-mounting old : /mnt/$volname"
+    umount -f /mnt/$volname 2>/dev/null
+
     loginfo "making dir : /mnt/$volname"
     mkdir /mnt/$volname 2>/dev/null
 
@@ -833,9 +881,36 @@ function cleanlogs() {
     done
 }
 
+function getDiskUsage() {
+    local root=${1}
+    local match=${2}
+    echo $(find ${root} -name "*${match}*" -exec du -ch {} + 2>/dev/null | grep total | cut -f1)
+}
+
+function printDiskUsage() {
+    echo $(boldwhite disk usage) @ ${FDSROOT} :: \
+        $(boldwhite objects): $(boldblue $(getDiskUsage ${FDSROOT}/dev tokenFile)) \
+        $(boldwhite sm-ldb): $(boldblue $(getDiskUsage ${FDSROOT}/dev SNodeObjIndex)) \
+        $(boldwhite dm-ldb): $(boldblue $(getDiskUsage ${FDSROOT}/sys-repo dm-names)) \
+        $(boldwhite timeline): $(boldblue $(getDiskUsage ${FDSROOT}/sys-repo timeline)) \
+        $(boldwhite sys-repo): $(boldblue $(getDiskUsage ${FDSROOT}/sys-repo)) \
+        $(boldwhite user-repo): $(boldblue $(getDiskUsage ${FDSROOT}/user-repo))
+}
+
+
 ########################################################################
 # Main Program
 ########################################################################
+
+# check for cli and launch cli
+if [[ -n $1 ]]; then
+    case "$1" in
+        event|global_domain|local_domain|node|presets|service|snapshot_policy|stats|system_health|tenant|token|whoami|user|volume)
+            exec /usr/local/bin/fds "$@"
+            ;;
+    esac
+fi
+
 
 # parse input
 args=( "$@" )
@@ -911,10 +986,10 @@ do
             exit 0
             ;;
         # detect commands
-        kill|start*|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|tail|err*|port*|top)
+        kill|start*|stop|restart|status|clean|clogs|cleanstart|startclean|gdb|port*|top|usage)
             CMD=$opt
             ;;
-        test|deploy|package|nfs)
+        test|deploy|package|nfs|size|tail|err*)
             CMD=$opt
             (( n++ ))
             NEXTARG="${args[@]:$n}"
@@ -958,7 +1033,6 @@ FDSLOGROOT=${FDSROOT}/var/logs
 #exit 0
 
 printMode
-
 case "${CMD}" in
     start) startApp $APP
         [[ $APP == "all" ]] && waitForAll
@@ -993,9 +1067,9 @@ case "${CMD}" in
         ;;
     gdb) attachgdb $APP
         ;;
-    tail) taillog $APP
+    tail) taillog "$NEXTARG"
         ;;
-    err*) showerrors $APP
+    err*) showerrors "$NEXTARG"
         ;;
     test) runTest "$NEXTARG"
         ;;
@@ -1008,6 +1082,11 @@ case "${CMD}" in
     package) package "$NEXTARG"
         ;;
     nfs) nfs "$NEXTARG"
+        ;;
+    size) setdisksize "$NEXTARG"
+        ;;
+    usage)
+        printDiskUsage
         ;;
     *) usage ;;
 esac

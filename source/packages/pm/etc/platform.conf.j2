@@ -11,7 +11,7 @@
 # Ansible managed: /root/fds-src/source/config/etc/platform.conf.j2 modified on 2016-02-08 08:51:46 by root on nate-dev
 fds: {
     /* Network interface that all fds nodes should have */
-    nic_if="lo"
+    nic_if="{{nic}}"
 
     /* Use genkey to generate a new one */
     aes_key="005ecbcf2a3ddf8fc634a43b8adb44cc"
@@ -33,12 +33,19 @@ fds: {
             enable_timeline = true
             periodic_expunge = true
             enable_multi_om_support = true
+            enable_multiplexed_services = false
             enable_subscriptions = false
             all_ssd = false
-            volume_open_support = true
+            volume_open_support = false
 
     	    /* Volume grouping allows IO to volumes to driven by a coordinator at AM */
-    	    enable_volumegrouping = false
+    	    enable_volumegrouping = true
+
+            /* Whether to serialize reads when volume grouping is on */
+            volumegrouping_serializedreads = false
+
+            /* If volume grouping mode is on, calculate 1 DMT version once # of DMs have matched */
+            volumegrouping_dm_cluster_size = 4
 
     	    /* applies to OM and XDI web toolkit */
             enable_web_logging_request_wrapper = false
@@ -86,6 +93,12 @@ fds: {
            /** if enabled, query from new series per volume implementation */
            enable_influxdb_query_series_per_volume = false
 
+           /** if enabled, stats queries will now go to the stats service instead of influx **/
+           enable_stats_service_query = false
+
+           /** if enabled, om will write metrics into influx db **/
+           enable_influx_persistence = true
+
            ignore_failed_svcs = true
         }
     }
@@ -121,12 +134,6 @@ fds: {
                 results_suffix = ".%p.memcheck"
 	   }
         }
-
-        /* volume grouping options */
-        volume_group: {
-            /* If volume grouping mode is on, calculate 1 DMT version once # of DMs have matched */
-            dm_cluster_size = 4
-        }
     }
 
     pm: {
@@ -137,7 +144,7 @@ fds: {
         logfile = "pm"
 
         /* Log severity */
-        log_severity = "trace"
+        log_severity = "normal"
 
         /* Platform uuid.  From this base uuid other service runnig on this node detrive their uuids */
         platform_uuid = 1024
@@ -257,7 +264,7 @@ fds: {
         logfile = "dm"
 
         /* Log severity */
-        log_severity = "trace"
+        log_severity = "normal"
 
             /* Lease time (seconds) for volume access tokens */
             token_lease_time=60
@@ -365,7 +372,7 @@ fds: {
         logfile="sm"
 
         /* Log severity */
-        log_severity = "trace"
+        log_severity = "normal"
 
         /* verify data on datapath */
         data_verify = true
@@ -521,7 +528,7 @@ fds: {
         /* process id */
             id = "am"
 
-        log_severity = "trace"
+        log_severity = "normal"
         logfile      = "am"
 
         /* TODO(Rao): Get this from platform */
@@ -667,7 +674,7 @@ fds: {
         }
         id="om"
         prefix=""
-        log_severity = "trace"
+        log_severity = "normal"
         logfile="om"
         config_port=9090
         config_cache_update_interval_ms=10000
@@ -729,7 +736,7 @@ fds: {
         id = "checker"
         path = "/home/bao_pham/temp/skinet2"
         logfile = "checker"
-        log_severity = "trace"
+        log_severity = "normal"
 
         /* Control path port */
         control_port = 6991
@@ -750,6 +757,7 @@ fds: {
 	am_timeout_seconds = 30
 	am_retry_attempts = 100
 	am_retry_interval_seconds = 5
+	control_port_offset = 3200
     }
 
     test: {

@@ -229,7 +229,7 @@ void ObjectStorMgr::mod_enable_service()
         auto svcmgr = MODULEPROVIDER()->getSvcMgr();
         totalRate = static_cast<uint32_t>(atoi(
                 svcmgr->getSvcProperty(modProvider_->getSvcMgr()->getMappedSelfPlatformUuid(),
-                                       "node_iops_min").c_str()));
+                                       "node_iops_min", "400").c_str()));
         fds_assert(totalRate > 0);
     }
 
@@ -691,12 +691,13 @@ void ObjectStorMgr::sendHealthCheckMsgToOM(fpi::HealthState serviceState,
 
     // Send health check thrift message to OM
     fpi::NotifyHealthReportPtr healthRepMsg(new fpi::NotifyHealthReport());
-    healthRepMsg->healthReport.serviceInfo.svc_id = info.svc_id;
-    healthRepMsg->healthReport.serviceInfo.name = info.name;
-    healthRepMsg->healthReport.serviceInfo.svc_port = info.svc_port;
-    healthRepMsg->healthReport.serviceState = serviceState;
-    healthRepMsg->healthReport.statusCode = statusCode;
-    healthRepMsg->healthReport.statusInfo = statusInfo;
+    healthRepMsg->healthReport.serviceInfo.svc_id        = info.svc_id;
+    healthRepMsg->healthReport.serviceInfo.name          = info.name;
+    healthRepMsg->healthReport.serviceInfo.svc_port      = info.svc_port;
+    healthRepMsg->healthReport.serviceInfo.incarnationNo = info.incarnationNo;
+    healthRepMsg->healthReport.serviceState              = serviceState;
+    healthRepMsg->healthReport.statusCode                = statusCode;
+    healthRepMsg->healthReport.statusInfo                = statusInfo;
 
     auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
     auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
@@ -789,7 +790,11 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
     fds_assert(objId != NullObjectID);
 
     {  // token lock
+        PerfContext objWaitCtx(PerfEventType::SM_PUT_OBJ_TASK_SYNC_WAIT, volId);
+
+        PerfTracer::tracePointBegin(objWaitCtx);
         auto token_lock = getTokenLock(objId);
+        PerfTracer::tracePointEnd(objWaitCtx);
 
         // latency of ObjectStore layer
         PerfTracer::tracePointBegin(putReq->opLatencyCtx);
@@ -819,6 +824,7 @@ ObjectStorMgr::putObjectInternal(SmIoPutObjectReq *putReq)
                 LOGMIGRATE << "Forwarded PUT " << objId << " to destination SM ";
             }
         }
+
     }
 
     if (!err.ok()) {
@@ -964,11 +970,19 @@ ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
     // start of ObjectStore layer latency
     PerfTracer::tracePointBegin(getReq->opLatencyCtx);
 
-    boost::shared_ptr<const std::string> objData =
-            objectStore->getObject(volId,
-                                   objId,
-                                   tierUsed,
-                                   err);
+    boost::shared_ptr<const std::string> objData;
+    {  // token lock
+        PerfContext objWaitCtx(PerfEventType::SM_GET_OBJ_TASK_SYNC_WAIT, volId);
+
+        PerfTracer::tracePointBegin(objWaitCtx);
+        auto token_lock = getTokenLock(objId);
+        PerfTracer::tracePointEnd(objWaitCtx);
+
+        objData = objectStore->getObject(volId,
+                                         objId,
+                                         tierUsed,
+                                         err);
+    }
     if (err.ok()) {
         // TODO(Andrew): Remove this copy. The network should allocated
         // a shared ptr structure so that we can directly store that, even
@@ -976,7 +990,7 @@ ObjectStorMgr::getObjectInternal(SmIoGetObjectReq *getReq)
         getReq->getObjectNetResp->data_obj = *objData;
     } else {
         auto smToken = SmDiskMap::smTokenId(objId, getDLT()->getNumBitsForToken());
-        objectStore->updateMediaTrackers(smToken, tierUsed, err);
+        checkForDiskFailErrors(smToken, tierUsed, err);
     }
     qosCtrl->markIODone(*getReq, tierUsed, amIPrimary(objId));
 
@@ -1012,6 +1026,7 @@ Error ObjectStorMgr::enqueueMsg(fds_volid_t volId, SmIoReq* ioReq)
         case FDS_SM_SNAPSHOT_TOKEN:
         case FDS_SM_MIGRATION_ABORT:
         case FDS_SM_NOTIFY_DLT_CLOSE:
+        case FDS_GENERIC_REQUEST:
             {
                 err = qosCtrl->enqueueIO(volId, static_cast<FDS_IOType*>(ioReq));
                 break;
@@ -1100,6 +1115,9 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
                                           },
                                           snapReq);
         }
+        /* Mark the request as complete */
+        qosCtrl->markIODone(*snapReq, diskio::diskTier);
+
         snapReq->smio_snap_resp_cb(err, snapReq, options, db, snapReq->retryReq, snapReq->unique_id);
     } else {
         std::string snapDir;
@@ -1116,10 +1134,12 @@ ObjectStorMgr::snapshotTokenInternal(SmIoReq* ioReq)
                                           snapReq);
         }
 
+        /* Mark the request as complete */
+        qosCtrl->markIODone(*snapReq, diskio::diskTier);
+
         snapReq->smio_persist_snap_resp_cb(err, snapReq, snapDir, env);
     }
-    /* Mark the request as complete */
-    qosCtrl->markIODone(*snapReq, diskio::diskTier);
+
 }
 
 void
@@ -1162,9 +1182,12 @@ ObjectStorMgr::compactObjectsInternal(SmIoReq* ioReq)
                  << objOwned;
 
         // copy this object if not garbage, otherwise rm object db entry
-        err = objectStore->copyObjectToNewLocation(obj_id, cobjs_req->tier,
-                                                   cobjs_req->verifyData,
-                                                   objOwned);
+        {  // token lock
+            auto token_lock = getTokenLock(obj_id, true);
+            err = objectStore->copyObjectToNewLocation(obj_id, cobjs_req->tier,
+                                                       cobjs_req->verifyData,
+                                                       objOwned);
+        }
         if (!err.ok()) {
             LOGERROR << "Failed to compact object " << obj_id
                      << ", error " << err;
@@ -1206,12 +1229,15 @@ ObjectStorMgr::applyRebalanceDeltaSet(SmIoReq* ioReq)
 
         LOGMIGRATE << "Applying DeltaSet element: " << objId;
 
-        err = objectStore->applyObjectMetadataData(objId, objDataMeta);
-
+        {  // token lock
+            auto token_lock = getTokenLock(objId, true);
+            err = objectStore->applyObjectMetadataData(objId, objDataMeta);
+        }
         if (!err.ok()) {
             // we will stop applying object metadata/data and report error to migr mgr
             LOGERROR << "Failed to apply object metadata/data " << objId
                      << ", " << err;
+
             break;
         }
     }
@@ -1237,6 +1263,9 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
     SmIoReadObjDeltaSetReq *readDeltaSetReq = static_cast<SmIoReadObjDeltaSetReq *>(ioReq);
     if (!readDeltaSetReq) {
         LOGWARN << "Invalid read delta set request";
+        // TODO(brian): Should we markIODone here? Presumably if we got here something was queued, but if we're
+        // seeing a nullptr here the request wasn't valid, so the markIODone will bomb out if we try it.
+        // Will we end up with an off by one though because we don't decrement for this request?
         return;
     }
     LOGMIGRATE << "Filling DeltaSet:"
@@ -1260,6 +1289,8 @@ ObjectStorMgr::readObjDeltaSet(SmIoReq *ioReq)
         fpi::ObjectMetaDataReconcileFlags reconcileFlag = (readDeltaSetReq->deltaSet)[i].second;
 
         const ObjectID objID(objMetaDataPtr->obj_map.obj_id.metaDigest);
+
+        LOGDEBUG << "Object ptr = " << objMetaDataPtr << " flag = " << reconcileFlag << " Object ID = " << objID;
 
         fpi::CtrlObjectMetaDataPropagate objMetaDataPropagate;
 
@@ -1356,6 +1387,22 @@ ObjectStorMgr::abortMigration(SmIoReq *ioReq)
     delete abortMigrationReq;
 }
 
+/**
+ *  handle a generic task - probably a lambda
+ */
+void ObjectStorMgr::handleGenericRequest(SmIoReq *io) {
+    LOGDEBUG << "handling generic request";
+    SmIoGenericRequest *request = static_cast<SmIoGenericRequest*>(io);
+    fds_verify(request!=NULL);
+
+    request->process();
+    qosCtrl->markIODone(*io);
+    request->done();
+
+    // delete the io ptr
+    delete io;
+}
+
 void
 ObjectStorMgr::notifyDLTClose(SmIoReq *ioReq)
 {
@@ -1414,6 +1461,19 @@ ObjectStorMgr::notifyDLTClose(SmIoReq *ioReq)
 }
 
 void
+ObjectStorMgr::checkForDiskFailErrors(fds_token_id smToken,
+                                      diskio::DataTier tier,
+                                      const Error& err) {
+    if (err == ERR_META_DISK_READ_FAILED ||
+        err == ERR_META_DISK_WRITE_FAILED) {
+        auto metaTier = objectStore->getMetadataTier();
+        objectStore->updateMediaTrackers(smToken, metaTier, err);
+    } else {
+        objectStore->updateMediaTrackers(smToken, tier, err);
+    }
+}
+
+void
 ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq)
 {
     Error err(ERR_OK);
@@ -1427,9 +1487,19 @@ ObjectStorMgr::moveTierObjectsInternal(SmIoReq* ioReq)
     moveReq->movedCnt = 0;
     for (fds_uint32_t i = 0; i < (moveReq->oidList).size(); ++i) {
         const ObjectID& objId = (moveReq->oidList)[i];
-        err = objectStore->moveObjectToTier(objId, moveReq->fromTier,
-                                            moveReq->toTier, moveReq->relocate);
+        {  // token lock
+            auto token_lock = getTokenLock(objId);
+            err = objectStore->moveObjectToTier(objId, moveReq->fromTier,
+                                                moveReq->toTier, moveReq->relocate);
+        }
         if (!err.ok()) {
+            fds_token_id smToken = SmDiskMap::smTokenId(objId, getDLT()->getNumBitsForToken());
+            if (err == ERR_DISK_READ_FAILED ||
+                err == ERR_NO_BYTES_READ) {
+                checkForDiskFailErrors(smToken, moveReq->fromTier, err);
+            } else {
+                checkForDiskFailErrors(smToken, moveReq->toTier, err);
+            }
             if (err != ERR_SM_ZERO_REFCNT_OBJECT &&
                 err != ERR_SM_TIER_HYBRIDMOVE_ON_FLASH_VOLUME &&
                 err != ERR_SM_TIER_WRITEBACK_NOT_DONE) {
@@ -1596,6 +1666,10 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
                 threadPool->schedule(&ObjectStorMgr::notifyDLTClose, objStorMgr, io);
                 break;
             }
+        case FDS_GENERIC_REQUEST: {
+            threadPool->schedule(&ObjectStorMgr::handleGenericRequest, objStorMgr, io);
+            break;
+        }
         default:
             fds_assert(!"Unknown message");
             break;
@@ -1659,8 +1733,99 @@ ObjectStorMgr::getAllVolumeDescriptors()
     return err;
 }
 
-bool
-ObjectStorMgr::haveAllObjectSets() const {
-    return objectStore->haveAllObjectSets();
+bool ObjectStorMgr::haveAllObjectSets(util::TimeStamp after) const {
+    return objectStore->haveAllObjectSets(after);
+}
+
+void ObjectStorMgr::handleRefScanDone(fpi::SvcUuid& dmuuid) {
+    static fds_mutex lock("refscan done");
+    static std::map<int64_t ,util::TimeStamp> dmTimeMap;
+    static util::TimeStamp lastAutoStart = 0;
+
+    // check if all dms have responded after the last auto start
+    synchronized(lock) {
+        dmTimeMap[dmuuid.svc_uuid] = util::getTimeStampMicros();
+
+        Error err = MODULEPROVIDER()->getSvcMgr()->getDMT();
+        if (!(err == ERR_OK || err == ERR_DUPLICATE)) {
+            LOGCRITICAL << "unable to fetch the latest DMT " << err;
+        }
+        const auto dmt = MODULEPROVIDER()->getSvcMgr()->getCurrentDMT();
+        std::set<fds_uint64_t> nodes;
+        dmt->getUniqueNodes(&nodes);
+
+        if (nodes.empty()) {
+            LOGWARN << "wierd .. refscan message rcvd . but unique dms empty";
+            return;
+        }
+
+        if (dmTimeMap.size() > nodes.size()) {
+            LOGWARN << "wierd .. num.dms.done.refscan:" << dmTimeMap.size()
+                    << " unique.dms:" << nodes.size();
+        }
+
+        uint count = 0;
+        for (auto node: nodes) {
+            count ++;
+            fpi::SvcUuid svcUUID;
+            assign(svcUUID, node);
+            auto iter = dmTimeMap.find(svcUUID.svc_uuid);
+            if (iter == dmTimeMap.end() || iter->second < lastAutoStart) {
+                count--;
+            }
+        }
+
+        if (count != nodes.size()) {
+            LOGWARN << "refscan.done msg rcvd. but only " << count << "/" << nodes.size() << " dms have completed refscan";
+            return;
+        }
+
+        lastAutoStart = util::getTimeStampMicros();
+        LOGNORMAL << "refscan.done msg rcvd. auto starting scavenger. All " << count << " dms have completed refscan";
+        SmScavengerActionCmd scavCmd(fpi::FDSP_SCAVENGER_START, SM_CMD_INITIATOR_NOT_SET);
+        err = objStorMgr->objectStore->scavengerControlCmd(&scavCmd);
+    }
+}
+
+void ObjectStorMgr::startRefscanOnDMs() {
+    static fds_mutex lock("refscan request check");
+    static auto timegap = 30*60;
+
+    synchronized(lock) {
+        // send only once every 30 m
+        if (counters->dmRefScanRequestSentAt.value() + timegap >= util::getTimeStampSeconds()) {
+            LOGNORMAL << "will not send dm refscan request. last sent @ "
+                      << util::getLocalTimeString(counters->dmRefScanRequestSentAt.value());
+            return;
+        }
+        counters->dmRefScanRequestSentAt.set(util::getTimeStampSeconds());
+    }
+
+    LOGNORMAL << "sending refscan message to all DMs";
+    SvcInfo info = MODULEPROVIDER()->getSvcMgr()->getSelfSvcInfo();
+
+    fpi::StartRefScanMsgPtr msg(new fpi::StartRefScanMsg());
+
+    auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
+
+    // For each DM in the DMT we send the message
+    Error err = MODULEPROVIDER()->getSvcMgr()->getDMT();
+    if (!(err == ERR_OK || err == ERR_DUPLICATE )) {
+        LOGCRITICAL << "unable to fetch the latest DMT " << err;
+    }
+
+    const auto dmt = MODULEPROVIDER()->getSvcMgr()->getCurrentDMT();
+    std::set<fds_uint64_t> nodes;
+    dmt->getUniqueNodes(&nodes);
+    for (auto node: nodes) {
+        LOGNORMAL << "sending refscan request to dm:" << node;
+        fpi::SvcUuid svcUUID;
+        assign(svcUUID, node);
+        auto request = svcMgr->newEPSvcRequest(svcUUID);
+        request->setPayload(FDSP_MSG_TYPEID(fpi::StartRefScanMsg), msg);
+        request->setTimeoutMs(30*1000); // 30 s
+        request->invoke();
+    }
+
 }
 }  // namespace fds

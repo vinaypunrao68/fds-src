@@ -610,10 +610,41 @@ DltDplyFSM::DACT_Rebalance::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     OM_Module *om = OM_Module::om_singleton();
     DataPlacement *dp = om->om_dataplace_mod();
     ClusterMap* cm = om->om_clusmap_mod();
+    OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
 
     Error err = dp->beginRebalance();
-    // TODO(Anna) go to error state and start from beginning
-    fds_verify(err == ERR_OK);
+
+
+    if (!err.ok())
+    {
+        // We didn't broadcast this out to any services so simply clean up
+        // and have the state machine move to the next state. Schedule a task
+        // to retry computation
+        dp->undoTargetDltCommit();
+
+        if ( dp->canRetryRebalance() )
+        {
+            LOGWARN << "DACT_Rebalance: Re-balance failed with error:" << err.GetErrstr()
+                    << " Will re-try computation in 3 seconds";
+
+            if (!dst.retryTimer->schedule(dst.retryTimerTask,
+                                          std::chrono::seconds(3)))
+            {
+                LOGWARN << "DACT_Rebalance: failed to start retry timer!!!"
+                        << " SM additions/deletions may be pending for long time!";
+            }
+
+        } else {
+            LOGWARN << "Re-balance has FAILED too many times, failureCount:"
+                    << dp->getRebalanceFailures()
+                    << " Will not re-try computation!!!";
+        }
+
+        fsm.process_event(DltEndErrorEvt());
+
+        fsm.lock.clear();
+        return;
+    }
 
     // if we did not send msg to any SMs, go to next state
     dst.sm_ack_wait = dp->getRebalanceNodes();
@@ -702,7 +733,8 @@ DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
 
     // persist commited DLT
     dp->persistCommitedTargetDlt();
-    dp->markSuccess();
+    dp->markMigrSuccess();
+    dp->clearRebalanceFailures();
 
     // set all added DMs to ACTIVE state
     NodeUuidSet addedNodes = cm->getAddedServices(fpi::FDSP_STOR_MGR);
@@ -889,6 +921,9 @@ DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     OM_Module *om = OM_Module::om_singleton();
     DataPlacement *dp = om->om_dataplace_mod();
     fds_verify(dp != NULL);
+
+    fds_bool_t rollbackNeeded = false;
+
     if (dp->hasNoTargetDlt()) {
         LOGNORMAL << "No target DLT computed/commited or new DLT was already commited"
                   << ", nothing to recover";
@@ -900,8 +935,8 @@ DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         // revert to previously commited DLT locally in OM
         fds_uint64_t targetDltVersion = dp->getTargetDltVersion();
 
-        if ( DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue() ) {
-            targetDltVersion = DltDmtUtil::getInstance()->getSMTargetVersionForAbort();
+        if ( OmExtUtilApi::getInstance()->isSMAbortAfterRestartTrue() ) {
+            targetDltVersion = OmExtUtilApi::getInstance()->getSMTargetVersionForAbort();
             LOGDEBUG << "Setting target DLT version to:" << targetDltVersion;
         }
 
@@ -913,8 +948,8 @@ DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         // want to do undoTarget since it resets newDlt/committedDlt values
         // which have already been set to what they should be in ::loadDltsFromConfigDb.
         // The "next" version will be explicitly cleared at the end of error mode
-        if ( !DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue() ) {
-            dp->undoTargetDltCommit();
+        if ( !OmExtUtilApi::getInstance()->isSMAbortAfterRestartTrue() ) {
+            rollbackNeeded = dp->undoTargetDltCommit();
         }
 
         // we already computed target DLT, so most likely sent start migration msg
@@ -937,7 +972,7 @@ DltDplyFSM::DACT_Error::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
 
         // send dlt commit to AMs and DMs if target was commited
         fds_uint32_t commitCnt = 0;
-        if (!dp->hasNonCommitedTarget()) {
+        if (rollbackNeeded) {
             // has target DLT (see the first if) and it is commited
             commitCnt = dom_ctrl->om_bcast_dlt(dp->getCommitedDlt(), false, true, true);
             dst.commitDltAcksToWait = 0;
@@ -988,11 +1023,11 @@ DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
         if ( (src.errFound == ERR_SVC_REQUEST_INVOCATION) ||
              (src.errFound == ERR_SVC_REQUEST_TIMEOUT) )
         {
-            dp->markFailure();
+            dp->markMigrFailure();
 
             if (dp->canRetryMigration())
             {
-                LOGNOTIFY << "Migration has failed: " << dp->failedAttempts() << " times.";
+                LOGNOTIFY << "Migration has failed: " << dp->failedMigrAttempts() << " times.";
                 if (!dst.tryAgainTimer->schedule(dst.tryAgainTimerTask,
                                                  std::chrono::seconds(3*60))) {
                     LOGWARN << "Failed to start try againtimer!!!"
@@ -1014,7 +1049,7 @@ DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
 
 
 
-    if ( DltDmtUtil::getInstance()->isSMAbortAfterRestartTrue() ) {
+    if ( OmExtUtilApi::getInstance()->isSMAbortAfterRestartTrue() ) {
 
         LOGDEBUG << "Will try re-compute DLT in a minute, abortMigrationMsg has been sent on restart";
         if (!dst.tryAgainTimer->schedule(dst.tryAgainTimerTask,
@@ -1026,7 +1061,7 @@ DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
 
         dp->clearTargetDlt();
 
-        DltDmtUtil::getInstance()->clearSMAbortParams();
+        OmExtUtilApi::getInstance()->clearSMAbortParams();
     }
 }
 

@@ -211,7 +211,7 @@ class TestBlockFioSeqW(TestCase.FDSTestCase):
         fdscfg = self.parameters["fdscfg"]
         om_node = fdscfg.rt_om_node
         if self.parameters['ansible_install_done'] is True:
-            assert connect_fabric(self,om_node.nd_conf_dict['ip']) is True
+            assert connect_fabric(om_node.nd_conf_dict['ip']) is True
         if self.childPID is None:
             # Not running in a forked process.
             # Stop on failures.

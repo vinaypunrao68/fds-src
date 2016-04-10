@@ -114,10 +114,10 @@ struct AmDispatcher : public AmDataProvider
     void start() override;
     bool done() override;
     void stop() override;
-    void registerVolume(VolumeDesc const& volDesc) override;
     void removeVolume(VolumeDesc const& volDesc) override;
     void openVolume(AmRequest * amReq) override;
     void closeVolume(AmRequest * amReq) override;
+    Error modifyVolumePolicy(const VolumeDesc& vdesc) override;
     void addToVolumeGroup(const fpi::AddToVolumeGroupCtrlMsgPtr &addMsg,
                                const AddToVolumeGroupCb &cb) override;
     void statVolume(AmRequest * amReq) override;
@@ -183,11 +183,35 @@ struct AmDispatcher : public AmDataProvider
     void volumeGroupModify(ReqPtr request, MsgPtr message, CbMeth cb_func);
 
     template<typename CbMeth, typename MsgPtr, typename ReqPtr>
-    void volumeGroupCommit(ReqPtr request, MsgPtr message, CbMeth cb_func, std::unique_lock<std::mutex>&& vol_lock);
+    void volumeGroupCommit(ReqPtr request, MsgPtr message, CbMeth cb_func);
 
     std::unique_ptr<ErrorHandler> volumegroup_handler;
     fds_rwlock volumegroup_lock;
-    std::unordered_map<fds_volid_t, std::unique_ptr<VolumeGroupHandle>> volumegroup_map;
+
+    struct ProtectedVGH {
+        using vgh_ptr = std::shared_ptr<VolumeGroupHandle>;
+        using lock = std::mutex;
+        using uniq_lock = std::unique_lock<lock>;
+
+        template<typename Cb>
+        void close(fds_volid_t const vol_id, Cb callback);
+
+        template<typename Cb>
+        void open(fds_volid_t const vol_id,
+                  boost::shared_ptr<fpi::OpenVolumeMsg> msg,
+                  CommonModuleProviderIf* modProvider,
+                  ErrorHandler* handler,
+                  Cb callback);
+
+        std::pair<uniq_lock, vgh_ptr> getVGH(uint32_t const timeout);
+
+     private:
+        vgh_ptr     group_handle;
+        std::condition_variable swapping;
+        std::mutex  swap_lock;
+    };
+
+    std::unordered_map<fds_volid_t, ProtectedVGH> volumegroup_map;
     void _abortBlobTxCb(AbortBlobTxReq *amReq, const Error& error, shared_str payload);
     void _commitBlobTxCb(CommitBlobTxReq* amReq, const Error& error, shared_str payload);
     void _closeVolumeCb(DetachVolumeReq* amReq);

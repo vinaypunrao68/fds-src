@@ -4,14 +4,16 @@
 package com.formationds.util.thrift;
 
 import com.formationds.apis.ConfigurationService;
-import org.apache.log4j.Logger;
-import org.apache.thrift.TException;
+import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
+import com.formationds.protocol.commonConstants;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  *
  */
 public class ConfigServiceClientFactory {
-    protected static final Logger LOG = Logger.getLogger(ThriftClientFactory.class);
+    protected static final Logger LOG = LogManager.getLogger(ThriftClientFactory.class);
 
     /**
      * Create with default settings.  Must use #getClient(host, port) to access the client
@@ -53,6 +55,22 @@ public class ConfigServiceClientFactory {
                                                                                     int maxPoolSize,
                                                                                     int minIdle,
                                                                                     int softMinEvictionIdleTimeMillis) {
+        /**
+         * FEATURE TOGGLE: enable multiplexed services
+         * Tue Feb 23 15:04:17 MST 2016
+         */
+        if ( FdsFeatureToggles.THRIFT_MULTIPLEXED_SERVICES.isActive() ) {
+
+            // service.client will use multiplexed protocol
+            return new ThriftClientFactory.Builder<>(ConfigurationService.Iface.class)
+                       .withHostPort(host, port)
+                       .withPoolConfig(maxPoolSize, minIdle, softMinEvictionIdleTimeMillis)
+                       .withThriftServiceName( commonConstants.CONFIGURATION_SERVICE_NAME )
+                       .withClientFactory(ConfigurationService.Client::new)
+                       .build();
+        }
+
+        // service.client will use binary protocol
         return new ThriftClientFactory.Builder<>(ConfigurationService.Iface.class)
                    .withHostPort(host, port)
                    .withPoolConfig(maxPoolSize, minIdle, softMinEvictionIdleTimeMillis)

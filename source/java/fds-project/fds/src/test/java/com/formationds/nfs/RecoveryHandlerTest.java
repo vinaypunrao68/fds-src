@@ -19,6 +19,7 @@ public class RecoveryHandlerTest {
     public static final String DOMAIN = "domain";
     public static final String VOLUME = "volume";
     public static final String BLOB = "blob";
+    public static final int MAX_OBJECT_SIZE = 1024;
 
     @Test
     public void testHandleRecoverySuccess() throws Exception {
@@ -27,7 +28,7 @@ public class RecoveryHandlerTest {
             int invocationCount = 0;
 
             @Override
-            public Optional<FdsMetadata> readMetadata(String domain, String volumeName, String blobName) throws IOException {
+            public Optional<Map<String, String>> readMetadata(String domain, String volumeName, String blobName) throws IOException {
                 if (invocationCount++ < 3) {
                     exceptionCount.incrementAndGet();
                     throw new RecoverableException();
@@ -39,9 +40,9 @@ public class RecoveryHandlerTest {
         IoOps withTimeoutHandling = new RecoveryHandler(ops, 4, Duration.millis(10));
         HashMap<String, String> map = new HashMap<>();
         map.put("hello", "world");
-        withTimeoutHandling.writeMetadata(DOMAIN, VOLUME, BLOB, new FdsMetadata(map));
+        withTimeoutHandling.writeMetadata(DOMAIN, VOLUME, BLOB, new HashMap<>(map));
         withTimeoutHandling.commitMetadata(DOMAIN, VOLUME, BLOB);
-        Map<String, String> result = withTimeoutHandling.readMetadata(DOMAIN, VOLUME, BLOB).get().lock(m -> m.mutableMap());
+        Map<String, String> result = withTimeoutHandling.readMetadata(DOMAIN, VOLUME, BLOB).get();
         assertEquals(3, exceptionCount.get());
         assertEquals("world", result.get("hello"));
     }
@@ -56,7 +57,7 @@ public class RecoveryHandlerTest {
         };
 
         IoOps withTimeoutHandling = new RecoveryHandler(ops, 10, Duration.ZERO);
-        withTimeoutHandling.readCompleteObject("foo", "bar", "hello", new ObjectOffset(0), 42);
+        withTimeoutHandling.readCompleteObject("foo", "bar", "hello", new ObjectOffset(0), MAX_OBJECT_SIZE);
     }
 
     @Test
@@ -65,7 +66,7 @@ public class RecoveryHandlerTest {
 
         IoOps ops = new MemoryIoOps() {
             @Override
-            public Optional<FdsMetadata> readMetadata(String domain, String volumeName, String blobName) throws IOException {
+            public Optional<Map<String, String>> readMetadata(String domain, String volumeName, String blobName) throws IOException {
                 exceptionCount.incrementAndGet();
                 throw new RecoverableException();
             }

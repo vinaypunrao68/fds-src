@@ -1,13 +1,18 @@
 test_topdir       := ..
+topdir            := ../..
 user_build_dir    :=
-user_incl_dir     :=
+user_incl_dir     := $(topdir)/include/util
 
 user_hh           := $(wildcard *.h)
 user_fds_so_libs  :=
-user_fds_ar_libs  := fds-qos-lib
+user_fds_ar_libs  := \
+                    fds-qos-lib \
+                    fds-umod \
+                    fds-volume-checker
 user_non_fds_libs := pcrecpp sqlite3  \
     curl \
-    jansson
+    jansson \
+    fdsStatsUtil-debug
 user_cpp_flags    :=
 
 user_bin_exe      := \
@@ -19,7 +24,8 @@ user_bin_exe      := \
     archive_gtest \
     ldb_differ_gtest \
     dmchecker_gtest \
-    objectrefscanner_gtest
+    objectrefscanner_gtest \
+    catalogscanner_gtest
 
 
 volumegrouping_gtest := VolumeGrouping_gtest.cpp
@@ -32,5 +38,6 @@ archive_gtest := ArchiveClient_gtest.cpp
 ldb_differ_gtest := LeveldbDiffer_gtest.cpp
 dmchecker_gtest := DmChecker_gtest.cpp 
 objectrefscanner_gtest := ObjectRefScanner_gtest.cpp
+catalogscanner_gtest := catalog_scanner_gtest.cpp
 
 include $(test_topdir)/Makefile.dm

@@ -9,6 +9,29 @@ import java.util.Objects;
 public class QosPolicy extends QosPolicyBase {
 
     /**
+     *
+     * @return the default policy: priority=7; min iops=0 (no guarantee); max iops=0 (unlimited)
+     */
+    public static QosPolicy defaultPolicy() {
+        return new QosPolicy(7, 0, 0);
+    }
+
+    /*
+     * from cli doc...
+     * __createParser.add_argument( self.arg_str + AbstractPlugin.iops_limit_str,
+     *      help="The IOPs limit for the volume.  0 = unlimited and is the default if not specified.",
+     *      type=VolumeValidator.iops_limit, default=0, metavar="" )
+     *  __createParser.add_argument( self.arg_str + AbstractPlugin.iops_guarantee_str,
+     *      help="The IOPs guarantee for this volume.  0 = no guarantee and is the default if not
+     *          specified.",
+     *      type=VolumeValidator.iops_guarantee, default=0, metavar="" )
+     *  __createParser.add_argument( self.arg_str + AbstractPlugin.priority_str,
+     *      help="A value that indicates how to prioritize performance for this volume.  1 = highest
+     *          priority, 10 = lowest.  Default value is 7.",
+     *      type=VolumeValidator.priority, default=7, metavar="")
+     *
+     */
+    /**
      * Create a QosPolicy
      *
      * @param priority the qos priority

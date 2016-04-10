@@ -147,8 +147,16 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
                  serialExecutor = std::unique_ptr<SynchronizedTaskExecutor<size_t>>(
                      new SynchronizedTaskExecutor<size_t>(*threadPool));
+
+                 if (parentSm->modProvider_->get_cntrs_mgr()) {
+                     parentSm->modProvider_->get_cntrs_mgr()->add_for_export(this);
+                 }
              }
          virtual ~SmQosCtrl() {
+             if (parentSm->modProvider_->get_cntrs_mgr()) {
+                 parentSm->modProvider_->get_cntrs_mgr()->remove_from_export(this);
+             }
+
              delete dispatcher;
              if (dispatcherThread) {
                  dispatcherThread->join();
@@ -189,7 +197,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
       * should be just enough to make sure system task makes progress
       */
      inline fds_uint32_t getSysTaskIopsMin() {
-         return 10;
+         return 2000;
      }
 
      /**
@@ -197,7 +205,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
       * in SM, we should be ok to take all available bandwidth
       */
      inline fds_uint32_t getSysTaskIopsMax() {
-         return 0;
+         return 10000;
      }
 
      inline fds_uint32_t getSysTaskPri() {
@@ -285,7 +293,9 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
          return volTbl;
      }
 
-     bool haveAllObjectSets() const;
+     void handleRefScanDone(fpi::SvcUuid& dmuuid);
+     bool haveAllObjectSets(util::TimeStamp after = 0) const;
+     void startRefscanOnDMs();
 
      /**
       * A callback from stats collector to sample SM specific stats
@@ -317,7 +327,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
      void abortMigration(SmIoReq* ioReq);
      void notifyDLTClose(SmIoReq* ioReq);
      void handleResyncDoneOrPending(fds_bool_t startResync, fds_bool_t resyncDone);
-
+     void handleGenericRequest(SmIoReq *io);
      void changeTokensState(const std::set<fds_token_id>& dltTokens);
      void handleDiskChanges(const bool &added,
                             const DiskId &diskId,
@@ -347,6 +357,9 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
       */
      void checkDiskCapacities();
 
+     void checkForDiskFailErrors(fds_token_id smTokId,
+                                 diskio::DataTier tier,
+                                 const Error& error);
      virtual std::string log_string() {
          std::stringstream ret;
          ret << " ObjectStorMgr";

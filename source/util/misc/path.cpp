@@ -86,7 +86,7 @@ std::string getFileChecksum(const std::string& filename) {
         is.read (buffer,length);
         sum.checksum_update((unsigned  char *)buffer, is.gcount());
     }
-
+    delete[] buffer;
     is.close();
     std::string strsum;
     sum.get_checksum(strsum);
@@ -166,6 +166,17 @@ bool removePATH(const std::string& path) {
     }
     return false;
 }
+
+void populateTempRootDirectories(std::vector<std::string> &roots, int numOfNodes)
+{
+    std::string homedir = boost::filesystem::path(getenv("HOME")).string();
+    std::string baseDir =  homedir + "/temp";
+
+    for (int i = 1; i <= numOfNodes; i++) {
+        roots.push_back(util::strformat("--fds-root=%s/node%d", baseDir.c_str(), i));
+    }
+}
+
 
 // get the binary location of the given command
 std::string which(const std::string& path) {

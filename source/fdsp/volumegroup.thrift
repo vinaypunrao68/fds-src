@@ -6,12 +6,11 @@ include "svc_types.thrift"
 namespace cpp FDS_ProtocolInterface
 namespace java com.formationds.protocol.replica
 
-typedef i32             VolumeGroupVersion
 typedef svc_types.ReplicaId VolumeGroupId
 
 /* Header that must be part of every replica group io request */
 struct VolumeIoHdr {
-    1: required VolumeGroupVersion		version;
+    1: required i32				version;
 
     /* Id to identify the replication group */
     2: required VolumeGroupId			groupId;
@@ -26,13 +25,14 @@ struct VolumeIoHdr {
 
 struct VolumeGroupInfo {
     1: required VolumeGroupId			groupId;
-    2: required VolumeGroupVersion		version;
+    2: svc_types.VolumeGroupCoordinatorInfo	coordinator;
     /* Current coordinator op id */
     3: i64					lastOpId;
     /* Current coordinator commit id */
     4: i64					lastCommitId;
     5: list<svc_types.SvcUuid>			functionalReplicas;
-    6: list<svc_types.SvcUuid>			nonfunctionalReplicas;
+    6: list<svc_types.SvcUuid>			syncingReplicas;
+    7: list<svc_types.SvcUuid>			nonfunctionalReplicas;
 }
 
 /* Message to update information about a replica group */
@@ -64,6 +64,21 @@ struct SetVolumeGroupCoordinatorMsg {
     2: i64                          		volumeId;
 }
 
+/* Response for SetVolumeGroupCoordinatorMsg */
+struct SetVolumeGroupCoordinatorRspMsg {
+    1: i32				version;
+}
+
+/* Message to switch coordinator */
+struct SwitchCoordinatorMsg {
+    1: svc_types.VolumeGroupCoordinatorInfo	requester;
+    2: i64					volumeId;
+}
+
+/* Response to switch coordinator message */
+struct SwitchCoordinatorRespMsg {
+}
+
 /* BEGIN exposed for testing.  Will be removed */
 struct StartTxMsg {
     1: required VolumeIoHdr		volumeIoHdr;
@@ -81,7 +96,7 @@ struct CommitTxMsg {
 
 struct PullCommitLogEntriesMsg {
     1: required VolumeGroupId		groupId;
-    2: VolumeGroupVersion		lastCommitVersion;
+    2: i32				lastCommitVersion;
     3: required i64			startCommitId;
     4: i64				endCommitId;
 }

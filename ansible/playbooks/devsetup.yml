@@ -118,6 +118,9 @@
     - name: install latest fds-stats-client-c package
       apt: name=fds-stats-client-c-2.0.0 force=yes state=latest update_cache=yes cache_valid_time=600
 
+    - name: install fds-stats-util package
+      apt: name=fds-stats-util=1.0.0 force=yes state=present update_cache=yes cache_valid_time=600
+
     - name: install latest java package
       apt: name=oracle-java8-installer force=yes state=latest update_cache=yes cache_valid_time=600
 
@@ -187,6 +190,7 @@
         - libgoogle-perftools-dev
         - libconfig++-dev
         - libcurl4-openssl-dev
+        - libcpr-1.2.0
         - npm
         - nodejs-legacy
         - open-iscsi
@@ -213,6 +217,10 @@
         - python-coverage-test-runner
         - python-mock
         - valgrind
+
+
+    - name: Install libnfs and libnfs-python for NFS IO
+      command: bash ../scripts/install_libnfs.sh
 
     - name: create pip config directory at ~/.pip
       file: path="{{ lookup('env','HOME') }}/.pip"
@@ -245,7 +253,9 @@
         - "tabulate==0.7.4"
         - "urllib3==1.10.1"
         - python-iptables
+        - pyscsi-linux
         - retry
+        - retrying
         - humanize
         - numpy
 
@@ -254,8 +264,8 @@
         state=present
         extra_args="--extra-index-url=https://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/pypi/formation-pip/simple"
       with_items:
-        - "fdscli==0.1.19"
-        - "fdsutil==0.3.9"
+        - "fdscli==0.1.21"
+        - "fdsutil==0.3.10"
 
     - name: install perl modules
       cpanm: name={{ item }} mirror=http://cpan.mirror.vexxhost.com notest=true
@@ -310,3 +320,5 @@
 
     -   name: set local for error messages
         command: update-locale LC_MESSAGES=POSIX
+
+

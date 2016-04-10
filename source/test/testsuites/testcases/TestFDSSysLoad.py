@@ -33,22 +33,22 @@ class TestSmokeLoad(TestCase.FDSTestCase):
         # Get the FdsConfigRun object for this test.
         fdscfg = self.parameters["fdscfg"]
 
-        nodes = fdscfg.rt_obj.cfg_nodes
-        for n in nodes:
-            self.log.info("Apply smoke load to node %s." % n.nd_conf_dict['node-name'])
+        om_node = fdscfg.rt_om_node
 
-            cur_dir = os.getcwd()
-            os.chdir(fdscfg.rt_env.env_fdsSrc + '/Build/linux-x86_64.debug/tools')
-            status, stdout = n.nd_agent.exec_wait('./smokeTest %s' %
-                                                     n.nd_host, return_stdin=True)
-            if stdout is not None:
-                self.log.info(stdout)
+        self.log.info("Apply smoke load to node %s." % om_node.nd_conf_dict['node-name'])
 
-            os.chdir(cur_dir)
+        cur_dir = os.getcwd()
+        os.chdir(fdscfg.rt_env.env_fdsSrc + '/Build/linux-x86_64.debug/tools')
+        status, stdout = om_node.nd_agent.exec_wait('./smokeTest %s' %
+                                                     om_node.nd_host, return_stdin=True)
+        if stdout is not None:
+            self.log.info(stdout)
 
-            if status != 0:
-                self.log.error("Application of smoke load on %s returned status %d." %(n.nd_conf_dict['node-name'], status))
-                return False
+        os.chdir(cur_dir)
+
+        if status != 0:
+            self.log.error("Application of smoke load on %s returned status %d." %(om_node.nd_conf_dict['node-name'], status))
+            return False
 
         return True
 

@@ -4,10 +4,10 @@
 
 package com.formationds.om.repository.helper;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import com.formationds.commons.model.Datapoint;
-import com.formationds.commons.model.builder.DatapointBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.Comparator;
@@ -19,7 +19,7 @@ import java.util.List;
 public class DatapointHelper {
 
     private static final Logger logger =
-        LoggerFactory.getLogger( DatapointHelper.class );
+        LogManager.getLogger( DatapointHelper.class );
 
     /**
      * default constructor
@@ -56,9 +56,12 @@ public class DatapointHelper {
         long epoch = start;
         for( int i = 0; i < count; i++ ) {
 
-            datapoints.add( i, new DatapointBuilder().withX( new Double( epoch ) )
-                                                     .withY( 0.0 )
-                                                     .build() );
+            Datapoint dp = new Datapoint();
+            dp.setX(  new Double( epoch ) );
+            dp.setY(  0.0 );
+            
+            datapoints.add( i, dp );
+            
             epoch += interval;
         }
     }

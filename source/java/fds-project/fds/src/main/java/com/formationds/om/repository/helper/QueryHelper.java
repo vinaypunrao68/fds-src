@@ -46,8 +46,8 @@ import com.formationds.security.Authorizer;
 
 import org.apache.commons.math3.stat.regression.SimpleRegression;
 import org.apache.thrift.TException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -69,7 +69,7 @@ import java.util.stream.DoubleStream;
  */
 public class QueryHelper {
     private static final Logger logger =
-        LoggerFactory.getLogger( QueryHelper.class );
+        LogManager.getLogger( QueryHelper.class );
 
     /**
      * A shared instance, used only if the USE_SHARED_QUERY_HELPER feature toggle is enabled.
@@ -263,7 +263,9 @@ public class QueryHelper {
             }
 
         }
-
+        
+        stats.setQuery( query );
+        
         return stats;
     }
 
@@ -452,14 +454,15 @@ public class QueryHelper {
                             try {
                                 volumeId = String.valueOf(api.getVolumeId(vd.getName()));
                             } catch (TException ignored ) {
-
+                                return null;
                             }
 
                             Volume volume = new Volume( Long.parseLong(volumeId), vd.getName() );
 
                             return volume;
                         })
-	    			.collect( Collectors.toList() );
+                        .filter( (v) -> v != null )
+	    			    .collect( Collectors.toList() );
 
     		} catch ( Exception e ){
     			logger.error( "Could not gather the volumes this user has access to.", e) ;
@@ -572,13 +575,20 @@ public class QueryHelper {
                                       .getMetricsRepository()
                                       .sumLogicalBytes();
 
-        final Double pbytes =
+        final Double ubytes =
             SingletonRepositoryManager.instance()
                                       .getMetricsRepository()
-                                      .sumPhysicalBytes();
+                                      .calculatePBytes();
+
         final CapacityDeDupRatio dedup = new CapacityDeDupRatio();
-        final Double d = Calculation.ratio( lbytes, pbytes );
-        dedup.setRatio( d < 1.0 ? 1.0 : d );
+        final Double d = Calculation.ratio( lbytes, ubytes );
+
+        logger.trace( "DE-DUP: LBYTES:{} PBYTES(calculated):{} Ratio:{} ( {} )",
+                      Size.of( lbytes, SizeUnit.B ).getValue( SizeUnit.MB ),
+                      Size.of( ubytes, SizeUnit.B ).getValue( SizeUnit.MB ),
+                      d, ( ( d < 0.0 ) ? 1.0 : d ) );
+
+        dedup.setRatio( ( ( d < 0.0 ) ? 1.0 : d ) );
         return dedup;
     }
 

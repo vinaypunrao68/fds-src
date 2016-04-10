@@ -7,8 +7,8 @@ package com.formationds.commons.togglz;
 import com.formationds.commons.libconfig.ParsedConfig;
 import com.formationds.commons.togglz.feature.flag.FdsFeatureToggles;
 import com.formationds.commons.togglz.repository.fds.PlatformDotConfStateRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.togglz.core.Feature;
 import org.togglz.core.manager.TogglzConfig;
 import org.togglz.core.repository.StateRepository;
@@ -28,7 +28,7 @@ public class FdsTogglzConfig
     implements TogglzConfig {
 
     private static final Logger logger =
-        LoggerFactory.getLogger( FdsTogglzConfig.class );
+        LogManager.getLogger( FdsTogglzConfig.class );
 
     private static final String FAILED_LOAD_FEATURE_TOGGLES =
         "Failed to load feature toggles ( %s ), " +
@@ -38,7 +38,7 @@ public class FdsTogglzConfig
         "Failed to parse feature toggles ( %s ), " +
         "Toggles will be disabled by default.";
 
-    private static final String DEF_FDS = "fds";
+    private static final String DEF_FDS = "/fds";
     private static final String DEF_ETC = "etc";
 
     private static final String PLATFORM_DOT_CONF = "platform.conf";

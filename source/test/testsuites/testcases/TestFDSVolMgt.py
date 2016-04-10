@@ -14,21 +14,32 @@ from fdslib.TestUtils import check_localhost
 # Module-specific requirements
 import sys
 from fdscli.services.fds_auth import *
-from fdslib.TestUtils import convertor
 from fdslib.TestUtils import get_volume_service
+from fdslib.TestUtils import get_snapshot_policy_service
+
 from fdscli.model.fds_error import FdsError
+from fdscli.model.volume.snapshot_policy import SnapshotPolicy
+from fdscli.model.volume.settings.object_settings import ObjectSettings
+from fdscli.model.volume.settings.block_settings import BlockSettings
+from fdscli.model.volume.settings.nfs_settings import NfsSettings
+from fdscli.model.common.size import Size
+from fdscli.model.volume.volume import Volume
+from fdscli.model.volume.qos_policy import QosPolicy
+
+
 import re
 
 # This class contains the attributes and methods to test
 # volume creation.
 class TestVolumeCreate(TestCase.FDSTestCase):
-    def __init__(self, parameters=None, volume=None):
+    def __init__(self, parameters=None, volume=None, snapshot_policy=None):
         super(self.__class__, self).__init__(parameters,
                                              self.__class__.__name__,
                                              self.test_VolumeCreate,
                                              "Volume creation")
 
         self.passedVolume = volume
+        self.snapshot_policy = snapshot_policy
 
     def test_VolumeCreate(self):
         """
@@ -55,8 +66,15 @@ class TestVolumeCreate(TestCase.FDSTestCase):
                           (volume.nd_conf_dict['vol-name'], om_node.nd_conf_dict['node-name']))
 
             vol_service = get_volume_service(self,om_node.nd_conf_dict['ip'])
-            newVolume = convertor(volume, fdscfg)
-            status = vol_service.create_volume(newVolume)
+            status = vol_service.create_volume(self.set_vol_parameters(volume))
+
+            if self.snapshot_policy is not None:
+                snapshot_policy_id = self.snapshot_policy
+                snapshot_policy_service = get_snapshot_policy_service(self, om_node.nd_conf_dict['ip'])
+                default_snap_policies = vol_service.get_data_protection_presets(preset_id=snapshot_policy_id)[0]._DataProtectionPolicyPreset__snapshot_policies
+                for each_snap_policy in default_snap_policies:
+                    op = snapshot_policy_service.create_snapshot_policy(status.id, each_snap_policy)
+                self.log.info("Volume {0} created with preset snapshot policy id {1}".format(status.name, self.snapshot_policy))
 
             if isinstance(status, FdsError) or type(status).__name__ == 'FdsError':
                 pattern = re.compile("500: The specified volume name (.*) already exists.")
@@ -71,6 +89,61 @@ class TestVolumeCreate(TestCase.FDSTestCase):
 
         return True
 
+    def set_vol_parameters(self, vol_obj):
+        new_volume = Volume()
+        new_volume.name = vol_obj.nd_conf_dict['vol-name']
+        new_volume.id = vol_obj.nd_conf_dict['id']
+
+        if 'media' not in vol_obj.nd_conf_dict:
+            media = 'hdd'
+        else:
+            media = vol_obj.nd_conf_dict['media']
+        new_volume.media_policy =media.upper()
+
+        if 'access' not in vol_obj.nd_conf_dict or vol_obj.nd_conf_dict['access'] == 'object':
+            # set default volume settings to ObjectSettings
+            access = ObjectSettings()
+        else:
+            # if its a block then set the size in BlockSettings
+            access = vol_obj.nd_conf_dict['access']
+            if access == 'block':
+                if 'size' not in vol_obj.nd_conf_dict:
+                    raise Exception('Volume section %s must have "size" keyword.' % vol_obj.nd_conf_dict['vol-name'])
+                access = BlockSettings()
+                access.capacity = Size(size=vol_obj.nd_conf_dict['size'], unit = 'B')
+            elif access == 'nfs':
+                if 'size' not in vol_obj.nd_conf_dict:
+                    raise Exception('Volume section %s must have "size" keyword.' % vol_obj.nd_conf_dict['vol-name'])
+                access = NfsSettings()
+                access.max_object_size = Size(size=vol_obj.nd_conf_dict['size'], unit = 'B')
+
+        new_volume.settings = access
+        if 'policy' in vol_obj.nd_conf_dict:
+            # Set QOS policy which is defined in volume definition.
+            new_volume.qos_policy = self.get_qos_policy(vol_obj.nd_conf_dict['policy'])
+
+        return new_volume
+
+    def get_qos_policy(self, policy_id):
+        fdscfg = self.parameters["fdscfg"]
+        qos_policy = QosPolicy()
+        policies = fdscfg.rt_get_obj('cfg_vol_pol')
+        for policy in policies:
+            if 'id' not in policy.nd_conf_dict:
+                print('Policy section must have an id')
+                sys.exit(1)
+
+            if policy.nd_conf_dict['id'] == policy_id:
+                if 'iops_min' in policy.nd_conf_dict:
+                    qos_policy.iops_min = policy.nd_conf_dict['iops_min']
+
+                if 'iops_max' in policy.nd_conf_dict:
+                    qos_policy.iops_max = policy.nd_conf_dict['iops_max']
+
+                if 'priority' in policy.nd_conf_dict:
+                    qos_policy.priority = policy.nd_conf_dict['priority']
+
+        return qos_policy
 
 # This class contains the attributes and methods to test
 # volume attachment.
@@ -203,7 +276,8 @@ class TestVolumeDetach(TestCase.FDSTestCase):
             cmd = ('detach %s' % (volName))
 
             if check_localhost(ip):
-                cinder_dir = os.path.join(fdscfg.rt_env.get_fds_source(), 'source/cinder')
+                src_path = os.path.abspath(fdscfg.rt_env.get_fds_source())
+                cinder_dir = os.path.join(src_path, 'cinder')
             else:
                 cinder_dir= os.path.join('/fds/sbin')
 

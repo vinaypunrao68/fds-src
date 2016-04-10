@@ -13,14 +13,15 @@
 #include <object-store/TokenCompactor.h>
 #include <object-store/ObjectPersistData.h>
 #include <object-store/Scavenger.h>
+#include <object-store/LiveObjectsDB.h>
+#include <util/bloomfilter.h>
 
 using diskio::DiskStat;
 
 namespace fds {
 
-#define SCAV_TIMER_SECONDS (2*3600)  // 2 hours
+#define SCAV_TIMER_SECONDS (120*60)  // 10 minutes
 #define DEFAULT_MAX_DISKS_COMPACTING (2)
-
 
 ScavControl::ScavControl(const std::string &modName,
                          SmIoReqHandler *data_store,
@@ -33,12 +34,14 @@ ScavControl::ScavControl(const std::string &modName,
           dataStoreReqHandler(data_store),
           persistStoreGcHandler(persist_store),
           noPersistScavStats(false),
-          verifyData(false),
+          verifyData(true),
           scav_timer(new FdsTimer()),
-          scav_timer_task(new ScavTimerTask(*scav_timer, this))
+          scav_timer_task(new ScavTimerTask(*scav_timer, this)),
+          isBackgroundScavProcess(false)
 {
     enabled = ATOMIC_VAR_INIT(false);
     whoDisabledMe = SM_CMD_INITIATOR_NOT_SET;
+    state = ATOMIC_VAR_INIT(SCAV_CTRL_IDLE);
 }
 
 ScavControl::~ScavControl() {
@@ -61,8 +64,10 @@ ScavControl::mod_init(SysParams const *const param) {
     intervalSeconds = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.scavenger.interval_seconds",
                                                                     SCAV_TIMER_SECONDS);
 
-    LOGDEBUG << "Scavenger will be compacting at most " << max_disks_compacting
-             << " disks at a time; scavenger interval " << intervalSeconds << " seconds";
+    verifyData = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.scavenger.verify_data",
+                                                               true);
+    LOGNORMAL << "Scavenger will be compacting at most " << max_disks_compacting
+              << " disks at a time; scavenger interval " << intervalSeconds << " seconds";
     Module::mod_init(param);
     return 0;
 }
@@ -75,36 +80,52 @@ void
 ScavControl::mod_shutdown() {
 }
 
+Error
+ScavControl::setStateInProgress() {
+    Error err(ERR_OK);
+    State expectState = SCAV_CTRL_IDLE;
+    if (!std::atomic_compare_exchange_strong(&state, &expectState, SCAV_CTRL_INPROG)) {
+        LOGNOTIFY << "Scavenger is either running or trying to finish, ignoring command";
+        err = ERR_NOT_READY;
+    }
+    return err;
+}
+
+Error
+ScavControl::setStateIdle() {
+    Error err(ERR_OK);
+    State expectState = SCAV_CTRL_INPROG;
+    if (!std::atomic_compare_exchange_strong(&state, &expectState, SCAV_CTRL_IDLE)) {
+        LOGNOTIFY << "Scavenger already in idle state, ignoring command";
+        err = ERR_NOT_READY;
+    }
+    return err;
+}
+
 void ScavControl::updateDiskStats()
 {
     fds_uint32_t count = 0;
-    LOGNORMAL << "Updating disk stats";
+    fds_bool_t sendRefScanReq = false;
+
+    LOGNORMAL << "Checking disk usages";
     fds_mutex::scoped_lock l(scav_lock);
     // start first max_disks_compacting disk scavengers
     if (nextDiskToCompact != SM_INVALID_DISK_ID) {
-        LOGWARN << "Looks like GC is already in progress.. not going to start GC ";
+        LOGWARN << "GC is already in progress.. ignoring disk usage check";
         return;
     }
     for (DiskScavTblType::const_iterator cit = diskScavTbl.cbegin();
          cit != diskScavTbl.cend();
          ++cit) {
         DiskScavenger *diskScav = cit->second;
-        if (count >= max_disks_compacting) {
-            nextDiskToCompact = diskScav->diskId();
-            ++count;  // so that we can check if we updated next disk ID
-            break;
-        }
         if (diskScav != nullptr) {
-            fds_bool_t started = diskScav->updateDiskStats(verifyData, std::bind(
-                &ScavControl::diskCompactionDoneCb, this,
-                std::placeholders::_1, std::placeholders::_2));
-            if (started) {
-                ++count;
-            }
+            sendRefScanReq |= diskScav->updateDiskStats();
         }
     }
-    if (count <= max_disks_compacting) {
-        nextDiskToCompact = SM_INVALID_DISK_ID;
+    if (sendRefScanReq) {
+	isBackgroundScavProcess = true;
+        ObjectStorMgr* storMgr = dynamic_cast<ObjectStorMgr*>(dataStoreReqHandler);
+        storMgr->startRefscanOnDMs();
     }
 }
 
@@ -301,8 +322,27 @@ ScavControl::setPersistState() {
     noPersistScavStats = true;
 }
 
-void ScavControl::startScavengeProcess()
-{
+void ScavControl::scheduleScavengerStart() {
+    auto objStorMgr = dynamic_cast<ObjectStorMgr*>(dataStoreReqHandler);
+    if (!objStorMgr) {
+        LOGERROR << "unable to schedule scavenger because objectstormgr is null";
+        return;
+    }
+
+    auto lambda = [this]() {
+        startScavengeProcess();
+    };
+
+    auto genericRequest = new SmIoGenericRequest(FdsSysTaskQueueId, lambda);
+    Error err = objStorMgr->enqueueMsg(FdsSysTaskQueueId, genericRequest);
+    if (!err.ok()) {
+        LOGWARN << "err:" << err << " unable to enqueue message";
+    } else {
+        LOGDEBUG << "scavenger start enqueued";
+    }
+}
+
+void ScavControl::startScavengeProcess() {
     fds_bool_t _enabled = std::atomic_load(&enabled);
     if (!_enabled) {
         LOGNOTIFY << "Cannot start Scavenger process because scavenger"
@@ -320,15 +360,18 @@ void ScavControl::startScavengeProcess()
         return;
     }
 
-    LOGNORMAL << "Scavenger cycle - Started";
-    fds_mutex::scoped_lock l(scav_lock);
-    // start first max_disks_compacting disk scavengers
-    fds_uint32_t count = 0;
-    if (nextDiskToCompact != SM_INVALID_DISK_ID) {
-        LOGWARN << "Looks like GC is already in progress.. not going to start GC ";
+    if (!setStateInProgress().ok()) {
+        LOGNOTIFY << "Looks like GC is already in progress.. not going to start GC ";
         return;
     }
 
+    fds_mutex::scoped_lock l(scav_lock);
+    // start first max_disks_compacting disk scavengers
+    fds_uint32_t count = 0;
+
+    LOGNORMAL << "Scavenger cycle - Started";
+    OBJECTSTOREMGR(dataStoreReqHandler)->counters->scavengerRunCount.incr();
+    OBJECTSTOREMGR(dataStoreReqHandler)->counters->inactiveObjectCount.set(0);
     OBJECTSTOREMGR(dataStoreReqHandler)->counters->scavengerStartedAt.set(util::getTimeStampSeconds());
     OBJECTSTOREMGR(dataStoreReqHandler)->counters->dataCopied.set(0);
     OBJECTSTOREMGR(dataStoreReqHandler)->counters->dataRemoved.set(0);
@@ -342,10 +385,11 @@ void ScavControl::startScavengeProcess()
             ++count;  // so that we can check if we updated next disk ID
             break;
         }
-        if (diskScav != NULL) {
+        if (diskScav != NULL && (!isBackgroundScavProcess || diskScav->updateDiskStats())) {
             Error err = diskScav->startScavenge(verifyData, std::bind(
                 &ScavControl::diskCompactionDoneCb, this,
-                std::placeholders::_1, std::placeholders::_2));
+                std::placeholders::_1, std::placeholders::_2)
+            );
             if (err.ok()) {
                 ++count;
             }
@@ -355,8 +399,8 @@ void ScavControl::startScavengeProcess()
         nextDiskToCompact = SM_INVALID_DISK_ID;
     }
 
-    if (0 == count) {
-        LOGNORMAL << "Scavenger cycle - Done - No tokens to compact";
+    if (0 == count && setStateIdle().ok()) {
+        LOGNOTIFY << "Scavenger cycle - Done - No tokens to compact";
     }
 }
 
@@ -385,7 +429,8 @@ void
 ScavControl::diskCompactionDoneCb(fds_uint16_t diskId, const Error& error) {
     fds_mutex::scoped_lock l(scav_lock);
     OBJECTSTOREMGR(dataStoreReqHandler)->counters->scavengerRunning.decr();
-    if (nextDiskToCompact == SM_INVALID_DISK_ID) {
+    if (nextDiskToCompact == SM_INVALID_DISK_ID ||
+        error == ERR_SM_GC_STOPPED) {
         LOGDEBUG << "No more disks to compact";
         bool allDone = true;
         for (const auto& scav : diskScavTbl) {
@@ -393,11 +438,16 @@ ScavControl::diskCompactionDoneCb(fds_uint16_t diskId, const Error& error) {
             if (!allDone) break;
         }
         if (allDone) {
-            LOGNORMAL << "Scavenger cycle - Done";
+	    isBackgroundScavProcess = false;
             auto configuredThreshold = CONFIG_UINT32("fds.sm.scavenger.expunge_threshold",3);
             if (fds::objDelCountThresh != configuredThreshold) {
                 LOGNORMAL << "resetting force.expunge back to [" << configuredThreshold << "]";
                 OBJECTSTOREMGR(dataStoreReqHandler)->objectStore->setObjectDelCnt(configuredThreshold);
+            }
+
+            // GC cycle completed.
+            if (setStateIdle().ok()) {
+                LOGNOTIFY << "Scavenger cycle - Done";
             }
         }
         return;
@@ -410,7 +460,7 @@ ScavControl::diskCompactionDoneCb(fds_uint16_t diskId, const Error& error) {
     Error err(ERR_NOT_FOUND);
     while (cit != diskScavTbl.cend()) {
         DiskScavenger *diskScav = cit->second;
-        if (diskScav) {
+        if (diskScav && (!isBackgroundScavProcess || diskScav->updateDiskStats())) {
             err = diskScav->startScavenge(verifyData, std::bind(
                 &ScavControl::diskCompactionDoneCb, this,
                 std::placeholders::_1, std::placeholders::_2));
@@ -627,46 +677,38 @@ DiskScavenger::getDiskStats(diskio::DiskStat *retStat) {
     }
 }
 
-fds_bool_t DiskScavenger::updateDiskStats(fds_bool_t verify_data,
-                                          disk_compaction_done_handler_t done_hdlr) {
+fds_bool_t DiskScavenger::updateDiskStats() {
     Error err(ERR_OK);
     DiskStat disk_stat;
     double tot_size;
     fds_uint32_t avail_percent;  // percent of available capacity
-    fds_uint32_t token_reclaim_threshold = 0;
-    verifyData = verify_data;
 
     err = getDiskStats(&disk_stat);
     if (!err.ok()) {
-        LOGCRITICAL << "Getting disk stats failed for disk id : "
+        LOGCRITICAL << "getting disk stats failed for disk id : "
                     << disk_id;
         return false;
     }
 
     tot_size = disk_stat.dsk_tot_size;
     avail_percent = (disk_stat.dsk_avail_size / tot_size) * 100;
-    LOGDEBUG << "Tier " << tier << " disk " << disk_id
+    LOGDEBUG << "tier " << tier << " disk " << disk_id
              << " total " << disk_stat.dsk_tot_size
              << ", avail " << disk_stat.dsk_avail_size << " ("
              << avail_percent << "%).";
 
-    // Decide if we want to GC this disk and which tokens
-    if (avail_percent < scav_policy.dsk_avail_threshold_1) {
-        // we are going to GC this disk
-        if (avail_percent < scav_policy.dsk_avail_threshold_2) {
-            // we will GC all tokens
-            token_reclaim_threshold = 0;
-        } else {
-            // we will GC only tokens that are worth to GC
-            token_reclaim_threshold = scav_policy.tok_reclaim_threshold;
-        }
-
-        // start token compaction process
-        err = startScavenge(verifyData, done_hdlr, token_reclaim_threshold);
-        return err.ok();
+    // we are going to trigger GC
+    if (avail_percent < scav_policy.dsk_avail_threshold_2) {
+        LOGNOTIFY << "tier:" << tier << " disk:" << disk_id
+                  << " total:" << disk_stat.dsk_tot_size
+                  << " used: " << " (" << (100 - avail_percent) << "%)"
+                  << " avail:" << disk_stat.dsk_avail_size << " (" << avail_percent << "%)"
+                  << " policy: thresh1="<< scav_policy.dsk_avail_threshold_1
+                  << " thresh2=" << scav_policy.dsk_avail_threshold_2;
+        return true;
+    } else {
+        return false;
     }
-
-    return false;
 }
 
 fds_bool_t DiskScavenger::getNextCompactToken(fds_token_id* tok_id) {
@@ -722,7 +764,7 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
     // get all tokens that SM owns and that reside on this disk
     SmTokenSet diskToks = smDiskMap->getSmTokens(disk_id);
     ObjectStorMgr* storMgr = dynamic_cast<ObjectStorMgr*>(dataStoreReqHandler);
-
+    bool fRefscanMessageSent = false;
     // add tokens to tokenDb that we need to compact
     for (SmTokenSet::const_iterator cit = diskToks.cbegin();
          cit != diskToks.cend();
@@ -735,20 +777,11 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
              * Evaluate all bloom filters for this particular SM token.
              * and calculate SM token threshold.
              */
-            bool fHasNewObjects = true;
             if (storMgr) {
-                fHasNewObjects = storMgr->objectStore->liveObjectsTable->hasNewObjectSets(*cit, disk_id);
+                TimeStamp now = util::getTimeStampSeconds() * 1000 * 1000 * 1000;
+                storMgr->objectStore->liveObjectsTable->setTokenStartTime(*cit, disk_id, now);
             }
-
-            if (!fHasNewObjects) {
-                LOGDEBUG << "no new object sets to process for disk:" << disk_id << " token:"<< *cit;
-            } else {
-                if (storMgr) {
-                    TimeStamp now = util::getTimeStampSeconds() * 1000 * 1000 * 1000;
-                    storMgr->objectStore->liveObjectsTable->setTokenStartTime(*cit, disk_id, now);
-                }
-                persistStoreGcHandler->evaluateSMTokenObjSets(*cit, tier, stat);
-            }
+            persistStoreGcHandler->evaluateSMTokenObjSets(*cit, tier, stat);
         } else {
             persistStoreGcHandler->getSmTokenStats(disk_id, *cit, tier, &stat);
         }
@@ -759,8 +792,8 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
                                                                        stat.tkn_reclaim_size
                                                                        );
         LOGDEBUG << "Disk " << disk_id << " token " << stat.tkn_id
-                 << " total bytes " << stat.tkn_tot_size
-                 << ", deleted bytes " << stat.tkn_reclaim_size
+                 << " total objects " << stat.tkn_tot_size
+                 << ", deleted objects " << stat.tkn_reclaim_size
                  << " (" << reclaim_percent << "%)";
 
         if (stat.tkn_reclaim_size > 0 &&
@@ -768,7 +801,7 @@ void DiskScavenger::findTokensToCompact(fds_uint32_t token_reclaim_threshold) {
                 tokenDb.insert(stat.tkn_id);
                 LOGNOTIFY << "TC will run for token:" << stat.tkn_id
                           << " disk:" << disk_id
-                          << " [bytes total:" << stat.tkn_tot_size
+                          << " [objects total:" << stat.tkn_tot_size
                           << " deleted:" << stat.tkn_reclaim_size
                           << " (" << reclaim_percent << "%)]";
         }
@@ -794,21 +827,21 @@ Error DiskScavenger::startScavenge(fds_bool_t verify,
     // get list of tokens for this tier/disk from persistent layer
     findTokensToCompact(token_reclaim_threshold);
     if (tokenDb.size() == 0) {
-        LOGDEBUG << "no tokens to compact on disk:" << disk_id << " tier:" << tier;
+        LOGNOTIFY << "No data to compact on disk:" << disk_id << " tier:" << tier;
         std::atomic_exchange(&state, SCAV_STATE_IDLE);
         OBJECTSTOREMGR(dataStoreReqHandler)->counters->scavengerRunning.decr();
         return ERR_NOT_FOUND;
      }
 
-    LOGNORMAL << "scavenger started for disk:" << disk_id << " tier:"
-              << tier << " num.tokens:" << tokenDb.size()
-              << " assume no scavenger stats = " << noPersistScavStats;
+    LOGNORMAL << "Scavenger started for disk: " << disk_id << " tier: "
+              << tier << " num.tokens: " << tokenDb.size()
+              << " reclaim(%): " << token_reclaim_threshold;
     next_token = 0;
 
     for (i = 0; i < scav_policy.proc_max_tokens; ++i) {
         fds_bool_t found = getNextCompactToken(&tok_id);
         if (!found) {
-            LOGNORMAL << "scavenger finished for disk:" << disk_id;
+            LOGNORMAL << "Scavenger finished for disk:" << disk_id;
             std::atomic_exchange(&state, SCAV_STATE_IDLE);
             break;
         }
@@ -888,6 +921,10 @@ void DiskScavenger::compactionDoneCb(fds_token_id token_id, const Error& error) 
         // Scavenger was asked to stop, so not compacting any more tokens
         std::atomic_store(&state, SCAV_STATE_IDLE);
         LOGNOTIFY << "Not continuing with token compaction, because stop was called";
+        if (done_evt_handler) {
+            done_evt_handler(disk_id, Error(ERR_SM_GC_STOPPED));
+        }
+
         return;
     }
 

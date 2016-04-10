@@ -42,7 +42,7 @@ Error AmQoSCtrl::processIO(FDS_IOType *io) {
     fds_verify(io->io_module == FDS_IOType::ACCESS_MGR_IO);
     auto amReq = static_cast<AmRequest*>(io);
     PerfTracer::tracePointEnd(amReq->qos_perf_ctx);
-    LOGTRACE << "Scheduling request: 0x" << std::hex << amReq->io_req_id;
+    LOGTRACE << "id:" << amReq->io_req_id << " scheduling request";
     auto vol_id = io->io_vol_id;
     threadPool->schedule([this] (FDS_IOType* io) mutable -> void
                          { unknownTypeResume(static_cast<AmRequest*>(io)); }, io);
@@ -255,10 +255,14 @@ AmQoSCtrl::registerVolume(VolumeDesc const& volDesc) {
 
 Error
 AmQoSCtrl::modifyVolumePolicy(const VolumeDesc& vdesc) {
-    return htb_dispatcher->modifyQueueQosParams(vdesc.volUUID.get(),
-                                                vdesc.iops_assured,
-                                                vdesc.iops_throttle,
-                                                vdesc.relativePrio);
+    auto err = AmDataProvider::modifyVolumePolicy(vdesc);
+    if (ERR_OK == err) {
+        htb_dispatcher->modifyQueueQosParams(vdesc.volUUID.get(),
+                                             vdesc.iops_assured,
+                                             vdesc.iops_throttle,
+                                             vdesc.relativePrio);
+    }
+    return err;
 }
 
 /*
@@ -282,15 +286,14 @@ AmQoSCtrl::removeVolume(VolumeDesc const& volDesc) {
 void AmQoSCtrl::enqueueRequest(AmRequest *amReq) {
     PerfTracer::tracePointBegin(amReq->qos_perf_ctx);
 
-    GLOGDEBUG << "Entering QoS request: 0x" << std::hex << amReq->io_req_id << std::dec;
+    GLOGDEBUG << "id:" << amReq->io_req_id << " entering QoS request";
     Error err {ERR_OK};
     {
         ReadGuard rg(queue_lock);
         err = htb_dispatcher->enqueueIO(amReq->io_vol_id.get(), amReq);
     }
     if (ERR_OK != err) {
-        GLOGERROR << "Had an issue with queueing a request to volume: " << amReq->volume_name
-                  << " error: " << err;
+        GLOGERROR << "vol:" << amReq->volume_name << " err:" << err << " error queueing request";
         PerfTracer::tracePointEnd(amReq->qos_perf_ctx);
         AmDataProvider::unknownTypeCb(amReq, err);
     }

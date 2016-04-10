@@ -1,12 +1,12 @@
 ---
 -   name: sysctl_params
-    sysctl: name={{ item.key }} value={{ item.value }} state={{ item.state }}
+    sysctl: name={{ item.key }} value="{{ item.value }}" state={{ item.state }}
     when: ansible_virtualization_type != "lxc"
     with_items:
         - { key: 'fs.file-max', value: '400000', state: 'present' }
         - { key: 'kernel.core_uses_pid', value: '1', state: 'present' }
         - { key: 'fs.suid_dumpable', value: '1', state: 'present' }
-        - { key: 'kernel.core_pattern', value: '/corefiles/%e-%p-%u-%t.core', state: 'present' }
+        - { key: 'kernel.core_pattern', value: '|/bin/core.sh fds/var/log/corefiles %e-%p-%u-%t', state: 'present' }
     tags:
         - install-deps
 
@@ -36,13 +36,13 @@
     tags:
         - install-deps
 
--   name: ensure_corefiles_exists
+-   name: ensure corefiles does not exist
     file:
         path=/corefiles
         owner=root
         group=root
         mode=0755
-        state=directory
+        state=absent
     tags:
         - install-deps
 
@@ -98,6 +98,9 @@
     tags:
         - install-deps
 
+-   name: Place core.sh in /bin
+    copy: src=../files/core.sh dest=/bin/core.sh owner=root group=root mode=0755
+
 -   name: push local fds-deps deb to cluster nodes
     when: (fds_deploy_local_deps is defined and fds_deploy_local_deps == "yes") and this_is_an_ec2_node is not defined
     copy: src={{ item }}
@@ -152,21 +155,38 @@
     tags:
       - install-local
 
+-   name: Copy fds.debug from local machine to deployed nodes
+    when: fds_for_system_test is defined and fds_for_system_test == "yes"
+    copy: src={{ item }}
+       dest=/fds/sbin/
+       mode=0755
+    with_fileglob:
+       - '../../../source/Build/linux-x86_64.debug/tools/fds.debug'
+    tags:
+      - install-local
+
 -   name: Install python-dev
-    when: fds_only_install is defined and fds_only_install == "yes"
+    when: fds_for_system_test is defined and fds_for_system_test == "yes"
     apt: name=python-dev
 
 -   name: Install pip
-    when: fds_only_install is defined and fds_only_install == "yes"
+    when: fds_for_system_test is defined and fds_for_system_test == "yes"
     apt: name=python-pip
 
 -   pip: name=psutil version=3.1.1
-    when: fds_only_install is defined and fds_only_install == "yes"
+    when: fds_for_system_test is defined and fds_for_system_test == "yes"
+
+#-   pip: name=pyscsi-linux version=1.0
+#    when: fds_for_system_test is defined and fds_for_system_test == "yes"
 
 -   name: Install NBD-Client
-    when: fds_only_install is defined and fds_only_install == "yes"
+    when: fds_for_system_test is defined and fds_for_system_test == "yes"
     apt: name=nbd-client
 
 -   name: Install fio
-    when: fds_only_install is defined and fds_only_install == "yes"
+    when: fds_for_system_test is defined and fds_for_system_test == "yes"
     apt: name=fio
+
+-   name: Install rpcbind
+    when: fds_only_install is defined and fds_only_install == "yes"
+    apt: name=rpcbind

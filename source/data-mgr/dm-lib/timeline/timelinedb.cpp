@@ -38,7 +38,6 @@ TimelineDB::TimelineDB() {
 
 Error TimelineDB::open(const FdsRootDir *root) {
     const std::string dmDir = root->dir_sys_repo_dm();
-    root->fds_mkdir(dmDir.c_str());
     std::string dbFile = util::strformat("%s/timeline.db", dmDir.c_str());
     DECLARE_DB_VARS();
 
@@ -159,6 +158,10 @@ Error TimelineDB::getJournalFiles(fds_volid_t volId, TimeStamp fromTime, TimeSta
                 fileinfo.startTime = sqlite3_column_int64(stmt, 0);
                 fileinfo.journalFile.assign(reinterpret_cast<const char*>(
                     sqlite3_column_text(stmt, 1)));
+		if (strcmp(fileinfo.journalFile.c_str(), journalTableHole.c_str()) == 0) {
+			rc = SQLITE_DONE;
+			break;
+		}
                 vecJournalFiles.push_back(fileinfo);
                 break;
             case SQLITE_DONE:

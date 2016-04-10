@@ -25,6 +25,8 @@
 #include <gtest/gtest.h>
 #include <google/profiler.h>
 
+#include "fdsp/common_constants.h"
+
 using ::testing::AtLeast;
 using ::testing::Return;
 using namespace fds;  // NOLINT
@@ -50,13 +52,30 @@ struct SvcMgrModuleProvider : CommonModuleProviderIf {
         /* service mgr */
         auto handler = boost::make_shared<PlatNetSvcHandler>(this);
         auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
+
+        /**
+         * Note on Thrift service compatibility:
+         *
+         * For service that extends PlatNetSvc, add the processor twice using
+         * Thrift service name as the key and again using 'PlatNetSvc' as the
+         * key. Only ONE major API version is supported for PlatNetSvc.
+         *
+         * All other services:
+         * Add Thrift service name and a processor for each major API version
+         * supported.
+         */
+        TProcessorMap processors;
+        processors.insert(std::make_pair<std::string,
+            boost::shared_ptr<apache::thrift::TProcessor>>(
+                fpi::commonConstants().PLATNET_SERVICE_NAME, processor));
+
         fpi::SvcInfo svcInfo;
         svcInfo.svc_id.svc_uuid.svc_uuid = 
                 static_cast<int64_t>(configHelper_.get<fds_uint64_t>("svc.uuid"));
         svcInfo.ip = net::get_local_ip(configHelper_.get_abs<std::string>("fds.nic_if","lo"));
         svcInfo.svc_port = configHelper_.get<int>("svc.port");
         svcInfo.incarnationNo = util::getTimeStampSeconds();
-        svcMgr_.reset(new SvcMgr(this, handler, processor, svcInfo));
+        svcMgr_.reset(new SvcMgr(this, handler, processors, svcInfo));
         svcMgr_->mod_init(nullptr);
     }
 
@@ -91,8 +110,11 @@ TEST(SvcServer, stop)
     int port = 10000;
     auto handler = boost::make_shared<PlatNetSvcHandler>(nullptr);
     auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
-
-    auto server = boost::make_shared<SvcServer>(port, processor);
+    TProcessorMap processors;
+    processors.insert(std::make_pair<std::string,
+        boost::shared_ptr<apache::thrift::TProcessor>>(
+            fpi::commonConstants().PLATNET_SERVICE_NAME, processor));
+    auto server = boost::make_shared<SvcServer>(port, processors, nullptr);
     server->start();
 
     sleep(1);
@@ -109,17 +131,24 @@ TEST(SvcServer, multi_stop)
     int port = 10000;
     auto handler = boost::make_shared<PlatNetSvcHandler>(nullptr);
     auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
+    TProcessorMap processors;
+    processors.insert(std::make_pair<std::string,
+        boost::shared_ptr<apache::thrift::TProcessor>>(
+            fpi::commonConstants().PLATNET_SERVICE_NAME, processor));
 
     for (int i = 0; i < 10; i++) {
         /* Create and start the server */
-        auto server = boost::make_shared<SvcServer>(port, processor);
+        auto server = boost::make_shared<SvcServer>(port, processors, nullptr);
         server->start();
 
         sleep(1);
 
         /* Create two clients */
-        auto client1 = allocRpcClient<fpi::PlatNetSvcClient>("127.0.0.1", port, SvcMgr::MAX_CONN_RETRIES);
-        auto client2 = allocRpcClient<fpi::PlatNetSvcClient>("127.0.0.1", port, SvcMgr::MAX_CONN_RETRIES);
+        boost::shared_ptr<FdsConfig> pEmpty;
+        auto client1 = allocRpcClient<fpi::PlatNetSvcClient>("127.0.0.1", port,
+            SvcMgr::MAX_CONN_RETRIES, "", pEmpty);
+        auto client2 = allocRpcClient<fpi::PlatNetSvcClient>("127.0.0.1", port,
+            SvcMgr::MAX_CONN_RETRIES, "", pEmpty);
 
         /* Stop the server.  This will block until stop() completes */
         server->stop();

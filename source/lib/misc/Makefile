@@ -16,6 +16,7 @@ user_cpp         :=      \
     serialize.cpp        \
     fds_counters.cpp     \
     fds_types.cpp        \
+    fds_version.cpp      \
     fds_volume.cpp       \
     dmt.cpp              \
     fds_error.cpp        \
@@ -29,7 +30,7 @@ user_cpp         :=      \
 	MigrationUtility.cpp \
 	fds_subscription.cpp \
 	fds_ldomain.cpp      \
-	DltDmtUtil.cpp	\
+	OmExtUtilApi.cpp	 \
 	BufferReplay.cpp
 
 user_incl_dir    := .. $(topdir)

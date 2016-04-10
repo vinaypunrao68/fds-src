@@ -76,7 +76,8 @@ ObjectStore::ObjectStore(const std::string &modName,
                                          diskMap, data_store)),
           liveObjectsTable(new LiveObjectsDB(g_fdsprocess->proc_fdsroot()->dir_user_repo() + "liveobj.db")),
           currentState(OBJECT_STORE_INIT),
-          lastCapacityMessageSentAt(0)
+          lastCapacityMessageSentAt(0),
+          sentPutToHddMsg(false)
 {
     liveObjectsTable->createLiveObjectsTblAndIdx();
     nullary_always (ObjectStorMgr::*Lock)(ObjectID const&, bool) = &ObjectStorMgr::getTokenLock;
@@ -148,6 +149,8 @@ float_t ObjectStore::getUsedCapacityAsPct() {
 
     float_t max = 0;
     // For disks
+    //TODO(brian): Rework this to something smarter. Right now we can enter into a loop of RO -> RW -> RO ... if
+    // an SSD hits capacity on an all SSD volume.
     for (auto diskId : diskMap->getDiskIds()) {
         // Get the (used, total) pair
         DiskUtils::CapacityPair capacity = diskMap->getDiskConsumedSize(diskId);
@@ -158,7 +161,7 @@ float_t ObjectStore::getUsedCapacityAsPct() {
             LOGDEBUG << "Found disk used capacity of zero, possible error. DiskID = " << diskId
                         << ". Disk path = " << diskMap->getDiskPath(diskId) << ". If this is an SSD drive"
                         << " and you have not yet written data to the system, this message is OK.";
-            break;
+            continue;
         }
 
         // We're going to piggyback on this to refresh stats in our capacity map. We still want to do periodic checking
@@ -198,6 +201,20 @@ float_t ObjectStore::getUsedCapacityAsPct() {
                 lastCapacityMessageSentAt = DISK_CAPACITY_WARNING_THRESHOLD;
             } else if (pct_used < DISK_CAPACITY_ERROR_THRESHOLD) {
                 lastCapacityMessageSentAt = DISK_CAPACITY_ALERT_THRESHOLD;
+            }
+        }
+
+        if (diskMap->diskMediaType(diskId) == diskio::flashTier) {
+            // This will re-enable the hybrid tier SSD being redirected to HDD message if we fall below < 95%
+            if (sentPutToHddMsg && (pct_used < DISK_CAPACITY_ERROR_THRESHOLD)) {
+                sentPutToHddMsg = false;
+            }
+
+            // Basically ignore SSDs for this capacity check UNLESS it's an all SSD system
+            // This may still cause a RO -> RW -> RO ... loop on hybrid systems, but
+            // for now this should be OK
+            if (!diskMap->isAllDisksSSD()) {
+                continue;
             }
         }
 
@@ -523,12 +540,6 @@ ObjectStore::putObject(fds_volid_t volId,
 
     fiu_return_on("sm.objectstore.faults.putObject", ERR_DISK_WRITE_FAILED);
 
-    PerfContext objWaitCtx(PerfEventType::SM_PUT_OBJ_TASK_SYNC_WAIT, volId);
-
-    PerfTracer::tracePointBegin(objWaitCtx);
-    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
-    PerfTracer::tracePointEnd(objWaitCtx);
-
     useTier = diskio::maxTier;
     LOGTRACE << "Putting object " << objId << " volume " << std::hex << volId
              << std::dec;
@@ -589,10 +600,13 @@ ObjectStore::putObject(fds_volid_t volId,
             }
             // check if data is the same
             if (*existObjData != *objData) {
-                fds_panic("Encountered a hash collision checking object %s. Bailing out now!",
-                          objId.ToHex().c_str());
+                LOGCRITICAL << "Data mismatch for object "
+                            << objId.ToHex().c_str() << " "
+                            << objMeta->logString();
+                err = ERR_ONDISK_DATA_CORRUPT;
+                return err;
             }
-        }  // if (conf_verify_data == true)
+        }
 
         // Create new object metadata to update the refcnts
         updatedMeta.reset(new ObjMetaData(objMeta));
@@ -640,6 +654,7 @@ ObjectStore::putObject(fds_volid_t volId,
                                 true,
                                 vols_refcnt);
     }
+    StorMgrVolume *vol = volumeTbl->getVolume(volId);
 
     // Put data in store if it's not a duplicate.
     // Or TokenMigration + Active IO handle:  if the ObjData doesn't physically exist, still write out
@@ -653,7 +668,6 @@ ObjectStore::putObject(fds_volid_t volId,
         ((err == ERR_DUPLICATE) && !objMeta->dataPhysicallyExists())) {
         // object not duplicate
         // select tier to put object
-        StorMgrVolume *vol = volumeTbl->getVolume(volId);
 
         // Depending on when the IO is available on this SM and when the volume
         // information is propoated when the cluster restarts or SM service
@@ -705,17 +719,19 @@ ObjectStore::putObject(fds_volid_t volId,
         // Now track capacity change
         capacityMap[diskId].usedCapacity += objData->size();
 
-        // Notify tier engine of recent IO
-        tierEngine->notifyIO(objId, FDS_SM_PUT_OBJECT, *vol->voldesc, useTier);
-
         // update physical location that we got from data store
         updatedMeta->updatePhysLocation(&objPhyLoc);
     }
 
+    auto writtenToTier = useTier;
     updatedMeta->updateTimestamp();
     updatedMeta->resetDeleteCount();
     // write metadata to metadata store
     err = metaStore->putObjectMetadata(volId, objId, updatedMeta, &useTier);
+
+    // Notify tier engine of recent IO
+    tierEngine->notifyIO(objId, FDS_SM_PUT_OBJECT, *vol->voldesc, writtenToTier);
+
     useTier = metaStore->getMetadataTier();
     return err;
 }
@@ -729,11 +745,6 @@ ObjectStore::getObject(fds_volid_t volId,
     if (!err.ok() && err != ERR_SM_READ_ONLY) {
         return nullptr;
     }
-
-    PerfContext objWaitCtx(PerfEventType::SM_GET_OBJ_TASK_SYNC_WAIT, volId);
-    PerfTracer::tracePointBegin(objWaitCtx);
-    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
-    PerfTracer::tracePointEnd(objWaitCtx);
 
     // INTERACTION WITH MIGRATION and ACTIVE IO (second phase of SM token migration)
     //
@@ -767,12 +778,15 @@ ObjectStore::getObject(fds_volid_t volId,
         fds_token_id smToken = diskMap->smTokenId(objId);
         diskio::DataTier metaTier = metaStore->getMetadataTier();
         DiskId diskId = diskMap->getDiskId(objId, metaTier);
-        std::string path = diskMap->getDiskPath(diskId) + "/.tempFlush";
 
-        bool diskDown = DiskUtils::diskFileTest(path);
+        std::string path = diskMap->getDiskPath(diskId) + "/.tempFlush";
+        bool diskDown = (diskMap->isDiskOffline(diskId) ||
+                         DiskUtils::diskFileTest(path));
         if (diskDown) {
-            updateMediaTrackers(smToken, metaTier, ERR_DISK_READ_FAILED);
+            err = ERR_META_DISK_READ_FAILED;
         }
+        std::remove(path.c_str());
+
         LOGERROR << "Failed to get object metadata" << objId << " volume "
                  << std::hex << volId << std::dec << " " << err;
         return nullptr;
@@ -999,13 +1013,13 @@ ObjectStore::deleteObject(fds_volid_t volId,
     return err;
 }
 
+// Used by writeback thread and hybrid tier  data movement.
 Error
 ObjectStore::moveObjectToTier(const ObjectID& objId,
                               diskio::DataTier fromTier,
                               diskio::DataTier toTier,
                               fds_bool_t relocateFlag) {
     Error err(ERR_OK);
-    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
 
     LOGDEBUG << "Moving object " << objId << " from tier " << fromTier
              << " to tier " << toTier << " relocate?" << relocateFlag;
@@ -1019,6 +1033,18 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
     // Get metadata from metadata store
     ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(unknownVolId, objId, err);
     if (!err.ok()) {
+        fds_token_id smToken = diskMap->smTokenId(objId);
+        diskio::DataTier metaTier = metaStore->getMetadataTier();
+        DiskId diskId = diskMap->getDiskId(objId, metaTier);
+
+        std::string path = diskMap->getDiskPath(diskId) + "/.tempFlush";
+        bool diskDown = (diskMap->isDiskOffline(diskId) ||
+                         DiskUtils::diskFileTest(path));
+        if (diskDown) {
+            err = ERR_META_DISK_READ_FAILED;
+        }
+        std::remove(path.c_str());
+
         LOGERROR << "Failed to get metadata for object " << objId << " " << err;
         return err;
     }
@@ -1058,6 +1084,11 @@ ObjectStore::moveObjectToTier(const ObjectID& objId,
         return err;
     }
 
+    err = triggerReadOnlyIfPutWillfail(nullptr, objId, objData, toTier);
+    if (!err.ok()) {
+        return err;
+    }
+
     // write to object data store to toTier
     obj_phy_loc_t objPhyLoc;  // will be set by data store with new location
     err = dataStore->putObjectData(unknownVolId, objId, toTier, objData, objPhyLoc);
@@ -1091,9 +1122,10 @@ Error ObjectStore::updateLocationFromFlashToDisk(const ObjectID& objId,
         return ERR_SM_TIER_WRITEBACK_NOT_DONE;
     }
 
-    /* Remove flash as the phsycal location */
+    /* Remove flash as the physical location */
     ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
-    updatedMeta->removePhyLocation(diskio::DataTier::flashTier);
+    // Actual cleanup will happen during GC cycle.
+    updatedMeta->removePhysReferenceOnly(diskio::DataTier::flashTier);
     fds_assert(updatedMeta->onTier(diskio::DataTier::diskTier) == true);
     fds_assert(updatedMeta->onTier(diskio::DataTier::flashTier) == false);
 
@@ -1119,7 +1151,6 @@ ObjectStore::copyAssociation(fds_volid_t srcVolId,
 
     PerfContext objWaitCtx(PerfEventType::SM_ADD_OBJ_REF_TASK_SYNC_WAIT, destVolId);
     PerfTracer::tracePointBegin(objWaitCtx);
-    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     PerfTracer::tracePointEnd(objWaitCtx);
 
     // New object metadata to update association
@@ -1161,12 +1192,61 @@ ObjectStore::copyAssociation(fds_volid_t srcVolId,
     return err;
 }
 
+/**
+ * Verify if objId matches SHA of(data corresponding to objId)
+ * If not, set err and updated on-disk metadata of the object.
+ * returns : false if data for objId is corrupt, true otherwise.
+ */
+Error
+ObjectStore::verifyObjectData(const ObjectID& objId,
+                              const fds_volid_t& volId) {
+    Error err(ERR_OK);
+    ObjMetaData::const_ptr objMeta =
+            metaStore->getObjectMetadata(volId, objId, err);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get metadata for object: " << objId
+                 << " volume: " << volId << " with " << err;
+        return err;
+    }
+
+    // first read the object
+    boost::shared_ptr<const std::string> objData
+            = dataStore->getObjectData(volId, objId, objMeta, err);
+    if (!err.ok()) {
+        LOGERROR << "Failed to get object data for: " << objId
+                 << " for volume: " << volId << " with error: " << err;
+        return err;
+    }
+
+    // Do the SHA match
+    ObjectID onDiskObjId;
+    onDiskObjId = ObjIdGen::genObjectId(objData->c_str(),
+                                        objData->size());
+    if (onDiskObjId != objId) {
+        // on-disk data corruption. Update metadata.
+        LOGCRITICAL << "On-disk corruption detected: "
+                    << objId.ToHex() << " != " <<  onDiskObjId.ToHex()
+                    << " ObjMetaData = " << objMeta->logString();
+        // Create new object metadata for update
+        ObjMetaData::ptr updatedMeta;
+        updatedMeta.reset(new ObjMetaData(objMeta));
+        // set flag in object metadata
+        updatedMeta->setObjCorrupted();
+        err = metaStore->putObjectMetadata(volId, objId, updatedMeta);
+        if (!err.ok()) {
+            LOGERROR << "Failed to update metadata for obj " << objId;
+        }
+        return ERR_ONDISK_DATA_CORRUPT;
+    }
+    return ERR_OK;
+}
+
+// Used by GC to copy data over to new token file
 Error
 ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
                                      diskio::DataTier tier,
                                      fds_bool_t verifyData,
                                      fds_bool_t objOwned) {
-    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
     Error err(ERR_OK);
 
     // since object can be associated with multiple volumes, we just
@@ -1199,22 +1279,12 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         // Create new object metadata for update
         updatedMeta.reset(new ObjMetaData(objMeta));
 
-        // we may be copying file with objects that already has 'corrupt'
-        // flag set. Since we are not yet recovering corrupted objects, we
-        // are going to copy corrupted objects to new files (not loose them)
-        if (!objMeta->isObjCorrupted() && verifyData) {
-            ObjectID onDiskObjId;
-            onDiskObjId = ObjIdGen::genObjectId(objData->c_str(),
-                                                objData->size());
-            if (onDiskObjId != objId) {
-                // on-disk data corruption
-                // mark object metadata as corrupted! will copy it to new
-                // location anyway so we can debug the issue
-                LOGCRITICAL << "CORRUPTION: On-disk corruption detected: "
-                            << objId.ToHex() << "!=" <<  onDiskObjId.ToHex()
-                            << " ObjMetaData=" << updatedMeta->logString();
-                // set flag in object metadata
-                updatedMeta->setObjCorrupted();
+        // Verify data read from current on disk location
+        if (verifyData) {
+            err = verifyObjectData(objId);
+            if (!err.ok()) {
+                LOGERROR << "Data verification failed with error: "<< err;
+                return err;
             }
         }
 
@@ -1236,6 +1306,15 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         if (!err.ok()) {
             LOGERROR << "Failed to update metadata for obj " << objId;
         }
+
+        // Verify data at the new on disk location.
+        if (verifyData) {
+            verifyObjectData(objId);
+            if (!err.ok()) {
+                LOGERROR << "Data verification failed with error: "<< err;
+                return err;
+            }
+        }
     } else {
         // not going to copy object to new location
         LOGDEBUG << "Will garbage-collect " << objId << " on tier " << tier;
@@ -1243,8 +1322,17 @@ ObjectStore::copyObjectToNewLocation(const ObjectID& objId,
         if (TokenCompactor::isGarbage(*objMeta) || !objOwned) {
             LOGDEBUG << "Removing metadata for " << objId
                       << " object owned? " << objOwned;
-            OBJECTSTOREMGR(objStorMgr)->counters->dataRemoved.incr(objMeta->getObjSize());
-            err = metaStore->removeObjectMetadata(unknownVolId, objId);
+            ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
+            updatedMeta->removePhyLocation(tier);
+            err = metaStore->putObjectMetadata(unknownVolId, objId, updatedMeta);
+            if (!err.ok()) {
+                LOGERROR << "Failed to update metadata for obj " << objId;
+            }
+            auto latestMeta = metaStore->getObjectMetadata(unknownVolId, objId, err);
+            if (!latestMeta->dataPhysicallyExists()) {
+                OBJECTSTOREMGR(objStorMgr)->counters->dataRemoved.incr(objMeta->getObjSize());
+                err = metaStore->removeObjectMetadata(unknownVolId, objId);
+            }
         }
     }
 
@@ -1262,7 +1350,6 @@ ObjectStore::applyObjectMetadataData(const ObjectID& objId,
 
     // we do not expect to receive rebal message for same object id concurrently
     // but we may do GC later while migrating, etc, so locking anyway
-    ScopedSynchronizer scopedLock(*taskSynchronizer, objId);
 
     bool isDataPhysicallyExist = false;
     bool metadataAlreadyReconciled = false;
@@ -1594,6 +1681,11 @@ ObjectStore::SmCheckControlCmd(SmCheckCmd *checkCmd)
     return err;
 }
 
+diskio::DataTier
+ObjectStore::getMetadataTier() {
+    return metaStore->getMetadataTier();
+}
+
 fds_uint32_t
 ObjectStore::getDiskCount() const {
     return diskMap->getTotalDisks();
@@ -1603,7 +1695,9 @@ void
 ObjectStore::updateMediaTrackers(fds_token_id smTokId,
                                  diskio::DataTier tier,
                                  const Error& error) {
-    if ((error == ERR_DISK_WRITE_FAILED) ||
+    if ((error == ERR_META_DISK_WRITE_FAILED) ||
+        (error == ERR_META_DISK_READ_FAILED) ||
+        (error == ERR_DISK_WRITE_FAILED) ||
         (error == ERR_DISK_READ_FAILED) ||
         (error == ERR_NO_BYTES_READ)) {
         DiskId diskId = diskMap->getDiskId(smTokId, tier);
@@ -1834,7 +1928,7 @@ ObjectStore::removeObjectSet(const fds_volid_t &volId) {
 }
 
 /**
- * Check all the objects beloging to a given SM token
+ * Check all the objects belonging to a given SM token
  * for delete object criteria and let Scavenger know of it.
  *
  *
@@ -1862,15 +1956,39 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
     TimeStamp ts;
     liveObjectsTable->findMinTimeStamp(smToken, ts);
 
+    // TODO(brian): Should this really be a lambda? It's pretty large for a lambda
+    // is isn't exactly a one off function, I think it might benefit from being pulled
+    // out so that tools like cscope and CLion have an easier time indexing it and making this function more readable
     std::function<void (const ObjectID&)> checkAndModifyMeta =
-            [this, &objectSets, &ts, &tokStats, &smToken] (const ObjectID& oid) {
+            [this, &objectSets, &ts, &tokStats, &smToken, &tier] (const ObjectID& oid) {
         ++tokStats.tkn_tot_size;
+        Error err(ERR_OK);
         ObjSetIter iter = objectSets.begin();
+
         for (iter; iter != objectSets.end(); ++iter) {
             if (iter->lookup(oid)) {
-                LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid
-                         << " found in object set(s) ";
-                break;
+                if (this->tokenLockFn) {
+                    LOGDEBUG << "Token : "<< smToken << " Object : " << oid
+                             << " found in object set(s)";
+
+                    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(invalid_vol_id, oid, err);
+                    if (!objMeta || !err.ok()) {
+                        return;
+                    }
+
+                    // If the object is valid on the bloom filter but not on this tier - delete the data
+                    // MAKE SURE THE DATA IS ON ANOTHER VALID TIER BEFORE OFFERING FOR REMOVAL
+                    if (objMeta->onlyPhysReferenceRemoved(tier) &&
+                        objMeta->dataPhysicallyExists()) {
+                        // Remove from tier
+                        ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
+                        updatedMeta->updateTimestamp();
+                        updatedMeta->removePhyLocation(tier);
+                        ++tokStats.tkn_reclaim_size;
+                        metaStore->putObjectMetadata(invalid_vol_id, oid, updatedMeta);
+                    }
+                    break;
+                }
             }
         }
         if (iter == objectSets.end()) {
@@ -1878,9 +1996,25 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                 LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid
                          << " not found in object set(s) ";
                 auto tokenLock = this->tokenLockFn(oid, true);
-                Error err(ERR_OK);
-                ObjMetaData::const_ptr objMeta =
-                        metaStore->getObjectMetadata(invalid_vol_id, oid, err);
+                /**
+                 * TODO(Gurpreet) Error propogation from here to TC.
+                 * And in case of error here, TC should fail compaction for this
+                 * token.
+                 */
+                ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(invalid_vol_id, oid, err);
+                if (!objMeta || !err.ok()) {
+                    return;
+                }
+
+                /**
+                 * Even if the object is not valid on this tier, make sure the data does on
+                 * physically exists on this tier. If data exists on the tier storage, we
+                 * need to remove it from this tier.
+                 */
+                if (!objMeta->onTier(tier) && !objMeta->onlyPhysReferenceRemoved(tier)) {
+                    return;
+                }
+
                 /**
                  * Check if the object got updated recently(via a PUT).
                  * If so, then these object sets will have stale information
@@ -1889,6 +2023,10 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                  * metadata information.
                  */
                 auto objDelCnt = objMeta->getDeleteCount();
+
+                // add counter to see how many inactive objects are actually present
+                if ((fds_uint16_t)objDelCnt > 0) OBJECTSTOREMGR(objStorMgr)->counters->inactiveObjectCount.incr();
+
                 auto objTS = objMeta->getTimeStamp();
                 if (!ts || (objTS < ts)) {
                     ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
@@ -1901,6 +2039,7 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                      * If the delete count for this object has reached the threshold
                      * then let the Scavenger know about it.
                      */
+                    if ((fds_uint16_t)objDelCnt == 0) OBJECTSTOREMGR(objStorMgr)->counters->inactiveObjectCount.incr();
                     if (updatedMeta->incrementDeleteCount() >= fds::objDelCountThresh) {
                         ++tokStats.tkn_reclaim_size;
                     }
@@ -2044,20 +2183,20 @@ fds_errno_t ObjectStore::triggerReadOnlyIfPutWillfail(StorMgrVolume *vol,
                                                       boost::shared_ptr<const std::string> objData,
                                                       diskio::DataTier &useTier) {
 
-    // Get the disk ID so we can figure out the consumed space.
-    fds_uint16_t diskId = diskMap->getDiskId(objId, useTier);
-
-    // If there was no volume information just assume HDD
+    // If there was no volume information and maxTier is selected, just use HDD
     // TODO(brian): Revisit this because it isn't necessarily a safe assumption
-    if (!vol) {
+    if (!vol && useTier == diskio::maxTier) {
         useTier = diskio::diskTier;
     }
+
+    // Get the disk ID so we can figure out the consumed space.
+    fds_uint16_t diskId = diskMap->getDiskId(objId, useTier);
 
     if (useTier == diskio::flashTier) {
         fds_bool_t ssdSuccess = willPutSucceed(diskId, objData->size());
 
         if (!ssdSuccess) {
-            if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_SSD) {
+            if (vol != nullptr && vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_SSD) {
                 // If we can't write put the node in READ ONLY mode and return an error
                 setReadOnly();
                 LOGERROR << "IO bound for disk " << diskMap->getDiskPath(diskId)
@@ -2066,10 +2205,17 @@ fds_errno_t ObjectStore::triggerReadOnlyIfPutWillfail(StorMgrVolume *vol,
                             << capacityMap[diskId].usedCapacity + objData->size()
                             << " / " << capacityMap[diskId].totalCapacity;
                 return ERR_SM_READ_ONLY;
-            } else if (vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_HYBRID) {
+            } else if (vol != nullptr && vol->voldesc->mediaPolicy == FDSP_MEDIA_POLICY_HYBRID) {
                 // If we can't write, backoff to HDD since this is hybrid
-                LOGNOTIFY << "Write bound for SSD but SSD capacity exceeded. Using HDD instead.";
+                if (!sentPutToHddMsg) {
+                    sentPutToHddMsg = true;
+                    LOGNOTIFY << "Write bound for SSD but SSD capacity exceeded. Using HDD instead.";
+                }
                 useTier = diskio::diskTier;
+            } else {
+                // This really should only happen if we've got no volume information but are trying to force
+                // writes to the SSD explicitly (not maxTier). This should only be possible via internal APIs
+                setReadOnly();
             }
         }
     }

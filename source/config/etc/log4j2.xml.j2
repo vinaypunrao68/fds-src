@@ -1,4 +1,4 @@
-{% set java_log_severity = 'INFO' if fds_log_severity is not defined
+{% set java_log_severity = 'TRACE' if fds_log_severity is not defined
        			   	   else 'TRACE' if fds_log_severity == 'trace'
        			   	   else 'DEBUG' if fds_log_severity == 'debug'
        			   	   else 'DEBUG' if fds_log_severity == 'io'
@@ -11,7 +11,7 @@
 %}
 {% block content %}
 <?xml version="1.0" encoding="UTF-8"?>
-<Configuration monitorInterval="30">
+<Configuration monitorInterval="30" packages="com.formationds.logging.log4j">
     <Properties>
         <!-- {{ ansible_managed }} -->
         <!-- must match environment variable name -->
@@ -22,8 +22,11 @@
              is ISO8601 plus greater precision and including timezone offset.
              docs claim using a pattern instead of the predefined defaults (ISO8601)
              negatively impact performance.  Something to consider if logging is
-             ever identified as a bottleneck.-->
-        <Property name="fds.pattern">%d{yyyy-MM-dd'T'HH:mm:ss.SSSSSSZZZ} - %5p %c %t - %m%n</Property>
+             ever identified as a bottleneck.
+             Log4J does not currently support microsecond timestamps.
+             -->
+        <!-- %attr relies on AttributePatternConverter plugin from fds-shared/fds-logging project -->
+        <Property name="fds.pattern">[%d{yyyy-MM-dd HH:mm:ss.SSS000ZZZ}] [%5p] [%t] [%c] - [%attr] %m%n</Property>
 
         <!-- intent here is to use the env definition of fds_root.  If not set, should
              default to /fds based on above definition -->

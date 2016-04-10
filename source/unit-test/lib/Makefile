@@ -12,6 +12,7 @@ user_fds_ar_libs  := \
     fds-fdsp \
 
 user_non_fds_libs := \
+	fdsStatsUtil-debug \
     gmock \
     curl \
     leveldb \
@@ -49,7 +50,8 @@ user_cpp          :=  \
     fds_panic.cpp \
     bitset_gtest.cpp \
     rs_container_ut.cpp \
-    BufferReplay_gtest.cpp
+    BufferReplay_gtest.cpp \
+    fds_version_t.cpp
 
 
 user_cc           :=
@@ -87,7 +89,8 @@ user_bin_exe      := \
     fds_panic \
     bitset_gtest \
     rs_container_ut \
-    BufferReplay_gtest
+    BufferReplay_gtest \
+    fds_version_gtest
 
 catalog_test                   := catalog_unit_test.cpp
 perfstat_unit_test             := perfstat_unit_test.cpp
@@ -111,4 +114,5 @@ fds_panic                      := fds_panic.cpp
 bitset_gtest				   := bitset_gtest.cpp
 rs_container_ut                := rs_container_ut.cpp
 BufferReplay_gtest	       := BufferReplay_gtest.cpp
+fds_version_gtest              := fds_version_t.cpp
 include $(topdir)/Makefile.incl

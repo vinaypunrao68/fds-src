@@ -2,9 +2,9 @@
  * Copyright 2015 by Formation Data Systems, Inc.
  */
 #include <arpa/inet.h>
+#include <stdexcept>
 #include <util/Log.h>
 #include <fds_assert.h>
-#include <fdsp/PlatNetSvc.h>
 #include <thrift/server/TThreadedServer.h>
 #include <thrift/transport/TBufferTransports.h>
 #include <thrift/protocol/TBinaryProtocol.h>
@@ -12,6 +12,7 @@
 #include <thrift/transport/TServerSocket.h>
 #include <net/SvcServer.h>
 #include <fds_error.h>
+#include "fdsp/common_constants.h"
 
 namespace fds {
 
@@ -32,15 +33,53 @@ static std::string getTransportKey(
     return ret.str();
 }
 
-SvcServer::SvcServer(int port, fpi::PlatNetSvcProcessorPtr processor)
+/**
+ * Can support multiplexing services using the same transport. 
+ */
+SvcServer::SvcServer(int port, std::unordered_map<std::string, boost::shared_ptr<at::TProcessor>>& processors,
+    CommonModuleProviderIf *moduleProvider)
 {
     port_ = port;
     boost::shared_ptr<tp::TProtocolFactory>  proto(new tp::TBinaryProtocolFactory());
     serverTransport_.reset(new tt::TServerSocket(port));
     boost::shared_ptr<tt::TTransportFactory> tfact(new tt::TFramedTransportFactory());
 
-    server_ = boost::shared_ptr<ts::TThreadedServer>(
-        new ts::TThreadedServer(processor, serverTransport_, tfact, proto));
+    /**
+     * FEATURE TOGGLE: enable multiplexed services
+     * Tue Feb 23 15:04:17 MST 2016
+     */
+    bool enableMultiplexedServices = false;
+    if (moduleProvider) {
+        // The module provider might not supply the base path we want,
+        // so make our own config access. This is libConfig data, not
+        // to be confused with FDS configuration (platform.conf).
+        FdsConfigAccessor configAccess(moduleProvider->get_fds_config(), "fds.feature_toggle.");
+        enableMultiplexedServices = configAccess.get<bool>("common.enable_multiplexed_services", false);
+    }
+    if (enableMultiplexedServices) {
+        // Runs a processor for each service or supported major service version.
+        // Please refer to:
+        //     https://formationds.atlassian.net/wiki/display/ENG/Thrift+API+Versions
+        processor_.reset(new ::apache::thrift::TMultiplexedProcessor());
+        for (auto& p : processors) {
+
+            if (!p.second) {
+                continue; // for safety, never expected
+            }
+            processor_->registerProcessor(p.first, p.second);
+        }
+        // Multiplexed server
+        server_ = boost::shared_ptr<ts::TThreadedServer>(
+            new ts::TThreadedServer(processor_, serverTransport_, tfact, proto));
+    } else {
+        if (processors.size() == 0 || (processors.size() == 1 && !processors.begin()->second)) {
+            LOGERROR << "Failed to create Thrift server. No processor.";
+            throw std::runtime_error("Failed to create Thrift server. No processor");
+        }
+        // Non-multiplexed server
+        server_ = boost::shared_ptr<ts::TThreadedServer>(
+            new ts::TThreadedServer(processors.begin()->second, serverTransport_, tfact, proto));
+    }
     stopped_ = true;
 }
 

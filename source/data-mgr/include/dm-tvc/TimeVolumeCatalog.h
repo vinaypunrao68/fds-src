@@ -4,22 +4,30 @@
 #ifndef SOURCE_DATA_MGR_INCLUDE_DM_TVC_TIMEVOLUMECATALOG_H_
 #define SOURCE_DATA_MGR_INCLUDE_DM_TVC_TIMEVOLUMECATALOG_H_
 
-#include <string>
-#include <vector>
+// Standard includes.
 #include <functional>
 #include <thread>
-#include <fds_error.h>
-#include <fds_module.h>
-#include <fds_config.hpp>
-#include <DmBlobTypes.h>
-#include <dm-tvc/CommitLog.h>
-#include <dm-vol-cat/DmVolumeCatalog.h>
-#include <util/Log.h>
-#include <util/timeutils.h>
-#include <concurrency/SynchronizedTaskExecutor.hpp>
+#include <string>
+#include <vector>
+
+// System includes.
+#include <gtest/gtest_prod.h>
+
+// Internal includes.
+#include "concurrency/SynchronizedTaskExecutor.hpp"
+#include "dm-tvc/CommitLog.h"
+#include "dm-vol-cat/DmVolumeCatalog.h"
+#include "util/Log.h"
+#include "util/timeutils.h"
+#include "DmBlobTypes.h"
+#include "fds_config.hpp"
+#include "fds_error.h"
+#include "fds_module.h"
 
 namespace fds {
 
+// Forward declarations.
+class DataMgr;
 struct DmVolumeAccessTable;
 
 /**
@@ -104,6 +112,7 @@ class DmTimeVolCatalog : public HasModuleProvider,
      */
     void notifyVolCatalogSync(BlobTxList::const_ptr sycndTxList);
 
+
   protected:
     void createCommitLog(const VolumeDesc& voldesc);
 
@@ -166,13 +175,6 @@ class DmTimeVolCatalog : public HasModuleProvider,
      * Create copy of the volume for snapshot/clone
      */
     Error copyVolume(VolumeDesc & voldesc,  fds_volid_t origSrcVolume = invalid_vol_id);
-
-    /**
-     * Increment object reference counts for all objects referred by source
-     * volume. Sends message to SM with list of object IDs.
-     */
-    void incrObjRefCount(fds_volid_t srcVolId, fds_volid_t destVolId, fds_token_id token,
-            boost::shared_ptr<std::vector<fpi::FDS_ObjectIdType> > objIds);
 
     /**
      * Prepare TVC and Volume Catalog to accept requests for

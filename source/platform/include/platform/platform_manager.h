@@ -106,8 +106,9 @@ namespace fds
                 void determineDiskCapability();
 
                 bool waitPid (pid_t pid, uint64_t waitTimeoutNanoSeconds, bool monitoring = false);
+                bool waitOrphanPid(pid_t const pid, std::string const &procName, uint64_t waitTimeoutNanoSeconds);
                 void startProcess (int id);
-                void stopProcess (int id);
+                void stopProcess (int id, bool force = false);
 
                 DiskMountMap                        diskMountMap;
 
@@ -144,6 +145,9 @@ namespace fds
                 std::string                         m_javaXdiMainClassName;
                 std::string                         m_javaXdiJavaCmd;              // path to java command
 
+                std::mutex                          m_killedProcessesMutex;
+                std::vector <pid_t>                 m_killedProcesses;             // pids of previously killed processes to harvest the exit codes
+
                 void loadRedisKeyId();
                 void childProcessMonitor();
                 void startQueueMonitor();
@@ -158,6 +162,12 @@ namespace fds
                 void verifyAndMountFDSFileSystems();
                 void loadEnvironmentVariables();
                 void notifyDiskMapChange();
+                void waitForKilledProcesses();
+                void stopService(fpi::FDSP_MgrIdType svc_type, bool force = false);
+                void startService(fpi::FDSP_MgrIdType svc_type);
+                void updateService (fpi::FDSP_MgrIdType svc_type, fpi::pmServiceStateTypeId state);
+                fpi::pmServiceStateTypeId getServiceState (fpi::FDSP_MgrIdType svc_type);
+
         };
     }  // namespace pm
 }  // namespace fds

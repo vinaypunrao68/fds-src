@@ -168,20 +168,21 @@ class VolumeDesc : public HasState {
     inline fpi::SvcUuid getCoordinatorId() const {
         return coordinator.id;
     }
-    inline int32_t getCoordinatorVersion() const {
+    inline int64_t getCoordinatorVersion() const {
         return coordinator.version;
     }
     inline void setCoordinatorId(fpi::SvcUuid id) {
         coordinator.id = id;
     }
-    inline void setCoordinatorVersion(int32_t version) {
+    inline void setCoordinatorVersion(int64_t version) {
         coordinator.version = version;
     }
     inline bool isCoordinatorSet() const {
         return coordinator.id.svc_uuid != 0;
     }
     void clearCoordinatorInfo();
-};
+
+};  // end VolumeDesc
 
 /**
  * Basic volume descriptor class

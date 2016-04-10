@@ -29,8 +29,8 @@ import com.formationds.security.AuthenticationToken;
 import com.formationds.security.Authorizer;
 import com.google.common.base.Preconditions;
 import org.apache.thrift.TException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -59,7 +59,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class FirebreakHelper extends QueryHelper {
     private static final Logger logger =
-            LoggerFactory.getLogger( FirebreakHelper.class );
+            LogManager.getLogger( FirebreakHelper.class );
 
 
     // zero is not a value last occurred time
@@ -770,7 +770,7 @@ public class FirebreakHelper extends QueryHelper {
         try {
             return Metrics.FIREBREAK.contains( Metrics.lookup( vdp.getKey() ) );
         } catch( UnsupportedMetricException e ) {
-            logger.debug( "Unsupported metric '" + vdp.getKey() + "' in VolumeDatapoint [" + vdp + "]. Ignoring." );
+//            logger.debug( "Unsupported metric '" + vdp.getKey() + "' in VolumeDatapoint [" + vdp + "]. Ignoring." );
             return false;
         }
     }

@@ -11,7 +11,7 @@
   <parent>
     <artifactId>formationds</artifactId>
     <groupId>com.formationds</groupId>
-    <version>2016.02.12-SNAPSHOT</version>
+    <version>2016.02.26-SNAPSHOT</version>
   </parent>
 
   <name>${formationds.commons.project.name} Project POM</name>

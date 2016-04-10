@@ -17,7 +17,12 @@ RequestHelper::~RequestHelper() {
         Error err = _dataManager.qosCtrl->enqueueIO(dmRequest->getVolId(), dmRequest);
         if (err != ERR_OK) {
             LOGWARN << "Unable to enqueue request for volid:" << dmRequest->getVolId();
-            dmRequest->cb(err, dmRequest);
+
+            if (dmRequest->cb) {
+                dmRequest->cb(err, dmRequest);
+            } else {
+                delete dmRequest;
+            }
         }
     }
 }
@@ -73,7 +78,11 @@ void Handler::addToQueue(DmRequest *dmRequest) {
                                                dmRequest);
     if (err != ERR_OK) {
         LOGWARN << "Unable to enqueue request for volid:" << dmRequest->getVolId();
-        dmRequest->cb(err, dmRequest);
+        if (dmRequest->cb) {
+            dmRequest->cb(err, dmRequest);
+        } else {
+            delete dmRequest;
+        }
     } else {
         LOGTRACE << "dmrequest " << dmRequest << " added to queue successfully";
     }
@@ -91,10 +100,24 @@ Error Handler::preEnqueueWriteOpHandling(const fds_volid_t &volId,
     auto volMeta = dataManager.getVolumeMeta(volId);
     if (volMeta == nullptr || volMeta->vol_desc == nullptr) {
         return ERR_VOL_NOT_FOUND;
+    } else if (dataManager.features.isVolumegroupingEnabled() &&
+               !volMeta->isReplayOp(hdr) &&
+               hdr->msg_src_uuid != volMeta->getCoordinatorId()) {
+        /* It's better if this check is done under qos context.  For now this
+         * should be ok.
+         */
+        LOGWARN << volMeta->logString() << " - coordinator mismatch"
+                << " cached:" << volMeta->getCoordinatorId()
+                << " from:" << hdr->msg_src_uuid;
+        return ERR_INVALID_COORDINATOR;
     }
     if (volMeta->isActive()) {
         return ERR_OK;
     } else if (volMeta->isSyncing()) {
+        /* When sync in progress we will receive active io as well as replay
+         * for buffered io here.  Active io will need to be buffered while
+         * replay is in progress, where as replay io will need to be applied
+         */
         if (!volMeta->isReplayOp(hdr))  {
             Error e = volMeta->initializer->tryAndBufferIo(
                 BufferReplay::Op{opId, hdr->msg_type_id, payload});

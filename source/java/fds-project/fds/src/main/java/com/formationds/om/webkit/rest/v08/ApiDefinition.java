@@ -68,8 +68,8 @@ import com.formationds.util.thrift.ConfigurationApi;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.WebApp;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import javax.crypto.SecretKey;
 
@@ -79,7 +79,7 @@ import javax.crypto.SecretKey;
 public class ApiDefinition extends AbstractApiDefinition{
 
     private static final Logger logger =
-        LoggerFactory.getLogger( ApiDefinition.class );
+        LogManager.getLogger( ApiDefinition.class );
 
     private static final String URL_PREFIX = "/fds/config/v08";
     
@@ -125,7 +125,7 @@ public class ApiDefinition extends AbstractApiDefinition{
 	
     	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/user", () -> new StatsUserAuth( this.authenticator, this.authorizer, this.secretKey ) );
     	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/vhost", () -> new StatsVhostAuth() );
-    	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/resources", () -> new StatsResourceAuth() );
+    	getWebApp().route( HttpMethod.GET, URL_PREFIX + "/stats/auth/resources", () -> new StatsResourceAuth( ) );
     	
     	fdsAdminOnly( HttpMethod.GET, URL_PREFIX + "/mb/:route", ( t ) -> new MessageBusForwarder() );
     	fdsAdminOnly( HttpMethod.POST, URL_PREFIX + "/mb/:route", ( t ) -> new MessageBusForwarder() );
@@ -396,7 +396,7 @@ public class ApiDefinition extends AbstractApiDefinition{
     	authenticate( HttpMethod.GET, URL_PREFIX + "/stats/streams", (token) -> new ListStreams() );
     	
     	// get volume activity statistics
-    	authenticate( HttpMethod.PUT, URL_PREFIX + "/stats/volumes", (token) -> new QueryMetrics( getAuthorizer(), token ) );
+    	authenticate( HttpMethod.PUT, URL_PREFIX + "/stats/volumes", (token) -> new QueryMetrics( getAuthorizer(), token, secretKey ) );
   
     	// get special firebreak statistics for a volume
     	authenticate( HttpMethod.PUT, URL_PREFIX + "/stats/volumes/firebreak", (token) -> new QueryFirebreak( getAuthorizer(), token ) );

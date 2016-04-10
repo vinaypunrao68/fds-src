@@ -1,16 +1,18 @@
 package com.formationds.nfs;
 
 import com.formationds.apis.ObjectOffset;
-import org.apache.log4j.Logger;
+import com.formationds.util.IoConsumer;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class MemoryIoOps implements IoOps {
-    private static final Logger LOG = Logger.getLogger(MemoryIoOps.class);
+    private static final Logger LOG = LogManager.getLogger(MemoryIoOps.class);
     private Map<ObjectKey, FdsObject> objectCache;
-    private Map<MetaKey, FdsMetadata> metadataCache;
+    private Map<MetaKey, Map<String, String>> metadataCache;
 
     public MemoryIoOps() {
         objectCache = new HashMap<>();
@@ -18,17 +20,17 @@ public class MemoryIoOps implements IoOps {
     }
 
     @Override
-    public Optional<FdsMetadata> readMetadata(String domain, String volumeName, String blobName) throws IOException {
-        FdsMetadata map = metadataCache.get(new MetaKey(domain, volumeName, blobName));
-        Optional<FdsMetadata> result = map == null ? Optional.empty() : Optional.of(map);
-        LOG.debug("MemoryIO.readMetadata, volume=" + volumeName + ", blobName=" + blobName + ", fieldCount=" + result.orElse(new FdsMetadata()).fieldCount());
+    public Optional<Map<String, String>> readMetadata(String domain, String volumeName, String blobName) throws IOException {
+        Map<String, String> map = metadataCache.get(new MetaKey(domain, volumeName, blobName));
+        Optional<Map<String, String>> result = map == null ? Optional.empty() : Optional.of(map);
+        LOG.debug("MemoryIO.readMetadata, volume=" + volumeName + ", blobName=" + blobName + ", fieldCount=" + result.orElse(new HashMap<>()).size());
         return result;
     }
 
     @Override
-    public void writeMetadata(String domain, String volumeName, String blobName, FdsMetadata metadata) throws IOException {
+    public void writeMetadata(String domain, String volumeName, String blobName, Map<String, String> metadata) throws IOException {
         metadataCache.put(new MetaKey(domain, volumeName, blobName), metadata);
-        LOG.debug("MemoryIO.writeMetadata, volume=" + volumeName + ", blobName=" + blobName + ", fieldCount=" + metadata.fieldCount());
+        LOG.debug("MemoryIO.writeMetadata, volume=" + volumeName + ", blobName=" + blobName + ", fieldCount=" + metadata.size());
     }
 
     @Override
@@ -63,7 +65,7 @@ public class MemoryIoOps implements IoOps {
     @Override
     public void renameBlob(String domain, String volumeName, String oldName, String newName) throws IOException {
         MetaKey oldMetaKey = new MetaKey(domain, volumeName, oldName);
-        FdsMetadata map = metadataCache.get(oldMetaKey);
+        Map<String, String> map = metadataCache.get(oldMetaKey);
         if (map != null) {
             metadataCache.remove(oldMetaKey);
             metadataCache.put(new MetaKey(domain, volumeName, newName), map);
@@ -97,6 +99,11 @@ public class MemoryIoOps implements IoOps {
     }
 
     @Override
+    public void commitAll(String domain, String volumeName) throws IOException {
+
+    }
+
+    @Override
     public void onVolumeDeletion(String domain, String volumeName) throws IOException {
         Iterator<MetaKey> metaKeys = metadataCache.keySet().iterator();
         while (metaKeys.hasNext()) {
@@ -113,6 +120,11 @@ public class MemoryIoOps implements IoOps {
                 objectCache.remove(next);
             }
         }
+    }
+
+    @Override
+    public void addCommitListener(IoConsumer<MetaKey> listener) {
+
     }
 
     @Override

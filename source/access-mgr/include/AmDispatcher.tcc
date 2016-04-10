@@ -9,6 +9,7 @@
 #include "TypeIdMap.h"
 #include "net/SvcMgr.h"
 #include "net/SvcRequestPool.h"
+#include "net/VolumeGroupHandle.h"
 #include "util/Log.h"
 
 namespace fds
@@ -196,7 +197,7 @@ AmDispatcher::writeToSM(ReqPtr request, MsgPtr payload, CbMeth cb_func, uint32_t
                                                       const Error& error,
                                                       shared_str payload) mutable -> void {
                                      (this->*(cb_func))(request, svc, error, payload); });
-    quorumReq->setQuorumCnt(std::min(num_nodes, 2ul));
+    quorumReq->setQuorumCnt((num_nodes / 3) + 1);
     setSerialization(request, quorumReq);
     PerfTracer::tracePointBegin(request->sm_perf_ctx);
     LOGTRACE << "Writing object: " << objId;
@@ -224,13 +225,18 @@ void AmDispatcher::volumeGroupRead(ReqPtr request, MsgPtr message, CbMeth cb_fun
         ReadGuard rg(volumegroup_lock);
         auto it = volumegroup_map.find(vol_id);
         if (volumegroup_map.end() != it) {
-            LOGTRACE << "Reading from volume: " << vol_id;
-            it->second->sendReadMsg(message_type_id(*message),
-                                    message,
-                                    [cb_func, request, this] (Error const& e, shared_str p) mutable -> void {
-                                        (this->*(cb_func))(request, e, p);
-                                    });
-            return;
+            ProtectedVGH::vgh_ptr vgh;
+            ProtectedVGH::uniq_lock lock;
+            std::tie(lock, vgh) = it->second.getVGH(message_timeout_io);
+            if (vgh) {
+                LOGTRACE << "Reading from volume: " << vol_id;
+                vgh->sendReadMsg(message_type_id(*message),
+                                 message,
+                                 [cb_func, request, this] (Error const& e, shared_str p) mutable -> void {
+                                     (this->*(cb_func))(request, e, p);
+                                 });
+                return;
+            }
         }
     }
     LOGERROR << "Unknown volume to AmDispatcher: " << vol_id;
@@ -258,13 +264,18 @@ void AmDispatcher::volumeGroupModify(ReqPtr request, MsgPtr message, CbMeth cb_f
         ReadGuard rg(volumegroup_lock);
         auto it = volumegroup_map.find(vol_id);
         if (volumegroup_map.end() != it) {
-            LOGTRACE << "Staging to volume: " << vol_id;
-            it->second->sendModifyMsg(message_type_id(*message),
-                                      message,
-                                      [cb_func, request, this] (Error const& e, shared_str p) mutable -> void {
-                                          (this->*(cb_func))(request, e, p);
-                                      });
-            return;
+            ProtectedVGH::vgh_ptr vgh;
+            ProtectedVGH::uniq_lock lock;
+            std::tie(lock, vgh) = it->second.getVGH(message_timeout_io);
+            if (vgh) {
+                LOGTRACE << "Staging to volume: " << vol_id;
+                vgh->sendModifyMsg(message_type_id(*message),
+                                   message,
+                                   [cb_func, request, this] (Error const& e, shared_str p) mutable -> void {
+                                       (this->*(cb_func))(request, e, p);
+                                   });
+                return;
+            }
         }
     }
     LOGERROR << "Unknown volume to AmDispatcher: " << vol_id;
@@ -282,31 +293,32 @@ void AmDispatcher::volumeGroupModify(ReqPtr request, MsgPtr message, CbMeth cb_f
  * @param [in] request  The AmRequest* needing dispatch
  * @param [in] message  The SvcLayer message for the request
  * @param [in] cb_func  A reference to an AmDispatcher method for the callback
- * @param [in] vol_lock The lock from the sequence dispatch table
  *
  * @retval void  No return value
  */
 template<typename CbMeth, typename MsgPtr, typename ReqPtr>
 void AmDispatcher::volumeGroupCommit(ReqPtr request,
                                      MsgPtr message,
-                                     CbMeth cb_func,
-                                     std::unique_lock<std::mutex>&& vol_lock) {
+                                     CbMeth cb_func) {
     auto const& vol_id = request->io_vol_id;
     {
         ReadGuard rg(volumegroup_lock);
         auto it = volumegroup_map.find(vol_id);
         if (volumegroup_map.end() != it) {
-            LOGTRACE << "Writing to volume: " << vol_id;
-            it->second->sendCommitMsg(message_type_id(*message),
-                                      message,
-                                      [cb_func, request, this] (Error const& e, shared_str p) mutable -> void {
-                                          (this->*(cb_func))(request, e, p);
-                                      });
-            return;
+            ProtectedVGH::vgh_ptr vgh;
+            ProtectedVGH::uniq_lock lock;
+            std::tie(lock, vgh) = it->second.getVGH(message_timeout_io);
+            if (vgh) {
+                LOGTRACE << "Writing to volume: " << vol_id;
+                vgh->sendCommitMsg(message_type_id(*message),
+                                   message,
+                                   [cb_func, request, this] (Error const& e, shared_str p) mutable -> void {
+                                       (this->*(cb_func))(request, e, p);
+                                       });
+                return;
+            }
         }
     }
-    // Don't block other IO during our callback
-    if (vol_lock) vol_lock.unlock();
     LOGERROR << "Unknown volume to AmDispatcher: " << vol_id;
     AmDataProvider::unknownTypeCb(request, ERR_VOLUME_ACCESS_DENIED);
 }

@@ -16,6 +16,7 @@
 #include "AccessMgr.h"
 #include "AmDataProvider.h"
 #include "AmRequest.h"
+#include "AmVolume.h"
 #include "AmVolumeTable.h"
 #include "net/SvcMgr.h"
 
@@ -51,6 +52,7 @@ class AmProcessor_impl : public AmDataProvider
     bool haveTables();
 
     void getVolumes(std::vector<VolumeDesc>& volumes);
+    VolumeDesc* getVolume(fds_volid_t const vol_uuid) const;
 
     bool isShuttingDown() const
     { std::lock_guard<std::mutex> lk(shut_down_lock); return shut_down; }
@@ -63,6 +65,8 @@ class AmProcessor_impl : public AmDataProvider
     void stop() override;
     void registerVolume(VolumeDesc const& volDesc) override;
     void removeVolume(VolumeDesc const& volDesc) override;
+
+    void flushVolume(AmRequest* req, std::string const& vol);
 
   protected:
     /**
@@ -156,6 +160,7 @@ AmProcessor_impl::start()
 void
 AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
     if (amReq->cb) {
+        bool should_log {false};
         fpi::ErrorCode code {fpi::OK};
         if (!error.ok()) {
             switch (error.GetErrno()) {
@@ -166,6 +171,7 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
                     break;;
                 case ERR_NOT_FOUND:
                     code = fpi::INTERNAL_SERVER_ERROR;
+                    should_log = true;
                     break;;
                 case ERR_BLOB_NOT_FOUND:
                 case ERR_BLOB_OFFSET_INVALID:
@@ -179,19 +185,28 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
                 case ERR_SVC_REQUEST_INVOCATION:
                 case ERR_VOLUME_ACCESS_DENIED:
                     code = fpi::SERVICE_NOT_READY;
+                    should_log = true;
                     break;;
                 case ERR_SVC_REQUEST_TIMEOUT:
                     code = fpi::TIMEOUT;
+                    should_log = true;
                     break;
                 default:
                     code = fpi::BAD_REQUEST;
                     break;;
             }
         }
-        LOGIO << amReq->io_type
-              << " on: [" << std::hex << amReq->getBlobName()
-              << "] had result: [" << error
-              << "] API code: [" << fpi::_ErrorCode_VALUES_TO_NAMES.at(code) << "]";
+        if (should_log) {
+            LOGERROR << "type:" << amReq->io_type
+                     << " blob:" << amReq->getBlobName()
+                     << " err:" << error
+                     << " code:" << fpi::_ErrorCode_VALUES_TO_NAMES.at(code);
+        } else {
+            LOGIO << "type:" << amReq->io_type
+                  << " blob:" << amReq->getBlobName()
+                  << " err:" << error
+                  << " code:" << fpi::_ErrorCode_VALUES_TO_NAMES.at(code);
+        }
         amReq->cb->call(code);
     }
     delete amReq;
@@ -203,7 +218,7 @@ AmProcessor_impl::respond(AmRequest *amReq, const Error& error) {
 void AmProcessor_impl::stop() {
     std::unique_lock<std::mutex> lk(shut_down_lock);
     if (!shut_down) {
-        LOGNOTIFY << "AmProcessor is shutting down.";
+        LOGNOTIFY << "shutting down AmProcessor";
         shut_down = true;
         AmDataProvider::stop();
     }
@@ -226,6 +241,21 @@ void AmProcessor_impl::removeVolume(const VolumeDesc& volDesc) {
     AmDataProvider::removeVolume(volDesc);
 }
 
+void AmProcessor_impl::flushVolume(AmRequest* req, std::string const& vol) {
+    parent_mod->volumeFlushed(req, vol);
+}
+
+VolumeDesc* AmProcessor_impl::getVolume(fds_volid_t const vol_uuid) const {
+    auto volTable = dynamic_cast<AmVolumeTable*>(_next_in_chain.get());
+    if (nullptr == volTable) {
+        return nullptr;
+    } else {
+        auto vol = volTable->getVolume(vol_uuid);
+        if (nullptr == vol) return nullptr;
+        else return vol->voldesc;
+    }
+}
+
 Error
 AmProcessor_impl::updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb) {
     std::lock_guard<std::mutex> lg(shut_down_lock);
@@ -235,7 +265,7 @@ AmProcessor_impl::updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::cal
     if (err.ok()) {
         have_tables.first = true;
     } else if (ERR_DUPLICATE == err) {
-        LOGWARN << "Received duplicate DLT version, ignoring";
+        LOGWARN << "duplicate DLT version, ignoring";
         err = ERR_OK;
     }
     return err;
@@ -250,7 +280,7 @@ AmProcessor_impl::updateDmt(bool dmt_type, std::string& dmt_data, FDS_Table::cal
     if (err.ok()) {
         have_tables.second = true;
     } else if (ERR_DUPLICATE == err) {
-        LOGWARN << "Received duplicate DMT version, ignoring";
+        LOGWARN << "duplicate DMT version, ignoring";
         err = ERR_OK;
     }
     return err;
@@ -322,7 +352,7 @@ Error AmProcessor::modifyVolumePolicy(const VolumeDesc& vdesc)
 {
     auto err = _impl->modifyVolumePolicy(vdesc);
     if (ERR_VOL_NOT_FOUND == err) {
-        _impl->registerVolume(vdesc);
+        err = ERR_OK;
     }
     return err;
 }
@@ -337,6 +367,12 @@ void AmProcessor::registerVolume(const VolumeDesc& volDesc)
 
 void AmProcessor::removeVolume(const VolumeDesc& volDesc)
 { return _impl->removeVolume(volDesc); }
+
+void AmProcessor::flushVolume(AmRequest* req, std::string const& vol)
+{ return _impl->flushVolume(req, vol); }
+
+VolumeDesc* AmProcessor::getVolume(fds_volid_t const vol_uuid) const
+{ return _impl->getVolume(vol_uuid); }
 
 Error AmProcessor::updateDlt(bool dlt_type, std::string& dlt_data, FDS_Table::callback_type const& cb)
 { return _impl->updateDlt(dlt_type, dlt_data, cb); }

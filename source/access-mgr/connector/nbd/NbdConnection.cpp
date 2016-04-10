@@ -112,13 +112,19 @@ NbdConnection::NbdConnection(NbdConnector* server,
     asyncWatcher->set<NbdConnection, &NbdConnection::wakeupCb>(this);
     asyncWatcher->start();
 
-    LOGNORMAL << "New NBD client connection for " << clientSocket;
+    LOGNORMAL << "socket:" << clientSocket << " new NBD client";
 }
 
 NbdConnection::~NbdConnection() {
-    LOGNORMAL << "NBD client disconnected for " << clientSocket;
+    LOGNORMAL << "socket:" << clientSocket << " NBD client disconnected";
     shutdown(clientSocket, SHUT_RDWR);
     close(clientSocket);
+}
+
+void
+NbdConnection::startShutdown() {
+    state_ = ConnectionState::DRAINING;
+    asyncWatcher->send();
 }
 
 void
@@ -169,7 +175,7 @@ NbdConnection::write_response() {
     if (to_write != nwritten) {
         if (nwritten < 0) {
             if (EAGAIN != errno) {
-                LOGERROR << "Socket write error: [" << strerror(errno) << "]";
+                LOGERROR << "socket write error:" << strerror(errno);
                 throw BlockError::connection_closed;
             }
         } else {
@@ -236,7 +242,7 @@ bool NbdConnection::option_request(ev::io &watcher) {
     // In case volume name is not NULL terminated.
     auto volumeName = boost::make_shared<std::string>(attach.data.begin(),
                                                  attach.data.begin() + attach.header.length);
-    LOGNORMAL << "Attaching volume name " << *volumeName;
+    LOGNORMAL << "vol:" << *volumeName << " attaching";
     if (standalone_mode) {
         object_size = 4 * Ki;
         volume_size = 1 * Gi;
@@ -294,9 +300,9 @@ bool NbdConnection::io_request(ev::io &watcher) {
         request.header.length = ntohl(request.header.length);
 
         if (max_block_size < request.header.length) {
-            LOGWARN << "Client used a block size, "
-                    << request.header.length << "B, "
-                    << "larger than the supported " << max_block_size << "B.";
+            LOGWARN << "blocksize:" << request.header.length
+                    << " maxblocksize:" << max_block_size
+                    << " client used larger blocksize than supported";
             throw BlockError::shutdown_requested;
         }
 
@@ -313,10 +319,10 @@ bool NbdConnection::io_request(ev::io &watcher) {
     request.header_off = 0;
     request.data_off = -1;
 
-    LOGIO << " op " << io_to_string[request.header.opType]
-          << " handle 0x" << std::hex << request.header.handle
-          << " offset 0x" << request.header.offset
-          << " length 0x" << request.header.length << std::dec;
+    LOGIO << "op:" << io_to_string[request.header.opType]
+          << " handle:" << request.header.handle
+          << " offset:" << request.header.offset
+          << " length:" << request.header.length;
 
     Error err = dispatchOp();
     request.data.reset();
@@ -356,14 +362,14 @@ NbdConnection::io_reply(ev::io &watcher) {
         if (fpi::OK != current_response->getError()) {
             err = current_response->getError();
             response[1].iov_base = to_iovec(&error_bad);
-            LOGERROR << "Returning error: " << err;
+            LOGERROR << "returning error:" << err;
         } else if (current_response->isRead()) {
             fds_uint32_t context = 0;
             boost::shared_ptr<std::string> buf = current_response->getNextReadBuffer(context);
             while (buf != NULL) {
-                LOGDEBUG << "Handle 0x" << std::hex << current_response->handle
-                         << "...Size 0x" << buf->length() << "B"
-                         << "...Buffer # " << std::dec << context;
+                LOGDEBUG << "handle:" << current_response->handle
+                         << " size:" << buf->length()
+                         << " buffer:" << context;
                 response[total_blocks].iov_base = to_iovec(buf->c_str());
                 response[total_blocks].iov_len = buf->length();
                 ++total_blocks;
@@ -410,7 +416,7 @@ NbdConnection::dispatchOp() {
         case NBD_CMD_FLUSH:
             break;
         case NBD_CMD_DISC:
-            LOGNORMAL << "Got a disconnect";
+            LOGNORMAL << "got disconnect";
         default:
             throw BlockError::shutdown_requested;
             break;
@@ -447,7 +453,7 @@ NbdConnection::wakeupCb(ev::async &watcher, int revents) {
 void
 NbdConnection::ioEvent(ev::io &watcher, int revents) {
     if (processing_ || (EV_ERROR & revents)) {
-        LOGERROR << "Got invalid libev event";
+        LOGERROR << "invalid libev event";
         return;
     }
 
@@ -472,7 +478,7 @@ NbdConnection::ioEvent(ev::io &watcher, int revents) {
                     { continue; }
                 break;
             default:
-                LOGDEBUG << "Asked to read in state: "
+                LOGDEBUG << "asked to read in state:"
                          << state_to_string[static_cast<uint32_t>(nbd_state)];
                 // We could have read and writes waiting and are not in the
                 // correct state to handle more requests...yet
@@ -490,7 +496,7 @@ NbdConnection::ioEvent(ev::io &watcher, int revents) {
             case NbdProtoState::SENDOPTS:
                 if (option_reply(watcher)) {
                     nbd_state = NbdProtoState::DOREQS;
-                    LOGDEBUG << "Done with NBD handshake";
+                    LOGDEBUG << "done with NBD handshake";
                 }
                 break;
             case NbdProtoState::DOREQS:
@@ -532,8 +538,9 @@ void
 NbdConnection::attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) {
     if (volDesc) {
         // capacity is in MB
-        LOGNORMAL << "Attached to volume with capacity: " << volDesc->capacity
-                  << "MiB and object size: " << volDesc->maxObjSizeInBytes << "B";
+        LOGNORMAL << "capacity:" << volDesc->capacity
+                  << " objsize:" << volDesc->maxObjSizeInBytes
+                  << " attached to volume";
         object_size = volDesc->maxObjSizeInBytes;
         volume_size = __builtin_bswap64(volDesc->capacity * Mi);
     }
@@ -575,17 +582,17 @@ bool nbd_read(int fd, D& data, ssize_t& off, ssize_t const len)
     if (0 > nread) {
         switch (0 > nread ? errno : EPIPE) {
             case EAGAIN:
-                LOGTRACE << "Payload not there.";
+                LOGTRACE << "payload not there";
                 return false; // We were optimistic the payload was ready.
             case EPIPE:
-                LOGNOTIFY << "Client disconnected";
+                LOGNOTIFY << "client disconnected";
             default:
-                LOGERROR << "Socket read error: [" << strerror(errno) << "]";
+                LOGERROR << "socket read error:" << strerror(errno);
                 throw BlockError::shutdown_requested;
         }
     } else if (0 == nread) {
         // Orderly shutdown of the TCP connection
-        LOGNORMAL << "Client disconnected.";
+        LOGNORMAL << "client disconnected";
         throw BlockError::connection_closed;
     } else if (nread < len) {
         // Only received some of the data so far

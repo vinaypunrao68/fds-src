@@ -1,9 +1,9 @@
 package com.formationds.nfs;
 
-import com.formationds.xdi.AsyncAm;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Sets;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.dcache.acl.ACE;
 import org.dcache.auth.GidPrincipal;
 import org.dcache.auth.UidPrincipal;
@@ -15,7 +15,6 @@ import org.dcache.nfs.v4.NfsIdMapping;
 import org.dcache.nfs.v4.SimpleIdMap;
 import org.dcache.nfs.v4.xdr.nfsace4;
 import org.dcache.nfs.vfs.*;
-import org.joda.time.Duration;
 
 import javax.security.auth.Subject;
 import java.io.IOException;
@@ -25,7 +24,7 @@ import java.util.List;
 import java.util.Optional;
 
 public class XdiVfs implements VirtualFileSystem, AclCheckable {
-    private static final Logger LOG = Logger.getLogger(XdiVfs.class);
+    private static final Logger LOG = LogManager.getLogger(XdiVfs.class);
     private InodeMap inodeMap;
     private PersistentCounter allocator;
     private InodeIndex inodeIndex;
@@ -33,29 +32,23 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
     private SimpleIdMap idMap;
     private Chunker chunker;
     private final Counters counters;
+    private StripedLock dirLock;
 
     public static final String DOMAIN = "nfs";
     public static final long MIN_FILE_ID = 256;
     public static final String FILE_ID_WELL = "file-id-well";
 
-    public XdiVfs(AsyncAm asyncAm, ExportResolver resolver, Counters counters, boolean deferMetadataWrites, int amRetryAttempts, Duration amRetryInterval) {
-        IoOps ops = new RecoveryHandler(new AmOps(asyncAm, counters), amRetryAttempts, amRetryInterval);
-        if (deferMetadataWrites) {
-            DeferredIoOps deferredOps = new DeferredIoOps(ops, counters);
-            ops = deferredOps;
-            resolver.addVolumeDeleteEventHandler(v -> deferredOps.onVolumeDeletion(DOMAIN, v));
-            ((DeferredIoOps) ops).start();
-            allocator = new PersistentCounter(ops, DOMAIN, FILE_ID_WELL, MIN_FILE_ID);
-            deferredOps.addCommitListener(key -> allocator.accept(key));
-        } else {
-            allocator = new PersistentCounter(ops, DOMAIN, FILE_ID_WELL, MIN_FILE_ID);
-        }
+    public XdiVfs(ExportResolver resolver, Counters counters, IoOps ops) {
+        resolver.addVolumeDeleteEventHandler(v -> ops.onVolumeDeletion(DOMAIN, v));
+        allocator = new PersistentCounter(ops, DOMAIN, FILE_ID_WELL, MIN_FILE_ID);
+        ops.addCommitListener(key -> allocator.accept(key));
         inodeMap = new InodeMap(ops, resolver);
         this.exportResolver = resolver;
         inodeIndex = new SimpleInodeIndex(ops, resolver);
         idMap = new SimpleIdMap();
         chunker = new Chunker(ops);
         this.counters = counters;
+        dirLock = new StripedLock();
     }
 
     @Override
@@ -136,7 +129,7 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
                 throw new NoEntException();
             }
 
-            int exportId = (int) exportResolver.exportId(volumeName);
+            int exportId = (int) exportResolver.nfsExportId(volumeName);
             Subject nobodyUser = new Subject(
                     true,
                     Sets.newHashSet(
@@ -275,7 +268,8 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
         String volumeName = exportResolver.volumeName(inode.exportIndex());
         String blobName = InodeMap.blobName(inode);
         try {
-            int read = chunker.read(DOMAIN, volumeName, blobName, exportResolver.objectSize(volumeName), data, offset, count);
+            long fileSize = target.get().getSize();
+            int read = chunker.read(DOMAIN, volumeName, blobName, fileSize, exportResolver.objectSize(volumeName), data, offset, count);
             counters.increment(Counters.Key.bytesRead, read);
             return read;
         } catch (Exception e) {
@@ -298,34 +292,37 @@ public class XdiVfs implements VirtualFileSystem, AclCheckable {
 
     @Override
     public void remove(Inode parentInode, String path) throws IOException {
-        counters.increment(Counters.Key.remove);
-        Optional<InodeMetadata> parent = inodeMap.stat(parentInode);
-        if (!parent.isPresent()) {
-            throw new NoEntException();
-        }
+        dirLock.lock(parentInode, () -> {
+            counters.increment(Counters.Key.remove);
+            Optional<InodeMetadata> parent = inodeMap.stat(parentInode);
+            if (!parent.isPresent()) {
+                throw new NoEntException();
+            }
 
-        Optional<InodeMetadata> link = inodeIndex.lookup(parentInode, path);
-        if (!link.isPresent()) {
-            throw new NoEntException();
-        }
+            Optional<InodeMetadata> link = inodeIndex.lookup(parentInode, path);
+            if (!link.isPresent()) {
+                throw new NoEntException();
+            }
 
-        InodeMetadata updatedParent = parent.get().withUpdatedTimestamps();
+            InodeMetadata updatedParent = parent.get().withUpdatedTimestamps();
 
-        InodeMetadata updatedLink = link.get()
-                .withoutLink(inodeMap.fileId(parentInode), path);
+            InodeMetadata updatedLink = link.get()
+                    .withoutLink(inodeMap.fileId(parentInode), path);
 
 
-        inodeIndex.unlink(parentInode.exportIndex(), parent.get().getFileId(), path);
-        if (updatedLink.refCount() == 0) {
-            inodeMap.remove(updatedLink.asInode(parentInode.exportIndex()));
-            inodeIndex.remove(parentInode.exportIndex(), updatedLink);
-        } else {
-            inodeMap.update(parentInode.exportIndex(), updatedLink);
-            inodeIndex.index(parentInode.exportIndex(), true, updatedLink);
-        }
+            inodeIndex.unlink(parentInode.exportIndex(), parent.get().getFileId(), path);
+            if (updatedLink.refCount() == 0) {
+                inodeMap.remove(updatedLink.asInode(parentInode.exportIndex()));
+                inodeIndex.remove(parentInode.exportIndex(), updatedLink);
+            } else {
+                inodeMap.update(parentInode.exportIndex(), updatedLink);
+                inodeIndex.index(parentInode.exportIndex(), true, updatedLink);
+            }
 
-        inodeMap.update(parentInode.exportIndex(), updatedParent);
-        inodeIndex.index(parentInode.exportIndex(), true, updatedParent);
+            inodeMap.update(parentInode.exportIndex(), updatedParent);
+            inodeIndex.index(parentInode.exportIndex(), true, updatedParent);
+            return null;
+        });
     }
 
     @Override

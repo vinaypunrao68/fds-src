@@ -10,6 +10,7 @@
 #include <fds_process.h>
 #include <net/SvcMgr.h>
 #include <net/SvcProcess.h>
+#include "fdsp/common_constants.h"
 #include <fdsp_utils.h>
 #include <net/filetransferservice.h>
 
@@ -480,7 +481,24 @@ FakeSvc::FakeSvc(FakeSvcDomain *domain,
     /* Set up service layer */
     auto handler = boost::make_shared<PlatNetSvcHandler>(this);
     auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
-    setupSvcMgr_(handler, processor);
+
+    /**
+     * Note on Thrift service compatibility:
+     *
+     * For service that extends PlatNetSvc, add the processor twice using
+     * Thrift service name as the key and again using 'PlatNetSvc' as the
+     * key. Only ONE major API version is supported for PlatNetSvc.
+     *
+     * All other services:
+     * Add Thrift service name and a processor for each major API version
+     * supported.
+     */
+    TProcessorMap processors;
+    processors.insert(std::make_pair<std::string,
+        boost::shared_ptr<apache::thrift::TProcessor>>(
+            fpi::commonConstants().PLATNET_SERVICE_NAME, processor));
+
+    setupSvcMgr_(handler, processors);
     filetransfer = SHPTR<net::FileTransferService>(new net::FileTransferService(std::string("/tmp/ft-") + std::to_string(platformUuid),
                                                                                 getSvcMgr() ));
 }
@@ -511,6 +529,11 @@ FakeOm::FakeOm(FakeSvcDomain *domain, const std::string &configFile)
     auto handler = boost::make_shared<PlatNetSvcHandler>(this);
     auto processor = boost::make_shared<fpi::PlatNetSvcProcessor>(handler);
 
+    TProcessorMap processors;
+    processors.insert(std::make_pair<std::string,
+        boost::shared_ptr<apache::thrift::TProcessor>>(
+            fpi::commonConstants().PLATNET_SERVICE_NAME, processor));
+
     args_.push_back("om");
     args_.push_back("--fds.om.threadpool.num_threads=2");
 
@@ -522,7 +545,7 @@ FakeOm::FakeOm(FakeSvcDomain *domain, const std::string &configFile)
          "",
          nullptr,
          handler,
-         processor);
+         processors);
 
     domain->omSvcUuid = getSvcMgr()->getSelfSvcUuid();
     domain->omPort = getSvcMgr()->getSvcPort();

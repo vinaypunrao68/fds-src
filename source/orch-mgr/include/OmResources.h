@@ -22,7 +22,7 @@
 #include <fds_dmt.h>
 #include <kvstore/configdb.h>
 #include <concurrency/RwLock.h>
-#include <DltDmtUtil.h>
+#include <OmExtUtilApi.h>
 #include <fds_timer.h>
 
 namespace FDS_ProtocolInterface {
@@ -247,11 +247,15 @@ class OM_PmAgent : public OM_NodeAgent
      * Send 'add service' message to Platform
      */
     Error send_add_service(const fpi::SvcUuid svc_uuid, std::vector<fpi::SvcInfo> svcInfos);
+    void  send_add_service_resp ( fpi::SvcUuid pmSvcUuid,
+                                  EPSvcRequest* req,
+                                  const Error& error,
+                                  boost::shared_ptr<std::string> payload );
     /**
      * Send 'start service' message to Platform
      */
     Error send_start_service(const fpi::SvcUuid svc_uuid, std::vector<fpi::SvcInfo> svcInfos,
-                             bool domainRestart, bool startNode);
+                             bool domainRestart, bool startNode, bool force = false);
 
     void send_start_service_resp(fpi::SvcUuid pmSvcUuid, fpi::SvcChangeInfoList changeList);
     /**
@@ -365,6 +369,11 @@ class OM_PmAgent : public OM_NodeAgent
 
   private:
     fds_mutex               dbNodeInfoLock;
+    // Used to block add service requests from returning
+    // until PM response has been received
+    bool                    respReceived;
+    std::mutex              addRespMutex;
+    std::condition_variable respRecCondition;
 };
 
 // -------------------------------------------------------------------------------------
@@ -406,6 +415,9 @@ class OM_AgentContainer : public AgentContainer
     void om_splice_nodes_pend(NodeList *addNodes,
                               NodeList *rmNodes,
                               const NodeUuidSet& filter_nodes);
+
+    int32_t om_nodes_up();
+    int32_t om_nodes_down();
 
   protected:
     NodeList                                 node_up_pend;
@@ -647,9 +659,6 @@ class OM_NodeContainer : public DomainContainer
     virtual fds_uint32_t om_bcast_shutdown_msg(fpi::FDSP_MgrIdType svc_type);
     virtual fds_uint32_t om_bcast_dm_migration_abort(fds_uint64_t cur_dmt_version);
 
-    // Clears all volumes' coordinator info from every volume descriptor
-    void clearVolumesCoordinatorInfo();
-
     /**
      * Sends scavenger command (e.g. enable, disable, start, stop) to SMs
      */
@@ -687,7 +696,8 @@ class OM_NodeContainer : public DomainContainer
     virtual Error om_start_service(const fpi::SvcUuid& svc_uuid,
                                    std::vector<fpi::SvcInfo> svcInfos,
                                    bool domainRestart,
-                                   bool startNode);
+                                   bool startNode,
+                                   bool force = false);
 
     virtual Error om_stop_service(const fpi::SvcUuid& svc_uuid,
                                   std::vector<fpi::SvcInfo> svcInfos,
@@ -987,7 +997,7 @@ class OM_NodeDomainMod : public Module
      * Changes the state of a service and broadcasts its service map
      */
     virtual void
-    om_change_svc_state_and_bcast_svcmap(boost::shared_ptr<fpi::SvcInfo> svcInfo,
+    om_change_svc_state_and_bcast_svcmap(fpi::SvcInfo svcInfo,
                                          fpi::FDSP_MgrIdType svcType,
                                          const fpi::ServiceStatus status);
     

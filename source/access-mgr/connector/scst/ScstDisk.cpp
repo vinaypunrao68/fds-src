@@ -58,6 +58,7 @@ ScstDisk::ScstDisk(VolumeDesc const& vol_desc,
                    ScstTarget* target,
                    std::shared_ptr<AmProcessor> processor)
         : ScstDevice(vol_desc, target, processor),
+          scstOps(boost::make_shared<BlockOperations>(this)),
           logical_block_size(512ul)
 {
     {
@@ -92,6 +93,28 @@ void ScstDisk::setupModePages(size_t const lba_size, size_t const pba_size, size
     mode_handler->addModePage(recovery_page);
 }
 
+void ScstDisk::execSessionCmd() {
+    auto attaching = (SCST_USER_ATTACH_SESS == cmd.subcode) ? true : false;
+    auto& sess = cmd.sess;
+    LOGNOTIFY << "type:" << (attaching ? "attach" : "detach")
+              << " handle:" << sess.sess_h
+              << " initiator:" << sess.initiator_name
+              << " target:" << sess.target_name;
+
+    try {
+    if (attaching) {
+        auto volName = boost::make_shared<std::string>(getName());
+        scstOps->init(volName, amProcessor, nullptr, physical_block_size);
+    } else {
+        scstOps->detachVolume();
+    }
+    } catch (BlockError const e) {
+        throw ScstError::scst_error;
+    }
+    fast_reply.result = 0;
+    fastReply(); // Setup the reply for the next ioctl
+}
+
 void ScstDisk::execDeviceCmd(ScstTask* task) {
     auto& scsi_cmd = cmd.exec_cmd;
     auto& op_code = scsi_cmd.cdb[0];
@@ -112,7 +135,7 @@ void ScstDisk::execDeviceCmd(ScstTask* task) {
     switch (op_code) {
     case FORMAT_UNIT:
         {
-            LOGTRACE << "Format Unit received.";
+            LOGTRACE << "format unit received";
             bool fmtpinfo = (0x00 != (scsi_cmd.cdb[1] & 0x80));
             bool fmtdata = (0x00 != (scsi_cmd.cdb[1] & 0x10));
 
@@ -137,12 +160,12 @@ void ScstDisk::execDeviceCmd(ScstTask* task) {
                 fua = (0x00 != (scsi_cmd.cdb[1] & 0x08));
             }
 
-            LOGIO << "Read received for "
-                  << "LBA[0x" << std::hex << scsi_cmd.lba
-                  << "] Length[0x" << scsi_cmd.bufflen
-                  << "] FUA[" << fua
-                  << "] PR[0x" << (uint32_t)rdprotect
-                  << "] Handle[0x" << cmd.cmd_h << "]";
+            LOGIO << "iotype:read"
+                  << " lba:" << scsi_cmd.lba
+                  << " length:" << scsi_cmd.bufflen
+                  << " fua:" << fua
+                  << " pr:" << (uint32_t)rdprotect
+                  << " handle:" << cmd.cmd_h;
 
             // We do not support rdprotect data
             if (0x00 != rdprotect) {
@@ -152,23 +175,27 @@ void ScstDisk::execDeviceCmd(ScstTask* task) {
 
             uint64_t offset = scsi_cmd.lba * logical_block_size;
             task->setRead(offset, scsi_cmd.bufflen);
+            try {
             scstOps->read(task);
+            } catch (BlockError const e) {
+                throw ScstError::scst_error;
+            }
             return;
         }
         break;
     case READ_CAPACITY:     // READ_CAPACITY(10)
     case READ_CAPACITY_16:
         {
-            LOGTRACE << "Read Capacity received.";
-            uint64_t num_blocks = volume_size / logical_block_size;
+            LOGTRACE << "iotype:readcapacity";
+            uint64_t last_lba = (volume_size / logical_block_size) - 1;
             uint32_t blocks_per_object = physical_block_size / logical_block_size;
 
             if (READ_CAPACITY == op_code && 8 >= buflen) {
-                *reinterpret_cast<uint32_t*>(&buffer[0]) = htobe32(std::min(num_blocks, (uint64_t)UINT_MAX));
+                *reinterpret_cast<uint32_t*>(&buffer[0]) = htobe32(std::min(last_lba, (uint64_t)UINT_MAX));
                 *reinterpret_cast<uint32_t*>(&buffer[4]) = htobe32(logical_block_size);
                 task->setResponseLength(8);
             } else if (32 >= buflen) {
-                *reinterpret_cast<uint64_t*>(&buffer[0]) = htobe64(num_blocks);
+                *reinterpret_cast<uint64_t*>(&buffer[0]) = htobe64(last_lba);
                 *reinterpret_cast<uint32_t*>(&buffer[8]) = htobe32(logical_block_size);
                 // Number of logic blocks per object as a power of 2
                 buffer[13] = (uint8_t)__builtin_ctz(blocks_per_object) & 0xFF;
@@ -191,12 +218,12 @@ void ScstDisk::execDeviceCmd(ScstTask* task) {
                 fua = (0x00 != (scsi_cmd.cdb[1] & 0x08));
             }
 
-            LOGIO << "Write received for "
-                  << "LBA[0x" << std::hex << scsi_cmd.lba
-                  << "] Length[0x" << scsi_cmd.bufflen
-                  << "] FUA[" << fua
-                  << "] PR[0x" << (uint32_t)wrprotect
-                  << "] Handle[0x" << cmd.cmd_h << "]";
+            LOGIO << "iotype:write"
+                  << " lba:" << scsi_cmd.lba
+                  << " length:" << scsi_cmd.bufflen
+                  << " fua:" << fua
+                  << " pr:" << (uint32_t)wrprotect
+                  << " handle:" << cmd.cmd_h;
 
             // We do not support wrprotect data
             if (0x00 != wrprotect) {
@@ -208,15 +235,18 @@ void ScstDisk::execDeviceCmd(ScstTask* task) {
             task->setWrite(offset, scsi_cmd.bufflen);
             // Right now our API expects the data in a boost shared_ptr :(
             auto write_buffer = boost::make_shared<std::string>((char*) buffer, buflen);
+            try {
             scstOps->write(write_buffer, task);
+            } catch (BlockError const e) {
+                throw ScstError::scst_error;
+            }
             return;
         }
         break;
     default:
-        LOGNOTIFY << "Unsupported SCSI command received " << std::hex
-            << "OPCode [0x" << (uint32_t)(op_code)
-            << "] CDB length [" << std::dec << scsi_cmd.cdb_len
-            << "]";
+        LOGDEBUG << "iotype:unsupported"
+                 << "opcode:" << (uint32_t)(op_code)
+                 << "cdblength:" << scsi_cmd.cdb_len;
         task->checkCondition(SCST_LOAD_SENSE(scst_sense_invalid_opcode));
         break;
     }
@@ -224,15 +254,55 @@ void ScstDisk::execDeviceCmd(ScstTask* task) {
     readyResponses.push(task);
 }
 
+void ScstDisk::attachResp(boost::shared_ptr<VolumeDesc> const& volDesc) {
+    if (volDesc) {
+        LOGNORMAL << "vol:" << volDesc->name << " attached";
+    }
+}
+
+void ScstDisk::respondTask(BlockTask* response) {
+    auto scst_response = static_cast<ScstTask*>(response);
+    if (scst_response->isRead() || scst_response->isWrite()) {
+        respondDeviceTask(scst_response);
+    } else if (fpi::OK != scst_response->getError()) {
+        scst_response->setResult(scst_response->getError());
+    }
+
+    // add to queue
+    readyResponses.push(scst_response);
+
+    // We have something to write, so poke the loop
+    devicePoke();
+}
+
+void ScstDisk::terminate() {
+    devicePoke(ConnectionState::STOPPED);
+}
+
 void
 ScstDisk::respondDeviceTask(ScstTask* task) {
     auto const& err = task->getError();
     if (fpi::OK != err) {
         if (task->isRead() && fpi::INTERNAL_SERVER_ERROR == err) {
+            LOGCRITICAL << "iotype:read"
+                        << " handle:" << task->getHandle()
+                        << " offset:" << task->getOffset()
+                        << " length:" << task->getLength()
+                        << " had critical failure.";
             task->checkCondition(SCST_LOAD_SENSE(scst_sense_read_error));
         } else if (task->isWrite() && fpi::MISSING_RESOURCE == err) {
+            LOGCRITICAL << "iotype:write"
+                        << " handle:" << task->getHandle()
+                        << " offset:" << task->getOffset()
+                        << " length:" << task->getLength()
+                        << " had critical failure.";
             task->checkCondition(SCST_LOAD_SENSE(scst_sense_write_error));
         } else {
+            LOGIO << "iotype:" << (task->isRead() ? "read" : "write")
+                  << " handle:" << task->getHandle()
+                  << " offset:" << task->getOffset()
+                  << " length:" << task->getLength()
+                  << " had retriable failure.";
             task->checkCondition(SCST_LOAD_SENSE(scst_sense_rebuild_in_progress));
         }
     } else if (task->isRead()) {
@@ -248,5 +318,12 @@ ScstDisk::respondDeviceTask(ScstTask* task) {
     }
 }
 
+void ScstDisk::startShutdown() {
+    scstOps->shutdown(); // We are shutting down
+}
+
+void ScstDisk::stopped() {
+    scstOps.reset();
+}
 
 }  // namespace fds

@@ -14,8 +14,8 @@
 #include "fdsp/common_types.h"
 #include "net/SvcMgr.h"
 #include "concurrency/RwLock.h"
-#include "omutils.h"
 #include "kvstore/configdb.h"
+#include "OmIntUtilApi.h"
 
 namespace fds
 {

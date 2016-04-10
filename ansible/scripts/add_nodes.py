@@ -9,6 +9,7 @@ from fdscli.model.platform.service import Service
 def addNodes(args):
 
     authSession = FdsAuth(args.config)
+    authSession.refresh()
     print authSession
 
     node_service = NodeService(authSession)

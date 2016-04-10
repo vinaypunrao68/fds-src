@@ -2,9 +2,11 @@ package com.formationds.spike.later;
 
 import com.formationds.spike.later.pathtemplate.RouteResult;
 import com.formationds.spike.later.pathtemplate.RoutingMap;
+import com.formationds.util.async.AsyncSemaphore;
 import com.formationds.web.toolkit.FourOhFour;
 import com.formationds.web.toolkit.HttpsConfiguration;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.eclipse.jetty.server.*;
 import org.eclipse.jetty.server.handler.HandlerCollection;
 import org.eclipse.jetty.servlet.ServletContextHandler;
@@ -26,18 +28,26 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
 
 public class AsyncWebapp extends HttpServlet {
-    private static final Logger LOG = Logger.getLogger(AsyncWebapp.class);
+    private static final Logger LOG = LogManager.getLogger(AsyncWebapp.class);
 
     private com.formationds.web.toolkit.HttpConfiguration httpConfiguration;
     private HttpsConfiguration httpsConfiguration;
     private RoutingMap<Function<HttpContext, CompletableFuture<Void>>> routingMap;
     private Server server;
+    private AsyncSemaphore semaphore;
 
 
     public AsyncWebapp(com.formationds.web.toolkit.HttpConfiguration httpConfiguration, HttpsConfiguration httpsConfiguration) {
         this.httpConfiguration = httpConfiguration;
         this.httpsConfiguration = httpsConfiguration;
         routingMap = new RoutingMap<>();
+    }
+
+    public AsyncWebapp(com.formationds.web.toolkit.HttpConfiguration httpConfiguration, HttpsConfiguration httpsConfiguration, int maxConcurrentRequests) {
+        this(httpConfiguration, httpsConfiguration);
+        if(maxConcurrentRequests < 1)
+            throw new IllegalArgumentException("maxConcurrentRequests is cannot be less than zero");
+        semaphore = new AsyncSemaphore(maxConcurrentRequests);
     }
 
     public void route(HttpPath httpPath, Function<HttpContext, CompletableFuture<Void>> handler) {
@@ -80,6 +90,8 @@ public class AsyncWebapp extends HttpServlet {
             server.addConnector(sslConnector);
         }
 
+
+
         // Each handler in a handler collection is called regardless of whether or not
         // a particular handler completes the request.  This is in contrast to a ContextHandlerCollection,
         // which will stop trying additional handlers once one indicates it has handled the request.
@@ -89,6 +101,7 @@ public class AsyncWebapp extends HttpServlet {
         contextHandler.setContextPath("/");
         contextHandler.addServlet(new ServletHolder(this), "/");
         handlers.addHandler(contextHandler);
+
         server.setHandler(handlers);
 
         try {
@@ -124,9 +137,14 @@ public class AsyncWebapp extends HttpServlet {
             Function<HttpContext, CompletableFuture<Void>> handler = matchResult.getResult();
             response.addHeader("Access-Control-Allow-Origin", "*");
             response.addHeader("Server", "Formation");
-            CompletableFuture<Void> cf = handler.apply(context.withRouteParameters(matchResult.getRouteParameters()));
-            cf.exceptionally(ex -> handleError(ex, context));
-            cf.whenComplete((_x, _z) -> asyncContext.complete());
+            CompletableFuture<Void> requestHandledFuture;
+            if(semaphore != null)
+                requestHandledFuture = semaphore.execute(() -> handler.apply(context.withRouteParameters(matchResult.getRouteParameters())));
+            else
+                requestHandledFuture = handler.apply(context.withRouteParameters(matchResult.getRouteParameters()));
+
+            requestHandledFuture.exceptionally(ex -> handleError(ex, context));
+            requestHandledFuture.whenComplete((_x, _z) -> asyncContext.complete());
             return;
         }
 
