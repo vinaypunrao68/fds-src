@@ -139,7 +139,7 @@ class TestISCSIDiscoverVolume(ISCSIFixture):
 
         if initiator_ip:
             # Specify connection info
-            assert connect_fabric(self, initiator_ip) is True
+            assert connect_fabric(initiator_ip) is True
 
         # Uses CLI to identify an AM node. Targets are presented on AM node.
         am_ip = self.getAMEndpoint(om_node)
@@ -252,7 +252,7 @@ class TestISCSIFioSeqW(ISCSIFixture):
 
         if initiator_ip:
             # Specify connection info
-            assert connect_fabric(self, initiator_ip) is True
+            assert connect_fabric(initiator_ip) is True
 
 # This one produced a failure! TODO: debug with Brian S...
 # Also, consider parameterizing this test case to provide the fio options below...
@@ -405,7 +405,7 @@ class TestISCSIAttachVolume(ISCSIFixture):
 
         if initiator_ip:
             # Specify connection info
-            assert connect_fabric(self, initiator_ip) is True
+            assert connect_fabric(initiator_ip) is True
 
         status = True
 
@@ -529,7 +529,7 @@ class TestISCSIMakeFilesystem(ISCSIFixture):
 
         if initiator_ip:
             # Specify connection info
-            assert connect_fabric(self, initiator_ip) is True
+            assert connect_fabric(initiator_ip) is True
 
         status = True
 
@@ -690,7 +690,7 @@ class TestISCSIUnitReady(ISCSIFixture):
             #  based C code
 
             # Specify connection info
-            assert connect_fabric(self, initiator_ip) is True
+            assert connect_fabric(initiator_ip) is True
             cmd = "sg_turs {0}".format(self.sg_device)
             result = run(cmd)
             disconnect_fabric()
@@ -766,7 +766,7 @@ class TestISCSIDetachVolume(ISCSIFixture):
 
         if initiator_ip:
             # Specify connection info
-            assert connect_fabric(self, initiator_ip) is True
+            assert connect_fabric(initiator_ip) is True
 
         status = True
         path = '/mnt/{0}'.format(self.volume_name)
@@ -872,7 +872,7 @@ class TestStandardInquiry(ISCSIFixture):
         try:
             if initiator_ip:
                 # Specify connection info
-                assert connect_fabric(self, initiator_ip) is True
+                assert connect_fabric(initiator_ip) is True
                 result = run(cmd)
             else:
                 result = local(cmd)
