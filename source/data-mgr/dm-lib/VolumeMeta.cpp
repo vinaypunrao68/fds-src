@@ -549,15 +549,22 @@ Error VolumeMeta::initState() {
     sequence_id_t seqId;
     auto volId = vol_desc->volUUID;
 
-    LOGNORMAL << "vol:" << volId << " calculating seqid";
-    err = dataManager->timeVolCat_->queryIface()->getVolumeSequenceId(volId, seqId);
-    LOGNORMAL << "vol:" << volId << " seqid:" << seqId << " calculating seqid";
-
+    /* Stat the volume as part of initializing so that we don't notice timeouts in
+     * the IO path
+     */
+    fds_uint64_t size = 0;
+    fds_uint64_t blobs = 0;
+    fds_uint64_t objects = 0;
+    LOGNORMAL << "vol:" << volId << " stating volume logical";
+    err = dataManager->timeVolCat_->queryIface()->statVolumeLogical(volId,
+                                                                    &size,
+                                                                    &blobs,
+                                                                    &objects,
+                                                                    &seqId);
     if (!err.ok()) {
-        LOGERROR << "vol:" << volId << " failed to caculate sequence id error:" << err;
+        LOGERROR << "vol:" << volId << " failed to stat volume error:" << err;
         return err;
     }
-
     setSequenceId(seqId);
     LOGNORMAL << logString() << " - sequence id read and set";
 

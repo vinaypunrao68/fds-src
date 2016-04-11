@@ -254,7 +254,8 @@ void DataMgr::sampleDMStatsForVol(fds_volid_t volume_id,
     err = timeVolCat_->queryIface()->statVolumeLogical(volume_id,
                                                        &total_lbytes,
                                                        &total_blobs,
-                                                       &total_lobjects);
+                                                       &total_lobjects,
+                                                       nullptr);
     if (!err.ok()) {
         if (err.GetErrno() != ERR_VOL_NOT_FOUND) {
             LOGERROR << "Failed to get logical usage for vol " << volume_id << " " << err;
@@ -712,6 +713,13 @@ Error DataMgr::addVolume(const std::string& vol_name,
 
     if (vdesc->isSnapshot()) {
         volmeta->dmVolQueue.reset(qosCtrl->getQueue(vdesc->qosQueueId));
+    } else if (fActivated) {
+        // latest seq_number is provided to AM on volume open.
+        Error err1;
+        err1 = volmeta->initState();
+        if (!err1.ok()) {
+            LOGERROR << " volume state init failed .. ignoring err:" << err1;
+        }
     }
 
     bool needReg = false;
@@ -770,15 +778,6 @@ Error DataMgr::addVolume(const std::string& vol_name,
 
     if (vdesc->isSnapshot()) {
         return err;
-    }
-
-    // latest seq_number is provided to AM on volume open.
-    if (fActivated) {
-        Error err1;
-        err1 = volmeta->initState();
-        if (!err1.ok()) {
-            LOGERROR << " volume state init failed .. ignoring err:" << err1;
-        }
     }
 
     if (err.ok() && amIPrimary(vol_uuid)) {
