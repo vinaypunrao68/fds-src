@@ -21,6 +21,7 @@
             if (functionalReplicas_.size() == 0) { \
                 LOGWARN << logString() << fds::logString(*msg) << " invalid volumegroup"; \
                 cb(ERR_VOLUMEGROUP_INVALID, nullptr); \
+                return; \
             } else if (isWrite || state_ != fpi::ResourceState::Offline) { \
                 LOGWARN << logString() << fds::logString(*msg) << " unavailable"; \
                 cb(ERR_VOLUMEGROUP_DOWN, nullptr); \
