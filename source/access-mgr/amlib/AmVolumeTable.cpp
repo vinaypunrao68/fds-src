@@ -60,46 +60,32 @@ class WaitQueue : public AmDataProvider {
     Error delay(AmRequest*);
     bool empty() const;
  private:
-    template<typename Cb>
-    void remove_if(std::string const& vol_name, Cb&& cb);
+    void remove_if(std::string const& vol_name, volume_queue_type& replays);
 };
 
-template<typename Cb>
-void WaitQueue::remove_if(std::string const& vol_name, Cb&& cb) {
+void WaitQueue::remove_if(std::string const& vol_name, volume_queue_type& replays) {
     std::lock_guard<std::mutex> l(wait_lock);
     auto wait_it = queue.find(vol_name);
     if (queue.end() != wait_it) {
-        auto& vol_queue = wait_it->second;
-        auto new_end = std::remove_if(vol_queue.begin(),
-                                      vol_queue.end(),
-                                      std::forward<Cb>(cb));
-        vol_queue.erase(new_end, vol_queue.end());
-        if (wait_it->second.empty()) {
-            queue.erase(wait_it);
-        }
+        replays.swap(wait_it->second);
+        queue.erase(wait_it);
     }
 }
 
 void WaitQueue::resume_if(std::string const& vol_name) {
-    remove_if(vol_name,
-              [this, vol_name] (AmRequest* req) mutable -> bool {
-                  if (vol_name == req->volume_name) {
-                      AmDataProvider::unknownTypeResume(req);
-                      return true;
-                  }
-                  return false;
-              });
+    volume_queue_type replays;
+    remove_if(vol_name, replays);
+    for (auto request : replays) {
+        AmDataProvider::unknownTypeResume(request);
+    }
 }
 
 void WaitQueue::cancel_if(std::string const& vol_name, Error const error) {
-    remove_if(vol_name,
-              [this, vol_name, error] (AmRequest* req) mutable -> bool {
-                  if (vol_name == req->volume_name) {
-                      _next_in_chain->unknownTypeCb(req, error);
-                      return true;
-                  }
-                  return false;
-              });
+    volume_queue_type replays;
+    remove_if(vol_name, replays);
+    for (auto request : replays) {
+        _next_in_chain->unknownTypeCb(request, error);
+    }
 }
 
 Error WaitQueue::delay(AmRequest* amReq) {
@@ -214,7 +200,7 @@ AmVolumeTable::registerVolume(VolumeDesc const& volDesc)
         volume_map[vol_uuid] = std::move(new_vol);
 
         LOGNOTIFY << "vol:" << volDesc.name
-                  << " volid:" << std::hex << vol_uuid << std::dec
+                  << " volid:" << vol_uuid
                   << " policy:" << volDesc.volPolicyId
                   << " iops_throttle:" << volDesc.iops_throttle
                   << " iops_assured:" << volDesc.iops_assured
@@ -463,8 +449,9 @@ AmVolumeTable::statVolumeCb(AmRequest* amReq, Error const error) {
         auto volReq = static_cast<StatVolumeReq *>(amReq);
         cb->current_usage_bytes = volReq->size;
         cb->blob_count = volReq->blob_count;
+        AmDataProvider::statVolumeCb(amReq, error);
     }
-    AmDataProvider::statVolumeCb(amReq, error);
+    checkFailureResponse(amReq, error);
 }
 
 void
@@ -545,33 +532,18 @@ AmVolumeTable::getVolume(const std::string& vol_name) const {
     return nullptr;
 }
 
-void
-AmVolumeTable::setVolumeMetadataCb(AmRequest * amReq, Error const error) {
-    checkFailureResponse(amReq, error);
-}
-
-void
-AmVolumeTable::commitBlobTxCb(AmRequest * amReq, Error const error) {
-    checkFailureResponse(amReq, error);
-}
-
-void
-AmVolumeTable::renameBlobCb(AmRequest * amReq, Error const error) {
-    checkFailureResponse(amReq, error);
-}
-
-void
-AmVolumeTable::putBlobOnceCb(AmRequest * amReq, Error const error) {
-    checkFailureResponse(amReq, error);
-}
-
+/***
+ * We check the error code for Volume state changes, we may need to re-open
+ * the volume in some cases in order to re-establish an IO path; e.g. switchover
+ * or multi-DM failures have occurred and a resync need to happen.
+ */
 void
 AmVolumeTable::checkFailureResponse(AmRequest * amReq, Error const error) {
     if (ERR_INVALID_COORDINATOR == error) {
         WriteGuard wg(map_rwlock);
-        LOGDEBUG << "vol:" << amReq->volume_name << " closing due to invalid coordinator";
         auto vol = getVolume(amReq->io_vol_id);
         if (nullptr != vol && vol->isWritable()) {
+            LOGNORMAL << "vol:" << amReq->volume_name << " closing due to:" << error;
             auto volReq = new DetachVolumeReq(amReq->io_vol_id, amReq->volume_name, nullptr);
             volReq->token = vol->clearToken();
             continueRequest(volReq, vol, &AmDataProvider::closeVolume);

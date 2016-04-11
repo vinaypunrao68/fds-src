@@ -8,6 +8,7 @@
 #include <ObjMeta.h>
 #include <HybridTierCtrlr.h>
 #include <concurrency/Mutex.h>
+#include <StorMgr.h>
 
 namespace fds {
 
@@ -79,6 +80,7 @@ void HybridTierCtrlr::start(bool manual)
         }
         /* Schedule in the next 1 second */
         nextScheduleInSecs = 1;
+        scheduleNextRun_(nextScheduleInSecs);
     } else {
         /* First time starting hybrid tier */
         if (HTC_STOPPED == state_) {
@@ -144,6 +146,12 @@ void HybridTierCtrlr::moveToNextToken()
         GLOGNOTIFY << "Completed processing all tokens. Scheduling hybrid tier work again";
         /* Completed moving objects.  Schedule the next relocation task */
         tokenSet_.clear();
+
+        /* Begin compaction on ssd since migration is now moved to hdd*/
+        LOGNOTIFY << "Starting GC process after hybrid tiering data movement";
+        ObjectStorMgr* storMgr = dynamic_cast<ObjectStorMgr*>(storMgr_);
+        storMgr->startRefscanOnDMs();
+
         scheduleNextRun_(FREQUENCY);
     }
 }

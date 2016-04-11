@@ -355,21 +355,25 @@ def get_config(pyUnit=False, pyUnitConfig=None, pyUnitVerbose=False, pyUnitDryru
     else:
         setattr(options, "sudo_password", "dummy")
 
+    # Set a global variable inventory_file, so no need to pass for each method.
+    global __inventory_file__
+    __inventory_file__ = "generic-lxc-nodes"
     if "inventory_file" in params:
         if params["inventory_file"] is None:
             if pyUnitInventory is None:
                 params["inventory_file"] = "generic-lxc-nodes"
             else:
                 params["inventory_file"] = pyUnitInventory
+                __inventory_file__ = pyUnitInventory
         setattr(options, "inventory_file", params["inventory_file"])
+        inventory_file = params["inventory_file"]
     else:
         setattr(options, "inventory_file", "generic-lxc-nodes")
-
-    global run_as_root
-    if params["run_as_root"] == True:
-        run_as_root = True
+    global __run_as_root__
+    if params["run_as_root"]:
+        __run_as_root__ = True
     else:
-        run_as_root = False
+        __run_as_root__ = False
 
     # FDS: We must have an FDS config file specified in the qaautotest .ini file for the suite.
     if params["fds_config_file"] is None:
@@ -450,19 +454,15 @@ def create_fdsConf_file(om_ip):
     file.close()
 
 
-def get_inventory_value(inventory_file, key_name, log):
+def get_inventory_value(key_name):
     '''
-    Parse the given Ansible inventory file given as argument to this
-    function, and find a value for the given key
+    Parse the  Ansible inventory file from global variable '__inventory_file__' to this
+    function, and find a value for the given key.
 
     Arguments:
     ----------
-    inventory_file : str
-        The name of the Ansible inventory file to be parsed
     key_name : str
         A key that may or may not exist in the inventory file
-    log : 
-        A logger
 
     Returns:
     --------
@@ -471,17 +471,17 @@ def get_inventory_value(inventory_file, key_name, log):
     '''
     result = None
     if not key_name:
-        log.error("Missing required argument")
+        print ("Missing required argument")
         raise Exception
     if not isinstance(key_name, str):
-        log.error("Invalid argument")
+        print("Invalid argument")
         raise Exception
-    inventory_path = os.path.join(TESTSUITES_INVENTORY, inventory_file)
+    inventory_path = os.path.join(TESTSUITES_INVENTORY, __inventory_file__)
     if not os.path.isfile(inventory_path):
         # Fall back to default inventory location
-        inventory_path = os.path.join(DEFAULT_INVENTORY, inventory_file)
+        inventory_path = os.path.join(DEFAULT_INVENTORY, __inventory_file__)
         if not os.path.isfile(inventory_path):
-            log.error('Inventory file {0} not found'.format(inventory_path))
+            print ('Inventory file {0} not found'.format(inventory_path))
             raise Exception
 
     with open(inventory_path, 'r') as f:
@@ -534,6 +534,8 @@ def getAuth(self, om_ip):
             continue
 
 
+# This method returns an array of IP addresses from /tmp/<inventory_file_name>+'_ips.txt' file
+# Ansible deploy dumps IP addresses after deployment in /tmp dir with name ' __inventory_file__ + '_ips.txt'
 def read_ips_from_tmp(inventory_file_name):
     filepath = '/tmp/' + inventory_file_name + '_ips.txt'
     f = open(filepath, "r")
@@ -579,11 +581,11 @@ def deploy_on_AWS(self, number_of_nodes, inventory_file):
 # @param returns 0 as success if cores are found on passed node_ip
 def core_hunter_aws(self,node_ip):
     core_dir = '/fds/var/log/corefiles'
-    connect_fabric(self, node_ip)
+    connect_fabric(node_ip)
     if exists(core_dir, use_sudo=True):
         for dir in {'/fds/var/log/corefiles'}:
             with cd(dir):
-                files = run('ls').split()
+                files = run('ls', quiet=True).split()
                 for file in files:
                     if fnmatch.fnmatch(file, "*.core") or fnmatch.fnmatch(file, "*.hprof") or fnmatch.fnmatch(file,
                                                                                                               "*hs_err_pid*.log"):
@@ -606,7 +608,7 @@ def get_resource(self, resource):
     return resourceDir + resource
 
 
-def connect_fabric(self, node_ip):
+def connect_fabric(node_ip):
     """Specify connection info at runtime
 
     Fabric is a library of subroutines to make executing shell commands over SSH
@@ -614,12 +616,11 @@ def connect_fabric(self, node_ip):
 
     Parameters
     ----------
-    self : obj
     node_ip : str
     """
     # 'env' is a global dictionary-like object driving many of Fabric's settings.
-    env.user = get_inventory_value(self.parameters['inventory_file'], 'fds_ssh_user', self.log)
-    env.password = get_inventory_value(self.parameters['inventory_file'], 'fds_ssh_password', self.log)
+    env.user = get_inventory_value('fds_ssh_user')
+    env.password = get_inventory_value('fds_ssh_password')
     # 'host_string' defines the current user/host/port which Fabric will connect
     # to when executing run, put, and so forth.
     env.host_string = node_ip
@@ -633,10 +634,10 @@ def connect_fabric(self, node_ip):
             time.sleep(20)
             continue
         else:
-            sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip)
+            sudo("echo '127.0.0.1 %s' >> /etc/hosts" % internal_ip, quiet=True)
             return True
 
-    self.log.error('Node %s unreachable after 10 mins retry time' % node_ip)
+    print('Node %s unreachable after 10 mins retry time' % node_ip)
     return False
 
 
@@ -644,9 +645,39 @@ def disconnect_fabric():
     fabric.network.disconnect_all()
 
 
+def execute_command_with_fabric(cmd, use_sudo=False, remote_env=None, node_ip=None):
+    """
+    Args:
+        cmd: str : command to run using fabric
+        use_sudo: boolean : if command should needs to be run as sudo or not
+        remote_env: boolean : If False or None use fabric to run local commands else remote nodes
+        node_ip: str : Use this ip address to connect remote machine
+
+    Returns:
+    --------
+    op : Output of command ran using fabric
+    """
+    if remote_env:
+        if node_ip is None:
+            print "Can not connect to remote node without IP address"
+            raise Exception
+        connect_fabric(node_ip)
+        if use_sudo:
+            op = sudo(cmd, quiet=True)
+        else:
+            op = run(cmd, quiet=True)
+    else:
+        if use_sudo:
+            cmd = "sudo "+cmd
+        with hide('output', 'running'):
+            op = local(cmd, capture=True)
+    disconnect_fabric()
+    return op
+
+
 # This method returns occurrences of 'log_entry' in `service*.log` on node `node_ip`
 def read_remote_log(self, node_ip, service, log_entry):
-    assert connect_fabric(self, node_ip) is True
+    assert connect_fabric(node_ip) is True
     with cd('/fds/var/logs'):
         files = run('ls').split()
     log_files = [item for item in files if item.startswith(service + '.log')]
@@ -773,7 +804,7 @@ def check_catalogs_local(self):
 # @param node_ip as ip of node to connect fabric and look for catalogs.
 def check_catalogs_remote(self, node_ip):
     path_a = '/fds/sys-repo/dm-names/'
-    connect_fabric(self, node_ip)
+    connect_fabric(node_ip)
     if not exists(path_a, use_sudo=True):
         self.log.warn('{0} path does not exists')
         return True

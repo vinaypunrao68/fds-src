@@ -66,7 +66,7 @@ class FdsNodeConfig(FdsConfig):
             if (cmd_line_options['install'] is None or cmd_line_options['install'] == False) and ((hostName == 'localhost') or (ipad == '127.0.0.1') or (ipad == '127.0.1.1')):
                 self.nd_local = True
 
-            elif cmd_line_options['install']== True: #it's definately remote env as command line argument was passed
+            elif cmd_line_options['install']: #it's definately remote env as command line argument was passed
                 # With a remote installation we will assume a package install using Ansible.
                 self.nd_local = False
 
@@ -75,9 +75,9 @@ class FdsNodeConfig(FdsConfig):
                     sys.exit(1)
 
                 ips_array = TestUtils.read_ips_from_tmp(cmd_line_options['inventory_file'])
-                if (ips_array.__len__() < (nodeId+1)):
+                if ips_array.__len__() < (nodeId+1):
                     # In this IPs count mismatch, we ignore extra IPs in cfg file
-                    log.warning ("Number of ips give in inventory are less than nodes in cfg file")
+                    log.warning("Number of ips give in inventory are less than nodes in cfg file")
 
                 else:
                     self.nd_conf_dict['ip'] = ips_array[nodeId]

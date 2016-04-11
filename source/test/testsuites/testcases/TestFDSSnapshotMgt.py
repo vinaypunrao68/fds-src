@@ -16,15 +16,9 @@ from fdslib.TestUtils import get_volume_service
 from fdscli.model.volume.snapshot import Snapshot
 from fdscli.model.fds_error import FdsError
 from fdslib.TestUtils import create_fdsConf_file
+from fdslib.TestUtils import execute_command_with_fabric
 import datetime
-from fabric.contrib.files import *
-from fdslib.TestUtils import connect_fabric
-from fdslib.TestUtils import disconnect_fabric
 import unittest
-
-from fabric.api import local
-from fdslib.TestUtils import verify_disk_free
-
 
 # This class contains the attributes and methods to test
 # create snapshot
@@ -195,9 +189,7 @@ class TestCreateVolClone(TestCase.FDSTestCase):
         create_fdsConf_file(om_node.nd_conf_dict['ip'])
         cmd = 'fds volume clone -name {0} -volume_id {1} -time {2}'.format(self.passedClone_name, passed_volume.id,
                                                                            timeline)
-        with hide('output', 'running'):
-            status = local(cmd, capture=True)
-            disconnect_fabric()
+        op = execute_command_with_fabric(cmd)
         time.sleep(3)  # let clone volume creation propogate
         cloned_volume = vol_service.find_volume_by_name(self.passedClone_name)
 
@@ -318,17 +310,14 @@ class TestTimeline(TestCase.FDSTestCase):
 # @param node_ip: ip address of the node. If node_ip is passed then return date on that node
 # else date on local machine
 def get_date_from_node(self, node_ip=None):
+    cmd = "date +\"%Y-%m-%d %H:%M:%S\""
     if node_ip is None:
-        with hide('output', 'running'):
-            string_date = local("date +\"%Y-%m-%d %H:%M:%S\"", capture=True)
-            current_time = datetime.datetime.strptime(string_date, "%Y-%m-%d %H:%M:%S")
-            disconnect_fabric()
-            return current_time
-    else:
-        connect_fabric(self, node_ip)
-        string_date = run("date +\"%Y-%m-%d %H:%M:%S\"", quiet=True)
+        string_date = execute_command_with_fabric(cmd)
         current_time = datetime.datetime.strptime(string_date, "%Y-%m-%d %H:%M:%S")
-        disconnect_fabric()
+        return current_time
+    else:
+        string_date = execute_command_with_fabric(cmd,remote_env=True, node_ip=node_ip)
+        current_time = datetime.datetime.strptime(string_date, "%Y-%m-%d %H:%M:%S")
         return current_time
 
 
@@ -338,23 +327,16 @@ def get_date_from_node(self, node_ip=None):
 def change_date(self, number_of_days, nodes=None):
     if nodes is None:  # all nodes running on same machine
         new_date = get_date_from_node(self) + datetime.timedelta(days=number_of_days)
-        cmd = "sudo date --set=\"{0}\"  && date --rfc-3339=ns".format(new_date)
-        with hide('output', 'running'):
-            op = local(cmd, capture=False)
+        cmd = "date --set=\"{0}\"  && date --rfc-3339=ns".format(new_date)
+        op = execute_command_with_fabric(cmd, use_sudo=True)
         self.log.info("Changed date on local node :{0}".format(get_date_from_node(self)))
-        disconnect_fabric()
-
-
     else:
         for node in nodes:
-            connect_fabric(self, node.nd_host)
             new_date = str(get_date_from_node(self, node.nd_host) + datetime.timedelta(days=number_of_days))
-
             # set the date on remote node using below command
             cmd = "date --set=\"{0}\"  && date --rfc-3339=ns".format(new_date)
-            op = sudo(cmd, quiet=True)
+            op = execute_command_with_fabric(cmd, use_sudo=True,remote_env=True, node_ip=node.nd_host)
             self.log.info("Changed date on node {0} :{1}".format(node.nd_host, get_date_from_node(self, node.nd_host)))
-            disconnect_fabric()
     return True
 
 
@@ -365,18 +347,13 @@ def change_date(self, number_of_days, nodes=None):
 def sync_time_with_ntp(self, nodes=None):
     cmd = "ntpdate ntp.ubuntu.com"
     if nodes is None:
-        with hide('output', 'running'):
-            local("sudo " + cmd, capture=True)
-            self.log.info("Sync time using ntp on local machine. Now date is {0}".format(get_date_from_node(self)))
-            disconnect_fabric()
-
+        execute_command_with_fabric(cmd,use_sudo=True)
+        self.log.info("Sync time using ntp on local machine. Now date is {0}".format(get_date_from_node(self)))
     else:
         for node in nodes:
-            connect_fabric(self, node.nd_host)
-            op = sudo(cmd, quiet=True)
+            execute_command_with_fabric(cmd, use_sudo=True, remote_env=True, node_ip=node.nd_host)
             self.log.info("Sync time using ntp on AWS node {0}. Now date is {1}".
                           format(node.nd_host,get_date_from_node(self, node.nd_host)))
-            disconnect_fabric()
     return True
 
 

@@ -144,6 +144,7 @@ namespace fds {
     ADD(ERR_SM_NOERR_PRISTINE_STATE, ,"  "), \
     ADD(ERR_SM_GC_ENABLED, ,"  "), \
     ADD(ERR_SM_GC_TEMP_DISABLED, ,"  "), \
+    ADD(ERR_SM_GC_STOPPED, ," "), \
     ADD(ERR_SM_AUTO_GC_FAILED, ,"  "), \
     ADD(ERR_SM_DUP_OBJECT_CORRUPT, ,"  "), \
     ADD(ERR_SM_SHUTTING_DOWN, ,"  "), \

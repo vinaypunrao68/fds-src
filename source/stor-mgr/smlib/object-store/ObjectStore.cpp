@@ -1122,9 +1122,10 @@ Error ObjectStore::updateLocationFromFlashToDisk(const ObjectID& objId,
         return ERR_SM_TIER_WRITEBACK_NOT_DONE;
     }
 
-    /* Remove flash as the phsycal location */
+    /* Remove flash as the physical location */
     ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
-    updatedMeta->removePhyLocation(diskio::DataTier::flashTier);
+    // Actual cleanup will happen during GC cycle.
+    updatedMeta->removePhysReferenceOnly(diskio::DataTier::flashTier);
     fds_assert(updatedMeta->onTier(diskio::DataTier::diskTier) == true);
     fds_assert(updatedMeta->onTier(diskio::DataTier::flashTier) == false);
 
@@ -1927,7 +1928,7 @@ ObjectStore::removeObjectSet(const fds_volid_t &volId) {
 }
 
 /**
- * Check all the objects beloging to a given SM token
+ * Check all the objects belonging to a given SM token
  * for delete object criteria and let Scavenger know of it.
  *
  *
@@ -1961,12 +1962,33 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
     std::function<void (const ObjectID&)> checkAndModifyMeta =
             [this, &objectSets, &ts, &tokStats, &smToken, &tier] (const ObjectID& oid) {
         ++tokStats.tkn_tot_size;
+        Error err(ERR_OK);
         ObjSetIter iter = objectSets.begin();
+
         for (iter; iter != objectSets.end(); ++iter) {
             if (iter->lookup(oid)) {
-                LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid
-                         << " found in object set(s) ";
-                break;
+                if (this->tokenLockFn) {
+                    LOGDEBUG << "Token : "<< smToken << " Object : " << oid
+                             << " found in object set(s)";
+
+                    ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(invalid_vol_id, oid, err);
+                    if (!objMeta || !err.ok()) {
+                        return;
+                    }
+
+                    // If the object is valid on the bloom filter but not on this tier - delete the data
+                    // MAKE SURE THE DATA IS ON ANOTHER VALID TIER BEFORE OFFERING FOR REMOVAL
+                    if (objMeta->onlyPhysReferenceRemoved(tier) &&
+                        objMeta->dataPhysicallyExists()) {
+                        // Remove from tier
+                        ObjMetaData::ptr updatedMeta(new ObjMetaData(objMeta));
+                        updatedMeta->updateTimestamp();
+                        updatedMeta->removePhyLocation(tier);
+                        ++tokStats.tkn_reclaim_size;
+                        metaStore->putObjectMetadata(invalid_vol_id, oid, updatedMeta);
+                    }
+                    break;
+                }
             }
         }
         if (iter == objectSets.end()) {
@@ -1974,16 +1996,22 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                 LOGDEBUG << "SM Token : "<< smToken << " Object : " << oid
                          << " not found in object set(s) ";
                 auto tokenLock = this->tokenLockFn(oid, true);
-                Error err(ERR_OK);
-                ObjMetaData::const_ptr objMeta =
-                        metaStore->getObjectMetadata(invalid_vol_id, oid, err);
-
                 /**
                  * TODO(Gurpreet) Error propogation from here to TC.
                  * And in case of error here, TC should fail compaction for this
                  * token.
                  */
-                if (!objMeta || !err.ok() || !objMeta->onTier(tier)) {
+                ObjMetaData::const_ptr objMeta = metaStore->getObjectMetadata(invalid_vol_id, oid, err);
+                if (!objMeta || !err.ok()) {
+                    return;
+                }
+
+                /**
+                 * Even if the object is not valid on this tier, make sure the data does on
+                 * physically exists on this tier. If data exists on the tier storage, we
+                 * need to remove it from this tier.
+                 */
+                if (!objMeta->onTier(tier) && !objMeta->onlyPhysReferenceRemoved(tier)) {
                     return;
                 }
 

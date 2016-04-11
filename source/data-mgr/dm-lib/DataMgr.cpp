@@ -416,12 +416,23 @@ const VolumeDesc* DataMgr::getVolumeDesc(fds_volid_t volId) const {
             iter->second->vol_desc : nullptr);
 }
 
-void DataMgr::getActiveVolumes(std::vector<fds_volid_t>& vecVolIds) {
+void DataMgr::getActiveVolumes(std::vector<fds_volid_t>& vecVolIds) const {
     vecVolIds.reserve(vol_meta_map.size());
     for (const auto& iter : vol_meta_map) {
         if (!iter.second) continue;
         const VolumeDesc* vdesc = iter.second->vol_desc;
         if (vdesc->isStateActive() && !vdesc->isSnapshot()) {
+            vecVolIds.push_back(vdesc->volUUID);
+        }
+    }
+}
+
+void DataMgr::getAllVolumes(std::vector<fds_volid_t>& vecVolIds) const {
+    vecVolIds.reserve(vol_meta_map.size());
+    for (const auto& iter : vol_meta_map) {
+        if (!iter.second) continue;
+        const VolumeDesc* vdesc = iter.second->vol_desc;
+        if (!vdesc->isSnapshot()) {
             vecVolIds.push_back(vdesc->volUUID);
         }
     }
@@ -2014,11 +2025,12 @@ DataMgr::dmQosCtrl::dmQosCtrl(DataMgr *_parent,
                               fds_log *log) :
         FDS_QoSControl(_max_thrds, 2, algo, log, "DM") {
     parentDm = _parent;
+    threadPool->enableThreadpoolCheck(_parent->getModuleProvider()->getTimer().get(),
+                                      std::chrono::seconds(30));
     dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate,
                                       parentDm->qosOutstandingTasks,
                                       false,
                                       log);
-
     serialExecutor = std::unique_ptr<SynchronizedTaskExecutor<size_t>>(
         new SynchronizedTaskExecutor<size_t>(*threadPool));
     if (parentDm->getModuleProvider()->get_cntrs_mgr()) {

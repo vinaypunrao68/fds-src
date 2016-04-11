@@ -505,7 +505,7 @@ class TestDMActivate(TestCase.FDSTestCase):
                 return False
 
             # sleep for a few seconds to allow the add request to complete     
-            time.sleep(5)
+            # time.sleep(5)
 
             self.log.info("Activate service DM for node %s." % (each_node.id))
             start_service = node_service.start_service(each_node.id,add_service.id)
@@ -1133,7 +1133,7 @@ class TestSMActivate(TestCase.FDSTestCase):
                 return False
             
             # sleep for a few seconds to allow the add request to complete
-            time.sleep(5)
+            # time.sleep(5)
 
             self.log.info("Activate service SM for node %s." % (each_node.id))
             start_service = node_service.start_service(each_node.id,add_service.id)
@@ -2729,7 +2729,7 @@ class TestAMActivate(TestCase.FDSTestCase):
                 return False
 
             # sleep for a few seconds to allow the add request to complete
-            time.sleep(5)
+            #time.sleep(5)
 
             self.log.info("Activate service AM for node %s." % (each_node.id))
             start_service = node_service.start_service(each_node.id,add_service.id)

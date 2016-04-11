@@ -17,10 +17,35 @@ from fdslib.TestUtils import get_localDomain_service
 import time
 from fdscli.model.fds_error import FdsError
 from fdslib.TestUtils import node_is_up
-from fabric.contrib.files import *
 from fdslib.TestUtils import disconnect_fabric
 from fdslib.TestUtils import connect_fabric
+from fdslib.TestUtils import execute_command_with_fabric
 from fdslib.TestUtils import get_log_count_dict
+
+# For retries
+from retrying import retry
+class TestRetry(TestCase.FDSTestCase):
+    def __init__(self, parameters=None, node=None, sig="SIGKILL"):
+        super(self.__class__, self).__init__(parameters,
+                                             self.__class__.__name__,
+                                             self.test_serviceRunningCheck,
+                                             "ServiceStateCheck Retry")
+ 
+        self.passedNode = node
+        self.passedSig = sig
+
+    # Wait 2^x * 2000 milliseconds between each retry, upto 8 seconds, then 8 more seconds afterward
+    # Stop retrying after 30 seconds anyway
+    @retry(wait_exponential_multiplier=2000, wait_exponential_max=8000, stop_max_delay=30000)
+    def test_serviceRunningCheck(self, node_service, n, started_service):
+        self.log.info("Checking services status...")
+        node_id = int(n.nd_uuid, 16)
+        get_service = node_service.get_service(node_id,started_service.id)
+    
+        if isinstance(get_service, FdsError) or get_service.status.state == "NOT_RUNNING":
+            raise Exception("SvcNotRunning exception");
+ 
+        return True
 
 # This class contains the attributes and methods to test
 # activation of an FDS domain starting the same, specified
@@ -65,14 +90,14 @@ class TestDomainActivateServices(TestCase.FDSTestCase):
                     return False
                 self.log.info("Activate service %s for node %s." % (service_name, n.nd_conf_dict['node-name']))
                 start_service = node_service.start_service(node_id,add_service.id)
-                time.sleep(3)
-                get_service = node_service.get_service(node_id,start_service.id)
-                if isinstance(get_service, FdsError) or get_service.status.state == "NOT_RUNNING":
-                    self.log.error("Service activation of node %s returned status %d." %
-                        (n.nd_conf_dict['node-name'], status))
-                    return False
+                
+                retry = TestRetry()
+                if(retry.test_serviceRunningCheck(node_service, n, start_service)):
+                    self.log.info("Service is in RUNNING state")
+                else:    
+                    self.log.error("Service activation of node %s returned status state NOT_RUNNING, will retry(upto 20 seconds)" %
+                        (n.nd_conf_dict['node-name']))             
         return True
-
 
 # This class contains the attributes and methods to test
 # the kill the services of an FDS node.
@@ -227,24 +252,24 @@ class TestNodeActivate(TestCase.FDSTestCase):
                         return False
 
                 #sleep for 5 seconds to allow the add request to complete
-                time.sleep(5)
+                # time.sleep(5)
                 
                 if not self.expect_to_fail:
                     self.log.info("Activate service %s for node %s." % (service_name, n.nd_conf_dict['node-name']))
                     start_service = node_service.start_service(node_id,add_service.id)
-                    time.sleep(3)
-                    get_service = node_service.get_service(node_id,start_service.id)
-                    if isinstance(get_service, FdsError) or get_service.status.state == "NOT_RUNNING":
-                        self.log.error("Service activation of node %s returned status state %s." %
-                                   (n.nd_conf_dict['node-name'], get_service.status.state))
-                        return False
+                    
+                    retry = TestRetry()
+                    if(retry.test_serviceRunningCheck(node_service, n, start_service)):
+                        self.log.info("Service is in RUNNING state")
+                    else:
+                        self.log.error("Service activation of node %s returned status state NOT_RUNNING, will retry(upto 20 seconds)" %
+                            (n.nd_conf_dict['node-name']))
 
             if self.passedNode is not None:
                 # If we were passed a specific node, exit now.
                 return True
 
         return True
-
 
 # This class contains the attributes and methods to test
 # node shutdown. (I.e. stop all services on the node)
@@ -532,12 +557,12 @@ class TestNodeReboot(TestCase.FDSTestCase):
 
         pre_reboot_count = get_log_count_dict(self,om_node.nd_conf_dict['ip'],node_ip,service_list,log_entry_list)
         self.log.info("%s is going down for reboot NOW!" % self.passedNode_ip)
-        assert connect_fabric(self, node_ip) is True
-        run('reboot')
+        assert connect_fabric(node_ip) is True
+        execute_command_with_fabric("reboot",remote_env=True,node_ip=node_ip)
         disconnect_fabric()
 
         # This if will confirm that node is back up again after reboot
-        if not connect_fabric(self, node_ip):
+        if not connect_fabric(node_ip):
             return False
         else:
             verify_reboot = verify_with_logs(self, node_ip, service_list, log_entry_list, self.maxwait, pre_reboot_count)
@@ -547,7 +572,7 @@ class TestNodeReboot(TestCase.FDSTestCase):
 # This method to verifies if node is in good state for IO after reboot
 # by confirming passed log entry count has increased after reboot.
 def verify_with_logs(self, node_ip, service_list, log_entry_list, maxwait, pre_count_dict):
-    assert connect_fabric(self, node_ip) is True
+    assert connect_fabric(node_ip) is True
     disconnect_fabric()
     wait_for_log_time = maxwait  # It's in minutes
     om_node = self.parameters["fdscfg"].rt_om_node

@@ -311,7 +311,7 @@ void JournalManager::removeExpiredJournals() {
 
     // get the list of volumes in the system
     std::vector<fds_volid_t> vecVolIds;
-    dm->getActiveVolumes(vecVolIds);
+    dm->getAllVolumes(vecVolIds);
 
     for (const auto& volid : vecVolIds) {
         vecJournalFiles.clear();

@@ -8,11 +8,13 @@
 #include <set>
 #include <fds_types.h>
 #include <SmIo.h>
+#include <SmCtrl.h>
 #include <object-store/SmDiskMap.h>
 
 namespace fds {
 
 /* Forward declarations */
+class ObjectStore;
 class CommonModuleProviderIf;
 class fds_threadpool;
 class SmIoReqHandler;
@@ -62,6 +64,7 @@ struct HybridTierCtrlr {
     fds_threadpool *threadpool_;
     SmIoReqHandler* storMgr_;
     SmDiskMap::ptr diskMap_;
+    ObjectStore* objectStore_;
     FdsTimerTaskPtr runTask_;
     std::set<fds_token_id> tokenSet_;
     std::set<fds_token_id>::iterator nextToken_;

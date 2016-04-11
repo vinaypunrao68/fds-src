@@ -123,10 +123,15 @@ BlockOperations::detachVolume() {
     if (volumeName) {
         // Only close the volume if it's the last connection
         std::unique_lock<std::mutex> lk(assoc_map_lock);
-        if (0 == --assoc_map[*volumeName]) {
+        auto itr = assoc_map.find(*volumeName);
+        std::unique_lock<std::mutex> ul(shutdownLock);
+        if ((assoc_map.end() != itr) && ((true == shutting_down) || (0 == --assoc_map[*volumeName]))) {
+            ul.unlock();
             handle_type reqId{0, 0};
+            assoc_map.erase(*volumeName);
             return amAsyncDataApi->detachVolume(reqId, domainName, volumeName);
         }
+        ul.unlock();
     }
     // If we weren't attached, pretend if we had been to be DRY
     handle_type fake_req;
@@ -137,8 +142,9 @@ void
 BlockOperations::detachVolumeResp(const fpi::ErrorCode& error,
                                 handle_type const& requestId) {
     // Volume detach has completed, we shaln't use the volume again
+    std::lock_guard<std::mutex> lg(shutdownLock);
     LOGDEBUG << "err:" << error << " detach response";
-    if (shutting_down) {
+    if ((true == shutting_down) && (nullptr != blockResp)) {
         blockResp->terminate();
         blockResp = nullptr;
         amAsyncDataApi.reset();
@@ -208,7 +214,7 @@ BlockOperations::write(typename req_api_type::shared_buffer_type& bytes, task_ty
             iLength = maxObjectSizeInBytes - iOff;
         }
 
-        LOGTRACE  << "offset:0x" << std::hex << curOffset << " length:0x" << iLength << std::dec << " write request";
+        LOGTRACE  << "offset: " << curOffset << " length:" << iLength << " write request";
 
         auto objBuf = (iLength == bytes->length()) ?
             bytes : boost::make_shared<std::string>(*bytes, amBytesWritten, iLength);
@@ -266,7 +272,7 @@ BlockOperations::getBlobResp(const fpi::ErrorCode &error,
     auto handle = requestId.handle;
     uint32_t seqId = requestId.seq;
 
-    LOGDEBUG << "handle:0x" << std::hex << handle << std::dec << " seqid:" << seqId
+    LOGDEBUG << "handle:" << handle << " seqid:" << seqId
              << " err:" << error << " length:" << length << " getBlob response";
 
     {
@@ -286,7 +292,7 @@ BlockOperations::getBlobResp(const fpi::ErrorCode &error,
     if (!resp->isRead()) {
         static BlockTask::buffer_ptr_type const null_buff(nullptr);
         // this is a response for read during a write operation from Block connector
-        LOGDEBUG << "handle:0x" << std::hex << handle << std::dec << " seqid:" << seqId << " write after read";
+        LOGDEBUG << "handle:" << handle << " seqid:" << seqId << " write after read";
 
         // RMW only operates on a single buffer...
         auto buf = (bufs && !bufs->empty()) ? bufs->front() : null_buff;
@@ -444,12 +450,14 @@ BlockOperations::finishResponse(BlockTask* response) {
     if (response_removed) {
         blockResp->respondTask(response);
     } else {
-        LOGNOTIFY << "handle:0x" << std::hex << response->getHandle() << std::dec << " missing from response map";
+        LOGNOTIFY << "handle:" << response->getHandle() << " missing from response map";
     }
 
     // Only one response will ever see shutting_down == true and
     // no responses left, safe to do this now.
+    std::unique_lock<std::mutex> ul(shutdownLock);
     if (shutting_down && done_responding) {
+        ul.unlock();
         LOGDEBUG << "vol:" << *volumeName << " block responses drained, detaching";
         detachVolume();
     }
@@ -458,9 +466,11 @@ BlockOperations::finishResponse(BlockTask* response) {
 void
 BlockOperations::shutdown()
 {
-    std::unique_lock<std::mutex> l(respLock);
+    std::unique_lock<std::mutex> ul(shutdownLock);
     if (shutting_down) return;
     shutting_down = true;
+    ul.unlock();
+    std::unique_lock<std::mutex> l(respLock);
     // If we don't have any outstanding requests, we're done
     if (responses.empty()) {
         detachVolume();

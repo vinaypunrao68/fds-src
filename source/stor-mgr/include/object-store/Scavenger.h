@@ -94,7 +94,7 @@ class DiskScavenger {
 
     Error startScavenge(fds_bool_t verify,
                         disk_compaction_done_handler_t done_hdlr,
-                        fds_uint32_t token_reclaim_threshold = 1);
+                        fds_uint32_t token_reclaim_threshold = 2);
     void stopScavenge();
 
     void handleScavengeError(const Error& err);
@@ -233,6 +233,20 @@ class ScavControl : public Module {
     typedef std::shared_ptr<ScavControl> ptr;
     typedef std::shared_ptr<const ScavControl> const_ptr;
 
+
+    enum State {
+        SCAV_CTRL_IDLE,     // gc is idle
+        SCAV_CTRL_INPROG,   // gc is in progress
+    };
+
+    State getState() const {
+        return atomic_load(&state);
+    }
+
+    Error setStateInProgress();
+
+    Error setStateIdle();
+
     /**
      * Enable means that we start running automatic scavenging
      * for disks that are in a given disk map
@@ -270,6 +284,7 @@ class ScavControl : public Module {
      * Start scavenging
      */
     void startScavengeProcess();
+
     /**
      * Stop scavenging if it is in progress
      */
@@ -358,6 +373,9 @@ class ScavControl : public Module {
     // lock protecting diskScavTbl
     fds_mutex  scav_lock;
 
+    // state of compaction progress
+    std::atomic<State> state;
+
     /// configurable parameters
     fds_uint32_t  max_disks_compacting;
     fds_uint32_t intervalSeconds;
@@ -376,6 +394,8 @@ class ScavControl : public Module {
     // so they can enqueue messages to qos queues
     SmIoReqHandler *dataStoreReqHandler;
     SmPersistStoreHandler* persistStoreGcHandler;
+
+    bool isBackgroundScavProcess;
 };
 
 class ScavTimerTask: public FdsTimerTask {

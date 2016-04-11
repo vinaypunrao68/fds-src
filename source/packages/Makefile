@@ -4,10 +4,10 @@ include $(topdir)/Makefile.incl
 
 real_main_dir_build=$(realpath $(main_dir_build))
 
-build_type=dbg
+build_type=debug
 
 ifeq ($(BUILD), release)
-build_type=rel
+build_type=release
 endif
 
 $(info "build type: "$(build_type))
@@ -24,6 +24,6 @@ all:
 	./gradlew ${gradle_arg} --stacktrace
 
 clean:
-	./gradlew clean -Pmain_dir_build=' '
+	./gradlew clean -Pmain_dir_build=' ' -Pbuild_type=${build_type}
 
 #Do it here

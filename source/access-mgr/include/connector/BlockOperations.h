@@ -116,6 +116,7 @@ class BlockOperations
 
     // interface to respond to block passed down in constructor
     ResponseIFace* blockResp;
+    std::mutex shutdownLock;
     bool shutting_down {false};
 
     // for all reads/writes to AM

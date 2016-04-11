@@ -82,10 +82,10 @@ AmCache::getBlobOffsetObjects(GetBlobReq* blobReq) {
         auto err = offset_cache.get(volId, offset_pair, obj_id);
         if (err == ERR_OK) {
             PerfTracer::incr(PerfEventType::AM_OFFSET_CACHE_HIT, volId);
-            LOGDEBUG << "objid:" << *obj_id << " offset:0x" << std::hex << cur_off << std::dec << " cache hit";
+            LOGDEBUG << "objid:" << *obj_id << " offset:" << cur_off << " cache hit";
             blobReq->object_ids.push_back(obj_id);
         } else {
-            LOGDEBUG << "offset:0x" << std::hex << cur_off << std::dec << " cache miss";
+            LOGDEBUG << "offset:" << cur_off << " cache miss";
             error = err;
             blobReq->object_ids.push_back(boost::make_shared<ObjectID>(NullObjectID));
         }

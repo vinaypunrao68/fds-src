@@ -37,6 +37,7 @@ DMSvcHandler::DMSvcHandler(CommonModuleProviderIf *provider, DataMgr& dataManage
 
     /* DM Debug messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::DbgForceVolumeSyncMsg, handleDbgForceVolumeSyncMsg);
+    REGISTER_FDSP_MSG_HANDLER(fpi::DbgOfflineVolumeGroupMsg, handleDbgOfflineVolumeGroupMsg);
     REGISTER_FDSP_MSG_HANDLER(fpi::CopyVolumeMsg, handleCopyVolume);
     REGISTER_FDSP_MSG_HANDLER(fpi::ArchiveMsg, handleArchive);
     REGISTER_FDSP_MSG_HANDLER(fpi::ArchiveRespMsg, handleArchiveResp);
@@ -385,6 +386,15 @@ DMSvcHandler::NotifyDMTUpdate(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
     }
 
     NotifyDMTUpdateCb(hdr, err);
+
+    // get all volumes descriptors after every DMT update
+    if (dataManager_.features.isVolumegroupingEnabled()) {
+        auto lambda = [this] () {
+            LOGNORMAL << "pulling all volumes after DMT update";
+            dataManager_.getAllVolumeDescriptors();
+        };
+        dataManager_.addToQueue(lambda);
+    }
 }
 
 void DMSvcHandler::NotifyDMTUpdateCb(boost::shared_ptr<fpi::AsyncHdr> &hdr,
@@ -523,6 +533,44 @@ DMSvcHandler::handleDbgForceVolumeSyncMsg(SHPTR<fpi::AsyncHdr>& hdr,
     func();
 }
 
+void
+DMSvcHandler::handleDbgOfflineVolumeGroupMsg(SHPTR<fpi::AsyncHdr>& hdr,
+                                          SHPTR<fpi::DbgOfflineVolumeGroupMsg> &offlineMsg)
+{
+    auto volMeta = dataManager_.getVolumeMeta(fds_volid_t(offlineMsg->volId));
+    auto cb = [this, hdr](const Error &e) {
+        hdr->msg_code = e.GetErrno();
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+    };
+
+    if (volMeta == nullptr) {
+        LOGWARN << "Failed to debug offline volume group.  volid: "
+                << offlineMsg->volId << " not found";
+        cb(ERR_VOL_NOT_FOUND);
+        return;
+    }
+
+    /* Execute under synchronized context */
+    auto func = volMeta->makeSynchronized([volMeta, cb]() {
+            if (volMeta->isInitializerInProgress()) {
+                LOGWARN << "Offline volume group failed.  Volume sync is in progress"
+                    << volMeta->logString();
+                cb(ERR_INVALID);
+                return;
+            }
+
+            LOGNORMAL << "Offlining volume group.  Current state: " << volMeta->logString();
+
+            fpi::VolumeGroupCoordinatorInfo coordinator;
+            coordinator.id.svc_uuid = 0;
+            coordinator.version = 0;
+
+            volMeta->setState(fpi::Offline, "offline volume group");
+            volMeta->setCoordinator(coordinator);
+            cb(ERR_OK);
+        });
+    func();
+}
 void
 DMSvcHandler::handleCopyVolume(SHPTR<fpi::AsyncHdr> &hdr, SHPTR<fpi::CopyVolumeMsg> &copyMsg) {
     Error err;

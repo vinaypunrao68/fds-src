@@ -16,7 +16,7 @@ task buildDeb(type: Deb) {
 	def build_num = "$System.env.BUILD_NUMBER"
 
     if ( null == build_type || '' == build_type || 'nul' == build_type ) {
-        build_type = 'dbg'
+        build_type = 'debug'
     }
 
 	if ( null == build_num || '' == build_num || 'null' == build_num ) {
