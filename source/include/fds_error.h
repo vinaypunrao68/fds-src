@@ -100,6 +100,7 @@ namespace fds {
     ADD(ERR_DM_DISK_CAPACITY_ERROR_THRESHOLD, = 80, "DM disk capacity exceeded 95%"),\
     ADD(ERR_VOLUMEGROUP_NOT_OPEN, = 81, "Volume group is not opened yet"), \
     ADD(ERR_INVALID_COORDINATOR, = 82, "Invalid coordinator"), \
+    ADD(ERR_VOLUMEGROUP_INVALID, = 83, "Volume group is not valid"), \
     \
     /* I/O error range */            \
     ADD(ERR_IO_DLT_MISMATCH,= 100," "), \
