@@ -539,7 +539,8 @@ AmVolumeTable::getVolume(const std::string& vol_name) const {
  */
 void
 AmVolumeTable::checkFailureResponse(AmRequest * amReq, Error const error) {
-    if (ERR_INVALID_COORDINATOR == error) {
+    if (ERR_INVALID_COORDINATOR == error ||
+        ERR_VOLUMEGROUP_INVALID == error) {
         WriteGuard wg(map_rwlock);
         auto vol = getVolume(amReq->io_vol_id);
         if (nullptr != vol && vol->isWritable()) {
