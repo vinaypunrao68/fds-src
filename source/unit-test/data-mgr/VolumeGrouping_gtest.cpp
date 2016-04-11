@@ -55,7 +55,7 @@ TEST_F(VolumeGroupFixture, singledm) {
 
     /* Open without volume being add to DM.  Open should fail */
     openVolume(*v1, waiter);
-    ASSERT_TRUE(waiter.awaitResult() == ERR_VOLUMEGROUP_DOWN);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_VOLUMEGROUP_INVALID);
 
     /* Generate volume descriptor */
     v1Desc = generateVolume(v1Id);
@@ -334,7 +334,7 @@ TEST_F(VolumeGroupFixture, multiWriter) {
 
     /* Any writes access via 1st AM should fail */
     sendUpdateOnceMsg(*v1, blobName, waiter);
-    ASSERT_TRUE(waiter.awaitResult() == ERR_VOLUMEGROUP_DOWN);
+    ASSERT_TRUE(waiter.awaitResult() == ERR_VOLUMEGROUP_INVALID);
 
     /* Close volumegroup handle */
     waiter.reset(1);
