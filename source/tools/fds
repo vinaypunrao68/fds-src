@@ -67,6 +67,7 @@ TESTS["restart"]="FullRestartMultiNodeTest"
 TESTS["smoke"]="BuildSmokeTest_onpr"
 TESTS["4node"]="FourNodeStart"
 TESTS["2node"]="TwoNodeStart"
+TESTS["multiam"]="MultiAMVolOpsTest"
 TESTS["vg"]="VolumeGroupTest"
 TESTS["unit"]="unit tests"
 

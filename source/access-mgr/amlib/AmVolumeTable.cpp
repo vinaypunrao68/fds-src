@@ -60,46 +60,32 @@ class WaitQueue : public AmDataProvider {
     Error delay(AmRequest*);
     bool empty() const;
  private:
-    template<typename Cb>
-    void remove_if(std::string const& vol_name, Cb&& cb);
+    void remove_if(std::string const& vol_name, volume_queue_type& replays);
 };
 
-template<typename Cb>
-void WaitQueue::remove_if(std::string const& vol_name, Cb&& cb) {
+void WaitQueue::remove_if(std::string const& vol_name, volume_queue_type& replays) {
     std::lock_guard<std::mutex> l(wait_lock);
     auto wait_it = queue.find(vol_name);
     if (queue.end() != wait_it) {
-        auto& vol_queue = wait_it->second;
-        auto new_end = std::remove_if(vol_queue.begin(),
-                                      vol_queue.end(),
-                                      std::forward<Cb>(cb));
-        vol_queue.erase(new_end, vol_queue.end());
-        if (wait_it->second.empty()) {
-            queue.erase(wait_it);
-        }
+        replays.swap(wait_it->second);
+        queue.erase(wait_it);
     }
 }
 
 void WaitQueue::resume_if(std::string const& vol_name) {
-    remove_if(vol_name,
-              [this, vol_name] (AmRequest* req) mutable -> bool {
-                  if (vol_name == req->volume_name) {
-                      AmDataProvider::unknownTypeResume(req);
-                      return true;
-                  }
-                  return false;
-              });
+    volume_queue_type replays;
+    remove_if(vol_name, replays);
+    for (auto request : replays) {
+        AmDataProvider::unknownTypeResume(request);
+    }
 }
 
 void WaitQueue::cancel_if(std::string const& vol_name, Error const error) {
-    remove_if(vol_name,
-              [this, vol_name, error] (AmRequest* req) mutable -> bool {
-                  if (vol_name == req->volume_name) {
-                      _next_in_chain->unknownTypeCb(req, error);
-                      return true;
-                  }
-                  return false;
-              });
+    volume_queue_type replays;
+    remove_if(vol_name, replays);
+    for (auto request : replays) {
+        _next_in_chain->unknownTypeCb(request, error);
+    }
 }
 
 Error WaitQueue::delay(AmRequest* amReq) {
