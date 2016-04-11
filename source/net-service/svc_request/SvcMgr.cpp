@@ -885,11 +885,22 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
     } catch (std::exception &e) {
         GLOGWARN << "allocRpcClient failed.  Exception: " << e.what() << ".  "  << header
                  << " SvcInfo ( " << fds::logString(svcInfo_) << " )";
-        markSvcDown_();
+
+        if (!MODULEPROVIDER()->getSvcMgr()->getSvcRequestHandler()->isHandlerDeferringRequests()){
+            markSvcDown_();
+        } else {
+            LOGNOTIFY << "OM is still coming up, will ignore exception:" << e.what()
+                      << " until it's up";
+        }
     } catch (...) {
         GLOGWARN << "allocRpcClient failed.  Unknown exception. " << header
                  << " SvcInfo ( " << fds::logString(svcInfo_) << " )";
-        markSvcDown_();
+
+        if (!MODULEPROVIDER()->getSvcMgr()->getSvcRequestHandler()->isHandlerDeferringRequests()){
+            markSvcDown_();
+        } else {
+            LOGNOTIFY << "OM is still coming up, will ignore exceptions until it's up";
+        }
     }
     return false;
 }
@@ -947,7 +958,7 @@ void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
     GLOGDEBUG << "Incoming update: " << fds::logString(*newPtr) << " vs current status: "
             << fds::logString(*currentPtr);
 
-    if (OmExtUtilApi::isIncomingUpdateValid(*newPtr, *currentPtr)) {
+    if (OmExtUtilApi::isIncomingUpdateValid(*newPtr, *currentPtr, "SvcMgr")) {
         svcInfo_ = newInfo;
         svcClient_.reset();
         GLOGDEBUG << "Operation Applied.";

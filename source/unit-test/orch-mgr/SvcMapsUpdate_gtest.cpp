@@ -152,30 +152,30 @@ struct SvcMapFixture : BaseTestFixture{
               fpi::SVC_STATUS_INACTIVE_STOPPED, fpi::SVC_STATUS_REMOVED},
             // invalid incoming states for: INACTIVE_STOPPED(2)
             { fpi::SVC_STATUS_DISCOVERED, fpi::SVC_STATUS_STANDBY,fpi::SVC_STATUS_ADDED,
-              fpi::SVC_STATUS_STOPPED, fpi::SVC_STATUS_INACTIVE_FAILED },
+              fpi::SVC_STATUS_STOPPING, fpi::SVC_STATUS_INACTIVE_FAILED },
             // invalid incoming states for: DISCOVERED(3)
             { fpi::SVC_STATUS_INACTIVE_STOPPED, fpi::SVC_STATUS_STANDBY,
-              fpi::SVC_STATUS_ADDED, fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_STOPPED,
+              fpi::SVC_STATUS_ADDED, fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_STOPPING,
               fpi::SVC_STATUS_REMOVED, fpi::SVC_STATUS_INACTIVE_FAILED },
             // invalid incoming s states for: STANDBY(4)
             { fpi::SVC_STATUS_INACTIVE_STOPPED, fpi::SVC_STATUS_DISCOVERED,
               fpi::SVC_STATUS_ADDED, fpi::SVC_STATUS_STARTED,
-              fpi::SVC_STATUS_STOPPED, fpi::SVC_STATUS_INACTIVE_FAILED },
+              fpi::SVC_STATUS_STOPPING, fpi::SVC_STATUS_INACTIVE_FAILED },
             // invalid incoming states for: ADDED(5)
             { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_INACTIVE_STOPPED,
-              fpi::SVC_STATUS_DISCOVERED, fpi::SVC_STATUS_STANDBY,fpi::SVC_STATUS_STOPPED,
+              fpi::SVC_STATUS_DISCOVERED, fpi::SVC_STATUS_STANDBY,fpi::SVC_STATUS_STOPPING,
               fpi::SVC_STATUS_INACTIVE_FAILED },
             // invalid incoming states for: STARTED(6)
             {  fpi::SVC_STATUS_INACTIVE_STOPPED, fpi::SVC_STATUS_DISCOVERED,
                fpi::SVC_STATUS_STANDBY, fpi::SVC_STATUS_ADDED, fpi::SVC_STATUS_REMOVED},
-            // invalid incoming states for: STOPPED(7)
+            // invalid incoming states for: STOPPING(7)
             { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_DISCOVERED,
               fpi::SVC_STATUS_STANDBY, fpi::SVC_STATUS_ADDED,
               fpi::SVC_STATUS_INACTIVE_FAILED },
             // invalid incoming states for : REMOVED(8)
             { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_INACTIVE_STOPPED,
               fpi::SVC_STATUS_STANDBY, fpi::SVC_STATUS_ADDED, fpi::SVC_STATUS_STARTED,
-              fpi::SVC_STATUS_STOPPED, fpi::SVC_STATUS_INACTIVE_FAILED },
+              fpi::SVC_STATUS_STOPPING, fpi::SVC_STATUS_INACTIVE_FAILED },
             // invalid current states for incoming: INACTIVE_FAILED(9)
             { fpi::SVC_STATUS_INACTIVE_STOPPED, fpi::SVC_STATUS_DISCOVERED,
               fpi::SVC_STATUS_STANDBY, fpi::SVC_STATUS_ADDED, fpi::SVC_STATUS_STARTED,
@@ -422,19 +422,19 @@ TEST_F(SvcMapFixture, SvcStatusTest)
     //+--------------------------+---------------------------------------+
     //|     Current State        |    Valid IncomingState                |
     //+--------------------------+---------------------------------------+
-    //      ACTIVE               |  STANDBY, STOPPED, INACTIVE_FAILED
+    //      ACTIVE               |  STANDBY, STOPPING, INACTIVE_FAILED
     //      INACTIVE_STOPPED     |  ACTIVE, STARTED, REMOVED
     //      DISCOVERED           |  ACTIVE
     //      STANDBY              |  REMOVED, ACTIVE
     //      ADDED                |  STARTED, REMOVED
-    //      STARTED              |  ACTIVE, STOPPED, INACTIVE_FAILED
-    //      STOPPED              |  INACTIVE_STOPPED, STARTED, REMOVED
+    //      STARTED              |  ACTIVE, STOPPING, INACTIVE_FAILED
+    //      STOPPING              |  INACTIVE_STOPPED, STARTED, REMOVED
     //      REMOVED              |  DISCOVERED
-    //      INACTIVE_FAILED      |  ACTIVE, STOPPED
+    //      INACTIVE_FAILED      |  ACTIVE, STOPPING
     //+--------------------------+---------------------------------------+
     //
     std::cout << "\nSTEP 4: Verify allowed,valid transitions, same incarnationNo \n";
-    //cout << "4(a) Verify transition (ACTIVE  |  STANDBY, STOPPED, INACTIVE_FAILED)";
+    //cout << "4(a) Verify transition (ACTIVE  |  STANDBY, STOPPING, INACTIVE_FAILED)";
 
     fpi::SvcInfo svc;
     bool ret = dataStore->getSvcInfo(smUuid, svc);
@@ -469,13 +469,13 @@ TEST_F(SvcMapFixture, SvcStatusTest)
     ASSERT_TRUE(dbServiceCheck(uuid, fpi::SVC_STATUS_ACTIVE));
     ASSERT_TRUE(svcLayerSvcCheck(uuid, fpi::SVC_STATUS_ACTIVE));
 
-    std::cout << "4(e) Verify good transition ACTIVE -> STOPPED\n";
-    modifyServiceState1(fpi::SVC_STATUS_STOPPED, uuid, svc.svc_type);
+    std::cout << "4(e) Verify good transition ACTIVE -> STOPPING\n";
+    modifyServiceState1(fpi::SVC_STATUS_STOPPING, uuid, svc.svc_type);
 
-    ASSERT_TRUE(dbServiceCheck(uuid, fpi::SVC_STATUS_STOPPED));
-    ASSERT_TRUE(svcLayerSvcCheck(uuid, fpi::SVC_STATUS_STOPPED));
+    ASSERT_TRUE(dbServiceCheck(uuid, fpi::SVC_STATUS_STOPPING));
+    ASSERT_TRUE(svcLayerSvcCheck(uuid, fpi::SVC_STATUS_STOPPING));
 
-    std::cout << "4(f) Verify good transition STOPPED -> INACTIVE_STOPPED\n";
+    std::cout << "4(f) Verify good transition STOPPING -> INACTIVE_STOPPED\n";
     svc.svc_status = fpi::SVC_STATUS_INACTIVE_STOPPED;
     modifyServiceState1(fpi::SVC_STATUS_INACTIVE_STOPPED, uuid, svc.svc_type);
 
@@ -503,25 +503,25 @@ TEST_F(SvcMapFixture, SvcStatusTest)
     ASSERT_TRUE(dbServiceCheck(uuid, fpi::SVC_STATUS_INACTIVE_FAILED));
     ASSERT_TRUE(svcLayerSvcCheck(uuid, fpi::SVC_STATUS_INACTIVE_FAILED));
 
-    std::cout << "4(j) Verify good transition INACTIVE_FAILED -> STOPPED\n";
-    modifyServiceState1(fpi::SVC_STATUS_STOPPED, uuid, svc.svc_type);
+    std::cout << "4(j) Verify good transition INACTIVE_FAILED -> STOPPING\n";
+    modifyServiceState1(fpi::SVC_STATUS_STOPPING, uuid, svc.svc_type);
 
-    ASSERT_TRUE(dbServiceCheck(uuid, fpi::SVC_STATUS_STOPPED));
-    ASSERT_TRUE(svcLayerSvcCheck(uuid, fpi::SVC_STATUS_STOPPED));
+    ASSERT_TRUE(dbServiceCheck(uuid, fpi::SVC_STATUS_STOPPING));
+    ASSERT_TRUE(svcLayerSvcCheck(uuid, fpi::SVC_STATUS_STOPPING));
 
-    std::cout << "4(k) Verify good transition STOPPED -> STARTED (db only) \n";
+    std::cout << "4(k) Verify good transition STOPPING -> STARTED (db only) \n";
     modifyServiceState1(fpi::SVC_STATUS_STARTED, uuid, svc.svc_type);
 
     ASSERT_TRUE(dbServiceCheck(uuid, fpi::SVC_STATUS_STARTED));
     //ASSERT_TRUE(svcLayerSvcCheck(uuid, fpi::SVC_STATUS_STARTED));
 
-    std::cout << "4(l) Verify good transition STARTED -> STOPPED (db only) \n";
-    modifyServiceState1(fpi::SVC_STATUS_STOPPED, uuid, svc.svc_type);
+    std::cout << "4(l) Verify good transition STARTED -> STOPPING (db only) \n";
+    modifyServiceState1(fpi::SVC_STATUS_STOPPING, uuid, svc.svc_type);
 
-    ASSERT_TRUE(dbServiceCheck(uuid, fpi::SVC_STATUS_STOPPED));
-    //ASSERT_TRUE(svcLayerSvcCheck(uuid, fpi::SVC_STATUS_STOPPED));
+    ASSERT_TRUE(dbServiceCheck(uuid, fpi::SVC_STATUS_STOPPING));
+    //ASSERT_TRUE(svcLayerSvcCheck(uuid, fpi::SVC_STATUS_STOPPING));
 
-    std::cout << "4(m) Verify good transition STOPPED -> REMOVED\n";
+    std::cout << "4(m) Verify good transition STOPPING -> REMOVED\n";
     modifyServiceState1(fpi::SVC_STATUS_REMOVED, uuid, svc.svc_type);
 
     ASSERT_TRUE(dbServiceCheck(uuid, fpi::SVC_STATUS_REMOVED));
@@ -545,8 +545,8 @@ TEST_F(SvcMapFixture, SvcStatusTest)
     ASSERT_TRUE(svcLayerSvcCheck(uuid, fpi::SVC_STATUS_ACTIVE));
 
     // Get to INACTIVE_STOPPED, already verified
-    // ACTIVE - STOPPED, STOPPED - INACTIVE_STOPPED
-    modifyServiceState1(fpi::SVC_STATUS_STOPPED, uuid, svc.svc_type);
+    // ACTIVE - STOPPING, STOPPING - INACTIVE_STOPPED
+    modifyServiceState1(fpi::SVC_STATUS_STOPPING, uuid, svc.svc_type);
     modifyServiceState1(fpi::SVC_STATUS_INACTIVE_STOPPED, uuid, svc.svc_type);
 
     std::cout << "4(o) Verify good transition INACTIVE_STOPPED -> ACTIVE\n";
@@ -555,8 +555,8 @@ TEST_F(SvcMapFixture, SvcStatusTest)
     ASSERT_TRUE(dbServiceCheck(uuid, fpi::SVC_STATUS_ACTIVE));
     ASSERT_TRUE(svcLayerSvcCheck(uuid, fpi::SVC_STATUS_ACTIVE));
 
-    // Get to STARTED, ACTIVE - STOPPED, STOPPED - STARTED
-    modifyServiceState1(fpi::SVC_STATUS_STOPPED, uuid, svc.svc_type);
+    // Get to STARTED, ACTIVE - STOPPING, STOPPING - STARTED
+    modifyServiceState1(fpi::SVC_STATUS_STOPPING, uuid, svc.svc_type);
     modifyServiceState1(fpi::SVC_STATUS_STARTED, uuid, svc.svc_type);
 
 
@@ -567,10 +567,10 @@ TEST_F(SvcMapFixture, SvcStatusTest)
     // SvcLayer will not updated "STARTED" state, which is expected, so this will not hold
     //ASSERT_TRUE(svcLayerSvcCheck(uuid, fpi::SVC_STATUS_INACTIVE_FAILED));
 
-    // Get to INACTIVE_STOPPED, FAILED - ACTIVE (or for svcLayer STOPPED -ACTIVE)
-    // , ACTIVE - STOPPED, STOPPED - INACTIVE_STOPPED
+    // Get to INACTIVE_STOPPED, FAILED - ACTIVE (or for svcLayer STOPPING -ACTIVE)
+    // , ACTIVE - STOPPING, STOPPING - INACTIVE_STOPPED
     modifyServiceState1(fpi::SVC_STATUS_ACTIVE, uuid, svc.svc_type);
-    modifyServiceState1(fpi::SVC_STATUS_STOPPED, uuid, svc.svc_type);
+    modifyServiceState1(fpi::SVC_STATUS_STOPPING, uuid, svc.svc_type);
     modifyServiceState1(fpi::SVC_STATUS_INACTIVE_STOPPED, uuid, svc.svc_type);
 
 
@@ -666,25 +666,25 @@ TEST_F(SvcMapFixture, SvcStatusTest)
 
 
     badTransitions.clear();
-    // Transition to STOPPED now
-    modifyServiceState1(fpi::SVC_STATUS_STOPPED, uuid, svc.svc_type);
+    // Transition to STOPPING now
+    modifyServiceState1(fpi::SVC_STATUS_STOPPING, uuid, svc.svc_type);
 
-    badTransitions = invalidTransitions[fpi::SVC_STATUS_STOPPED];
+    badTransitions = invalidTransitions[fpi::SVC_STATUS_STOPPING];
 
     for (auto status : badTransitions)
     {
-        std::cout << "Verify bad transition: STOPPED to "
+        std::cout << "Verify bad transition: STOPPING to "
                   << OmExtUtilApi::getInstance()->printSvcStatus(status) << " \n";
 
         modifyServiceState1(status, uuid, svc.svc_type);
 
-        ASSERT_TRUE(dbServiceCheck(uuid, fpi::SVC_STATUS_STOPPED));
-        ASSERT_TRUE(svcLayerSvcCheck(uuid, fpi::SVC_STATUS_STOPPED));
+        ASSERT_TRUE(dbServiceCheck(uuid, fpi::SVC_STATUS_STOPPING));
+        ASSERT_TRUE(svcLayerSvcCheck(uuid, fpi::SVC_STATUS_STOPPING));
 
     }
 
     badTransitions.clear();
-    // Transition to INACTIVE STOPPED now
+    // Transition to INACTIVE STOPPING now
     modifyServiceState1(fpi::SVC_STATUS_INACTIVE_STOPPED, uuid, svc.svc_type);
 
     badTransitions = invalidTransitions[fpi::SVC_STATUS_INACTIVE_STOPPED];
@@ -720,7 +720,7 @@ TEST_F(SvcMapFixture, SvcStatusTest)
 
     }
 
-    // At the end of this, svcLayer is in STOPPED, get back to active, then to failed
+    // At the end of this, svcLayer is in STOPPING, get back to active, then to failed
     modifyServiceState1(fpi::SVC_STATUS_ACTIVE, uuid, svc.svc_type);
     modifyServiceState1(fpi::SVC_STATUS_INACTIVE_FAILED, uuid, svc.svc_type);
 
@@ -808,11 +808,11 @@ TEST_F(SvcMapFixture, IncarnationChecksTest)
     // Refresh svcInfo
     dataStore->getSvcInfo(smUuid, smInfo);
     std::cout << " Incoming incarnationNo == current incarnationNo \n";
-    smInfo.svc_status = fpi::SVC_STATUS_STOPPED;
+    smInfo.svc_status = fpi::SVC_STATUS_STOPPING;
     modifyServiceState2(smInfo);
 
-    ASSERT_TRUE(dbServiceCheck(smUuid, fpi::SVC_STATUS_STOPPED));
-    ASSERT_TRUE(svcLayerSvcCheck(smUuid, fpi::SVC_STATUS_STOPPED));
+    ASSERT_TRUE(dbServiceCheck(smUuid, fpi::SVC_STATUS_STOPPING));
+    ASSERT_TRUE(svcLayerSvcCheck(smUuid, fpi::SVC_STATUS_STOPPING));
 
     // Refresh svcInfo
     dataStore->getSvcInfo(smUuid, smInfo);
@@ -821,8 +821,8 @@ TEST_F(SvcMapFixture, IncarnationChecksTest)
     smInfo.svc_status = fpi::SVC_STATUS_ACTIVE;
     modifyServiceState2(smInfo);
 
-    ASSERT_TRUE(dbServiceCheck(smUuid, fpi::SVC_STATUS_STOPPED));
-    ASSERT_TRUE(svcLayerSvcCheck(smUuid, fpi::SVC_STATUS_STOPPED));
+    ASSERT_TRUE(dbServiceCheck(smUuid, fpi::SVC_STATUS_STOPPING));
+    ASSERT_TRUE(svcLayerSvcCheck(smUuid, fpi::SVC_STATUS_STOPPING));
 
     // Refresh svcInfo
     dataStore->getSvcInfo(smUuid, smInfo);
@@ -831,8 +831,8 @@ TEST_F(SvcMapFixture, IncarnationChecksTest)
     smInfo.svc_status = fpi::SVC_STATUS_ACTIVE;
     modifyServiceState2(smInfo);
 
-    ASSERT_TRUE(dbServiceCheck(smUuid, fpi::SVC_STATUS_STOPPED));
-    ASSERT_TRUE(svcLayerSvcCheck(smUuid, fpi::SVC_STATUS_STOPPED));
+    ASSERT_TRUE(dbServiceCheck(smUuid, fpi::SVC_STATUS_STOPPING));
+    ASSERT_TRUE(svcLayerSvcCheck(smUuid, fpi::SVC_STATUS_STOPPING));
 
     dataStore->getSvcInfo(smUuid, smInfo);
     // make sure we updated the incarnationNo
@@ -849,7 +849,7 @@ TEST_F(SvcMapFixture, IncarnationChecksTest)
     std::cout << " Incoming incarnationNo = 0 \n";
     // Refresh svcInfo
     dataStore->getSvcInfo(smUuid, smInfo);
-    smInfo.svc_status    = fpi::SVC_STATUS_STOPPED;
+    smInfo.svc_status    = fpi::SVC_STATUS_STOPPING;
     smInfo.incarnationNo = 0;
 
     modifyServiceState2(smInfo);
@@ -858,8 +858,8 @@ TEST_F(SvcMapFixture, IncarnationChecksTest)
     dataStore->getSvcInfo(smUuid, smInfo);
 
     ASSERT_TRUE(smInfo.incarnationNo != 0);
-    ASSERT_TRUE(dbServiceCheck(smUuid, fpi::SVC_STATUS_STOPPED));
-    ASSERT_TRUE(svcLayerSvcCheck(smUuid, fpi::SVC_STATUS_STOPPED));
+    ASSERT_TRUE(dbServiceCheck(smUuid, fpi::SVC_STATUS_STOPPING));
+    ASSERT_TRUE(svcLayerSvcCheck(smUuid, fpi::SVC_STATUS_STOPPING));
 
 
     //+----------------+---------------------+--------------------------+------------------+---------------------------+
@@ -882,7 +882,7 @@ TEST_F(SvcMapFixture, IncarnationChecksTest)
     // Update only svcLayer
     MODULEPROVIDER()->getSvcMgr()->updateSvcMap(entries);
 
-    ASSERT_TRUE(svcLayerSvcCheck(smUuid, fpi::SVC_STATUS_STOPPED, newIncarnation));
+    ASSERT_TRUE(svcLayerSvcCheck(smUuid, fpi::SVC_STATUS_STOPPING, newIncarnation));
     // Change the status now, send out update, incarnationNo is latest already
     smInfo.svc_status = fpi::SVC_STATUS_INACTIVE_STOPPED;
 
@@ -1037,13 +1037,13 @@ TEST_F(SvcMapFixture, IncarnationChecksTest)
 
     // Refresh svcInfo
     dataStore->getSvcInfo(smUuid, smInfo);
-    smInfo.svc_status = fpi::SVC_STATUS_STOPPED;
+    smInfo.svc_status = fpi::SVC_STATUS_STOPPING;
 
     modifyServiceState2(smInfo);
 
     // No incarnation check required
-    ASSERT_TRUE(dbServiceCheck(smUuid, fpi::SVC_STATUS_STOPPED));
-    ASSERT_TRUE(svcLayerSvcCheck(smUuid, fpi::SVC_STATUS_STOPPED));
+    ASSERT_TRUE(dbServiceCheck(smUuid, fpi::SVC_STATUS_STOPPING));
+    ASSERT_TRUE(svcLayerSvcCheck(smUuid, fpi::SVC_STATUS_STOPPING));
 
     //+----------------+---------------------+--------------------------+------------------+---------------------------+
     //| dbRecordFound  | svcLayer  | Incoming VS found Record |  Apply incoming? |              Action                 |
@@ -1140,14 +1140,14 @@ TEST_F(SvcMapFixture, IncarnationChecksTest)
     // Refresh svcInfo
     MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, dmInfo);
 
-    dmInfo.svc_status = fpi::SVC_STATUS_STOPPED;
+    dmInfo.svc_status = fpi::SVC_STATUS_STOPPING;
     prevIncarnation   = dmInfo.incarnationNo;
     dmInfo.incarnationNo += 2;
 
     modifyServiceState2(dmInfo);
 
-    ASSERT_TRUE(dbServiceCheck(dmUuid, fpi::SVC_STATUS_STOPPED, dmInfo.incarnationNo));
-    ASSERT_TRUE(svcLayerSvcCheck(dmUuid, fpi::SVC_STATUS_STOPPED, dmInfo.incarnationNo));
+    ASSERT_TRUE(dbServiceCheck(dmUuid, fpi::SVC_STATUS_STOPPING, dmInfo.incarnationNo));
+    ASSERT_TRUE(svcLayerSvcCheck(dmUuid, fpi::SVC_STATUS_STOPPING, dmInfo.incarnationNo));
 
     //+----------------+---------------------+--------------------------+------------------+---------------------------+
     //| dbRecordFound  | svcLayer  | Incoming VS found Record |  Apply incoming? |              Action                 |
@@ -1164,12 +1164,12 @@ TEST_F(SvcMapFixture, IncarnationChecksTest)
     // Refresh svcInfo
     MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcUuid, dmInfo);
 
-    dmInfo.svc_status = fpi::SVC_STATUS_STOPPED;
+    dmInfo.svc_status = fpi::SVC_STATUS_STOPPING;
 
     modifyServiceState2(dmInfo);
 
-    ASSERT_TRUE(dbServiceCheck(dmUuid, fpi::SVC_STATUS_STOPPED, dmInfo.incarnationNo));
-    ASSERT_TRUE(svcLayerSvcCheck(dmUuid, fpi::SVC_STATUS_STOPPED));
+    ASSERT_TRUE(dbServiceCheck(dmUuid, fpi::SVC_STATUS_STOPPING, dmInfo.incarnationNo));
+    ASSERT_TRUE(svcLayerSvcCheck(dmUuid, fpi::SVC_STATUS_STOPPING));
 
     dmInfo.svc_status = fpi::SVC_STATUS_INACTIVE_STOPPED;
 

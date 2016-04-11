@@ -272,7 +272,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
         } else if ( !svcLayerRecordFound && dbRecordFound ) {
 
             // DB has a record, check if it is more current than incoming
-            validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, dbInfoUpdate);
+            validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, dbInfoUpdate, "ConfigDB");
 
             if (validUpdate)
             {
@@ -320,7 +320,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
         } else if ( svcLayerRecordFound && !dbRecordFound ) {
 
             // Only svcLayer has a record, check if it is more current than incoming
-            validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, svcLayerInfoUpdate);
+            validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, svcLayerInfoUpdate, "SvcMgr");
 
             if (validUpdate)
             {
@@ -345,7 +345,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
             svcLayerInfoPtr = boost::make_shared<fpi::SvcInfo>(svcLayerInfoUpdate);
             dbInfoPtr       = boost::make_shared<fpi::SvcInfo>(dbInfoUpdate);
 
-            validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, svcLayerInfoUpdate);
+            validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, svcLayerInfoUpdate, "SvcMgr");
 
             // What we are trying to determine with the below two values is the relationship
             // between the svcLayer and DB record.
@@ -375,7 +375,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                 // svcLayer < configDB
 
                 // Need to establish now that incoming > configDB
-                validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, dbInfoUpdate);
+                validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, dbInfoUpdate, "ConfigDB");
 
                 if ( validUpdate )
                 {
@@ -464,7 +464,10 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
          * ==========================================
          * */
 
-        bool ret = false;
+        bool ret                 = false;
+        bool svcLayerRecordFound = false;
+        bool dbRecordFound       = false;
+
         // Do configDB related work first so the window
         // for svcLayer getting updated while we potentially
         // wait on locks is minimized
@@ -474,7 +477,8 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
         fpi::ServiceStatus initialDbStatus = fpi::SVC_STATUS_INVALID;
         if (ret)
         {
-            initialDbStatus = dbInfoUpdate.svc_status;
+            dbRecordFound           = true;
+            initialDbStatus         = dbInfoUpdate.svc_status;
             dbInfoUpdate.svc_status = svc_status;
 
         } else {
@@ -501,6 +505,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
         if (ret)
         {
+            svcLayerRecordFound = true;
             initialSvcLayerInfo = svcLayerInfoUpdate;
 
             // update the status to what we need to update to, since
@@ -691,10 +696,15 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
          * ====================================================================
          * */
 
-        // If the service is in the process of being added/started, do not update svcLayer because we do not
-        // have incarnationNumbers yet. (it is 0)
-        if ( !svcAddition )
+        // If the service is in the process of being added/started, and we do not have a record of
+        // it in the svcmap already (could be a service/node restart)do not update svcLayer
+        if (svcAddition && !svcLayerRecordFound)
         {
+            LOGNOTIFY << "No record of svc:" << std::hex << uuid.svc_uuid << std::dec
+                      << " incoming status:" << OmExtUtilApi::printSvcStatus(svc_status)
+                      << " in SvcMgr, will skip update!";
+
+        } else {
             LOGNOTIFY << "Updating SvcMgr svcMap now for uuid:" << std::hex << uuid.svc_uuid  << std::dec;
 
             // The only reason why an update to svcLayer svcMap will be rejected is if

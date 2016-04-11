@@ -49,7 +49,8 @@ namespace fds
          * Other service related utility functions that will be used by both
          * the OM as well as other components such as svcMgr
          */
-        static bool  isIncomingUpdateValid(fpi::SvcInfo& incomingSvcInfo, fpi::SvcInfo currentInfo);
+        static bool  isIncomingUpdateValid(fpi::SvcInfo& incomingSvcInfo, fpi::SvcInfo currentInfo,
+                                           std::string source);
         static bool  isTransitionAllowed( fpi::ServiceStatus incoming,
                                           fpi::ServiceStatus current,
                                           bool sameIncNo,

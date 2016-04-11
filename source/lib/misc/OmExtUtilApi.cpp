@@ -13,15 +13,15 @@ OmExtUtilApi* OmExtUtilApi::m_instance = NULL;
 //+--------------------------+---------------------------------------+
 //|     Current State        |    Valid IncomingState                |
 //+--------------------------+---------------------------------------+
-//      ACTIVE               |  STANDBY, STOPPED, INACTIVE_FAILED
+//      ACTIVE               |  STANDBY, STOPPING, INACTIVE_FAILED
 //      INACTIVE_STOPPED     |  ACTIVE, STARTED, REMOVED
 //      DISCOVERED           |  ACTIVE
 //      STANDBY              |  REMOVED, ACTIVE
 //      ADDED                |  STARTED, REMOVED
-//      STARTED              |  ACTIVE, STOPPED, INACTIVE_FAILED
-//      STOPPED              |  INACTIVE_STOPPED, STARTED, REMOVED
+//      STARTED              |  ACTIVE, STOPPING, INACTIVE_FAILED
+//      STOPPING             |  INACTIVE_STOPPED, STARTED, REMOVED
 //      REMOVED              |  DISCOVERED
-//      INACTIVE_FAILED      |  ACTIVE, STOPPED
+//      INACTIVE_FAILED      |  ACTIVE, STOPPING
 //+--------------------------+---------------------------------------+
 
 const std::vector<std::vector<fpi::ServiceStatus>> OmExtUtilApi::allowedStateTransitions =
@@ -29,10 +29,10 @@ const std::vector<std::vector<fpi::ServiceStatus>> OmExtUtilApi::allowedStateTra
         // valid incoming for state: INVALID(0)
         { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_INACTIVE_STOPPED,
           fpi::SVC_STATUS_DISCOVERED, fpi::SVC_STATUS_STANDBY, fpi::SVC_STATUS_ADDED,
-          fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_STOPPED,
+          fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_STOPPING,
           fpi::SVC_STATUS_REMOVED, fpi::SVC_STATUS_INACTIVE_FAILED },
         // valid incoming for state: ACTIVE (1)
-        { fpi::SVC_STATUS_STANDBY, fpi::SVC_STATUS_STOPPED,
+        { fpi::SVC_STATUS_STANDBY, fpi::SVC_STATUS_STOPPING,
           fpi::SVC_STATUS_INACTIVE_FAILED },
         // valid incoming for state: INACTIVE_STOPPED(2)
         { fpi::SVC_STATUS_ACTIVE,fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_REMOVED },
@@ -43,15 +43,15 @@ const std::vector<std::vector<fpi::ServiceStatus>> OmExtUtilApi::allowedStateTra
         // valid incoming for state: ADDED(5)
         { fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_REMOVED },
         // valid incoming for state: STARTED(6)
-        { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_STOPPED,
+        { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_STOPPING,
           fpi::SVC_STATUS_INACTIVE_FAILED },
-        // valid incoming for state: STOPPED(7)
+        // valid incoming for state: STOPPING(7)
         { fpi::SVC_STATUS_INACTIVE_STOPPED,fpi::SVC_STATUS_STARTED,
           fpi::SVC_STATUS_REMOVED },
         // valid incoming for state: REMOVED(8)
         { fpi::SVC_STATUS_DISCOVERED },
         // valid incoming for state: INACTIVE_FAILED(9)
-        { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_STOPPED }
+        { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_STOPPING }
 };
 
 OmExtUtilApi::OmExtUtilApi()
@@ -222,7 +222,7 @@ std::string OmExtUtilApi::printSvcStatus( fpi::ServiceStatus svcStatus )
             statusString = "STARTED";
             break;
         case 7:
-            statusString = "STOPPED";
+            statusString = "STOPPING";
             break;
         case 8:
             statusString = "REMOVED";
@@ -315,7 +315,8 @@ bool OmExtUtilApi::isTransitionAllowed( fpi::ServiceStatus incoming,
  * taking into account (1) incarnationNo (2) valid state transition
  */
 bool OmExtUtilApi::isIncomingUpdateValid( fpi::SvcInfo& incomingSvcInfo,
-                                          fpi::SvcInfo currentInfo )
+                                          fpi::SvcInfo currentInfo,
+                                          std::string source)
 {
     bool ret          = false;
     bool sameIncNo    = false;
@@ -325,7 +326,7 @@ bool OmExtUtilApi::isIncomingUpdateValid( fpi::SvcInfo& incomingSvcInfo,
     LOGNOTIFY << "Uuid:" << std::hex << currentInfo.svc_id.svc_uuid.svc_uuid << std::dec
               << " Incoming [incarnationNo:" << incomingSvcInfo.incarnationNo
               << ", status:" << OmExtUtilApi::printSvcStatus(incomingSvcInfo.svc_status)
-              << "] VS Current [incarnationNo:" << currentInfo.incarnationNo
+              << "] VS " << source << " Current [incarnationNo:" << currentInfo.incarnationNo
               << ", status:" << OmExtUtilApi::printSvcStatus(currentInfo.svc_status) << "]";
 
     if ( incomingSvcInfo.incarnationNo < currentInfo.incarnationNo)
