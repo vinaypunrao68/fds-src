@@ -424,6 +424,7 @@ enum  FDSPMsgTypeId {
 
   /* DM Debug Messages */
   DbgForceVolumeSyncMsgTypeId               = 21000;
+  DbgOfflineVolumeGroupMsgTypeId              = 21001;
 
   /* VolumeGroup messages */
   VolumeGroupInfoUpdateCtrlMsgTypeId        = 30000;

@@ -165,6 +165,8 @@ class DMSvcHandler : virtual public fpi::DMSvcIf, public PlatNetSvcHandler {
 
     void handleDbgForceVolumeSyncMsg(SHPTR<fpi::AsyncHdr>& hdr,
                                      SHPTR<fpi::DbgForceVolumeSyncMsg> &queryMsg);
+    void handleDbgOfflineVolumeGroupMsg(SHPTR<fpi::AsyncHdr>& hdr,
+                                      SHPTR<fpi::DbgOfflineVolumeGroupMsg> &offlineMsg);
 
     void handleCopyVolume(SHPTR<fpi::AsyncHdr>& hdr,SHPTR<fpi::CopyVolumeMsg>& archiveMsg);
     void handleArchive(SHPTR<fpi::AsyncHdr>& hdr,SHPTR<fpi::ArchiveMsg>& archiveMsg);
