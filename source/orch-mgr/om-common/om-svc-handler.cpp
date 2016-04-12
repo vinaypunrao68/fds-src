@@ -231,7 +231,7 @@ void OmSvcHandler<DataStoreT>::registerService(boost::shared_ptr<fpi::SvcInfo>& 
 {
     // If the OM is still coming up, do not accept registrations, the method in
     // SvcProcess should retry indefinitely
-    if (MODULEPROVIDER()->getSvcMgr()->getOmRequestHandler()->isHandlerDeferringRequests())
+    if (!MODULEPROVIDER()->getSvcMgr()->getSvcRequestHandler()->canAcceptRequests())
     {
         LOGWARN << "OM is not up yet, will not accept registration of svc:"
                 << std::hex << svcInfo->svc_id.svc_uuid.svc_uuid << std::dec

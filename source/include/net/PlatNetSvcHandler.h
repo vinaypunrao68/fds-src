@@ -99,7 +99,7 @@ struct PlatNetSvcHandler : HasModuleProvider,
 
     void updateHandler(const fpi::FDSPMsgTypeId msgId, const FdspMsgHandler &handler);
 
-    bool isHandlerDeferringRequests();
+    bool canAcceptRequests();
 
     void asyncReqt(const FDS_ProtocolInterface::AsyncHdr& header,
                    const std::string& payload) override;

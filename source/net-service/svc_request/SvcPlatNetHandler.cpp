@@ -79,26 +79,19 @@ void PlatNetSvcHandler::setHandlerState(PlatNetSvcHandler::State newState)
 }
 
 /*
- * According to the code in SvcProcess::start_modules
- * the handler is set to DEFER until the OM finishes
- * coming up. In the case of OM restart, this could
- * take a while since we are spoof registering svcs.
- * Use this flag to figure out where it's at, and
- * ignore allocRpcClient exception, since queueing
- * up healthReports while svcs are still being spoofed
- * is not helpful. If the svc is truly down, other msgs
- * will cause the same exception causing the right handling
+ * Returns true if the handler state is set to
+ * ACCEPT_REQUESTS
  */
-bool PlatNetSvcHandler::isHandlerDeferringRequests()
+
+bool PlatNetSvcHandler::canAcceptRequests()
 {
-    if (handlerState_ == DEFER_REQUESTS)
+    if (handlerState_ == ACCEPT_REQUESTS)
     {
         return true;
     }
 
     return false;
 }
-
 
 /**
  * @brief 

@@ -248,10 +248,7 @@ void SvcProcess::registerSvcProcess()
 
     int numAttempts = 0;
 
-    // seconds [ Used to be 10 - 500 milliseconds, but after adding the logic
-    // to have the OM reject registrations until it's ready to accept requests,
-    // the ms wait time is too aggressive causing further delays in the OM since it is
-    // busy processing this flood of registration retries]
+    // seconds
     int waitTime = 2;
     int maxWaitTime = 7;
 
