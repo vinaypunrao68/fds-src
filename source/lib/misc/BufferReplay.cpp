@@ -26,6 +26,7 @@ BufferReplay::BufferReplay(const std::string &bufferFileName,
     nOutstandingReplayOps_ = 0;
     maxReplayCnt_ = maxReplayCnt;
     progress_ = IDLE;
+    affinity_ = affinity;
 }
 
 BufferReplay::~BufferReplay()

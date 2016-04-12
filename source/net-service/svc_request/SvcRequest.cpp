@@ -172,6 +172,17 @@ bool SvcRequestIf::taskExecutorIdIsSet() {
     return teidIsSet_;
 }
 
+bool SvcRequestIf::isSynchronized() const
+{
+    if (teidIsSet_) {
+        return (std::this_thread::get_id() ==
+                MODULEPROVIDER()->proc_thrpool()->getThreadId(teid_));
+    } else {
+        return (std::this_thread::get_id() ==
+                MODULEPROVIDER()->proc_thrpool()->getThreadId(id_));
+    }
+}
+
 /**
  * Common invocation method for all async requess.
  * In order to synchronize invocation and response handling  we use
@@ -311,6 +322,8 @@ void EPSvcRequest::invoke() {
 */
 void EPSvcRequest::invokeDirect()
 {
+    fds_assert(isSynchronized());
+
     if (!respCb_) {
         fireAndForget_ = true;
     }

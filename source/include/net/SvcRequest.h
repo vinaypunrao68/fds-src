@@ -279,6 +279,7 @@ struct SvcRequestIf : TrackableRequest {
     void setTaskExecutorId(const TaskExecutorId &teid);
     void unsetTaskExecutorId();
     bool taskExecutorIdIsSet();
+    bool isSynchronized() const;
 
     inline const fpi::AsyncHdrPtr& responseHeader() const { return respHeader_; }
     inline Error responseStatus() const { return respHeader_->msg_code; }

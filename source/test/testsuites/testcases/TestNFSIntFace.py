@@ -8,8 +8,17 @@ import TestCase
 from fdslib.TestUtils import findNodeFromInv
 from fdslib.TestUtils import get_node_service
 from fdslib.TestUtils import get_resource
-from fabric.contrib.files import *
-import libnfs
+from os.path import expanduser
+from fabric.context_managers import lcd
+from fabric.operations import local
+
+try:
+    import libnfs
+except ImportError:
+    p = expanduser("~") + '/' + 'libnfs_python' + '/' + 'libnfs/'
+    with lcd(p):
+        local("make clean && make")
+
 
 
 # This class contains the attributes and methods to test libnfs interface to upload a given file.
