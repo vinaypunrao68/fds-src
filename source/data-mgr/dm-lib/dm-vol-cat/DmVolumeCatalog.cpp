@@ -534,7 +534,7 @@ Error DmVolumeCatalog::statVolumeInternal(fds_volid_t volId,
     LOGNORMAL << "stat volume logical"
         << " volume:" << volId << " logicalsize:" << *volSize
         << " blobs:" << *blobCount << " logicalobjects:" << *objCount
-        << " sequenceid:" << latestSeqId ? std::to_string(*latestSeqId) : "N/A";
+        << " sequenceid:" << (latestSeqId ? std::to_string(*latestSeqId) : "N/A");
 
     return rc;
 }
