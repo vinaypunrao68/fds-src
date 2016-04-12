@@ -21,12 +21,14 @@
 #include <linux/futex.h>
 #include <sys/time.h>
 
+#include <util/timeutils.h>
 #include <fds_assert.h>
 
 #include "EclipseWorkarounds.h"
 
 namespace fds {
 typedef std::function<void()> LockFreeTask;
+struct LFMQThreadpool;
 
 
 // futex provides a kernel facitility to wait for a value at a given address to
@@ -53,16 +55,21 @@ struct LockfreeWorker {
         ABORTING,
         ABORTED
     };
-    LockfreeWorker(int id, bool steal, std::vector<LockfreeWorker*> &peers);
+    LockfreeWorker(LFMQThreadpool *parent,
+                   const std::string &threadpoolId,
+                   bool steal, std::vector<LockfreeWorker*> &peers);
     void start();
     void finish();
     void enqueue(LockFreeTask *t);
     void workLoop();
+    std::string logString() const;
 
     // This should be cache line size aligned to avoid false sharing.
     alignas(64) int                         queueCnt = 0;
 
-    int                                     id_;
+    /* Combination of threadpool id and thread id */
+    LFMQThreadpool                          *parent_; 
+    std::string                             id_;
     bool                                    steal_;
     std::vector<LockfreeWorker*>            &peers_;
     State                                   state_;
@@ -72,6 +79,10 @@ struct LockfreeWorker {
     std::thread*                            worker;
     /* Counters */
     uint64_t                                completedCntr;
+    /* = -1 means thread is idle; >= 0 indicates thread is busy and the value
+     * held is couner value when last thread check was run
+     */
+    int64_t                                 threadCheckCntr;
 };
 
 /**
@@ -79,6 +90,7 @@ struct LockfreeWorker {
 * per thread.
 */
 struct LFMQThreadpool {
+    LFMQThreadpool(const std::string &id, uint32_t sz, bool steal = false);
     LFMQThreadpool(uint32_t sz, bool steal = false);
     ~LFMQThreadpool();
     void stop();
@@ -96,6 +108,12 @@ struct LFMQThreadpool {
         workers[idx]->enqueue(
                 new LockFreeTask(std::bind(std::forward<F>(f), std::forward<Args>(args)...)));
     }
+    /* Use this function to catch cases where long running/blocking
+     * task is blocking thread in the threadpool
+     * NOTE: Don't run this function on this threadpool, it's better to run on a
+     * separate thread.
+     */
+    void threadpoolCheck();
 
     /**
     * @brief Returns thread id responsible for tasks with provided affinity
@@ -107,8 +125,9 @@ struct LFMQThreadpool {
     }
 
 
-    std::vector<LockfreeWorker*> workers;
-    int idx;
+    std::vector<LockfreeWorker*>            workers;
+    int                                     idx;
+    int64_t                                 threadCheckCntr;
 };
 
 typedef std::thread LFSQWorker;

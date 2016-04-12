@@ -20,6 +20,7 @@ namespace fds {
 class thpool_req;
 class thpool_worker;
 class fds_threadpool;
+class FdsTimer;
 
 enum thp_state_e { INIT, IDLE, TERM, WAKING_UP, RUNNING, SPAWNING, EXITING };
 
@@ -117,6 +118,11 @@ class fds_threadpool : boost::noncopyable
     void stop();
 
     /*
+     * Create the threadpool with specified id, number of thread.
+     */
+    fds_threadpool(const std::string &id, int num_thr = 10, bool use_lftp = true);
+
+    /*
      * Create the threadpool with specified number of thread.
      */
     fds_threadpool(int num_thr = 10, bool use_lftp = true);
@@ -140,6 +146,15 @@ class fds_threadpool : boost::noncopyable
     /* Worker notifies the pool owner when its thread exits. */
     void thp_worker_exit(thpool_worker *worker);
 
+    /* Use this function to catch cases where long running/blocking
+     * task is blocking thread in the threadpool.
+     */
+    void enableThreadpoolCheck(FdsTimer *timer, const std::chrono::seconds &frequencySec);
+  protected:
+    /* NOTE: Don't run this function on this threadpool, it's better to run on a
+     * separate thread.
+     */
+    void threadpoolCheck();
 };
 
 /*

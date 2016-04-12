@@ -1,19 +1,23 @@
 /*
  * Copyright 2015 Formation Data Systems, Inc.
  */
+#include <util/Log.h>
 #include <concurrency/LFThreadpool.h>
 
 namespace fds {
 
-LockfreeWorker::LockfreeWorker(int id, bool steal,
+LockfreeWorker::LockfreeWorker(LFMQThreadpool *parent,
+                               const std::string &threadpoolId, bool steal,
                                std::vector<LockfreeWorker*> &peers)
 :  queueCnt(0),
-id_(id),
+parent_(parent),
+id_(threadpoolId),
 steal_(steal),
 peers_(peers),
 state_(INIT),
 tasks(1500),
-completedCntr(0)
+completedCntr(0),
+threadCheckCntr(-1)
 {
 }
 
@@ -66,13 +70,12 @@ void LockfreeWorker::enqueue(LockFreeTask *t)
 }
 
 void LockfreeWorker::workLoop() {
-#if 0
-    int policy;
-    struct sched_param param;
-    pthread_getschedparam(pthread_self(), &policy, &param);
-    param.sched_priority = sched_get_priority_max(policy); // 20;
-    pthread_setschedparam(pthread_self(), SCHED_RR, &param);
-#endif
+    /* Set id to be combination of threadpool id and this thread id */
+    std::stringstream ss;
+    ss << id_ << ":" << std::hex<< std::this_thread::get_id() << std::dec;
+    id_ = ss.str();
+
+    GLOGNOTIFY << "Starting LFThread worker id: " << id_;
 
     for (;;)
     {
@@ -185,7 +188,19 @@ void LockfreeWorker::workLoop() {
                 fds_verify(NULL != task);
                 fds_verify(task);
                 try {
+                    DBG(auto preTaskTimeMs = util::getTimeStampMillis());
+                    threadCheckCntr = parent_->threadCheckCntr;
+
                     task->operator()();
+
+#ifdef DEBUG
+                    auto postTaskTimeMs = util::getTimeStampMillis();
+                    if (postTaskTimeMs - preTaskTimeMs > 5000) { \
+                        GLOGWARN << logString() <<  " last task execution took: "
+                            << postTaskTimeMs - preTaskTimeMs
+                            << "ms. Consider breaking up the task";
+                    }
+#endif
                 } catch (std::bad_alloc const& e) {
                     fds_panic("Failed allocation of memory: %s : calling %s\n", e.what(), task->target_type().name());
                 } catch (std::invalid_argument const& e) {
@@ -195,6 +210,7 @@ void LockfreeWorker::workLoop() {
                 } catch (...) {
                     fds_panic("unknown exception : calling %s !\n", task->target_type().name());
                 }
+                threadCheckCntr = -1;  // indicates thread is idle
                 delete task;
             } else {
                 fds_assert(NULL == task);
@@ -206,16 +222,27 @@ void LockfreeWorker::workLoop() {
     }  // for (;;)
 }
 
-LFMQThreadpool::LFMQThreadpool(uint32_t sz, bool steal)
+std::string LockfreeWorker::logString() const
+{
+    return id_;
+}
+
+LFMQThreadpool::LFMQThreadpool(const std::string &id, uint32_t sz, bool steal)
 : workers(sz),
-    idx(0)
+    idx(0),
+    threadCheckCntr(0)
 {
     for (uint32_t i = 0; i < workers.size(); i++) {
-        workers[i] = new LockfreeWorker(i, steal, workers);
+        workers[i] = new LockfreeWorker(this, id, steal, workers);
     }
     for (uint32_t i = 0; i < workers.size(); i++) {
         workers[i]->start();
     }
+}
+
+LFMQThreadpool::LFMQThreadpool(uint32_t sz, bool steal)
+: LFMQThreadpool("UnnamedThreadpool", sz, steal)
+{
 }
 
 LFMQThreadpool::~LFMQThreadpool()
@@ -224,6 +251,18 @@ LFMQThreadpool::~LFMQThreadpool()
         w->finish();
         delete w;
     }
+}
+
+void LFMQThreadpool::threadpoolCheck() {
+    for (const auto& worker : workers) {
+        if (worker->threadCheckCntr >= 0 &&
+            threadCheckCntr - worker->threadCheckCntr > 1) {
+            GLOGWARN << worker->logString()
+                <<  " thread seems blocked for thread check cycles: "
+                << (threadCheckCntr - worker->threadCheckCntr);
+        }
+    }
+    ++threadCheckCntr;
 }
 
 void LFMQThreadpool::stop()

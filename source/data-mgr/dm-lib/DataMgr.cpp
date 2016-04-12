@@ -2025,11 +2025,12 @@ DataMgr::dmQosCtrl::dmQosCtrl(DataMgr *_parent,
                               fds_log *log) :
         FDS_QoSControl(_max_thrds, 2, algo, log, "DM") {
     parentDm = _parent;
+    threadPool->enableThreadpoolCheck(_parent->getModuleProvider()->getTimer().get(),
+                                      std::chrono::seconds(30));
     dispatcher = new QoSWFQDispatcher(this, parentDm->scheduleRate,
                                       parentDm->qosOutstandingTasks,
                                       false,
                                       log);
-
     serialExecutor = std::unique_ptr<SynchronizedTaskExecutor<size_t>>(
         new SynchronizedTaskExecutor<size_t>(*threadPool));
     if (parentDm->getModuleProvider()->get_cntrs_mgr()) {
