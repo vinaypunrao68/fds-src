@@ -323,6 +323,8 @@ struct SvcMgr : HasModuleProvider, Module, StateProvider {
     * @brief
     */
     fpi::SvcUuid getOmSvcUuid() const;
+    PlatNetSvcHandlerPtr getOmRequestHandler() const;
+    void setOmRequestHandler(PlatNetSvcHandlerPtr handler);
 
     /**
     * @brief Constructs new client against OM and returns it.  This call will block until
@@ -589,6 +591,7 @@ struct SvcMgr : HasModuleProvider, Module, StateProvider {
     std::string omIp_;
     int omPort_;
     fpi::SvcUuid omSvcUuid_;
+    PlatNetSvcHandlerPtr omReqHandler_;
 
     /* Self service information */
     fpi::SvcInfo svcInfo_;

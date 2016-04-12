@@ -1672,6 +1672,11 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                 local_domain_event( WaitNdsEvt( deployed_sm_services,
                                                 deployed_dm_services ) );
             }
+
+            // We have to explicitly broadcast here because the ::updateSvcMaps function will not do it.
+            // That's because we don't want to spam the system with updates for every single svc state
+            // change. So do it for all svcs that have been spoofed
+            om_locDomain->om_bcast_svcmap();
         }
         else
         {
@@ -2379,11 +2384,6 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                     << fds::logDetailedString( svc );
         }
     }
-
-    // We have to explicitly broadcast here because the ::updateSvcMaps function will not do it.
-    // That's because we don't want to spam the system with updates for every single svc state
-    // change. So do it for all svcs that have been spoofed
-    om_locDomain->om_bcast_svcmap();
 }
     
 

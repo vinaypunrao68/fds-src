@@ -229,6 +229,16 @@ OmSvcHandler<DataStoreT>::SvcEvent(boost::shared_ptr<fpi::AsyncHdr> &hdr,
 template <class DataStoreT>
 void OmSvcHandler<DataStoreT>::registerService(boost::shared_ptr<fpi::SvcInfo>& svcInfo)
 {
+    // If the OM is still coming up, do not accept registrations, the method in
+    // SvcProcess should retry indefinitely
+    if (MODULEPROVIDER()->getSvcMgr()->getOmRequestHandler()->isHandlerDeferringRequests())
+    {
+        LOGWARN << "OM is not up yet, will not accept registration of svc:"
+                << std::hex << svcInfo->svc_id.svc_uuid.svc_uuid << std::dec
+                << " at this time, retry registration";
+        throw Exception(ERR_NOT_READY, "OM not ready");
+    }
+
     LOGDEBUG << "Register service request. Svcinfo: " << fds::logString(*svcInfo);
     OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
     Error err = domain->om_register_service(svcInfo);

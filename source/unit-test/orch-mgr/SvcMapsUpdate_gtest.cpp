@@ -148,7 +148,7 @@ struct SvcMapFixture : BaseTestFixture{
             // invalid current states for incoming: INVALID(0)
             { },
             // invalid incoming states for: ACTIVE(1)
-            { fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_DISCOVERED, fpi::SVC_STATUS_ADDED,
+            { fpi::SVC_STATUS_DISCOVERED, fpi::SVC_STATUS_ADDED,
               fpi::SVC_STATUS_INACTIVE_STOPPED, fpi::SVC_STATUS_REMOVED},
             // invalid incoming states for: INACTIVE_STOPPED(2)
             { fpi::SVC_STATUS_DISCOVERED, fpi::SVC_STATUS_STANDBY,fpi::SVC_STATUS_ADDED,

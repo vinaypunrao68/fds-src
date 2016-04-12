@@ -122,7 +122,7 @@ def modWait(mod, node, forShutdown = False):
     """
     log = logging.getLogger('TestFDSModMgt' + '.' + 'modWait')
 
-    maxcount = 20
+    maxcount = 150 #On an ungraceful shutdown, this could take 2-3 minutes
 
     orchMgrPID = ''
     AMAgentPID = ''
@@ -1132,9 +1132,6 @@ class TestSMActivate(TestCase.FDSTestCase):
                 self.log.error(" Add SM service failed on node %s"%(each_node.id))
                 return False
             
-            # sleep for a few seconds to allow the add request to complete
-            # time.sleep(5)
-
             self.log.info("Activate service SM for node %s." % (each_node.id))
             start_service = node_service.start_service(each_node.id,add_service.id)
             time.sleep(3)

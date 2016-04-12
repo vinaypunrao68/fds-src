@@ -203,6 +203,8 @@ void SvcProcess::start_modules()
      */
     svcMgr_->getSvcRequestHandler()->setHandlerState(PlatNetSvcHandler::ACCEPT_REQUESTS);
 
+    LOGNOTIFY << "Svc has finished executing startup routines, available to accept network requests";
+
 }
 
 void SvcProcess::shutdown_modules()
@@ -246,9 +248,12 @@ void SvcProcess::registerSvcProcess()
 
     int numAttempts = 0;
 
-    // microseconds
-    int waitTime = 10 * 1000;   // 10 milliseconds
-    int maxWaitTime = 500 * 1000;  // 500 milliseconds
+    // seconds [ Used to be 10 - 500 milliseconds, but after adding the logic
+    // to have the OM reject registrations until it's ready to accept requests,
+    // the ms wait time is too aggressive causing further delays in the OM since it is
+    // busy processing this flood of registration retries]
+    int waitTime = 2;
+    int maxWaitTime = 7;
 
     do {
         try {
@@ -276,7 +281,7 @@ void SvcProcess::registerSvcProcess()
         }  catch(const std::exception& ex) {
             // specific handling for all exceptions extending std::exception, except
             // std::runtime_error which is handled explicitly
-            LOGWARN << "Error occurred: " << ex.what() << std::endl;
+            LOGWARN << "Failed to register: " << ex.what() << ". Retrying...";
         }catch (...) {
             LOGWARN << "Failed to register: unknown exception" << ".  Retrying...";
         }
@@ -286,7 +291,7 @@ void SvcProcess::registerSvcProcess()
             if (waitTime > maxWaitTime)
                 waitTime = maxWaitTime;
         }
-        usleep(waitTime);
+        sleep(waitTime);
 
     } while (true);
 

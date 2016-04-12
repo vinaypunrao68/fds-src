@@ -187,6 +187,10 @@ SvcMgr::SvcMgr(CommonModuleProviderIf *moduleProvider,
                 << ".";
     }
 
+    if (svcInfo_.svc_type == fpi::FDSP_ORCH_MGR) {
+        setOmRequestHandler(svcRequestHandler_);
+    }
+
     LOGNOTIFY << "Initializing Service Layer server for " << SvcMgr::mapToSvcName( svcInfo_.svc_type ) <<
             "[" << svcInfo_.ip << ":" << svcInfo_.svc_port << "]";
 
@@ -532,6 +536,16 @@ void SvcMgr::getOmIPPort(std::string &omIp, fds_uint32_t &port) const
 fpi::SvcUuid SvcMgr::getOmSvcUuid() const
 {
     return omSvcUuid_;
+}
+
+PlatNetSvcHandlerPtr SvcMgr::getOmRequestHandler() const
+{
+    return omReqHandler_;
+}
+
+void SvcMgr::setOmRequestHandler(PlatNetSvcHandlerPtr handler)
+{
+    omReqHandler_ = handler;
 }
 
 fpi::OMSvcClientPtr SvcMgr::getNewOMSvcClient() const
@@ -886,21 +900,13 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
         GLOGWARN << "allocRpcClient failed.  Exception: " << e.what() << ".  "  << header
                  << " SvcInfo ( " << fds::logString(svcInfo_) << " )";
 
-        if (!MODULEPROVIDER()->getSvcMgr()->getSvcRequestHandler()->isHandlerDeferringRequests()){
-            markSvcDown_();
-        } else {
-            LOGNOTIFY << "OM is still coming up, will ignore exception:" << e.what()
-                      << " until it's up";
-        }
+        markSvcDown_();
+
     } catch (...) {
         GLOGWARN << "allocRpcClient failed.  Unknown exception. " << header
                  << " SvcInfo ( " << fds::logString(svcInfo_) << " )";
 
-        if (!MODULEPROVIDER()->getSvcMgr()->getSvcRequestHandler()->isHandlerDeferringRequests()){
-            markSvcDown_();
-        } else {
-            LOGNOTIFY << "OM is still coming up, will ignore exceptions until it's up";
-        }
+        markSvcDown_();
     }
     return false;
 }
@@ -987,15 +993,22 @@ bool SvcHandle::isSvcDown_() const
 
 void SvcHandle::markSvcDown_()
 {
-    /* NOTE: Assumes this function is invoked under lock */
-    svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE_FAILED;
-    svcClient_.reset();
-    GLOGDEBUG << logString();
-
     auto svcMgr = MODULEPROVIDER()->getSvcMgr();
-    // Don't report OM to itself.
-    if (svcMgr->getOmSvcUuid() != svcInfo_.svc_id.svc_uuid) {
-        svcMgr->notifyOMSvcIsDown(svcInfo_);
+    // If OM isn't up yet, don't send this health report.
+    if ( !svcMgr->getOmRequestHandler()->isHandlerDeferringRequests())
+    {
+        /* NOTE: Assumes this function is invoked under lock */
+        svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE_FAILED;
+        svcClient_.reset();
+        GLOGDEBUG << logString();
+
+        // Don't report OM to itself.
+        if (svcMgr->getOmSvcUuid() != svcInfo_.svc_id.svc_uuid) {
+            svcMgr->notifyOMSvcIsDown(svcInfo_);
+        }
+    } else {
+        LOGNOTIFY << "OM is still coming up, will ignore allocRpcException failures"
+                  << " until it's up";
     }
 }
 
