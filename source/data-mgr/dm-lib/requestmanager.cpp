@@ -81,8 +81,8 @@ void RequestManager::sendEventMessageToOM(fpi::EventType eventType,
     eventMsg->event.messageFormat = messageFormat;
     eventMsg->event.defaultMessage = "DEFAULT MESSAGE";
 
-    auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
-    auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+    auto svcMgr = dataMgr->getModuleProvider()->getSvcMgr()->getSvcRequestMgr();
+    auto request = svcMgr->newEPSvcRequest (dataMgr->getModuleProvider()->getSvcMgr()->getOmSvcUuid());
 
     request->setPayload(FDSP_MSG_TYPEID(fpi::NotifyEventMsg), eventMsg);
     request->invoke();
@@ -92,7 +92,7 @@ void RequestManager::sendEventMessageToOM(fpi::EventType eventType,
 void RequestManager::sendHealthCheckMsgToOM(fpi::HealthState serviceState,
                                             fds_errno_t statusCode,
                                             const std::string& statusInfo) {
-    fpi::SvcInfo info = MODULEPROVIDER()->getSvcMgr()->getSelfSvcInfo();
+    fpi::SvcInfo info = dataMgr->getModuleProvider()->getSvcMgr()->getSelfSvcInfo();
 
     // Send health check thrift message to OM
     fpi::NotifyHealthReportPtr healthRepMsg(new fpi::NotifyHealthReport());
@@ -104,8 +104,8 @@ void RequestManager::sendHealthCheckMsgToOM(fpi::HealthState serviceState,
     healthRepMsg->healthReport.statusCode                = statusCode;
     healthRepMsg->healthReport.statusInfo                = statusInfo;
 
-    auto svcMgr = MODULEPROVIDER()->getSvcMgr()->getSvcRequestMgr();
-    auto request = svcMgr->newEPSvcRequest (MODULEPROVIDER()->getSvcMgr()->getOmSvcUuid());
+    auto svcMgr = dataMgr->getModuleProvider()->getSvcMgr()->getSvcRequestMgr();
+    auto request = svcMgr->newEPSvcRequest (dataMgr->getModuleProvider()->getSvcMgr()->getOmSvcUuid());
 
     request->setPayload (FDSP_MSG_TYPEID (fpi::NotifyHealthReport), healthRepMsg);
     request->invoke();

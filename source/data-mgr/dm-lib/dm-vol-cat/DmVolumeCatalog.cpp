@@ -314,6 +314,17 @@ Error DmVolumeCatalog::statVolumeLogical(fds_volid_t volId,
             }
         }
     } else {
+        if (maxSeqId) {
+            /* Sequence id is not part of vol summary, it is part of VolumeMeta.  Ideally
+             * vol summary also belongs in VolumeMeta.  As part of DM refactor work
+             * vol summary will need to move to VolumeMeta
+             * NOTE: Ideally sequence id request should have happened in the first call
+             * to statVolumeLogical() when vol summary initialization takes place.
+             */
+            vol->getLatestSequenceId(*maxSeqId);
+            LOGWARN << "computed sequenceid:" << *maxSeqId
+                << " volid:" << volId << " after vol summary has been initialized";
+        }
         rc = vol->getVolSummary(volSize, blobCount, objCount);
     }
 

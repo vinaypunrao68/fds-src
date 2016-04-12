@@ -272,7 +272,19 @@ namespace fds {
             qda_lock.read_unlock();
 
             if (bypass_dispatcher == true) {
-                parent_ctrlr->processIO(io);
+                try {
+                    parent_ctrlr->processIO(io);
+                } catch (const std::exception &e) {
+                    LOGWARN << "exception:" << e.what()
+                        << " queue_id:" << queue_id
+                        << " type:" << io->io_type
+                        << " on processio.  ignoring...";
+                } catch (...) {
+                    LOGWARN << "exception:unknown"
+                        << " queue_id:" << queue_id
+                        << " type:" << io->io_type
+                        << " on processio.  ignoring...";
+                }
             }
             return err;
         }
@@ -420,7 +432,19 @@ namespace fds {
                          << " : # of pending ios = " << n_pios-1;
                 // assert(n_oios >= 0);
 
-                parent_ctrlr->processIO(io);
+                try {
+                    parent_ctrlr->processIO(io);
+                } catch (const std::exception &e) {
+                    LOGWARN << "exception:" << e.what()
+                        << " queue_id:" << queue_id
+                        << " type:" << io->io_type
+                        << " on processio.  ignoring...";
+                } catch (...) {
+                    LOGWARN << "exception:unknown"
+                        << " queue_id:" << queue_id
+                        << " type:" << io->io_type
+                        << " on processio.  ignoring...";
+                }
             }
 
             LOGNOTIFY << "Exiting qos dispatcher thread.  " << err;

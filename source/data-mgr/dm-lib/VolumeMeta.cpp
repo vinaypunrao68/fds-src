@@ -40,6 +40,7 @@ VolumeMeta::VolumeMeta(CommonModuleProviderIf *modProvider,
     vol_mtx = new fds_mutex("Volume Meta Mutex");
     vol_desc = new VolumeDesc(_name, _uuid);
     dmCopyVolumeDesc(vol_desc, _desc);
+    vol_desc->setState(fpi::ResourceState::Unknown);
 
     /* Enable ability to query state via StateProvider api */
     stateProviderId = "volume." + std::to_string(_uuid.get());
