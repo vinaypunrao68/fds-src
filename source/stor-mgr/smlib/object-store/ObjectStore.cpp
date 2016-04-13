@@ -656,6 +656,7 @@ ObjectStore::putObject(fds_volid_t volId,
     }
     StorMgrVolume *vol = volumeTbl->getVolume(volId);
 
+    bool doWriteBack = false;
     // Put data in store if it's not a duplicate.
     // Or TokenMigration + Active IO handle:  if the ObjData doesn't physically exist, still write out
     // the obj data.
@@ -721,6 +722,7 @@ ObjectStore::putObject(fds_volid_t volId,
 
         // update physical location that we got from data store
         updatedMeta->updatePhysLocation(&objPhyLoc);
+        doWriteBack = true;
     }
 
     auto writtenToTier = useTier;
@@ -729,9 +731,10 @@ ObjectStore::putObject(fds_volid_t volId,
     // write metadata to metadata store
     err = metaStore->putObjectMetadata(volId, objId, updatedMeta, &useTier);
 
-    // Notify tier engine of recent IO
-    tierEngine->notifyIO(objId, FDS_SM_PUT_OBJECT, *vol->voldesc, writtenToTier);
-
+    if (doWriteBack) {
+        // Notify tier engine of recent IO
+        tierEngine->notifyIO(objId, FDS_SM_PUT_OBJECT, *vol->voldesc, writtenToTier);
+    }
     useTier = metaStore->getMetadataTier();
     return err;
 }

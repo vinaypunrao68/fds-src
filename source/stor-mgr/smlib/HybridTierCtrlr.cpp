@@ -229,7 +229,7 @@ void HybridTierCtrlr::moveObjsToTierCb(const Error& e,
 {
     if (e != ERR_OK) {
         LOGWARN << "Failed to move some objects to disk from flash for token: "
-            << *nextToken_;
+            << *nextToken_ << " err: " << e;
         /* On error we still continue processing */
     } else {
         LOGDEBUG << "Moved " << req->movedCnt << " objects for token: " << *nextToken_;
