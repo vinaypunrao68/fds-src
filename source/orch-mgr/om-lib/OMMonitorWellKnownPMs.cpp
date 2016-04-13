@@ -141,13 +141,14 @@ namespace fds
 
     bool OMMonitorWellKnownPMs::isWellKnown
     (
-    fpi::SvcUuid svcUuid
+    fpi::SvcUuid svcUuid,
+    PmMap::iterator& mapIter
     )
     {
         SCOPEDREAD(pmMapLock);
 
         bool found = false;
-        auto mapIter = wellKnownPMsMap.find(svcUuid);
+        mapIter = wellKnownPMsMap.find(svcUuid);
 
         if ( mapIter != wellKnownPMsMap.end() )
             found = true;

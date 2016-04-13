@@ -3384,11 +3384,15 @@ OM_NodeDomainMod::removeNodeComplete(NodeUuid uuid) {
 
     bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcuuid, svcInfo);
     if (ret) {
-        LOGDEBUG << "Deleting from svcMap, uuid:" << std::hex << svcuuid.svc_uuid << std::dec;
+        LOGDEBUG << "Deleting from svcMaps, uuid:" << std::hex << svcuuid.svc_uuid << std::dec;
 
         configDB->deleteSvcMap(svcInfo);
+        MODULEPROVIDER()->getSvcMgr()->deleteFromSvcMap(svcuuid);
 
         OmExtUtilApi::getInstance()->clearFromRemoveList(uuid.uuid_get_val());
+
+        // Broadcast svcMap
+        om_locDomain->om_bcast_svcmap();
     }
 }
 
@@ -3506,7 +3510,6 @@ OM_NodeDomainMod::om_dmt_waiting_timeout() {
 void
 OM_NodeDomainMod::om_dlt_update_cluster()
 {
-
     OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
     OM_SmContainer::pointer smNodes = local->om_sm_nodes();
     OM_Module *om = OM_Module::om_singleton();

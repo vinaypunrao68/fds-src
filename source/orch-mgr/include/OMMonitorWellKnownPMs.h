@@ -30,8 +30,9 @@ namespace fds
             virtual ~OMMonitorWellKnownPMs();
 
             PmMap getKnownPMsMap();
-            bool  isWellKnown(fpi::SvcUuid uuid);
+            bool  isWellKnown(fpi::SvcUuid uuid, PmMap::iterator& mapIter);
             void  updateKnownPMsMap(fpi::SvcUuid uuid, double timestamp, bool updateSvcState);
+            Error removeFromPMsMap(PmMap::iterator iter);
 
         protected:
             bool fShutdown;
@@ -46,7 +47,6 @@ namespace fds
             void run();
             void  shutdown();
             Error getLastHeardTime(fpi::SvcUuid uuid, double& timestamp);
-            Error removeFromPMsMap(PmMap::iterator iter);
             void  cleanUpOldState(fpi::SvcUuid uuid, bool updateSvcState);
             void  handleRetryOnInactive(fpi::SvcUuid uuid);
             void  handleStaleEntry(fpi::SvcUuid uuid);

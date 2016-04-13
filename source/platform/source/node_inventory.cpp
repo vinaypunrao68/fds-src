@@ -212,8 +212,15 @@ namespace fds
     void NodeInventory::set_node_state(FdspNodeState state)
     {
         TRACEFUNC;
-        LOGNORMAL << "Setting node state to:" << state;
-        nd_my_node_state = state;
+
+        if ( nd_my_node_state == fpi::FDS_Node_Discovered &&
+            state == fpi::FDS_Node_Down )
+        {
+            LOGWARN << "Will not transition node state from DISCOVERED to DOWN!";
+        } else {
+            LOGNORMAL << "Setting node state to:" << state;
+            nd_my_node_state = state;
+        }
     }
 
     void NodeInventory::set_node_dlt_version(fds_uint64_t dlt_version)

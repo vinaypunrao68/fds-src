@@ -930,12 +930,25 @@ OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_ty
             fds_verify(false);
     };
 
+    Error err(ERR_OK);
     // actually update config DB
     if (configDB) {
-        configDB->setNodeServices(get_uuid(), services);
+        err = configDB->setNodeServices(get_uuid(), services);
+
+        NodeServices returnSvcs;
+        configDB->getNodeServices(get_uuid(), returnSvcs);
+
+        LOGDEBUG <<"!!!Retrieved svcs, sm:" << returnSvcs.sm.uuid_get_val()
+                 << ", dm:" << returnSvcs.dm.uuid_get_val()
+                 << ", am:" << returnSvcs.am.uuid_get_val();
+
     }
 
-    return Error(ERR_OK);
+    if (!err.ok()) {
+        LOGWARN << "Setting node services failed!!! This could lead to bad OM state";
+    }
+
+    return err;
 }
 
 // unregister_service
@@ -949,7 +962,7 @@ OM_PmAgent::handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
     NodeServices services;
 
-    LOGDEBUG << "Handling unregister for svc type:" << svc_type;
+    LOGDEBUG << "Handling unregister for svc type:" << svc_type << " node uuid:" << get_uuid();
 
     fds_bool_t found_services = configDB ?
             configDB->getNodeServices(get_uuid(), services) : false;
@@ -959,16 +972,19 @@ OM_PmAgent::handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_
         case FDS_ProtocolInterface::FDSP_STOR_MGR:
             activeSmAgent = NULL;
             svc_uuid = services.sm;
+            LOGDEBUG << "!!!Svc uuid:" << std::hex << svc_uuid.uuid_get_val() << std::dec;
             services.sm.uuid_set_val(0);
             break;
         case FDS_ProtocolInterface::FDSP_DATA_MGR:
             activeDmAgent = NULL;
             svc_uuid = services.dm;
+            LOGDEBUG << "!!!Svc uuid:" << std::hex << svc_uuid.uuid_get_val() << std::dec;
             services.dm.uuid_set_val(0);
             break;
         case FDS_ProtocolInterface::FDSP_ACCESS_MGR:
             activeAmAgent = NULL;
             svc_uuid = services.am;
+            LOGDEBUG << "!!!!Svc uuid:" << std::hex << svc_uuid.uuid_get_val() << std::dec;
             services.am.uuid_set_val(0);
             break;
         default:
@@ -977,6 +993,14 @@ OM_PmAgent::handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_
 
     if (found_services) {
         configDB->setNodeServices(get_uuid(), services);
+
+        NodeServices returnSvcs;
+        configDB->getNodeServices(get_uuid(), returnSvcs);
+
+        LOGDEBUG <<"!!!Retrieved svcs, sm:" << returnSvcs.sm.uuid_get_val()
+                 << ", dm:" << returnSvcs.dm.uuid_get_val()
+                 << ", am:" << returnSvcs.am.uuid_get_val();
+
     } else {
         LOGWARN << "Node info " << std::hex << get_uuid().uuid_get_val() << std::dec
                 << " not found to persist removal of service from this node";
@@ -1749,7 +1773,8 @@ OM_PmAgent::send_stop_service
 
         // If the action coming in is a shutdown node for a node (PM) that
         // is no longer well known, allow it
-        if ( shutdownNode && !gl_orch_mgr->omMonitor->isWellKnown(svcUuid) ) {
+        PmMap::iterator mapIter;
+        if ( shutdownNode && !gl_orch_mgr->omMonitor->isWellKnown(svcUuid, mapIter) ) {
             LOGNOTIFY << "Will allow down node:" << std::hex
                       << svcUuid.svc_uuid << std::dec
                       << " to be stopped";
@@ -1759,6 +1784,40 @@ OM_PmAgent::send_stop_service
         }
     }
 
+
+
+    if (stop_dm)
+    {
+        OM_Module *om = OM_Module::om_singleton();
+        VolumePlacement *vp = om->om_volplace_mod();
+
+        std::set<fds_uint64_t> uniqueNodes;
+        vp->getCommittedDMT()->getUniqueNodes(&uniqueNodes);
+
+        fpi::SvcUuid svcUuid;
+        retrieveSvcId(get_uuid().uuid_get_val(), svcUuid, fpi::FDSP_DATA_MGR);
+
+        bool foundThisDm = false;
+        for ( auto id : uniqueNodes )
+        {
+            auto unsignedDmId = static_cast<uint64_t>(svcUuid.svc_uuid);
+            if ( id == unsignedDmId ) {
+                foundThisDm = true;
+                break;
+            }
+        }
+        // If this is the only DM present in the current committedDMT, then do not allow
+        // the node stop / node removal to go through
+        if (foundThisDm && uniqueNodes.size() == 1)
+        {
+            LOGERROR << "Attempting to stop DM service when it is the only primary DM in committedDMT!!";
+            return Error(ERR_INVALID_ARG);
+        }
+    }
+
+    /***************************************
+     * ALL CHECKS PASSED, PROCEED WITH STOP
+     */
     LOGNORMAL << "Stop services for node" << get_node_name()
               << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
               << " stop sm ? " << stop_sm
@@ -1934,18 +1993,126 @@ OM_PmAgent::send_stop_service
 
     auto req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     req->setPayload(FDSP_MSG_TYPEID(fpi::NotifyStopServiceMsg), stopServiceMsg);
-    req->onResponseCb(std::bind(&OM_PmAgent::send_stop_services_resp, this,
-                                stop_sm, stop_dm, stop_am, smSvcId, dmSvcId, amSvcId,
-                                shutdownNode,
-                                std::placeholders::_1, std::placeholders::_2,
-                                std::placeholders::_3));
-    req->setTimeoutMs(30000);
+
+    // Set up a synchronous callback
+    SvcRequestCbTask<EPSvcRequest, fpi::NotifyStopServiceMsg> waiter;
+    req->onResponseCb(waiter.cb);
+
+    // set 5 minute timeout
+    req->setTimeoutMs(5*60*1000);
 
     req->invoke();
+
+    waiter.await();
+
+    /*********************************************************
+     * PM Response recieved, proceed with rest of stop actions
+     */
+    err = waiter.error;
+
+    // Now that we allow unreachable(down) nodes to be removed, it is
+    // possible that OM receives a req invocation error. In this case
+    // allow rest of the clean up to happen
+    if (err.OK() || waiter.error.GetErrName() == "ERR_SVC_REQUEST_INVOCATION")
+    {
+        LOGNORMAL << "ACK for stop services for node" << get_node_name()
+                      << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
+                      << " stop am ? " << stop_am
+                      << " stop sm ? " << stop_sm
+                      << " stop dm ? " << stop_dm
+                      << " " << err;
+
+            //kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+
+            bool isSMRemoved = false;
+            bool isDMRemoved = false;
+            bool isAMRemoved = false;
+
+            // Now that we allow unreachable(down) nodes to be removed, it is
+            // possible that OM receives a req invocation error. In this case
+            // allow rest of the clean up to happen
+            //if ( error.ok() || error.GetErrName() == "ERR_SVC_REQUEST_INVOCATION" ) {
+
+                LOGDEBUG << "PM response is good, setting svcs to inactive";
+                 // Set SM service state to inactive
+                if ( stop_sm && configDB->isPresentInSvcMap( smSvcId.svc_uuid ) )
+                {
+                    updateSvcMaps<kvstore::ConfigDB>( configDB,
+                                       MODULEPROVIDER()->getSvcMgr(),
+                                       smSvcId.svc_uuid,
+                                       fpi::SVC_STATUS_INACTIVE_STOPPED,
+                                       fpi::FDSP_STOR_MGR );
+
+
+                    activeSmAgent = nullptr;
+                 }
+
+                 // Set DM service state to inactive
+                 if ( stop_dm && configDB->isPresentInSvcMap( dmSvcId.svc_uuid ) )
+                 {
+                     updateSvcMaps<kvstore::ConfigDB>( configDB,
+                                        MODULEPROVIDER()->getSvcMgr(),
+                                        dmSvcId.svc_uuid,
+                                        fpi::SVC_STATUS_INACTIVE_STOPPED,
+                                        fpi::FDSP_DATA_MGR );
+
+                     activeDmAgent = nullptr;
+                 }
+
+                 // Set AM service state to inactive
+                 if ( stop_am && configDB->isPresentInSvcMap( amSvcId.svc_uuid ))
+                 {
+                     updateSvcMaps<kvstore::ConfigDB>( configDB,
+                                    MODULEPROVIDER()->getSvcMgr(),
+                                    amSvcId.svc_uuid,
+                                    fpi::SVC_STATUS_INACTIVE_STOPPED,
+                                    fpi::FDSP_ACCESS_MGR );
+                     activeAmAgent = nullptr;
+                 }
+            //} else {
+            //    LOGERROR << "Failed to stop services on node " << get_node_name()
+            //             << " UUID:" << std::hex << get_uuid().uuid_get_val() << std::dec
+            //             << " please try shutting node again, or a start/shutdown cycle " << error;
+            //}
+
+            bool noSMTransition = false;
+            bool noDMTransition = false;
+            bool noAMTransition = false;
+
+            // On OM restart, cannot depend on agents being set. This logic
+            // should still not do any harm either way
+            if (!activeSmAgent && !activeDmAgent && !activeAmAgent)
+            {
+                if (shutdownNode)
+                {
+
+                       // Node is being shutdown, change the state of platform
+                       // to inactive, node state to down
+                       LOGDEBUG << "Changing PM state to INACTIVE";
+                       updateSvcMaps<kvstore::ConfigDB>( configDB,
+                                      MODULEPROVIDER()->getSvcMgr(),
+                                      get_uuid().uuid_get_val(),
+                                      fpi::SVC_STATUS_INACTIVE_STOPPED,
+                                      fpi::FDSP_PLATFORM );
+
+                       // Also explicitly set the state to down
+                       set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
+                }
+            }
+
+            // notify domain state machine
+            OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+            domain->local_domain_event(DeactAckEvt(err));
+    }else {
+        LOGERROR << "Failed to stop services on node " << get_node_name()
+                 << " UUID:" << std::hex << get_uuid().uuid_get_val() << std::dec
+                 << " please try shutting node again, or a start/shutdown cycle " << err;
+    }
 
     return err;
 }
 
+/*
 void
 OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
                                     fds_bool_t stop_dm,
@@ -1970,9 +2137,7 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
     bool isDMRemoved = false;
     bool isAMRemoved = false;
 
-    // Now that we allow unreachable(down) nodes to be removed, it is
-    // possible that OM receives a req invocation error. In this case
-    // allow rest of the clean up to happen
+
     if ( error.ok() || error.GetErrName() == "ERR_SVC_REQUEST_INVOCATION" ) {
         
         LOGDEBUG << "PM response is good, setting svcs to inactive";
@@ -2089,6 +2254,7 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     domain->local_domain_event(DeactAckEvt(error));
 }
+*/
 
 /**
  * Name: send_remove_service
@@ -2190,9 +2356,20 @@ OM_PmAgent::send_remove_service
 
         if (iter != svcInfos.end())
         {
-            LOGNOTIFY <<"Deleting AM from service map for node:"
+            LOGNOTIFY <<"Deleting AM from service maps for node:"
                       << std::hex << node_uuid << std::dec;
+
+            fpi::SvcUuid svcUuid = iter->svc_id.svc_uuid;
+
             configDB->deleteSvcMap(*iter);
+            MODULEPROVIDER()->getSvcMgr()->deleteFromSvcMap(svcUuid);
+
+            // If either sm or dm is being removed, then the svcMap will get broadcasted
+            // at the end of removeNodeComplete
+            if ( !(remove_sm || remove_dm) ) {
+                OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
+                local->om_bcast_svcmap();
+            }
         }
         else
             LOGERROR << "Failed to delete AM from service map for node:"
@@ -2252,6 +2429,16 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
                                    get_uuid().uuid_get_val(),
                                    fpi::SVC_STATUS_DISCOVERED,
                                    fpi::FDSP_PLATFORM );
+
+                    // Remove the PM if it's present in the well-known map
+                    PmMap::iterator mapIter;
+                    fpi::SvcUuid svcUuid;
+                    svcUuid.svc_uuid = get_uuid().uuid_get_val();
+                    if (gl_orch_mgr->omMonitor->isWellKnown(svcUuid, mapIter) )
+                    {
+                        gl_orch_mgr->omMonitor->removeFromPMsMap(mapIter);
+                    }
+
                 } else {
                     LOGERROR << "Could not find node in the configuration DB!";
                 }
@@ -2746,8 +2933,33 @@ void
 OM_AgentContainer::agent_activate(NodeAgent::pointer agent)
 {
     TRACEFUNC;
+    uint64_t uuid = agent->get_uuid().uuid_get_val();
     LOGNORMAL << "Activate node uuid " << std::hex
-              << "0x" << agent->get_uuid().uuid_get_val() << std::dec;
+              << "0x" << uuid << std::dec;
+
+    NodeList::iterator iter;
+    bool presentInRemovedList = presentInAgentList( node_down_pend, iter, uuid);
+
+    if (presentInRemovedList)
+    {
+        LOGNORMAL << "Uuid:" << std::hex << uuid << std::dec
+                  << " is being added, will remove from node_down_pend list";
+
+        rs_mtx.lock();
+        node_down_pend.erase(iter);
+        rs_mtx.unlock();
+    }
+
+    // Clean up from cluster map if present
+    if ( agent->node_get_svc_type() == fpi::FDSP_STOR_MGR ||
+         agent->node_get_svc_type() == fpi::FDSP_DATA_MGR ) {
+
+        OM_Module *om = OM_Module::om_singleton();
+        OM_DMTMod *dmtMod = om->om_dmt_mod();
+        ClusterMap *cm =  om->om_clusmap_mod();
+
+        cm->rmPendingRemovedService(agent->node_get_svc_type(), agent->get_uuid());
+    }
 
     rs_mtx.lock();
     rs_register_mtx(agent);
@@ -2762,13 +2974,60 @@ void
 OM_AgentContainer::agent_deactivate(NodeAgent::pointer agent)
 {
     TRACEFUNC;
+
+    uint64_t uuid = agent->get_uuid().uuid_get_val();
     LOGNORMAL << "Deactivate node uuid " << std::hex
-              << "0x" << agent->get_uuid().uuid_get_val() << std::dec;
+              << "0x" << uuid << std::dec;
+
+    NodeList::iterator iter;
+    bool presentInAddedList = presentInAgentList( node_up_pend, iter, uuid);
+
+    if (presentInAddedList)
+    {
+        LOGNORMAL << "Uuid:" << std::hex << uuid << std::dec
+                  << " is being removed, will remove from node_up_pend list";
+
+        rs_mtx.lock();
+        node_up_pend.erase(iter);
+        rs_mtx.unlock();
+    }
+
+    // Clean up from cluster map if present
+    if ( agent->node_get_svc_type() == fpi::FDSP_STOR_MGR ||
+         agent->node_get_svc_type() == fpi::FDSP_DATA_MGR ) {
+
+        OM_Module *om = OM_Module::om_singleton();
+        OM_DMTMod *dmtMod = om->om_dmt_mod();
+        ClusterMap *cm =  om->om_clusmap_mod();
+
+        cm->rmPendingAddedService(agent->node_get_svc_type(), agent->get_uuid());
+    }
+
 
     rs_mtx.lock();
     rs_unregister_mtx(agent);
     node_down_pend.push_back(OM_NodeAgent::agt_cast_ptr(agent));
     rs_mtx.unlock();
+}
+
+bool
+OM_AgentContainer::presentInAgentList( NodeList& list,
+                                       NodeList::iterator& itemIter,
+                                       uint64_t uuid)
+{
+    bool found = false;
+    for (NodeList::iterator iter = list.begin(); iter != list.end(); iter++)
+    {
+        if ((*iter)->get_uuid().uuid_get_val() == uuid)
+        {
+            LOGDEBUG << "FOUND!! uuid:" << std::hex << (*iter)->get_uuid().uuid_get_val() << std::dec << " and uuid:" << std::hex << uuid << std::dec;
+            found = true;
+            itemIter = iter;
+            break;
+        }
+    }
+
+    return found;
 }
 
 void

@@ -10,19 +10,21 @@ namespace fds
 OmExtUtilApi* OmExtUtilApi::m_instance = NULL;
 
 
-//+--------------------------+---------------------------------------+
-//|     Current State        |    Valid IncomingState                |
-//+--------------------------+---------------------------------------+
-//      ACTIVE               |  STANDBY, STOPPING, INACTIVE_FAILED
-//      INACTIVE_STOPPED     |  ACTIVE, STARTED, REMOVED
+//+--------------------------+---------------------------------------------------+
+//|     Current State        |    Valid IncomingState                            |
+//+--------------------------+---------------------------------------------------+
+//      ACTIVE               |  STANDBY, STOPPING, INACTIVE_FAILED, STARTED
+//      INACTIVE_STOPPED     |  ACTIVE, STARTED, REMOVED, DISCOVERED(for PM only)
 //      DISCOVERED           |  ACTIVE
-//      STANDBY              |  REMOVED, ACTIVE
+//      STANDBY              |  ACTIVE
 //      ADDED                |  STARTED, REMOVED
 //      STARTED              |  ACTIVE, STOPPING, INACTIVE_FAILED
 //      STOPPING             |  INACTIVE_STOPPED, STARTED, REMOVED
-//      REMOVED              |  DISCOVERED
+//      REMOVED              |  - (only non-PM svcs transition to this post which
+//                           |     the svc is deleted from the DB, so no incoming
+//                           |     state is realy valid in this case)
 //      INACTIVE_FAILED      |  ACTIVE, STOPPING
-//+--------------------------+---------------------------------------+
+//+--------------------------+----------------------------------------------------+
 
 const std::vector<std::vector<fpi::ServiceStatus>> OmExtUtilApi::allowedStateTransitions =
 {
@@ -35,11 +37,12 @@ const std::vector<std::vector<fpi::ServiceStatus>> OmExtUtilApi::allowedStateTra
         { fpi::SVC_STATUS_STANDBY, fpi::SVC_STATUS_STOPPING,
           fpi::SVC_STATUS_INACTIVE_FAILED, fpi::SVC_STATUS_STARTED },
         // valid incoming for state: INACTIVE_STOPPED(2)
-        { fpi::SVC_STATUS_ACTIVE,fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_REMOVED },
+        { fpi::SVC_STATUS_ACTIVE,fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_REMOVED,
+          fpi::SVC_STATUS_DISCOVERED /* This state for PM ONLY */ },
         // valid incoming for state: DISCOVERED(3)
         { fpi::SVC_STATUS_ACTIVE },
         // valid incoming for state: STANDBY(4)
-        { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_REMOVED },
+        { fpi::SVC_STATUS_ACTIVE },
         // valid incoming for state: ADDED(5)
         { fpi::SVC_STATUS_STARTED, fpi::SVC_STATUS_REMOVED },
         // valid incoming for state: STARTED(6)
@@ -47,9 +50,9 @@ const std::vector<std::vector<fpi::ServiceStatus>> OmExtUtilApi::allowedStateTra
           fpi::SVC_STATUS_INACTIVE_FAILED },
         // valid incoming for state: STOPPING(7)
         { fpi::SVC_STATUS_INACTIVE_STOPPED,fpi::SVC_STATUS_STARTED,
-          fpi::SVC_STATUS_REMOVED },
+          fpi::SVC_STATUS_REMOVED }, //fpi::SVC_STATUS_DISCOVERED /* This state for PM ONLY */ },
         // valid incoming for state: REMOVED(8)
-        { fpi::SVC_STATUS_DISCOVERED },
+        { },
         // valid incoming for state: INACTIVE_FAILED(9)
         { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_STOPPING }
 };
