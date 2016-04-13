@@ -1543,6 +1543,15 @@ OM_PmAgent::send_start_service
             LOGERROR <<"No node services found in configDB, returning..";
             return Error(ERR_NOT_FOUND);
         }
+    } else if ( serviceStatus == fpi::SVC_STATUS_STOPPING ) {
+        // The only reason a PM would be in this state is if a shutdown node
+        // request failed (either because of invocation error, timeout, restart
+        // Set it to inactive_stopped so state transition will work.
+        // Allow this to go through should be a no-harm action
+        updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
+                                          get_uuid().uuid_get_val(),
+                                          fpi::SVC_STATUS_INACTIVE_STOPPED,
+                                          fpi::FDSP_PLATFORM );
     }
 
     updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
@@ -1794,7 +1803,7 @@ OM_PmAgent::send_stop_service
 
             updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                            smSvcId.svc_uuid,
-                           fpi::SVC_STATUS_STOPPED,
+                           fpi::SVC_STATUS_STOPPING,
                            fpi::FDSP_STOR_MGR );
         } else {
             if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
@@ -1844,7 +1853,7 @@ OM_PmAgent::send_stop_service
 
              updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                             dmSvcId.svc_uuid,
-                            fpi::SVC_STATUS_STOPPED,
+                            fpi::SVC_STATUS_STOPPING,
                             fpi::FDSP_DATA_MGR );
          } else {
 
@@ -1883,7 +1892,7 @@ OM_PmAgent::send_stop_service
 
              updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                             amSvcId.svc_uuid,
-                            fpi::SVC_STATUS_STOPPED,
+                            fpi::SVC_STATUS_STOPPING,
                             fpi::FDSP_ACCESS_MGR );
          } else {
              if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
@@ -1909,10 +1918,10 @@ OM_PmAgent::send_stop_service
      // Node is being shutdown, change the state of platform
      // to STOPPED, node state will get set to down in the response handle
 
-     LOGDEBUG << "Changing PM state to STOPPED";
+     LOGDEBUG << "Changing PM state to STOPPING";
      updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                     get_uuid().uuid_get_val(),
-                    fpi::SVC_STATUS_STOPPED,
+                    fpi::SVC_STATUS_STOPPING,
                     fpi::FDSP_PLATFORM );
      }
 
@@ -1930,7 +1939,7 @@ OM_PmAgent::send_stop_service
                                 shutdownNode,
                                 std::placeholders::_1, std::placeholders::_2,
                                 std::placeholders::_3));
-    req->setTimeoutMs(10000);
+    req->setTimeoutMs(30000);
 
     req->invoke();
 
@@ -1964,7 +1973,7 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
     // Now that we allow unreachable(down) nodes to be removed, it is
     // possible that OM receives a req invocation error. In this case
     // allow rest of the clean up to happen
-   // if ( error.ok() || error.GetErrName() == "ERR_SVC_REQUEST_INVOCATION" ) {
+    if ( error.ok() || error.GetErrName() == "ERR_SVC_REQUEST_INVOCATION" ) {
         
         LOGDEBUG << "PM response is good, setting svcs to inactive";
          // Set SM service state to inactive
@@ -2029,11 +2038,11 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
              }
              activeAmAgent = nullptr;
          }
-    //} else {
-    //    LOGERROR << "Failed to stop services on node " << get_node_name()
-    //             << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
-    //             << " not updating local state of PM agent .... " << error;
-    //}
+    } else {
+        LOGERROR << "Failed to stop services on node " << get_node_name()
+                 << " UUID:" << std::hex << get_uuid().uuid_get_val() << std::dec
+                 << " please try shutting node again, or a start/shutdown cycle " << error;
+    }
 
     bool noSMTransition = false;
     bool noDMTransition = false;

@@ -56,7 +56,7 @@ namespace fds
                                             << svcUuid.svc_uuid
                                             << std::dec
                                             << " not ACTIVE. Status:"
-                                            <<  svc.svc_status;
+                                            <<  OmExtUtilApi::printSvcStatus(svc.svc_status);
                                     //HEALTH_STATE_UNREACHABLE will cause a well known PM
                                     // to go into inactive state, in which case handle the
                                     // change in active to inactive

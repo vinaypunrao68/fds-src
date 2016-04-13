@@ -95,8 +95,10 @@ class TestDomainActivateServices(TestCase.FDSTestCase):
                 if(retry.test_serviceRunningCheck(node_service, n, start_service)):
                     self.log.info("Service is in RUNNING state")
                 else:    
-                    self.log.error("Service activation of node %s returned status state NOT_RUNNING, will retry(upto 20 seconds)" %
-                        (n.nd_conf_dict['node-name']))             
+                    self.log.error("Service activation of node %s returned error or state NOT_RUNNING" %
+                        (n.nd_conf_dict['node-name']))
+                    return False
+ 
         return True
 
 # This class contains the attributes and methods to test
@@ -262,8 +264,9 @@ class TestNodeActivate(TestCase.FDSTestCase):
                     if(retry.test_serviceRunningCheck(node_service, n, start_service)):
                         self.log.info("Service is in RUNNING state")
                     else:
-                        self.log.error("Service activation of node %s returned status state NOT_RUNNING, will retry(upto 20 seconds)" %
+                        self.log.error("Service activation of node %s returned error or state NOT_RUNNING" %
                             (n.nd_conf_dict['node-name']))
+                        return False
 
             if self.passedNode is not None:
                 # If we were passed a specific node, exit now.

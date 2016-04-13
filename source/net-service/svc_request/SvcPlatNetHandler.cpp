@@ -78,6 +78,20 @@ void PlatNetSvcHandler::setHandlerState(PlatNetSvcHandler::State newState)
     }
 }
 
+/*
+ * Returns true if the handler state is set to
+ * ACCEPT_REQUESTS
+ */
+
+bool PlatNetSvcHandler::canAcceptRequests()
+{
+    if (handlerState_ == ACCEPT_REQUESTS)
+    {
+        return true;
+    }
+
+    return false;
+}
 
 /**
  * @brief 

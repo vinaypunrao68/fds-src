@@ -1672,6 +1672,11 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                 local_domain_event( WaitNdsEvt( deployed_sm_services,
                                                 deployed_dm_services ) );
             }
+
+            // We have to explicitly broadcast here because the ::updateSvcMaps function will not do it.
+            // That's because we don't want to spam the system with updates for every single svc state
+            // change. So do it for all svcs that have been spoofed
+            om_locDomain->om_bcast_svcmap();
         }
         else
         {
@@ -2364,7 +2369,7 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
             // interrupted, and we want the state to be preserved
             if ( !( (svc.svc_type == fpi::FDSP_PLATFORM) &&
                     (svc.svc_status == fpi::SVC_STATUS_DISCOVERED ||
-                     svc.svc_status == fpi::SVC_STATUS_STOPPED ||
+                     svc.svc_status == fpi::SVC_STATUS_STOPPING ||
                      svc.svc_status == fpi::SVC_STATUS_INACTIVE_STOPPED ||
                      svc.svc_status == fpi::SVC_STATUS_STANDBY) ) )
             {
@@ -2379,11 +2384,6 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                     << fds::logDetailedString( svc );
         }
     }
-
-    // We have to explicitly broadcast here because the ::updateSvcMaps function will not do it.
-    // That's because we don't want to spam the system with updates for every single svc state
-    // change. So do it for all svcs that have been spoofed
-    om_locDomain->om_bcast_svcmap();
 }
     
 
@@ -2465,7 +2465,7 @@ void OM_NodeDomainMod::handlePendingSvcRemoval(std::vector<fpi::SvcInfo> removed
         // this was a remove node that was interrupted (from check in ::isAnyNonePlatformSvcActive)
         // Could be that the PM response came back, and PM is set to discovered.
         if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED ||
-            serviceStatus == fpi::SVC_STATUS_STOPPED ||
+            serviceStatus == fpi::SVC_STATUS_STOPPING ||
             serviceStatus == fpi::SVC_STATUS_DISCOVERED)
         {
             removeNode = true;
@@ -2560,25 +2560,19 @@ bool OM_NodeDomainMod::isAnyNonePlatformSvcActive(
             {
                 if ( svc.svc_status == fpi::SVC_STATUS_ACTIVE ||
                      svc.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED ||
-                     svc.svc_status == fpi::SVC_STATUS_DISCOVERED )
+                     svc.svc_status == fpi::SVC_STATUS_DISCOVERED ||
+                     svc.svc_status == fpi::SVC_STATUS_STOPPING ||
+                     svc.svc_status == fpi::SVC_STATUS_INACTIVE_STOPPED ||
+                     svc.svc_status == fpi::SVC_STATUS_STANDBY )
                 {
                     pmSvcs->push_back(svc);
-
-                } else if ( removedSvcs.size() > 0 &&
-                            (svc.svc_status == fpi::SVC_STATUS_STOPPED ||
-                             svc.svc_status == fpi::SVC_STATUS_INACTIVE_STOPPED ||
-                             svc.svc_status == fpi::SVC_STATUS_STANDBY) ) {
-                    // Only want to spoof a PM in one of these states is if
-                    // a service removal was interrupted
-
-                    // The implication here (for all cases except standby) is that a node remove
-                    // was interrupted. We will spoof the PM and
-                    // handle any interrupted action so the state will get set back
-                    // as appropriate. We require this spoof register because
-                    // this will register the node and we need those objects initialized
-                    // to process further actions against this PM
-
-                    pmSvcs->push_back(svc);
+                } else {
+                    // Svc states: ADDED, STARTED, INVALID, REMOVED not valid
+                    // for PM and will not be handled here
+                    LOGWARN << "PM svc:" << std::hex << svc.svc_id.svc_uuid.svc_uuid
+                            << std::dec << " in unexpected state:"
+                            << OmExtUtilApi::printSvcStatus(svc.svc_status)
+                            << " will NOT spoof!";
                 }
             }
         }

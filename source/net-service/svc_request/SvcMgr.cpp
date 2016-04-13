@@ -885,10 +885,13 @@ bool SvcHandle::sendAsyncSvcMessageCommon_(bool isAsyncReqt,
     } catch (std::exception &e) {
         GLOGWARN << "allocRpcClient failed.  Exception: " << e.what() << ".  "  << header
                  << " SvcInfo ( " << fds::logString(svcInfo_) << " )";
+
         markSvcDown_();
+
     } catch (...) {
         GLOGWARN << "allocRpcClient failed.  Unknown exception. " << header
                  << " SvcInfo ( " << fds::logString(svcInfo_) << " )";
+
         markSvcDown_();
     }
     return false;
@@ -947,7 +950,7 @@ void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
     GLOGDEBUG << "Incoming update: " << fds::logString(*newPtr) << " vs current status: "
             << fds::logString(*currentPtr);
 
-    if (OmExtUtilApi::isIncomingUpdateValid(*newPtr, *currentPtr)) {
+    if (OmExtUtilApi::isIncomingUpdateValid(*newPtr, *currentPtr, "SvcMgr")) {
         svcInfo_ = newInfo;
         svcClient_.reset();
         GLOGDEBUG << "Operation Applied.";
@@ -976,12 +979,22 @@ bool SvcHandle::isSvcDown_() const
 
 void SvcHandle::markSvcDown_()
 {
+    auto svcMgr = MODULEPROVIDER()->getSvcMgr();
+
+    // If OM isn't up yet, and OM is the one getting
+    // the allocRpcClient exceptions, don't send this health report
+    if ( svcMgr->getSelfSvcUuid().svc_uuid == svcMgr->getOmSvcUuid().svc_uuid &&
+         !svcMgr->getSvcRequestHandler()->canAcceptRequests() )
+    {
+        LOGWARN << "OM is not up yet, will not accept any health report messages from itself!";
+        return;
+    }
+
     /* NOTE: Assumes this function is invoked under lock */
     svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE_FAILED;
     svcClient_.reset();
     GLOGDEBUG << logString();
 
-    auto svcMgr = MODULEPROVIDER()->getSvcMgr();
     // Don't report OM to itself.
     if (svcMgr->getOmSvcUuid() != svcInfo_.svc_id.svc_uuid) {
         svcMgr->notifyOMSvcIsDown(svcInfo_);

@@ -472,7 +472,7 @@ enum ServiceStatus {
     SVC_STATUS_STANDBY          = 0x0004;
     SVC_STATUS_ADDED            = 0x0005;
     SVC_STATUS_STARTED          = 0x0006;
-    SVC_STATUS_STOPPED          = 0x0007;
+    SVC_STATUS_STOPPING         = 0x0007;
     SVC_STATUS_REMOVED          = 0x0008;
     /*
     * Indicates a svc is inactive because OM received a unreachable event from svcLayer
