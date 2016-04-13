@@ -1740,34 +1740,36 @@ MigrationMgr::abortMigrationCb(fds_uint64_t& executorId,
 
 /* Provides function for token DLT availability states */
 std::string MigrationMgr::getStateInfo() {
-    uint32_t available = 0, unavailable = 0;
-    std::vector<uint32_t> untoken;
+    std::vector<uint32_t> unavailableTokens;
+    const DLT* dlt = MODULEPROVIDER()->getSvcMgr()->getDltManager()->getDLT();
+    if (dlt == nullptr) {
+        return "";
+    }
+
+    auto myTokens = dlt->getTokens(objStoreMgrUuid);
     /* Lock dltTokenStates to make sure there is no change in dlt while checking*/
-    dltTokenStatesMutex.lock();
-    for (uint32_t i=0; i < dltTokenStates.size(); i++) {
-        if (dltTokenStates[i]) {
-            available++;
-        } else {
-            unavailable++;
-            untoken.push_back(i);
+    synchronized(dltTokenStatesMutex) {
+        for (const auto &tok : myTokens) {
+            if (tok >= dltTokenStates.size() || !dltTokenStates[tok]) {
+                unavailableTokens.push_back(tok);
+            }
         }
     }
-    dltTokenStatesMutex.unlock();
 
     /* Convert list of unavailabe tokens to string */
-    std::string untoken_str;
-    untoken_str.append("{");
-    for (auto unt : untoken) {
-        untoken_str.append(std::to_string(unt));
-        untoken_str.append(",");
+    std::string unavailableStr;
+    unavailableStr.append("{");
+    for (const auto &tok: unavailableTokens) {
+        unavailableStr.append(std::to_string(tok));
+        unavailableStr.append(",");
     }
-    untoken_str.append("}");
+    unavailableStr.append("}");
 
     /* Return the available and unavailable token counts as well as the unavailable token list */
     Json::Value state;
-    state["Available"] = available;
-    state["Unavailable"] = unavailable;
-    state["Unavailable_list"] = untoken_str;
+    state["available"] = static_cast<Json::Value::Int64>(myTokens.size() - unavailableTokens.size());
+    state["unavailable"] = static_cast<Json::Value::Int64>(unavailableTokens.size());
+    state["unavailable_tokens"] = unavailableStr;
 
     std::stringstream ss;
     ss << state;

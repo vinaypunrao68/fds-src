@@ -95,19 +95,20 @@ class SMDebugContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
-    @arg('sm', help= "Uuid of the SM to send the command to", type=long)
-    def MigrationTokenCheck(self, sm):
+    @arg('smuuid', help= "Uuid of the SM to send the command to", type=str)
+    def tokenstate(self, smuuid):
         """
         Check the state of SM tokens (Available or Unavailable) in migration manager
         """
-        try:
-            state = ServiceMap.client(sm).getStateInfo('migrationmgr')
-            state = json.loads(state)
-            print (json.dumps(state, indent=2, sort_keys=True)) 
-        except Exception, e:
-            log.exception(e)
-            print e.message
-            return 'SM migration token state check failed'
+        for uuid in self.config.getServiceApi().getServiceIds(smuuid):
+            self.printServiceHeader(uuid)
+            try:
+                state = ServiceMap.client(uuid).getStateInfo('migrationmgr')
+                state = json.loads(state)
+                print (json.dumps(state, indent=2, sort_keys=True)) 
+            except Exception, e:
+                log.exception(e)
+                print e.message
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
