@@ -61,6 +61,12 @@ task deployDeb( dependsOn: 'buildDeb' ) << {
 		return
 	}
 
+	def repo_folder = "$System.env.REPO_FOLDER"
+
+	if ( null == repo_folder || '' == repo_folder || 'null' == repo_folder ) {
+		repo_folder = 'nightly'
+	}
+
 	def debName = 'NONE'
 	new File( projectDir.getName() + '/build/distributions' ).eachFile( { f ->
 
@@ -79,7 +85,7 @@ task deployDeb( dependsOn: 'buildDeb' ) << {
 
 	def fullName = debName
 
-	def deploy_artifactoryonline = 'curl -v -X PUT http://' + username + ':' + password + '@artifacts.artifactoryonline.com/artifacts/formation-apt/pool/nightly/' + fullName + ';deb.distribution=platform;deb.component=nightly;deb.architecture=amd64 -T ' + projectDir.getName() + '/build/distributions/' + fullName
+	def deploy_artifactoryonline = 'curl -v -X PUT http://' + username + ':' + password + '@artifacts.artifactoryonline.com/artifacts/formation-apt/pool/' + repo_folder + '/' + fullName + ';deb.distribution=platform;deb.component=' + repo_folder + ';deb.architecture=amd64 -T ' + projectDir.getName() + '/build/distributions/' + fullName
 
 	println deploy_artifactoryonline
 
@@ -92,7 +98,7 @@ task deployDeb( dependsOn: 'buildDeb' ) << {
 	}
 
 
-  def deploy_artifactory_local = 'curl -v -X PUT http://' + username + ':' + password + '@bld-artifactory:8081/artifactory/formation-apt/pool/nightly/' + fullName + ';deb.distribution=platform;deb.component=nightly;deb.architecture=amd64 -T ' + projectDir.getName() + '/build/distributions/' + fullName
+  def deploy_artifactory_local = 'curl -v -X PUT http://' + username + ':' + password + '@bld-artifactory:8081/artifactory/formation-apt/pool/' + repo_folder + '/' + fullName + ';deb.distribution=platform;deb.component=' + repo_folder + ';deb.architecture=amd64 -T ' + projectDir.getName() + '/build/distributions/' + fullName
 
 	println deploy_artifactory_local
 
