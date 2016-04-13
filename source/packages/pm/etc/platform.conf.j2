@@ -100,6 +100,17 @@ fds: {
            enable_influx_persistence = true
 
            ignore_failed_svcs = true
+
+           configsvc_rest_client_proxy_v08 = true
+           use_shared_queryhelper = true
+
+           /* if enabled, adds a web filter that checks if the domain is up before
+             attempting to contact the configuration service for operations that require
+             the domain is up */
+           enable_domain_web_filter = false
+
+           /* if enabled, will update DLT only when minimum number of SMs have come up */
+           enforce_minimum_replicas = true
         }
     }
 
@@ -226,6 +237,15 @@ fds: {
             port = 2003
             period = 5
         }
+
+        /* used to launch services with environment variables set */
+        environment: {
+                /* expected format is "key1=val1;key2=val2;..." */
+                am = ""
+                dm = ""
+                sm = ""
+                xdi = ""
+        }
     }
 
     dm: {
@@ -255,6 +275,7 @@ fds: {
         number_of_primary = 2
         req_serialization = true
         realtime_stats_sampling = false
+        disk_fullness_threshold = 75
 
         /* process id */
         id      = "dm"
@@ -492,8 +513,9 @@ fds: {
              /* Maximum number of disks to compact at the same time */
              max_disks_compact = 2
              /* Time interval where GC periodically checks whether to GC or not */
-             interval_seconds = 7200
+             interval_seconds = 86400
              expunge_threshold = 3
+             verify_data = true
         }
 
         /* Graphite is enabled or not */
@@ -521,6 +543,7 @@ fds: {
                 io_message = 25000
                 open_message = 2500
                 thrift_message = 5000
+                coordinator_switch = 30000
             }
         }
         perf: { enable = true }
@@ -573,9 +596,6 @@ fds: {
 
                 /* Targets will appear with this prefix on iscsi portals */
                 target_prefix="iqn.2012-05.com.formationds:"
-
-		/* Threads per target */
-		threads=1
             }
         }
 
@@ -734,7 +754,6 @@ fds: {
 
     checker: {
         id = "checker"
-        path = "/home/bao_pham/temp/skinet2"
         logfile = "checker"
         log_severity = "normal"
 
@@ -745,6 +764,9 @@ fds: {
 
         threadpool: {
             num_threads = 10
+
+            /* Use lock free threadpool */
+            use_lftp = true
         }
     }
 
