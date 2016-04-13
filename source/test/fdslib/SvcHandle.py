@@ -43,6 +43,7 @@ class SvcHandle(object):
         @param svc_type: Thrift service type.  One of [SMSvc, DMSvc, etc.]
         """
         sock = TSocket.TSocket(ip, port)
+        sock.setTimeout(5000);      # 5 sec
         transport = TTransport.TFramedTransport(sock)
         protocol = TBinaryProtocol.TBinaryProtocol(transport)
         transport.open()

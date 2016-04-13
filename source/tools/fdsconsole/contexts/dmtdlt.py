@@ -50,6 +50,12 @@ class DMT:
     def getNodesForVolume(self, volid):
         return self.table[volid % len(self.table)]
 
+    def isVolumeOwnedByNode(self, volid, uuid):
+        return uuid in self.getNodesForVolume(volid)
+
+    def filterVolumeOwnedByNode(self, volids, uuid):
+        return [volid for volid in volids if self.isVolumeOwnedByNode(volid, uuid)]
+
 class DLT:
     def __init__(self, config=None):
         self.table = []
