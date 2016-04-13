@@ -109,3 +109,24 @@ class SMDebugContext(Context):
             print e.message
             return 'SM migration token state check failed'
 
+    #--------------------------------------------------------------------------------------
+    @clidebugcmd
+    @arg('smuuid', help= "sm uuid", type=str)
+    @arg('dltversion', help= "target dlt version", type=long)
+    def abortsync(self, smuuid, dltversion):
+        'Forces sync on a given volume.  Volume must be offline for this to work'
+        svc = self.config.getPlatform();
+        msg = FdspUtils.newSvcMsgByTypeId('CtrlNotifySMAbortMigration');
+        msg.DLT_target_version = dltversion 
+        msg.DLT_version = dltversion
+        for uuid in self.config.getServiceApi().getServiceIds(smuuid):
+            cb = WaitedCallback();
+            svc.sendAsyncSvcReq(uuid, msg, cb)
+
+            print('-->From service {}: '.format(uuid))
+            if not cb.wait(30):
+                print 'Failed to abort sync: {}'.format(self.config.getServiceApi().getServiceName(uuid))
+            elif cb.header.msg_code != 0:
+                print 'Failed to abort sync error: {}'.format(cb.header.msg_code)
+            else:
+                print "Initiated abort sync"
