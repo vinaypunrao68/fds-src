@@ -95,8 +95,9 @@ class SMDebugContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
+    @arg('--full', help= "show full info including available/unavailable tokens", default=False)
     @arg('smuuid', help= "Uuid of the SM to send the command to", type=str)
-    def tokenstate(self, smuuid):
+    def tokenstate(self, smuuid, full=False):
         """
         Check the state of SM tokens (Available or Unavailable) in migration manager
         """
@@ -105,7 +106,14 @@ class SMDebugContext(Context):
             try:
                 state = ServiceMap.client(uuid).getStateInfo('migrationmgr')
                 state = json.loads(state)
-                print (json.dumps(state, indent=2, sort_keys=True)) 
+                if full:
+                    print (json.dumps(state, indent=1, sort_keys=True)) 
+                else:
+                    availableCnt = len(state["available"]) if state["available"] else 0
+                    unavailableCnt = len(state["unavailable"]) if state["unavailable"] else 0
+                    tbl = [['dlt_version', 'available', 'unavailable'],
+                           [state["dlt_version"], availableCnt , unavailableCnt]]
+                    return tabulate(tbl, headers="firstrow")
             except Exception, e:
                 log.exception(e)
                 print e.message

@@ -1740,9 +1740,15 @@ MigrationMgr::abortMigrationCb(fds_uint64_t& executorId,
 
 /* Provides function for token DLT availability states */
 std::string MigrationMgr::getStateInfo() {
-    std::vector<uint32_t> unavailableTokens;
+    Json::Value unavailableTokens;
+    Json::Value availableTokens;
+
     const DLT* dlt = MODULEPROVIDER()->getSvcMgr()->getDltManager()->getDLT();
+    if (getTargetDltVersion() != DLT_VER_INVALID) {
+        dlt = MODULEPROVIDER()->getSvcMgr()->getDltManager()->getDLT(getTargetDltVersion());
+    }
     if (dlt == nullptr) {
+        LOGWARN << "Failed to get token state as there is no dlt present";
         return "";
     }
 
@@ -1751,25 +1757,18 @@ std::string MigrationMgr::getStateInfo() {
     synchronized(dltTokenStatesMutex) {
         for (const auto &tok : myTokens) {
             if (tok >= dltTokenStates.size() || !dltTokenStates[tok]) {
-                unavailableTokens.push_back(tok);
+                unavailableTokens.append(tok);
+            } else if (dltTokenStates[tok]) {
+                availableTokens.append(tok);
             }
         }
     }
 
-    /* Convert list of unavailabe tokens to string */
-    std::string unavailableStr;
-    unavailableStr.append("{");
-    for (const auto &tok: unavailableTokens) {
-        unavailableStr.append(std::to_string(tok));
-        unavailableStr.append(",");
-    }
-    unavailableStr.append("}");
-
     /* Return the available and unavailable token counts as well as the unavailable token list */
     Json::Value state;
-    state["available"] = static_cast<Json::Value::Int64>(myTokens.size() - unavailableTokens.size());
-    state["unavailable"] = static_cast<Json::Value::Int64>(unavailableTokens.size());
-    state["unavailable_tokens"] = unavailableStr;
+    state["dlt_version"] = static_cast<Json::Value::Int64>(dlt->getVersion());
+    state["available"] = availableTokens;
+    state["unavailable"] = unavailableTokens;
 
     std::stringstream ss;
     ss << state;
