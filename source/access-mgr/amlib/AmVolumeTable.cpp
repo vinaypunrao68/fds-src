@@ -449,7 +449,6 @@ AmVolumeTable::statVolumeCb(AmRequest* amReq, Error const error) {
         auto volReq = static_cast<StatVolumeReq *>(amReq);
         cb->current_usage_bytes = volReq->size;
         cb->blob_count = volReq->blob_count;
-        AmDataProvider::statVolumeCb(amReq, error);
     }
     checkFailureResponse(amReq, error);
 }
