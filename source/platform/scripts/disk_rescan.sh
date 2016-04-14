@@ -71,7 +71,7 @@ if [[ $quiet -eq 0 ]]; then
         exit $?
     fi 
     cat /dev/shm/disk-config.conf
-    read -n 1 -p "The output above will be written into /fds/dev/disk-format.conf. Press any key to continue. or ^C to exit." 
+    read -n 1 -p "The output above will be written into ${fds_root}dev/disk-config.conf Press any key to continue. or ^C to exit." 
     cp /dev/shm/disk-config.conf ${fds_dev}/disk-config.conf
 else
     ${fds_root}bin/disk_id.py -w $args
