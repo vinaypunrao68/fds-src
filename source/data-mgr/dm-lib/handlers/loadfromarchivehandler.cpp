@@ -33,7 +33,20 @@ void LoadFromArchiveHandler::handleRequest(SHPTR<fpi::AsyncHdr>& asyncHdr,
     auto dmReq = new DmIoLoadFromArchive(message);
     dmReq->cb = BIND_MSG_CALLBACK(LoadFromArchiveHandler::handleResponse, asyncHdr, message);
 
-    addToQueue(dmReq);
+    // during cloning, the vol create request may reach the dest DM
+    // after the clone has been transferred
+    // add to the volume queue after the volume is ready
+    fds_volid_t volId(message->volId);
+
+    auto lambda = [this, dmReq, volId]() {
+        // check for readiness
+        dataManager.waitForVolumeReadiness(volId);
+        // add to volume queue
+        addToQueue(dmReq);
+    };
+
+    // add to system queue
+    dataManager.addToQueue(lambda);
 }
 
 void LoadFromArchiveHandler::handleQueueItem(DmRequest* dmRequest) {
@@ -44,31 +57,15 @@ void LoadFromArchiveHandler::handleQueueItem(DmRequest* dmRequest) {
 
     fds_volid_t volId(typedRequest->message->volId);
 
-    // wait for the volume to be active upto 5 minutes
-    // This is done here , because LFA request could come in for a clone even before 
+    // This is done here , because LFA request could come in for a clone even before
     // an addVolume could reach the DM ..
-    int count = 600;
-    bool fVolumeReady = false;
-    while (count > 0 && !fVolumeReady) {
-        const auto vol = dataManager.getVolumeDesc(volId);
-        if (vol != nullptr) {
-            fVolumeReady = (vol->isStateActive() || vol->isStateOffline());
-        }
-        if (!fVolumeReady) {
-            if (count % 60 == 0) {
-                LOGWARN << "vol:" << volId << " not ready yet";
-            }
-            usleep(500000);  // 0.5s
-        }
-        count --;
-    }
-
+    dataManager.waitForVolumeReadiness(volId);
     const VolumeDesc * voldesc = dataManager.getVolumeDesc(volId);
     if (!voldesc) {
         LOGERROR << "Volume entry not found in descriptor map for vol:" << volId;
         helper.err = ERR_VOL_NOT_FOUND;
     } else {
-        
+
         std::string archiveFileName = util::strformat("%ld.tgz",volId.get());
         std::string archiveFile = dataManager.fileTransfer->getFullPath(archiveFileName);
 
@@ -92,11 +89,11 @@ void LoadFromArchiveHandler::handleQueueItem(DmRequest* dmRequest) {
             if (helper.err.ok()) {
                 helper.err = dataManager.timeVolCat_->queryIface()->reloadCatalog(*voldesc);
             }
-         
+
             // remove archive file
             LOGDEBUG << "removing db-archive: " << archiveFile;
             boost::filesystem::remove(archiveFile);
-        }        
+        }
     }
 
     if (helper.err.ok()) {
