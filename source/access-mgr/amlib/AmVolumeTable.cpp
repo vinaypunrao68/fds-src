@@ -450,7 +450,7 @@ AmVolumeTable::statVolumeCb(AmRequest* amReq, Error const error) {
         cb->current_usage_bytes = volReq->size;
         cb->blob_count = volReq->blob_count;
     }
-    AmDataProvider::statVolumeCb(amReq, error);
+    checkFailureResponse(amReq, error);
 }
 
 void
@@ -531,33 +531,19 @@ AmVolumeTable::getVolume(const std::string& vol_name) const {
     return nullptr;
 }
 
-void
-AmVolumeTable::setVolumeMetadataCb(AmRequest * amReq, Error const error) {
-    checkFailureResponse(amReq, error);
-}
-
-void
-AmVolumeTable::commitBlobTxCb(AmRequest * amReq, Error const error) {
-    checkFailureResponse(amReq, error);
-}
-
-void
-AmVolumeTable::renameBlobCb(AmRequest * amReq, Error const error) {
-    checkFailureResponse(amReq, error);
-}
-
-void
-AmVolumeTable::putBlobOnceCb(AmRequest * amReq, Error const error) {
-    checkFailureResponse(amReq, error);
-}
-
+/***
+ * We check the error code for Volume state changes, we may need to re-open
+ * the volume in some cases in order to re-establish an IO path; e.g. switchover
+ * or multi-DM failures have occurred and a resync need to happen.
+ */
 void
 AmVolumeTable::checkFailureResponse(AmRequest * amReq, Error const error) {
-    if (ERR_INVALID_COORDINATOR == error) {
+    if (ERR_INVALID_COORDINATOR == error ||
+        ERR_VOLUMEGROUP_INVALID == error) {
         WriteGuard wg(map_rwlock);
-        LOGDEBUG << "vol:" << amReq->volume_name << " closing due to invalid coordinator";
         auto vol = getVolume(amReq->io_vol_id);
         if (nullptr != vol && vol->isWritable()) {
+            LOGNORMAL << "vol:" << amReq->volume_name << " closing due to:" << error;
             auto volReq = new DetachVolumeReq(amReq->io_vol_id, amReq->volume_name, nullptr);
             volReq->token = vol->clearToken();
             continueRequest(volReq, vol, &AmDataProvider::closeVolume);

@@ -256,7 +256,7 @@ void VolumeGroupHandle::runOpenProtocol_(const OpenResponseCb &openCb)
          } else if (functionalReplicas_.size() == 0) {
              LOGWARN << logString()
                  << " Not enough members with latest state to start a group";
-             openCb(ERR_VOLUMEGROUP_DOWN, nullptr);
+             openCb(ERR_VOLUMEGROUP_INVALID, nullptr);
              return;
          }
          fds_assert(functionalReplicas_.size() >= 1);

@@ -75,15 +75,22 @@ struct AmVolumeTable :
  protected:
 
     /**
-     * These are the response we actually care about seeing the results of
+     * Verify coordinator does not need to be rebuilt (a reopen of the volume)
      */
     void openVolumeCb(AmRequest *amReq, const Error error) override;
     void statVolumeCb(AmRequest *amReq, const Error error) override;
-
-    void setVolumeMetadataCb(AmRequest * amReq, Error const error) override;
-    void commitBlobTxCb(AmRequest * amReq, Error const error) override;
-    void renameBlobCb(AmRequest * amReq, Error const error) override;
-    void putBlobOnceCb(AmRequest * amReq, Error const error) override;
+    void abortBlobTxCb(AmRequest * amReq, Error const error) override       {checkFailureResponse(amReq, error);}
+    void commitBlobTxCb(AmRequest * amReq, Error const error) override      {checkFailureResponse(amReq, error);}
+    void deleteBlobCb(AmRequest * amReq, Error const error) override        {checkFailureResponse(amReq, error);}
+    void getBlobCb(AmRequest * amReq, Error const error) override           {checkFailureResponse(amReq, error);}
+    void getVolumeMetadataCb(AmRequest * amReq, Error const error) override {checkFailureResponse(amReq, error);}
+    void putBlobCb(AmRequest * amReq, Error const error) override           {checkFailureResponse(amReq, error);}
+    void putBlobOnceCb(AmRequest * amReq, Error const error) override       {checkFailureResponse(amReq, error);}
+    void renameBlobCb(AmRequest * amReq, Error const error) override        {checkFailureResponse(amReq, error);}
+    void setVolumeMetadataCb(AmRequest * amReq, Error const error) override {checkFailureResponse(amReq, error);}
+    void startBlobTxCb(AmRequest * amReq, Error const error) override       {checkFailureResponse(amReq, error);}
+    void statBlobCb(AmRequest * amReq, Error const error) override          {checkFailureResponse(amReq, error);}
+    void volumeContentsCb(AmRequest * amReq, Error const error) override    {checkFailureResponse(amReq, error);}
 
   private:
     /// volume uuid -> AmVolume map
