@@ -286,6 +286,8 @@ public:
         return ERR_OK;
     }
 
+    Error waitForVolumeReadiness(fds_volid_t const volId, util::TimeStamp seconds = 300) const;
+
     Error validateVolumeExists(fds_volid_t const volumeId) const {
         auto volumeDesc = getVolumeDesc(volumeId);
         if (!volumeDesc) {

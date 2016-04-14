@@ -1798,6 +1798,31 @@ Error DataMgr::archiveTargetVolume(fds_volid_t volId) {
     return err;
 }
 
+Error DataMgr::waitForVolumeReadiness(fds_volid_t const volId, util::TimeStamp seconds) const {
+    int count = seconds*2;
+    bool fVolumeReady = false;
+    auto vol = getVolumeDesc(volId);
+    while (count > 0 && !fVolumeReady) {
+        if (vol != nullptr) {
+            fVolumeReady = (vol->isStateActive() || vol->isStateOffline());
+        }
+        if (!fVolumeReady) {
+            if (count % 60 == 0) {
+                LOGWARN << "vol:" << volId << " not ready yet";
+            }
+            usleep(500000);  // 0.5s
+        }
+        count --;
+        vol = getVolumeDesc(volId);
+    }
+
+    if (!fVolumeReady) {
+        LOGERROR << "vol:" << volId << " not ready after [" << seconds << " s]";
+        return ERR_VOL_NOT_FOUND;
+    }
+    return ERR_OK;
+}
+
 //************************************************************************//
 //   QOS Controller Functions                                             //
 //************************************************************************//
