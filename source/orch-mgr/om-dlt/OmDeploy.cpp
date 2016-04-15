@@ -567,65 +567,75 @@ DltDplyFSM::GRD_DltCompute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
 
     LOGDEBUG << "See if cluster map changed such that newly computed DLT is different from commited";
 
-    auto nodesInCMap = cm->getNonfailedServices(fpi::FDSP_STOR_MGR);
-
+    auto nodesInCMap  = cm->getNonfailedServices(fpi::FDSP_STOR_MGR);
     auto committedDlt = dp->getCommitedDlt();
-    auto nodesInCommittedDlt = committedDlt->getAllNodes();
 
-    bool newSMInClusterMap = false;
-    bool foundThisSM = false;
-
-    // Compare the nodes in the current cluster map to the nodes
-    // in the current committed DLT
-    for (auto mapSM : nodesInCMap)
+    if (committedDlt != DLT_VER_INVALID)
     {
-        foundThisSM = false;
+        auto nodesInCommittedDlt = committedDlt->getAllNodes();
 
-        for (auto dltSM : nodesInCommittedDlt)
+        bool newSMInClusterMap = false;
+        bool foundThisSM = false;
+
+        // Compare the nodes in the current cluster map to the nodes
+        // in the current committed DLT. If an SM is present in the cluster map
+        // that is *not* present in the committedDlt, then we will proceed with
+        // DLT computation, otherwise simply return
+        for (auto mapSM : nodesInCMap)
         {
-            if (mapSM.uuid_get_val() == dltSM.uuid_get_val()) {
-                foundThisSM = true;
+            foundThisSM = false;
+
+            for (auto dltSM : nodesInCommittedDlt)
+            {
+                if (mapSM.uuid_get_val() == dltSM.uuid_get_val()) {
+                    foundThisSM = true;
+                    break;
+                }
+            }
+
+            if (!foundThisSM) {
+                LOGNORMAL << "Did not find SM:" << std::hex << mapSM.uuid_get_val()
+                          << std::dec << " in the committedDlt";
+                newSMInClusterMap = true;
                 break;
             }
         }
 
-        if (!foundThisSM) {
-            LOGNORMAL << "Did not find SM:" << std::hex << mapSM.uuid_get_val()
-                      << std::dec << " in the committedDlt";
-            newSMInClusterMap = true;
-            break;
+        if (!newSMInClusterMap)
+        {
+            LOGNORMAL << "Exact same SMs in the current cluster map and committed DLT,"
+                      << " will not compute a new DLT";
+
+            // we will go back to idle state
+            fsm.lock.clear();
+
+            return false;
         }
+
     }
 
-    fds_bool_t bret = false;
 
-    if (!newSMInClusterMap) {
-        LOGNOTIFY << "Exact same SMs in the current cluster map and committed DLT,"
-                  << " will not compute a new DLT";
-        bret = false;
-    } else {
-        Error err = dp->computeDlt();
-        bret = err.ok();
-        if (err == ERR_INVALID_ARG) {
-            // this should not happen if we don't have any removed SMs
-            fds_verify(rmCount > 0);
-            // TODO(Anna) need to handle this error -- if some of the removed
-            // SMs are ok (healthy), we should first remove non-healthy SMs and
-            // let other SM take over tokens; then we could try to remove healthy SMs
-        } else if (err == ERR_NOT_READY) {
-            // this is ok -- no changes in the domain to recompute a DLT
-            LOGDEBUG << "Not continuing DLT commit cycle since no changes in "
-                     << " the domain to cause DLT change";
-        } else if (err == ERR_NOT_FOUND) {
-            // ok, no SMs in the domain yet
-            LOGDEBUG << "No SMs joined yet";
-        } else if (err == ERR_DISK_WRITE_FAILED) {
-            LOGERROR << "Failed to persist new DLT; not going to proceed with "
-                     << " DLT change; fix configDB!";
-        } else if (!err.ok()) {
-            LOGERROR << "Unexpected error from computeDlt FIXIT!!! " << err
-                     << " Ignoring error for now, not changing commited DLT";
-        }
+    Error err = dp->computeDlt();
+    fds_bool_t bret = err.ok();
+    if (err == ERR_INVALID_ARG) {
+        // this should not happen if we don't have any removed SMs
+        fds_verify(rmCount > 0);
+        // TODO(Anna) need to handle this error -- if some of the removed
+        // SMs are ok (healthy), we should first remove non-healthy SMs and
+        // let other SM take over tokens; then we could try to remove healthy SMs
+    } else if (err == ERR_NOT_READY) {
+        // this is ok -- no changes in the domain to recompute a DLT
+        LOGDEBUG << "Not continuing DLT commit cycle since no changes in "
+                 << " the domain to cause DLT change";
+    } else if (err == ERR_NOT_FOUND) {
+        // ok, no SMs in the domain yet
+        LOGDEBUG << "No SMs joined yet";
+    } else if (err == ERR_DISK_WRITE_FAILED) {
+        LOGERROR << "Failed to persist new DLT; not going to proceed with "
+                 << " DLT change; fix configDB!";
+    } else if (!err.ok()) {
+        LOGERROR << "Unexpected error from computeDlt FIXIT!!! " << err
+                 << " Ignoring error for now, not changing commited DLT";
     }
 
     LOGNORMAL << "Start deploying new DLT? " << bret;
