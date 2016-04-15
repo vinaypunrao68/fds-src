@@ -61,7 +61,7 @@ void VolumeOpenHandler::handleQueueItem(DmRequest* dmRequest) {
 
         /* Request to open from volume group handle that wishes to do just reads.
          * When trying to do reads it's important the volume can eventually be activated.
-         * With VG, the only volume can be activated is via open from coordinator.
+         * With VG, the only way volume can be activated is via open from coordinator.
          * If coordinator isn't set we return ERR_DM_VOL_NOT_ACTIVATED so that group
          * handle can retry and open as a coordinator.
          * If coordinator is set then the volume can be read eventually.

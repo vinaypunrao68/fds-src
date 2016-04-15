@@ -291,7 +291,8 @@ Error DmVolumeCatalog::deleteCatalog(fds_volid_t volId, bool checkDeleted /* = t
 Error DmVolumeCatalog::statVolumeLogical(fds_volid_t volId,
                                          fds_uint64_t* volSize,
                                          fds_uint64_t* blobCount,
-                                         fds_uint64_t* objCount) {
+                                         fds_uint64_t* objCount,
+                                         sequence_id_t* maxSeqId) {
     Error rc(ERR_OK);
 
     GET_VOL_N_CHECK_DELETED(volId);
@@ -300,7 +301,7 @@ Error DmVolumeCatalog::statVolumeLogical(fds_volid_t volId,
         /**
          * We need to initialize the volume summary cache.
          */
-        rc = statVolumeInternal(volId, volSize, blobCount, objCount);
+        rc = statVolumeInternal(volId, volSize, blobCount, objCount, maxSeqId);
 
         if (rc.ok()) {
             if (vol->initVolSummary(*volSize, *blobCount, *objCount) == ERR_DUPLICATE) {
@@ -313,6 +314,17 @@ Error DmVolumeCatalog::statVolumeLogical(fds_volid_t volId,
             }
         }
     } else {
+        if (maxSeqId) {
+            /* Sequence id is not part of vol summary, it is part of VolumeMeta.  Ideally
+             * vol summary also belongs in VolumeMeta.  As part of DM refactor work
+             * vol summary will need to move to VolumeMeta
+             * NOTE: Ideally sequence id request should have happened in the first call
+             * to statVolumeLogical() when vol summary initialization takes place.
+             */
+            vol->getLatestSequenceId(*maxSeqId);
+            LOGWARN << "computed sequenceid:" << *maxSeqId
+                << " volid:" << volId << " after vol summary has been initialized";
+        }
         rc = vol->getVolSummary(volSize, blobCount, objCount);
     }
 
@@ -398,14 +410,19 @@ Error DmVolumeCatalog::statVolumePhysical(fds_volid_t volId, fds_uint64_t *pbyte
     return rc;
 }
 
-Error DmVolumeCatalog::statVolumeInternal(fds_volid_t volId, fds_uint64_t * volSize,
-            fds_uint64_t * blobCount, fds_uint64_t * objCount) {
+Error DmVolumeCatalog::statVolumeInternal(fds_volid_t volId,
+                                          fds_uint64_t * volSize,
+                                          fds_uint64_t * blobCount,
+                                          fds_uint64_t * objCount,
+                                          sequence_id_t * latestSeqId) {
     GET_VOL_N_CHECK_DELETED(volId);
     HANDLE_VOL_NOT_ACTIVATED();
 
     *volSize = 0;
     *blobCount = 0;
     *objCount = 0;
+    /* NOTE: Computing latestSeqId is optional */
+    sequence_id_t maxSeqId = 0;
 
     std::vector<BlobMetaDesc> blobMetaList;
     Error rc = vol->getAllBlobMetaDesc(blobMetaList);
@@ -419,6 +436,10 @@ Error DmVolumeCatalog::statVolumeInternal(fds_volid_t volId, fds_uint64_t * volS
 
     // calculate size of volume
     for (const auto & it : blobMetaList) {
+        if (latestSeqId && maxSeqId < it.desc.sequence_id) {
+            maxSeqId = it.desc.sequence_id;
+        }
+
         /**
          * Get the data object list for this blob.
          *
@@ -491,9 +512,29 @@ Error DmVolumeCatalog::statVolumeInternal(fds_volid_t volId, fds_uint64_t * volS
          */
         *volSize += ((objList.size() - 1) * vol->getObjSize()) + objList[objList.lastOffset()].size;
     }
+    
+    if (latestSeqId) {
+        fpi::FDSP_MetaDataList emptyMetadataList;
+        VolumeMetaDesc volMetaDesc(emptyMetadataList, 0);
 
-    LOGDEBUG << "Volume: '" << volId << "' logical size: '" << *volSize
-             << "' blobs: '" << *blobCount << "' logical objects: '" << *objCount << "'";
+        rc = vol->getVolumeMetaDesc(volMetaDesc);
+        if (!rc.ok()) {
+            LOGERROR << "Error searching volume descriptor for latest sequence id for volume "
+                     << volId << ": " << rc;
+            return rc;
+        }
+        if (maxSeqId < volMetaDesc.sequence_id) {
+            maxSeqId = volMetaDesc.sequence_id;
+        }
+
+        *latestSeqId = maxSeqId;
+    }
+
+    /* LOGNORMAL because statvolume is an expensive call.  Usage should be infrequent */
+    LOGNORMAL << "stat volume logical"
+        << " volume:" << volId << " logicalsize:" << *volSize
+        << " blobs:" << *blobCount << " logicalobjects:" << *objCount
+        << " sequenceid:" << (latestSeqId ? std::to_string(*latestSeqId) : "N/A");
 
     return rc;
 }
@@ -946,7 +987,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         fds_uint64_t size;
         fds_uint64_t blobs;
         fds_uint64_t objects;
-        rc = statVolumeLogical(volId, &size, &blobs, &objects);
+        rc = statVolumeLogical(volId, &size, &blobs, &objects, nullptr);
         if (!rc.ok()) {
             LOGERROR << "Failed to stat volume: '" << volId << "' error: '" << rc << "'";
             return rc;
@@ -997,7 +1038,7 @@ void DmVolumeCatalog::_updateLBytes (fds_volid_t volId)
     fds_uint64_t size;
     fds_uint64_t dummy1;
     fds_uint64_t dummy2;
-    auto rc = statVolumeLogical(volId, &size, &dummy1, &dummy2);
+    auto rc = statVolumeLogical(volId, &size, &dummy1, &dummy2, nullptr);
     if (!rc.ok())
     {
         LOGERROR << "Failed to stat volume ID " << volId << ". Error: " << rc;
@@ -1083,7 +1124,7 @@ Error DmVolumeCatalog::putBlob(fds_volid_t volId, const std::string& blobName,
         fds_uint64_t size;
         fds_uint64_t blobs;
         fds_uint64_t objects;
-        rc = statVolumeLogical(volId, &size, &blobs, &objects);
+        rc = statVolumeLogical(volId, &size, &blobs, &objects, nullptr);
         if (!rc.ok()) {
             LOGERROR << "Failed to stat volume: '" << volId << "' error: '" << rc << "'";
             return rc;
@@ -1191,7 +1232,7 @@ Error DmVolumeCatalog::deleteBlob(fds_volid_t volId, const std::string& blobName
             fds_uint64_t size;
             fds_uint64_t blobs;
             fds_uint64_t objects;
-            rc = statVolumeLogical(volId, &size, &blobs, &objects);
+            rc = statVolumeLogical(volId, &size, &blobs, &objects, nullptr);
             if (!rc.ok()) {
                 LOGERROR << "Failed to stat volume: '" << volId << "' error: '" << rc << "'";
                 return rc;

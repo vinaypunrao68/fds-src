@@ -39,13 +39,15 @@ class VolumeCatalogQueryIface {
      * @param[out] size logical size of volume in bytes
      * @param[out] blob_count number of blobs in the volume
      * @param[out] object_count number of logical objects in the volume
+     * @param[out] maxSeqId maximum sequenceid.  Only computed if not null
      * @return ERR_OK on success; ERR_VOL_NOT_FOUND is volume is not known
      * to volume catalog
      */
     virtual Error statVolumeLogical(fds_volid_t volume_id,
                                     fds_uint64_t* size,
                                     fds_uint64_t* blob_count,
-                                    fds_uint64_t* object_count) = 0;
+                                    fds_uint64_t* object_count,
+                                    sequence_id_t* maxSeqId) = 0;
 
     /**
      * Returns physical size of the volume.

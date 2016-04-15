@@ -114,13 +114,15 @@ class DmVolumeCatalog : public HasModuleProvider,
     /**
      * Returns logical size of volume and number of blob in the volume 'volume_id'
      * @param[out] size logical size of volume in bytes
-     * @param[in] blob_count number of blobs in the volume
+     * @param[out] blob_count number of blobs in the volume
      * @param[out] object_count logical object count per volume
+     * @param[out] maxSeqId maximum sequenceid.  Only computed if not null
      * @return ERR_OK on success, ERR_VOL_NOT_FOUND if volume is not known
      * to volume catalog
      */
     Error statVolumeLogical(fds_volid_t volId, fds_uint64_t* volSize,
-                            fds_uint64_t* blobCount, fds_uint64_t* objCount) override;
+                            fds_uint64_t* blobCount, fds_uint64_t* objCount,
+                            sequence_id_t * maxSeqId) override;
 
     /**
      * Returns physical size of the volume.
@@ -348,7 +350,8 @@ class DmVolumeCatalog : public HasModuleProvider,
 
     // methods
     Error statVolumeInternal(fds_volid_t volId, fds_uint64_t * volSize,
-                             fds_uint64_t * blobCount, fds_uint64_t * objCount);
+                             fds_uint64_t * blobCount, fds_uint64_t * objCount,
+                             sequence_id_t * maxSeqId);
 
     inline void mergeMetaList(MetaDataList & lhs, const MetaDataList & rhs) {
         for (auto & it : rhs) {

@@ -56,7 +56,8 @@ void StatVolumeHandler::handleQueueItem(DmRequest* dmRequest) {
             //             reinterpret_cast.
             reinterpret_cast<fds_uint64_t*>(&typedRequest->msg->volumeStatus.size),
             reinterpret_cast<fds_uint64_t*>(&typedRequest->msg->volumeStatus.blobCount),
-            reinterpret_cast<fds_uint64_t*>(&typedRequest->msg->volumeStatus.objectCount));
+            reinterpret_cast<fds_uint64_t*>(&typedRequest->msg->volumeStatus.objectCount),
+            nullptr);
 }
 
 void StatVolumeHandler::handleResponse(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
