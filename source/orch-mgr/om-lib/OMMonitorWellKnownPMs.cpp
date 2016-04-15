@@ -176,7 +176,26 @@ namespace fds
         else
         {
             LOGNOTIFY << "PM added to well known map with ID:"
-                     << std::hex << svcUuid.svc_uuid << std::dec;
+                     << std::hex << svcUuid.svc_uuid << std::dec
+                     << " sending heartbeat check ..";
+
+            Error err(ERR_OK);
+            try {
+                OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+                Error err = local->om_heartbeat_check(svcUuid);
+            }
+            catch(...) {
+                LOGERROR << "OMmonitor encountered exception while "
+                         << "sending heartbeat check to PM uuid"
+                         << std::hex << svcUuid.svc_uuid << std::dec;
+                err = Error(ERR_NOT_FOUND);
+            }
+
+            if (!err.OK()) {
+                LOGWARN << "Did not send heartbeat check to PM uuid"
+                    << std::hex << svcUuid.svc_uuid << std::dec;
+            }
+
         }
 
         // Don't use "insert" since we want to overwrite the timestamp
@@ -365,9 +384,7 @@ namespace fds
                         << std::hex << svc_uuid << std::dec << " treating it as stale";
                handleStaleEntry(svcUuid);
 
-            }
-            else
-            {
+            } else {
                 try {
                     OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
                     Error err = local->om_heartbeat_check(svcUuid);

@@ -1766,37 +1766,6 @@ OM_PmAgent::send_stop_service
         }
     }
 
-
-
-    if (stop_dm)
-    {
-        OM_Module *om = OM_Module::om_singleton();
-        VolumePlacement *vp = om->om_volplace_mod();
-
-        std::set<fds_uint64_t> uniqueNodes;
-        vp->getCommittedDMT()->getUniqueNodes(&uniqueNodes);
-
-        fpi::SvcUuid svcUuid;
-        retrieveSvcId(get_uuid().uuid_get_val(), svcUuid, fpi::FDSP_DATA_MGR);
-
-        bool foundThisDm = false;
-        for ( auto id : uniqueNodes )
-        {
-            auto unsignedDmId = static_cast<uint64_t>(svcUuid.svc_uuid);
-            if ( id == unsignedDmId ) {
-                foundThisDm = true;
-                break;
-            }
-        }
-        // If this is the only DM present in the current committedDMT, then do not allow
-        // the node stop / node removal to go through
-        if (foundThisDm && uniqueNodes.size() == 1)
-        {
-            LOGERROR << "Attempting to stop DM service when it is the only primary DM in committedDMT!!";
-            return Error(ERR_INVALID_ARG);
-        }
-    }
-
     /***************************************
      * ALL CHECKS PASSED, PROCEED WITH STOP
      */
