@@ -46,8 +46,8 @@ task buildDeb(type: Deb) {
 		into 'bin'
 		fileMode 755
 	}
-
-	from(baseDir + '/bin/disk_type.py') {
+	
+        from(baseDir + '/bin/disk_rescan.sh') {
 		into 'bin'
 		fileMode 755
 	}
