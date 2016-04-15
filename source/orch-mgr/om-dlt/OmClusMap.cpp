@@ -219,7 +219,7 @@ ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
 // we want to remove those nodes from persisted DLT
 //
 void
-ClusterMap::addPendingRmService(fpi::FDSP_MgrIdType svc_type,
+ClusterMap::addSvcPendingRemoval(fpi::FDSP_MgrIdType svc_type,
                                 const NodeUuid& rm_uuid)
 {
     TRACEFUNC;
@@ -250,7 +250,7 @@ ClusterMap::addPendingRmService(fpi::FDSP_MgrIdType svc_type,
 
 // remove service from pending added svc map
 void
-ClusterMap::rmPendingAddedService(fpi::FDSP_MgrIdType svc_type,
+ClusterMap::rmAddedSvcFromAllMaps(fpi::FDSP_MgrIdType svc_type,
                                   const NodeUuid& svc_uuid) {
     TRACEFUNC;
     LOGNOTIFY << "Attempt to remove svc uuid:"
@@ -277,7 +277,7 @@ ClusterMap::rmPendingAddedService(fpi::FDSP_MgrIdType svc_type,
         case fpi::FDSP_DATA_MGR:
 
             if ( (addedSMs.find(svc_uuid) != addedSMs.end() ||
-                 resyncDMs.find(svc_uuid) != resyncDMs.end()) &&
+                  resyncDMs.find(svc_uuid) != resyncDMs.end()) &&
                  curDmMap.find(svc_uuid) != curDmMap.end() )
             {
                 LOGNOTIFY << "Removed svc uuid:"
@@ -300,7 +300,7 @@ ClusterMap::rmPendingAddedService(fpi::FDSP_MgrIdType svc_type,
 
 // remove service from pending remove svc map
 void
-ClusterMap::rmPendingRemovedService(fpi::FDSP_MgrIdType svc_type,
+ClusterMap::rmSvcPendingRemoval(fpi::FDSP_MgrIdType svc_type,
                                     const NodeUuid& svc_uuid) {
     TRACEFUNC;
     LOGNOTIFY << "Attempt to remove svc uuid:"
@@ -336,8 +336,9 @@ ClusterMap::rmPendingRemovedService(fpi::FDSP_MgrIdType svc_type,
 // reset service from pending added svc map
 // but do not remove from cluster map
 void
-ClusterMap::resetPendingAddedService(fpi::FDSP_MgrIdType svc_type,
-                                     const NodeUuid& svc_uuid) {
+ClusterMap::rmSvcPendingAdd(fpi::FDSP_MgrIdType svc_type,
+                            const NodeUuid& svc_uuid)
+{
     TRACEFUNC;
     LOGNOTIFY << "Attempt to remove svc uuid:"
               << std::hex << svc_uuid.uuid_get_val() << std::dec

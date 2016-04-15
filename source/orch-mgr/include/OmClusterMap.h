@@ -178,28 +178,28 @@ class ClusterMap : public Module {
      * from persistent state when not all nodes come up and we need to
      * remove those from persisted DLT
      */
-    void addPendingRmService(fpi::FDSP_MgrIdType svc_type,
+    void addSvcPendingRemoval(fpi::FDSP_MgrIdType svc_type,
                              const NodeUuid& rm_uuid);
 
     /**
-     * Removes service with uuid 'svc_uuid' from pending added services
+     * Removes service with uuid 'svc_uuid' from services pending add
      * map and from cluster map
      */
-    void rmPendingAddedService(fpi::FDSP_MgrIdType svc_type,
+    void rmAddedSvcFromAllMaps(fpi::FDSP_MgrIdType svc_type,
                                const NodeUuid& svc_uuid);
 
     /**
-     * Removes service with uuid 'svc_uuid' from pending removed services
+     * Removes service with uuid 'svc_uuid' from services pending remove
      * map
      */
-    void rmPendingRemovedService(fpi::FDSP_MgrIdType svc_type,
-                                 const NodeUuid& svc_uuid);
+    void rmSvcPendingRemoval(fpi::FDSP_MgrIdType svc_type,
+                             const NodeUuid& svc_uuid);
     /**
      * Removes service with uuid 'svc_uuid' from pending added services mao
      * but NOT from cluster map
      */
-    void resetPendingAddedService(fpi::FDSP_MgrIdType svc_type,
-                                  const NodeUuid& svc_uuid);
+    void rmSvcPendingAdd(fpi::FDSP_MgrIdType svc_type,
+                         const NodeUuid& svc_uuid);
 
    /**
      * Ongoing DM Migration set so we GRD_ReRegister will know if

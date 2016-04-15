@@ -1701,10 +1701,6 @@ bool ConfigDB::setNodeServices(const NodeUuid& uuid, const NodeServices& service
 {
     SCOPEDWRITE(nodeLock);
 
-    LOGDEBUG << "!!!Setting node services with sm:"
-             << std::hex << services.sm.uuid_get_val()
-             << ", dm:" << services.dm.uuid_get_val()
-             << ", am:" << services.am.uuid_get_val();
     try{
         std::string serialized;
         services.getSerialized(serialized);

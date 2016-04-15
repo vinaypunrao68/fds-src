@@ -596,7 +596,7 @@ NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
         for (auto sm_uuid: src.sm_services) {
             // since updateMap keeps those nodes as pending, we tell cluster map that
             // they are not pending, since these nodes are already in the DLT
-            cm->resetPendingAddedService(fpi::FDSP_STOR_MGR, sm_uuid);
+            cm->rmSvcPendingAdd(fpi::FDSP_STOR_MGR, sm_uuid);
         }
 
         // move nodes that are already in DMT from pending list
@@ -614,7 +614,7 @@ NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
         for (auto dm_uuid: src.dm_services) {
             // since updateMap keeps those nodes as pending, we tell cluster map that
             // they are not pending, since these nodes are already in the DMT
-            cm->resetPendingAddedService(fpi::FDSP_DATA_MGR, dm_uuid);
+            cm->rmSvcPendingAdd(fpi::FDSP_DATA_MGR, dm_uuid);
         }
     } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
@@ -913,7 +913,7 @@ NodeDomainFSM::DACT_UpdDlt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
                 fds_assert(!"Shouldn't happen");
                 LOGDEBUG << "DACT_UpdDlt: will remove node " << std::hex
                          << (*cit).uuid_get_val() << std::dec << " from DLT";
-                cm->addPendingRmService(fpi::FDSP_STOR_MGR, *cit);
+                cm->addSvcPendingRemoval(fpi::FDSP_STOR_MGR, *cit);
 
                 // also remove that node from configDB
                 domain->om_rm_sm_configDB(*cit);
@@ -2313,7 +2313,7 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                         {
                             if (cm->getAddedServices(fpi::FDSP_STOR_MGR).size() > 0)
                             {
-                                cm->resetPendingAddedService(fpi::FDSP_STOR_MGR, node_uuid);
+                                cm->rmSvcPendingAdd(fpi::FDSP_STOR_MGR, node_uuid);
                             }
                         }
                     }
@@ -2331,7 +2331,7 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                         {
                             if (cm->getAddedServices(fpi::FDSP_DATA_MGR).size() > 0)
                             {
-                                cm->resetPendingAddedService(fpi::FDSP_DATA_MGR, node_uuid);
+                                cm->rmSvcPendingAdd(fpi::FDSP_DATA_MGR, node_uuid);
                             }
                         }
                     }
@@ -2476,11 +2476,11 @@ void OM_NodeDomainMod::handlePendingSvcRemoval(std::vector<fpi::SvcInfo> removed
             NodeUuid node_uuid(svc.svc_id.svc_uuid.svc_uuid);
             if (svc.svc_type == fpi::FDSP_STOR_MGR) {
                 removeSM = true;
-                cm->addPendingRmService(svc.svc_type, node_uuid);
+                cm->addSvcPendingRemoval(svc.svc_type, node_uuid);
 
             } else if (svc.svc_type == fpi::FDSP_DATA_MGR) {
                 removeDM = true;
-                cm->addPendingRmService(svc.svc_type, node_uuid);
+                cm->addSvcPendingRemoval(svc.svc_type, node_uuid);
 
             } else if (svc.svc_type == fpi::FDSP_ACCESS_MGR) {
                 removeAM = true;

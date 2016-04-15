@@ -779,7 +779,7 @@ OM_NodeAgent::cleanup_added_node()
     OM_Module *om = OM_Module::om_singleton();
     ClusterMap *cm = om->om_clusmap_mod();
     if (cm->serviceAddExists(get_uuid().uuid_get_type(), get_uuid())) {
-    	cm->resetPendingAddedService(get_uuid().uuid_get_type(), get_uuid());
+    	cm->rmSvcPendingAdd(get_uuid().uuid_get_type(), get_uuid());
     }
 }
 
@@ -932,20 +932,13 @@ OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_ty
 
     Error err(ERR_OK);
     // actually update config DB
-    if (configDB) {
+    if (configDB){
         err = configDB->setNodeServices(get_uuid(), services);
-
-        NodeServices returnSvcs;
-        configDB->getNodeServices(get_uuid(), returnSvcs);
-
-        LOGDEBUG <<"!!!Retrieved svcs, sm:" << returnSvcs.sm.uuid_get_val()
-                 << ", dm:" << returnSvcs.dm.uuid_get_val()
-                 << ", am:" << returnSvcs.am.uuid_get_val();
-
     }
 
-    if (!err.ok()) {
-        LOGWARN << "Setting node services failed!!! This could lead to bad OM state";
+    if (!err.OK()) {
+        LOGWARN << "Setting node services failed! Could lead to a bad known state for node:"
+                << std::hex << get_uuid().uuid_get_val() << std::hex;
     }
 
     return err;
@@ -962,7 +955,7 @@ OM_PmAgent::handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
     NodeServices services;
 
-    LOGDEBUG << "Handling unregister for svc type:" << svc_type << " node uuid:" << get_uuid();
+    LOGNORMAL << "Handling unregister for svc type:" << svc_type << " node uuid:" << get_uuid();
 
     fds_bool_t found_services = configDB ?
             configDB->getNodeServices(get_uuid(), services) : false;
@@ -972,19 +965,16 @@ OM_PmAgent::handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_
         case FDS_ProtocolInterface::FDSP_STOR_MGR:
             activeSmAgent = NULL;
             svc_uuid = services.sm;
-            LOGDEBUG << "!!!Svc uuid:" << std::hex << svc_uuid.uuid_get_val() << std::dec;
             services.sm.uuid_set_val(0);
             break;
         case FDS_ProtocolInterface::FDSP_DATA_MGR:
             activeDmAgent = NULL;
             svc_uuid = services.dm;
-            LOGDEBUG << "!!!Svc uuid:" << std::hex << svc_uuid.uuid_get_val() << std::dec;
             services.dm.uuid_set_val(0);
             break;
         case FDS_ProtocolInterface::FDSP_ACCESS_MGR:
             activeAmAgent = NULL;
             svc_uuid = services.am;
-            LOGDEBUG << "!!!!Svc uuid:" << std::hex << svc_uuid.uuid_get_val() << std::dec;
             services.am.uuid_set_val(0);
             break;
         default:
@@ -993,14 +983,6 @@ OM_PmAgent::handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_
 
     if (found_services) {
         configDB->setNodeServices(get_uuid(), services);
-
-        NodeServices returnSvcs;
-        configDB->getNodeServices(get_uuid(), returnSvcs);
-
-        LOGDEBUG <<"!!!Retrieved svcs, sm:" << returnSvcs.sm.uuid_get_val()
-                 << ", dm:" << returnSvcs.dm.uuid_get_val()
-                 << ", am:" << returnSvcs.am.uuid_get_val();
-
     } else {
         LOGWARN << "Node info " << std::hex << get_uuid().uuid_get_val() << std::dec
                 << " not found to persist removal of service from this node";
@@ -2938,7 +2920,7 @@ OM_AgentContainer::agent_activate(NodeAgent::pointer agent)
               << "0x" << uuid << std::dec;
 
     NodeList::iterator iter;
-    bool presentInRemovedList = presentInAgentList( node_down_pend, iter, uuid);
+    bool presentInRemovedList = presentInAgentList( node_down_pend, iter, uuid );
 
     if (presentInRemovedList)
     {
@@ -2958,7 +2940,7 @@ OM_AgentContainer::agent_activate(NodeAgent::pointer agent)
         OM_DMTMod *dmtMod = om->om_dmt_mod();
         ClusterMap *cm =  om->om_clusmap_mod();
 
-        cm->rmPendingRemovedService(agent->node_get_svc_type(), agent->get_uuid());
+        cm->rmSvcPendingRemoval(agent->node_get_svc_type(), agent->get_uuid());
     }
 
     rs_mtx.lock();
@@ -2980,7 +2962,7 @@ OM_AgentContainer::agent_deactivate(NodeAgent::pointer agent)
               << "0x" << uuid << std::dec;
 
     NodeList::iterator iter;
-    bool presentInAddedList = presentInAgentList( node_up_pend, iter, uuid);
+    bool presentInAddedList = presentInAgentList( node_up_pend, iter, uuid );
 
     if (presentInAddedList)
     {
@@ -3000,7 +2982,7 @@ OM_AgentContainer::agent_deactivate(NodeAgent::pointer agent)
         OM_DMTMod *dmtMod = om->om_dmt_mod();
         ClusterMap *cm =  om->om_clusmap_mod();
 
-        cm->rmPendingAddedService(agent->node_get_svc_type(), agent->get_uuid());
+        cm->rmAddedSvcFromAllMaps(agent->node_get_svc_type(), agent->get_uuid());
     }
 
 
@@ -3020,7 +3002,6 @@ OM_AgentContainer::presentInAgentList( NodeList& list,
     {
         if ((*iter)->get_uuid().uuid_get_val() == uuid)
         {
-            LOGDEBUG << "FOUND!! uuid:" << std::hex << (*iter)->get_uuid().uuid_get_val() << std::dec << " and uuid:" << std::hex << uuid << std::dec;
             found = true;
             itemIter = iter;
             break;

@@ -50,7 +50,7 @@ const std::vector<std::vector<fpi::ServiceStatus>> OmExtUtilApi::allowedStateTra
           fpi::SVC_STATUS_INACTIVE_FAILED },
         // valid incoming for state: STOPPING(7)
         { fpi::SVC_STATUS_INACTIVE_STOPPED,fpi::SVC_STATUS_STARTED,
-          fpi::SVC_STATUS_REMOVED }, //fpi::SVC_STATUS_DISCOVERED /* This state for PM ONLY */ },
+          fpi::SVC_STATUS_REMOVED },
         // valid incoming for state: REMOVED(8)
         { },
         // valid incoming for state: INACTIVE_FAILED(9)

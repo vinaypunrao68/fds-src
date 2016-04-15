@@ -1299,7 +1299,7 @@ DmtDplyFSM::DACT_ChkEndErr::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
                 OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
                 OM_SmAgent::pointer dm_agent = domain->om_dm_agent(recoverAckEvt.svcUuid);
                 dm_agent->set_node_state(fpi::FDS_Node_Down);
-                cm->rmPendingAddedService(fpi::FDSP_DATA_MGR, recoverAckEvt.svcUuid);
+                cm->rmAddedSvcFromAllMaps(fpi::FDSP_DATA_MGR, recoverAckEvt.svcUuid);
                 break;
             }
         }
@@ -1312,7 +1312,7 @@ DmtDplyFSM::DACT_ChkEndErr::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
                 OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
                 OM_SmAgent::pointer dm_agent = domain->om_dm_agent(recoverAckEvt.svcUuid);
                 dm_agent->set_node_state(fpi::FDS_Node_Down);
-                cm->rmPendingAddedService(fpi::FDSP_DATA_MGR, recoverAckEvt.svcUuid);
+                cm->rmAddedSvcFromAllMaps(fpi::FDSP_DATA_MGR, recoverAckEvt.svcUuid);
                 break;
              }
         }
