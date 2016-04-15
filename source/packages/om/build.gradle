@@ -87,7 +87,7 @@ task deployDeb( dependsOn: 'buildDeb' ) << {
 	def debName = 'NONE'
 	new File( projectDir.getName() + '/build/distributions' ).eachFile( { f -> 
 
-		if ( f.name.startsWith( buildDeb.packagePrefix ) && f.name.endsWith( 'deb' ) ) {
+		if ( f.name.startsWith( buildDeb.packageName ) && f.name.endsWith( 'deb' ) ) {
 			debName = f.name
 		}
 
