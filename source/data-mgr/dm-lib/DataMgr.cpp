@@ -828,9 +828,10 @@ Error DataMgr::_process_mod_vol(fds_volid_t vol_uuid, const VolumeDesc& voldesc)
 
 Error DataMgr::removeVolume(fds_volid_t volId, fds_bool_t fMarkAsDeleted) {
     Error err(ERR_OK);
-
+    
     // mark volume as deleted if it's not empty
     if (fMarkAsDeleted) {
+        LOGNORMAL << "ctx:voldelete vol:" << volId << " will be marked for delete";
         err = timeVolCat_->markVolumeDeleted(volId);
         if (!err.ok()) {
             LOGERROR << "failed to mark volume as deleted " << err;
@@ -840,6 +841,7 @@ Error DataMgr::removeVolume(fds_volid_t volId, fds_bool_t fMarkAsDeleted) {
     }
 
     // we we are here, fMarkAsDeleted == false
+    LOGNORMAL << "ctx:voldelete vol:" << volId << " will be deleted from the system";
     err = timeVolCat_->deleteVolume(volId);
     if (err.ok()) {
         detachVolume(volId);
@@ -849,11 +851,11 @@ Error DataMgr::removeVolume(fds_volid_t volId, fds_bool_t fMarkAsDeleted) {
         // remove any user-repo info.
         const auto root =  MODULEPROVIDER()->proc_fdsroot();
         std::string dir=util::strformat("%s/%ld", root->dir_user_repo_dm().c_str(), volId.get());
-        LOGNOTIFY << "removing vol:" << volId << " from user-repo:" << dir;
+        LOGNOTIFY << "ctx:voldelete removing vol:" << volId << " from user-repo:" << dir;
         boost::filesystem::remove_all(dir);
 
     } else {
-        LOGERROR << "failed to remove vol:" << volId << " from volume catalog err:" << err;
+        LOGERROR << "ctx:voldelete vol:" << volId << " failed to remove from volume catalog err:" << err;
     }
 
     return err;

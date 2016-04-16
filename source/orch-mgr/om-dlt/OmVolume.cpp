@@ -648,6 +648,8 @@ VolumeFSM::VACT_DelChk::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
         GLOGNORMAL << "VolumeFSM::VACT_DelChk [evt:" << fds::util::type(evt) << "]";
     }
 
+    GLOGNOTIFY << "path:voldelete vol:" << vol->rs_get_uuid()
+               << " name:" << vol->vol_get_name() << " marking for delete";
     dst.del_chk_ack_wait = local->om_bcast_vol_delete(vol, true);
     if (dst.del_chk_ack_wait == 0) {
         GLOGWARN << " no acks to wait ... triggerring delete";
@@ -818,6 +820,9 @@ VolumeFSM::VACT_Detach::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     GLOGNORMAL << "VolumeFSM::VACT_Detach for volume:" << vol->vol_get_name()
               << "[evt:" << fds::util::type(evt) << "]";
 
+    GLOGNOTIFY << "path:voldelete vol:" << vol->rs_get_uuid()
+               << " name:" << vol->vol_get_name() << " detaching from ams";
+
     if (vol->isStateMarkedForDeletion())
     {
         GLOGDEBUG << "VACT_Detach: raising evt VolOpRespEvt";
@@ -858,18 +863,18 @@ VolumeFSM::VACT_QueueDel::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     VolumeInfo* vol = evt.vol_ptr;
     if (vol == NULL)
     {
-        GLOGWARN << "VACT_QueueDel: VolumeInfo object is NULL, returning..";
+        GLOGWARN << "path:voldelete VACT_QueueDel: VolumeInfo object is NULL, returning..";
         return;
     }
 
-    GLOGNORMAL << "VolumeFSM::VACT_QueueDel for volume:" << vol->vol_get_name()
+    GLOGNORMAL << "path:voldelete VolumeFSM::VACT_QueueDel for volume:" << vol->vol_get_name()
               << "[evt:" << fds::util::type(evt) << "]";
 
     VolumeDesc* volDesc = vol->vol_get_properties();
 
     if (vol->isStateMarkedForDeletion())
     {
-        GLOGDEBUG << "VACT_QueueDel: Volume [" << volDesc->volUUID << "] already marked for deletion,"
+        GLOGDEBUG << "path:voldelete VACT_QueueDel: Volume [" << volDesc->volUUID << "] already marked for deletion,"
                   << " will set state again and schedule for delete";
     }
 
@@ -883,6 +888,9 @@ VolumeFSM::VACT_QueueDel::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST
     } else {
         gl_orch_mgr->getConfigDB()->setVolumeState(volDesc->volUUID, volDesc->state);
     }
+
+    GLOGNOTIFY << "path:voldelete vol:" << vol->rs_get_uuid()
+               << " name:" << vol->vol_get_name() << " scheduling for final delete";
 
     // schedule the volume for deletion
     gl_orch_mgr->deleteScheduler.scheduleVolume(volDesc->volUUID);
@@ -908,6 +916,9 @@ VolumeFSM::VACT_DelNotify::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     } else {
         GLOGNORMAL << "VolumeFSM::VACT_DelNotify [evt:" << fds::util::type(evt) << "]";
     }
+
+    GLOGNOTIFY << "path:voldelete vol:" << vol->rs_get_uuid()
+               << " name:" << vol->vol_get_name() << " notifying final delete for cleanup";
 
     // broadcast delete volume notification to all DMs/SMs
     OM_NodeContainer    *local = OM_NodeDomainMod::om_loc_domain_ctrl();
@@ -967,6 +978,9 @@ void VolumeFSM::VACT_DelDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
     } else {
         gl_orch_mgr->getConfigDB()->setVolumeState(volDesc->volUUID, volDesc->state);
     }
+
+    GLOGNOTIFY << "path:voldelete vol:" << vol->rs_get_uuid()
+               << " name:" << vol->vol_get_name() << " delete completed";
 
     // TODO(anna) Send response to delete volume msg
 

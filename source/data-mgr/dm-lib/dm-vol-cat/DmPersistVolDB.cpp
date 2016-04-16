@@ -59,8 +59,8 @@ DmPersistVolDB::~DmPersistVolDB() {
         const FdsRootDir* root = MODULEPROVIDER()->proc_fdsroot();
         std::string dbfile=snapshot_?dmutil::getVolumeDir(root, srcVolId_, volId_):dmutil::getVolumeDir(root, volId_);
         boost::filesystem::remove_all(dbfile);
-        LOGNOTIFY << "removed leveldb for " << (snapshot_? "snap:":"vol:") << volId_
-                  << " file:" << dbfile;
+        LOGNOTIFY << "path:voldelete " << (snapshot_? "snap:":"vol:") << volId_
+                  << " removed level db file:" << dbfile;
     }
 }
 

@@ -281,7 +281,7 @@ DmTimeVolCatalog::markVolumeDeleted(fds_volid_t volId) {
         // deleted and reject all tx to this commit log
         // only mark log as deleted if no pending tx, otherwise
         // return error
-        LOGDEBUG << "Marked volume as deleted, vol:" << volId;
+        LOGDEBUG << "path:voldelete Marked volume as deleted, vol:" << volId;
     }
     return err;
 }
@@ -294,10 +294,10 @@ DmTimeVolCatalog::deleteVolume(fds_volid_t volId) {
         if (commitLogs_.count(volId) > 0) {
             // found commit log
             commitLogs_.erase(volId);
-            LOGNOTIFY << "removed commit logs for vol:" << volId;
+            LOGNOTIFY << "path:voldelete vol:" << volId << " removed commit logs";
         }
     } else {
-        LOGERROR << "will not remove commit logs for vol:" << volId << " err:" << err;
+        LOGERROR << "path:voldelete vol:" << volId << " will not remove commit logs err:" << err;
     }
     return err;
 }

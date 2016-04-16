@@ -111,6 +111,19 @@ DMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
                           boost::shared_ptr<fpi::CtrlNotifyVolRemove> &msg)
 {
     DBG(GLOGDEBUG << logString(*hdr) << "Vol Remove");  // logString(*msg));
+    LOGNOTIFY << "ctx:voldelete vol:" << msg->vol_desc.volUUID
+              << " markedfordelete:" << (msg->vol_flag == fpi::FDSP_NOTIFY_VOL_CHECK_ONLY);
+
+    fds_volid_t volId (msg->vol_desc.volUUID);
+    auto volDesc = this->dataManager_.getVolumeDesc(volId);
+    if (!volDesc) {
+        // after enabling vg .. the volume may not exist in this DM.
+        LOGWARN << "ctx:voldelete vol:" << volId << " not found";
+        hdr->msg_code = ERR_OK;
+        sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::CtrlNotifyVolRemove), *msg);
+        return;
+    }
+
     fds_verify(msg->__isset.vol_desc);
     auto func = [this, hdr, msg]() {
         fds_volid_t vol_uuid (msg->vol_desc.volUUID);
@@ -118,10 +131,10 @@ DMSvcHandler::NotifyRmVol(boost::shared_ptr<fpi::AsyncHdr>            &hdr,
         bool fCheck = (msg->vol_flag == fpi::FDSP_NOTIFY_VOL_CHECK_ONLY);
         auto volDesc = this->dataManager_.getVolumeDesc(vol_uuid);
         if (!volDesc) {
-            LOGERROR << "Volume NOT found vol:" << vol_uuid;
+            LOGWARN << "ctx:voldelete vol:" << vol_uuid << " not found";
             err = ERR_VOL_NOT_FOUND;
         } else {
-            LOGNOTIFY << "will delete volume:" << vol_uuid << ":" << volDesc->name;
+            LOGNOTIFY << "ctx:voldelete vol:" << vol_uuid << " name:" << volDesc->name << " will delete";
             if (msg->vol_desc.fSnapshot) {
                 if (fCheck) {
                     err = ERR_OK;

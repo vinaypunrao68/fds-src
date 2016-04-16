@@ -37,13 +37,13 @@ Error TimelineManager::deleteSnapshot(fds_volid_t volId, fds_volid_t snapshotId)
 
     if (invalid_vol_id == snapshotId) {
         timelineDB->getSnapshotsForVolume(volId, vecSnaps);
-        LOGDEBUG << "will delete [" << vecSnaps.size() << "] snaps of vol:" << volId;
+        LOGDEBUG << "path:voldelete will delete [" << vecSnaps.size() << "] snaps of vol:" << volId;
     } else {
         vecSnaps.push_back(snapshotId);
     }
 
     for (const auto& snapshotId : vecSnaps) {
-        LOGNOTIFY << "deleting snap:" << snapshotId << " of vol:" << volId;
+        LOGNOTIFY << "path:voldelete snap:" << snapshotId << " vol:" << volId << " deleting";
 
         // mark as deleted
         err = dm->removeVolume(snapshotId, true);
@@ -156,19 +156,19 @@ Error TimelineManager::createSnapshot(VolumeDesc *vdesc) {
 
 Error TimelineManager::removeVolume(fds_volid_t volId) {
     TIMELINE_FEATURE_CHECK();
-    LOGNOTIFY << "removing from timeline db vol:" << volId;
+    LOGNOTIFY << "path:voldelete vol:"<< volId << " removing from timeline db";
     Error err =  timelineDB->removeVolume(volId);
 
     const auto root = dm->getModuleProvider()->proc_fdsroot();
     std::string timelineDir = dmutil::getTimelineDir(root, volId);
-    LOGNOTIFY << "removing timeline journal archives for vol:" << volId << " @ " << timelineDir;
+    LOGNOTIFY << "path:voldelete vol:" << volId << " removing timeline journal archives @ " << timelineDir;
     boost::filesystem::remove_all(timelineDir);
 
-    LOGNORMAL << "will delete all snapshots for vol:" << volId;
+    LOGNORMAL << "path:voldelete vol:" << volId << " will delete all snapshots";
     deleteSnapshot(volId);
 
     std::string snapshotDir = dmutil::getSnapshotDir(root, volId);
-    LOGNOTIFY << "removing snapshot dir for vol:" << volId << " @ " << snapshotDir;
+    LOGNOTIFY << "path:voldelete vol:" << volId << " removing snapshot dir @ " << snapshotDir;
     boost::filesystem::remove_all(snapshotDir);
     return err;
 }
