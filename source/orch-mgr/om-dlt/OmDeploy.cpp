@@ -566,6 +566,55 @@ DltDplyFSM::GRD_DltCompute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
               << " Total SMs: " << totalCount;
 
     LOGDEBUG << "See if cluster map changed such that newly computed DLT is different from commited";
+
+    auto nodesInCMap  = cm->getNonfailedServices(fpi::FDSP_STOR_MGR);
+    auto committedDlt = dp->getCommitedDlt();
+
+    if (committedDlt != DLT_VER_INVALID)
+    {
+        auto nodesInCommittedDlt = committedDlt->getAllNodes();
+
+        bool newSMInClusterMap = false;
+        bool foundThisSM = false;
+
+        // Compare the nodes in the current cluster map to the nodes
+        // in the current committed DLT. If an SM is present in the cluster map
+        // that is *not* present in the committedDlt, then we will proceed with
+        // DLT computation, otherwise simply return
+        for (auto mapSM : nodesInCMap)
+        {
+            foundThisSM = false;
+
+            for (auto dltSM : nodesInCommittedDlt)
+            {
+                if (mapSM.uuid_get_val() == dltSM.uuid_get_val()) {
+                    foundThisSM = true;
+                    break;
+                }
+            }
+
+            if (!foundThisSM) {
+                LOGNORMAL << "Did not find SM:" << std::hex << mapSM.uuid_get_val()
+                          << std::dec << " in the committedDlt";
+                newSMInClusterMap = true;
+                break;
+            }
+        }
+
+        if (!newSMInClusterMap)
+        {
+            LOGNORMAL << "Exact same SMs in the current cluster map and committed DLT,"
+                      << " will not compute a new DLT";
+
+            // we will go back to idle state
+            fsm.lock.clear();
+
+            return false;
+        }
+
+    }
+
+
     Error err = dp->computeDlt();
     fds_bool_t bret = err.ok();
     if (err == ERR_INVALID_ARG) {
@@ -588,6 +637,7 @@ DltDplyFSM::GRD_DltCompute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
         LOGERROR << "Unexpected error from computeDlt FIXIT!!! " << err
                  << " Ignoring error for now, not changing commited DLT";
     }
+
     LOGNORMAL << "Start deploying new DLT? " << bret;
 
     if (!bret) {
