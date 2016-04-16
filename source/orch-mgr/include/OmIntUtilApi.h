@@ -528,17 +528,23 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
         // The only time both incarnationNos can be zero is when a service is getting added
         // into the cluster for the very first time. The ADDED, STARTED status is set prior to even
         // sending the start to PM, so the service processes aren't running yet.
-        // Could be that svcLayer is unaware of the svc too
+        // Also, if the service was added, but now being removed, should be OK (0 incarnation expected)
         bool svcAddition = false;
 
         if ( (svcLayerInfoUpdate.incarnationNo == 0 && dbInfoUpdate.incarnationNo == 0) )
         {
             if ( !(svc_status == fpi::SVC_STATUS_ADDED || svc_status == fpi::SVC_STATUS_STARTED) )
             {
-                LOGWARN << "No record for svc found in SvcLayer or ConfigDB!! Will not "
+                if ( !(initialDbStatus == fpi::SVC_STATUS_ADDED && svc_status == fpi::SVC_STATUS_REMOVED) )
+                {
+                    LOGWARN << "No record for svc found in SvcLayer or ConfigDB!! Will not "
                         << "make any updates, returning..";
-                return;
-
+                    return;
+                } else {
+                    // meaning an added service is being removed
+                    // This bool isn't best phrasing of this scenario, but it does what is necessary
+                    svcAddition = true;
+                }
             } else {
                 svcAddition = true;
             }

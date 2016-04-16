@@ -219,7 +219,7 @@ ClusterMap::updateMap(fpi::FDSP_MgrIdType svc_type,
 // we want to remove those nodes from persisted DLT
 //
 void
-ClusterMap::addPendingRmService(fpi::FDSP_MgrIdType svc_type,
+ClusterMap::addSvcPendingRemoval(fpi::FDSP_MgrIdType svc_type,
                                 const NodeUuid& rm_uuid)
 {
     TRACEFUNC;
@@ -250,7 +250,7 @@ ClusterMap::addPendingRmService(fpi::FDSP_MgrIdType svc_type,
 
 // remove service from pending added svc map
 void
-ClusterMap::rmPendingAddedService(fpi::FDSP_MgrIdType svc_type,
+ClusterMap::rmAddedSvcFromAllMaps(fpi::FDSP_MgrIdType svc_type,
                                   const NodeUuid& svc_uuid) {
     TRACEFUNC;
     LOGNOTIFY << "Attempt to remove svc uuid:"
@@ -259,17 +259,74 @@ ClusterMap::rmPendingAddedService(fpi::FDSP_MgrIdType svc_type,
     fds_mutex::scoped_lock l(mapMutex);
     switch (svc_type) {
         case fpi::FDSP_STOR_MGR:
-            fds_verify(addedSMs.count(svc_uuid) != 0)
-            fds_verify(curSmMap.count(svc_uuid) != 0);
-            addedSMs.erase(svc_uuid);
-            curSmMap.erase(svc_uuid);
+            if ( addedSMs.find(svc_uuid) != addedSMs.end() &&
+                 curSmMap.find(svc_uuid) != curSmMap.end() )
+            {
+
+                LOGNOTIFY << "Removed svc uuid:"
+                          << std::hex << svc_uuid.uuid_get_val() << std::dec
+                          << " from added svcs and current svcs map";
+                addedSMs.erase(svc_uuid);
+                curSmMap.erase(svc_uuid);
+            } else {
+                LOGWARN << "Svc:"
+                          << std::hex << svc_uuid.uuid_get_val() << std::dec
+                          << " not present in either addedSM list or curSmMap!";
+            }
             break;
         case fpi::FDSP_DATA_MGR:
-            fds_verify((addedDMs.count(svc_uuid) != 0) || (resyncDMs.count(svc_uuid) != 0));
-            fds_verify(curDmMap.count(svc_uuid) != 0);
-            addedDMs.erase(svc_uuid);
-            curDmMap.erase(svc_uuid);
-            resyncDMs.erase(svc_uuid);
+
+            if ( (addedSMs.find(svc_uuid) != addedSMs.end() ||
+                  resyncDMs.find(svc_uuid) != resyncDMs.end()) &&
+                 curDmMap.find(svc_uuid) != curDmMap.end() )
+            {
+                LOGNOTIFY << "Removed svc uuid:"
+                          << std::hex << svc_uuid.uuid_get_val() << std::dec
+                          << " from added svcs, resyncDMs list and curDmMap";
+
+                addedSMs.erase(svc_uuid);
+                resyncDMs.erase(svc_uuid);
+                curDmMap.erase(svc_uuid);
+            } else {
+                LOGWARN << "Svc:"
+                          << std::hex << svc_uuid.uuid_get_val() << std::dec
+                          << " not present in either addedDM,resyncDM list or curDmMap!";
+            }
+            break;
+        default:
+            fds_panic("Unknown MgrIdType %u", svc_type);
+    }
+}
+
+// remove service from pending remove svc map
+void
+ClusterMap::rmSvcPendingRemoval(fpi::FDSP_MgrIdType svc_type,
+                                    const NodeUuid& svc_uuid) {
+    TRACEFUNC;
+    LOGNOTIFY << "Attempt to remove svc uuid:"
+              << std::hex << svc_uuid.uuid_get_val() << std::dec
+              << " from removed svcs list and current svcs map (if present)";
+
+    fds_mutex::scoped_lock l(mapMutex);
+
+    switch (svc_type) {
+        case fpi::FDSP_STOR_MGR:
+            if ( removedSMs.find(svc_uuid) != removedSMs.end() )
+            {
+                LOGNOTIFY << "Removing svc uuid:"
+                          << std::hex << svc_uuid.uuid_get_val() << std::dec
+                          << " from removed svcs list";
+                removedSMs.erase(svc_uuid);
+            }
+            break;
+        case fpi::FDSP_DATA_MGR:
+            if ( removedDMs.find(svc_uuid) != removedDMs.end() )
+            {
+                LOGNOTIFY << "Removing svc uuid:"
+                          << std::hex << svc_uuid.uuid_get_val() << std::dec
+                          << " from removed svcs list";
+                removedDMs.erase(svc_uuid);
+            }
             break;
         default:
             fds_panic("Unknown MgrIdType %u", svc_type);
@@ -279,8 +336,9 @@ ClusterMap::rmPendingAddedService(fpi::FDSP_MgrIdType svc_type,
 // reset service from pending added svc map
 // but do not remove from cluster map
 void
-ClusterMap::resetPendingAddedService(fpi::FDSP_MgrIdType svc_type,
-                                     const NodeUuid& svc_uuid) {
+ClusterMap::rmSvcPendingAdd(fpi::FDSP_MgrIdType svc_type,
+                            const NodeUuid& svc_uuid)
+{
     TRACEFUNC;
     LOGNOTIFY << "Attempt to remove svc uuid:"
               << std::hex << svc_uuid.uuid_get_val() << std::dec

@@ -596,7 +596,7 @@ NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
         for (auto sm_uuid: src.sm_services) {
             // since updateMap keeps those nodes as pending, we tell cluster map that
             // they are not pending, since these nodes are already in the DLT
-            cm->resetPendingAddedService(fpi::FDSP_STOR_MGR, sm_uuid);
+            cm->rmSvcPendingAdd(fpi::FDSP_STOR_MGR, sm_uuid);
         }
 
         // move nodes that are already in DMT from pending list
@@ -614,7 +614,7 @@ NodeDomainFSM::DACT_NodesUp::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
         for (auto dm_uuid: src.dm_services) {
             // since updateMap keeps those nodes as pending, we tell cluster map that
             // they are not pending, since these nodes are already in the DMT
-            cm->resetPendingAddedService(fpi::FDSP_DATA_MGR, dm_uuid);
+            cm->rmSvcPendingAdd(fpi::FDSP_DATA_MGR, dm_uuid);
         }
     } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
@@ -913,7 +913,7 @@ NodeDomainFSM::DACT_UpdDlt::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
                 fds_assert(!"Shouldn't happen");
                 LOGDEBUG << "DACT_UpdDlt: will remove node " << std::hex
                          << (*cit).uuid_get_val() << std::dec << " from DLT";
-                cm->addPendingRmService(fpi::FDSP_STOR_MGR, *cit);
+                cm->addSvcPendingRemoval(fpi::FDSP_STOR_MGR, *cit);
 
                 // also remove that node from configDB
                 domain->om_rm_sm_configDB(*cit);
@@ -1223,7 +1223,7 @@ NodeDomainFSM::GRD_DeactSvc::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
             src.acks_to_wait--;
         }
 
-        LOGNOTIFY << "PM acks for deactivate services to wait: " << src.acks_to_wait;
+        LOGNOTIFY << "PM acks for stop services to wait: " << src.acks_to_wait;
 
         if (src.acks_to_wait == 0) {
             b_ret = true;
@@ -1247,7 +1247,7 @@ void
 NodeDomainFSM::DACT_DeactSvc::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     // At this point we are ready to send msg to PMs to kill the services
-    LOGNOTIFY << "Will send deactivate services msg to all PMs";
+    LOGNOTIFY << "Will send shutdown services msg to all PMs";
     try {
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         OM_NodeContainer *dom_ctrl = domain->om_loc_domain_ctrl();
@@ -1255,7 +1255,7 @@ NodeDomainFSM::DACT_DeactSvc::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
         // broadcast stop services to all PMs
         // all "false" params mean stop all services that are running on node
         fds_uint32_t count = dom_ctrl->om_cond_bcast_stop_services(false, false, false);
-        LOGDEBUG <<"--Error count is" << count;
+        LOGDEBUG <<"--Error count is:" << count;
         if (count < 1) {
             // ok if we don't have any PMs, just finish shutdown process
             dst.acks_to_wait = 1;
@@ -2313,7 +2313,7 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                         {
                             if (cm->getAddedServices(fpi::FDSP_STOR_MGR).size() > 0)
                             {
-                                cm->resetPendingAddedService(fpi::FDSP_STOR_MGR, node_uuid);
+                                cm->rmSvcPendingAdd(fpi::FDSP_STOR_MGR, node_uuid);
                             }
                         }
                     }
@@ -2331,7 +2331,7 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                         {
                             if (cm->getAddedServices(fpi::FDSP_DATA_MGR).size() > 0)
                             {
-                                cm->resetPendingAddedService(fpi::FDSP_DATA_MGR, node_uuid);
+                                cm->rmSvcPendingAdd(fpi::FDSP_DATA_MGR, node_uuid);
                             }
                         }
                     }
@@ -2476,11 +2476,11 @@ void OM_NodeDomainMod::handlePendingSvcRemoval(std::vector<fpi::SvcInfo> removed
             NodeUuid node_uuid(svc.svc_id.svc_uuid.svc_uuid);
             if (svc.svc_type == fpi::FDSP_STOR_MGR) {
                 removeSM = true;
-                cm->addPendingRmService(svc.svc_type, node_uuid);
+                cm->addSvcPendingRemoval(svc.svc_type, node_uuid);
 
             } else if (svc.svc_type == fpi::FDSP_DATA_MGR) {
                 removeDM = true;
-                cm->addPendingRmService(svc.svc_type, node_uuid);
+                cm->addSvcPendingRemoval(svc.svc_type, node_uuid);
 
             } else if (svc.svc_type == fpi::FDSP_ACCESS_MGR) {
                 removeAM = true;
@@ -3384,11 +3384,15 @@ OM_NodeDomainMod::removeNodeComplete(NodeUuid uuid) {
 
     bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcuuid, svcInfo);
     if (ret) {
-        LOGDEBUG << "Deleting from svcMap, uuid:" << std::hex << svcuuid.svc_uuid << std::dec;
+        LOGDEBUG << "Deleting from svcMaps, uuid:" << std::hex << svcuuid.svc_uuid << std::dec;
 
         configDB->deleteSvcMap(svcInfo);
+        MODULEPROVIDER()->getSvcMgr()->deleteFromSvcMap(svcuuid);
 
         OmExtUtilApi::getInstance()->clearFromRemoveList(uuid.uuid_get_val());
+
+        // Broadcast svcMap
+        om_locDomain->om_bcast_svcmap();
     }
 }
 
@@ -3506,7 +3510,6 @@ OM_NodeDomainMod::om_dmt_waiting_timeout() {
 void
 OM_NodeDomainMod::om_dlt_update_cluster()
 {
-
     OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
     OM_SmContainer::pointer smNodes = local->om_sm_nodes();
     OM_Module *om = OM_Module::om_singleton();

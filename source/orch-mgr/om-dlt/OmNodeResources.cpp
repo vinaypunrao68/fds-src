@@ -779,7 +779,7 @@ OM_NodeAgent::cleanup_added_node()
     OM_Module *om = OM_Module::om_singleton();
     ClusterMap *cm = om->om_clusmap_mod();
     if (cm->serviceAddExists(get_uuid().uuid_get_type(), get_uuid())) {
-    	cm->resetPendingAddedService(get_uuid().uuid_get_type(), get_uuid());
+    	cm->rmSvcPendingAdd(get_uuid().uuid_get_type(), get_uuid());
     }
 }
 
@@ -930,12 +930,18 @@ OM_PmAgent::handle_register_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_ty
             fds_verify(false);
     };
 
+    Error err(ERR_OK);
     // actually update config DB
-    if (configDB) {
-        configDB->setNodeServices(get_uuid(), services);
+    if (configDB){
+        err = configDB->setNodeServices(get_uuid(), services);
     }
 
-    return Error(ERR_OK);
+    if (!err.OK()) {
+        LOGWARN << "Setting node services failed! Could lead to a bad known state for node:"
+                << std::hex << get_uuid().uuid_get_val() << std::hex;
+    }
+
+    return err;
 }
 
 // unregister_service
@@ -949,7 +955,7 @@ OM_PmAgent::handle_unregister_service(FDS_ProtocolInterface::FDSP_MgrIdType svc_
     kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
     NodeServices services;
 
-    LOGDEBUG << "Handling unregister for svc type:" << svc_type;
+    LOGNORMAL << "Handling unregister for svc type:" << svc_type << " node uuid:" << get_uuid();
 
     fds_bool_t found_services = configDB ?
             configDB->getNodeServices(get_uuid(), services) : false;
@@ -1749,7 +1755,8 @@ OM_PmAgent::send_stop_service
 
         // If the action coming in is a shutdown node for a node (PM) that
         // is no longer well known, allow it
-        if ( shutdownNode && !gl_orch_mgr->omMonitor->isWellKnown(svcUuid) ) {
+        PmMap::iterator mapIter;
+        if ( shutdownNode && !gl_orch_mgr->omMonitor->isWellKnown(svcUuid, mapIter) ) {
             LOGNOTIFY << "Will allow down node:" << std::hex
                       << svcUuid.svc_uuid << std::dec
                       << " to be stopped";
@@ -1759,6 +1766,9 @@ OM_PmAgent::send_stop_service
         }
     }
 
+    /***************************************
+     * ALL CHECKS PASSED, PROCEED WITH STOP
+     */
     LOGNORMAL << "Stop services for node" << get_node_name()
               << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
               << " stop sm ? " << stop_sm
@@ -1827,103 +1837,104 @@ OM_PmAgent::send_stop_service
         }
     }
 
-     // Set DM service state to stopped
-     if (stop_dm) {
-         fds::retrieveSvcId(pmSvcUuid.svc_uuid, dmSvcId, fpi::FDSP_DATA_MGR);
-         fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(dmSvcId.svc_uuid );
+    // Set DM service state to stopped
+    if (stop_dm)
+    {
+        fds::retrieveSvcId(pmSvcUuid.svc_uuid, dmSvcId, fpi::FDSP_DATA_MGR);
+        fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(dmSvcId.svc_uuid );
 
-         if ( serviceStatus == fpi::SVC_STATUS_ACTIVE ||
-              serviceStatus == fpi::SVC_STATUS_INACTIVE_FAILED ||
-             (serviceStatus == fpi::SVC_STATUS_STARTED && shutdownNode) ) {
+        if ( serviceStatus == fpi::SVC_STATUS_ACTIVE ||
+          serviceStatus == fpi::SVC_STATUS_INACTIVE_FAILED ||
+         (serviceStatus == fpi::SVC_STATUS_STARTED && shutdownNode) )
+        {
+         OM_Module *om            = OM_Module::om_singleton();
+         VolumePlacement *vp      = om->om_volplace_mod();
+         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
 
-             OM_Module *om            = OM_Module::om_singleton();
-             VolumePlacement *vp      = om->om_volplace_mod();
-             OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-
-             NodeUuid uuid(dmSvcId.svc_uuid);
-             if ( (!vp->hasNoTargetDmt()) && (vp->hasNonCommitedTarget()) ) {
-                 LOGDEBUG << "DM migration in progress, cannot shutdown service or node";
-                 return Error(ERR_NOT_READY);
-             }
-
-             LOGDEBUG << "Will stop DM service "
-                      << std::hex
-                      << dmSvcId.svc_uuid
-                      << std::dec;
-
-             updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
-                            dmSvcId.svc_uuid,
-                            fpi::SVC_STATUS_STOPPING,
-                            fpi::FDSP_DATA_MGR );
-         } else {
-
-             if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
-             {
-                 LOGNOTIFY << "Service: " << std::hex
-                           << dmSvcId.svc_uuid << std::dec
-                           << " is already stopped";
-             } else {
-                 LOGERROR << "Service: " << std::hex
-                          << dmSvcId.svc_uuid << std::dec
-                          << " is not in the right state so cannot stop,"
-                         << "current state:" << OmExtUtilApi::printSvcStatus(serviceStatus);
-             }
-
-             stop_dm = false;
-             if ( !stop_am && !stop_sm ) {
-                 return Error(ERR_NOT_READY);
-             }
-
+         NodeUuid uuid(dmSvcId.svc_uuid);
+         if ( (!vp->hasNoTargetDmt()) && (vp->hasNonCommitedTarget()) ) {
+             LOGDEBUG << "DM migration in progress, cannot shutdown service or node";
+             return Error(ERR_NOT_READY);
          }
-     }
 
-     // Set AM service state to stopped
-     if (stop_am) {
-         fds::retrieveSvcId(pmSvcUuid.svc_uuid, amSvcId, fpi::FDSP_ACCESS_MGR);
-         fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(amSvcId.svc_uuid );
+         LOGDEBUG << "Will stop DM service "
+                  << std::hex
+                  << dmSvcId.svc_uuid
+                  << std::dec;
 
-         if ( serviceStatus == fpi::SVC_STATUS_ACTIVE ||
-              serviceStatus == fpi::SVC_STATUS_INACTIVE_FAILED ||
-             (serviceStatus == fpi::SVC_STATUS_STARTED && shutdownNode) ) {
-             LOGDEBUG << "Will stop AM service "
-                      << std::hex
-                      << amSvcId.svc_uuid
-                      << std::dec;
-
-             updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
-                            amSvcId.svc_uuid,
-                            fpi::SVC_STATUS_STOPPING,
-                            fpi::FDSP_ACCESS_MGR );
+         updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
+                        dmSvcId.svc_uuid,
+                        fpi::SVC_STATUS_STOPPING,
+                        fpi::FDSP_DATA_MGR );
+    } else {
+         if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
+         {
+             LOGNOTIFY << "Service: " << std::hex
+                       << dmSvcId.svc_uuid << std::dec
+                       << " is already stopped";
          } else {
-             if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
-             {
-                 LOGNOTIFY << "Service: " << std::hex
-                           << amSvcId.svc_uuid << std::dec
-                           << " is already stopped";
-             } else {
-                 LOGERROR << "Service: " << std::hex
+             LOGERROR << "Service: " << std::hex
+                      << dmSvcId.svc_uuid << std::dec
+                      << " is not in the right state so cannot stop,"
+                     << "current state:" << OmExtUtilApi::printSvcStatus(serviceStatus);
+         }
+
+         stop_dm = false;
+         if ( !stop_am && !stop_sm ) {
+             return Error(ERR_NOT_READY);
+         }
+        }
+    }
+
+    // Set AM service state to stopped
+    if (stop_am)
+    {
+        fds::retrieveSvcId(pmSvcUuid.svc_uuid, amSvcId, fpi::FDSP_ACCESS_MGR);
+        fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(amSvcId.svc_uuid );
+
+        if ( serviceStatus == fpi::SVC_STATUS_ACTIVE ||
+          serviceStatus == fpi::SVC_STATUS_INACTIVE_FAILED ||
+         (serviceStatus == fpi::SVC_STATUS_STARTED && shutdownNode) )
+        {
+            LOGDEBUG << "Will stop AM service "
+                  << std::hex
+                  << amSvcId.svc_uuid
+                  << std::dec;
+
+            updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
+                        amSvcId.svc_uuid,
+                        fpi::SVC_STATUS_STOPPING,
+                        fpi::FDSP_ACCESS_MGR );
+        } else {
+            if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
+            {
+                LOGNOTIFY << "Service: " << std::hex
                           << amSvcId.svc_uuid << std::dec
-                          << " is not in the right state so cannot stop,"
+                          << " is already stopped";
+            } else {
+                LOGERROR << "Service: " << std::hex
+                         << amSvcId.svc_uuid << std::dec
+                         << " is not in the right state so cannot stop,"
                          << "current state:" << OmExtUtilApi::printSvcStatus(serviceStatus);
-             }
+            }
 
-             stop_am = false;
-             if ( !stop_sm && !stop_dm ) {
-                 return Error(ERR_NOT_READY);
-             }
-         }
-     }
+            stop_am = false;
+            if ( !stop_sm && !stop_dm ) {
+                return Error(ERR_NOT_READY);
+            }
+        }
+    }
 
-     if (shutdownNode) {
-     // Node is being shutdown, change the state of platform
-     // to STOPPED, node state will get set to down in the response handle
+    if (shutdownNode) {
+        // Node is being shutdown, change the state of platform
+        // to STOPPED, node state will get set to down in the response handle
 
-     LOGDEBUG << "Changing PM state to STOPPING";
-     updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
+        LOGDEBUG << "Changing PM state to STOPPING";
+        updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                     get_uuid().uuid_get_val(),
                     fpi::SVC_STATUS_STOPPING,
                     fpi::FDSP_PLATFORM );
-     }
+    }
 
 
     fpi::NotifyStopServiceMsgPtr stopServiceMsg =
@@ -1934,18 +1945,153 @@ OM_PmAgent::send_stop_service
 
     auto req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
     req->setPayload(FDSP_MSG_TYPEID(fpi::NotifyStopServiceMsg), stopServiceMsg);
-    req->onResponseCb(std::bind(&OM_PmAgent::send_stop_services_resp, this,
-                                stop_sm, stop_dm, stop_am, smSvcId, dmSvcId, amSvcId,
-                                shutdownNode,
-                                std::placeholders::_1, std::placeholders::_2,
-                                std::placeholders::_3));
-    req->setTimeoutMs(30000);
+
+    // Set up a synchronous callback
+    SvcRequestCbTask<EPSvcRequest, fpi::NotifyStopServiceMsg> waiter;
+    req->onResponseCb(waiter.cb);
+
+    // set 5 minute timeout
+    req->setTimeoutMs(5*60*1000);
 
     req->invoke();
+
+    waiter.await();
+
+    /*********************************************************
+     * PM Response recieved, proceed with rest of stop actions
+     */
+    err = waiter.error;
+
+    // Now that we allow unreachable(down) nodes to be removed, it is
+    // possible that OM receives a req invocation error. In this case
+    // allow rest of the clean up to happen
+    if (err.OK() || waiter.error.GetErrName() == "ERR_SVC_REQUEST_INVOCATION")
+    {
+        LOGNORMAL << "ACK for stop services for node" << get_node_name()
+                      << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
+                      << " stop am ? " << stop_am
+                      << " stop sm ? " << stop_sm
+                      << " stop dm ? " << stop_dm
+                      << " " << err;
+
+            //kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
+
+            bool isSMRemoved = false;
+            bool isDMRemoved = false;
+            bool isAMRemoved = false;
+
+            // Now that we allow unreachable(down) nodes to be removed, it is
+            // possible that OM receives a req invocation error. In this case
+            // allow rest of the clean up to happen
+            //if ( error.ok() || error.GetErrName() == "ERR_SVC_REQUEST_INVOCATION" ) {
+
+                LOGDEBUG << "PM response is good, setting svcs to inactive";
+                 // Set SM service state to inactive
+                if ( stop_sm && configDB->isPresentInSvcMap( smSvcId.svc_uuid ) )
+                {
+                    updateSvcMaps<kvstore::ConfigDB>( configDB,
+                                       MODULEPROVIDER()->getSvcMgr(),
+                                       smSvcId.svc_uuid,
+                                       fpi::SVC_STATUS_INACTIVE_STOPPED,
+                                       fpi::FDSP_STOR_MGR );
+
+
+                    activeSmAgent = nullptr;
+                 }
+
+                 // Set DM service state to inactive
+                 if ( stop_dm && configDB->isPresentInSvcMap( dmSvcId.svc_uuid ) )
+                 {
+                     updateSvcMaps<kvstore::ConfigDB>( configDB,
+                                        MODULEPROVIDER()->getSvcMgr(),
+                                        dmSvcId.svc_uuid,
+                                        fpi::SVC_STATUS_INACTIVE_STOPPED,
+                                        fpi::FDSP_DATA_MGR );
+
+                     activeDmAgent = nullptr;
+                 }
+
+                 // Set AM service state to inactive
+                 if ( stop_am && configDB->isPresentInSvcMap( amSvcId.svc_uuid ))
+                 {
+                     updateSvcMaps<kvstore::ConfigDB>( configDB,
+                                    MODULEPROVIDER()->getSvcMgr(),
+                                    amSvcId.svc_uuid,
+                                    fpi::SVC_STATUS_INACTIVE_STOPPED,
+                                    fpi::FDSP_ACCESS_MGR );
+                     activeAmAgent = nullptr;
+                 }
+            //} else {
+            //    LOGERROR << "Failed to stop services on node " << get_node_name()
+            //             << " UUID:" << std::hex << get_uuid().uuid_get_val() << std::dec
+            //             << " please try shutting node again, or a start/shutdown cycle " << error;
+            //}
+
+            bool noSMTransition = false;
+            bool noDMTransition = false;
+            bool noAMTransition = false;
+
+            // On OM restart, cannot depend on agents being set. This logic
+            // should still not do any harm either way
+            if (!activeSmAgent && !activeDmAgent && !activeAmAgent)
+            {
+                if (shutdownNode)
+                {
+                   // Node is being shutdown, change the state of platform
+                   // to inactive, node state to down
+                   LOGDEBUG << "Changing PM state to INACTIVE";
+                   updateSvcMaps<kvstore::ConfigDB>( configDB,
+                                  MODULEPROVIDER()->getSvcMgr(),
+                                  get_uuid().uuid_get_val(),
+                                  fpi::SVC_STATUS_INACTIVE_STOPPED,
+                                  fpi::FDSP_PLATFORM );
+
+                   // Also explicitly set the state to down
+                   set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
+
+                   // Raise domain state machine event in case this
+                   // is a shutdown domain - if not it will get ignored
+                   auto timer = MODULEPROVIDER()->getTimer();
+                   auto task = boost::shared_ptr<FdsTimerTask>(
+                                  new FdsTimerFunctionTask(
+                                      [this, err] () {
+                                      /* Immediately post to threadpool so we don't hold up timer thread */
+                                      MODULEPROVIDER()->proc_thrpool()->schedule(
+                                          &OM_PmAgent::raiseDeactAckEvt,
+                                          this, err);
+                                      }));
+
+                  if ( ! timer->schedule( task, std::chrono::seconds( 1 ) ) )
+                  {
+                      LOGERROR << "Failed to schedule DeactAckEvt for "
+                               << std::hex << get_uuid().uuid_get_val() << std::dec;
+                      err = Error( ERR_TIMER_TASK_NOT_SCHEDULED );
+                  }
+                }
+            }
+    } else {
+        LOGERROR << "Failed to stop services on node " << get_node_name()
+                 << " UUID:" << std::hex << get_uuid().uuid_get_val() << std::dec
+                 << " please try shutting node again, or a start/shutdown cycle " << err;
+    }
 
     return err;
 }
 
+// This has to be done on a separate thread so that the state machine handling
+// can occur separately from the control flow of the stop request. Otherwise we
+// re-direct control towards the state machine and will never properly return from
+// the stop request
+void
+OM_PmAgent::raiseDeactAckEvt(Error err)
+{
+    LOGNOTIFY << "Raising DeactAckEvent for state machine now..";
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    domain->local_domain_event(DeactAckEvt(err));
+}
+
+
+/*
 void
 OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
                                     fds_bool_t stop_dm,
@@ -1970,9 +2116,7 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
     bool isDMRemoved = false;
     bool isAMRemoved = false;
 
-    // Now that we allow unreachable(down) nodes to be removed, it is
-    // possible that OM receives a req invocation error. In this case
-    // allow rest of the clean up to happen
+
     if ( error.ok() || error.GetErrName() == "ERR_SVC_REQUEST_INVOCATION" ) {
         
         LOGDEBUG << "PM response is good, setting svcs to inactive";
@@ -2089,6 +2233,7 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     domain->local_domain_event(DeactAckEvt(error));
 }
+*/
 
 /**
  * Name: send_remove_service
@@ -2190,9 +2335,20 @@ OM_PmAgent::send_remove_service
 
         if (iter != svcInfos.end())
         {
-            LOGNOTIFY <<"Deleting AM from service map for node:"
+            LOGNOTIFY <<"Deleting AM from service maps for node:"
                       << std::hex << node_uuid << std::dec;
+
+            fpi::SvcUuid svcUuid = iter->svc_id.svc_uuid;
+
             configDB->deleteSvcMap(*iter);
+            MODULEPROVIDER()->getSvcMgr()->deleteFromSvcMap(svcUuid);
+
+            // If either sm or dm is being removed, then the svcMap will get broadcasted
+            // at the end of removeNodeComplete
+            if ( !(remove_sm || remove_dm) ) {
+                OM_NodeContainer* local = OM_NodeDomainMod::om_loc_domain_ctrl();
+                local->om_bcast_svcmap();
+            }
         }
         else
             LOGERROR << "Failed to delete AM from service map for node:"
@@ -2252,6 +2408,16 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
                                    get_uuid().uuid_get_val(),
                                    fpi::SVC_STATUS_DISCOVERED,
                                    fpi::FDSP_PLATFORM );
+
+                    // Remove the PM if it's present in the well-known map
+                    PmMap::iterator mapIter;
+                    fpi::SvcUuid svcUuid;
+                    svcUuid.svc_uuid = get_uuid().uuid_get_val();
+                    if (gl_orch_mgr->omMonitor->isWellKnown(svcUuid, mapIter) )
+                    {
+                        gl_orch_mgr->omMonitor->removeFromPMsMap(mapIter);
+                    }
+
                 } else {
                     LOGERROR << "Could not find node in the configuration DB!";
                 }
@@ -2746,8 +2912,32 @@ void
 OM_AgentContainer::agent_activate(NodeAgent::pointer agent)
 {
     TRACEFUNC;
+    uint64_t uuid = agent->get_uuid().uuid_get_val();
     LOGNORMAL << "Activate node uuid " << std::hex
-              << "0x" << agent->get_uuid().uuid_get_val() << std::dec;
+              << "0x" << uuid << std::dec;
+
+    NodeList::iterator iter;
+    bool presentInRemovedList = presentInAgentList( node_down_pend, iter, uuid );
+
+    if (presentInRemovedList)
+    {
+        LOGNORMAL << "Uuid:" << std::hex << uuid << std::dec
+                  << " is being added, will remove from node_down_pend list";
+
+        fds_scoped_lock lk(rs_mtx);
+        node_down_pend.erase(iter);
+    }
+
+    // Clean up from cluster map if present
+    if ( agent->node_get_svc_type() == fpi::FDSP_STOR_MGR ||
+         agent->node_get_svc_type() == fpi::FDSP_DATA_MGR ) {
+
+        OM_Module *om = OM_Module::om_singleton();
+        OM_DMTMod *dmtMod = om->om_dmt_mod();
+        ClusterMap *cm =  om->om_clusmap_mod();
+
+        cm->rmSvcPendingRemoval(agent->node_get_svc_type(), agent->get_uuid());
+    }
 
     rs_mtx.lock();
     rs_register_mtx(agent);
@@ -2762,13 +2952,58 @@ void
 OM_AgentContainer::agent_deactivate(NodeAgent::pointer agent)
 {
     TRACEFUNC;
+
+    uint64_t uuid = agent->get_uuid().uuid_get_val();
     LOGNORMAL << "Deactivate node uuid " << std::hex
-              << "0x" << agent->get_uuid().uuid_get_val() << std::dec;
+              << "0x" << uuid << std::dec;
+
+    NodeList::iterator iter;
+    bool presentInAddedList = presentInAgentList( node_up_pend, iter, uuid );
+
+    if (presentInAddedList)
+    {
+        LOGNORMAL << "Uuid:" << std::hex << uuid << std::dec
+                  << " is being removed, will remove from node_up_pend list";
+
+        fds_scoped_lock lk(rs_mtx);
+        node_up_pend.erase(iter);
+    }
+
+    // Clean up from cluster map if present
+    if ( agent->node_get_svc_type() == fpi::FDSP_STOR_MGR ||
+         agent->node_get_svc_type() == fpi::FDSP_DATA_MGR ) {
+
+        OM_Module *om = OM_Module::om_singleton();
+        OM_DMTMod *dmtMod = om->om_dmt_mod();
+        ClusterMap *cm =  om->om_clusmap_mod();
+
+        cm->rmAddedSvcFromAllMaps(agent->node_get_svc_type(), agent->get_uuid());
+    }
+
 
     rs_mtx.lock();
     rs_unregister_mtx(agent);
     node_down_pend.push_back(OM_NodeAgent::agt_cast_ptr(agent));
     rs_mtx.unlock();
+}
+
+bool
+OM_AgentContainer::presentInAgentList( NodeList& list,
+                                       NodeList::iterator& itemIter,
+                                       uint64_t uuid)
+{
+    bool found = false;
+    for (NodeList::iterator iter = list.begin(); iter != list.end(); iter++)
+    {
+        if ((*iter)->get_uuid().uuid_get_val() == uuid)
+        {
+            found = true;
+            itemIter = iter;
+            break;
+        }
+    }
+
+    return found;
 }
 
 void

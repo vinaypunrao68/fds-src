@@ -264,6 +264,8 @@ class OM_PmAgent : public OM_NodeAgent
     Error send_stop_service(std::vector<fpi::SvcInfo> svcInfos,
                             bool stop_sm, bool stop_dm, bool stop_am, bool shutdownNode);
 
+    void raiseDeactAckEvt(Error err);
+    /*
     void send_stop_services_resp(fds_bool_t stop_sm,
                                  fds_bool_t stop_dm,
                                  fds_bool_t stop_am,
@@ -274,6 +276,7 @@ class OM_PmAgent : public OM_NodeAgent
                                  EPSvcRequest* req,
                                  const Error& error,
                                  boost::shared_ptr<std::string> payload);
+    */
     /**
      * Send 'remove service' message to Platform
      */
@@ -403,21 +406,22 @@ class OM_AgentContainer : public AgentContainer
      * Returns a list of nodes that are currently in the container.
      * The method will clear the vector being passed in and populate it.
      */
-    const Error populate_nodes_in_container(std::list<fds::NodeSvcEntity> &container_nodes);
+    const Error  populate_nodes_in_container(std::list<fds::NodeSvcEntity> &container_nodes);
 
     /**
      * Move all pending nodes to addNodes and rmNodes
      * The second function only moves nodes that are in 'filter_nodes'
      * set and leaves other pending nodes pending
      */
-    void om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes);
-    void om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes, NodeList *dmResyncNodes);
-    void om_splice_nodes_pend(NodeList *addNodes,
+    void         om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes);
+    void         om_splice_nodes_pend(NodeList *addNodes, NodeList *rmNodes, NodeList *dmResyncNodes);
+    void         om_splice_nodes_pend(NodeList *addNodes,
                               NodeList *rmNodes,
                               const NodeUuidSet& filter_nodes);
 
-    int32_t om_nodes_up();
-    int32_t om_nodes_down();
+    int32_t      om_nodes_up();
+    int32_t      om_nodes_down();
+    bool         presentInAgentList( NodeList& list, NodeList::iterator& itemIter, uint64_t uuid);
 
   protected:
     NodeList                                 node_up_pend;

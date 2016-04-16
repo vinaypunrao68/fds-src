@@ -209,6 +209,12 @@ struct SvcMgr : HasModuleProvider, Module, StateProvider {
     */
     void getSvcMap(std::vector<fpi::SvcInfo> &entries);
     
+    /**
+    * @brief Deletes a given svc from the svcMap
+    *
+    * @param svc id of the service attempting to be deleted
+    */
+    void deleteFromSvcMap(fpi::SvcUuid svcUuid);
 
     /**
     * @brief For sending async message via message passing

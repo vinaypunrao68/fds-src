@@ -1859,8 +1859,6 @@ bool ConfigDB::getNodeServices(const NodeUuid& uuid, NodeServices& services)
         LOGCRITICAL << "error with redis " << e.what();
     }
 
-    //nodeLock.read_unlock();
-
     return false;
 }
 

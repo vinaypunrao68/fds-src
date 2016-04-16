@@ -381,6 +381,12 @@ void SvcMgr::getSvcMap(std::vector<fpi::SvcInfo> &entries)
     }
 }
 
+void SvcMgr::deleteFromSvcMap(fpi::SvcUuid svcUuid)
+{
+    fds_scoped_lock lock(svcHandleMapLock_);
+    svcHandleMap_.erase(svcUuid);
+}
+
 bool SvcMgr::getSvcHandle_(const fpi::SvcUuid &svcUuid, SvcHandlePtr& handle) const
 {
     auto itr = svcHandleMap_.find(svcUuid);

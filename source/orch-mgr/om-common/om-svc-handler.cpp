@@ -402,7 +402,8 @@ void OmSvcHandler<DataStoreT>::heartbeatCheck(boost::shared_ptr<fpi::AsyncHdr>& 
                                        (timeSinceEpoch).count();
 
     bool updSvcState = false;
-    if ( !gl_orch_mgr->omMonitor->isWellKnown(svcUuid) ) {
+    PmMap::iterator mapIter;
+    if ( !gl_orch_mgr->omMonitor->isWellKnown(svcUuid, mapIter) ) {
         updSvcState = true;
     }
 
