@@ -1837,103 +1837,104 @@ OM_PmAgent::send_stop_service
         }
     }
 
-     // Set DM service state to stopped
-     if (stop_dm) {
-         fds::retrieveSvcId(pmSvcUuid.svc_uuid, dmSvcId, fpi::FDSP_DATA_MGR);
-         fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(dmSvcId.svc_uuid );
+    // Set DM service state to stopped
+    if (stop_dm)
+    {
+        fds::retrieveSvcId(pmSvcUuid.svc_uuid, dmSvcId, fpi::FDSP_DATA_MGR);
+        fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(dmSvcId.svc_uuid );
 
-         if ( serviceStatus == fpi::SVC_STATUS_ACTIVE ||
-              serviceStatus == fpi::SVC_STATUS_INACTIVE_FAILED ||
-             (serviceStatus == fpi::SVC_STATUS_STARTED && shutdownNode) ) {
+        if ( serviceStatus == fpi::SVC_STATUS_ACTIVE ||
+          serviceStatus == fpi::SVC_STATUS_INACTIVE_FAILED ||
+         (serviceStatus == fpi::SVC_STATUS_STARTED && shutdownNode) )
+        {
+         OM_Module *om            = OM_Module::om_singleton();
+         VolumePlacement *vp      = om->om_volplace_mod();
+         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
 
-             OM_Module *om            = OM_Module::om_singleton();
-             VolumePlacement *vp      = om->om_volplace_mod();
-             OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
-
-             NodeUuid uuid(dmSvcId.svc_uuid);
-             if ( (!vp->hasNoTargetDmt()) && (vp->hasNonCommitedTarget()) ) {
-                 LOGDEBUG << "DM migration in progress, cannot shutdown service or node";
-                 return Error(ERR_NOT_READY);
-             }
-
-             LOGDEBUG << "Will stop DM service "
-                      << std::hex
-                      << dmSvcId.svc_uuid
-                      << std::dec;
-
-             updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
-                            dmSvcId.svc_uuid,
-                            fpi::SVC_STATUS_STOPPING,
-                            fpi::FDSP_DATA_MGR );
-         } else {
-
-             if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
-             {
-                 LOGNOTIFY << "Service: " << std::hex
-                           << dmSvcId.svc_uuid << std::dec
-                           << " is already stopped";
-             } else {
-                 LOGERROR << "Service: " << std::hex
-                          << dmSvcId.svc_uuid << std::dec
-                          << " is not in the right state so cannot stop,"
-                         << "current state:" << OmExtUtilApi::printSvcStatus(serviceStatus);
-             }
-
-             stop_dm = false;
-             if ( !stop_am && !stop_sm ) {
-                 return Error(ERR_NOT_READY);
-             }
-
+         NodeUuid uuid(dmSvcId.svc_uuid);
+         if ( (!vp->hasNoTargetDmt()) && (vp->hasNonCommitedTarget()) ) {
+             LOGDEBUG << "DM migration in progress, cannot shutdown service or node";
+             return Error(ERR_NOT_READY);
          }
-     }
 
-     // Set AM service state to stopped
-     if (stop_am) {
-         fds::retrieveSvcId(pmSvcUuid.svc_uuid, amSvcId, fpi::FDSP_ACCESS_MGR);
-         fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(amSvcId.svc_uuid );
+         LOGDEBUG << "Will stop DM service "
+                  << std::hex
+                  << dmSvcId.svc_uuid
+                  << std::dec;
 
-         if ( serviceStatus == fpi::SVC_STATUS_ACTIVE ||
-              serviceStatus == fpi::SVC_STATUS_INACTIVE_FAILED ||
-             (serviceStatus == fpi::SVC_STATUS_STARTED && shutdownNode) ) {
-             LOGDEBUG << "Will stop AM service "
-                      << std::hex
-                      << amSvcId.svc_uuid
-                      << std::dec;
-
-             updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
-                            amSvcId.svc_uuid,
-                            fpi::SVC_STATUS_STOPPING,
-                            fpi::FDSP_ACCESS_MGR );
+         updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
+                        dmSvcId.svc_uuid,
+                        fpi::SVC_STATUS_STOPPING,
+                        fpi::FDSP_DATA_MGR );
+    } else {
+         if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
+         {
+             LOGNOTIFY << "Service: " << std::hex
+                       << dmSvcId.svc_uuid << std::dec
+                       << " is already stopped";
          } else {
-             if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
-             {
-                 LOGNOTIFY << "Service: " << std::hex
-                           << amSvcId.svc_uuid << std::dec
-                           << " is already stopped";
-             } else {
-                 LOGERROR << "Service: " << std::hex
+             LOGERROR << "Service: " << std::hex
+                      << dmSvcId.svc_uuid << std::dec
+                      << " is not in the right state so cannot stop,"
+                     << "current state:" << OmExtUtilApi::printSvcStatus(serviceStatus);
+         }
+
+         stop_dm = false;
+         if ( !stop_am && !stop_sm ) {
+             return Error(ERR_NOT_READY);
+         }
+        }
+    }
+
+    // Set AM service state to stopped
+    if (stop_am)
+    {
+        fds::retrieveSvcId(pmSvcUuid.svc_uuid, amSvcId, fpi::FDSP_ACCESS_MGR);
+        fpi::ServiceStatus serviceStatus = configDB->getStateSvcMap(amSvcId.svc_uuid );
+
+        if ( serviceStatus == fpi::SVC_STATUS_ACTIVE ||
+          serviceStatus == fpi::SVC_STATUS_INACTIVE_FAILED ||
+         (serviceStatus == fpi::SVC_STATUS_STARTED && shutdownNode) )
+        {
+            LOGDEBUG << "Will stop AM service "
+                  << std::hex
+                  << amSvcId.svc_uuid
+                  << std::dec;
+
+            updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
+                        amSvcId.svc_uuid,
+                        fpi::SVC_STATUS_STOPPING,
+                        fpi::FDSP_ACCESS_MGR );
+        } else {
+            if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
+            {
+                LOGNOTIFY << "Service: " << std::hex
                           << amSvcId.svc_uuid << std::dec
-                          << " is not in the right state so cannot stop,"
+                          << " is already stopped";
+            } else {
+                LOGERROR << "Service: " << std::hex
+                         << amSvcId.svc_uuid << std::dec
+                         << " is not in the right state so cannot stop,"
                          << "current state:" << OmExtUtilApi::printSvcStatus(serviceStatus);
-             }
+            }
 
-             stop_am = false;
-             if ( !stop_sm && !stop_dm ) {
-                 return Error(ERR_NOT_READY);
-             }
-         }
-     }
+            stop_am = false;
+            if ( !stop_sm && !stop_dm ) {
+                return Error(ERR_NOT_READY);
+            }
+        }
+    }
 
-     if (shutdownNode) {
-     // Node is being shutdown, change the state of platform
-     // to STOPPED, node state will get set to down in the response handle
+    if (shutdownNode) {
+        // Node is being shutdown, change the state of platform
+        // to STOPPED, node state will get set to down in the response handle
 
-     LOGDEBUG << "Changing PM state to STOPPING";
-     updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
+        LOGDEBUG << "Changing PM state to STOPPING";
+        updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                     get_uuid().uuid_get_val(),
                     fpi::SVC_STATUS_STOPPING,
                     fpi::FDSP_PLATFORM );
-     }
+    }
 
 
     fpi::NotifyStopServiceMsgPtr stopServiceMsg =
@@ -2036,25 +2037,39 @@ OM_PmAgent::send_stop_service
             {
                 if (shutdownNode)
                 {
+                   // Node is being shutdown, change the state of platform
+                   // to inactive, node state to down
+                   LOGDEBUG << "Changing PM state to INACTIVE";
+                   updateSvcMaps<kvstore::ConfigDB>( configDB,
+                                  MODULEPROVIDER()->getSvcMgr(),
+                                  get_uuid().uuid_get_val(),
+                                  fpi::SVC_STATUS_INACTIVE_STOPPED,
+                                  fpi::FDSP_PLATFORM );
 
-                       // Node is being shutdown, change the state of platform
-                       // to inactive, node state to down
-                       LOGDEBUG << "Changing PM state to INACTIVE";
-                       updateSvcMaps<kvstore::ConfigDB>( configDB,
-                                      MODULEPROVIDER()->getSvcMgr(),
-                                      get_uuid().uuid_get_val(),
-                                      fpi::SVC_STATUS_INACTIVE_STOPPED,
-                                      fpi::FDSP_PLATFORM );
+                   // Also explicitly set the state to down
+                   set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
 
-                       // Also explicitly set the state to down
-                       set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
+                   // Raise domain state machine event in case this
+                   // is a shutdown domain - if not it will get ignored
+                   auto timer = MODULEPROVIDER()->getTimer();
+                   auto task = boost::shared_ptr<FdsTimerTask>(
+                                  new FdsTimerFunctionTask(
+                                      [this, err] () {
+                                      /* Immediately post to threadpool so we don't hold up timer thread */
+                                      MODULEPROVIDER()->proc_thrpool()->schedule(
+                                          &OM_PmAgent::raiseDeactAckEvt,
+                                          this, err);
+                                      }));
+
+                  if ( ! timer->schedule( task, std::chrono::seconds( 1 ) ) )
+                  {
+                      LOGERROR << "Failed to schedule DeactAckEvt for "
+                               << std::hex << get_uuid().uuid_get_val() << std::dec;
+                      err = Error( ERR_TIMER_TASK_NOT_SCHEDULED );
+                  }
                 }
             }
-
-            // notify domain state machine
-            OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
-            domain->local_domain_event(DeactAckEvt(err));
-    }else {
+    } else {
         LOGERROR << "Failed to stop services on node " << get_node_name()
                  << " UUID:" << std::hex << get_uuid().uuid_get_val() << std::dec
                  << " please try shutting node again, or a start/shutdown cycle " << err;
@@ -2062,6 +2077,19 @@ OM_PmAgent::send_stop_service
 
     return err;
 }
+
+// This has to be done on a separate thread so that the state machine handling
+// can occur separately from the control flow of the stop request. Otherwise we
+// re-direct control towards the state machine and will never properly return from
+// the stop request
+void
+OM_PmAgent::raiseDeactAckEvt(Error err)
+{
+    LOGNOTIFY << "Raising DeactAckEvent for state machine now..";
+    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
+    domain->local_domain_event(DeactAckEvt(err));
+}
+
 
 /*
 void
@@ -2896,9 +2924,8 @@ OM_AgentContainer::agent_activate(NodeAgent::pointer agent)
         LOGNORMAL << "Uuid:" << std::hex << uuid << std::dec
                   << " is being added, will remove from node_down_pend list";
 
-        rs_mtx.lock();
+        fds_scoped_lock lk(rs_mtx);
         node_down_pend.erase(iter);
-        rs_mtx.unlock();
     }
 
     // Clean up from cluster map if present
@@ -2938,9 +2965,8 @@ OM_AgentContainer::agent_deactivate(NodeAgent::pointer agent)
         LOGNORMAL << "Uuid:" << std::hex << uuid << std::dec
                   << " is being removed, will remove from node_up_pend list";
 
-        rs_mtx.lock();
+        fds_scoped_lock lk(rs_mtx);
         node_up_pend.erase(iter);
-        rs_mtx.unlock();
     }
 
     // Clean up from cluster map if present

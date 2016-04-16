@@ -1223,7 +1223,7 @@ NodeDomainFSM::GRD_DeactSvc::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tg
             src.acks_to_wait--;
         }
 
-        LOGNOTIFY << "PM acks for deactivate services to wait: " << src.acks_to_wait;
+        LOGNOTIFY << "PM acks for stop services to wait: " << src.acks_to_wait;
 
         if (src.acks_to_wait == 0) {
             b_ret = true;
@@ -1247,7 +1247,7 @@ void
 NodeDomainFSM::DACT_DeactSvc::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &dst)
 {
     // At this point we are ready to send msg to PMs to kill the services
-    LOGNOTIFY << "Will send deactivate services msg to all PMs";
+    LOGNOTIFY << "Will send shutdown services msg to all PMs";
     try {
         OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         OM_NodeContainer *dom_ctrl = domain->om_loc_domain_ctrl();
@@ -1255,7 +1255,7 @@ NodeDomainFSM::DACT_DeactSvc::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
         // broadcast stop services to all PMs
         // all "false" params mean stop all services that are running on node
         fds_uint32_t count = dom_ctrl->om_cond_bcast_stop_services(false, false, false);
-        LOGDEBUG <<"--Error count is" << count;
+        LOGDEBUG <<"--Error count is:" << count;
         if (count < 1) {
             // ok if we don't have any PMs, just finish shutdown process
             dst.acks_to_wait = 1;

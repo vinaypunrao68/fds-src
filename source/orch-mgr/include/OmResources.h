@@ -264,6 +264,7 @@ class OM_PmAgent : public OM_NodeAgent
     Error send_stop_service(std::vector<fpi::SvcInfo> svcInfos,
                             bool stop_sm, bool stop_dm, bool stop_am, bool shutdownNode);
 
+    void raiseDeactAckEvt(Error err);
     /*
     void send_stop_services_resp(fds_bool_t stop_sm,
                                  fds_bool_t stop_dm,
