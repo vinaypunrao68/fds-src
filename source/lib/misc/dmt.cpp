@@ -211,7 +211,7 @@ Error DMT::verify(const NodeUuidSet& expectedUuidSet) const {
     if (getDepth() >  (expectedUuidSet.size() + OmExtUtilApi::getInstance()->getPendingNodeRemoves(fpi::FDSP_DATA_MGR))){
         LOGERROR << "DMT has more rows (" << depth
                  << ") than nodes (" << expectedUuidSet.size() << ")";
-        return ERR_INVALID_DLT;
+        return ERR_INVALID_DMT;
     }
 
     // check each column in DMT

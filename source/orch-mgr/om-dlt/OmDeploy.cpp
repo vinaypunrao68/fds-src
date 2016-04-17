@@ -574,42 +574,45 @@ DltDplyFSM::GRD_DltCompute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     {
         auto nodesInCommittedDlt = committedDlt->getAllNodes();
 
-        bool newSMInClusterMap = false;
-        bool foundThisSM = false;
-
-        // Compare the nodes in the current cluster map to the nodes
-        // in the current committed DLT. If an SM is present in the cluster map
-        // that is *not* present in the committedDlt, then we will proceed with
-        // DLT computation, otherwise simply return
-        for (auto mapSM : nodesInCMap)
+        if (nodesInCommittedDlt.size() == nodesInCMap.size())
         {
-            foundThisSM = false;
+            bool newSMInClusterMap = false;
+            bool foundThisSM = false;
 
-            for (auto dltSM : nodesInCommittedDlt)
+            // Compare the nodes in the current cluster map to the nodes
+            // in the current committed DLT. If an SM is present in the cluster map
+            // that is *not* present in the committedDlt, then we will proceed with
+            // DLT computation, otherwise simply return
+            for (auto mapSM : nodesInCMap)
             {
-                if (mapSM.uuid_get_val() == dltSM.uuid_get_val()) {
-                    foundThisSM = true;
+                foundThisSM = false;
+
+                for (auto dltSM : nodesInCommittedDlt)
+                {
+                    if (mapSM.uuid_get_val() == dltSM.uuid_get_val()) {
+                        foundThisSM = true;
+                        break;
+                    }
+                }
+
+                if (!foundThisSM) {
+                    LOGNORMAL << "Did not find SM:" << std::hex << mapSM.uuid_get_val()
+                              << std::dec << " in the committedDlt";
+                    newSMInClusterMap = true;
                     break;
                 }
             }
 
-            if (!foundThisSM) {
-                LOGNORMAL << "Did not find SM:" << std::hex << mapSM.uuid_get_val()
-                          << std::dec << " in the committedDlt";
-                newSMInClusterMap = true;
-                break;
+            if (!newSMInClusterMap)
+            {
+                LOGNORMAL << "Exact same SMs in the current cluster map and committed DLT,"
+                          << " will not compute a new DLT";
+
+                // we will go back to idle state
+                fsm.lock.clear();
+
+                return false;
             }
-        }
-
-        if (!newSMInClusterMap)
-        {
-            LOGNORMAL << "Exact same SMs in the current cluster map and committed DLT,"
-                      << " will not compute a new DLT";
-
-            // we will go back to idle state
-            fsm.lock.clear();
-
-            return false;
         }
 
     }
