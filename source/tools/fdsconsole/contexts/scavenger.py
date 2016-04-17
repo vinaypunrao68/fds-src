@@ -65,14 +65,17 @@ class ScavengerContext(Context):
         'start gc process'
         try:
             for uuid in self.config.getServiceApi().getServiceIds(svc):
-                print 'starting expunge on {}'.format(self.config.getServiceApi().getServiceName(uuid))
-                if self.config.getServiceApi().getServiceType(uuid) == 'sm':
-                    msg = FdspUtils.newSvcMsgByTypeId(FDSPMsgTypeId.GenericCommandMsgTypeId)
-                    msg.command="scavenger.start"
-                else:
-                    msg = FdspUtils.newSvcMsgByTypeId(FDSPMsgTypeId.StartRefScanMsgTypeId)
-                cb = WaitedCallback()
-                self.smClient().sendAsyncSvcReq(uuid, msg, cb)
+                try:
+                    print 'starting expunge on {}'.format(self.config.getServiceApi().getServiceName(uuid))
+                    if self.config.getServiceApi().getServiceType(uuid) == 'sm':
+                        msg = FdspUtils.newSvcMsgByTypeId(FDSPMsgTypeId.GenericCommandMsgTypeId)
+                        msg.command="scavenger.start"
+                    else:
+                        msg = FdspUtils.newSvcMsgByTypeId(FDSPMsgTypeId.StartRefScanMsgTypeId)
+                    cb = WaitedCallback()
+                    self.smClient().sendAsyncSvcReq(uuid, msg, cb)
+                except:
+                    print 'unable to start gc on {}'.format(self.config.getServiceApi().getServiceName(uuid))
         except Exception, e:
             log.exception(e)
             return 'start gc via dm failed'
