@@ -768,7 +768,7 @@ OM_NodeAgent::om_send_shutdown() {
     om_req->setTimeoutMs(20000);
     om_req->invoke();
 
-    LOGNOTIFY << "OM: send shutdown message to " << get_node_name() << " uuid 0x"
+    LOGNOTIFY << "OM: sent shutdown message to " << get_node_name() << " uuid 0x"
               << std::hex << (get_uuid()).uuid_get_val() << std::dec;
     return err;
 }
@@ -1813,10 +1813,14 @@ OM_PmAgent::send_stop_service
                      << smSvcId.svc_uuid
                      << std::dec;
 
+            OM_SmAgent::pointer smAgent = domain->om_sm_agent(uuid);
+            smAgent->om_send_shutdown();
+
             updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                            smSvcId.svc_uuid,
                            fpi::SVC_STATUS_STOPPING,
                            fpi::FDSP_STOR_MGR );
+
         } else {
             if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
             {
@@ -1866,10 +1870,14 @@ OM_PmAgent::send_stop_service
                   << dmSvcId.svc_uuid
                   << std::dec;
 
+         OM_DmAgent::pointer dmAgent = domain->om_dm_agent(uuid);
+         dmAgent->om_send_shutdown();
+
          updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                         dmSvcId.svc_uuid,
                         fpi::SVC_STATUS_STOPPING,
                         fpi::FDSP_DATA_MGR );
+
     } else {
          if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
          {
@@ -1905,10 +1913,16 @@ OM_PmAgent::send_stop_service
                   << amSvcId.svc_uuid
                   << std::dec;
 
+            NodeUuid uuid(amSvcId.svc_uuid);
+
+            OM_AmAgent::pointer amAgent = domain->om_am_agent(uuid);
+            amAgent->om_send_shutdown();
+
             updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                         amSvcId.svc_uuid,
                         fpi::SVC_STATUS_STOPPING,
                         fpi::FDSP_ACCESS_MGR );
+
         } else {
             if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
             {
@@ -1961,131 +1975,10 @@ OM_PmAgent::send_stop_service
 
     req->invoke();
 
-    while (true) {
-
-        std::unique_lock<std::mutex> respLock(stopRespMutex);
-        respRecCondition.wait(respLock, [this] { return respReceived; });
-
-        // As soon as response is received break
-        break;
-    }
-
-    // Reset the response received value
-    {
-        std::lock_guard<std::mutex> lock(stopRespMutex);
-        respReceived = false;
-    }
-
-    LOGNORMAL << "Notified of response from PM:" << std::hex
-             << get_uuid().uuid_get_val() << std::dec << " for stop request, returning..";
-
     return err;
 }
 
-void
-OM_PmAgent::send_stop_services_resp ( fds_bool_t stop_sm,
-                                     fds_bool_t stop_dm,
-                                     fds_bool_t stop_am,
-                                     fpi::SvcUuid smSvcId,
-                                     fpi::SvcUuid dmSvcId,
-                                     fpi::SvcUuid amSvcId,
-                                     fds_bool_t shutdownNode,
-                                     EPSvcRequest* req,
-                                     const Error& error,
-                                     boost::shared_ptr<std::string> payload)
-{
-    LOGNORMAL << "ACK for stop services for node" << get_node_name()
-                  << " UUID " << std::hex << get_uuid().uuid_get_val() << std::dec
-                  << " stop am ? " << stop_am
-                  << " stop sm ? " << stop_sm
-                  << " stop dm ? " << stop_dm
-                  << " " << error;
 
-    // Now that we allow unreachable(down) nodes to be removed, it is
-    // possible that OM receives a req invocation error. In this case
-    // allow rest of the clean up to happen
-    if (error.OK() || error.GetErrName() == "ERR_SVC_REQUEST_INVOCATION")
-    {
-        kvstore::ConfigDB* configDB = gl_orch_mgr->getConfigDB();
-
-
-        LOGDEBUG << "PM response is good, setting svcs to inactive";
-         // Set SM service state to inactive
-        if ( stop_sm && configDB->isPresentInSvcMap( smSvcId.svc_uuid ) )
-        {
-            updateSvcMaps<kvstore::ConfigDB>( configDB,
-                               MODULEPROVIDER()->getSvcMgr(),
-                               smSvcId.svc_uuid,
-                               fpi::SVC_STATUS_INACTIVE_STOPPED,
-                               fpi::FDSP_STOR_MGR );
-
-            activeSmAgent = nullptr;
-         }
-
-         // Set DM service state to inactive
-         if ( stop_dm && configDB->isPresentInSvcMap( dmSvcId.svc_uuid ) )
-         {
-             updateSvcMaps<kvstore::ConfigDB>( configDB,
-                                MODULEPROVIDER()->getSvcMgr(),
-                                dmSvcId.svc_uuid,
-                                fpi::SVC_STATUS_INACTIVE_STOPPED,
-                                fpi::FDSP_DATA_MGR );
-
-             activeDmAgent = nullptr;
-         }
-
-         // Set AM service state to inactive
-         if ( stop_am && configDB->isPresentInSvcMap( amSvcId.svc_uuid ))
-         {
-             updateSvcMaps<kvstore::ConfigDB>( configDB,
-                            MODULEPROVIDER()->getSvcMgr(),
-                            amSvcId.svc_uuid,
-                            fpi::SVC_STATUS_INACTIVE_STOPPED,
-                            fpi::FDSP_ACCESS_MGR );
-             activeAmAgent = nullptr;
-         }
-
-        // On OM restart, cannot depend on agents being set. This logic
-        // should still not do any harm either way
-        if (!activeSmAgent && !activeDmAgent && !activeAmAgent)
-        {
-            if (shutdownNode)
-            {
-               // Node is being shutdown, change the state of platform
-               // to inactive, node state to down
-               LOGDEBUG << "Changing PM:" << std::hex
-                        << get_uuid().uuid_get_val()
-                        << std::dec << " state to INACTIVE";
-               updateSvcMaps<kvstore::ConfigDB>( configDB,
-                              MODULEPROVIDER()->getSvcMgr(),
-                              get_uuid().uuid_get_val(),
-                              fpi::SVC_STATUS_INACTIVE_STOPPED,
-                              fpi::FDSP_PLATFORM );
-
-               // Also explicitly set the state to down
-               set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
-            }
-        }
-    } else {
-        LOGERROR << "Failed to stop services on node " << get_node_name()
-                 << " UUID:" << std::hex << get_uuid().uuid_get_val() << std::dec
-                 << " please try shutting node again, or a start/shutdown cycle " << error;
-    }
-
-    {
-        std::lock_guard<std::mutex> lock(stopRespMutex);
-        respReceived = true;
-    }
-
-    respRecCondition.notify_one();
-
-    LOGNOTIFY << "Raising DeactAckEvent for state machine now..";
-    OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
-    domain->local_domain_event(DeactAckEvt(error));
-}
-
-
-/*
 void
 OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
                                     fds_bool_t stop_dm,
@@ -2115,18 +2008,23 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
         
         LOGDEBUG << "PM response is good, setting svcs to inactive";
          // Set SM service state to inactive
-        if ( stop_sm && configDB->isPresentInSvcMap( smSvcId.svc_uuid ) )
+        if ( stop_sm )
         {
-            if (configDB->getStateSvcMap(smSvcId.svc_uuid) != fpi::SVC_STATUS_REMOVED)
+            if ( configDB->isPresentInSvcMap( smSvcId.svc_uuid ) )
             {
-                updateSvcMaps<kvstore::ConfigDB>( configDB,
-                               MODULEPROVIDER()->getSvcMgr(),
-                               smSvcId.svc_uuid,
-                               fpi::SVC_STATUS_INACTIVE_STOPPED,
-                               fpi::FDSP_STOR_MGR );
+                if (configDB->getStateSvcMap(smSvcId.svc_uuid) != fpi::SVC_STATUS_REMOVED)
+                {
+                    updateSvcMaps<kvstore::ConfigDB>( configDB,
+                                   MODULEPROVIDER()->getSvcMgr(),
+                                   smSvcId.svc_uuid,
+                                   fpi::SVC_STATUS_INACTIVE_STOPPED,
+                                   fpi::FDSP_STOR_MGR );
+                } else {
+                    LOGDEBUG << "SM svc:" << smSvcId.svc_uuid << " already progressed to removed state"
+                             << ", will not set to inactive_stopped";
+                    isSMRemoved = true;
+                }
             } else {
-                LOGDEBUG << "SM svc:" << smSvcId.svc_uuid << " already progressed to removed state"
-                         << ", will not set to inactive_stopped";
                 isSMRemoved = true;
             }
 
@@ -2134,18 +2032,23 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
          }
 
          // Set DM service state to inactive
-         if ( stop_dm && configDB->isPresentInSvcMap( dmSvcId.svc_uuid ) )
+         if ( stop_dm )
          {
-             if (configDB->getStateSvcMap(dmSvcId.svc_uuid) != fpi::SVC_STATUS_REMOVED)
+             if (configDB->isPresentInSvcMap( dmSvcId.svc_uuid ))
              {
-                 updateSvcMaps<kvstore::ConfigDB>( configDB,
-                                MODULEPROVIDER()->getSvcMgr(),
-                                dmSvcId.svc_uuid,
-                                fpi::SVC_STATUS_INACTIVE_STOPPED,
-                                fpi::FDSP_DATA_MGR );
+                 if (configDB->getStateSvcMap(dmSvcId.svc_uuid) != fpi::SVC_STATUS_REMOVED)
+                 {
+                     updateSvcMaps<kvstore::ConfigDB>( configDB,
+                                    MODULEPROVIDER()->getSvcMgr(),
+                                    dmSvcId.svc_uuid,
+                                    fpi::SVC_STATUS_INACTIVE_STOPPED,
+                                    fpi::FDSP_DATA_MGR );
+                 } else {
+                     LOGDEBUG << "DM svc:" << dmSvcId.svc_uuid << " already progressed to removed state"
+                              << ", will not set to inactive_stopped";
+                     isDMRemoved = true;
+                 }
              } else {
-                 LOGDEBUG << "DM svc:" << dmSvcId.svc_uuid << " already progressed to removed state"
-                          << ", will not set to inactive_stopped";
                  isDMRemoved = true;
              }
              activeDmAgent = nullptr;
@@ -2227,7 +2130,6 @@ OM_PmAgent::send_stop_services_resp(fds_bool_t stop_sm,
     OM_NodeDomainMod* domain = OM_NodeDomainMod::om_local_domain();
     domain->local_domain_event(DeactAckEvt(error));
 }
-*/
 
 /**
  * Name: send_remove_service

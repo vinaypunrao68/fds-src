@@ -212,6 +212,13 @@ namespace fds
     void NodeInventory::set_node_state(FdspNodeState state)
     {
         TRACEFUNC;
+
+        if (state == fpi::FDS_Node_Down && nd_my_node_state == fpi::FDS_Node_Discovered)
+        {
+            LOGWARN << "Will not allow node state to transition from Discovered to Down!";
+            return;
+        }
+
         LOGNORMAL << "Setting node state to:" << state;
         nd_my_node_state = state;
     }

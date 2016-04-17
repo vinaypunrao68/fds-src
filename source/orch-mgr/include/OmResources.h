@@ -369,11 +369,10 @@ class OM_PmAgent : public OM_NodeAgent
 
   private:
     fds_mutex               dbNodeInfoLock;
-    // Used to block add/stop service requests from returning
+    // Used to block add service requests from returning
     // until PM response has been received
     bool                    respReceived;
     std::mutex              addRespMutex;
-    std::mutex              stopRespMutex;
     std::condition_variable respRecCondition;
 };
 
