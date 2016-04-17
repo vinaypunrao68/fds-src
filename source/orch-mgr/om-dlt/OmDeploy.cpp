@@ -574,6 +574,9 @@ DltDplyFSM::GRD_DltCompute::operator()(Evt const &evt, Fsm &fsm, SrcST &src, Tgt
     {
         auto nodesInCommittedDlt = committedDlt->getAllNodes();
 
+        LOGNORMAL << "SMs in cluster map:" << nodesInCMap.size()
+                  << " vs SMs in committed DLT:" << nodesInCommittedDlt.size();
+
         if (nodesInCommittedDlt.size() == nodesInCMap.size())
         {
             bool newSMInClusterMap = false;
