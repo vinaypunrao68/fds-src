@@ -1811,13 +1811,13 @@ OM_PmAgent::send_stop_service
                      << smSvcId.svc_uuid
                      << std::dec;
 
+            OM_SmAgent::pointer smAgent = domain->om_sm_agent(uuid);
+            smAgent->om_send_shutdown();
+
             updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                            smSvcId.svc_uuid,
                            fpi::SVC_STATUS_STOPPING,
                            fpi::FDSP_STOR_MGR );
-
-            OM_SmAgent::pointer smAgent = domain->om_sm_agent(uuid);
-            smAgent->om_send_shutdown();
 
         } else {
             if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
@@ -1866,13 +1866,13 @@ OM_PmAgent::send_stop_service
                   << dmSvcId.svc_uuid
                   << std::dec;
 
+         OM_DmAgent::pointer dmAgent = domain->om_dm_agent(uuid);
+         dmAgent->om_send_shutdown();
+
          updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                         dmSvcId.svc_uuid,
                         fpi::SVC_STATUS_STOPPING,
                         fpi::FDSP_DATA_MGR );
-
-         OM_DmAgent::pointer dmAgent = domain->om_dm_agent(uuid);
-         dmAgent->om_send_shutdown();
 
     } else {
          if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
@@ -1910,13 +1910,14 @@ OM_PmAgent::send_stop_service
                   << std::dec;
 
             NodeUuid uuid(amSvcId.svc_uuid);
+
+            OM_AmAgent::pointer amAgent = domain->om_am_agent(uuid);
+            amAgent->om_send_shutdown();
+
             updateSvcMaps<kvstore::ConfigDB>( configDB, MODULEPROVIDER()->getSvcMgr(),
                         amSvcId.svc_uuid,
                         fpi::SVC_STATUS_STOPPING,
                         fpi::FDSP_ACCESS_MGR );
-
-            OM_AmAgent::pointer amAgent = domain->om_am_agent(uuid);
-            amAgent->om_send_shutdown();
 
         } else {
             if (serviceStatus == fpi::SVC_STATUS_INACTIVE_STOPPED)
