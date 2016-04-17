@@ -2341,6 +2341,8 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
                 error = om_handle_restart( node_uuid, reg_node_req );
                 break;
             case fpi::FDSP_PLATFORM:
+                error = om_handle_restart( node_uuid, reg_node_req );
+
                 // TODO how do we set the node state?
                 if ( svc.svc_status != fpi::SVC_STATUS_DISCOVERED )
                 {
@@ -2349,7 +2351,6 @@ void OM_NodeDomainMod::spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs )
 
                     gl_orch_mgr->omMonitor->updateKnownPMsMap(svc.svc_id.svc_uuid, timeInMinutes, false );
                 }
-                error = om_handle_restart( node_uuid, reg_node_req );
 
                 break;    
             default:

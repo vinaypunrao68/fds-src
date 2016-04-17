@@ -264,8 +264,6 @@ class OM_PmAgent : public OM_NodeAgent
     Error send_stop_service(std::vector<fpi::SvcInfo> svcInfos,
                             bool stop_sm, bool stop_dm, bool stop_am, bool shutdownNode);
 
-    void raiseDeactAckEvt(Error err);
-    /*
     void send_stop_services_resp(fds_bool_t stop_sm,
                                  fds_bool_t stop_dm,
                                  fds_bool_t stop_am,
@@ -276,7 +274,6 @@ class OM_PmAgent : public OM_NodeAgent
                                  EPSvcRequest* req,
                                  const Error& error,
                                  boost::shared_ptr<std::string> payload);
-    */
     /**
      * Send 'remove service' message to Platform
      */
@@ -372,10 +369,11 @@ class OM_PmAgent : public OM_NodeAgent
 
   private:
     fds_mutex               dbNodeInfoLock;
-    // Used to block add service requests from returning
+    // Used to block add/stop service requests from returning
     // until PM response has been received
     bool                    respReceived;
     std::mutex              addRespMutex;
+    std::mutex              stopRespMutex;
     std::condition_variable respRecCondition;
 };
 
