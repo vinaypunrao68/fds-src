@@ -65,14 +65,17 @@ class ScavengerContext(Context):
         'start gc process'
         try:
             for uuid in self.config.getServiceApi().getServiceIds(svc):
-                print 'starting expunge on {}'.format(self.config.getServiceApi().getServiceName(uuid))
-                if self.config.getServiceApi().getServiceType(uuid) == 'sm':
-                    msg = FdspUtils.newSvcMsgByTypeId(FDSPMsgTypeId.GenericCommandMsgTypeId)
-                    msg.command="scavenger.start"
-                else:
-                    msg = FdspUtils.newSvcMsgByTypeId(FDSPMsgTypeId.StartRefScanMsgTypeId)
-                cb = WaitedCallback()
-                self.smClient().sendAsyncSvcReq(uuid, msg, cb)
+                try:
+                    print 'starting expunge on {}'.format(self.config.getServiceApi().getServiceName(uuid))
+                    if self.config.getServiceApi().getServiceType(uuid) == 'sm':
+                        msg = FdspUtils.newSvcMsgByTypeId(FDSPMsgTypeId.GenericCommandMsgTypeId)
+                        msg.command="scavenger.start"
+                    else:
+                        msg = FdspUtils.newSvcMsgByTypeId(FDSPMsgTypeId.StartRefScanMsgTypeId)
+                    cb = WaitedCallback()
+                    self.smClient().sendAsyncSvcReq(uuid, msg, cb)
+                except:
+                    print 'unable to start gc on {}'.format(self.config.getServiceApi().getServiceName(uuid))
         except Exception, e:
             log.exception(e)
             return 'start gc via dm failed'
@@ -130,41 +133,45 @@ class ScavengerContext(Context):
                 dm=True
 
             for uuid in self.config.getServiceApi().getServiceIds(sm):
-                numsvcs += 1
-                cntrs = ServiceMap.client(uuid).getCounters('*')
-                helpers.addHumanInfo(cntrs)
-                keys=cntrs.keys()
-                totalobjects =0
-                deletedobjects=0
-                totaltokens=0
-                for key in keys:
-                    if key.find('scavenger.token') >= 0:
-                        if key.endswith('.total'):
-                            totalobjects += cntrs[key]
-                            totaltokens += 1
-                        elif key.endswith('.deleted'):
-                            deletedobjects += cntrs[key]
-                data = []
+                try:
+                    numsvcs += 1
+                    cntrs = ServiceMap.client(uuid).getCounters('*')
+                    helpers.addHumanInfo(cntrs)
+                    keys=cntrs.keys()
+                    totalobjects =0
+                    deletedobjects=0
+                    totaltokens=0
+                    for key in keys:
+                        if key.find('scavenger.token') >= 0:
+                            if key.endswith('.total'):
+                                totalobjects += cntrs[key]
+                                totaltokens += 1
+                            elif key.endswith('.deleted'):
+                                deletedobjects += cntrs[key]
+                    data = []
 
-                cluster_totalobjects += totalobjects
-                cluster_deletedobjects += deletedobjects
-                cluster_inactiveobjects += cntrs.get('sm.scavenger.inactive.count',0)
-                data.append(('gc.start',cntrs.get('sm.scavenger.start.timestamp.human','not yet')))
+                    cluster_totalobjects += totalobjects
+                    cluster_deletedobjects += deletedobjects
+                    cluster_inactiveobjects += cntrs.get('sm.scavenger.inactive.count',0)
+                    data.append(('gc.start',cntrs.get('sm.scavenger.start.timestamp.human','not yet')))
 
-                if cntrs.get('sm.scavenger.running',0) > 0: cluster_num_gc_running += 1
-                if cntrs.get('sm.scavenger.compactor.running',0) : cluster_num_compactor_running += 1
+                    if cntrs.get('sm.scavenger.running',0) > 0: cluster_num_gc_running += 1
+                    if cntrs.get('sm.scavenger.compactor.running',0) : cluster_num_compactor_running += 1
 
-                data.append(('num.gc.running', cntrs.get('sm.scavenger.running',0) ))
-                data.append(('gc.run.count', cntrs.get('sm.scavenger.run.count',0) ))
-                data.append(('num.compactors', cntrs.get('sm.scavenger.compactor.running',0)))
-                data.append(('objects.total',totalobjects))
-                data.append(('objects.deleted',deletedobjects))
-                data.append(('tokens.total',totaltokens))
-                gcdata.append(('{}.info'.format(self.config.getServiceApi().getServiceName(uuid)),
-                               '{} : {}'.format(cntrs.get('sm.scavenger.run.count',0), cntrs.get('sm.scavenger.start.timestamp.human','not yet')) ))
-                if full:
-                    print ('{}\ngc info for {}\n{}'.format('-'*40, self.config.getServiceApi().getServiceName(uuid), '-'*40))
-                    print tabulate(data,headers=['key', 'value'], tablefmt=self.config.getTableFormat())
+                    data.append(('num.gc.running', cntrs.get('sm.scavenger.running',0) ))
+                    data.append(('gc.run.count', cntrs.get('sm.scavenger.run.count',0) ))
+                    data.append(('num.compactors', cntrs.get('sm.scavenger.compactor.running',0)))
+                    data.append(('objects.total',totalobjects))
+                    data.append(('objects.deleted',deletedobjects))
+                    data.append(('tokens.total',totaltokens))
+                    gcdata.append(('{}.info'.format(self.config.getServiceApi().getServiceName(uuid)),
+                                   '{} : {}'.format(cntrs.get('sm.scavenger.run.count',0), cntrs.get('sm.scavenger.start.timestamp.human','not yet')) ))
+                    if full:
+                        print ('{}\ngc info for {}\n{}'.format('-'*40, self.config.getServiceApi().getServiceName(uuid), '-'*40))
+                        print tabulate(data,headers=['key', 'value'], tablefmt=self.config.getTableFormat())
+                except:
+                    print 'unable to get data from {}'.format(self.config.getServiceApi().getServiceName(uuid))
+
             gcdata.append(('',''))
             gcdata.append(('sm.objects.total',cluster_totalobjects))
             gcdata.append(('sm.objects.deleted',cluster_deletedobjects))
@@ -176,30 +183,32 @@ class ScavengerContext(Context):
                 totalobjects =0
                 totalvolumes=0
                 for uuid in self.config.getServiceApi().getServiceIds('dm'):
-                    cntrs = ServiceMap.client(uuid).getCounters('*')
-                    keys=cntrs.keys()
-                    helpers.addHumanInfo(cntrs)
-                    data = []
+                    try:
+                        cntrs = ServiceMap.client(uuid).getCounters('*')
+                        keys=cntrs.keys()
+                        helpers.addHumanInfo(cntrs)
+                        data = []
 
-                    data.append(('dm.refscan.lastrun',cntrs.get('dm.refscan.lastrun.timestamp.human','not yet')))
-                    data.append(('dm.refscan.num_objects', cntrs.get('dm.refscan.num_objects',0)))
-                    data.append(('dm.refscan.num_volumes', cntrs.get('dm.refscan.num_volumes',0)))
-                    data.append(('dm.refscan.running', cntrs.get('dm.refscan.running',0)))
-                    data.append(('dm.refscan.run.count', cntrs.get('dm.refscan.run.count',0)))
-                    if cntrs.get('dm.refscan.running',0) > 0 :  cluster_num_refscan_running += 1
-                    totalobjects += cntrs.get('dm.refscan.num_objects',0)
-                    totalvolumes += cntrs.get('dm.refscan.num_volumes',0)
-                    gcdata.append(('{}.info'.format(self.config.getServiceApi().getServiceName(uuid)),
-                                   '{} : {}'.format(cntrs.get('dm.refscan.run.count',0), cntrs.get('dm.refscan.lastrun.timestamp.human','not yet')) ))
+                        data.append(('dm.refscan.lastrun',cntrs.get('dm.refscan.lastrun.timestamp.human','not yet')))
+                        data.append(('dm.refscan.num_objects', cntrs.get('dm.refscan.num_objects',0)))
+                        data.append(('dm.refscan.num_volumes', cntrs.get('dm.refscan.num_volumes',0)))
+                        data.append(('dm.refscan.running', cntrs.get('dm.refscan.running',0)))
+                        data.append(('dm.refscan.run.count', cntrs.get('dm.refscan.run.count',0)))
+                        if cntrs.get('dm.refscan.running',0) > 0 :  cluster_num_refscan_running += 1
+                        totalobjects += cntrs.get('dm.refscan.num_objects',0)
+                        totalvolumes += cntrs.get('dm.refscan.num_volumes',0)
+                        gcdata.append(('{}.info'.format(self.config.getServiceApi().getServiceName(uuid)),
+                                       '{} : {}'.format(cntrs.get('dm.refscan.run.count',0), cntrs.get('dm.refscan.lastrun.timestamp.human','not yet')) ))
 
-                    if full:
-                        print ('{}\ngc info for {}\n{}'.format('-'*40, self.config.getServiceApi().getServiceName(uuid), '-'*40))
-                        print tabulate(data,headers=['key', 'value'], tablefmt=self.config.getTableFormat())
+                        if full:
+                            print ('{}\ngc info for {}\n{}'.format('-'*40, self.config.getServiceApi().getServiceName(uuid), '-'*40))
+                            print tabulate(data,headers=['key', 'value'], tablefmt=self.config.getTableFormat())
+                    except:
+                        print 'unable to get data from {}'.format(self.config.getServiceApi().getServiceName(uuid))
                 gcdata.append(('',''))
                 gcdata.append(('dm.objects.total',totalobjects))
                 gcdata.append(('dm.volumes.total',totalvolumes))
                 gcdata.append(('dm.doing.refscan',cluster_num_refscan_running))
-
 
             print ('\n{}\ncombined gc info\n{}'.format('='*40,'='*40))
             print tabulate(gcdata,headers=['key', 'value'], tablefmt=self.config.getTableFormat())
