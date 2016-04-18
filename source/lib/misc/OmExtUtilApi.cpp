@@ -253,7 +253,8 @@ bool OmExtUtilApi::isTransitionAllowed( fpi::ServiceStatus incoming,
                                         fpi::ServiceStatus current,
                                         bool sameIncNo,
                                         bool greaterIncNo,
-                                        bool zeroIncNo  )
+                                        bool zeroIncNo,
+                                        fpi::FDSP_MgrIdType type )
 {
 
     // The only situation when this would be, if incarnationNo is newer
@@ -275,7 +276,7 @@ bool OmExtUtilApi::isTransitionAllowed( fpi::ServiceStatus incoming,
     // incarnation # is newer
     if ( incoming == fpi::SVC_STATUS_ACTIVE && current == fpi::SVC_STATUS_INACTIVE_FAILED)
     {
-        if (greaterIncNo) {
+        if (greaterIncNo || type == fpi::FDSP_ORCH_MGR) {
             return true;
         } else {
             LOGDEBUG << "Will not allow transition from state:"
@@ -376,7 +377,8 @@ bool OmExtUtilApi::isIncomingUpdateValid( fpi::SvcInfo& incomingSvcInfo,
                                                 currentInfo.svc_status,
                                                 sameIncNo,
                                                 greaterIncNo,
-                                                zeroIncNo) )
+                                                zeroIncNo,
+                                                incomingSvcInfo.svc_type) )
         {
             ret = false;
         }
