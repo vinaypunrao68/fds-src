@@ -1,7 +1,6 @@
 ---
 -   name: install needed packages for devsetup
     hosts: localhost
-    sudo: yes
     vars:
         - influxdb_version: 0.8.8
 
@@ -13,6 +12,7 @@
         owner=root
         group=root
         mode=0777
+      sudo: yes
 
     - name: set sysctl config
       sysctl: name={{item.key}} value={{item.value.value}} state={{item.value.state}}
@@ -29,20 +29,24 @@
         fs.suid_dumpable:
             value: 1
             state: present
+      sudo: yes
 
-    -   name: install_limits_conf
-        template:
-            src=../templates/deploy_fds/fds_limits.conf
-            dest=/etc/security/limits.conf
-            owner=root
-            group=root
-            mode=0644
+    - name: install_limits_conf
+      template:
+        src=../templates/deploy_fds/fds_limits.conf
+        dest=/etc/security/limits.conf
+        owner=root
+        group=root
+        mode=0644
+      sudo: yes
 
     - name: Copy sudoers for safety
       command: cp -f /etc/sudoers /etc/sudoers.tmp
+      sudo: yes
 
     - name: Backup sudoers
       command: cp -f /etc/sudoers /etc/sudoers.bak
+      sudo: yes
 
     - name: Make sure we retain BUILD_ID for Jenkins
       lineinfile:
@@ -51,36 +55,46 @@
         insertafter='^Defaults'
         regexp='^Defaults env_keep\+\=BUILD_ID'
         line='Defaults env_keep+=BUILD_ID'
+      sudo: yes
 
     - name: Sudoers syntax check && replace
       shell: visudo -q -c -f /etc/sudoers.tmp && cp -f /etc/sudoers.tmp /etc/sudoers
+      sudo: yes
 
     - name: Cleanup tmp sudoers
       command: rm -f /etc/sudoers.tmp
+      sudo: yes
 
     - name: add JRE ppa
       apt_repository: repo=ppa:webupd8team/java state=present
+      sudo: yes
 
     - name: add artifactory repo key
       apt_key: url="http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/gpg/key/public"
+      sudo: yes
 
     - name: add fds repo
       apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/third-party-deps/ fds main" state=present
+      sudo: yes
 
     - name: add fds nightly repo
       apt_repository: repo="deb http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-apt/ platform nightly" state=present
+      sudo: yes
 
     - name: automatically select the oracle license
       shell: echo debconf shared/accepted-oracle-license-v1-1 select true | sudo debconf-set-selections
+      sudo: yes
 
     - name: purge redis packages
       apt: name={{item}} force=yes state=absent update_cache=no
       with_items:
         - redis-server
         - redis-tools
+      sudo: yes
 
     - name: purge redis init script (just to be safe)
       file: path=/etc/init.d/redis-server state=absent
+      sudo: yes
 
     - name: purge libboost 1.54 packages
       apt: name={{item}} force=yes state=absent update_cache=no
@@ -99,37 +113,46 @@
         - libboost-thread1.54
         - libboost-regex1.54
         - libboost-chrono1.54
+      sudo: yes
 
     - name: install latest fds-deps package
       apt: name=fds-deps force=yes state=latest update_cache=yes cache_valid_time=600
+      sudo: yes
 
     - name: install latest fds-stats-deps package
       apt: name=fds-stats-deps force=yes state=latest update_cache=yes cache_valid_time=600
-   
+      sudo: yes
+
     - name: install latest fds-stats-service package
       apt: name=fds-stats-service-2.0.0 force=yes state=latest update_cache=yes cache_valid_time=600
+      sudo: yes
 
     - name: install latest rabbitmq-c package
       apt: name=rabbitmq-c-0.7.1 force=yes state=latest update_cache=yes cache_valid_time=600
+      sudo: yes
 
     - name: install latest simple amqp client package
       apt: name=simpleamqpclient-0.7.1 force=yes state=latest update_cache=yes cache_valid_time=600
+      sudo: yes
 
     - name: install latest fds-stats-client-c package
       apt: name=fds-stats-client-c-2.0.0 force=yes state=latest update_cache=yes cache_valid_time=600
+      sudo: yes
 
     - name: install fds-stats-util package
       apt: name=fds-stats-util=1.0.0 force=yes state=present update_cache=yes cache_valid_time=600
+      sudo: yes
 
     - name: install latest java package
       apt: name=oracle-java8-installer force=yes state=latest update_cache=yes cache_valid_time=600
+      sudo: yes
 
 #    - name: install versioned os packages
 #      apt: name={{ item.key }} version={{ item.value.version }} force=yes state=present update_cache=yes cache_valid_time=600
 #      with_dict:
 #        libjemalloc:
 #            version: 3.5.1-2
-#        
+#
 
     - name: install os packages
       apt: name={{item}} force=yes state=present update_cache=yes cache_valid_time=600
@@ -217,28 +240,23 @@
         - python-coverage-test-runner
         - python-mock
         - valgrind
-
+      sudo: yes
 
     - name: Install libnfs and libnfs-python for NFS IO
       command: bash ../scripts/install_libnfs.sh
 
-    - name: create pip config directory at ~/.pip
-      file: path="{{ lookup('env','HOME') }}/.pip"
-        state=directory
-
     - name: touch pip config file at ~/pip/pip.conf
       file: path="{{ lookup('env','HOME') }}/.pip/pip.conf"
-        state=touch
+        state=absent
 
-    - name: add Artifactory pip repo to pip config
-      lineinfile: dest="{{ lookup('env','HOME') }}/.pip/pip.conf"
-        line="{{item}}"
-      with_items:
-        - "[global]"
-        - "extra-index-url = https://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-pip"
+    - name: create pip config directory at ~/.pip
+      file: path="{{ lookup('env','HOME') }}/.pip"
+        state=absent
 
     - name: install pip packages
-      pip: name={{item}} state=present
+      pip: name={{item}}
+        state=present
+      sudo: yes
       with_items:
         - scp
         - PyYAML
@@ -253,19 +271,19 @@
         - "tabulate==0.7.4"
         - "urllib3==1.10.1"
         - python-iptables
-        - pyscsi-linux
         - retry
         - retrying
         - humanize
         - numpy
 
-    - name: install fdscli from Artifactory
+    - name: install Formation pip packages
       pip: name={{item}}
         state=present
-        extra_args="--extra-index-url=https://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-pip"
+        extra_args="--extra-index-url=https://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/pypi/formation-pip/simple -I"
+      sudo: yes
       with_items:
+        - "pyscsi-linux==1.0"
         - "fdscli==0.1.21"
-        - "fdsutil==0.3.10"
 
     - name: install perl modules
       cpanm: name={{ item }} mirror=http://cpan.mirror.vexxhost.com notest=true
@@ -279,46 +297,54 @@
 
     - name: create java home script
       copy: src=../files/jdk.sh dest=/etc/profile.d/jdk.sh owner=root group=root mode=0755
+      sudo: yes
 
     - name: update_java_alternatives
       alternatives: name=java path=/usr/lib/jvm/java-8-oracle/jre/bin/java
+      sudo: yes
 
     - name: create omnibus install directory for fds-platform
       file: path=/fds
         owner=root
         mode=0777
         state=directory
+      sudo: yes
 
     - name: create omnibus install directory for fds-deps
       file: path=/opt/fds-deps
         owner=root
         mode=0777
         state=directory
+      sudo: yes
 
     - name: create omnibus install directory for fds-deploy
       file: path=/opt/fds-deploy
         owner=root
         mode=0777
         state=directory
+      sudo: yes
 
     - name: get InfluxDB package
       get_url: url=https://s3.amazonaws.com/influxdb/influxdb_{{ influxdb_version }}_amd64.deb
            dest=/opt/influxdb_{{ influxdb_version }}_amd64.deb
            validate_certs=no
            sha256sum=04f0b74ca102e2680191bbd83aa2601cd7ce1b50b3fd8aa7d7d084fa7032c492
+      sudo: yes
 
-    -   name: create influxdb user and group
-        group: name=influxdb
+    - name: create influxdb user and group
+      group: name=influxdb
+      sudo: yes
 
-    -   user: name=influxdb
-           createhome=no
-           group=influxdb
+    - user: name=influxdb
+        createhome=no
+        group=influxdb
+      sudo: yes
 
-    -   name: install InfluxDB
-        apt: deb=/opt/influxdb_{{ influxdb_version }}_amd64.deb
-        register: install
+    - name: install InfluxDB
+      apt: deb=/opt/influxdb_{{ influxdb_version }}_amd64.deb
+      register: install
+      sudo: yes
 
-    -   name: set local for error messages
-        command: update-locale LC_MESSAGES=POSIX
-
-
+    - name: set local for error messages
+      command: update-locale LC_MESSAGES=POSIX
+      sudo: yes
