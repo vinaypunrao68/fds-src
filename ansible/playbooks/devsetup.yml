@@ -235,7 +235,7 @@
         line="{{item}}"
       with_items:
         - "[global]"
-        - "extra-index-url = https://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/pypi/formation-pip/simple"
+        - "extra-index-url = https://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-pip"
 
     - name: install pip packages
       pip: name={{item}} state=present
@@ -262,7 +262,7 @@
     - name: install fdscli from Artifactory
       pip: name={{item}}
         state=present
-        extra_args="--extra-index-url=https://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/pypi/formation-pip/simple"
+        extra_args="--extra-index-url=https://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/formation-pip"
       with_items:
         - "fdscli==0.1.21"
         - "fdsutil==0.3.10"
