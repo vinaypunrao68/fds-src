@@ -127,7 +127,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
                    uint32_t _max_thrds,
                    dispatchAlgoType algo,
                    fds_log *log) :
-             FDS_QoSControl(_max_thrds, algo, log, "SM") {
+             FDS_QoSControl(_max_thrds, 2, algo, log, "SM") {
                  parentSm = _parent;
                  threadPool->enableThreadpoolCheck(
                      _parent->modProvider_->getTimer().get(),
