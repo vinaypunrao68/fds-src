@@ -55,7 +55,8 @@ namespace fds
                                           fpi::ServiceStatus current,
                                           bool sameIncNo,
                                           bool greaterIncNo,
-                                          bool zeroIncNo );
+                                          bool zeroIncNo,
+                                          fpi::FDSP_MgrIdType type);
 
         static std::vector<std::vector<fpi::ServiceStatus>> getAllowedTransitions();
         static std::string  printSvcStatus(fpi::ServiceStatus svcStatus);

@@ -580,7 +580,8 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                                                     svcLayerInfoUpdate.svc_status,
                                                     true,
                                                     false,
-                                                    false ) )
+                                                    false,
+                                                    svcType) )
             {
                 configDB->changeStateSvcMap( svcLayerInfoPtr );
 
@@ -617,7 +618,8 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                                                         initialDbStatus,
                                                         true,
                                                         false,
-                                                        false ) )
+                                                        false,
+                                                        svcType) )
                 {
                     configDB->changeStateSvcMap( dbInfoPtr );
 

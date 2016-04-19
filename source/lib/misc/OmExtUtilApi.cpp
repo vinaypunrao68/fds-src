@@ -253,7 +253,8 @@ bool OmExtUtilApi::isTransitionAllowed( fpi::ServiceStatus incoming,
                                         fpi::ServiceStatus current,
                                         bool sameIncNo,
                                         bool greaterIncNo,
-                                        bool zeroIncNo  )
+                                        bool zeroIncNo,
+                                        fpi::FDSP_MgrIdType type )
 {
 
     // The only situation when this would be, if incarnationNo is newer
@@ -277,6 +278,11 @@ bool OmExtUtilApi::isTransitionAllowed( fpi::ServiceStatus incoming,
     {
         if (greaterIncNo) {
             return true;
+        } else if (type == fpi::FDSP_ORCH_MGR) {
+            LOGWARN << "Warning: Performing update FAILED to ACTIVE for OM svc for"
+                    << " *same* incarnation number, should never happen!!";
+            return true;
+
         } else {
             LOGDEBUG << "Will not allow transition from state:"
                     << OmExtUtilApi::getInstance()->printSvcStatus(current)
@@ -376,7 +382,8 @@ bool OmExtUtilApi::isIncomingUpdateValid( fpi::SvcInfo& incomingSvcInfo,
                                                 currentInfo.svc_status,
                                                 sameIncNo,
                                                 greaterIncNo,
-                                                zeroIncNo) )
+                                                zeroIncNo,
+                                                incomingSvcInfo.svc_type) )
         {
             ret = false;
         }
