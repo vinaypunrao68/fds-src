@@ -249,9 +249,16 @@ void VolumeGroupHandle::runOpenProtocol_(const OpenResponseCb &openCb)
          }
 
          determineFunctaionalReplicas_(openReq);
-         if (switchCtx_ && switchCtx_->triesCnt == 0) {
+         if (openRetryCtx_ && openRetryCtx_->doSwitch && openRetryCtx_->triesCnt == 0) {
             fds_assert(functionalReplicas_.size() == 0);
             runCoordinatorSwitchProtocol_(openCb);
+            return;
+         } else if (openRetryCtx_ && openRetryCtx_->triesCnt == 0) {
+            fds_assert(functionalReplicas_.size() == 0);
+            LOGNORMAL << logString() << " request force open:"
+                << " tries:" << openRetryCtx_->triesCnt;
+            openRetryCtx_->triesCnt++;
+            runOpenProtocol_(openCb);
             return;
          } else if (functionalReplicas_.size() == 0) {
              LOGWARN << logString()
@@ -297,15 +304,17 @@ void VolumeGroupHandle::runOpenProtocol_(const OpenResponseCb &openCb)
 void VolumeGroupHandle::runCoordinatorSwitchProtocol_(const OpenResponseCb &openCb)
 {
     LOGNORMAL << logString() << " request coordinator switch from:"
-        << fds::logString(switchCtx_->currentCoordinator)
-        << " tries:" << switchCtx_->triesCnt;
+        << fds::logString(openRetryCtx_->currentCoordinator)
+        << " tries:" << openRetryCtx_->triesCnt;
+
+    fds_assert(openRetryCtx_->doSwitch);
 
     /* Prepare coordinator switch message */
     auto msg = MAKE_SHARED<fpi::SwitchCoordinatorMsg>();
     msg->requester.id =  MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
     msg->volumeId = groupId_;
 
-    auto req = requestMgr_->newEPSvcRequest(switchCtx_->currentCoordinator);
+    auto req = requestMgr_->newEPSvcRequest(openRetryCtx_->currentCoordinator);
     req->setTaskExecutorId(groupId_);
     req->setPayload(FDSP_MSG_TYPEID(fpi::SwitchCoordinatorMsg), msg);
     req->setTimeoutMs(COORDINATOR_SWITCH_TIMEOUT_MS);
@@ -319,7 +328,7 @@ void VolumeGroupHandle::runCoordinatorSwitchProtocol_(const OpenResponseCb &open
                 << fds::logString(req->getPeerEpId()) << " contining with force open anyways";
         }
 
-        switchCtx_->triesCnt++;
+        openRetryCtx_->triesCnt++;
         runOpenProtocol_(openCb);
     };
 
@@ -506,7 +515,7 @@ VolumeGroupHandle::createPreareOpenVolumeGroupMsgReq_()
     prepareMsg->coordinator.id = MODULEPROVIDER()->getSvcMgr()->getSelfSvcUuid();
     prepareMsg->coordinator.version = version_;
     prepareMsg->mode.can_write = isCoordinator_;
-    if (switchCtx_ && switchCtx_->triesCnt > 0) {
+    if (openRetryCtx_ && openRetryCtx_->triesCnt > 0) {
         prepareMsg->force = true;
     }
     // TODO(Rao): Set the token.  Set cooridnator as well
@@ -563,11 +572,22 @@ VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
     /* Figure out if quorum # of replicas rejected the coordinator */
     if (cachedCoordinators.size() >= quorumCnt_) {
         fds_assert(quorumCnt_ == 2);            // NOTE: We only support quorum of 2 for now
-        if (cachedCoordinators[0] == cachedCoordinators[1]) {
-            if (!switchCtx_) {
+        if ((cachedCoordinators[0] == cachedCoordinators[1]) ||
+            (cachedCoordinators.size() > 2 &&
+             ((cachedCoordinators[0] == cachedCoordinators[2]) || 
+              (cachedCoordinators[1] == cachedCoordinators[2])))) {
+            if (!openRetryCtx_) {
                 /* We will go through a coordinator switch protocol */
-                switchCtx_.reset(new CoordinatorSwitchCtx);
-                switchCtx_->currentCoordinator = cachedCoordinators[0];
+                openRetryCtx_.reset(new OpenRetryCtx);
+                openRetryCtx_->currentCoordinator = cachedCoordinators[0];
+                openRetryCtx_->doSwitch = true;
+            }
+        } else {
+            /* No matching coordinators are returned. We cannot do switch but will do force open */
+             LOGNORMAL << logString()
+                 << " received quorum # of ERR_INVALID_COORDINATOR but with different coordinators";
+            if (!openRetryCtx_) {
+                openRetryCtx_.reset(new OpenRetryCtx);
             }
         }
         return;
@@ -589,6 +609,21 @@ VolumeGroupHandle::determineFunctaionalReplicas_(QuorumSvcRequest* openReq)
                  << " All replicas returned different sequence ids."
                  << " Common sequence id is: " << quorumSeqId
                  << ". Other replicas will go through sync";
+        } else if (size() == 3 &&
+                   quorumSeqId == -1 &&
+                   cachedCoordinators.size() > 0) {
+            /* We don't have quorum on sequence ids.  We have atlease one
+             * ERR_INVALID_COORDINATOR error.  We can try force open.  We do this so that
+             * next time around there won't be cached coordinators on the replicas and even
+             * if we don't have sequence id match we can still figure out a common sequenceid
+             * and reach an active state
+             */
+             LOGNORMAL << logString()
+                 << " no quorum on sequence ids and some replicas returned ERR_INVALID_COORDINATOR";
+            if (!openRetryCtx_) {
+                openRetryCtx_.reset(new OpenRetryCtx);
+            }
+            return;
         }
 
         if (quorumSeqId != -1) {        // we hava a sequence id for the group

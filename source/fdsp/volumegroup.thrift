@@ -79,6 +79,12 @@ struct SwitchCoordinatorMsg {
 struct SwitchCoordinatorRespMsg {
 }
 
+/* Debug message to offline volume group */
+struct DbgOfflineVolumeGroupMsg {
+    1: i64                      volId;
+} 
+
+
 /* BEGIN exposed for testing.  Will be removed */
 struct StartTxMsg {
     1: required VolumeIoHdr		volumeIoHdr;

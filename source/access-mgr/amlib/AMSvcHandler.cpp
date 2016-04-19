@@ -32,6 +32,7 @@ AMSvcHandler::AMSvcHandler(CommonModuleProviderIf *provider,
     REGISTER_FDSP_MSG_HANDLER(fpi::PrepareForShutdownMsg, shutdownAM);
     REGISTER_FDSP_MSG_HANDLER(fpi::AddToVolumeGroupCtrlMsg, addToVolumeGroup);
     REGISTER_FDSP_MSG_HANDLER(fpi::SwitchCoordinatorMsg, switchCoordinator);
+    REGISTER_FDSP_MSG_HANDLER(fpi::DbgOfflineVolumeGroupMsg, offlineVolumeGroup);
 }
 
 // notifySvcChange
@@ -340,6 +341,25 @@ AMSvcHandler::switchCoordinator(boost::shared_ptr<fpi::AsyncHdr>&           hdr,
     } else {
         LOGDEBUG << "vol:" << vol->name << " switching coordinator";
         addPendingFlush(vol->name, hdr);
+    }
+}
+
+/**
+ * Handler to handle offlining volume group. As part of offline we remove volume group handle
+ * If we can't look up the volume we immediately reply.
+ */
+void
+AMSvcHandler::offlineVolumeGroup(fpi::AsyncHdrPtr& asyncHdr,
+                                 fpi::DbgOfflineVolumeGroupMsgPtr& offlineMsg)
+{
+    auto vol = amProcessor->getVolume(static_cast<fds_volid_t>(offlineMsg->volId));
+    if (nullptr == vol) {
+        LOGDEBUG << "volid:" << offlineMsg->volId<< " unable to find volume";
+        asyncHdr->msg_code = ERR_VOL_NOT_FOUND;
+        sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
+    } else {
+        LOGDEBUG << "vol:" << vol->name << " offline volumegroup";
+        addPendingFlush(vol->name, asyncHdr);
     }
 }
 

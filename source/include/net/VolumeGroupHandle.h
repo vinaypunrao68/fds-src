@@ -206,10 +206,11 @@ struct VolumeGroupHandleListener {
     virtual bool isError(const fpi::FDSPMsgTypeId &reqMsgTypeId, const Error &e) = 0;
 };
 
-struct CoordinatorSwitchCtx {
-    fpi::SvcUuid            currentCoordinator;
+struct OpenRetryCtx {
     /* # of times switch was attempted */
     int                     triesCnt {0};
+    fpi::SvcUuid            currentCoordinator;
+    bool                    doSwitch {false};
 };
 
 /**
@@ -425,8 +426,13 @@ struct VolumeGroupHandle : HasModuleProvider, StateProvider {
      */
     bool                                isCoordinator_;
 
-    /* Context kept around when coordinator switch is in progress */
-    std::unique_ptr<CoordinatorSwitchCtx> switchCtx_;
+    /* Context kept around when we retry open.  Open is retried when
+     * 1. coordinator switch is required.  We run switch protocol when >= quorum
+     *    # of replicas return ERR_INVALID_COORDINATOR.
+     * 2. force open is required.  We may need force open when less than quorum
+     *    # of replicas return ERR_INVALID_COORDINATOR
+     */
+    std::unique_ptr<OpenRetryCtx>       openRetryCtx_;
 
     static const uint32_t               WRITEOPS_BUFFER_SZ = 1024;
 

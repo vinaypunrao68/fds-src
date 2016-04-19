@@ -90,6 +90,9 @@ class AMSvcHandler :  virtual public fpi::AMSvcIf, virtual public PlatNetSvcHand
     virtual void
     switchCoordinator(boost::shared_ptr<fpi::AsyncHdr>&           hdr,
                       fpi::SwitchCoordinatorMsgPtr&               msg);
+    virtual void
+    offlineVolumeGroup(fpi::AsyncHdrPtr& asyncHdr,
+                       fpi::DbgOfflineVolumeGroupMsgPtr& offlineMsg);
 
   private:
     // This mutex protects the _pendingFlushes map
