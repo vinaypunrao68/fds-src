@@ -1667,7 +1667,11 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
                 break;
             }
         case FDS_GENERIC_REQUEST: {
-            threadPool->schedule(&ObjectStorMgr::handleGenericRequest, objStorMgr, io);
+            if (io->getVolId() == FdsSysTaskQueueId) {
+                lowpriThreadPool->schedule(&ObjectStorMgr::handleGenericRequest, objStorMgr, io);
+            } else {
+                threadPool->schedule(&ObjectStorMgr::handleGenericRequest, objStorMgr, io);
+            }
             break;
         }
         default:
