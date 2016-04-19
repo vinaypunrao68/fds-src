@@ -246,7 +246,7 @@ public class CreateVolume implements RequestHandler
 
     private static final long TWO_TO_32DN = ( long ) Math.pow( 2, 32 );
     private static final String VOL_SIZE_ERR =
-        "The specified volume size is too large %s, please specify volume less than %s.";
+        "The specified volume size of %s%s is too large, based on the requested volume attributes of [ block size: %s%s volume size: %s%s ].";
 
     /**
      * @param volume the {@link Volume} representing the external model object
@@ -271,9 +271,18 @@ public class CreateVolume implements RequestHandler
                 final VolumeSettingsISCSI settingsISCSI = ( VolumeSettingsISCSI ) volume.getSettings();
                 if( settingsISCSI.getBlockSize() != null )
                 {
-                    blockSize = settingsISCSI.getBlockSize( )
-                                             .getValue( SizeUnit.B )
-                                             .longValue( );
+                    /*
+                     * FS-6036 Unable to create multiple volumes without refreshing the browser
+                     *
+                     * Adding a defensive check to ensure we use the default if block size is
+                     * zero ( 0 ).
+                     */
+                    if( !settingsISCSI.getBlockSize().isZero() )
+                    {
+                        blockSize = settingsISCSI.getBlockSize( )
+                                                 .getValue( SizeUnit.B )
+                                                 .longValue( );
+                    }
                 }
 
                 if( settingsISCSI.getCapacity() != null )
@@ -292,7 +301,11 @@ public class CreateVolume implements RequestHandler
         {
             throw new ApiException( String.format( VOL_SIZE_ERR,
                                                    Size.of( requestedVolumeSize, SizeUnit.B ).getValue( SizeUnit.GB ),
-                                                   Size.of( maxCalculated, SizeUnit.B ).getValue( SizeUnit.GB ) ),
+                                                   SizeUnit.GB.name(),
+                                                   Size.of( blockSize, SizeUnit.B ).getValue( SizeUnit.KB ),
+                                                   SizeUnit.KB.name(),
+                                                   Size.of( requestedVolumeSize, SizeUnit.B ).getValue( SizeUnit.GB ),
+                                                   SizeUnit.GB.name() ),
                                     ErrorCode.BAD_REQUEST );
         }
     }
