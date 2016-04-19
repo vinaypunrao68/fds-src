@@ -308,77 +308,21 @@ public class ExternalModelConverter {
 
         if( volDescType != null )
         {
-            if( FdsFeatureToggles.USE_VOLUME_GROUPING.isActive() )
-            {
-                final Optional<VolumeGroupCoordinatorInfo> coordinatorInfo = Optional.ofNullable(
-                    volDescType.getCoordinator( ) );
-                if ( coordinatorInfo.isPresent( ) && ( coordinatorInfo.get( )
-                                                                      .getId( )
-                                                                      .getSvc_uuid( ) != 0 ) )
-                {
-                    try
-                    {
-                        logger.trace(
-                            "Requesting volume status for {}:{} from Volume group coordinator {}",
-                            internalVolume.getVolId( ), internalVolume.getName( ), coordinatorInfo.get( )
-                                                                                                  .getId( )
-                                                                                                  .getSvc_uuid( ) );
-
-                        final AsyncAm am = AsyncAmMap.get( coordinatorInfo.get( )
-                                                                          .getId( )
-                                                                          .getSvc_uuid( ) );
-
-                        if ( am != null )
-                        {
-                            CompletableFuture<com.formationds.apis.VolumeStatus> completableFuture =
-                                am.volumeStatus( "" /* Local Domain Name */, internalVolume.getName( ) );
-
-                            final com.formationds.apis.VolumeStatus vstatus = completableFuture.get( );
-                            if ( vstatus != null )
-                            {
-                                extUsage = Optional.of(
-                                    Size.of( vstatus.getCurrentUsageInBytes( ), SizeUnit.B ) );
-
-                            }
-                        }
-                    }
-                    catch ( IOException | InterruptedException | ExecutionException e )
-                    {
-                        logger.warn( "Failed to retrieve volume description for {}:{} - reason: {}.",
-                                     internalVolume.getVolId( ), internalVolume.getName( ),
-                                     e.getMessage( ) != null ? e.getMessage( ) : "none reported" );
-                        logger.debug( "", e );
-
-                        // force a new client to be created.
-                        AsyncAmMap.failed( coordinatorInfo.get( )
-                                                          .getId( )
-                                                          .getSvc_uuid( ) );
-                    }
-                }
-                else
-                {
-                    logger.trace(
-                        "Volume Coordinator isn't set for {}:{}, will attempt retrieving usage from stats",
-                        internalVolume.getVolId( ), internalVolume.getName( ) );
-                }
+            com.formationds.apis.VolumeStatus volumeStatus;
+            try {
+                volumeStatus = SingletonAmAPI.instance()
+                                             .api()
+                                             .volumeStatus( "" /* TODO: Dummy domain name. */,
+                                                            internalVolume.getName()).get();
+                extUsage = Optional.of( Size.of( volumeStatus.getCurrentUsageInBytes(),
+                                                 SizeUnit.B ) );
             }
-            else // volume grouping is disabled!, use platform.conf resource 'fds.xdi.am_host'
+            catch (Exception e)
             {
-                com.formationds.apis.VolumeStatus volumeStatus;
-                try {
-                    volumeStatus = SingletonAmAPI.instance()
-                                                 .api()
-                                                 .volumeStatus( "" /* TODO: Dummy domain name. */,
-                                                                internalVolume.getName()).get();
-                    extUsage = Optional.of( Size.of( volumeStatus.getCurrentUsageInBytes(),
-                                                     SizeUnit.B ) );
-                } catch (Exception e)
-                {
-                    logger.warn( "Failed to retrieve volume description for {}:{} - reason: {}.",
-                                 internalVolume.getVolId( ), internalVolume.getName( ),
-                                 e.getMessage( ) != null ? e.getMessage( ) : "none reported" );
-                    logger.debug( "", e );
-                }
+                logger.warn( "Failed to retrieve volume status for {}:{} - reason: {}.",
+                             internalVolume.getVolId( ), internalVolume.getName( ),
+                             e.getMessage( ) != null ? e.getMessage( ) : "none reported" );
+                logger.debug( "", e );
             }
         }
 
