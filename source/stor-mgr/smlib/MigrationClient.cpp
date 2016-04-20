@@ -121,7 +121,7 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
         auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(destSMNodeID.toSvcUuid());
         asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg),
                                 putReq->putObjectNetReq);
-        asyncPutReq->setTimeoutMs(1000);
+        asyncPutReq->setTimeoutMs(25000);
         asyncPutReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationClient::fwdPutObjectCb, putReq));
         asyncPutReq->invoke();
     } else if (req->io_type == FDS_SM_DELETE_OBJECT) {

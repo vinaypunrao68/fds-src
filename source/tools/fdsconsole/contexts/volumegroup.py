@@ -226,13 +226,18 @@ class VolumeGroupContext(Context):
         msg = FdspUtils.newSvcMsgByTypeId('DbgOfflineVolumeGroupMsg');
         msg.volId = volid
 
-        for uuid in dmt.getNodesForVolume(volid) :
+        # first offline against AMs
+        uuids = self.config.getServiceApi().getServiceIds('am')
+        # then do offline against all DMs
+        uuids.extend(dmt.getNodesForVolume(volid))
+
+        for uuid in uuids:
             cb = WaitedCallback();
             svc.sendAsyncSvcReq(uuid, msg, cb)
 
-            print('-->From service {}: '.format(uuid))
+            self.printServiceHeader(uuid)
             if not cb.wait(30):
-                print 'Failed to force sync: {}'.format(self.config.getServiceApi().getServiceName(uuid))
+                print 'offline timedout'
             elif cb.header.msg_code != 0:
                 print 'Failed to offline volume group error: {}'.format(cb.header.msg_code)
             else:

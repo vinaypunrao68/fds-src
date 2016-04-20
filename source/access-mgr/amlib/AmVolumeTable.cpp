@@ -539,10 +539,11 @@ AmVolumeTable::getVolume(const std::string& vol_name) const {
 void
 AmVolumeTable::checkFailureResponse(AmRequest * amReq, Error const error) {
     if (ERR_INVALID_COORDINATOR == error ||
-        ERR_VOLUMEGROUP_INVALID == error) {
+        ERR_VOLUMEGROUP_INVALID == error ||
+        ERR_DM_VOL_NOT_ACTIVATED == error) {
         WriteGuard wg(map_rwlock);
         auto vol = getVolume(amReq->io_vol_id);
-        if (nullptr != vol && vol->isWritable()) {
+        if (nullptr != vol) {
             LOGNORMAL << "vol:" << amReq->volume_name << " closing due to:" << error;
             auto volReq = new DetachVolumeReq(amReq->io_vol_id, amReq->volume_name, nullptr);
             volReq->token = vol->clearToken();
