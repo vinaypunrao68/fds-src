@@ -1632,6 +1632,9 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
                     << " and exhausted number of retries. ";
         migrExecutor->setDoneWithError();
         migrExecutor->clearRetryDltTokenSet();
+        // Retries exhausted, still make token available so that it can serve
+        // existing data and accept new writes.
+        changeDltTokensAvailability(std::set<fds_token_id>(smToken), true);
         return;
     }
 
