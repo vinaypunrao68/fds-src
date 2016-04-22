@@ -406,6 +406,9 @@ class MigrationMgr : StateProvider{
     template<typename T>
     void changeDltTokensAvailability(const T& tokens, bool availability);
 
+    // Change token state for a single sm token
+    void changeTokenState(fds_token_id& token, bool availability);
+
     /**
      * If all executors and clients are done, moves migration to IDLE state
      * and resets the state

@@ -1271,14 +1271,21 @@ MigrationMgr::makeTokensAvailable(const DLT *dlt,
     }
 }
 
+// Change state for a bunch of tokens
 template<typename T>
 void
 MigrationMgr::changeDltTokensAvailability(const T &tokens, bool availability) {
     FDSGUARD(dltTokenStatesMutex);
     for (auto token : tokens) {
-        dltTokenStates[token] = availability;
-        LOGNOTIFY << "DLT token " << token << " availability = " << availability;
+        changeTokenState(token, availability);
     }
+}
+
+// Change state for single token
+void
+MigrationMgr::changeTokenState(fds_token_id &token, bool availability) {
+    dltTokenStates[token] = availability;
+    LOGNOTIFY << "DLT token " << token << " availability = " << availability;
 }
 
 fds_bool_t
@@ -1634,7 +1641,7 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
         migrExecutor->clearRetryDltTokenSet();
         // Retries exhausted, still make token available so that it can serve
         // existing data and accept new writes.
-        changeDltTokensAvailability(std::set<fds_token_id>(smToken), true);
+        changeTokenState(smToken, true);
         return;
     }
 
@@ -1756,10 +1763,11 @@ std::string MigrationMgr::getStateInfo() {
     }
 
     auto myTokens = dlt->getTokens(objStoreMgrUuid);
+    std::sort(myTokens.begin(), myTokens.end());
     /* Lock dltTokenStates to make sure there is no change in dlt while checking*/
     synchronized(dltTokenStatesMutex) {
         for (const auto &tok : myTokens) {
-            if (tok >= dltTokenStates.size() || !dltTokenStates[tok]) {
+            if (!dltTokenStates[tok]) {
                 unavailableTokens.append(tok);
             } else if (dltTokenStates[tok]) {
                 availableTokens.append(tok);
