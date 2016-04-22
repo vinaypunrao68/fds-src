@@ -445,7 +445,8 @@ ScstDevice::getAndRespond() {
                 throw ScstError::scst_error;
             case EFAULT:
             case EINVAL:
-                fds_panic("Invalid Scst argument!");
+                LOGNOTIFY << "Scst device sent invalid argument up the stack, terminating.";
+                throw ScstError::scst_error;
             case EAGAIN:
                 // If we still have responses, keep replying
                 if (!readyResponses.empty()) {

@@ -135,7 +135,7 @@ bool ScstConnector::_addTarget(VolumeDesc const& volDesc) {
     target.setInitiatorMasking(initiator_list);
 
     // Setup CHAP
-    std::unordered_map<std::string, std::string> credentials;
+    std::unordered_map<std::string, std::string> incoming_credentials;
     for (auto const& cred : volDesc.iscsiSettings.incomingUsers) {
         auto password = cred.passwd;
         if (minimum_chap_password_len > password.size()) {
@@ -145,14 +145,32 @@ bool ScstConnector::_addTarget(VolumeDesc const& volDesc) {
                     << " extending undersized password";
             password.resize(minimum_chap_password_len, '*');
         }
-        auto cred_it = credentials.end();
+        auto cred_it = incoming_credentials.end();
         bool happened;
-        std::tie(cred_it, happened) = credentials.emplace(cred.name, password);
+        std::tie(cred_it, happened) = incoming_credentials.emplace(cred.name, password);
         if (!happened) {
             LOGWARN << "user:" << cred.name << " duplicate";
         }
     }
-    target.setCHAPCreds(credentials);
+    std::unordered_map<std::string, std::string> outgoing_credentials;
+    for (auto const& cred : volDesc.iscsiSettings.outgoingUsers) {
+        auto password = cred.passwd;
+        if (minimum_chap_password_len > password.size()) {
+            LOGWARN << "user:" << cred.name
+                    << " length:" << password.size()
+                    << " minlength:" << minimum_chap_password_len
+                    << " extending undersized password";
+            password.resize(minimum_chap_password_len, '*');
+        }
+        auto cred_it = outgoing_credentials.end();
+        bool happened;
+        std::tie(cred_it, happened) = outgoing_credentials.emplace(cred.name, password);
+        if (!happened) {
+            LOGWARN << "user:" << cred.name << " duplicate";
+        }
+    }
+
+    target.setCHAPCreds(incoming_credentials, outgoing_credentials);
 
     target.enable();
     return true;

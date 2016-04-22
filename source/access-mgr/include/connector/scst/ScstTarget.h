@@ -59,7 +59,8 @@ struct ScstTarget
     void addDevice(VolumeDesc const& vol_desc);
     void deviceDone(std::string const& volume_name);
     void removeDevice(std::string const& volume_name);
-    void setCHAPCreds(ScstAdmin::credential_map& credentials);
+    void setCHAPCreds(ScstAdmin::credential_map& incoming_credentials,
+                      ScstAdmin::credential_map& outgoing_credentials);
     void setInitiatorMasking(ScstAdmin::initiator_set const& ini_members);
     void shutdown();
 
