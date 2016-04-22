@@ -413,7 +413,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
             asyncRebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationExecutor::objectRebalanceFilterSetResp,
                                                                 tok,
                                                                 perTokenMsgs[tok]->seqNum));
-            asyncRebalSetReq->setTimeoutMs(5000);
+            asyncRebalSetReq->setTimeoutMs(getMigrationMsgsTimeout());
             asyncRebalSetReq->invoke();
 
             // for each msg we sent, start tracking this as IO -- because we want callback still exist
