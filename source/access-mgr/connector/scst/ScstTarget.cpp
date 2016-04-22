@@ -142,30 +142,44 @@ void ScstTarget::shutdown() {
 }
 
 void
-ScstTarget::setCHAPCreds(ScstAdmin::credential_map& credentials) {
-    std::unique_lock<std::mutex> l(deviceLock);
+ScstTarget::setCHAPCreds(ScstAdmin::credential_map& incoming_credentials,
+                         ScstAdmin::credential_map& outgoing_credentials) {
+    std::lock_guard<std::mutex> l(deviceLock);
 
-    // Remove all existing IncomingUsers if not in new creds
+    // Remove all existing Incoming/Outgoing Users if not in new creds
     // or secret is different
     for (auto const& cred : ScstAdmin::currentIncomingUsers(target_name)) {
-        auto it = credentials.find(cred.first);
-        if ((credentials.end() != it) && (it->second == cred.second)) {
+        auto it = incoming_credentials.find(cred.first);
+        if ((incoming_credentials.end() != it) && (it->second == cred.second)) {
             // Already have this login
-            credentials.erase(it);
+            incoming_credentials.erase(it);
+            continue;
+        }
+        ScstAdmin::removeIncomingUser(target_name, cred.first);
+    }
+
+    for (auto const& cred : ScstAdmin::currentOutgoingUsers(target_name)) {
+        auto it = outgoing_credentials.find(cred.first);
+        if ((outgoing_credentials.end() != it) && (it->second == cred.second)) {
+            // Already have this login
+            outgoing_credentials.erase(it);
             continue;
         }
         ScstAdmin::removeIncomingUser(target_name, cred.first);
     }
 
     // Apply all credentials
-    for (auto const& cred : credentials) {
+    for (auto const& cred : incoming_credentials) {
         ScstAdmin::addIncomingUser(target_name, cred.first, cred.second);
+    }
+    for (auto const& cred : outgoing_credentials) {
+        ScstAdmin::addOutgoingUser(target_name, cred.first, cred.second);
     }
 }
 
 void
 ScstTarget::setInitiatorMasking(ScstAdmin::initiator_set const& new_members) {
-    std::unique_lock<std::mutex> l(deviceLock);
+    std::lock_guard<std::mutex> l(deviceLock);
     if ((ini_members == new_members) && luns_mapped) {
         return;
     }

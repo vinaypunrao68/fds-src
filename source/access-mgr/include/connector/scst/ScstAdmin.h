@@ -72,6 +72,7 @@ struct ScstAdmin
      * Build a map of the current users known to SCST for a given target
      */
     static credential_map currentIncomingUsers(std::string const& target_name);
+    static credential_map currentOutgoingUsers(std::string const& target_name);
 
     static void currentInitiators(std::string const& target_name, initiator_set& current_set);
 
@@ -79,6 +80,10 @@ struct ScstAdmin
      * Add the given credential to the target's IncomingUser attributes
      */
     static void addIncomingUser(std::string const& target_name,
+                                std::string const& user_name,
+                                std::string const& password);
+
+    static void addOutgoingUser(std::string const& target_name,
                                 std::string const& user_name,
                                 std::string const& password);
 

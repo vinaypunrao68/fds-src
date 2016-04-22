@@ -52,6 +52,34 @@ static std::string scst_iscsi_lun_mgmt      { "mgmt" };
 static std::string scst_iscsi_host_mgmt_path { "/initiators/" };
 static std::string scst_iscsi_host_mgmt      { "mgmt" };
 
+static ScstAdmin::credential_map
+currentUsers(std::string const& path) {
+    ScstAdmin::credential_map current_users;
+    glob_t glob_buf {};
+    auto res = glob(path.c_str(), GLOB_ERR, nullptr, &glob_buf);
+    if (0 == res) {
+        auto user = glob_buf.gl_pathv;
+        while (nullptr != *user && 0 < glob_buf.gl_pathc) {
+            std::ifstream scst_user(*user, std::ios::in);
+            if (scst_user.is_open()) {
+                std::string line;
+                if (std::getline(scst_user, line)) {
+                    std::istringstream iss(line);
+                    std::string user, password;
+                    if (iss >> user >> password) {
+                        current_users.emplace(user, password);
+                    }
+                }
+            } else {
+                LOGERROR << "user:" << *user << " unable to open";
+            }
+            ++user; --glob_buf.gl_pathc;
+        }
+    }
+    globfree(&glob_buf);
+    return current_users;
+}
+
 /**
  * Is the driver enabled
  */
@@ -142,31 +170,15 @@ void ScstAdmin::toggleTarget(std::string const& target_name, bool const enable) 
  */
 ScstAdmin::credential_map
 ScstAdmin::currentIncomingUsers(std::string const& target_name) {
-    credential_map current_users;
-    glob_t glob_buf {};
-    auto pattern = scst_iscsi_target_path + target_name + "/IncomingUser*";
-    auto res = glob(pattern.c_str(), GLOB_ERR, nullptr, &glob_buf);
-    if (0 == res) {
-        auto user = glob_buf.gl_pathv;
-        while (nullptr != *user && 0 < glob_buf.gl_pathc) {
-            std::ifstream scst_user(*user, std::ios::in);
-            if (scst_user.is_open()) {
-                std::string line;
-                if (std::getline(scst_user, line)) {
-                    std::istringstream iss(line);
-                    std::string user, password;
-                    if (iss >> user >> password) {
-                        current_users.emplace(user, password);
-                    }
-                }
-            } else {
-                LOGERROR << "user:" << *user << " unable to open";
-            }
-            ++user; --glob_buf.gl_pathc;
-        }
-    }
-    globfree(&glob_buf);
-    return current_users;
+    return currentUsers(scst_iscsi_target_path + target_name + "/IncomingUser*");
+}
+
+/**
+ * Build a map of the current users known to SCST for a given target
+ */
+ScstAdmin::credential_map
+ScstAdmin::currentOutgoingUsers(std::string const& target_name) {
+    return currentUsers(scst_iscsi_target_path + target_name + "/OutgoingUser*");
 }
 
 /**
@@ -210,6 +222,25 @@ void ScstAdmin::addIncomingUser(std::string const& target_name,
     }
     tgt_dev << "add_target_attribute "  << target_name
             << " IncomingUser "         << user_name
+            << " "                      << password << std::endl;
+}
+
+/**
+ * Add the given credential to the target's OutgoingUser attributes
+ */
+void ScstAdmin::addOutgoingUser(std::string const& target_name,
+                                std::string const& user_name,
+                                std::string const& password) {
+    LOGDEBUG << "user:" << user_name
+             << " target:" << target_name
+             << " adding iSCSI target attribute";
+    std::ofstream tgt_dev(scst_iscsi_target_path + scst_iscsi_target_mgmt, std::ios::out);
+    if (!tgt_dev.is_open()) {
+        LOGERROR << "target:" << target_name << " unable to add attribute";
+        return;
+    }
+    tgt_dev << "add_target_attribute "  << target_name
+            << " OutgoingUser "         << user_name
             << " "                      << password << std::endl;
 }
 
