@@ -96,9 +96,11 @@ struct ScstAdmin
     static bool groupExists(std::string const& target_name, std::string const& group_name);
 
     /**
-     * Remove the given credential to the target's IncomingUser attributes
+     * Remove the given credential from the target's attributes
      */
     static void removeIncomingUser(std::string const& target_name,
+                                   std::string const& user_name);
+    static void removeOutgoingUser(std::string const& target_name,
                                    std::string const& user_name);
 
     static bool mapDevices(std::string const& target_name,

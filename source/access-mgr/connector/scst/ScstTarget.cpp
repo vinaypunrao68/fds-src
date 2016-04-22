@@ -165,7 +165,7 @@ ScstTarget::setCHAPCreds(ScstAdmin::credential_map& incoming_credentials,
             outgoing_credentials.erase(it);
             continue;
         }
-        ScstAdmin::removeIncomingUser(target_name, cred.first);
+        ScstAdmin::removeOutgoingUser(target_name, cred.first);
     }
 
     // Apply all credentials

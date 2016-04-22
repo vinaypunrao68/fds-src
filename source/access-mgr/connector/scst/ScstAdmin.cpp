@@ -285,6 +285,23 @@ void ScstAdmin::removeIncomingUser(std::string const& target_name,
             << " IncomingUser "         << user_name << std::endl;
 }
 
+/**
+ * Remove the given credential to the target's IncomingUser attributes
+ */
+void ScstAdmin::removeOutgoingUser(std::string const& target_name,
+                        std::string const& user_name) {
+    LOGDEBUG << "user:" << user_name
+             << " target:" << target_name
+             << " removing iSCSI target attribute";
+    std::ofstream tgt_dev(scst_iscsi_target_path + scst_iscsi_target_mgmt, std::ios::out);
+    if (!tgt_dev.is_open()) {
+        LOGERROR << "target:" << target_name << " could not remove attribute";
+        return;
+    }
+    tgt_dev << "del_target_attribute "  << target_name
+            << " OutgoingUser "         << user_name << std::endl;
+}
+
 bool ScstAdmin::mapDevices(std::string const& target_name,
                            device_map_type const& device_map,
                            lun_iterator const lun_start) {
