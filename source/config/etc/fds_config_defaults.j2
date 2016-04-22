@@ -68,6 +68,7 @@
 {% set sm_log_severity = fds_log_severity if fds_log_severity is defined else 'trace' %}
 {% set sm_data_verify = fds_sm_data_verify if fds_sm_data_verify is defined else 'true' %}
 {% set sm_data_verify_background = fds_sm_data_verify_background if fds_sm_data_verify_background is defined else 'true' %}
+{% set sm_to_sm_mtimeout = fds_sm_to_sm_mtimeout if fds_sm_to_sm_mtimeout is defined else '25000' %}
 {% set sm_sync_meta_write = fds_sm_sync_meta_write if fds_sm_sync_meta_write is defined else 'false' %}
 {% set sm_cache_default_data_entries = fds_sm_cache_default_data_entries if fds_sm_cache_default_data_entries is defined else '0' %}
 {% set sm_tiering_hybrid_batchsz = fds_sm_tiering_hybrid_batchsz if fds_sm_tiering_hybrid_batchsz is defined else '1024' %}

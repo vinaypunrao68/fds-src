@@ -153,6 +153,8 @@ class MigrationExecutor {
         return abortPending;
     }
 
+    fds_uint32_t getMigrationMsgsTimeout() const;
+
     /**
      * Adds DLT token to the list of DLT tokens for which this
      * MigrationExecutor is responsible for

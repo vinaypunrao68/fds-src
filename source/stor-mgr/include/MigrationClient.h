@@ -58,8 +58,9 @@ class MigrationClient {
     typedef std::function<void()> continueWorkFn;
     typedef std::vector<std::pair<ObjMetaData::ptr, fpi::ObjectMetaDataReconcileFlags>> ObjMetaDataSet;
 
+    fds_uint32_t getMigrationMsgsTimeout() const;
 
-  /**
+    /**
      * A simple routine to snapshot metadata associated with the token.
      */
     Error migClientSnapshotMetaData();

@@ -10,6 +10,7 @@
 #include <dlt.h>
 #include <SMSvcHandler.h>
 #include <net/SvcRequestPool.h>
+#include <StorMgr.h>
 #include <MigrationExecutor.h>
 #include <MigrationMgr.h>
 
@@ -56,6 +57,12 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
 
 MigrationExecutor::~MigrationExecutor()
 {
+}
+
+fds_uint32_t
+MigrationExecutor::getMigrationMsgsTimeout() const {
+    ObjectStorMgr* osm = dynamic_cast<ObjectStorMgr*>(dataStore);
+    return osm->getInterStorMgrTimeout();
 }
 
 void MigrationExecutor::handleTimeout() {
@@ -227,7 +234,7 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
                 MigrationExecutor::objectRebalanceFilterSetResp,
                 dltTok.first,
                 dltTok.second));
-            asyncRebalSetReq->setTimeoutMs(5000);
+            asyncRebalSetReq->setTimeoutMs(getMigrationMsgsTimeout());
             asyncRebalSetReq->invoke();
 
             // Per request tracking starts here and is stopped in response callback.
@@ -256,7 +263,7 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
     return err;
 }
 
-// DO NOT release snapshot here, becuase it maybe passed to other
+// DO NOT release snapshot here, because it maybe passed to other
 // migration executors
 Error
 MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,

@@ -130,6 +130,11 @@ ObjectStorMgr::mod_init(SysParams const *const param) {
     return 0;
 }
 
+fds_uint32_t
+ObjectStorMgr::getInterStorMgrTimeout() const {
+    return CONFIG_UINT32("fds.sm.to_sm_mtimeout",25000);
+}
+
 void ObjectStorMgr::changeTokensState(const std::set<fds_token_id>& dltTokens) {
     if (dltTokens.size()) {
         objStorMgr->migrationMgr->changeDltTokensState(dltTokens, false);

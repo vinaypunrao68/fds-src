@@ -88,6 +88,8 @@ class MigrationMgr : StateProvider{
     std::string getStateProviderId() override;
     std::string getStateInfo() override;
 
+    fds_uint32_t getMigrationMsgsTimeout() const;
+
     /**
      * Handles start migration message from OM.
      * Creates MigrationExecutor object for each SM token, source SM

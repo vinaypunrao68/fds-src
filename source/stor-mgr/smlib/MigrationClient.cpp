@@ -9,7 +9,7 @@
 #include <SMSvcHandler.h>
 #include <ObjMeta.h>
 #include <dlt.h>
-
+#include <StorMgr.h>
 #include <SmIo.h>
 #include <MigrationClient.h>
 #include <fds_process.h>
@@ -50,6 +50,12 @@ MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
 
 MigrationClient::~MigrationClient()
 {
+}
+
+fds_uint32_t
+MigrationClient::getMigrationMsgsTimeout() const {
+    ObjectStorMgr* osm = dynamic_cast<ObjectStorMgr*>(dataStore);
+    return osm->getInterStorMgrTimeout();
 }
 
 void
@@ -121,7 +127,7 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
         auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(destSMNodeID.toSvcUuid());
         asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg),
                                 putReq->putObjectNetReq);
-        asyncPutReq->setTimeoutMs(25000);
+        asyncPutReq->setTimeoutMs(getMigrationMsgsTimeout());
         asyncPutReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationClient::fwdPutObjectCb, putReq));
         asyncPutReq->invoke();
     } else if (req->io_type == FDS_SM_DELETE_OBJECT) {

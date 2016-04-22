@@ -48,7 +48,7 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
                                                            std::placeholders::_6);
     }
 
-    parallelMigration = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.migration.parallel_migration", 16);
+    parallelMigration = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.migration.parallel_migration", 2);
     LOGMIGRATE << "Parallel migration - " << parallelMigration << " threads";
     enableMigrationFeature = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_feature");
     numPrimaries = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.number_of_primary", 0);
@@ -65,6 +65,12 @@ MigrationMgr::~MigrationMgr() {
     g_fdsprocess->get_cntrs_mgr()->remove_from_export(this);
     mTimer.destroy();
     migrationTimeoutTimer->destroy();
+}
+
+fds_uint32_t
+MigrationMgr::getMigrationMsgsTimeout() const {
+    ObjectStorMgr* osm = dynamic_cast<ObjectStorMgr*>(smReqHandler);
+    return osm->getInterStorMgrTimeout();
 }
 
 /**
