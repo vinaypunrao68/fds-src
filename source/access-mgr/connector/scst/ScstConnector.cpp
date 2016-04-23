@@ -152,8 +152,11 @@ bool ScstConnector::_addTarget(VolumeDesc const& volDesc) {
             LOGWARN << "user:" << cred.name << " duplicate";
         }
     }
+
+    // Outgoing credentials only support a single entry, just take the last one
     std::unordered_map<std::string, std::string> outgoing_credentials;
-    for (auto const& cred : volDesc.iscsiSettings.outgoingUsers) {
+    if (!volDesc.iscsiSettings.outgoingUsers.empty()) {
+        auto const& cred = volDesc.iscsiSettings.outgoingUsers.back();
         auto password = cred.passwd;
         if (minimum_chap_password_len > password.size()) {
             LOGWARN << "user:" << cred.name
@@ -162,12 +165,7 @@ bool ScstConnector::_addTarget(VolumeDesc const& volDesc) {
                     << " extending undersized password";
             password.resize(minimum_chap_password_len, '*');
         }
-        auto cred_it = outgoing_credentials.end();
-        bool happened;
-        std::tie(cred_it, happened) = outgoing_credentials.emplace(cred.name, password);
-        if (!happened) {
-            LOGWARN << "user:" << cred.name << " duplicate";
-        }
+        outgoing_credentials.emplace(cred.name, password);
     }
 
     target.setCHAPCreds(incoming_credentials, outgoing_credentials);
