@@ -1680,8 +1680,8 @@ Error ObjectStorMgr::SmQosCtrl::processIO(FDS_IOType* _io) {
                 break;
             }
         case FDS_GENERIC_REQUEST: {
-            if (io->getVolId() == FdsSysTaskQueueId) {
-                lowpriThreadPool->schedule(&ObjectStorMgr::handleGenericRequest, objStorMgr, io);
+            if ((dynamic_cast<SmIoGenericRequest*>(io))->getTaskType() == sm_task_type::scavenger) {
+                lowpriThreadPool->schedule(&ObjectStorMgr::handleGenericRequest, parentSm, io);
             } else {
                 threadPool->schedule(&ObjectStorMgr::handleGenericRequest, objStorMgr, io);
             }
