@@ -487,11 +487,11 @@ Error ObjectStorMgr::handleDltUpdate() {
                 auto task = [=] () {
                     LOGNOTIFY << "SM " << std::hex << getUuid() << " going to do"
                               << " token diff resync";
-                    objStorMgr->migrationMgr->startResync(curDlt,
-                                                          getUuid(),
-                                                          curDlt->getNumBitsForToken(),
-                                                          std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
-                                                                    std::placeholders::_1, std::placeholders::_2));
+                    migrationMgr->startResync(curDlt,
+                                              getUuid(),
+                                              curDlt->getNumBitsForToken(),
+                                              std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
+                                                        std::placeholders::_1, std::placeholders::_2));
                 };
 
                 auto startResyncTaskPtr = SHPTR<FdsTimerTask>(new FdsTimerFunctionTask(task));
