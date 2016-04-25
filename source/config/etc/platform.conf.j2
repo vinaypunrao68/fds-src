@@ -506,6 +506,9 @@ fds: {
             /* boolean to enable/disable SM resync feature */
             enable_resync = {{ sm_enable_resync }}
 
+            /* delay triggering resync after bootup */
+            delay = {{ sm_delay_trigger_migration }}
+
             /* timeout duration in sec */
             migration_timeout = {{ sm_migration_timeout }}
 

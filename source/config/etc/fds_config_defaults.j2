@@ -83,6 +83,7 @@
 {% set sm_verify_migration_data = fds_sm_verify_migration_data if fds_sm_verify_migration_data is defined else 'false' %}
 {% set sm_enable_feature = fds_sm_enable_feature if fds_sm_enable_feature is defined else 'true' %}
 {% set sm_enable_resync = fds_sm_enable_resync if fds_sm_enable_resync is defined else 'true' %}
+{% set sm_delay_trigger_migration = fds_sm_delay_trigger_migration if fds_sm_delay_trigger_migration is defined else '60' %}
 {% set sm_migration_timeout = fds_sm_migration_timeout if fds_sm_migration_timeout is defined else '300000' %}
 {% set sm_parallel_migration = fds_sm_parallel_migration if fds_sm_parallel_migration is defined else '2' %}
 {#

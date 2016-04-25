@@ -484,13 +484,21 @@ Error ObjectStorMgr::handleDltUpdate() {
         // Start the resync process
         if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync", true)) {
             if (objectStore->doResync()) {
-                LOGNOTIFY << "SM " << std::hex << getUuid() << " going to do"
-                          << " token diff resync";
-                err = objStorMgr->migrationMgr->startResync(curDlt,
-                                                            getUuid(),
-                                                            curDlt->getNumBitsForToken(),
-                                                            std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
-                                                                      std::placeholders::_1, std::placeholders::_2));
+                auto task = [=] () {
+                    LOGNOTIFY << "SM " << std::hex << getUuid() << " going to do"
+                              << " token diff resync";
+                    objStorMgr->migrationMgr->startResync(curDlt,
+                                                          getUuid(),
+                                                          curDlt->getNumBitsForToken(),
+                                                          std::bind(&ObjectStorMgr::handleResyncDoneOrPending, this,
+                                                                    std::placeholders::_1, std::placeholders::_2));
+                };
+
+                auto startResyncTaskPtr = SHPTR<FdsTimerTask>(new FdsTimerFunctionTask(task));
+                auto timer = MODULEPROVIDER()->getTimer();
+                auto delay = CONFIG_UINT32("fds.sm.migration.delay",60);
+                timer->schedule(startResyncTaskPtr, std::chrono::seconds(delay));
+
             } else {
                 objectStore->setResync();
             }
