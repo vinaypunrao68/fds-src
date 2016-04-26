@@ -483,6 +483,20 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
     }
 }
 
+void
+MigrationMgr::initiateClientForMigration(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
+                                         const fpi::SvcUuid &executorSmUuid,
+                                         const NodeUuid& mySvcUuid,
+                                         fds_uint32_t bitsPerDltToken,
+                                         const DLT* dlt,
+                                         std::function<void(Error)> cb) {
+    auto err = startObjectRebalance(rebalSetMsg,
+                                    executorSmUuid,
+                                    mySvcUuid,
+                                    bitsPerDltToken, dlt);
+    cb(err);
+}
+
 /**
  * Handle start object rebalance from destination SM
  */

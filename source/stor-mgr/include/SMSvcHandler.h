@@ -70,7 +70,7 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     DECL_ASYNC_HANDLER(shutdownSM             , PrepareForShutdownMsg);
     DECL_ASYNC_HANDLER(migrationInit          , CtrlNotifySMStartMigration);
     DECL_ASYNC_HANDLER(migrationAbort         , CtrlNotifySMAbortMigration);    
-    DECL_ASYNC_HANDLER(initiateObjectSync     , CtrlObjectRebalanceFilterSet);
+    DECL_ASYNC_HANDLER(initiateFirstRound     , CtrlObjectRebalanceFilterSet);
     DECL_ASYNC_HANDLER(syncObjectSet          , CtrlObjectRebalanceDeltaSet);
     DECL_ASYNC_HANDLER(initiateSecondRound    , CtrlGetSecondRebalanceDeltaSet);
     DECL_ASYNC_HANDLER(finishClientTokenResync, CtrlFinishClientTokenResyncMsg);
@@ -108,6 +108,8 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
                                    const Error &err);
     void initiateSecondRoundCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                const Error &err);
+    void initiateFirstRoundCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                              const Error &err);
   private:
     ObjectStorMgr *objStorMgr_;
 };

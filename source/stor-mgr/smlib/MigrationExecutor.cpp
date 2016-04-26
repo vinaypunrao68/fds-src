@@ -804,7 +804,7 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
     async2RebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlGetSecondRebalanceDeltaSet),
                                   msg);
     async2RebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationExecutor::getSecondRebalanceDeltaResp));
-    async2RebalSetReq->setTimeoutMs(5000);
+    async2RebalSetReq->setTimeoutMs(getMigrationMsgsTimeout());
 
     // Start tracking outgoing request to Migration Client. Will be stopped in callback.
     if (!trackIOReqs.startTrackIOReqs()) {
@@ -946,7 +946,7 @@ MigrationExecutor::sendFinishResyncToClient()
     auto asyncFinishClientReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
     asyncFinishClientReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlFinishClientTokenResyncMsg), msg);
     asyncFinishClientReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationExecutor::finishResyncResp));
-    asyncFinishClientReq->setTimeoutMs(5000);
+    asyncFinishClientReq->setTimeoutMs(getMigrationMsgsTimeout());
 
     if (!trackIOReqs.startTrackIOReqs()) {
         // For now, just return an error that migration is aborted.

@@ -76,7 +76,7 @@ SMSvcHandler::SMSvcHandler(CommonModuleProviderIf *provider)
     /* token migration messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMStartMigration, migrationInit);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMAbortMigration, migrationAbort);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceFilterSet, initiateObjectSync);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceFilterSet, initiateFirstRound);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceDeltaSet, syncObjectSet);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlGetSecondRebalanceDeltaSet, initiateSecondRound);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlFinishClientTokenResyncMsg, finishClientTokenResync);
@@ -289,7 +289,7 @@ SMSvcHandler::migrationAbortCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
  * with an filter set of object metadata
  */
 void
-SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+SMSvcHandler::initiateFirstRound(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                  fpi::CtrlObjectRebalanceFilterSetPtr& filterObjSet)
 {
     Error err(ERR_OK);
@@ -319,11 +319,17 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         fiu_disable("resend.dlt.token.filter.set");
     } else {
         fds_verify(dlt != NULL);
+        auto resp_cb = std::bind(&SMSvcHandler::initiateFirstRoundCb,
+                                 this,
+                                 asyncHdr,
+                                 std::placeholders::_1);
         auto lambda = [&] () {
-            err = objStorMgr_->migrationMgr->startObjectRebalance(filterObjSet,
+            objStorMgr_->migrationMgr->initiateClientForMigration(filterObjSet,
                                                                   asyncHdr->msg_src_uuid,
                                                                   objStorMgr_->getUuid(),
-                                                                  dlt->getNumBitsForToken(), dlt);
+                                                                  dlt->getNumBitsForToken(),
+                                                                  dlt,
+                                                                  resp_cb);
         };
         sm_task_type taskType = sm_task_type::migration;
         auto genericRequest = new SmIoGenericRequest(FdsSysTaskQueueId, taskType, lambda);
@@ -332,7 +338,11 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
             LOGWARN << "err:" << err << " unable to enqueue message";
         }
     }
+}
 
+void
+SMSvcHandler::initiateFirstRoundCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                   const Error &err) {
     // respond with error code
     asyncHdr->msg_code = err.GetErrno();
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());

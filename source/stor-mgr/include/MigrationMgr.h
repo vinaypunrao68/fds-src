@@ -152,6 +152,13 @@ class MigrationMgr : StateProvider{
      */
     void timeoutAbortMigration();
 
+    void initiateClientForMigration(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
+                                    const fpi::SvcUuid &executorSmUuid,
+                                    const NodeUuid& mySvcUuid,
+                                    fds_uint32_t bitsPerDltToken,
+                                    const DLT* dlt,
+                                    std::function<void(Error)> cb);
+
     /**
      * Handle start object rebalance from destination SM
      */
