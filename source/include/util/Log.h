@@ -35,25 +35,29 @@
 
 #include <fds_defines.h>
 
-#define FDS_LOG(lg) BOOST_LOG_SEV(lg.get_slog(), fds::fds_log::debug)
-#define FDS_PLOG(lg_ptr) BOOST_LOG_SEV(lg_ptr->get_slog(), fds::fds_log::debug)
+#define FDS_LOG(lg) BOOST_LOG_STREAM_WITH_PARAMS((lg.get_slog()), \
+                                                 (fds::set_get_attrib("Location", (__LOC__), (__func__))) \
+                                                 (boost::log::keywords::severity = fds::fds_log::debug) \
+                                                )
+#define FDS_PLOG(lg_ptr) BOOST_LOG_STREAM_WITH_PARAMS((lg_ptr->get_slog()), \
+                                                      (fds::set_get_attrib("Location", (__LOC__), (__func__))) \
+                                                      (boost::log::keywords::severity = fds::fds_log::debug) \
+                                                     )
 
 //If the build is a debug build we want source location exposed
-#ifndef DONTLOGLINE
 #define FDS_PLOG_SEV(lg_ptr, sev) BOOST_LOG_STREAM_WITH_PARAMS((lg_ptr->get_slog()), \
-                                                               (fds::set_get_attrib("Location", (__LOC__), (__func__)))\
+                                                               (fds::set_get_attrib("Location", (__LOC__), (__func__))) \
                                                                (boost::log::keywords::severity = (sev)) \
                                                               )
 #define FDS_LOG_SEV(lg_ptr, sev) BOOST_LOG_STREAM_WITH_PARAMS((lg_ptr.get_slog()), \
-                                                               (fds::set_get_attrib("Location", (__LOC__), (__func__)))\
+                                                               (fds::set_get_attrib("Location", (__LOC__), (__func__))) \
                                                                (boost::log::keywords::severity = (sev)) \
                                                               )
-//Otherwise - do not waste cycles setting attribute "Location"
-#else 
-#define FDS_PLOG_SEV(lg_ptr, sev) BOOST_LOG_SEV(lg_ptr->get_slog(), sev)
-#define FDS_LOG_SEV(lg_ptr, sev) BOOST_LOG_SEV(lg_ptr.get_slog(), sev)
-#endif
-#define FDS_PLOG_COMMON(lg_ptr, sev) BOOST_LOG_SEV(lg_ptr->get_slog(), sev) << __FUNCTION__ << " " << __LINE__ << " " << log_string() << " "
+
+#define FDS_PLOG_COMMON(lg_ptr, sev) BOOST_LOG_STREAM_WITH_PARAMS((lg_ptr->get_slog()), \
+                                                   (fds::set_get_attrib("Location", (__LOC__), (__func__))) \
+                                                   (boost::log::keywords::severity = (sev)) \
+                                                  ) << __FUNCTION__ << " " << __LINE__ << " " << log_string() << " "
 #define FDS_PLOG_INFO(lg_ptr) FDS_PLOG_COMMON(lg_ptr, fds::fds_log::normal)
 #define FDS_PLOG_WARN(lg_ptr) FDS_PLOG_COMMON(lg_ptr, fds::fds_log::warning)
 #define FDS_PLOG_ERR(lg_ptr)  FDS_PLOG_COMMON(lg_ptr, fds::fds_log::error)
