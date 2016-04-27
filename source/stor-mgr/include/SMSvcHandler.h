@@ -107,7 +107,7 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     void finishClientTokenResyncCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                    const Error &err);
     void initiateSecondRoundCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                               const Error &err);
+                               Error &err);
     void initiateFirstRoundCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                               const Error &err);
   private:

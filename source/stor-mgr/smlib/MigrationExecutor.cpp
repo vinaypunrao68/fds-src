@@ -564,7 +564,7 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
 }
 
 Error
-MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet)
+MigrationExecutor::applyRebalanceDeltaSet(const fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet)
 {
     Error err(ERR_OK);
 

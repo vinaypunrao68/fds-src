@@ -484,7 +484,7 @@ Error ObjectStorMgr::handleDltUpdate() {
         // Start the resync process
         if (g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_resync", true)) {
             if (objectStore->doResync()) {
-                auto task = [&] () {
+                auto task = [=] () {
                     LOGNOTIFY << "SM " << std::hex << getUuid() << " going to do"
                               << " token diff resync";
                     migrationMgr->startResync(curDlt,

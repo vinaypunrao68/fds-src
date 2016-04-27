@@ -79,7 +79,7 @@ MigrationMgr::getMigrationMsgsTimeout() const {
  * which initiate token migration
  */
 Error
-MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
+MigrationMgr::startMigration(const fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                              OmStartMigrationCbType cb,
                              const NodeUuid& mySvcUuid,
                              fds_uint32_t bitsPerDltToken,
@@ -484,7 +484,7 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
 }
 
 void
-MigrationMgr::initiateClientForMigration(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
+MigrationMgr::initiateClientForMigration(const fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
                                          const fpi::SvcUuid &executorSmUuid,
                                          const NodeUuid& mySvcUuid,
                                          fds_uint32_t bitsPerDltToken,
@@ -501,7 +501,7 @@ MigrationMgr::initiateClientForMigration(fpi::CtrlObjectRebalanceFilterSetPtr& r
  * Handle start object rebalance from destination SM
  */
 Error
-MigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
+MigrationMgr::startObjectRebalance(const fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
                                    const fpi::SvcUuid &executorSmUuid,
                                    const NodeUuid& mySvcUuid,
                                    fds_uint32_t bitsPerDltToken,
@@ -663,7 +663,7 @@ MigrationMgr::acceptSourceResponsibility(fds_token_id dltToken,
  * Handle msg from destination SM to send data/metadata changes since the first delta set
  */
 Error
-MigrationMgr::startSecondObjectRebalance(fpi::CtrlGetSecondRebalanceDeltaSetPtr& msg,
+MigrationMgr::startSecondObjectRebalance(const fpi::CtrlGetSecondRebalanceDeltaSetPtr& msg,
                                          const fpi::SvcUuid &executorSmUuid)
 {
     Error err(ERR_OK);
@@ -750,7 +750,7 @@ MigrationMgr::finishClientResync(fds_uint64_t executorId)
  * Handle rebalance delta set at destination from the source
  */
 Error
-MigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet)
+MigrationMgr::recvRebalanceDeltaSet(const fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet)
 {
     Error err(ERR_OK);
     fds_uint64_t executorId = deltaSet->executorID;

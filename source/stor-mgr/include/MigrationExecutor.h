@@ -182,7 +182,7 @@ class MigrationExecutor {
     /**
      * Handles message from Source SM to apply delta set to this SM
      */
-    Error applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet);
+    Error applyRebalanceDeltaSet(const fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet);
 
     /**
      * Wait for all pending Executor requests to complete.

@@ -95,7 +95,7 @@ class MigrationMgr : StateProvider{
      * Creates MigrationExecutor object for each SM token, source SM
      * which initiate token migration
      */
-    Error startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
+    Error startMigration(const fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                          OmStartMigrationCbType cb,
                          const NodeUuid& mySvcUuid,
                          fds_uint32_t bitsPerDltToken,
@@ -152,7 +152,7 @@ class MigrationMgr : StateProvider{
      */
     void timeoutAbortMigration();
 
-    void initiateClientForMigration(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
+    void initiateClientForMigration(const fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
                                     const fpi::SvcUuid &executorSmUuid,
                                     const NodeUuid& mySvcUuid,
                                     fds_uint32_t bitsPerDltToken,
@@ -162,7 +162,7 @@ class MigrationMgr : StateProvider{
     /**
      * Handle start object rebalance from destination SM
      */
-    Error startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
+    Error startObjectRebalance(const fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
                                const fpi::SvcUuid &executorSmUuid,
                                const NodeUuid& mySvcUuid,
                                fds_uint32_t bitsPerDltToken,
@@ -178,13 +178,13 @@ class MigrationMgr : StateProvider{
      * Handle msg from destination SM to send data/metadata changes since the first
      * delta set.
      */
-    Error startSecondObjectRebalance(fpi::CtrlGetSecondRebalanceDeltaSetPtr& msg,
+    Error startSecondObjectRebalance(const fpi::CtrlGetSecondRebalanceDeltaSetPtr& msg,
                                      const fpi::SvcUuid &executorSmUuid);
 
     /**
      * Handle rebalance delta set at destination from the source
      */
-    Error recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet);
+    Error recvRebalanceDeltaSet(const fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet);
 
     /**
      * Ack from destination for rebalance delta set message

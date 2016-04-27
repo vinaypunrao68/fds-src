@@ -863,7 +863,7 @@ MigrationClient::migClientVerifyDestination(fds_token_id dltToken,
 
 
 Error
-MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilterSetPtr& filterSet,
+MigrationClient::migClientStartRebalanceFirstPhase(const fpi::CtrlObjectRebalanceFilterSetPtr& filterSet,
                                                    fds_bool_t srcAccepted)
 {
     /* Verify that the token and executor ID matches known SM token and perviously
@@ -975,7 +975,7 @@ MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilte
 }
 
 Error
-MigrationClient::migClientStartRebalanceSecondPhase(fpi::CtrlGetSecondRebalanceDeltaSetPtr& secondPhase)
+MigrationClient::migClientStartRebalanceSecondPhase(const fpi::CtrlGetSecondRebalanceDeltaSetPtr& secondPhase)
 {
     Error err(ERR_OK);
 

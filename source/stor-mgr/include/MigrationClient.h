@@ -104,10 +104,10 @@ class MigrationClient {
      *              sequence number isn't updated for a long time, take the
      *              node offline.
      */
-    Error migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilterSetPtr& filterSet,
+    Error migClientStartRebalanceFirstPhase(const fpi::CtrlObjectRebalanceFilterSetPtr& filterSet,
                                             fds_bool_t srcAccepted);
 
-    Error migClientStartRebalanceSecondPhase(fpi::CtrlGetSecondRebalanceDeltaSetPtr& secondPhaseMsg);
+    Error migClientStartRebalanceSecondPhase(const fpi::CtrlGetSecondRebalanceDeltaSetPtr& secondPhaseMsg);
 
     /**
      * Callback from the QoS
