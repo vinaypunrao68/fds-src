@@ -48,14 +48,13 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
                                                            std::placeholders::_6);
     }
 
-    parallelMigration = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.migration.parallel_migration", 2);
+    parallelMigration = CONFIG_UINT32("fds.sm.migration.parallel_migration", 2);
     LOGMIGRATE << "Parallel migration - " << parallelMigration << " threads";
-    enableMigrationFeature = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_feature");
-    numPrimaries = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.number_of_primary", 0);
+    enableMigrationFeature = CONFIG_BOOL("fds.sm.migration.enable_feature", true);
+    numPrimaries = CONFIG_UINT32("fds.sm.number_of_primary", 0);
 
     // get migration timeout duration from the platform.conf file.
-    migrationTimeoutSec =
-            g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.migration.migration_timeout", 300);
+    migrationTimeoutSec = CONFIG_UINT32("fds.sm.migration.migration_timeout", 300);
 
     stateProviderId = "migrationmgr";
     g_fdsprocess->get_cntrs_mgr()->add_for_export(this);
@@ -1295,7 +1294,6 @@ MigrationMgr::makeTokensAvailable(const DLT *dlt,
 template<typename T>
 void
 MigrationMgr::changeDltTokensAvailability(const T &tokens, bool availability) {
-    FDSGUARD(dltTokenStatesMutex);
     for (auto token : tokens) {
         changeTokenState(token, availability);
     }
@@ -1304,7 +1302,10 @@ MigrationMgr::changeDltTokensAvailability(const T &tokens, bool availability) {
 // Change state for single token
 void
 MigrationMgr::changeTokenState(fds_token_id &token, bool availability) {
-    dltTokenStates[token] = availability;
+    {
+        FDSGUARD(dltTokenStatesMutex);
+        dltTokenStates[token] = availability;
+    }
     LOGNOTIFY << "DLT token " << token << " availability = " << availability;
 }
 
