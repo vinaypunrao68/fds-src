@@ -672,7 +672,7 @@ VolumeMeta::HashCalcContext::hashThisSlice(CatalogKVPair &pair) {
             auto keyString = key.toString();
             hasher.update(reinterpret_cast<const unsigned char *>(keyString.c_str()),
                           keyString.size());
-            ObjectID value {pair.second.data()};
+            ObjectID value {pair.second.ToString()};
             auto valueString = value.ToString();
             hasher.update(reinterpret_cast<const unsigned char *>(valueString.c_str()),
                           valueString.size());
