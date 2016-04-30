@@ -34,7 +34,7 @@
 #include <boost/thread/shared_mutex.hpp>
 
 #include <fds_defines.h>
-
+#include <util/attributes.h>
 #define FDS_LOG(lg) BOOST_LOG_STREAM_WITH_PARAMS((lg.get_slog()), \
                                                  (fds::set_get_attrib("Location", (__LOC__), (__func__))) \
                                                  (boost::log::keywords::severity = fds::fds_log::debug) \
