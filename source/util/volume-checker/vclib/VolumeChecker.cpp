@@ -289,6 +289,8 @@ VolumeChecker::checkDMHashQuorum() {
     fds_assert(hashQuorumCheckMap.size() > 0);
 
     if (hashQuorumCheckMap.size() > 1) {
+        // Sort it in reverse order
+        hashQuorumCheckMap.right.sort(std::greater<unsigned>());
         // The 0th element of the map should be the one with the most count
         auto firstIt = hashQuorumCheckMap.left.begin();
         if (firstIt->second == 1) {
