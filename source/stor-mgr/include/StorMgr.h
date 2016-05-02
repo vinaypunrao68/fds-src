@@ -295,6 +295,7 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
 
      void handleRefScanDone(fpi::SvcUuid& dmuuid);
      bool haveAllObjectSets(util::TimeStamp after = 0) const;
+     void removeStaleObjectSets();
      void startRefscanOnDMs();
 
      /**
