@@ -365,6 +365,8 @@ void ScavControl::startScavengeProcess() {
         return;
     }
 
+    OBJECTSTOREMGR(dataStoreReqHandler)->removeStaleObjectSets();
+
     fds_mutex::scoped_lock l(scav_lock);
     // start first max_disks_compacting disk scavengers
     fds_uint32_t count = 0;

@@ -1741,6 +1741,10 @@ bool ObjectStorMgr::haveAllObjectSets(util::TimeStamp after) const {
     return objectStore->haveAllObjectSets(after);
 }
 
+void ObjectStorMgr::removeStaleObjectSets() {
+    return objectStore->removeStaleObjectSets();
+}
+
 void ObjectStorMgr::handleRefScanDone(fpi::SvcUuid& dmuuid) {
     static fds_mutex lock("refscan done");
     static std::map<int64_t ,util::TimeStamp> dmTimeMap;

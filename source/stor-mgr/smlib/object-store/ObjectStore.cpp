@@ -1931,6 +1931,42 @@ ObjectStore::removeObjectSet(const fds_volid_t &volId) {
 }
 
 /**
+  * Sometimes object sets for deleted volumes might exist in the live objects
+  * table because of race conditions between SM and DM during volume delete.
+  * Remove all stale object sets from the live objects table.
+  **/
+void
+ObjectStore::removeStaleObjectSets() {
+    std::set<fds_volid_t> volumes;
+    liveObjectsTable->findAllVols(volumes);
+    for (const auto volId : volumes) {
+        if (volumeTbl->getVolume(volId) == NULL) {
+            LOGDEBUG << "Deleting stale bloom filter for deleted volume: " << volId;
+            removeObjectSet(volId);
+        }
+    }
+}
+
+/**
+  * Sometimes object sets for deleted volumes might exist in the live objects
+  * table because of race conditions between SM and DM during volume delete.
+  * Remove all stale object sets from the live objects table.
+  **/
+void
+ObjectStore::removeObjectSetsIfStale(const fds_token_id smToken) {
+    std::set<fds_volid_t> volumes;
+    bool objSetDeleted = false;
+    liveObjectsTable->findAssociatedVols(smToken, volumes);
+    for (const auto volId : volumes) {
+        if (volumeTbl->getVolume(volId) == NULL) {
+            LOGDEBUG << "Deleting stale bloom filter for sm token: " << smToken << " and volId: " 
+                                                                                << volId;
+            removeObjectSet(smToken, volId);
+         }
+     }
+}
+
+/**
  * Check all the objects belonging to a given SM token
  * for delete object criteria and let Scavenger know of it.
  *
@@ -1944,6 +1980,7 @@ ObjectStore::evaluateObjectSets(const fds_token_id& smToken,
                                 diskio::TokenStat &tokStats) {
 
     std::set<std::string> objectSetFileNames;
+    removeObjectSetsIfStale(smToken);
     liveObjectsTable->findObjectSetsPerToken(smToken, objectSetFileNames);
     std::vector<BloomFilter> objectSets;
     typedef std::vector<BloomFilter>::const_iterator ObjSetIter;

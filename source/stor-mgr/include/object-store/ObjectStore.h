@@ -401,6 +401,9 @@ class ObjectStore : public Module, public boost::noncopyable {
 
     void removeObjectSet(const fds_volid_t &volId);
 
+    void removeStaleObjectSets();
+    void removeObjectSetsIfStale(const fds_token_id smToken);
+
     void dropLiveObjectDB();
 
     inline void setObjectDelCnt(fds_uint32_t newCount) {
