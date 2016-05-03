@@ -150,8 +150,8 @@ MigrationMgr::startMigration(const fpi::CtrlNotifySMStartMigrationPtr& migration
     numBitsPerDltToken = bitsPerDltToken;
     omStartMigrCb = cb;  // we will have to send ack to OM when we get second delta set
 
-    // reset DLT tokens state to "not ready" for all DLT tokens, if this is the first
-    // migration or resync
+    // reset token state to "not ready" for all tokens.
+    // **Only for rebalance(add/remove node) migration.**
     resetDltTokensStates(bitsPerDltToken);
  
     // create migration executors for each <SM token, source SM> pair
@@ -336,7 +336,6 @@ MigrationMgr::startResync(const fds::DLT *dlt,
     numBitsPerDltToken = bitsPerDltToken;
     fds_verify(dlt->getDepth() != 0);   // otherwise this SM will not be in DLT
     maxRetriesWithDifferentSources = dlt->getDepth() - 1;
-    resetDltTokensStates(bitsPerDltToken);
 
     dlt->getSourceForAllNodeTokens(mySvcUuid, srcSmTokensMap);
     for (auto &ptr: srcSmTokensMap) {
@@ -1011,12 +1010,15 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
 }
 
 void
-MigrationMgr::reportMigrationCompleted(fds_bool_t resyncOnRestart) {
+MigrationMgr::reportMigrationCompleted(fds_bool_t isResync) {
+    // Reset resync indicator flag in Migration Manager.
+    resyncOnRestart = false;
+
     bool resyncPending = false;
     resyncPending = std::atomic_exchange(&isResyncPending, resyncPending);
-    if (resyncPending || resyncOnRestart) {
+    if (resyncPending || isResync) {
         if (cachedResyncDoneOrPendingCb) {
-            cachedResyncDoneOrPendingCb(resyncPending, resyncOnRestart);
+            cachedResyncDoneOrPendingCb(resyncPending, isResync);
         }
     } else {
         LOGNOTIFY << "No pending resync";
@@ -1073,6 +1075,21 @@ MigrationMgr::getTargetDltVersion() const
 void
 MigrationMgr::startForwarding(fds_uint64_t executorId, fds_token_id smTok)
 {
+    /**
+     * Info(Gurpreet): Forwarding io logic from Migration Client to Executor will only
+     * execute for rebalance(add-node) migration case. Not for resync. (Although
+     * I would love to remove forwarding logic altogether, but removing it for
+     * rebalance case will require changes to dlt close handling, migration callback
+     * to OM plus other changes, which is a work item in itself.
+     * I've created FS-6229 for it.
+     * For Resync, I've removed the constraint of not accepting puts during token
+     * migration for a give token. IO forwarding was required when SM was not accepting
+     * io from AMs during token migration. Now all tokens will accept io independent of
+     * the state of resync.
+     */
+    if (resyncOnRestart) {
+        return;
+    }
     // ignore invalid executor id
     if (executorId == SM_INVALID_EXECUTOR_ID) {
         LOGDEBUG << "Invalid executor ID, ok if called when there is no migration";
@@ -1355,6 +1372,7 @@ MigrationMgr::resetDltTokensStates(fds_uint32_t& bitsPerDltToken) {
     FDSGUARD(dltTokenStatesMutex);
     if (dltTokenStates.size() == 0) {
         // first time migration/resync started
+        LOGNOTIFY << "Resetting all tokens to unavailable";
         fds_uint32_t numTokens = pow(2, bitsPerDltToken);
         dltTokenStates.clear();
         dltTokenStates.assign(numTokens, false);
@@ -1788,10 +1806,10 @@ std::string MigrationMgr::getStateInfo() {
     /* Lock dltTokenStates to make sure there is no change in dlt while checking*/
     synchronized(dltTokenStatesMutex) {
         for (const auto &tok : myTokens) {
-            if (!dltTokenStates[tok]) {
-                unavailableTokens.append(tok);
-            } else if (dltTokenStates[tok]) {
+            if (dltTokenStates[tok]) {
                 availableTokens.append(tok);
+            } else {
+                unavailableTokens.append(tok);
             }
         }
     }
@@ -1799,9 +1817,13 @@ std::string MigrationMgr::getStateInfo() {
     /* Return the available and unavailable token counts as well as the unavailable token list */
     Json::Value state;
     state["dlt_version"] = static_cast<Json::Value::Int64>(dlt->getVersion());
+    state["owned"] = static_cast<Json::Value::Int64>(myTokens.size());
     state["available"] = availableTokens;
     state["unavailable"] = unavailableTokens;
-
+    state["rebal_inprog"] = (isMigrationInProgress() ? (isResync() ? false: true) : false);
+    state["resync_inprog"] = (isMigrationInProgress() ? (isResync() ? true: false) : false);
+    state["num_execs"] = static_cast<Json::Value::Int64>(migrExecutors.size());
+    state["num_clients"] = static_cast<Json::Value::Int64>(migrClients.size());
     std::stringstream ss;
     ss << state;
     return ss.str();
