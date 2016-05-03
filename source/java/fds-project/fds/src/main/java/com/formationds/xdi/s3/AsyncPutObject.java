@@ -3,7 +3,7 @@ package com.formationds.xdi.s3;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.spike.later.HttpContext;
 import com.formationds.util.async.CompletableFutureUtility;
-import com.formationds.xdi.Xdi;
+import com.formationds.xdi.AuthenticatedXdi;
 import org.apache.commons.codec.binary.Hex;
 import org.eclipse.jetty.http.HttpStatus;
 
@@ -15,9 +15,9 @@ import java.util.function.BiFunction;
 
 public class AsyncPutObject implements BiFunction<HttpContext, AuthenticationToken, CompletableFuture<Void>> {
 
-    private Xdi xdi;
+    private AuthenticatedXdi xdi;
 
-    public AsyncPutObject(Xdi xdi) {
+    public AsyncPutObject(AuthenticatedXdi xdi) {
         this.xdi = xdi;
     }
 

@@ -3,18 +3,15 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.protocol.BlobDescriptor;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.spike.later.HttpContext;
 import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.util.XmlElement;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
-import com.formationds.xdi.Xdi;
+import com.formationds.xdi.AuthenticatedXdi;
 import com.formationds.xdi.io.BlobSpecifier;
 import org.apache.commons.codec.binary.Hex;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 
 import java.util.Collection;
 import java.util.List;
@@ -24,10 +21,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class MultiPartListParts implements SyncRequestHandler {
-    private Xdi xdi;
+    private AuthenticatedXdi xdi;
     private AuthenticationToken token;
 
-    public MultiPartListParts(Xdi xdi, AuthenticationToken token) {
+    public MultiPartListParts(AuthenticatedXdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
         this.token = token;
     }

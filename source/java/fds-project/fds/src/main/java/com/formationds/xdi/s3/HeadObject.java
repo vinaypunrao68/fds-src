@@ -10,7 +10,7 @@ import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.StaticFileHandler;
 import com.formationds.web.toolkit.TextResource;
-import com.formationds.xdi.Xdi;
+import com.formationds.xdi.AuthenticatedXdi;
 import com.formationds.xdi.swift.SwiftUtility;
 import org.joda.time.DateTime;
 
@@ -18,10 +18,10 @@ import java.util.List;
 import java.util.Map;
 
 public class HeadObject implements SyncRequestHandler {
-    private Xdi xdi;
+    private AuthenticatedXdi xdi;
     private AuthenticationToken token;
 
-    public HeadObject(Xdi xdi, AuthenticationToken token) {
+    public HeadObject(AuthenticatedXdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
         this.token = token;
     }

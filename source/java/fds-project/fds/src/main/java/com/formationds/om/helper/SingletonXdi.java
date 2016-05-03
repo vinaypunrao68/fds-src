@@ -4,7 +4,7 @@
 
 package com.formationds.om.helper;
 
-import com.formationds.xdi.Xdi;
+import com.formationds.xdi.AuthenticatedXdi;
 
 import java.io.Serializable;
 
@@ -40,19 +40,19 @@ public class SingletonXdi
         return instance();
     }
 
-    private Xdi api;
+    private AuthenticatedXdi api;
 
     /**
-     * @return Returns {@link com.formationds.xdi.Xdi}
+     * @return Returns {@link AuthenticatedXdi}
      */
-    public Xdi api() {
+    public AuthenticatedXdi api() {
         return api;
     }
 
     /**
-     * @param api the {@link com.formationds.xdi.Xdi}
+     * @param api the {@link AuthenticatedXdi}
      */
-    public void api( final Xdi api ) {
+    public void api(final AuthenticatedXdi api) {
         this.api = api;
     }
 }

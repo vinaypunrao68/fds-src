@@ -3,6 +3,8 @@ package com.formationds.xdi;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
+import com.formationds.xdi.contracts.api.obj.ObjectRange;
+
 import java.util.Iterator;
 
 public class FdsObjectFrame {
@@ -13,6 +15,12 @@ public class FdsObjectFrame {
     private long readLength;
     private long readOffset;
     private int objectSize;
+
+    public static ObjectRange objectRange(long offset, long length, int objectSize) {
+        long firstObject = Math.floorDiv(offset, (long) objectSize);
+        long lastObject = Math.floorDiv(offset + length, (long) objectSize);
+        return new ObjectRange(firstObject, lastObject);
+    }
 
     public static FdsObjectFrame firstFrame(long readOffset, long readLength, int objectSize) {
         FdsObjectFrame seed = new FdsObjectFrame();

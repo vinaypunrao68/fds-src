@@ -18,11 +18,9 @@ import com.formationds.xdi.io.BlobSpecifier;
 import com.formationds.xdi.s3.MultipartUpload;
 import com.formationds.xdi.security.Intent;
 import com.formationds.xdi.security.XdiAuthorizer;
-
 import org.apache.thrift.TException;
 
 import javax.security.auth.login.LoginException;
-
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.*;
@@ -30,14 +28,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
-public class Xdi {
+public class AuthenticatedXdi {
     public static final String LAST_MODIFIED = "Last-Modified";
     private ConfigurationApi config;
     private AsyncAm asyncAm;
     private Supplier<AsyncStreamer> factory;
     private XdiAuthorizer authorizer;
 
-    public Xdi(ConfigurationApi config, Authenticator authenticator, Authorizer authorizer, AsyncAm asyncAm, Supplier<AsyncStreamer> factory) {
+    public AuthenticatedXdi(ConfigurationApi config, Authenticator authenticator, Authorizer authorizer, AsyncAm asyncAm, Supplier<AsyncStreamer> factory) {
         this.config = config;
         this.asyncAm = asyncAm;
         this.factory = factory;

@@ -8,7 +8,7 @@ import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.StaticFileHandler;
 import com.formationds.web.toolkit.TextResource;
-import com.formationds.xdi.Xdi;
+import com.formationds.xdi.AuthenticatedXdi;
 import org.apache.commons.codec.binary.Hex;
 import org.eclipse.jetty.server.Request;
 import org.joda.time.DateTime;
@@ -17,10 +17,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class CreateObject implements RequestHandler {
-    private Xdi xdi;
+    private AuthenticatedXdi xdi;
     private AuthenticationToken token;
 
-    public CreateObject(Xdi xdi, AuthenticationToken token) {
+    public CreateObject(AuthenticatedXdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
         this.token = token;
     }

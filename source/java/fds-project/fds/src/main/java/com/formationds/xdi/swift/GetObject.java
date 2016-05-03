@@ -8,8 +8,8 @@ import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.StaticFileHandler;
+import com.formationds.xdi.AuthenticatedXdi;
 import com.formationds.xdi.BlobInfo;
-import com.formationds.xdi.Xdi;
 import org.eclipse.jetty.server.Request;
 import org.joda.time.DateTime;
 
@@ -20,10 +20,10 @@ import java.util.Map;
 import java.util.Optional;
 
 public class GetObject implements RequestHandler {
-    private Xdi xdi;
+    private AuthenticatedXdi xdi;
     private AuthenticationToken token;
 
-    public GetObject(Xdi xdi, AuthenticationToken token) {
+    public GetObject(AuthenticatedXdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
         this.token = token;
     }

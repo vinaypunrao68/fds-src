@@ -7,7 +7,7 @@ import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-import com.formationds.xdi.Xdi;
+import com.formationds.xdi.AuthenticatedXdi;
 import org.eclipse.jetty.server.Request;
 
 import javax.crypto.SecretKey;
@@ -20,10 +20,10 @@ public class GrantAuthenticationToken implements RequestHandler {
     public static final String X_AUTH_USER = "X-Auth-User";
     public static final String X_AUTH_TOKEN = "X-Auth-Token";
 
-    private Xdi xdi;
+    private AuthenticatedXdi xdi;
     private SecretKey secretKey;
 
-    public GrantAuthenticationToken(Xdi xdi, SecretKey secretKey) {
+    public GrantAuthenticationToken(AuthenticatedXdi xdi, SecretKey secretKey) {
         this.xdi = xdi;
         this.secretKey = secretKey;
     }

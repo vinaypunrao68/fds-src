@@ -3,10 +3,9 @@ package com.formationds.xdi.s3;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.spike.later.HttpContext;
 import com.formationds.util.async.CompletableFutureUtility;
-import com.formationds.xdi.Xdi;
+import com.formationds.xdi.AuthenticatedXdi;
 import com.formationds.xdi.io.BlobSpecifier;
 import org.apache.commons.codec.binary.Hex;
-import org.apache.thrift.TException;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
@@ -15,9 +14,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 
 public class MultipartUploadPart implements BiFunction<HttpContext, AuthenticationToken, CompletableFuture<Void>> {
-    private Xdi xdi;
+    private AuthenticatedXdi xdi;
 
-    public MultipartUploadPart(Xdi xdi) {
+    public MultipartUploadPart(AuthenticatedXdi xdi) {
         this.xdi = xdi;
     }
 

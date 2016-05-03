@@ -11,8 +11,8 @@ import com.formationds.util.XmlElement;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
 import com.formationds.web.toolkit.XmlResource;
+import com.formationds.xdi.AuthenticatedXdi;
 import com.formationds.xdi.BlobInfo;
-import com.formationds.xdi.Xdi;
 import com.google.common.collect.Maps;
 import org.apache.commons.codec.binary.Hex;
 import org.joda.time.DateTime;
@@ -27,10 +27,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class PutObject implements SyncRequestHandler {
-    private Xdi xdi;
+    private AuthenticatedXdi xdi;
     private AuthenticationToken token;
 
-    public PutObject(Xdi xdi, AuthenticationToken token) {
+    public PutObject(AuthenticatedXdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
         this.token = token;
     }
@@ -89,7 +89,7 @@ public class PutObject implements SyncRequestHandler {
 
         DateTime lastModifiedTemp;
         try {
-            long instant = DateTimeZone.getDefault().convertLocalToUTC(Long.parseLong(copySourceStat.getMetadata().get(Xdi.LAST_MODIFIED)), false);
+            long instant = DateTimeZone.getDefault().convertLocalToUTC(Long.parseLong(copySourceStat.getMetadata().get(AuthenticatedXdi.LAST_MODIFIED)), false);
             lastModifiedTemp = new DateTime(instant, DateTimeZone.UTC);
         } catch(Exception ex) {
             lastModifiedTemp = DateTime.now(DateTimeZone.UTC);

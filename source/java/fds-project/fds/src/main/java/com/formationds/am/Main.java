@@ -20,20 +20,14 @@ import com.formationds.util.thrift.OMConfigurationServiceProxy;
 import com.formationds.web.toolkit.HttpConfiguration;
 import com.formationds.web.toolkit.HttpsConfiguration;
 import com.formationds.xdi.*;
-import com.formationds.xdi.contracts.ConnectorConfig;
-import com.formationds.xdi.contracts.ConnectorData;
-import com.formationds.xdi.contracts.transport.ConnectorConfigMessageHandler;
-import com.formationds.xdi.contracts.transport.ConnectorDataMessageHandler;
-import com.formationds.xdi.contracts.transport.TransportServer;
-import com.formationds.xdi.contracts.transport.pipe.NamedPipeServer;
 import com.formationds.xdi.s3.S3Endpoint;
 import com.formationds.xdi.swift.SwiftEndpoint;
 import com.nurkiewicz.asyncretry.AsyncRetryExecutor;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import org.apache.commons.codec.binary.Hex;
-import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.thrift.TMultiplexedProcessor;
 import org.apache.thrift.server.TNonblockingServer;
 import org.apache.thrift.transport.TNonblockingServerSocket;
@@ -42,10 +36,8 @@ import org.apache.thrift.transport.TTransportException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.net.ConnectException;
-import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 
@@ -211,7 +203,7 @@ public class Main {
         Supplier<AsyncStreamer> factory = () -> new AsyncStreamer(asyncAm,
                 configCache);
 
-        Xdi xdi = new Xdi(configCache, authenticator, authorizer, asyncAm, factory);
+        AuthenticatedXdi xdi = new AuthenticatedXdi(configCache, authenticator, authorizer, asyncAm, factory);
 
 
         int s3HttpPort = platformConfig.defaultInt("fds.am.s3_http_port_offset", 1000);
@@ -289,23 +281,6 @@ public class Main {
         };
 
         new Thread(runnable, "Statistics streaming thread").start();
-    }
-
-    private void monitorNamedPipePath(TransportServer server, Path path) {
-        NamedPipeServer namedPipeServer = new NamedPipeServer(server, path);
-        Thread thread = new Thread(namedPipeServer::open);
-        thread.setDaemon(true);
-        thread.start();
-    }
-
-    private TransportServer createXdiDataServer(ConnectorData connectorData, Executor runner) {
-        ConnectorDataMessageHandler handler = new ConnectorDataMessageHandler(connectorData);
-        return new TransportServer(handler, runner);
-    }
-
-    private TransportServer createXdiConfigServer(ConnectorConfig connectorConfig, Executor runner) {
-        ConnectorConfigMessageHandler handler = new ConnectorConfigMessageHandler(connectorConfig);
-        return new TransportServer(handler, runner);
     }
 }
 
