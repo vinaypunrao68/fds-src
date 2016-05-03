@@ -233,7 +233,7 @@ TEST_F(SvcRequestMgrTest, multiPrimarySvcRequest) {
 struct FTCallback : concurrency::TaskStatus {
     void handle(fds::net::FileTransferService::Handle::ptr handle,
                 const Error &e) {
-        GLOGNORMAL << "in callback : " << handle->srcFile << " : " << e;
+        GLOGNORMAL << "in callback src: " << handle->srcFile << " dest:" << handle->destFile << " : " << e;
         error = e;
         done();
     }
@@ -246,7 +246,7 @@ TEST_F(SvcRequestMgrTest, filetransfer) {
     fds::net::FileTransferService::OnTransferCallback ftcb = std::bind(&FTCallback::handle, &cb, std::placeholders::_1, std::placeholders::_2);
     util::Stats stats;
     auto bytes = util::getMemoryKB();
-
+    ulong ftTimeout = 30*1000; // in millis
     bytes = util::getMemoryKB();
     std::cout << "mem:" << bytes << " : init" << std::endl;
     domain[1]->filetransfer->setChunkSize(1024);
@@ -262,9 +262,9 @@ TEST_F(SvcRequestMgrTest, filetransfer) {
     stats.add(bytes);
     for (uint i = 0 ; i < 100 ; i++) {
         domain[1]->filetransfer->send(domain.getFakeSvcUuid(2), "/bin/ls", "test.txt_" + std::to_string(i), ftcb, false);
-        cb.await();
-        ASSERT_EQ(cb.error, ERR_OK);
-        cb.reset(1);
+        cb.await(ftTimeout);
+        ASSERT_EQ(ERR_OK, cb.error);
+        cb.reset(1); cb.error = ERR_PENDING_RESP;
         usleep(1000);
         stats.add(util::getMemoryKB());
     }
@@ -291,16 +291,28 @@ TEST_F(SvcRequestMgrTest, filetransfer) {
 
 
     std::cout << "original:" << originalBytes << " now:" << bytes << " diff:" << (bytes-originalBytes) << std::endl;
-    EXPECT_LT(bytes-originalBytes, 5*KB);
+    auto diffBytes = bytes-originalBytes;
+    if (diffBytes > 8*KB) {
+        GLOGWARN << "memory usage seems to have increased unusually : " << (diffBytes/KB) << " KB";
+    }
+    EXPECT_LT(bytes-originalBytes, 15*KB);
 }
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
+    std::string root;
     po::options_description opts("Allowed options");
     opts.add_options()
         ("help", "produce help message")
-        ("fds-root", po::value<std::string>()->default_value("/fds"), "root");
-    g_fdslog = new fds_log("SvcRequestMgrTest");
+        ("fds-root", po::value<std::string>(&root)->default_value("/fds"), "root");
+    po::variables_map vm;
+    po::store(po::command_line_parser(argc, argv)
+              .options(opts)
+              .allow_unregistered()
+              .run(), vm);
+    po::notify(vm);
+    FdsRootDir fdsroot(root+"/");
+    g_fdslog = new fds_log(fdsroot.dir_fds_logs() + "/SvcRequestMgrTest", fdsroot.dir_fds_logs());
     SvcRequestMgrTest::init(argc, argv, opts);
     return RUN_ALL_TESTS();
 }
