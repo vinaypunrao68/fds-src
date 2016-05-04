@@ -289,9 +289,11 @@ VolumeChecker::checkDMHashQuorum() {
     fds_assert(hashQuorumCheckMap.size() > 0);
 
     if (hashQuorumCheckMap.size() > 1) {
+        // Sort it in reverse order
+        hashQuorumCheckMap.right.sort(std::greater<unsigned>());
         // The 0th element of the map should be the one with the most count
-        auto firstIt = hashQuorumCheckMap.left.begin();
-        if (firstIt->second == 1) {
+        auto firstIt = hashQuorumCheckMap.right.begin();
+        if (firstIt->first == 1) {
             LOGERROR << "No quorum found";
             noQuorum = true;
         }
@@ -302,7 +304,7 @@ VolumeChecker::checkDMHashQuorum() {
             for (auto oneDMtoCheck : dmChecker.second) {
                 if (noQuorum) {
                     oneDMtoCheck.status = DmCheckerMetaData::chkNodeStatus::NS_ERROR;
-                } else if (oneDMtoCheck.hashResult != firstIt->first) {
+                } else if (oneDMtoCheck.hashResult != firstIt->second) {
                     LOGERROR << "Node: " << oneDMtoCheck.svcUuid << " is out of sync";
                     oneDMtoCheck.status = DmCheckerMetaData::chkNodeStatus::NS_OUT_OF_SYNC;
                 }
