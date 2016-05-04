@@ -8,9 +8,9 @@
 #include <fds_process.h>
 #include <ObjMeta.h>
 #include <dlt.h>
-#include <SMSvcHandler.h>
 #include <net/SvcRequestPool.h>
 #include <StorMgr.h>
+#include <SMSvcHandler.h>
 #include <MigrationExecutor.h>
 #include <MigrationMgr.h>
 
