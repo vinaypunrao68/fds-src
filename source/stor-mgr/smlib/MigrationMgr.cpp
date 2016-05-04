@@ -48,14 +48,13 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
                                                            std::placeholders::_6);
     }
 
-    parallelMigration = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.migration.parallel_migration", 16);
+    parallelMigration = CONFIG_UINT32("fds.sm.migration.parallel_migration", 2);
     LOGMIGRATE << "Parallel migration - " << parallelMigration << " threads";
-    enableMigrationFeature = g_fdsprocess->get_fds_config()->get<bool>("fds.sm.migration.enable_feature");
-    numPrimaries = g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.number_of_primary", 0);
+    enableMigrationFeature = CONFIG_BOOL("fds.sm.migration.enable_feature", true);
+    numPrimaries = CONFIG_UINT32("fds.sm.number_of_primary", 0);
 
     // get migration timeout duration from the platform.conf file.
-    migrationTimeoutSec =
-            g_fdsprocess->get_fds_config()->get<uint32_t>("fds.sm.migration.migration_timeout", 300);
+    migrationTimeoutSec = CONFIG_UINT32("fds.sm.migration.migration_timeout", 300);
 
     stateProviderId = "migrationmgr";
     g_fdsprocess->get_cntrs_mgr()->add_for_export(this);
@@ -67,13 +66,19 @@ MigrationMgr::~MigrationMgr() {
     migrationTimeoutTimer->destroy();
 }
 
+fds_uint32_t
+MigrationMgr::getMigrationMsgsTimeout() const {
+    ObjectStorMgr* osm = dynamic_cast<ObjectStorMgr*>(smReqHandler);
+    return osm->getInterStorMgrTimeout();
+}
+
 /**
  * Handles start migration message from OM.
  * Creates MigrationExecutor object for each <SM token, source SM> pair
  * which initiate token migration
  */
 Error
-MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
+MigrationMgr::startMigration(const fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                              OmStartMigrationCbType cb,
                              const NodeUuid& mySvcUuid,
                              fds_uint32_t bitsPerDltToken,
@@ -145,8 +150,8 @@ MigrationMgr::startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
     numBitsPerDltToken = bitsPerDltToken;
     omStartMigrCb = cb;  // we will have to send ack to OM when we get second delta set
 
-    // reset DLT tokens state to "not ready" for all DLT tokens, if this is the first
-    // migration or resync
+    // reset token state to "not ready" for all tokens.
+    // **Only for rebalance(add/remove node) migration.**
     resetDltTokensStates(bitsPerDltToken);
  
     // create migration executors for each <SM token, source SM> pair
@@ -331,7 +336,6 @@ MigrationMgr::startResync(const fds::DLT *dlt,
     numBitsPerDltToken = bitsPerDltToken;
     fds_verify(dlt->getDepth() != 0);   // otherwise this SM will not be in DLT
     maxRetriesWithDifferentSources = dlt->getDepth() - 1;
-    resetDltTokensStates(bitsPerDltToken);
 
     dlt->getSourceForAllNodeTokens(mySvcUuid, srcSmTokensMap);
     for (auto &ptr: srcSmTokensMap) {
@@ -477,11 +481,25 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
     }
 }
 
+void
+MigrationMgr::initiateClientForMigration(const fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
+                                         const fpi::SvcUuid &executorSmUuid,
+                                         const NodeUuid& mySvcUuid,
+                                         fds_uint32_t bitsPerDltToken,
+                                         const DLT* dlt,
+                                         std::function<void(Error)> cb) {
+    auto err = startObjectRebalance(rebalSetMsg,
+                                    executorSmUuid,
+                                    mySvcUuid,
+                                    bitsPerDltToken, dlt);
+    cb(err);
+}
+
 /**
  * Handle start object rebalance from destination SM
  */
 Error
-MigrationMgr::startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
+MigrationMgr::startObjectRebalance(const fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
                                    const fpi::SvcUuid &executorSmUuid,
                                    const NodeUuid& mySvcUuid,
                                    fds_uint32_t bitsPerDltToken,
@@ -643,7 +661,7 @@ MigrationMgr::acceptSourceResponsibility(fds_token_id dltToken,
  * Handle msg from destination SM to send data/metadata changes since the first delta set
  */
 Error
-MigrationMgr::startSecondObjectRebalance(fpi::CtrlGetSecondRebalanceDeltaSetPtr& msg,
+MigrationMgr::startSecondObjectRebalance(const fpi::CtrlGetSecondRebalanceDeltaSetPtr& msg,
                                          const fpi::SvcUuid &executorSmUuid)
 {
     Error err(ERR_OK);
@@ -730,7 +748,7 @@ MigrationMgr::finishClientResync(fds_uint64_t executorId)
  * Handle rebalance delta set at destination from the source
  */
 Error
-MigrationMgr::recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet)
+MigrationMgr::recvRebalanceDeltaSet(const fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet)
 {
     Error err(ERR_OK);
     fds_uint64_t executorId = deltaSet->executorID;
@@ -992,12 +1010,15 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
 }
 
 void
-MigrationMgr::reportMigrationCompleted(fds_bool_t resyncOnRestart) {
+MigrationMgr::reportMigrationCompleted(fds_bool_t isResync) {
+    // Reset resync indicator flag in Migration Manager.
+    resyncOnRestart = false;
+
     bool resyncPending = false;
     resyncPending = std::atomic_exchange(&isResyncPending, resyncPending);
-    if (resyncPending || resyncOnRestart) {
+    if (resyncPending || isResync) {
         if (cachedResyncDoneOrPendingCb) {
-            cachedResyncDoneOrPendingCb(resyncPending, resyncOnRestart);
+            cachedResyncDoneOrPendingCb(resyncPending, isResync);
         }
     } else {
         LOGNOTIFY << "No pending resync";
@@ -1054,6 +1075,21 @@ MigrationMgr::getTargetDltVersion() const
 void
 MigrationMgr::startForwarding(fds_uint64_t executorId, fds_token_id smTok)
 {
+    /**
+     * Info(Gurpreet): Forwarding io logic from Migration Client to Executor will only
+     * execute for rebalance(add-node) migration case. Not for resync. (Although
+     * I would love to remove forwarding logic altogether, but removing it for
+     * rebalance case will require changes to dlt close handling, migration callback
+     * to OM plus other changes, which is a work item in itself.
+     * I've created FS-6229 for it.
+     * For Resync, I've removed the constraint of not accepting puts during token
+     * migration for a give token. IO forwarding was required when SM was not accepting
+     * io from AMs during token migration. Now all tokens will accept io independent of
+     * the state of resync.
+     */
+    if (resyncOnRestart) {
+        return;
+    }
     // ignore invalid executor id
     if (executorId == SM_INVALID_EXECUTOR_ID) {
         LOGDEBUG << "Invalid executor ID, ok if called when there is no migration";
@@ -1271,14 +1307,23 @@ MigrationMgr::makeTokensAvailable(const DLT *dlt,
     }
 }
 
+// Change state for a bunch of tokens
 template<typename T>
 void
 MigrationMgr::changeDltTokensAvailability(const T &tokens, bool availability) {
-    FDSGUARD(dltTokenStatesMutex);
     for (auto token : tokens) {
-        dltTokenStates[token] = availability;
-        LOGNOTIFY << "DLT token " << token << " availability = " << availability;
+        changeTokenState(token, availability);
     }
+}
+
+// Change state for single token
+void
+MigrationMgr::changeTokenState(fds_token_id &token, bool availability) {
+    {
+        FDSGUARD(dltTokenStatesMutex);
+        dltTokenStates[token] = availability;
+    }
+    LOGNOTIFY << "DLT token " << token << " availability = " << availability;
 }
 
 fds_bool_t
@@ -1327,6 +1372,7 @@ MigrationMgr::resetDltTokensStates(fds_uint32_t& bitsPerDltToken) {
     FDSGUARD(dltTokenStatesMutex);
     if (dltTokenStates.size() == 0) {
         // first time migration/resync started
+        LOGNOTIFY << "Resetting all tokens to unavailable";
         fds_uint32_t numTokens = pow(2, bitsPerDltToken);
         dltTokenStates.clear();
         dltTokenStates.assign(numTokens, false);
@@ -1632,6 +1678,9 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
                     << " and exhausted number of retries. ";
         migrExecutor->setDoneWithError();
         migrExecutor->clearRetryDltTokenSet();
+        // Retries exhausted, still make token available so that it can serve
+        // existing data and accept new writes.
+        changeTokenState(smToken, true);
         return;
     }
 
@@ -1753,13 +1802,14 @@ std::string MigrationMgr::getStateInfo() {
     }
 
     auto myTokens = dlt->getTokens(objStoreMgrUuid);
+    std::sort(myTokens.begin(), myTokens.end());
     /* Lock dltTokenStates to make sure there is no change in dlt while checking*/
     synchronized(dltTokenStatesMutex) {
         for (const auto &tok : myTokens) {
-            if (tok >= dltTokenStates.size() || !dltTokenStates[tok]) {
-                unavailableTokens.append(tok);
-            } else if (dltTokenStates[tok]) {
+            if (dltTokenStates[tok]) {
                 availableTokens.append(tok);
+            } else {
+                unavailableTokens.append(tok);
             }
         }
     }
@@ -1767,9 +1817,13 @@ std::string MigrationMgr::getStateInfo() {
     /* Return the available and unavailable token counts as well as the unavailable token list */
     Json::Value state;
     state["dlt_version"] = static_cast<Json::Value::Int64>(dlt->getVersion());
+    state["owned"] = static_cast<Json::Value::Int64>(myTokens.size());
     state["available"] = availableTokens;
     state["unavailable"] = unavailableTokens;
-
+    state["rebal_inprog"] = (isMigrationInProgress() ? (isResync() ? false: true) : false);
+    state["resync_inprog"] = (isMigrationInProgress() ? (isResync() ? true: false) : false);
+    state["num_execs"] = static_cast<Json::Value::Int64>(migrExecutors.size());
+    state["num_clients"] = static_cast<Json::Value::Int64>(migrClients.size());
     std::stringstream ss;
     ss << state;
     return ss.str();

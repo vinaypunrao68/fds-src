@@ -285,6 +285,8 @@ class ObjectStorMgr : public Module, public SmIoReqHandler {
         return static_cast<SmVolQueue*>(qosCtrl->getQueue(volId));
     }
 
+    fds_uint32_t getInterStorMgrTimeout() const;
+
      // We need to get this info out of this big class to avoid making this
      // class even bigger than it should.  Not much point for making it
      // private and need a get method to get it out.

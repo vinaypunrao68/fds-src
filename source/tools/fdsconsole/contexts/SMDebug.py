@@ -111,9 +111,24 @@ class SMDebugContext(Context):
                 else:
                     availableCnt = len(state["available"]) if state["available"] else 0
                     unavailableCnt = len(state["unavailable"]) if state["unavailable"] else 0
-                    tbl = [['dlt_version', 'available', 'unavailable'],
-                           [state["dlt_version"], availableCnt , unavailableCnt]]
-                    return tabulate(tbl, headers="firstrow")
+                    rebalance = "no"
+                    if state["rebal_inprog"]:
+                        rebalance = "yes"
+                    resync = "no"
+                    if state["resync_inprog"]:
+                        resync = "yes"
+                    execs = state["num_execs"]
+                    clients = state["num_clients"]
+
+                    tbl = [('dlt_version', state["dlt_version"]),
+                           ('owned', state["owned"]),
+                           ('available', availableCnt),
+                           ('unavailable', unavailableCnt),
+                           ('rebalance_inprog', rebalance),
+                           ('resync_inprog', resync),
+                           ('num_execs', execs),
+                           ('num_clients', clients)]
+                    return tabulate(tbl)
             except Exception, e:
                 log.exception(e)
                 print e.message

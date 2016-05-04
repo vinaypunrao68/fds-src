@@ -621,7 +621,7 @@ class SmIoAbortMigration: public SmIoReq {
 };  // class SmIoAbortMigration
 
 /**
- * Reqest to close DLT.
+ * Request to close DLT.
  *
  * We are making this a QoS request, since this operation can take a while
  * to complete, instead of handling  the close in the service layer, handle
@@ -645,8 +645,9 @@ class SmIoNotifyDLTClose: public SmIoReq {
 
 struct SmIoGenericRequest : SmIoReq {
     SmIoGenericRequest(const fds_volid_t &volId,
-                     const std::function<void()>& f,
-                     const std::function<void()>& cb = NULL) : func(f), cb(cb) {
+                       const sm_task_type &task,
+                       const std::function<void()>& f,
+                       const std::function<void()>& cb = NULL) : taskType(task), func(f), cb(cb) {
         volUuid = volId;
         io_type = FDS_GENERIC_REQUEST;
     }
@@ -659,8 +660,12 @@ struct SmIoGenericRequest : SmIoReq {
         if (cb) cb();
     }
 
+    sm_task_type getTaskType() const {
+        return taskType;
+    }
   protected:
     std::function<void()> func, cb;
+    sm_task_type taskType;
 };
 
 }  // namespace fds

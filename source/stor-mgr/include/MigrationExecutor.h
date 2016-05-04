@@ -153,6 +153,8 @@ class MigrationExecutor {
         return abortPending;
     }
 
+    fds_uint32_t getMigrationMsgsTimeout() const;
+
     /**
      * Adds DLT token to the list of DLT tokens for which this
      * MigrationExecutor is responsible for
@@ -180,7 +182,7 @@ class MigrationExecutor {
     /**
      * Handles message from Source SM to apply delta set to this SM
      */
-    Error applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet);
+    Error applyRebalanceDeltaSet(const fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet);
 
     /**
      * Wait for all pending Executor requests to complete.

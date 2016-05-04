@@ -88,12 +88,14 @@ class MigrationMgr : StateProvider{
     std::string getStateProviderId() override;
     std::string getStateInfo() override;
 
+    fds_uint32_t getMigrationMsgsTimeout() const;
+
     /**
      * Handles start migration message from OM.
      * Creates MigrationExecutor object for each SM token, source SM
      * which initiate token migration
      */
-    Error startMigration(fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
+    Error startMigration(const fpi::CtrlNotifySMStartMigrationPtr& migrationMsg,
                          OmStartMigrationCbType cb,
                          const NodeUuid& mySvcUuid,
                          fds_uint32_t bitsPerDltToken,
@@ -150,10 +152,17 @@ class MigrationMgr : StateProvider{
      */
     void timeoutAbortMigration();
 
+    void initiateClientForMigration(const fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
+                                    const fpi::SvcUuid &executorSmUuid,
+                                    const NodeUuid& mySvcUuid,
+                                    fds_uint32_t bitsPerDltToken,
+                                    const DLT* dlt,
+                                    std::function<void(Error)> cb);
+
     /**
      * Handle start object rebalance from destination SM
      */
-    Error startObjectRebalance(fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
+    Error startObjectRebalance(const fpi::CtrlObjectRebalanceFilterSetPtr& rebalSetMsg,
                                const fpi::SvcUuid &executorSmUuid,
                                const NodeUuid& mySvcUuid,
                                fds_uint32_t bitsPerDltToken,
@@ -169,13 +178,13 @@ class MigrationMgr : StateProvider{
      * Handle msg from destination SM to send data/metadata changes since the first
      * delta set.
      */
-    Error startSecondObjectRebalance(fpi::CtrlGetSecondRebalanceDeltaSetPtr& msg,
+    Error startSecondObjectRebalance(const fpi::CtrlGetSecondRebalanceDeltaSetPtr& msg,
                                      const fpi::SvcUuid &executorSmUuid);
 
     /**
      * Handle rebalance delta set at destination from the source
      */
-    Error recvRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet);
+    Error recvRebalanceDeltaSet(const fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet);
 
     /**
      * Ack from destination for rebalance delta set message
@@ -406,6 +415,9 @@ class MigrationMgr : StateProvider{
     template<typename T>
     void changeDltTokensAvailability(const T& tokens, bool availability);
 
+    // Change token state for a single sm token
+    void changeTokenState(fds_token_id& token, bool availability);
+
     /**
      * If all executors and clients are done, moves migration to IDLE state
      * and resets the state
@@ -498,7 +510,7 @@ class MigrationMgr : StateProvider{
         NextExecutor() = delete;
     } nextExecutor;
 
-    /// SM token token that is currently in the second round
+    // SM token that is currently in the second round
     fds_token_id smTokenInProgressSecondRound;
     fds_bool_t resyncOnRestart {false};  // true if resyncing tokens without DLT change
 

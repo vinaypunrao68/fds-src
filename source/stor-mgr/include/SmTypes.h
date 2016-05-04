@@ -39,5 +39,13 @@ const fds_uint16_t SM_INVALID_DISK_ID = 0xffff;
 
 extern fds_uint32_t objDelCountThresh;
 
+enum sm_task_type {
+    scavenger = 0,
+    token_compactor,
+    migration,
+    tiering,
+    disk_change
+};
+
 }  // namespace fds
 #endif  // SOURCE_STOR_MGR_INCLUDE_SMTYPES_H_

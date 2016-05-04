@@ -10,6 +10,7 @@
 #include <dlt.h>
 #include <SMSvcHandler.h>
 #include <net/SvcRequestPool.h>
+#include <StorMgr.h>
 #include <MigrationExecutor.h>
 #include <MigrationMgr.h>
 
@@ -56,6 +57,12 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
 
 MigrationExecutor::~MigrationExecutor()
 {
+}
+
+fds_uint32_t
+MigrationExecutor::getMigrationMsgsTimeout() const {
+    ObjectStorMgr* osm = dynamic_cast<ObjectStorMgr*>(dataStore);
+    return osm->getInterStorMgrTimeout();
 }
 
 void MigrationExecutor::handleTimeout() {
@@ -227,7 +234,7 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
                 MigrationExecutor::objectRebalanceFilterSetResp,
                 dltTok.first,
                 dltTok.second));
-            asyncRebalSetReq->setTimeoutMs(5000);
+            asyncRebalSetReq->setTimeoutMs(getMigrationMsgsTimeout());
             asyncRebalSetReq->invoke();
 
             // Per request tracking starts here and is stopped in response callback.
@@ -256,7 +263,7 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
     return err;
 }
 
-// DO NOT release snapshot here, becuase it maybe passed to other
+// DO NOT release snapshot here, because it maybe passed to other
 // migration executors
 Error
 MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
@@ -406,7 +413,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
             asyncRebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationExecutor::objectRebalanceFilterSetResp,
                                                                 tok,
                                                                 perTokenMsgs[tok]->seqNum));
-            asyncRebalSetReq->setTimeoutMs(5000);
+            asyncRebalSetReq->setTimeoutMs(getMigrationMsgsTimeout());
             asyncRebalSetReq->invoke();
 
             // for each msg we sent, start tracking this as IO -- because we want callback still exist
@@ -557,7 +564,7 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
 }
 
 Error
-MigrationExecutor::applyRebalanceDeltaSet(fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet)
+MigrationExecutor::applyRebalanceDeltaSet(const fpi::CtrlObjectRebalanceDeltaSetPtr& deltaSet)
 {
     Error err(ERR_OK);
 
@@ -797,7 +804,7 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
     async2RebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlGetSecondRebalanceDeltaSet),
                                   msg);
     async2RebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationExecutor::getSecondRebalanceDeltaResp));
-    async2RebalSetReq->setTimeoutMs(5000);
+    async2RebalSetReq->setTimeoutMs(getMigrationMsgsTimeout());
 
     // Start tracking outgoing request to Migration Client. Will be stopped in callback.
     if (!trackIOReqs.startTrackIOReqs()) {
@@ -939,7 +946,7 @@ MigrationExecutor::sendFinishResyncToClient()
     auto asyncFinishClientReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
     asyncFinishClientReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlFinishClientTokenResyncMsg), msg);
     asyncFinishClientReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationExecutor::finishResyncResp));
-    asyncFinishClientReq->setTimeoutMs(5000);
+    asyncFinishClientReq->setTimeoutMs(getMigrationMsgsTimeout());
 
     if (!trackIOReqs.startTrackIOReqs()) {
         // For now, just return an error that migration is aborted.

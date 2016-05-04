@@ -9,7 +9,7 @@
 #include <SMSvcHandler.h>
 #include <ObjMeta.h>
 #include <dlt.h>
-
+#include <StorMgr.h>
 #include <SmIo.h>
 #include <MigrationClient.h>
 #include <fds_process.h>
@@ -50,6 +50,12 @@ MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
 
 MigrationClient::~MigrationClient()
 {
+}
+
+fds_uint32_t
+MigrationClient::getMigrationMsgsTimeout() const {
+    ObjectStorMgr* osm = dynamic_cast<ObjectStorMgr*>(dataStore);
+    return osm->getInterStorMgrTimeout();
 }
 
 void
@@ -121,7 +127,7 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
         auto asyncPutReq = gSvcRequestPool->newEPSvcRequest(destSMNodeID.toSvcUuid());
         asyncPutReq->setPayload(FDSP_MSG_TYPEID(fpi::PutObjectMsg),
                                 putReq->putObjectNetReq);
-        asyncPutReq->setTimeoutMs(25000);
+        asyncPutReq->setTimeoutMs(getMigrationMsgsTimeout());
         asyncPutReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationClient::fwdPutObjectCb, putReq));
         asyncPutReq->invoke();
     } else if (req->io_type == FDS_SM_DELETE_OBJECT) {
@@ -857,7 +863,7 @@ MigrationClient::migClientVerifyDestination(fds_token_id dltToken,
 
 
 Error
-MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilterSetPtr& filterSet,
+MigrationClient::migClientStartRebalanceFirstPhase(const fpi::CtrlObjectRebalanceFilterSetPtr& filterSet,
                                                    fds_bool_t srcAccepted)
 {
     /* Verify that the token and executor ID matches known SM token and perviously
@@ -969,7 +975,7 @@ MigrationClient::migClientStartRebalanceFirstPhase(fpi::CtrlObjectRebalanceFilte
 }
 
 Error
-MigrationClient::migClientStartRebalanceSecondPhase(fpi::CtrlGetSecondRebalanceDeltaSetPtr& secondPhase)
+MigrationClient::migClientStartRebalanceSecondPhase(const fpi::CtrlGetSecondRebalanceDeltaSetPtr& secondPhase)
 {
     Error err(ERR_OK);
 

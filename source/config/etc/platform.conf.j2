@@ -405,12 +405,15 @@ fds: {
         /* Log severity */
         log_severity = "{{ sm_log_severity }}"
 
+        /* sm to sm communication timeout */
+        to_sm_mtimeout = {{ sm_to_sm_mtimeout }}
+
         /* verify data on datapath */
         data_verify = {{ sm_data_verify }}
         /* verify data in background */
         data_verify_background = {{ sm_data_verify_background }}
 
-	/* Toggle for serializing requests for consistency */
+	    /* Toggle for serializing requests for consistency */
         req_serialization = {{ sm_req_serialization }}
         /* Number of primary SMs; 0 means pre-consistency implementation */
         number_of_primary = 2
@@ -502,6 +505,9 @@ fds: {
 
             /* boolean to enable/disable SM resync feature */
             enable_resync = {{ sm_enable_resync }}
+
+            /* delay triggering resync after bootup */
+            delay = {{ sm_delay_trigger_migration }}
 
             /* timeout duration in sec */
             migration_timeout = {{ sm_migration_timeout }}

@@ -76,9 +76,9 @@ SMSvcHandler::SMSvcHandler(CommonModuleProviderIf *provider)
     /* token migration messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMStartMigration, migrationInit);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifySMAbortMigration, migrationAbort);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceFilterSet, initiateObjectSync);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceFilterSet, initiateFirstRound);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceDeltaSet, syncObjectSet);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlGetSecondRebalanceDeltaSet, getMoreDelta);
+    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlGetSecondRebalanceDeltaSet, initiateSecondRound);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlFinishClientTokenResyncMsg, finishClientTokenResync);
 
     /* DMT update messages */
@@ -182,16 +182,25 @@ SMSvcHandler::migrationInit(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     const DLT* dlt = objStorMgr->getDLT();
 
     if (dlt != NULL) {
-        err = objStorMgr->migrationMgr->startMigration(migrationMsg,
-                                                       std::bind(&SMSvcHandler::startMigrationCb,
-                                                                 this,
-                                                                 asyncHdr,
-                                                                 migrationMsg->DLT_version,
-                                                                 std::placeholders::_1),
-                                                       objStorMgr->getUuid(),
+        auto lambda = [=] () {
+            objStorMgr_->migrationMgr->startMigration(migrationMsg,
+                                                      std::bind(&SMSvcHandler::startMigrationCb,
+                                                                this,
+                                                                asyncHdr,
+                                                                migrationMsg->DLT_version,
+                                                                std::placeholders::_1),
+                                                       objStorMgr_->getUuid(),
                                                        dlt->getNumBitsForToken(),
                                                        SMMigrType::MIGR_SM_ADD_NODE,
                                                        false); //false because it's not a resync case
+        };
+        sm_task_type taskType = sm_task_type::migration;
+        auto genericRequest = new SmIoGenericRequest(FdsSysTaskQueueId, taskType, lambda);
+        Error err = objStorMgr_->enqueueMsg(FdsSysTaskQueueId, genericRequest);
+        if (!err.ok()) {
+            LOGWARN << "err:" << err << " unable to enqueue message";
+            startMigrationCb(asyncHdr, migrationMsg->DLT_version, ERR_NOT_READY);
+        }
     } else {
         LOGERROR << "SM does not have any DLT; make sure that StartMigration is not "
                  << " called on addition of the first set of SMs to the domain";
@@ -280,7 +289,7 @@ SMSvcHandler::migrationAbortCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
  * with an filter set of object metadata
  */
 void
-SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+SMSvcHandler::initiateFirstRound(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                  fpi::CtrlObjectRebalanceFilterSetPtr& filterObjSet)
 {
     Error err(ERR_OK);
@@ -310,12 +319,30 @@ SMSvcHandler::initiateObjectSync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         fiu_disable("resend.dlt.token.filter.set");
     } else {
         fds_verify(dlt != NULL);
-        err = objStorMgr->migrationMgr->startObjectRebalance(filterObjSet,
-                                                             asyncHdr->msg_src_uuid,
-                                                             objStorMgr->getUuid(),
-                                                             dlt->getNumBitsForToken(), dlt);
+        auto resp_cb = std::bind(&SMSvcHandler::initiateFirstRoundCb,
+                                 this,
+                                 asyncHdr,
+                                 std::placeholders::_1);
+        auto lambda = [=] () {
+            objStorMgr_->migrationMgr->initiateClientForMigration(filterObjSet,
+                                                                  asyncHdr->msg_src_uuid,
+                                                                  objStorMgr_->getUuid(),
+                                                                  dlt->getNumBitsForToken(),
+                                                                  dlt,
+                                                                  resp_cb);
+        };
+        sm_task_type taskType = sm_task_type::migration;
+        auto genericRequest = new SmIoGenericRequest(FdsSysTaskQueueId, taskType, lambda);
+        Error err = objStorMgr_->enqueueMsg(FdsSysTaskQueueId, genericRequest);
+        if (!err.ok()) {
+            LOGWARN << "err:" << err << " unable to enqueue message";
+        }
     }
+}
 
+void
+SMSvcHandler::initiateFirstRoundCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                   const Error &err) {
     // respond with error code
     asyncHdr->msg_code = err.GetErrno();
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
@@ -326,27 +353,48 @@ SMSvcHandler::syncObjectSet(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                             fpi::CtrlObjectRebalanceDeltaSetPtr& deltaObjSet)
 {
     Error err(ERR_OK);
-    LOGDEBUG << "Received Sync Object Set from SM " << std::hex
-             << asyncHdr->msg_src_uuid.svc_uuid << std::dec;
-    err = objStorMgr->migrationMgr->recvRebalanceDeltaSet(deltaObjSet);
-
-    // TODO(Anna) respond with error, are we responding on success?
-    fds_verify(err.ok() || (err == ERR_SM_TOK_MIGRATION_ABORTED));
+    auto lambda = [=] () {
+        LOGDEBUG << "Received Sync Object Set from SM " << std::hex
+                 << asyncHdr->msg_src_uuid.svc_uuid << std::dec;
+        objStorMgr_->migrationMgr->recvRebalanceDeltaSet(deltaObjSet);
+    };
+    sm_task_type taskType = sm_task_type::migration;
+    auto genericRequest = new SmIoGenericRequest(FdsSysTaskQueueId, taskType, lambda);
+    err = objStorMgr_->enqueueMsg(FdsSysTaskQueueId, genericRequest);
+    if (!err.ok()) {
+        LOGWARN << "err:" << err << " unable to enqueue message";
+    }
 }
 
 void
-SMSvcHandler::getMoreDelta(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                           fpi::CtrlGetSecondRebalanceDeltaSetPtr& getDeltaSetMsg)
+SMSvcHandler::initiateSecondRound(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                  fpi::CtrlGetSecondRebalanceDeltaSetPtr& getDeltaSetMsg)
 {
     Error err(ERR_OK);
-    LOGDEBUG << "Received get second delta set from destination SM "
-             << std::hex << asyncHdr->msg_src_uuid.svc_uuid << std::dec
-             << " executor ID " << getDeltaSetMsg->executorID;
+    auto lambda = [=] () mutable {
+        LOGDEBUG << "Received get second delta set from destination SM "
+                 << std::hex << asyncHdr->msg_src_uuid.svc_uuid << std::dec
+                 << " executor ID " << getDeltaSetMsg->executorID;
 
-    // notify migration mgr -- this call is sync
-    err = objStorMgr->migrationMgr->startSecondObjectRebalance(getDeltaSetMsg,
-                                                               asyncHdr->msg_src_uuid);
+        // notify migration mgr -- this call is sync
+        auto error = objStorMgr_->migrationMgr->startSecondObjectRebalance(getDeltaSetMsg,
+                                                                           asyncHdr->msg_src_uuid);
 
+        initiateSecondRoundCb(asyncHdr, error);
+    };
+    sm_task_type taskType = sm_task_type::migration;
+    auto genericRequest = new SmIoGenericRequest(FdsSysTaskQueueId,
+                                                 taskType,
+                                                 lambda);
+    Error errEnq = objStorMgr_->enqueueMsg(FdsSysTaskQueueId, genericRequest);
+    if (!errEnq.ok()) {
+        LOGWARN << "err:" << err << " unable to enqueue message";
+    }
+}
+
+void
+SMSvcHandler::initiateSecondRoundCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                    Error &err) {
     // send response
     fpi::CtrlGetSecondRebalanceDeltaSetRspPtr msg(new fpi::CtrlGetSecondRebalanceDeltaSetRsp());
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
@@ -358,13 +406,28 @@ SMSvcHandler::finishClientTokenResync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr
                                       fpi::CtrlFinishClientTokenResyncMsgPtr& finishClientResyncMsg)
 {
     Error err(ERR_OK);
-    LOGDEBUG << "Received finish client resync msg from destination SM "
-             << std::hex << asyncHdr->msg_src_uuid.svc_uuid << std::dec
-             << " executor ID " << finishClientResyncMsg->executorID;
+    auto lambda = [=] () mutable {
+        LOGDEBUG << "Received finish client resync msg from destination SM "
+                 << std::hex << asyncHdr->msg_src_uuid.svc_uuid << std::dec
+                 << " executor ID " << finishClientResyncMsg->executorID;
 
-    // notify migration mgr -- this call is sync
-    err = objStorMgr->migrationMgr->finishClientResync(finishClientResyncMsg->executorID);
+        auto error = objStorMgr_->migrationMgr->finishClientResync(finishClientResyncMsg->executorID);
+        finishClientTokenResyncCb(asyncHdr, error);
+    };
 
+    sm_task_type taskType = sm_task_type::migration;
+    auto genericRequest = new SmIoGenericRequest(FdsSysTaskQueueId,
+                                                 taskType,
+                                                 lambda);
+    Error errEnq = objStorMgr_->enqueueMsg(FdsSysTaskQueueId, genericRequest);
+    if (!errEnq.ok()) {
+        LOGWARN << "err:" << err << " unable to enqueue message";
+    }
+}
+
+void
+SMSvcHandler::finishClientTokenResyncCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
+                                        const Error &err) {
     // send response
     fpi::CtrlFinishClientTokenResyncRspMsgPtr msg(new fpi::CtrlFinishClientTokenResyncRspMsg());
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
@@ -1335,16 +1398,26 @@ void SMSvcHandler::activeObjects(ASYNC_HANDLER_PARAMS(ActiveObjectsMsg)) {
         this->sendAsyncResp(*hdr, FDSP_MSG_TYPEID(fpi::ActiveObjectsRspMsg), *resp);
     }; // end of lambda
 
-    auto genericRequest = new SmIoGenericRequest(FdsSysTaskQueueId, lambda);
-    Error err = objStorMgr->enqueueMsg(FdsSysTaskQueueId, genericRequest);
+    sm_task_type taskType = sm_task_type::scavenger;
+    auto genericRequest = new SmIoGenericRequest(FdsSysTaskQueueId, taskType, lambda);
+    Error err = objStorMgr_->enqueueMsg(FdsSysTaskQueueId, genericRequest);
     if (!err.ok()) {
         LOGWARN << "err:" << err << " unable to enqueue message";
     }
 }
 
 void SMSvcHandler::diskMapChange(ASYNC_HANDLER_PARAMS(NotifyDiskMapChange)) {
-    LOGNOTIFY << "Received disk map change notification";
-    objStorMgr->handleNewDiskMap();
+    auto lambda = [this] () {
+        LOGNOTIFY << "Received disk map change notification";
+        objStorMgr_->handleNewDiskMap();
+    };
+
+    sm_task_type taskType = sm_task_type::disk_change;
+    auto genericRequest = new SmIoGenericRequest(FdsSysTaskQueueId, taskType, lambda);
+    Error err = objStorMgr_->enqueueMsg(FdsSysTaskQueueId, genericRequest);
+    if (!err.ok()) {
+        LOGWARN << "err:" << err << " unable to enqueue message";
+    }
 }
 
 void SMSvcHandler::genericCommand(ASYNC_HANDLER_PARAMS(GenericCommandMsg)) {

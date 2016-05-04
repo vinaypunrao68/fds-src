@@ -333,7 +333,8 @@ void ScavControl::scheduleScavengerStart() {
         startScavengeProcess();
     };
 
-    auto genericRequest = new SmIoGenericRequest(FdsSysTaskQueueId, lambda);
+    sm_task_type taskType = sm_task_type::scavenger;
+    auto genericRequest = new SmIoGenericRequest(FdsSysTaskQueueId, taskType, lambda);
     Error err = objStorMgr->enqueueMsg(FdsSysTaskQueueId, genericRequest);
     if (!err.ok()) {
         LOGWARN << "err:" << err << " unable to enqueue message";
