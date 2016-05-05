@@ -11,7 +11,7 @@ import com.formationds.web.W3cXmlResource;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-import com.formationds.xdi.Xdi;
+import com.formationds.xdi.AuthenticatedXdi;
 import com.google.common.base.Joiner;
 import org.eclipse.jetty.server.Request;
 import org.json.JSONArray;
@@ -24,10 +24,10 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class ListContainers implements SwiftRequestHandler {
-    private Xdi xdi;
+    private AuthenticatedXdi xdi;
     private AuthenticationToken token;
 
-    public ListContainers(Xdi xdi, AuthenticationToken token) {
+    public ListContainers(AuthenticatedXdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
         this.token = token;
     }

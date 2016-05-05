@@ -1,6 +1,6 @@
 package com.formationds.nfs.deferred;
 
-import com.formationds.nfs.SortableKey;
+import com.formationds.xdi.SortableKey;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalCause;

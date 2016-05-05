@@ -12,17 +12,17 @@ import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.util.XmlElement;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
-import com.formationds.xdi.Xdi;
+import com.formationds.xdi.AuthenticatedXdi;
 
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
 public class ListBuckets implements SyncRequestHandler {
-    private Xdi xdi;
+    private AuthenticatedXdi xdi;
     private AuthenticationToken token;
 
-    public ListBuckets(Xdi xdi, AuthenticationToken token) {
+    public ListBuckets(AuthenticatedXdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
         this.token = token;
     }

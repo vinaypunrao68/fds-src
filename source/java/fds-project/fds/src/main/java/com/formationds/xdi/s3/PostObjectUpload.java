@@ -4,7 +4,7 @@ import com.formationds.security.AuthenticationToken;
 import com.formationds.spike.later.HttpContext;
 import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.web.toolkit.Resource;
-import com.formationds.xdi.Xdi;
+import com.formationds.xdi.AuthenticatedXdi;
 
 import javax.servlet.MultipartConfigElement;
 import javax.servlet.http.Part;
@@ -14,10 +14,10 @@ import javax.servlet.http.Part;
  */
 
 public class PostObjectUpload implements SyncRequestHandler {
-    private Xdi xdi;
+    private AuthenticatedXdi xdi;
     private AuthenticationToken token;
 
-    public PostObjectUpload(Xdi xdi, AuthenticationToken token) {
+    public PostObjectUpload(AuthenticatedXdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
         this.token = token;
     }

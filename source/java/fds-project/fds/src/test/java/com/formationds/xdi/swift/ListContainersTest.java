@@ -11,7 +11,7 @@ import com.formationds.om.helper.SingletonAmAPI;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.xdi.AsyncAm;
-import com.formationds.xdi.Xdi;
+import com.formationds.xdi.AuthenticatedXdi;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -35,7 +35,7 @@ import static org.mockito.Mockito.when;
 public class ListContainersTest {
 
     static final AsyncAm mockedAMService = mock( AsyncAm.class );
-    static final Xdi mockedXdi = mock( Xdi.class );
+    static final AuthenticatedXdi mockedXdi = mock(AuthenticatedXdi.class);
     static final AuthenticationToken mockedToken = mock( AuthenticationToken.class );
 
     @BeforeClass

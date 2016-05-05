@@ -3,8 +3,7 @@ package com.formationds.xdi.s3;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.spike.later.HttpContext;
 import com.formationds.util.async.CompletableFutureUtility;
-import com.formationds.xdi.Xdi;
-import com.formationds.xdi.io.BlobSpecifier;
+import com.formationds.xdi.AuthenticatedXdi;
 import org.eclipse.jetty.http.HttpStatus;
 
 import java.io.OutputStream;
@@ -15,9 +14,9 @@ import java.util.function.BiFunction;
 
 public class AsyncGetObject implements BiFunction<HttpContext, AuthenticationToken, CompletableFuture<Void>> {
 
-    private Xdi xdi;
+    private AuthenticatedXdi xdi;
 
-    public AsyncGetObject(Xdi xdi) {
+    public AsyncGetObject(AuthenticatedXdi xdi) {
         this.xdi = xdi;
     }
 

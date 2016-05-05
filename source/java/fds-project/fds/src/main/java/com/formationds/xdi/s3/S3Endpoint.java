@@ -14,11 +14,12 @@ import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.web.toolkit.*;
 import com.formationds.xdi.AsyncStreamer;
-import com.formationds.xdi.Xdi;
+import com.formationds.xdi.AuthenticatedXdi;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.joda.time.DateTime;
 import org.joda.time.format.ISODateTimeFormat;
+
 import javax.crypto.SecretKey;
 import java.util.HashMap;
 import java.util.Map;
@@ -36,11 +37,11 @@ public class S3Endpoint {
     public static final String X_AMZ_COPY_SOURCE = "x-amz-copy-source";
     public static final String S3_DEFAULT_CONTENT_TYPE = "binary/octet-stream";
     private final AsyncWebapp webApp;
-    private Xdi xdi;
+    private AuthenticatedXdi xdi;
     private Supplier<AsyncStreamer> xdiAsync;
     private SecretKey secretKey;
 
-    public S3Endpoint(Xdi xdi, Supplier<AsyncStreamer> xdiAsync, SecretKey secretKey,
+    public S3Endpoint(AuthenticatedXdi xdi, Supplier<AsyncStreamer> xdiAsync, SecretKey secretKey,
                       HttpsConfiguration httpsConfiguration, HttpConfiguration httpConfiguration, int maxConcurrentRequests) {
         this.xdi = xdi;
         this.xdiAsync = xdiAsync;

@@ -3,20 +3,15 @@ package com.formationds.xdi.swift;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import com.formationds.protocol.ApiException;
-import com.formationds.protocol.BlobDescriptor;
-import com.formationds.protocol.BlobListOrder;
-import com.formationds.protocol.ErrorCode;
-import com.formationds.protocol.PatternSemantics;
+import com.formationds.protocol.*;
 import com.formationds.security.AuthenticationToken;
 import com.formationds.util.JsonArrayCollector;
 import com.formationds.web.W3cXmlResource;
 import com.formationds.web.toolkit.JsonResource;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-import com.formationds.xdi.Xdi;
+import com.formationds.xdi.AuthenticatedXdi;
 import com.google.common.base.Joiner;
-
 import org.apache.thrift.TException;
 import org.eclipse.jetty.server.Request;
 import org.joda.time.DateTime;
@@ -26,16 +21,15 @@ import org.w3c.dom.Element;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 public class GetContainer  implements SwiftRequestHandler {
-    private Xdi xdi;
+    private AuthenticatedXdi xdi;
     private AuthenticationToken token;
 
-    public GetContainer(Xdi xdi, AuthenticationToken token) {
+    public GetContainer(AuthenticatedXdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
         this.token = token;
     }
@@ -111,7 +105,7 @@ public class GetContainer  implements SwiftRequestHandler {
     }
 
     private String lastModified(BlobDescriptor d) {
-        String timestamp = d.getMetadata().get(Xdi.LAST_MODIFIED);
+        String timestamp = d.getMetadata().get(AuthenticatedXdi.LAST_MODIFIED);
         try {
             return new DateTime(Long.parseLong(timestamp)).toString();
         } catch (Exception e) {

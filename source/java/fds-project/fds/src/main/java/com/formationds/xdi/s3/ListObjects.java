@@ -3,15 +3,6 @@ package com.formationds.xdi.s3;
  * Copyright 2014 Formation Data Systems, Inc.
  */
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import org.jets3t.service.utils.ServiceUtils;
-
 import com.formationds.protocol.BlobDescriptor;
 import com.formationds.protocol.BlobListOrder;
 import com.formationds.protocol.PatternSemantics;
@@ -21,15 +12,18 @@ import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.util.XmlElement;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
+import com.formationds.xdi.AuthenticatedXdi;
 import com.formationds.xdi.VolumeContents;
-import com.formationds.xdi.Xdi;
 import com.google.common.collect.Iterables;
+import org.jets3t.service.utils.ServiceUtils;
+
+import java.util.*;
 
 public class ListObjects implements SyncRequestHandler {
-    private Xdi xdi;
+    private AuthenticatedXdi xdi;
     private AuthenticationToken token;
 
-    public ListObjects(Xdi xdi, AuthenticationToken token) {
+    public ListObjects(AuthenticatedXdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
         this.token = token;
     }

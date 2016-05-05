@@ -8,16 +8,16 @@ import com.formationds.security.AuthenticationToken;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-import com.formationds.xdi.Xdi;
+import com.formationds.xdi.AuthenticatedXdi;
 import org.eclipse.jetty.server.Request;
 
 import java.util.Map;
 
 public class DeleteContainer implements RequestHandler {
-    private Xdi xdi;
+    private AuthenticatedXdi xdi;
     private AuthenticationToken token;
 
-    public DeleteContainer(Xdi xdi, AuthenticationToken token) {
+    public DeleteContainer(AuthenticatedXdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
         this.token = token;
     }

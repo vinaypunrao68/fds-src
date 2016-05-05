@@ -8,17 +8,17 @@ import com.formationds.web.toolkit.HttpConfiguration;
 import com.formationds.web.toolkit.HttpMethod;
 import com.formationds.web.toolkit.RequestHandler;
 import com.formationds.web.toolkit.WebApp;
-import com.formationds.xdi.Xdi;
+import com.formationds.xdi.AuthenticatedXdi;
 
 import javax.crypto.SecretKey;
 import java.util.function.Function;
 
 public class SwiftEndpoint {
-    private Xdi xdi;
+    private AuthenticatedXdi xdi;
     private SecretKey secretKey;
     private WebApp webApp;
 
-    public SwiftEndpoint(Xdi xdi, SecretKey secretKey) {
+    public SwiftEndpoint(AuthenticatedXdi xdi, SecretKey secretKey) {
         this.xdi = xdi;
         this.secretKey = secretKey;
         webApp = new WebApp();

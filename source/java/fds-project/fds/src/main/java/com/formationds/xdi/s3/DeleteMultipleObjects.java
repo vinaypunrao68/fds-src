@@ -9,13 +9,13 @@ import com.formationds.spike.later.HttpContext;
 import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.XmlResource;
-import com.formationds.xdi.Xdi;
+import com.formationds.xdi.AuthenticatedXdi;
 
 public class DeleteMultipleObjects implements SyncRequestHandler {
-    private Xdi xdi;
+    private AuthenticatedXdi xdi;
     private AuthenticationToken token;
 
-    public DeleteMultipleObjects(Xdi xdi, AuthenticationToken token) {
+    public DeleteMultipleObjects(AuthenticatedXdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
         this.token = token;
     }

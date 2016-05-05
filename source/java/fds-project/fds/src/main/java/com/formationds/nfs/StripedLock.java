@@ -1,5 +1,6 @@
 package com.formationds.nfs;
 
+import com.formationds.commons.util.SupplierWithExceptions;
 import com.formationds.util.IoSupplier;
 
 import java.io.IOException;
@@ -17,6 +18,16 @@ class StripedLock {
     }
 
     public <T> T lock(Object object, IoSupplier<T> supplier) throws IOException {
+        int stripe = Math.abs(object.hashCode() % LOCK_STRIPES);
+        locks[stripe].lock();
+        try {
+            return supplier.supply();
+        } finally {
+            locks[stripe].unlock();
+        }
+    }
+
+    public <T> T lockWithAnyException(Object object, SupplierWithExceptions<T> supplier) throws Exception {
         int stripe = Math.abs(object.hashCode() % LOCK_STRIPES);
         locks[stripe].lock();
         try {

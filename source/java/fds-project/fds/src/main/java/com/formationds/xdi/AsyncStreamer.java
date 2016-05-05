@@ -11,11 +11,8 @@ import com.formationds.util.ByteBufferUtility;
 import com.formationds.util.DigestUtil;
 import com.formationds.util.async.AsyncMessageDigest;
 import com.formationds.util.async.AsyncRequestStatistics;
-import com.formationds.util.async.CompletableFutureUtility;
 import com.formationds.util.blob.Mode;
 import org.apache.commons.codec.binary.Hex;
-import org.apache.thrift.TException;
-import org.eclipse.jetty.io.ByteBufferPool;
 import org.joda.time.DateTime;
 
 import java.io.IOException;
@@ -23,7 +20,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -275,7 +271,7 @@ public class AsyncStreamer {
                         int length = buf.position();
                         buf.flip();
                         asyncAm.updateBlob(domainName, volumeName, blobName, tx, buf, length, new ObjectOffset(chunksWrittenSoFar), true).get();
-                        metadata.put(Xdi.LAST_MODIFIED, Long.toString(DateTime.now().getMillis()));
+                        metadata.put(AuthenticatedXdi.LAST_MODIFIED, Long.toString(DateTime.now().getMillis()));
                         metadata.put("etag", Hex.encodeHexString(messageDigest.digest()));
                         asyncAm.updateMetadata(domainName, volumeName, blobName, tx, metadata).get();
                     }
@@ -309,7 +305,7 @@ public class AsyncStreamer {
 
         private CompletableFuture<Map<String, String>> getFinalizedMetadata() {
             HashMap<String, String> md = new HashMap<>(metadata);
-            md.computeIfAbsent(Xdi.LAST_MODIFIED, lm -> Long.toString(DateTime.now().getMillis()));
+            md.computeIfAbsent(AuthenticatedXdi.LAST_MODIFIED, lm -> Long.toString(DateTime.now().getMillis()));
             return digest.get()
                     .thenApply(bytes -> {
                         md.put("etag", Hex.encodeHexString(bytes));

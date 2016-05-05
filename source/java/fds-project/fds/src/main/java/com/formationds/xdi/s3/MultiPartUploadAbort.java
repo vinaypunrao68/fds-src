@@ -8,17 +8,17 @@ import com.formationds.spike.later.HttpContext;
 import com.formationds.spike.later.SyncRequestHandler;
 import com.formationds.web.toolkit.Resource;
 import com.formationds.web.toolkit.TextResource;
-import com.formationds.xdi.Xdi;
+import com.formationds.xdi.AuthenticatedXdi;
 import com.formationds.xdi.io.BlobSpecifier;
 
 import javax.servlet.http.HttpServletResponse;
 
 public class MultiPartUploadAbort implements SyncRequestHandler {
 
-    private Xdi xdi;
+    private AuthenticatedXdi xdi;
     private AuthenticationToken token;
 
-    public MultiPartUploadAbort(Xdi xdi, AuthenticationToken token) {
+    public MultiPartUploadAbort(AuthenticatedXdi xdi, AuthenticationToken token) {
         this.xdi = xdi;
         this.token = token;
     }

@@ -1,5 +1,7 @@
 package com.formationds.nfs;
 
+import com.formationds.xdi.SortableKey;
+
 import java.util.Arrays;
 
 public class SimpleKey extends SortableKey<SimpleKey> {
