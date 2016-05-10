@@ -270,7 +270,7 @@ void ObjectStorMgr::mod_enable_service()
             // TODO(Anna) we should at some point try to recover from this
             // for now SM service will remain unavailable, until someone restarts it
         } else {
-            LOGNOTIFY << "SM services successfully finished first-phase of starting up;"
+            LOGNOTIFY << "SM services successfully finished first phase of starting up;"
                       << " starting the second phase";
             // get DMT from OM if DMT already exist
             MODULEPROVIDER()->getSvcMgr()->getDMT();

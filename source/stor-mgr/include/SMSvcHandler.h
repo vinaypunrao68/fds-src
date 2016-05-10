@@ -110,8 +110,6 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
                                Error &err);
     void initiateFirstRoundCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                               const Error &err);
-  private:
-    ObjectStorMgr *objStorMgr_;
 };
 
 }  // namespace fds
