@@ -4,6 +4,12 @@
 
 package com.formationds.client.v08.model.iscsi;
 
+import com.formationds.client.v08.model.VolumeSettings;
+import com.formationds.rest.v08.model.GSONTest;
+import com.google.gson.FieldNamingPolicy;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.LongSerializationPolicy;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -14,6 +20,13 @@ import java.util.UUID;
  */
 public class TargetTest
 {
+    static public Gson gson( ) { return new GsonBuilder().setDateFormat( "YYYYMMdd-hhmmss.SSSSS" )
+                                                         .setFieldNamingPolicy( FieldNamingPolicy.IDENTITY )
+                                                         .setPrettyPrinting()
+                                                         .registerTypeAdapter( VolumeSettings.class,
+                                                                              new GSONTest.VolumeSettingsAdapter() )
+                                                         .setLongSerializationPolicy( LongSerializationPolicy.STRING ).create( ); }
+
     @Test
     public void testTargetGroup() {
         final Target target =
@@ -57,6 +70,7 @@ public class TargetTest
         {
             Assert.assertNotNull( lun.getLunName() );
             Assert.assertNotNull( lun.getAccessType() );
+            Assert.assertNotNull( lun.getIQN() );
         }
 
         Assert.assertTrue( target.getInitiators().size() == 2 );
@@ -64,5 +78,7 @@ public class TargetTest
         {
             Assert.assertNotNull( initiator.getWWNMask() );
         }
+
+        System.out.println( gson().toJson( target ) );
     }
 }

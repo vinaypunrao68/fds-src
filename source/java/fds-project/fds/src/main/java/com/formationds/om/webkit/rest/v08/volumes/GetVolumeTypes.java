@@ -54,7 +54,7 @@ public class GetVolumeTypes
                                                      new ArrayList<>( ) ) ) );
             volumeTypes.add( new VolumeSettingsNfs( new Size( BigDecimal.valueOf( 1 ), SizeUnit.MB ),
                                                     new Size( BigDecimal.valueOf( 1 ), SizeUnit.PB ),
-                                                    "", "" ) );
+                                                    "", "", "" ) );
         }
 
         return volumeTypes;

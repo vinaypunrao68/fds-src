@@ -601,11 +601,6 @@ public class ExternalModelConverter {
         String extName = internalVolume.getName();
         Long volumeId = internalVolume.getVolId();
 
-        // if the volume id is null or 0, then lets assume this is a conversion in
-        // preparation for volume creation (rather than mistake).  We could also use
-        // the extStatus for this (i.e extStatus == null || extStatus.getState() == unknown
-        boolean create = volumeId == null || volumeId == 0;
-
         com.formationds.apis.VolumeSettings settings = internalVolume.getPolicy();
         MediaPolicy extPolicy = convertToExternalMediaPolicy( settings.getMediaPolicy() );
 
@@ -789,6 +784,7 @@ public class ExternalModelConverter {
                         .withClient( convertToExternalNfsClients( nfsOptions ) )
                         .withMaxObjectSize( Size.of( settings.getMaxObjectSizeInBytes(), SizeUnit.B ) )
                         .withCapacity( capacity )
+                        .withVolumeName( extName )
                         .build();
                 }
                 catch ( UnknownHostException e )

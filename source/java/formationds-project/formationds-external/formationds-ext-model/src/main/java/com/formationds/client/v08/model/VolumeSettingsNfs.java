@@ -42,6 +42,12 @@ public class VolumeSettingsNfs
             return this;
         }
 
+        public Builder withVolumeName( final String volumeName )
+        {
+            this.volumeName = volumeName;
+            return this;
+        }
+
         public VolumeSettingsNfs build()
         {
             return new VolumeSettingsNfs( this );
@@ -51,11 +57,13 @@ public class VolumeSettingsNfs
         private Size maxObjectSize = Size.mb( 1 );
         private Size capacity;
         private String clients = "*";
+        private String volumeName = "";
     }
 
     private final Size capacity;
     private final String options;
     private final String clients;
+    private final String volumeName;
 
     VolumeSettingsNfs( final Builder builder )
     {
@@ -65,6 +73,8 @@ public class VolumeSettingsNfs
         this.capacity = builder.capacity;
         this.options = builder.options;
         this.clients = builder.clients;
+
+        this.volumeName = builder.volumeName;
 
         this.type = VolumeType.NFS;
     }
@@ -78,7 +88,8 @@ public class VolumeSettingsNfs
     public VolumeSettingsNfs( final Size maxObjectSize,
                               final Size capacity,
                               final NfsClients clients,
-                              final NfsOptions options )
+                              final NfsOptions options,
+                              final String volumeName )
     {
         super( );
 
@@ -87,13 +98,17 @@ public class VolumeSettingsNfs
         this.options = options.getOptions();
         this.clients = clients.getClient();
 
+        this.volumeName = volumeName;
+
+
         this.type = VolumeType.NFS;
     }
 
     public VolumeSettingsNfs( final Size maxObjectSize,
                               final Size capacity,
                               final String clients,
-                              final String options )
+                              final String options,
+                              final String volumeName )
     {
         super( );
 
@@ -102,8 +117,13 @@ public class VolumeSettingsNfs
         this.options = options;
         this.clients = clients;
 
+        this.volumeName = volumeName;
+
         this.type = VolumeType.NFS;
     }
+
+    // Network File System mount point
+    private static final String NFS_FMT = "/%s";
 
     /**
      * @return Returns set of NFS options
@@ -121,6 +141,11 @@ public class VolumeSettingsNfs
     public Size getCapacity( ) { return  capacity; }
 
     /**
+     * @return Returns the NFS mount point
+     */
+    public String getMountPoint( ) { return String.format( NFS_FMT, volumeName ); }
+
+    /**
      * Create a copy of the settings based on the current settings
      *
      * @return a copy of the settings
@@ -128,7 +153,11 @@ public class VolumeSettingsNfs
     @Override
     public VolumeSettingsNfs newSettingsFrom( )
     {
-        return new VolumeSettingsNfs( getMaxObjectSize(), getCapacity(), getClients(), getOptions() );
+        return new VolumeSettingsNfs( getMaxObjectSize( ),
+                                      getCapacity( ),
+                                      getClients( ),
+                                      getOptions( ),
+                                      volumeName );
     }
 
     @Override
@@ -144,6 +173,6 @@ public class VolumeSettingsNfs
     @Override
     public int hashCode( )
     {
-        return Objects.hash( super.hashCode( ), getOptions( ), getClients( ) );
+        return Objects.hash( super.hashCode( ), getOptions( ), getClients( ), volumeName );
     }
 }
