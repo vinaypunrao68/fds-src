@@ -21,6 +21,8 @@ import java.util.List;
  */
 public class NFSTest
 {
+    private static final String VOLUME_NAME = "TestVolume";
+
     @SuppressWarnings( "unchecked" )
     @Test
     public void test()
@@ -36,6 +38,7 @@ public class NFSTest
             new VolumeSettingsNfs.Builder()
                                  .withMaxObjectSize( Size.of( 2 * 1024 * 1024, SizeUnit.B ) )
                                  .withOptions( options )
+                                 .withVolumeName( VOLUME_NAME )
                                  .build();
 
         RecurrenceRule rule = new RecurrenceRule();
@@ -59,7 +62,7 @@ public class NFSTest
                                                 Size.of( 3, SizeUnit.GB ) );
 
         final Volume volume = new Volume( 1L,
-                                          "TestVolume",
+                                          VOLUME_NAME,
                                           tenant,
                                           "MarioBrothers",
                                           status,

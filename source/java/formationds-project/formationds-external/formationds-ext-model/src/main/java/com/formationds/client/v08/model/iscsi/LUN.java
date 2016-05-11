@@ -11,6 +11,15 @@ import java.util.Objects;
  */
 public class LUN
 {
+    // IQN ( iSCSI qualified name ) target
+    private static final String IQN = "iqn";
+    // yyyy-mm is the year and month when the naming authority was established.
+    private static final String YYYY_MM = "2012-05";
+    // is usually reverse syntax of the Internet domain name of the naming authority.
+    private static final String NAMING_AUTHORITY = "com.formationds.com";
+    // the format of the iscsi qualified name
+    private static final String IQN_FMT = IQN + "." + YYYY_MM + "." + NAMING_AUTHORITY + ":%s";
+
     public enum AccessType { RW, RO }
 
     public static class Builder {
@@ -39,6 +48,7 @@ public class LUN
 
     private final AccessType accessType;
     private final String lunName;
+    private final String iqn;
 
     /**
      * @param lunName the name of the logical unit number
@@ -49,6 +59,7 @@ public class LUN
     {
         this.lunName = lunName;
         this.accessType = accessType;
+        this.iqn = String.format( IQN_FMT, this.lunName );
      }
 
     /**
@@ -60,6 +71,11 @@ public class LUN
      * @return Returns the name of this Logical Unit Number
      */
     public String getLunName( ) { return lunName; }
+
+    /**
+     * @return Returns the iSCSI qualified name, i.e. IQN
+     */
+    public String getIQN( ) { return iqn; }
 
     @Override
     public boolean equals( final Object o )
