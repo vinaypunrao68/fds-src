@@ -94,17 +94,20 @@
 #define GLOGCRITICAL GLEVELCHECK(critical)     FDS_PLOG_SEV(GLOGGERPTR, fds::fds_log::critical)
 
 
-/*
- * Adds a thread local attribute to be printed at the log level
- * */
-#define SCOPEDATTR(key,value) BOOST_LOG_NAMED_SCOPE((key ":" value))
-
 // #define FUNCTRACING
 #ifdef FUNCTRACING
 #define TRACEFUNC fds::__TRACER__ __tt__(__PRETTY_FUNCTION__, __FILE__, __LINE__);
 #else
 #define TRACEFUNC
 #endif
+
+/*
+ * Adds a thread local attribute to be printed at the log level
+ * */
+#define SCOPEDATTR(k,v) BOOST_LOG_NAMED_SCOPE((k ":" v))
+#define SCOPEDCTX(v)  BOOST_LOG_NAMED_SCOPE(("ctx:" v))
+#define SCOPEDCONTEXT(v)  BOOST_LOG_NAMED_SCOPE(("ctx:" v))
+
 
 namespace fds {
 struct __TRACER__ {

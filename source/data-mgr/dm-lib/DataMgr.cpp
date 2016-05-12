@@ -74,6 +74,7 @@ const DataMgr::dmQosCtrl::SerialKeyHash DataMgr::dmQosCtrl::keyHash;
  */
 Error
 DataMgr::processVolSyncState(fds_volid_t volume_id, fds_bool_t fwd_complete) {
+    SCOPEDCTX("migrate");
     Error err(ERR_OK);
     LOGMIGRATE << "DM received volume sync state for volume " << std::hex
                << volume_id << std::dec << " forward complete? " << fwd_complete;
@@ -586,6 +587,16 @@ Error DataMgr::addVolume(const std::string& vol_name,
         // This will make sure no other Volume with same id is being created at the same time
         vol_meta_map[vol_uuid] = nullptr;
     }
+    int pos=0;
+    const char ctxnames[3][21] = {"ctx:volcreate      ",
+                                  "ctx:volcreate.clone",
+                                  "ctx:volcreate.snap "};
+    pos = vdesc->isClone()?1:(vdesc->isSnapshot()?2:0);
+    BOOST_LOG_NAMED_SCOPE(ctxnames[pos]);
+
+    util::Attributes attr;
+    attr.setVolId("vol", vol_uuid);
+    attr.set("name", vdesc->name);
 
     // this will remove
     RemoveErroredVolume __removeErrorVolume__(this, vol_uuid);
@@ -606,6 +617,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
     } else {
         dbfile = dmutil::getLevelDBFile(MODULEPROVIDER()->proc_fdsroot(), vdesc->volUUID);
     }
+
     LOGDEBUG << dbfile;
     fDbExists = util::dirExists(dbfile);
 
@@ -621,9 +633,11 @@ Error DataMgr::addVolume(const std::string& vol_name,
     if (vdesc->isClone()) {
         // clone happens only on primary
         fPrimary = amIPrimary(vdesc->srcVolumeId);
+        attr.setVolId("srcvol", vdesc->srcVolumeId);
     } else if (vdesc->isSnapshot()) {
         // snapshot happens on all nodes
         fPrimary = amIinVolumeGroup(vdesc->srcVolumeId);
+        attr.setVolId("srcvol", vdesc->srcVolumeId);
     } else {
         fPrimary = amIPrimary(vdesc->volUUID);
     }
@@ -643,27 +657,24 @@ Error DataMgr::addVolume(const std::string& vol_name,
         }
     }
 
-    LOGNORMAL << "vol:" << vdesc->volUUID
+    LOGNORMAL << attr
               << " clone:" << vdesc->isClone()
               << " snap:" << vdesc->isSnapshot()
               << " state:" << vdesc->getState()
               << " old:" << fOldVolume
               << " primary:" << fPrimary
-              << " shouldbehere:" << fShouldBeHere
-              << " name:" << vdesc->name;
+              << " shouldbehere:" << fShouldBeHere;
 
     if (features.isVolumegroupingEnabled() && !fShouldBeHere) {
         FDSGUARD(vol_map_mtx);
         vol_meta_map.erase(vol_uuid);
-        LOGNORMAL << "Ignoring add volume: " << vol_uuid
-                  << " as volume doesn't belong in the group";
+        LOGNORMAL << attr << "ignoring add volume as volume doesn't belong in the group";
         return ERR_OK;
     }
 
     if (vdesc->isSnapshot()) {
         if (!fPrimary) {
-            LOGWARN << "not primary - nothing to do for snapshot "
-                    << "for vol:" << vdesc->srcVolumeId;
+            LOGWARN << attr << "not primary - nothing to do for snapshot";
             return err;
         }
     }
@@ -672,13 +683,11 @@ Error DataMgr::addVolume(const std::string& vol_name,
     if ((vdesc->isSnapshot() || (vdesc->isClone() && fPrimary)) && !fOldVolume) {
         auto volmeta = getVolumeMeta(vdesc->srcVolumeId);
         if (!volmeta) {
-            GLOGWARN << "Volume [" << vdesc->srcVolumeId << "] not found!";
+            LOGWARN << attr << "source volume not found!";
             return ERR_NOT_FOUND;
         }
 
-        LOGDEBUG << "Creating a " << (vdesc->isClone()?"clone":"snapshot")
-                 << " name:" << vdesc->name << " vol:" << vdesc->volUUID
-                 << " srcVolume:"<< vdesc->srcVolumeId;
+        LOGDEBUG << attr << "creating a " << (vdesc->isClone()?"clone":"snapshot");
 
         // create commit log entry and enable buffering in case of snapshot
         if (vdesc->isSnapshot()) {
@@ -689,13 +698,13 @@ Error DataMgr::addVolume(const std::string& vol_name,
         if (err.ok()) fActivated = true;
 
     } else {
-        LOGDEBUG << "Adding volume" << " name:" << vdesc->name << " vol:" << vdesc->volUUID;
+        LOGDEBUG << attr << "adding volume";
         err = timeVolCat_->addVolume(*vdesc);
     }
 
     if (!err.ok()) {
-        LOGERROR << "vol:" << vol_uuid << " failed to " << (vdesc->isSnapshot() ? "create snapshot"
-                                                            : (vdesc->isClone() ? "create clone" : "add volume"));
+        LOGERROR << attr << " failed to " << (vdesc->isSnapshot() ? "create snapshot"
+                                              : (vdesc->isClone() ? "create clone" : "add volume"));
         return err;
     }
 
@@ -711,8 +720,8 @@ Error DataMgr::addVolume(const std::string& vol_name,
     if (err.ok() && vdesc->isClone() && fPrimary && !fOldVolume) {
         err = copyVolumeToOtherDMs(vdesc->volUUID);
         if (!err.ok()) {
-            LOGERROR << "failed to sync clone to other DMs. failing clone: " << vdesc->volUUID
-                     << " of src:" << vdesc->srcVolumeId;
+            LOGERROR << attr 
+                     << "failed to sync clone to other DMs";
             return err;
         }
     }
@@ -731,7 +740,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
         Error err1;
         err1 = volmeta->initState();
         if (!err1.ok()) {
-            LOGERROR << " volume state init failed .. ignoring err:" << err1;
+            LOGERROR << attr << " volume state init failed .. ignoring err:" << err1;
         }
     }
 
@@ -746,8 +755,8 @@ Error DataMgr::addVolume(const std::string& vol_name,
         needReg = true;
     }
 
-    LOGDEBUG << "Added vol meta for vol uuid and per Volume queue " << std::hex
-             << vol_uuid << std::dec << ", created catalogs";
+    LOGDEBUG << attr 
+             << "Added vol meta for vol uuid and per Volume queue  created catalogs";
 
     vol_map_mtx->lock();
     if (needReg) {
@@ -772,7 +781,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
                 volmeta->setState(fpi::Active, " - addVolume");
             }
         } else {
-            LOGWARN << "vol:" << vol_uuid << " not activated";
+            LOGWARN << attr << " not activated";
             volmeta->setState(fpi::InError, " - addVolume");
         }
 
@@ -783,7 +792,7 @@ Error DataMgr::addVolume(const std::string& vol_name,
 
     if (!err.ok()) {
         // cleanup volmeta and deregister queue
-        LOGERROR << "vol:" << vol_uuid << " cleaning up volume queue and vol meta because of error";
+        LOGERROR << attr << " cleaning up volume queue and vol meta because of error";
         qosCtrl->deregisterVolume(vdesc->isSnapshot() ? vdesc->qosQueueId : vol_uuid);
         volmeta->dmVolQueue.reset();
         return err;
@@ -932,6 +941,7 @@ Error DataMgr::deleteVolumeContents(fds_volid_t volId) {
  * turn them off.
  */
 Error DataMgr::notifyDMTClose(int64_t dmtVersion) {
+    SCOPEDCTX("migrate");
     Error err(ERR_OK);
 
     // TODO(Andrew): Um, no where to we have a useful error statue
@@ -949,6 +959,7 @@ Error DataMgr::notifyDMTClose(int64_t dmtVersion) {
 // push meta done to destination DM
 //
 void DataMgr::handleDMTClose(DmRequest *io) {
+    SCOPEDCTX("migrate");
     DmIoPushMetaDone *pushMetaDoneReq = static_cast<DmIoPushMetaDone*>(io);
     LOGMIGRATE << "Processed all commits that arrived before DMT close "
                << "will now notify dst DM to open up volume queues: vol "
@@ -1453,6 +1464,7 @@ DataMgr::amIinVolumeGroup(fds_volid_t volUuid) {
  */
 void
 DataMgr::snapVolCat(DmRequest *io) {
+    SCOPEDCTX("migrate");
     Error err(ERR_OK);
     fds_verify(io != NULL);
 
