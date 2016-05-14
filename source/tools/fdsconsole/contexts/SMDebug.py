@@ -128,7 +128,7 @@ class SMDebugContext(Context):
                            ('resync_inprog', resync),
                            ('num_execs', execs),
                            ('num_clients', clients)]
-                    return tabulate(tbl)
+                    print tabulate(tbl)
             except Exception, e:
                 log.exception(e)
                 print e.message

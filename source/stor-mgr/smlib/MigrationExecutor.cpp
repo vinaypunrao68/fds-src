@@ -261,7 +261,7 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
             LOGERROR << "Sending filter set request failed: "
                      << "aborting migration for executor: " << std::hex << executorId
                      << " source: " << sourceSmUuid.uuid_get_val() << std::dec
-                     << " sm token: " << dltTok.first
+                     << " sm token: " << smTokenId
                      << " target DLT: " << targetDltVersion;
             return ERR_SM_TOK_MIGRATION_ABORTED;
         }
