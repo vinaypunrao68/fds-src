@@ -52,7 +52,7 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
     LOGMIGRATE << "Parallel migration - " << parallelMigration << " threads";
     enableMigrationFeature = CONFIG_BOOL("fds.sm.migration.enable_feature", true);
     numPrimaries = CONFIG_UINT32("fds.sm.number_of_primary", 0);
-    maxRetryCyclesWithDifferentSources = CONFIG_UINT32("fds.sm.migration.migration_retry_cycles", 4);
+    maxRetryCyclesWithDifferentSources = CONFIG_UINT32("fds.sm.migration.migration_retry_cycles", 32);
 
     // get migration timeout duration from the platform.conf file.
     migrationTimeoutSec = CONFIG_UINT32("fds.sm.migration.migration_timeout", 300);
@@ -445,8 +445,13 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
         for (SrcSmExecutorMap::const_iterator cit = migrExecutors[curSmTokenInProgress].cbegin();
              cit != migrExecutors[curSmTokenInProgress].cend();
              ++cit) {
-            if (retryMigrFailedTokens) {
-                err = cit->second->startObjectRebalanceAgain(options, db);
+            if (cit->second->inErrorState()) {
+                // This is a stale executor that failed migration. We are now here because we
+                // created a new executor for the same source.
+                continue;
+            } else if (retryMigrFailedTokens) {
+                err = cit->second->startObjectRebalanceAgain(options, db,
+                curSmTokenInProgress, retryMigrSmTokenMap.find(curSmTokenInProgress)->second);
             } else if (uniqueId == cit->second->getUniqueId()) {
                 err = cit->second->startObjectRebalance(options, db); 
             }
@@ -461,7 +466,7 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
     }
 
     smTokenMetadataSnapshotCbErrorHandler(error, err, curSmTokenInProgress,
-					     options, db, retryMigrFailedTokens);
+					                      options, db, retryMigrFailedTokens);
 }
 
 void

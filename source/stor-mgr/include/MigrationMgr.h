@@ -616,6 +616,26 @@ class MigrationMgr : StateProvider{
 
      /* Debug states for state provider */
      std::string stateProviderId;
+
+     /**
+      * These values are used by the fault point resend.dlt.token.filter.set
+      */
+     uint16_t resendFilterSetRetries = 0;
+     uint16_t resendFilterSetMaxRetries = 300;
+
+     inline fds_bool_t retryWithNewSmErrors(Error error) {
+        if ((error == ERR_SVC_REQUEST_TIMEOUT) ||
+            (error == ERR_SVC_REQUEST_INVOCATION) ||
+            (error == ERR_SM_TOK_MIGRATION_SRC_SVC_REQUEST) ||
+            (error == ERR_SM_TOK_MIGRATION_TIMEOUT) ||
+            /// we get this error from source SM which failed to start
+            (error == ERR_NODE_NOT_ACTIVE) ||
+            (error == ERR_SM_NOT_READY_AS_MIGR_SRC) ||
+            (error == ERR_SM_TOK_MIGRATION_NO_DATA_RECVD)) {
+                return true;
+        }
+        return false;
+     }
 };
 
 typedef MigrationMgr::MigrationType SMMigrType;
