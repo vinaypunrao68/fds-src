@@ -52,6 +52,7 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
     LOGMIGRATE << "Parallel migration - " << parallelMigration << " threads";
     enableMigrationFeature = CONFIG_BOOL("fds.sm.migration.enable_feature", true);
     numPrimaries = CONFIG_UINT32("fds.sm.number_of_primary", 0);
+    maxRetryCyclesWithDifferentSources = CONFIG_UINT32("fds.sm.migration.migration_retry_cycles", 4);
 
     // get migration timeout duration from the platform.conf file.
     migrationTimeoutSec = CONFIG_UINT32("fds.sm.migration.migration_timeout", 300);
@@ -274,8 +275,9 @@ MigrationMgr::retryTokenMigrForFailedDltTokens()
 {
     fds_mutex::scoped_lock l(migrSmTokenLock);
 
-    if (!retryMigrSmTokenSet.empty()) {
-        retrySmTokenInProgress = *(retryMigrSmTokenSet.begin());
+    if (!retryMigrSmTokenMap.empty()) {
+        auto smTok = retryMigrSmTokenMap.begin();
+        retrySmTokenInProgress = smTok->first;
         LOGNORMAL << "Starting migration retry for SM token " << retrySmTokenInProgress;
 
         // enqueue snapshot work
@@ -458,26 +460,30 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
         }
     }
 
-    // done with the snapshot
-    db->ReleaseSnapshot(options.snapshot);
+    smTokenMetadataSnapshotCbErrorHandler(error, err, curSmTokenInProgress,
+					     options, db, retryMigrFailedTokens);
+}
+
+void
+MigrationMgr::smTokenMetadataSnapshotCbErrorHandler(const Error& error,
+						    const Error& err,
+						    fds_token_id curSmTokenInProgress,
+						    leveldb::ReadOptions& options,
+						    std::shared_ptr<leveldb::DB> db,
+						    bool retryMigrFailedTokens)
+{
+    if (retryMigrFailedTokens) {
+        fds_mutex::scoped_lock l(migrSmTokenLock);
+        retryMigrSameSrcInProg = false;
+        retryMigrSmTokenMap.erase(retrySmTokenInProgress);
+    }
+
+    if (options.snapshot) {
+            db->ReleaseSnapshot(options.snapshot);
+    }
 
     if (!err.ok()) {
         abortMigrationForSMToken(curSmTokenInProgress, err);
-    }
-
-    // At this point this SM (destination) sent rebalance set msgs to source SMs
-    // We are waiting for response(s) from source SMs to continue with migration
-    // or we will get abort migration from OM if we don't get response from SM
-    // because it is down (SL will timeout on these requests and send msg to OM)
-
-    // But in the case of token migration retry for dlt tokens, issue the snapshot
-    // request for the next smToken for whom we want to retry migration because
-    // it failed the first time with source SM not ready as the reason.
-    if (retryMigrFailedTokens) {
-        migrSmTokenLock.lock();
-        retryMigrSmTokenSet.erase(retryMigrSmTokenSet.begin());
-        migrSmTokenLock.unlock();
-        retryTokenMigrForFailedDltTokens();
     }
 }
 
@@ -849,16 +855,7 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
 
     // beta2: stop the whole migration process on any error
     if (!error.ok()) {
-        if (resyncOnRestart) {
-            retryWithNewSMs(executorId, smToken, dltTokens, round, error);
-        } else {
-            // If we are changing DLT, just abort migration, OM will retry later
-            abortMigration(error);
-            // if we already synced some DLT tokens, they will be set to unavail
-            // when DLT commit comes for the previousle committed DLT (to which OM
-            // will revert to).
-            return;
-        }
+        retryWithNewSMs(executorId, smToken, dltTokens, round, error);
     }
 
     fds_bool_t finished = true;
