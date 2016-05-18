@@ -670,6 +670,8 @@ MigrationExecutor::applyRebalanceDeltaSet(const fpi::CtrlObjectRebalanceDeltaSet
         fds_assert(deltaSet->lastDeltaSet);
         if (!deltaSet->lastDeltaSet) {
             LOGNORMAL << "Executor " << std::hex << executorId << " has no tokens to migrate";
+            trackIOReqs.finishTrackIOReqs();
+            return ERR_SM_TOK_MIGRATION_NO_TOKENS_TO_MIGRATE;
         }
 
         if (completeDeltaSetReceived) {

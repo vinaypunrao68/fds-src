@@ -466,7 +466,7 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
     }
 
     smTokenMetadataSnapshotCbErrorHandler(error, err, curSmTokenInProgress,
-					                      options, db, retryMigrFailedTokens);
+                                          options, db, retryMigrFailedTokens);
 }
 
 void
@@ -480,7 +480,7 @@ MigrationMgr::smTokenMetadataSnapshotCbErrorHandler(const Error& error,
     if (retryMigrFailedTokens) {
         fds_mutex::scoped_lock l(migrSmTokenLock);
         retryMigrSameSrcInProg = false;
-        retryMigrSmTokenMap.erase(retrySmTokenInProgress);
+        retryMigrSmTokenMap.erase(curSmTokenInProgress);
     }
 
     if (options.snapshot) {
