@@ -982,6 +982,9 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
                 // be any.
                 LOGNOTIFY << "SM Resync data migration completed. Cleaninup up clients and executors";
                 LOGMIGRATE << "ResyncOnRestart: done with executors; wait for clients to complete";
+                if (!migrExecutors.empty()) {
+                    setWasDstTimestamp();
+                }
                 coalesceExecutorsNoLock();
                 LOGMIGRATE << "ResyncOnRestart: coalesced executors";
                 migrExecutorLock.upgrade();
@@ -1210,6 +1213,18 @@ MigrationMgr::forwardReqIfNeeded(const ObjectID& objId,
     return forwarded;
 }
 
+std::string
+MigrationMgr::setWasSrcTimestamp() {
+    wasSrcAtTime = util::getLocalTimeString(util::getTimeStampSeconds());
+    return wasSrcAtTime;
+}
+
+std::string
+MigrationMgr::setWasDstTimestamp() {
+    wasDstAtTime = util::getLocalTimeString(util::getTimeStampSeconds());
+    return wasDstAtTime;
+}
+
 /**
  * Handles DLT close event. At this point IO should not arrive
  * with old DLT. Once we reply, we are done with token migration.
@@ -1265,12 +1280,21 @@ MigrationMgr::cleanUpClientsAndExecutors()
     }
 
     LOGMIGRATE << "Will cleanup executors and migr clients";
+
+    if (!migrExecutors.empty()) {
+        setWasDstTimestamp();
+    }
+
     // Wait for all pending IOs to complete on Executors.
     coalesceExecutors();
     LOGMIGRATE << "Done coalescing executors";
     {
         SCOPEDWRITE(migrExecutorLock);
         migrExecutors.clear();
+    }
+
+    if (!migrClients.empty()) {
+        setWasSrcTimestamp();
     }
 
     {
@@ -1563,6 +1587,12 @@ MigrationMgr::tryAbortingMigration() {
     // There could be some pending IOs in flight.  We can't blindly call to clear
     // all executors.  Call to coalesce executors before blowing them away.
     LOGMIGRATE << "Will coalesce executors";
+    if (!migrExecutors.empty()) {
+        setWasDstTimestamp();
+    }
+    if (!migrClients.empty()) {
+        setWasSrcTimestamp();
+    }
     coalesceExecutors();
     LOGMIGRATE << "Finished coalescing executors, will clear executors";
 

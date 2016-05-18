@@ -128,6 +128,8 @@ class SMDebugContext(Context):
 
                     tbl = [('dlt_version', state["dlt_version"]),
                            ('owned', state["owned"]),
+                           ('was_src_at', state["was_src_at"]),
+                           ('was_dst_at', state["was_dst_at"]),
                            ('available', availableCnt),
                            ('unavailable', unavailableCnt),
                            ('rebalance_inprog', rebalance),
