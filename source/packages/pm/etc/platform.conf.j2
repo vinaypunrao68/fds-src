@@ -399,8 +399,6 @@ fds: {
         data_verify = true
         /* verify data in background */
         data_verify_background = true
-        /* sm to sm communication timeout */
-        to_sm_mtimeout = 25
 
 	/* Toggle for serializing requests for consistency */
         req_serialization = false
@@ -494,12 +492,6 @@ fds: {
 
             /* boolean to enable/disable SM resync feature */
             enable_resync = true
-
-            /* wait for this seconds after bootup befor starting resync */
-            delay_trigger_migration = 60
-
-            /* timeout duration in sec */
-            migration_timeout = 300000
 
             /* number of parallel sm migrations at a time */
             parallel_migration = 2

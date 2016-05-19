@@ -96,10 +96,12 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
      * If abort is pending for this Executor. Exit.
      */
     if (isAbortPending()) {
-        LOGMIGRATE << "Aborting migration for Executor " << std::hex << executorId
-                   << " from source SM " << sourceSmUuid.uuid_get_val() << std::dec
-                   << " for SM token " << smTokenId << " target DLT version "
-                   << targetDltVersion;
+        LOGNOTIFY << "Pending abort: aborting migration for"
+                  << " executor: " << std::hex << executorId
+                  << " state: " << getState()
+                  << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                  << " sm token: " << smTokenId
+                  << " target DLT: " << targetDltVersion;
         abortMigrationCb(executorId, smTokenId);
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
@@ -122,6 +124,12 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
     // If we can't start tracking IO request, then terminate this request.
     if (!trackIOReqs.startTrackIOReqs()) {
         // For now, just return an error that migration is aborted.
+        LOGERROR << "Tracking failed: aborting migration for"
+                 << " executor: " << std::hex << executorId
+                 << " state: " << getState()
+                 << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                 << " sm token: " << smTokenId
+                 << " target DLT: " << targetDltVersion;
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
 
@@ -239,13 +247,22 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
 
             // Per request tracking starts here and is stopped in response callback.
             if (!trackIOReqs.startTrackIOReqs()) {
+                LOGERROR << "Tracking failed: aborting migration for"
+                         << " executor: " << std::hex << executorId
+                         << " state: " << getState()
+                         << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                         << " sm token: " << smTokenId
+                         << " target DLT: " << targetDltVersion;
                 return ERR_SM_TOK_MIGRATION_ABORTED;
             }
         }
         catch (...) {
             trackIOReqs.finishTrackIOReqs();
-            LOGMIGRATE << "Async rebalance request failed for token " << dltTok.first << "to source SM "
-                       << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+            LOGERROR << "Sending filter set request failed: "
+                     << "aborting migration for executor: " << std::hex << executorId
+                     << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                     << " sm token: " << smTokenId
+                     << " target DLT: " << targetDltVersion;
             return ERR_SM_TOK_MIGRATION_ABORTED;
         }
     }
@@ -273,10 +290,12 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
      * If abort is pending for this Executor. Exit.
      */
     if (isAbortPending()) {
-        LOGMIGRATE << "Aborting migration for Executor " << std::hex << executorId
-                   << " from source SM " << sourceSmUuid.uuid_get_val() << std::dec
-                   << " for SM token " << smTokenId << " target DLT version "
-                   << targetDltVersion;
+        LOGNOTIFY << "Pending abort: aborting migration for"
+                  << " executor: " << std::hex << executorId
+                  << " state: " << getState()
+                  << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                  << " sm token: " << smTokenId
+                  << " target DLT: " << targetDltVersion;
         abortMigrationCb(executorId, smTokenId);
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
@@ -292,6 +311,12 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     // If we can't start trakcing IO request, then terminate this request.
     if (!trackIOReqs.startTrackIOReqs()) {
         // For now, just return an error that migration is aborted.
+        LOGERROR << "Tracking failed: aborting migration for"
+                 << " executor: " << std::hex << executorId
+                 << " state: " << getState()
+                 << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                 << " sm token: " << smTokenId
+                 << " target DLT: " << targetDltVersion;
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
 
@@ -420,6 +445,12 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
             // when reply happens on abort path
             if (!trackIOReqs.startTrackIOReqs()) {
                 // For now, just return an error that migration is aborted.
+                LOGERROR << "Tracking failed: aborting migration for"
+                         << " executor: " << std::hex << executorId
+                         << " state: " << getState()
+                         << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                         << " sm token: " << smTokenId
+                         << " target DLT: " << targetDltVersion;
                 return ERR_SM_TOK_MIGRATION_ABORTED;
             }
         }
@@ -431,7 +462,7 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         }
 
         fiu_do_on("fail.sm.migration.sending.filter.set",
-                  LOGDEBUG << "fault fail.sm.migration.sending.filter.set enabled"; \
+                  LOGNOTIFY << "fault fail.sm.migration.sending.filter.set enabled"; \
                   if (executorId % 20 == 0) { trackIOReqs.finishTrackIOReqs(); \
                                               return ERR_SM_TOK_MIGRATION_ABORTED;});
     }
@@ -456,11 +487,11 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
 {
     Error error(respError);
     fiu_do_on("sm.all.filterset.resp.network.error",
-              LOGDEBUG << "fault sm.all.filterset.resp.network.error"; \
+              LOGNOTIFY << "fault sm.all.filterset.resp.network.error"; \
               error = ERR_SVC_REQUEST_INVOCATION;);
 
     fiu_do_on("sm.all.filterset.resp.migration.abort",
-              LOGDEBUG << "fault sm.all.filterset.resp.migration.abort"; \
+              LOGNOTIFY << "fault sm.all.filterset.resp.migration.abort"; \
               error = ERR_SM_TOK_MIGRATION_ABORTED;);
 
     LOGDEBUG << "Received CtrlObjectRebalanceFilterSet response for executor "
@@ -472,10 +503,12 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
      * If abort is pending for this Executor. Exit.
      */
     if (isAbortPending()) {
-        LOGMIGRATE << "Aborting migration for Executor " << std::hex << executorId
-                   << " from source SM " << sourceSmUuid.uuid_get_val() << std::dec
-                   << " for SM token " << smTokenId << " target DLT version "
-                   << targetDltVersion;
+        LOGNOTIFY << "Pending abort: aborting migration for"
+                  << " executor: " << std::hex << executorId
+                  << " state: " << getState()
+                  << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                  << " sm token: " << smTokenId
+                  << " target DLT: " << targetDltVersion;
         abortMigrationCb(executorId, smTokenId);
         trackIOReqs.finishTrackIOReqs();
         return;
@@ -483,10 +516,12 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
 
     trackIOReqs.finishTrackIOReqs();
     if (inErrorState() || filterRespAndStateMismatch()) {
-        LOGDEBUG << "Ignoring CtrlObjectRebalanceFilterSet response for executor "
-                 << std::hex << executorId << std::dec << " DLT token " << dltToken
-                 << " " << error << " since Migration Executor is in " << getState()
-                 << " state";
+        LOGNOTIFY << "Ignoring filter set response for"
+                  << " executor: " << std::hex << executorId
+                  << " state: " << getState()
+                  << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                  << " sm token: " << smTokenId
+                  << " target DLT: " << targetDltVersion;
         return;
     }
 
@@ -572,23 +607,35 @@ MigrationExecutor::applyRebalanceDeltaSet(const fpi::CtrlObjectRebalanceDeltaSet
      * If abort is pending for this Executor. Exit.
      */
     if (isAbortPending()) {
-        LOGMIGRATE << "Aborting migration for Executor " << std::hex << executorId
-                   << " from source SM " << sourceSmUuid.uuid_get_val() << std::dec
-                   << " for SM token " << smTokenId << " target DLT version "
-                   << targetDltVersion;
+        LOGNOTIFY << "Pending abort: aborting migration for"
+                  << " executor: " << std::hex << executorId
+                  << " state: " << getState()
+                  << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                  << " sm token: " << smTokenId
+                  << " target DLT: " << targetDltVersion;
         abortMigrationCb(executorId, smTokenId);
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
 
     if (inErrorState()) {
-        LOGDEBUG << "Ignoring delta set for executor " << std::hex << executorId
-                 << " since Migration Executor is in " << getState() << " state";
+        LOGNOTIFY << "Ignoring received delta set for"
+                  << " executor: " << std::hex << executorId
+                  << " state: " << getState()
+                  << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                  << " sm token: " << smTokenId
+                  << " target DLT: " << targetDltVersion;
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
 
     // Track apply delta set.  If we can't track IO, then this MigrationExecutor is
     // being coalesced.
     if (!trackIOReqs.startTrackIOReqs()) {
+        LOGERROR << "Tracking failed: aborting migration for"
+                 << " executor: " << std::hex << executorId
+                 << " state: " << getState()
+                 << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                 << " sm token: " << smTokenId
+                 << " target DLT: " << targetDltVersion;
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
 
@@ -697,7 +744,12 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
     // if we are in error state, do not do anything anymore...
     MigrationExecutorState curState = atomic_load(&state);
     if (inErrorState() || isAbortPending()) {
-        LOGNORMAL << "MigrationExecutor in error state, ignoring the callback";
+        LOGNOTIFY << "Pending abort or errored executor: aborting migration for"
+                  << " executor: " << std::hex << executorId
+                  << " state: " << getState()
+                  << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                  << " sm token: " << smTokenId
+                  << " target DLT: " << targetDltVersion;
         abortMigrationCb(executorId, smTokenId);
         trackIOReqs.finishTrackIOReqs();
         seqNumDeltaSet.setDoubleSeqNum(req->seqNum,
@@ -754,10 +806,12 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
      * If abort is pending for this Executor. Exit.
      */
     if (isAbortPending()) {
-        LOGMIGRATE << "Aborting migration for Executor " << std::hex << executorId
-                   << " from source SM " << sourceSmUuid.uuid_get_val() << std::dec
-                   << " for SM token " << smTokenId << " target DLT version "
-                   << targetDltVersion;
+        LOGNOTIFY << "Pending abort: aborting migration for"
+                  << " executor: " << std::hex << executorId
+                  << " state: " << getState()
+                  << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                  << " sm token: " << smTokenId
+                  << " target DLT: " << targetDltVersion;
         abortMigrationCb(executorId, smTokenId);
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
@@ -809,12 +863,18 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
     // Start tracking outgoing request to Migration Client. Will be stopped in callback.
     if (!trackIOReqs.startTrackIOReqs()) {
         // For now, just return an error that migration is aborted.
+        LOGERROR << "Tracking failed: aborting migration for"
+                 << " executor: " << std::hex << executorId
+                 << " state: " << getState()
+                 << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                 << " sm token: " << smTokenId
+                 << " target DLT: " << targetDltVersion;
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
     async2RebalSetReq->invoke();
 
     fiu_do_on("fail.sm.migration.second.rebalance.req",
-              LOGDEBUG << "fault fail.sm.migration.second.rebalance.req enabled"; \
+              LOGNOTIFY << "fault fail.sm.migration.second.rebalance.req enabled"; \
               if (executorId % 20 == 0) return ERR_SM_TOK_MIGRATION_ABORTED;);
 
     return err;
@@ -833,10 +893,12 @@ MigrationExecutor::getSecondRebalanceDeltaResp(EPSvcRequest* req,
      * If abort is pending for this Executor. Exit.
      */
     if (isAbortPending()) {
-        LOGMIGRATE << "Aborting migration for Executor " << std::hex << executorId
-                   << " from source SM " << sourceSmUuid.uuid_get_val() << std::dec
-                   << " for SM token " << smTokenId << " target DLT version "
-                   << targetDltVersion;
+        LOGNOTIFY << "Pending abort: aborting migration for"
+                  << " executor: " << std::hex << executorId
+                  << " state: " << getState()
+                  << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                  << " sm token: " << smTokenId
+                  << " target DLT: " << targetDltVersion;
         abortMigrationCb(executorId, smTokenId);
         trackIOReqs.finishTrackIOReqs();
         return;
@@ -844,16 +906,19 @@ MigrationExecutor::getSecondRebalanceDeltaResp(EPSvcRequest* req,
     trackIOReqs.finishTrackIOReqs();
 
     if (inErrorState()) {
-        LOGDEBUG << "Ignoring CtrlGetSecondRebalanceDeltaSet response for executor "
-                 << std::hex << executorId << std::dec << " " << error
-                 << " since Migration Executor is in " << getState() << " state";
+        LOGNOTIFY << "Ignoring start second round response for"
+                  << " executor: " << std::hex << executorId
+                  << " state: " << getState()
+                  << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                  << " sm token: " << smTokenId
+                  << " target DLT: " << targetDltVersion;
         return;
     }
 
     // TODO(Gurpreet): Add proper error code during integration of
     // failure handling for migration.
     fiu_do_on("fail.sm.migration.second.rebalance.resp",
-              LOGDEBUG << "fault fail.sm.migration.second.rebalance.resp enabled"; \
+              LOGNOTIFY << "fault fail.sm.migration.second.rebalance.resp enabled"; \
               return;);
 
     // here we just check for errors
@@ -950,6 +1015,12 @@ MigrationExecutor::sendFinishResyncToClient()
 
     if (!trackIOReqs.startTrackIOReqs()) {
         // For now, just return an error that migration is aborted.
+        LOGERROR << "Tracking failed: aborting migration for"
+                 << " executor: " << std::hex << executorId
+                 << " state: " << getState()
+                 << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                 << " sm token: " << smTokenId
+                 << " target DLT: " << targetDltVersion;
         return;
     }
     asyncFinishClientReq->invoke();
