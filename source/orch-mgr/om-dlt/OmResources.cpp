@@ -3373,7 +3373,10 @@ OM_NodeDomainMod::om_del_services(const NodeUuid& node_uuid,
 }
 
 void
-OM_NodeDomainMod::removeNodeComplete(NodeUuid uuid) {
+OM_NodeDomainMod::removeNodeComplete(NodeUuid uuid)
+{
+
+    std::lock_guard<std::mutex> lock(removeCompletionMutex);
 
     LOGDEBUG << "Completed removal of service:"
              << std::hex << uuid.uuid_get_val() << std::dec;
@@ -3383,18 +3386,73 @@ OM_NodeDomainMod::removeNodeComplete(NodeUuid uuid) {
     fpi::SvcUuid svcuuid;
     svcuuid.svc_uuid = uuid.uuid_get_val();
 
-    bool ret = MODULEPROVIDER()->getSvcMgr()->getSvcInfo(svcuuid, svcInfo);
-    if (ret) {
+    bool ret = configDB->getSvcInfo(svcuuid.svc_uuid, svcInfo);
+    if (ret)
+    {
+
+        OmExtUtilApi::getInstance()->clearFromRemoveList(uuid.uuid_get_val());
+
+        if (shouldSetNodeToDiscovered(svcInfo))
+        {
+            LOGNOTIFY << "Setting node to DISCOVERED state now ..";
+            NodeUuid pmUuid(uuid.uuid_get_base_val());
+            OM_PmContainer::pointer pmNodes = om_locDomain->om_pm_nodes();
+            OM_PmAgent::pointer agent = OM_PmAgent::agt_cast_ptr(pmNodes->agent_info(pmUuid));
+
+            agent->set_node_state(FDS_ProtocolInterface::FDS_Node_Discovered);
+
+            updateSvcMaps<kvstore::ConfigDB>( configDB,
+                           MODULEPROVIDER()->getSvcMgr(),
+                           uuid.uuid_get_base_val(),
+                           fpi::SVC_STATUS_DISCOVERED,
+                           fpi::FDSP_PLATFORM );
+        }
+
         LOGDEBUG << "Deleting from svcMaps, uuid:" << std::hex << svcuuid.svc_uuid << std::dec;
 
         configDB->deleteSvcMap(svcInfo);
         MODULEPROVIDER()->getSvcMgr()->deleteFromSvcMap(svcuuid);
 
-        OmExtUtilApi::getInstance()->clearFromRemoveList(uuid.uuid_get_val());
-
         // Broadcast svcMap
         om_locDomain->om_bcast_svcmap();
     }
+}
+
+bool
+OM_NodeDomainMod::shouldSetNodeToDiscovered(fpi::SvcInfo info)
+{
+    bool allSvcsRemoved = false;
+    NodeUuid uuid (info.svc_id.svc_uuid.svc_uuid);
+
+    int64_t pmUuid = uuid.uuid_get_base_val();
+    fpi::ServiceStatus pmStatus = gl_orch_mgr->getConfigDB()->getStateSvcMap(pmUuid);
+
+    if ( pmStatus == fpi::SVC_STATUS_REMOVED )
+    {
+        // This node is being removed, if SM is being processed, check if DM is done too
+        // and vice versa
+        fpi::SvcUuid svcUuid;
+        if (info.svc_type == fpi::FDSP_STOR_MGR)
+        {
+            retrieveSvcId(pmUuid, svcUuid, fpi::FDSP_DATA_MGR);
+        } else if (info.svc_type == fpi::FDSP_DATA_MGR) {
+            retrieveSvcId(pmUuid, svcUuid, fpi::FDSP_STOR_MGR);
+        }
+
+        if (!OmExtUtilApi::getInstance()->isMarkedForRemoval(svcUuid.svc_uuid))
+        {
+            allSvcsRemoved = true;
+
+        } else {
+            LOGNOTIFY << "SM or DM:" << std::hex << svcUuid.svc_uuid << std::dec
+                      << " is still pending removal, node:" << std::hex << pmUuid << std::dec
+                      << " cannot be set to DISCOVERED yet!";
+        }
+    } else {
+        LOGDEBUG << "Node is not being removed, nothing to do";
+    }
+
+    return allSvcsRemoved;
 }
 
 // om_shutdown_domain
