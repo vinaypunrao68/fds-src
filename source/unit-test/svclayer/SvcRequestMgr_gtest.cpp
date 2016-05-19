@@ -33,14 +33,14 @@ using ::testing::Return;
 using namespace fds;  // NOLINT
 
 struct SvcRequestMgrTest : BaseTestFixture {
-    static std::string confFile;
+    static std::string fdsRoot;
 
     static void SetUpTestCase() {
-        confFile = getArg<std::string>("fds-root") + std::string("/etc/platform.conf");
+        fdsRoot = getArg<std::string>("fds-root");
     }
 
 };
-std::string SvcRequestMgrTest::confFile;
+std::string SvcRequestMgrTest::fdsRoot;
 
 /**
 * @brief Tests svc map update in the domain.
@@ -48,7 +48,7 @@ std::string SvcRequestMgrTest::confFile;
 TEST_F(SvcRequestMgrTest, epsvcrequest)
 {
     int cnt = 3;
-    FakeSyncSvcDomain domain(cnt, confFile);
+    FakeSyncSvcDomain domain(cnt, fdsRoot);
 
     /* dest service is up...request should succeed */
     SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter1;
@@ -85,7 +85,7 @@ TEST_F(SvcRequestMgrTest, epsvcrequest)
 TEST_F(SvcRequestMgrTest, epsvcrequest_invalidep)
 {
     int cnt = 3;
-    FakeSyncSvcDomain domain(cnt, confFile);
+    FakeSyncSvcDomain domain(cnt, fdsRoot);
 
     auto svcMgr1 = domain[1]->getSvcMgr();
 
@@ -106,7 +106,7 @@ TEST_F(SvcRequestMgrTest, epsvcrequest_invalidep)
 TEST_F(SvcRequestMgrTest, failoversvcrequest)
 {
     int cnt = 4;
-    FakeSyncSvcDomain domain(cnt, confFile);
+    FakeSyncSvcDomain domain(cnt, fdsRoot);
 
     /* all endpoints are up...request should succeed */
     SvcRequestCbTask<FailoverSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
@@ -149,7 +149,7 @@ TEST_F(SvcRequestMgrTest, failoversvcrequest)
 TEST_F(SvcRequestMgrTest, quorumsvcrequest)
 {
     int cnt = 4;
-    FakeSyncSvcDomain domain(cnt, confFile);
+    FakeSyncSvcDomain domain(cnt, fdsRoot);
 
     SvcRequestCbTask<QuorumSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
     domain.sendGetStatusQuorumSvcRequest(1, {2,3}, svcStatusWaiter);
@@ -190,7 +190,7 @@ TEST_F(SvcRequestMgrTest, quorumsvcrequest)
 
 TEST_F(SvcRequestMgrTest, multiPrimarySvcRequest) {
     int cnt = 5;
-    FakeSyncSvcDomain domain(cnt, confFile);
+    FakeSyncSvcDomain domain(cnt, fdsRoot);
     MultiPrimarySvcRequestPtr req;
     /* Request with all services up should work */
     MultiPrimarySvcRequestCbTask svcStatusWaiter1;
@@ -241,7 +241,7 @@ struct FTCallback : concurrency::TaskStatus {
 
 TEST_F(SvcRequestMgrTest, filetransfer) {
     int cnt = 3;
-    FakeSyncSvcDomain domain(cnt, confFile);
+    FakeSyncSvcDomain domain(cnt, fdsRoot);
     FTCallback cb;
     fds::net::FileTransferService::OnTransferCallback ftcb = std::bind(&FTCallback::handle, &cb, std::placeholders::_1, std::placeholders::_2);
     util::Stats stats;

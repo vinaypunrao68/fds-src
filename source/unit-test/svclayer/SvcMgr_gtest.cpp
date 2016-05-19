@@ -31,8 +31,7 @@ struct SvcMgrTest : BaseTestFixture {
 */
 TEST_F(SvcMgrTest, svcmapUdpate) {
     int cnt = 5;
-    FakeSyncSvcDomain domain(cnt, this->getArg<std::string>("fds-root") +
-                             std::string("/etc/platform.conf"));
+    FakeSyncSvcDomain domain(cnt, this->getArg<std::string>("fds-root"));
     for (int svcIdx = 1; svcIdx < cnt; svcIdx++) {
         ASSERT_TRUE(domain.checkSvcInfoAgainstDomain(svcIdx));
     }
