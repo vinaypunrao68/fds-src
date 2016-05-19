@@ -386,18 +386,9 @@ Error DLT::verify(const NodeUuidSet& expectedUuidSet) const {
 }
 
 void DLT::dump() const {
-    // go thru with the fn iff loglevel is debug or lesser.
 
-    LEVELCHECK(debug) {
-        LOGDEBUG << (*this);
-    } else {
-        LOGNORMAL<< "Dlt :"
-                 << "[version: " << version  << "] "
-                 << "[timestamp: " << timestamp  << "] "
-                 << "[depth: " << depth  << "] "
-                 << "[num.Tokens: " << columns  << "] "
-                 << "[num.Nodes: " << mapNodeTokens->size() << "]";
-    }
+        LOGNORMAL << (*this);
+
 }
 
 std::ostream& operator<< (std::ostream &oss, const DLT& dlt) {
