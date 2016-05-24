@@ -4,11 +4,10 @@ After=network.target
 
 [Service]
 Type=forking
-Environment=FDS_ROOT=/opt/fds/formation_one LANG=POSIX LC_MESSAGES=POSIX
-LD_LIBRARY_PATH=/opt/fds/formation_one/lib
+Environment=FDS_ROOT=/opt/fds/formation_one LANG=POSIX LC_MESSAGES=POSIX LD_LIBRARY_PATH=/opt/fds/formation_one/lib LDD_TRACE_LOADED_OBJECTS=1 LD_VERBOSE=1
 #PIDFile=/opt/fds/formation_one/var/pm.pid
 
-ExecStart=/opt/fds/formation_one/bin/platformd --fds_root=${FDS_ROOT} --foreground >> ${FDS_ROOT}/bin/pm.out 2>&1
+ExecStart=/opt/fds/formation_one/bin/platformd --fds-root=${FDS_ROOT} --foreground&  2>&1 >> ${FDS_ROOT}/bin/pm.out
 ExecReload=/bin/kill -USR2 $MAINPID
 Restart=always
 
