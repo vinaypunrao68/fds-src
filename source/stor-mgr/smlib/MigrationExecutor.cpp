@@ -345,6 +345,16 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     leveldb::Iterator* it = db->NewIterator(options);
     std::map<fds_token_id, fpi::CtrlObjectRebalanceFilterSetPtr> perTokenMsgs;
     uint64_t seqId = 0UL;
+
+    fds_assert(dltTokens.size() > 0);
+    if (dltTokens.size() <= 0) {
+        LOGERROR << "Executor " << std::hex << executorId << " has no tokens to migrate";
+        trackIOReqs.finishTrackIOReqs();
+        err = ERR_SM_TOK_MIGRATION_NO_TOKENS_TO_MIGRATE;
+        handleMigrationRoundDone(err);
+        return err;
+    }
+
     for (auto dltTok : dltTokens) {
         // for now packing all objects per one DLT token into one message
         fpi::CtrlObjectRebalanceFilterSetPtr msg(new fpi::CtrlObjectRebalanceFilterSet());
@@ -657,6 +667,11 @@ MigrationExecutor::applyRebalanceDeltaSet(const fpi::CtrlObjectRebalanceDeltaSet
                                                                        deltaSet->lastDeltaSet,
                                                                        0,
                                                                        true);
+        fds_assert(deltaSet->lastDeltaSet);
+        if (!deltaSet->lastDeltaSet) {
+            LOGNORMAL << "Executor " << std::hex << executorId << " has no tokens to migrate";
+        }
+
         if (completeDeltaSetReceived) {
             LOGNORMAL << "All DeltaSet and QoS requests accounted for executor "
                       << std::hex << executorId << std::dec;
