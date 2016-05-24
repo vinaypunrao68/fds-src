@@ -591,33 +591,36 @@ DataPlacement::beginRebalance()
                     }
                 }
             } else {
-
-                LOGWARN << "WARNING: All new SMs in target column, will handle but should not be the case!!";
-
                 // This means this column of tokens has all new SMs.
                 // This is possible if 3(going by tgt col length =3) new SMs
                 // were added at once. All we need to verify is that a source
                 // uuid of this token exists in the new dlt
                 if ( addedSMs.size() == destSms.size() )
                 {
-                    auto newDltNodes = newDlt->getAllNodes();
+                    LOGWARN << "WARNING: All new SMs in target column, handling..";
 
-                    for ( auto sourceNode : srcCandidates )
+                } else {
+                    LOGWARN << "Not all SMs in this column are new to cluster,"
+                            << " but all SMs are new for this token, handling..";
+
+                    for ( auto sm : destSms)
                     {
-                        for ( auto newNode : newDltNodes )
+                        LOGNORMAL << "SM:" << std::hex << sm.uuid_get_val() << std::dec;
+                    }
+                }
+
+                auto newDltNodes = newDlt->getAllNodes();
+
+                for ( auto sourceNode : srcCandidates )
+                {
+                    for ( auto newNode : newDltNodes )
+                    {
+                        if ( sourceNode.uuid_get_val() == newNode.uuid_get_val() )
                         {
-                            if ( sourceNode.uuid_get_val() == newNode.uuid_get_val() )
-                            {
-                                nosyncSm = sourceNode;
-                                break;
-                            }
+                            nosyncSm = sourceNode;
+                            break;
                         }
                     }
-                } else {
-                    LOGWARN << "Only" << addedSMs.size() << " new SMs, but " << destSms.size()
-                            << " SMs in this column, all of which seem new, something is not right for"
-                            << " token: "<< tokId << " . Skipping this token!!";
-                    continue;
                 }
             }
 

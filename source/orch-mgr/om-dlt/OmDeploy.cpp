@@ -1064,7 +1064,9 @@ DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     if ( (src.errFound == ERR_SM_TOK_MIGRATION_INPROGRESS) ||
          (src.errFound == ERR_SM_TOK_MIGRATION_SRC_SVC_REQUEST) ||
          (src.errFound == ERR_SVC_REQUEST_INVOCATION) ||
-         (src.errFound == ERR_SVC_REQUEST_TIMEOUT)) {
+         (src.errFound == ERR_SVC_REQUEST_TIMEOUT) ||
+         (src.errFound == ERR_SM_TOK_MIGRATION_ABORTED) )
+    {
         if (src.errFound == ERR_SM_TOK_MIGRATION_INPROGRESS) {
             LOGDEBUG << "We tried to re-deploy DLT while another migration is "
                      << "still in progress (most likely resync due to restart)."

@@ -1139,6 +1139,7 @@ class OM_NodeDomainMod : public Module
     bool isNodeShuttingDown(int64_t uuid);
 
     void removeNodeComplete(NodeUuid uuid);
+    bool shouldSetNodeToDiscovered(fpi::SvcInfo info);
 
     fds_bool_t dmClusterPresent();
 
@@ -1192,7 +1193,7 @@ class OM_NodeDomainMod : public Module
 
     std::mutex                    taskMapMutex;
     std::unordered_map<int64_t, FdsTimerTaskPtr> setupNewNodeTaskMap;
-    fds_mutex                     dbLock;
+    std::mutex                    removeCompletionMutex;
 
     fds_bool_t                    dmClusterPresent_;
 };

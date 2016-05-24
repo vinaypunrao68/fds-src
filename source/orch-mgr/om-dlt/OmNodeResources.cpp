@@ -173,7 +173,7 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
     if (node_state() == fpi::FDS_Node_Down) {
         LOGNORMAL << "Will not send vol command to service we know is down "
                   << get_node_name();
-        return ERR_NOT_FOUND;
+        return ERR_OK;
     }
 
     const char       *log;
@@ -1748,22 +1748,76 @@ OM_PmAgent::send_stop_service
         return Error(ERR_OK);
     }
 
-    if ( node_state() != fpi::FDS_Node_Up ) {
 
+    fpi::SvcUuid smSvcId, dmSvcId, amSvcId;
+    fpi::SvcUuid pmSvcUuid;
+    pmSvcUuid.svc_uuid = get_uuid().uuid_get_val();
+
+    if ( node_state() != fpi::FDS_Node_Up )
+    {
         fpi::SvcUuid svcUuid;
         svcUuid.svc_uuid = get_uuid().uuid_get_val();
+        auto pmState     = configDB->getStateSvcMap(svcUuid.svc_uuid);
 
-        // If the action coming in is a shutdown node for a node (PM) that
-        // is no longer well known, allow it
-        PmMap::iterator mapIter;
-        if ( shutdownNode && !gl_orch_mgr->omMonitor->isWellKnown(svcUuid, mapIter) ) {
-            LOGNOTIFY << "Will allow down node:" << std::hex
-                      << svcUuid.svc_uuid << std::dec
-                      << " to be stopped";
-        } else {
-            LOGERROR << "Attempting to stop services on a node that is not up";
+        if (pmState == fpi::SVC_STATUS_ACTIVE)
+        {
+            LOGERROR << "Node state is down, but PM state is UP!! Something is wrong, will not allow"
+                     << " node shutdown";
             return Error(ERR_INVALID_ARG);
         }
+
+        bool smInactive = false;
+        bool dmInactive = false;
+        bool amInactive = false;
+
+        fds::retrieveSvcId(pmSvcUuid.svc_uuid, smSvcId, fpi::FDSP_STOR_MGR);
+        fds::retrieveSvcId(pmSvcUuid.svc_uuid, dmSvcId, fpi::FDSP_DATA_MGR);
+        fds::retrieveSvcId(pmSvcUuid.svc_uuid, amSvcId, fpi::FDSP_ACCESS_MGR);
+
+        auto smStatus = configDB->getStateSvcMap(smSvcId.svc_uuid);
+        auto dmStatus = configDB->getStateSvcMap(dmSvcId.svc_uuid);
+        auto amStatus = configDB->getStateSvcMap(amSvcId.svc_uuid);
+
+        if ( smStatus == fpi::SVC_STATUS_INACTIVE_STOPPED ||
+             smStatus == fpi::SVC_STATUS_INVALID )
+        {
+            smInactive = true;
+        }
+
+        if ( dmStatus == fpi::SVC_STATUS_INACTIVE_STOPPED ||
+             dmStatus == fpi::SVC_STATUS_INVALID )
+        {
+            dmInactive = true;
+        }
+
+        if ( amStatus == fpi::SVC_STATUS_INACTIVE_STOPPED ||
+             amStatus == fpi::SVC_STATUS_INVALID )
+        {
+            amInactive = true;
+        }
+
+
+        if (smInactive && dmInactive && amInactive)
+        {
+            LOGNOTIFY << "Node is already down, no services to stop, return";
+
+            if (pmState == fpi::SVC_STATUS_INACTIVE_STOPPED)
+            {
+                return Error(ERR_OK);
+            } else {
+
+                LOGDEBUG << "Changing PM state to INACTIVE";
+
+                updateSvcMaps<kvstore::ConfigDB>( configDB,
+                               MODULEPROVIDER()->getSvcMgr(),
+                               get_uuid().uuid_get_val(),
+                               fpi::SVC_STATUS_INACTIVE_STOPPED,
+                               fpi::FDSP_PLATFORM );
+
+                return Error(ERR_OK);
+            }
+        }
+
     }
 
     /***************************************
@@ -1780,10 +1834,6 @@ OM_PmAgent::send_stop_service
     if (shutdownNode) {
         domain->addToShutdownList(get_uuid().uuid_get_val());
     }
-
-    fpi::SvcUuid smSvcId, dmSvcId, amSvcId;
-    fpi::SvcUuid pmSvcUuid;
-    pmSvcUuid.svc_uuid = get_uuid().uuid_get_val();
 
     if (stop_sm) {
         fds::retrieveSvcId(pmSvcUuid.svc_uuid, smSvcId, fpi::FDSP_STOR_MGR);
@@ -2295,14 +2345,14 @@ OM_PmAgent::send_remove_service_resp(NodeUuid nodeUuid,
                     LOGNOTIFY << "All services removed, setting node: "
                               << std::hex
                               << get_uuid().uuid_get_val()
-                              << std::dec << "back to discovered";
+                              << std::dec << "to removed";
 
-                    set_node_state(FDS_ProtocolInterface::FDS_Node_Discovered);
+                    set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
 
                     updateSvcMaps<kvstore::ConfigDB>( configDB,
                                    MODULEPROVIDER()->getSvcMgr(),
                                    get_uuid().uuid_get_val(),
-                                   fpi::SVC_STATUS_DISCOVERED,
+                                   fpi::SVC_STATUS_REMOVED,
                                    fpi::FDSP_PLATFORM );
 
                     // Remove the PM if it's present in the well-known map
