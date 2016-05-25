@@ -44,22 +44,25 @@ class SMDebugContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
-    @arg('sm', help="-Uuid of the SM to send the command to", type=long)
+    @arg('smuuid', help="-Uuid of the SM to send the command to", type=str)
     @arg('tokens', help="-List of tokens to check", nargs=argparse.REMAINDER)
-    def startSmchk(self, sm, tokens):
+    def startsmcheck(self, smuuid, tokens):
         """
         Start the online smchk for the specified sm node
         """
-        try:
-            if len(tokens) :
-                l=[n for n in map(helpers.expandIntRange,tokens)]
-                tokens = list(itertools.chain.from_iterable(l))
-            checkMsg = FdspUtils.newStartSmchkMsg(tokens)
-            self.smClient().sendAsyncSvcReq(sm, checkMsg, None)
-        except Exception as e:
-            log.exception(e)
-            print e.message
-            return 'Start online smchk failed'
+        for uuid in self.config.getServiceApi().getServiceIds(smuuid):
+            self.printServiceHeader(uuid)
+            try:
+                if len(tokens) :
+                    l=[n for n in map(helpers.expandIntRange,tokens)]
+                    tokens = list(itertools.chain.from_iterable(l))
+                checkMsg = FdspUtils.newStartSmchkMsg(tokens)
+                self.smClient().sendAsyncSvcReq(uuid, checkMsg, None)
+                print "started sm check on sm: " + str(uuid)
+            except Exception as e:
+                log.exception(e)
+                print e.message
+                return 'Start online smchk failed'
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
