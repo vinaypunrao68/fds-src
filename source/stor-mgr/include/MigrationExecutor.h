@@ -178,7 +178,10 @@ class MigrationExecutor {
      * not ready to become source.
      */
     Error startObjectRebalanceAgain(leveldb::ReadOptions& options,
-                                    std::shared_ptr<leveldb::DB> db);
+                                    std::shared_ptr<leveldb::DB> db,
+                                    fds_token_id smToken,
+                                    uint64_t seqId,
+                                    std::function<void(void)> cb);
     /**
      * Handles message from Source SM to apply delta set to this SM
      */

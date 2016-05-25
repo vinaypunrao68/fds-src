@@ -318,6 +318,21 @@ class MigrationMgr : StateProvider{
                                    std::shared_ptr<leveldb::DB> db, bool retry,
                                    fds_uint32_t uniqueId);
 
+    void smTokenMetadataSnapshotCbErrorHandler(const Error& srcErr,
+                                               const Error& destErr,
+                                               fds_token_id& smTokenId,
+                                               leveldb::ReadOptions& options,
+                                               std::shared_ptr<leveldb::DB> db,
+                                               bool retryMigrFailedTokens);
+
+    void snapshotCleanupAndErrorHandler(const Error& srcErr,
+                                        const Error& destErr,
+                                        fds_token_id& smTokenId,
+                                        leveldb::ReadOptions& options,
+                                        std::shared_ptr<leveldb::DB> db);
+
+    void removeTokenFromRetryMap(fds_token_id &tokenId);
+
     /**
      * Callback for a migration executor that it finished migration
      *
@@ -342,7 +357,7 @@ class MigrationMgr : StateProvider{
 
     void retryTokenMigrForFailedDltTokens();
 
-    void removeTokensFromRetrySet(std::vector<fds_token_id>& tokens);
+    void removeTokensFromRetryMap(std::vector<fds_token_id>& tokens);
 
     /// enqueues snapshot message to qos
     void startSmTokenMigration(fds_token_id smToken, fds_uint32_t uid=0);

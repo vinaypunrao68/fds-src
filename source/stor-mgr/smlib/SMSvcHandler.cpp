@@ -302,9 +302,20 @@ SMSvcHandler::initiateFirstRound(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     // tell migration mgr to start object rebalance
     const DLT* dlt = MODULEPROVIDER()->getSvcMgr()->getDltManager()->getDLT();
 
-    fiu_do_on("resend.dlt.token.filter.set", fault_enabled = true;\
-              LOGNOTIFY << "resend.dlt.token.filter.set fault point enabled";);
-    if (objStorMgr->objectStore->isUnavailable()) {
+    fiu_do_on("source.abort.migration",\
+              LOGNOTIFY << "source.abort.migration fault point enabled";\
+              err = ERR_SM_TOK_MIGRATION_ABORTED;\
+              initiateFirstRoundCb(asyncHdr, err); return;);
+    fiu_do_on("resend.dlt.token.filter.set",
+                if (filterObjSet->tokenId % 20 == 0) { \
+                    LOGNOTIFY << "resend.dlt.token.filter.set fault point enabled"; \
+                    fault_enabled = true;);
+    auto resp_cb = std::bind(&SMSvcHandler::initiateFirstRoundCb,
+                                             this,
+                                             asyncHdr,
+                                             std::placeholders::_1);
+
+    if (objStorMgr_->objectStore->isUnavailable()) {
         // object store failed to validate superblock or pass initial
         // integrity check
         err = ERR_NODE_NOT_ACTIVE;
@@ -316,7 +327,13 @@ SMSvcHandler::initiateFirstRound(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                   << objStorMgr->getUuid() << std::dec
                   << " for token: " << filterObjSet->tokenId << std::hex
                   << " executor: " << filterObjSet->executorID;
-        fiu_disable("resend.dlt.token.filter.set");
+        if (fault_enabled) {
+            objStorMgr_->migrationMgr->incrResendFilterSetRetries();
+        }
+        if (objStorMgr_->migrationMgr->getResendFilterSetRetries() >
+            objStorMgr_->migrationMgr->getResendFilterSetMaxRetries()) {
+            fiu_disable("resend.dlt.token.filter.set");
+        }
     } else {
         fds_verify(dlt != NULL);
         auto resp_cb = std::bind(&SMSvcHandler::initiateFirstRoundCb,

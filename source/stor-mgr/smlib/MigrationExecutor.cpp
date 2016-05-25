@@ -87,8 +87,10 @@ MigrationExecutor::responsibleForDltToken(fds_token_id dltTok) const {
 // migration executors
 Error
 MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
-                                             std::shared_ptr<leveldb::DB> db)
-{
+                                             std::shared_ptr<leveldb::DB> db,
+                                             fds_token_id smToken,
+                                             uint64_t seqId,
+                                             std::function<void(void)> eraseRetryTokenCb) {
     Error err(ERR_OK);
     ObjMetaData omd;
 
@@ -174,20 +176,18 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
     // DLT token
     leveldb::Iterator* it = db->NewIterator(options);
     std::map<fds_token_id, fpi::CtrlObjectRebalanceFilterSetPtr> perTokenMsgs;
-    for (auto &dltTok : retryDltTokens) {
-        // for now packing all objects per one DLT token into one message
-        fpi::CtrlObjectRebalanceFilterSetPtr msg(new fpi::CtrlObjectRebalanceFilterSet());
-        msg->targetDltVersion = targetDltVersion;
-        msg->tokenId = dltTok.first;
-        msg->executorID = executorId;
-        msg->seqNum = dltTok.second;
-        msg->lastFilterSet = ((dltTok.second + 1) < dltTokens.size()) ? false : true;
-        msg->onePhaseMigration = onePhaseMigration;
-        LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
-                   << "Filter Set Msg: token=" << msg->tokenId << ", seqNum="
-                   << msg->seqNum << ", last=" << msg->lastFilterSet;
-        perTokenMsgs[dltTok.first] = msg;
-    }
+
+    fpi::CtrlObjectRebalanceFilterSetPtr msg(new fpi::CtrlObjectRebalanceFilterSet());
+    msg->targetDltVersion = targetDltVersion;
+    msg->tokenId = smToken;
+    msg->executorID = executorId;
+    msg->seqNum = seqId;
+    msg->lastFilterSet = ((seqId + 1) < dltTokens.size()) ? false : true;
+    msg->onePhaseMigration = onePhaseMigration;
+    LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
+    << " filter set msg: token:" << msg->tokenId << " seqNum: "
+    << msg->seqNum << " last: " << msg->lastFilterSet;
+    perTokenMsgs[smToken] = msg;
 
     /**
      * Iterate through the level db and add to set of objects to rebalance.
@@ -234,40 +234,38 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
                    << perTokenMsgs[dltTok.first]->objectsToFilter.size()
                    << " to source SM "
                    << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
-        try {
-            auto asyncRebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
-            asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceFilterSet),
-                                   perTokenMsgs[dltTok.first]);
-            asyncRebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
-                MigrationExecutor::objectRebalanceFilterSetResp,
-                dltTok.first,
-                dltTok.second));
-            asyncRebalSetReq->setTimeoutMs(getMigrationMsgsTimeout());
-            asyncRebalSetReq->invoke();
-
-            // Per request tracking starts here and is stopped in response callback.
-            if (!trackIOReqs.startTrackIOReqs()) {
-                LOGERROR << "Tracking failed: aborting migration for"
-                         << " executor: " << std::hex << executorId
-                         << " state: " << getState()
-                         << " source: " << sourceSmUuid.uuid_get_val() << std::dec
-                         << " sm token: " << smTokenId
-                         << " target DLT: " << targetDltVersion;
-                return ERR_SM_TOK_MIGRATION_ABORTED;
-            }
-        }
-        catch (...) {
-            trackIOReqs.finishTrackIOReqs();
-            LOGERROR << "Sending filter set request failed: "
-                     << "aborting migration for executor: " << std::hex << executorId
+    try {
+        auto asyncRebalSetReq =  svcMgr->getSvcRequestMgr()->newEPSvcRequest(sourceSmUuid.toSvcUuid());
+        asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceFilterSet),
+                               perTokenMsgs[smToken]);
+        asyncRebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
+            MigrationExecutor::objectRebalanceFilterSetResp,
+            smToken,
+            seqId));
+        asyncRebalSetReq->setTimeoutMs(getMigrationMsgsTimeout());
+        asyncRebalSetReq->invoke();
+        eraseRetryTokenCb();
+        // Per request tracking starts here and is stopped in response callback.
+        if (!trackIOReqs.startTrackIOReqs()) {
+            LOGERROR << "Tracking failed: aborting migration for"
+                     << " executor: " << std::hex << executorId
+                     << " state: " << getState()
                      << " source: " << sourceSmUuid.uuid_get_val() << std::dec
                      << " sm token: " << smTokenId
                      << " target DLT: " << targetDltVersion;
             return ERR_SM_TOK_MIGRATION_ABORTED;
         }
     }
-
-    retryDltTokens.clear();
+    catch (...) {
+        trackIOReqs.finishTrackIOReqs();
+        LOGERROR << "Sending filter set request failed: "
+                 << "aborting migration for executor: " << std::hex << executorId
+                 << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                 << " sm token: " << smTokenId
+                 << " target DLT: " << targetDltVersion;
+        eraseRetryTokenCb();
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
 
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
                << " sent rebalance initial set msgs to source SM "
@@ -471,9 +469,10 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         }
 
         fiu_do_on("fail.sm.migration.sending.filter.set",
-                  LOGNOTIFY << "fault fail.sm.migration.sending.filter.set enabled"; \
-                  if (executorId % 20 == 0) { trackIOReqs.finishTrackIOReqs(); \
-                                              return ERR_SM_TOK_MIGRATION_ABORTED;});
+                  if (executorId % 20 == 0) { \ 
+                      LOGNOTIFY << "fault fail.sm.migration.sending.filter.set enabled"; \
+                      trackIOReqs.finishTrackIOReqs(); \
+                      return ERR_SM_TOK_MIGRATION_ABORTED;});
     }
 
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
@@ -568,8 +567,6 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
             case ERR_SM_NOT_READY_AS_MIGR_SRC:
             case ERR_SVC_REQUEST_INVOCATION:
                 {
-                    LOGMIGRATE << "CtrlObjectRebalanceFilterSet declined for dlt token " << dltToken
-                               << " source SM " << sourceSmUuid << " not ready/ not up";
                     uint32_t numRetries = 0;
                     {
                         fds_mutex::scoped_lock l(retryDltTokensLock);
@@ -577,6 +574,10 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
                             numRetries = dltTokRetryCount[dltToken];
                         }
                     }
+                    LOGMIGRATE << "CtrlObjectRebalanceFilterSet declined for dlt token " << dltToken
+                               << std::hex << " source SM " << sourceSmUuid
+                               << std::dec << " not ready/ not up"
+                               << " retry num: " << numRetries << " max: " << SM_MAX_NUM_RETRIES_SAME_SM;;
                     // we are doing read/modify/write of number of retries under two locks
                     // which means that we may read same value two times and retry more
                     // times then max, but that's ok, we don't need to be precise here
@@ -945,7 +946,7 @@ void
 MigrationExecutor::handleMigrationRoundDone(const Error& error) {
     fds_uint32_t roundNum = 2;
     LOGMIGRATE << "handleMigrationRoundDone for executor " << std::hex << executorId
-               << std::hex << " (SM token " << smTokenId << ") " << error;
+               << " (SM token " << std::dec << smTokenId << ") " << error;
     // check and set the state
     if (error.ok()) {
         // if no error, we must be in one of the apply delta states

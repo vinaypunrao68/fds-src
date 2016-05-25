@@ -300,7 +300,7 @@ MigrationMgr::retryTokenMigrForFailedDltTokens()
  * Remove the sm tokens from the retry migration set. Retry here was for case
  * where source SM was not ready.
  */
-void MigrationMgr::removeTokensFromRetrySet(std::vector<fds_token_id>& tokens)
+void MigrationMgr::removeTokensFromRetryMap(std::vector<fds_token_id>& tokens)
 {
     fds_mutex::scoped_lock l(migrSmTokenLock);
     for (auto token: tokens) {
@@ -390,7 +390,7 @@ MigrationMgr::startSmTokenMigration(fds_token_id smToken,
  * Callback with SM token snapshot
  */
 void
-MigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
+MigrationMgr::smTokenMetadataSnapshotCb(const Error& snapErr,
                                         SmIoSnapshotObjectDB* snapRequest,
                                         leveldb::ReadOptions& options,
                                         std::shared_ptr<leveldb::DB> db,
@@ -427,10 +427,11 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
         LOGDEBUG << "fault abort.sm.migration.at.snap.cb enabled"; \
         if (curSmTokenInProgress % 20 == 0) err = ERR_SM_TOK_MIGRATION_ABORTED;);
     // on error, we just stop the whole migration process
-    if (!error.ok() || !err.ok()) {
+    if (!snapErr.ok() || !err.ok()) {
         LOGERROR << "Failed to get index db snapshot for SM token: " << curSmTokenInProgress
-                 << " primary error: " << err << " secondary error: " << error;
-        abortMigrationForSMToken(curSmTokenInProgress, error);
+                 << " primary error: " << err << " snapshot error: " << snapErr;
+        smTokenMetadataSnapshotCbErrorHandler(snapErr, err, curSmTokenInProgress,
+                                              options, db, retryMigrFailedTokens);
         return;
     }
 
@@ -450,46 +451,72 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& error,
                 // created a new executor for the same source.
                 continue;
             } else if (retryMigrFailedTokens) {
-                err = cit->second->startObjectRebalanceAgain(options, db,
-                curSmTokenInProgress, retryMigrSmTokenMap.find(curSmTokenInProgress)->second);
+                auto seqId = retryMigrSmTokenMap.find(curSmTokenInProgress)->second;
+                err = cit->second->startObjectRebalanceAgain(options,
+                                                             db,
+                                                             curSmTokenInProgress,
+                                                             seqId,
+                                                             std::bind(&MigrationMgr::removeTokenFromRetryMap,
+                                                                       this,
+                                                                       curSmTokenInProgress));
+                snapshotCleanupAndErrorHandler(snapErr, err,
+                                               curSmTokenInProgress,
+                                               options, db);
+                if (!err.ok()) {
+                    LOGERROR << "Failed to start rebalance for sm token: "
+                             << curSmTokenInProgress << " source sm: " << std::hex
+                             << (cit->first).uuid_get_val() << std::dec << " " << err;
+                }
+                return;
             } else if (uniqueId == cit->second->getUniqueId()) {
                 err = cit->second->startObjectRebalance(options, db); 
             }
 
             if (!err.ok()) {
-                LOGERROR << "Failed to start object rebalance for SM token "
-                         << curSmTokenInProgress << ", source SM " << std::hex
+                LOGERROR << "Failed to start rebalance for sm token: "
+                         << curSmTokenInProgress << " source sm: " << std::hex
                          << (cit->first).uuid_get_val() << std::dec << " " << err;
-                break;  // we are going to abort migration
             }
         }
     }
 
-    smTokenMetadataSnapshotCbErrorHandler(error, err, curSmTokenInProgress,
+    smTokenMetadataSnapshotCbErrorHandler(snapErr, err, curSmTokenInProgress,
                                           options, db, retryMigrFailedTokens);
 }
 
 void
-MigrationMgr::smTokenMetadataSnapshotCbErrorHandler(const Error& error,
-						    const Error& err,
-						    fds_token_id curSmTokenInProgress,
-						    leveldb::ReadOptions& options,
-						    std::shared_ptr<leveldb::DB> db,
-						    bool retryMigrFailedTokens)
-{
-    if (retryMigrFailedTokens) {
-        fds_mutex::scoped_lock l(migrSmTokenLock);
-        retryMigrSameSrcInProg = false;
-        retryMigrSmTokenMap.erase(curSmTokenInProgress);
-    }
+MigrationMgr::removeTokenFromRetryMap(fds_token_id& smTokenId) {
+    fds_mutex::scoped_lock l(migrSmTokenLock);
+    retryMigrSameSrcInProg = false;
+    retryMigrSmTokenMap.erase(smTokenId);
+}
 
+void
+MigrationMgr::snapshotCleanupAndErrorHandler(const Error& snapErr,
+                                             const Error& err,
+                                             fds_token_id& smTokenId,
+                                             leveldb::ReadOptions& options,
+                                             std::shared_ptr<leveldb::DB> db) {
     if (options.snapshot) {
-            db->ReleaseSnapshot(options.snapshot);
+        db->ReleaseSnapshot(options.snapshot);
     }
 
-    if (!err.ok()) {
-        abortMigrationForSMToken(curSmTokenInProgress, err);
+    if (!err.ok() || !snapErr.ok()) {
+        abortMigrationForSMToken(smTokenId, err);
     }
+}
+
+void
+MigrationMgr::smTokenMetadataSnapshotCbErrorHandler(const Error& snapErr,
+                                                    const Error& err,
+                                                    fds_token_id& smTokenId,
+                                                    leveldb::ReadOptions& options,
+                                                    std::shared_ptr<leveldb::DB> db,
+                                                    bool retryMigrFailedTokens) {
+    if (retryMigrFailedTokens) {
+        removeTokenFromRetryMap(smTokenId);
+    }
+    snapshotCleanupAndErrorHandler(snapErr, err, smTokenId, options, db);
 }
 
 void
@@ -985,9 +1012,10 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
 void
 MigrationMgr::reportMigrationCompleted(fds_bool_t isResync) {
 
-    LOGNOTIFY << "sm migration completed for dlt version: " << targetDltVersion
+    LOGNOTIFY << "SM migration completed for dlt version: " << targetDltVersion
               << " resync: " << resyncOnRestart;
     // Reset resync indicator flag in Migration Manager.
+    targetDltVersion = DLT_VER_INVALID;
     resyncOnRestart = false;
 
     bool resyncPending = false;
@@ -1251,8 +1279,6 @@ MigrationMgr::handleDltClose(const DLT* dlt,
         migrClients.clear();
     }
     LOGMIGRATE << "Done coalescing clients";
-    targetDltVersion = DLT_VER_INVALID;
-    resyncOnRestart = false;
 
     /**
      * Current migration is complete. Now check if there is any pending
