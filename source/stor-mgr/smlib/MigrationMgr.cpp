@@ -524,8 +524,8 @@ MigrationMgr::startObjectRebalance(const fpi::CtrlObjectRebalanceFilterSetPtr& r
                << std::dec << " seqNum " << rebalSetMsg->seqNum
                << " last " << rebalSetMsg->lastFilterSet
                << " onePhaseMigration ? " << rebalSetMsg->onePhaseMigration
-	       << " Target DLT version " << rebalSetMsg->targetDltVersion
-	       << " tokenId " << rebalSetMsg->tokenId;
+               << " Target DLT version " << rebalSetMsg->targetDltVersion
+               << " tokenId " << rebalSetMsg->tokenId;
 
     // if migration already in progress, make sure that rebalance message is for
     // the same DLT version
@@ -542,18 +542,6 @@ MigrationMgr::startObjectRebalance(const fpi::CtrlObjectRebalanceFilterSetPtr& r
     srcAccepted = acceptSourceResponsibility(rebalSetMsg->tokenId, rebalSetMsg->onePhaseMigration,
                                              executorSmUuid, mySvcUuid, dlt);
 
-    // If this SM is just a source and does not get Start Migration from OM
-    // make sure that we set the migration state in progress
-    MigrationState expectState = MIGR_IDLE;
-    if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IN_PROGRESS)) {
-        // check if migration was aborted
-        if (atomic_load(&migrState) == MIGR_ABORTED) {
-            // Something happened, for now stopping migration on any error
-            LOGWARN << "Migration was already aborted, not going to handle object rebalance msg";
-            return ERR_SM_TOK_MIGRATION_ABORTED;
-        }
-        // else was already in progress
-    }
     numBitsPerDltToken = bitsPerDltToken;
     targetDltVersion = rebalSetMsg->targetDltVersion;
     resyncOnRestart = rebalSetMsg->onePhaseMigration;
@@ -563,39 +551,39 @@ MigrationMgr::startObjectRebalance(const fpi::CtrlObjectRebalanceFilterSetPtr& r
     {
         SCOPEDWRITE(clientLock);
         if (migrClients.count(executorId) == 0) {
+            auto clientDoneCb = std::bind(&MigrationMgr::handleClientDone, this, std::placeholders::_1);
             // first time we see a message for this executor ID
             NodeUuid executorNodeUuid(executorSmUuid);
             migrClients[executorId] = std::make_shared<MigrationClient>(smReqHandler,
                                                                         executorNodeUuid,
                                                                         targetDltVersion,
                                                                         bitsPerDltToken,
-                                                                        rebalSetMsg->onePhaseMigration);
+                                                                        rebalSetMsg->onePhaseMigration,
+                                                                        clientDoneCb);
         }
         migrClient = migrClients[executorId];
     }
 
+    if (migrClients[executorId] == nullptr || migrClients.empty()) {
+        return ERR_OUT_OF_MEMORY;
+    }
+
+    // If this SM is just a source and does not get Start Migration from OM
+    // make sure that we set the migration state in progress
+    MigrationState expectState = MIGR_IDLE;
+    if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IN_PROGRESS)) {
+        // check if migration was aborted
+        if (atomic_load(&migrState) == MIGR_ABORTED) {
+            LOGWARN << "Migration was already aborted, not going to handle object rebalance msg";
+            return ERR_SM_TOK_MIGRATION_ABORTED;
+        }
+        // else was already in progress
+    }
+
     // message contains DLTToken + {<objects + refcnt>} + seqNum + lastSetFlag.
     err = migrClient->migClientStartRebalanceFirstPhase(rebalSetMsg, srcAccepted);
-    if (err == ERR_SM_RESYNC_SOURCE_DECLINE) {
-        fds_verify(!srcAccepted);
-        // migrClient received all filter sets from given executor, and all dlt
-        // tokens were declined, we are finished with this migration client
-        LOGMIGRATE << "This SM declined all DLT tokens for executor " << std::hex
-                   << executorId << std::dec;
-
-        clientLock.read_lock();
-        // Get reference to the client so we can release the read lock
-        MigrationClient::shared_ptr migrClient = migrClients[executorId];
-        clientLock.read_unlock();
-
-        migrClient->waitForIOReqsCompletion(executorId);
-
-        clientLock.write_lock();
-        migrClients.erase(executorId);
-        clientLock.write_unlock();
-    }
-    if (!srcAccepted) {
-        return ERR_SM_RESYNC_SOURCE_DECLINE;
+    if (!err.ok()) {
+        handleClientDone(executorId);
     }
     return err;
 }
@@ -706,34 +694,19 @@ MigrationMgr::startSecondObjectRebalance(const fpi::CtrlGetSecondRebalanceDeltaS
 Error
 MigrationMgr::finishClientResync(fds_uint64_t executorId)
 {
-    Error err(ERR_OK);
+    return ERR_OK;
+}
+
+void
+MigrationMgr::handleClientDone(fds_uint64_t executorId) {
+
     fds_bool_t doneWithClients = false;
-
-    fiu_do_on("sm.exit.before.client.erase", LOGDEBUG << "sm.exit.before.client.erase fault point enabled"; \
-              exit(1));
-    if (atomic_load(&migrState) == MIGR_ABORTED) {
-        // Something happened, for now stopping migration on any error
-        LOGWARN << "Migration was already aborted, not going to handle second object rebalance msg";
-        return ERR_SM_TOK_MIGRATION_ABORTED;
-    } else if (atomic_load(&migrState) == MIGR_IDLE) {
-        // possible to receive stray finish resync msg, if SM e.g. failed/restarted
-        // and the destination still thinks previous SM is up
-        LOGWARN << "Received finishClientResync in IDLE state for executor "
-                << std::hex << executorId << std::dec;
-        return ERR_NOT_FOUND;
-    }
-
     clientLock.read_lock();
-    // ok if migration client does not exist
     if (migrClients.count(executorId) > 0) {
         // Get reference to the client so we can release the read lock
         MigrationClient::shared_ptr migrClient = migrClients[executorId];
         clientLock.read_unlock();
-        LOGDEBUG << "Remove migration client for executor " << std::hex << executorId
-                 << std::dec << " which means that forwarding from this client will stop too"
-                 << ". Migration clients " << migrClients.size();
-        // the destination SM told us it does not need this client anymore
-        // just remove it, which will also stop forwarding IO from this client
+        LOGDEBUG << "Will remove client for executor " << std::hex << executorId;
         migrClient->waitForIOReqsCompletion(executorId);
 
         clientLock.write_lock();
@@ -746,12 +719,10 @@ MigrationMgr::finishClientResync(fds_uint64_t executorId)
         clientLock.read_unlock();
     }
 
-    // check if the whole resync on restart is finished
     if (doneWithClients) {
-        checkResyncDoneAndCleanup(false);
+        setWasSrcTimestamp();
+        checkMigrationDoneAndCleanup(false);
     }
-
-    return err;
 }
 
 
@@ -999,10 +970,10 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
                 failedSMsAsSource.clear();
                 LOGMIGRATE << "ResyncOnRestart: cleared executors";
                 // see if clients are also done so we can cleanup
-                checkResyncDoneAndCleanup(true);
-
+                checkMigrationDoneAndCleanup(true);
                 smTokenInProgressMutex.unlock();
                 migrExecutorLock.write_unlock();
+                reportMigrationCompleted(true);
             } else {
                 smTokenInProgressMutex.unlock();
                 migrExecutorLock.cond_write_unlock();
@@ -1013,6 +984,9 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
 
 void
 MigrationMgr::reportMigrationCompleted(fds_bool_t isResync) {
+
+    LOGNOTIFY << "sm migration completed for dlt version: " << targetDltVersion
+              << " resync: " << resyncOnRestart;
     // Reset resync indicator flag in Migration Manager.
     resyncOnRestart = false;
 
@@ -1412,13 +1386,8 @@ MigrationMgr::dltTokenStatesEmpty() {
 }
 
 void
-MigrationMgr::checkResyncDoneAndCleanup(fds_bool_t checkedExecutorsDone)
+MigrationMgr::checkMigrationDoneAndCleanup(fds_bool_t checkedExecutorsDone)
 {
-    if (!resyncOnRestart) {
-        // not resync case
-        return;
-    }
-    LOGMIGRATE << "Checking if Resync is done";
     fds_bool_t executorsDone = checkedExecutorsDone ? true : false;
     if (!checkedExecutorsDone) {
         SCOPEDREAD(migrExecutorLock);
@@ -1446,9 +1415,8 @@ MigrationMgr::checkResyncDoneAndCleanup(fds_bool_t checkedExecutorsDone)
             mTimer.cancel(retryTokenMigrationTask);
         }
 
-        LOGNOTIFY << "SM Resync process done! (Token resync on restart / or being resync client"
+        LOGNOTIFY << "SM migration process done! (Token resync on restart / or being resync client"
                   << " completed for DLT version " << targetDltVersion << ")";
-        reportMigrationCompleted(true);
     }
 }
 

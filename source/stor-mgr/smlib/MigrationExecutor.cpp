@@ -1015,6 +1015,8 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
 void
 MigrationExecutor::sendFinishResyncToClient()
 {
+    return;
+
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
                << " sending finish resync msg to Client";
 

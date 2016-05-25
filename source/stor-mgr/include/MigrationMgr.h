@@ -418,13 +418,16 @@ class MigrationMgr : StateProvider{
     // Change token state for a single sm token
     void changeTokenState(fds_token_id& token, bool availability);
 
+    // handle migration client done
+    void handleClientDone(fds_uint64_t executorId);
+
     /**
      * If all executors and clients are done, moves migration to IDLE state
      * and resets the state
      * @param checkedExecutorsDone true if executors already checked and they are done
      *        so only check clients, and if they are also done, move to IDLE state
      */
-    void checkResyncDoneAndCleanup(fds_bool_t checkedExecutorsDone);
+    void checkMigrationDoneAndCleanup(fds_bool_t checkedExecutorsDone);
 
     /// state of migration manager
     std::atomic<MigrationState> migrState;
