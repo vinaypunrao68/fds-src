@@ -1,0 +1,16 @@
+[Unit]
+Description=FDS Platform Manager Service
+After=network.target
+
+[Service]
+Type=forking
+Environment=FDS_ROOT=/opt/fds/formation_one LANG=POSIX LC_MESSAGES=POSIX
+LD_LIBRARY_PATH=/opt/fds/formation_one/lib
+#PIDFile=/opt/fds/formation_one/var/pm.pid
+
+ExecStart=/opt/fds/formation_one/bin/platformd --fds_root=${FDS_ROOT} --foreground >> ${FDS_ROOT}/bin/pm.out 2>&1
+ExecReload=/bin/kill -USR2 $MAINPID
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

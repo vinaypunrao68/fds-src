@@ -13,10 +13,10 @@ endif
 $(info "build type: "$(build_type))
 
 ifdef ARTIFACTORY_USER
-gradle_arg = buildDeb deployDeb -Pmain_dir_build=${real_main_dir_build} \
+gradle_arg = buildDeb deployDeb buildRpm deployRpm -Pmain_dir_build=${real_main_dir_build} \
  -Pbuild_type=${build_type} -Pusername=${ARTIFACTORY_USER} -Ppassword=${ARTIFACTORY_PASS}
 else
-gradle_arg = buildDeb -Pbuild_type=${build_type} -Pmain_dir_build=${real_main_dir_build}
+gradle_arg = buildDeb buildRpm -Pbuild_type=${build_type} -Pmain_dir_build=${real_main_dir_build}
 endif
 
 all:

@@ -1,17 +1,14 @@
 buildscript {
 	repositories {
 		jcenter()
-		mavenLocal()
-	}
-
-	dependencies {
-		classpath 'com.netflix.nebula:gradle-ospackage-plugin:3.2.0'
 	}
 }
 
-apply plugin: 'nebula.deb'
+plugins {
+  id "nebula.ospackage" version "3.2.0"
+}
 
-task buildDeb(type: Deb) {
+ospackage {
 
 	def build_num = "$System.env.BUILD_NUMBER"
 
@@ -27,7 +24,6 @@ task buildDeb(type: Deb) {
 	ext.packagePrefix = 'fds-orchestration-manager'
 	release = build_num
 	packageName = packagePrefix + '-' + build_type + '-' + version + '-' + release
-	arch = "amd64"
 
 	def baseDir = main_dir_build
 
@@ -36,41 +32,66 @@ task buildDeb(type: Deb) {
 	from(baseDir + '/bin/orchMgr') {
 		into 'bin'
 		fileMode 755
-	}
+        user 'root'
+        permissionGroup 'root'
+}
 
 	from(baseDir + '/bin/liborchmgr.so') {
 		into 'bin'
 		fileMode 755
-	}
+        user 'root'
+        permissionGroup 'root'
+}
 
 	from(baseDir + '/lib/libfds-om-common.a') {
 		into 'lib'
 		fileMode 644
-	}
+        user 'root'
+        permissionGroup 'root'
+}
 
 	from(baseDir + '/lib/java') {
 		into 'lib/java'
-	}
+        user 'root'
+        permissionGroup 'root'
+}
 
 	from(baseDir + '/lib/admin-webapp') {
 		into 'lib/admin-webapp'
-	}
+        user 'root'
+        permissionGroup 'root'
+}
 
 	from( '../../../ansible/templates/deploy_fds/upstart' ){
 		into 'upstart'
 		include 'fds_upstart_defaults*', 'fds-om.conf.j2'
 		fileMode 755
-	}
+        user 'root'
+        permissionGroup 'root'
+}
 
 	from( '../../config/etc/ssl' ) {
 		into 'etc/ssl'
 		fileMode 755
-	}
- 
+        user 'root'
+        permissionGroup 'root'
+}
+
 	from( 'etc' ){
 		into 'etc'
 		fileMode 755
-	}
+	    user 'root'
+        permissionGroup 'root'
+    }
+}
+
+buildDeb {
+	arch = "amd64"
+}
+
+buildRpm {
+    os = LINUX
+    arch = "X86_64"
 }
 
 task deployDeb( dependsOn: 'buildDeb' ) << {
@@ -85,9 +106,9 @@ task deployDeb( dependsOn: 'buildDeb' ) << {
     }
 
 	def debName = 'NONE'
-	new File( projectDir.getName() + '/build/distributions' ).eachFile( { f -> 
+	new File( projectDir.getName() + '/build/distributions' ).eachFile( { f ->
 
-		if ( f.name.startsWith( buildDeb.packageName ) && f.name.endsWith( 'deb' ) ) {
+		if ( f.name.startsWith( ospackage.packageName ) && f.name.endsWith( 'deb' ) ) {
 			debName = f.name
 		}
 
@@ -122,4 +143,46 @@ task deployDeb( dependsOn: 'buildDeb' ) << {
 		println 'Artifact upload to local artifactory failed.'
 	}
 
+}
+
+task deployRpm( dependsOn: 'buildRpm' ) << {
+	if ( !project.hasProperty( 'username' ) || !project.hasProperty( 'password' ) ){
+		println 'You must specify both a -Pusername and -Ppassword value. Skipping deployRpm task.'
+		return
+	}
+
+	def repo_folder = "$System.env.REPO_FOLDER"
+
+	if ( null == repo_folder || '' == repo_folder || 'null' == repo_folder ) {
+		repo_folder = 'nightly'
+	}
+
+	def rpmName = 'NONE'
+	new File( projectDir.getName() + '/build/distributions' ).eachFile( { f ->
+
+		if ( f.name.startsWith( ospackage.packageName ) && f.name.endsWith( 'rpm' ) ) {
+			rpmName = f.name
+		}
+	})
+
+	if ( rpmName == 'NONE' ) {
+		println 'Nothing to deploy'
+		return
+	}
+
+	println rpmName
+
+	def fullName = rpmName
+
+    def deploy_artifactory_local = 'curl -v -X PUT http://' + username + ':' + password + '@bld-artifactory:8081/artifactory/formation-yum/' + repo_folder + '/' + fullName + '; -T ' + projectDir.getName() + '/build/distributions/' + fullName
+
+	println deploy_artifactory_local
+
+	def proc_local = deploy_artifactory_local.execute()
+
+	proc_local.text.eachLine { line -> println line }
+
+	if ( proc_local.exitValue() ) {
+		throw new GradleException( 'Artifact upload to Boulder Artifactory failed.' )
+	}
 }
