@@ -372,19 +372,20 @@ void MigrationClient::buildDeltaSetWorkerFirstPhase(leveldb::Iterator *iterDB,
          delete iterDB;
          delete dbFromFirstSnap;
 
-        /* If this is a one phase migration(For ex: SM resync)
-         * We no longer need this snapshot.
-         * Delete the snapshot directory and files.
-         */
-        if (onePhaseMigration && env) {
-            env->DeleteDir(firstPhaseSnapshotDir);
-        }
-
         setMigClientState(MC_FIRST_PHASE_DELTA_SET_COMPLETE);
 
         // Finish tracking IO request.
         trackIOReqs.finishTrackIOReqs();
-        handleMigrationDone(ERR_OK);
+
+        /**
+         * If this is a one phase migration(For ex: SM resync)
+         * We no longer need this snapshot.
+         * Delete the snapshot directory and files.
+         */
+        if (onePhaseMigration) {
+            if (env) { env->DeleteDir(firstPhaseSnapshotDir); }
+            handleMigrationDone(ERR_OK);
+        }
         return;
     }
 
