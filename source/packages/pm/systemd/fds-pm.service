@@ -3,7 +3,7 @@ Description=FDS Platform Manager Service
 After=network.target
 
 [Service]
-Type=forking
+Type=simple
 Environment=FDS_ROOT=/opt/fds/formation_one LANG=POSIX LC_MESSAGES=POSIX LD_LIBRARY_PATH=/opt/fds/formation_one/lib LDD_TRACE_LOADED_OBJECTS=1 LD_VERBOSE=1
 #PIDFile=/opt/fds/formation_one/var/pm.pid
 
