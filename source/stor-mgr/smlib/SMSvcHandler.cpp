@@ -79,7 +79,6 @@ SMSvcHandler::SMSvcHandler(CommonModuleProviderIf *provider)
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceFilterSet, initiateFirstRound);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlObjectRebalanceDeltaSet, syncObjectSet);
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlGetSecondRebalanceDeltaSet, initiateSecondRound);
-    REGISTER_FDSP_MSG_HANDLER(fpi::CtrlFinishClientTokenResyncMsg, finishClientTokenResync);
 
     /* DMT update messages */
     REGISTER_FDSP_MSG_HANDLER(fpi::CtrlNotifyDMTUpdate, NotifyDMTUpdate);
@@ -307,9 +306,9 @@ SMSvcHandler::initiateFirstRound(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
               err = ERR_SM_TOK_MIGRATION_ABORTED;\
               initiateFirstRoundCb(asyncHdr, err); return;);
     fiu_do_on("resend.dlt.token.filter.set",
-                if (filterObjSet->tokenId % 20 == 0) { \
-                    LOGNOTIFY << "resend.dlt.token.filter.set fault point enabled"; \
-                    fault_enabled = true;);
+              if (filterObjSet->tokenId % 20 == 0) { \
+                  LOGNOTIFY << "resend.dlt.token.filter.set fault point enabled"; \
+                  fault_enabled = true;});
     auto resp_cb = std::bind(&SMSvcHandler::initiateFirstRoundCb,
                                              this,
                                              asyncHdr,
@@ -416,39 +415,6 @@ SMSvcHandler::initiateSecondRoundCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     fpi::CtrlGetSecondRebalanceDeltaSetRspPtr msg(new fpi::CtrlGetSecondRebalanceDeltaSetRsp());
     asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlGetSecondRebalanceDeltaSetRsp), *msg);
-}
-
-void
-SMSvcHandler::finishClientTokenResync(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                      fpi::CtrlFinishClientTokenResyncMsgPtr& finishClientResyncMsg)
-{
-    Error err(ERR_OK);
-    auto lambda = [=] () mutable {
-        LOGDEBUG << "Received finish client resync msg from destination SM "
-                 << std::hex << asyncHdr->msg_src_uuid.svc_uuid << std::dec
-                 << " executor ID " << finishClientResyncMsg->executorID;
-
-        auto error = objStorMgr->migrationMgr->finishClientResync(finishClientResyncMsg->executorID);
-        finishClientTokenResyncCb(asyncHdr, error);
-    };
-
-    sm_task_type taskType = sm_task_type::migration;
-    auto genericRequest = new SmIoGenericRequest(FdsSysTaskQueueId,
-                                                 taskType,
-                                                 lambda);
-    Error errEnq = objStorMgr->enqueueMsg(FdsSysTaskQueueId, genericRequest);
-    if (!errEnq.ok()) {
-        LOGWARN << "err:" << err << " unable to enqueue message";
-    }
-}
-
-void
-SMSvcHandler::finishClientTokenResyncCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                        const Error &err) {
-    // send response
-    fpi::CtrlFinishClientTokenResyncRspMsgPtr msg(new fpi::CtrlFinishClientTokenResyncRspMsg());
-    asyncHdr->msg_code = static_cast<int32_t>(err.GetErrno());
-    sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::CtrlFinishClientTokenResyncRspMsg), *msg);
 }
 
 void SMSvcHandler::shutdownSM(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,

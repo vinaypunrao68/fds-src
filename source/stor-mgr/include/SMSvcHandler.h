@@ -73,7 +73,6 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     DECL_ASYNC_HANDLER(initiateFirstRound     , CtrlObjectRebalanceFilterSet);
     DECL_ASYNC_HANDLER(syncObjectSet          , CtrlObjectRebalanceDeltaSet);
     DECL_ASYNC_HANDLER(initiateSecondRound    , CtrlGetSecondRebalanceDeltaSet);
-    DECL_ASYNC_HANDLER(finishClientTokenResync, CtrlFinishClientTokenResyncMsg);
     DECL_ASYNC_HANDLER(NotifySMCheck          , CtrlNotifySMCheck);
     DECL_ASYNC_HANDLER(querySMCheckStatus     , CtrlNotifySMCheckStatus);
     DECL_ASYNC_HANDLER(activeObjects          , ActiveObjectsMsg);
@@ -104,8 +103,6 @@ class SMSvcHandler : virtual public fpi::SMSvcIf, public PlatNetSvcHandler {
     void NotifyDLTCloseCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                           const Error &err,
                           SmIoNotifyDLTClose *DLTCloseReq);
-    void finishClientTokenResyncCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
-                                   const Error &err);
     void initiateSecondRoundCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                Error &err);
     void initiateFirstRoundCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
