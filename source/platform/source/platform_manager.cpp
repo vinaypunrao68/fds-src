@@ -37,8 +37,6 @@ extern "C"
 #include "platform/platform_manager.h"
 #include <platform/environment.h>
 
-#include "file_system_table.h"
-
 namespace fds
 {
     namespace pm
@@ -326,6 +324,35 @@ namespace fds
             m_startupAuditComplete = true;
         }
 
+        // try to add the entry to the mtab
+        void PlatformManager::addMtabEntry(std::string& realDeviceName, const fds::FileSystemTable::TabEntry *tabEntry)
+        {
+            auto tab = setmntent ("/etc/mtab", "a");
+            if (nullptr == tab)
+            {
+                // /etc/mtab could be a symbolic link to /proc/self/mount, which will cause the call above to fail
+                LOGWARN << "Unable to open '" << "/etc/mtab" << "' due to errno:  " << errno << ".  Unable to mount any unmounted FDS file systems";
+                return;
+            }
+
+            struct mntent entryToAddToMtab;
+ 
+            entryToAddToMtab.mnt_fsname = const_cast <char *> (realDeviceName.c_str());
+            entryToAddToMtab.mnt_dir = const_cast <char *> (tabEntry->m_mountPath.c_str());
+            entryToAddToMtab.mnt_type = const_cast <char *> (tabEntry->m_fileSystemType.c_str());
+            entryToAddToMtab.mnt_opts = "rw";
+            entryToAddToMtab.mnt_freq = 0;
+            entryToAddToMtab.mnt_passno = 0;
+
+            if (addmntent (tab, &entryToAddToMtab) != 0)
+            {
+                LOGERROR << "Unabled to add entry to /etc/mtab for " << entryToAddToMtab.mnt_fsname;
+                // TODO(donavan), probably need to deal with an umount for the failure to add this FS to the mtab
+            }
+
+            endmntent (tab);
+        }
+
         //
         void PlatformManager::verifyAndMountFDSFileSystems()
         {
@@ -375,32 +402,7 @@ namespace fds
                             continue;
                         }
 
-                        // Meh, this should be a function TODO(donavan)
-                        // add the entry to the mtab
-                        auto tab = setmntent ("/etc/mtab", "a");
-
-                        if (nullptr == tab)
-                        {
-                            LOGERROR << "Unable to open '" << "/etc/mtab" << "' due to errno:  " << errno << ".  Unable to mount any unmounted FDS file systems";
-                            return;
-                        }
-
-                        struct mntent entryToAddToMtab;
-
-                        entryToAddToMtab.mnt_fsname = const_cast <char *> (realDeviceName.c_str());
-                        entryToAddToMtab.mnt_dir = const_cast <char *> (tabEntry->m_mountPath.c_str());
-                        entryToAddToMtab.mnt_type = const_cast <char *> (tabEntry->m_fileSystemType.c_str());
-                        entryToAddToMtab.mnt_opts = "rw";
-                        entryToAddToMtab.mnt_freq = 0;
-                        entryToAddToMtab.mnt_passno = 0;
-
-                        if (addmntent (tab, &entryToAddToMtab) != 0)
-                        {
-                            LOGERROR << "Unabled to add entry to /etc/mtab for " << entryToAddToMtab.mnt_fsname;
-                            // TODO(donavan), probably need to deal with an umount for the failure to add this FS to the mtab
-                        }
-
-                        endmntent (tab);
+                        addMtabEntry(realDeviceName, tabEntry);
                     }
                     else
                     {
