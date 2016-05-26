@@ -86,6 +86,11 @@ class MigrationMgr : StateProvider{
     }
 
     std::string getStateProviderId() override;
+
+    void getMigExecStateInfo(std::vector<fds_token_id>& done,
+                             std::vector<fds_token_id>& pending,
+                             std::vector<fds_token_id>& inprog);
+
     std::string getStateInfo() override;
 
     fds_uint32_t getMigrationMsgsTimeout() const;
@@ -190,13 +195,6 @@ class MigrationMgr : StateProvider{
      * Ack from destination for rebalance delta set message
      */
     Error rebalanceDeltaSetResp();
-
-    /**
-     * Handle message from destination SM to finish token resync.
-     * Migration client corresponding to given executorId will stop forwarding IO
-     * and migration manager will remove the corresponding migration client
-     */
-    Error finishClientResync(fds_uint64_t executorId);
 
     /**
      * Forwards object to destination SM if needed

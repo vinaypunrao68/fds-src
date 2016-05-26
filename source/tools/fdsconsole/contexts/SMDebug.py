@@ -114,6 +114,9 @@ class SMDebugContext(Context):
                 else:
                     availableCnt = len(state["available"]) if state["available"] else 0
                     unavailableCnt = len(state["unavailable"]) if state["unavailable"] else 0
+                    execsDone = len(state["mig_done"]) if state["mig_done"] else 0
+                    execsPending = len(state["mig_pending"]) if state["mig_pending"] else 0
+                    execsInprog = len(state["mig_in_prog"]) if state["mig_in_prog"] else 0
                     rebalance = "no"
                     if state["rebal_inprog"]:
                         rebalance = "yes"
@@ -129,8 +132,13 @@ class SMDebugContext(Context):
                            ('unavailable', unavailableCnt),
                            ('rebalance_inprog', rebalance),
                            ('resync_inprog', resync),
-                           ('num_execs', execs),
-                           ('num_clients', clients)]
+                           ('e_pending', execsPending),
+                           ('e_done', execsDone),
+                           ('e_inprog', execsInprog),
+                           ('was_src_at', state["was_src_at"]),
+                           ('was_dst_at', state["was_dst_at"]),
+                           ('num_clients', clients),
+                           ('num_execs', execs)]
                     print tabulate(tbl)
             except Exception, e:
                 log.exception(e)

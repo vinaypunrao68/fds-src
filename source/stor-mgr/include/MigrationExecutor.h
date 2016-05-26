@@ -104,6 +104,10 @@ class MigrationExecutor {
         }
         return (curState == ME_DONE);
     }
+    inline fds_bool_t inInitState() const {
+        MigrationExecutorState curState = std::atomic_load(&state);
+        return (curState == ME_INIT);
+    }
     inline fds_bool_t isDone() const {
         MigrationExecutorState curState = std::atomic_load(&state);
         return ((curState == ME_DONE) || (curState == ME_DONE_WITH_ERROR));

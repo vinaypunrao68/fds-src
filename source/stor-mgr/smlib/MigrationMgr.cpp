@@ -718,12 +718,6 @@ MigrationMgr::startSecondObjectRebalance(const fpi::CtrlGetSecondRebalanceDeltaS
     return err;
 }
 
-Error
-MigrationMgr::finishClientResync(fds_uint64_t executorId)
-{
-    return ERR_OK;
-}
-
 void
 MigrationMgr::handleClientDone(fds_uint64_t executorId) {
 
@@ -1783,7 +1777,26 @@ MigrationMgr::abortMigrationCb(fds_uint64_t& executorId,
     }
 }
 
-/* Provides function for token DLT availability states */
+void MigrationMgr::getMigExecStateInfo(std::vector<fds_token_id>&done,
+                                       std::vector<fds_token_id>& pending,
+                                       std::vector<fds_token_id>& inprog) {
+
+    SCOPEDREAD(migrExecutorLock);
+    for (auto srcSmTokenMap : migrExecutors) {
+        for (auto executor : srcSmTokenMap.second) {
+            if (executor.second->inInitState()) {
+                pending.push_back(srcSmTokenMap.first);
+            } else if (executor.second->isDone() || executor.second->inErrorState()) {
+                done.push_back(srcSmTokenMap.first);
+            } else {
+                inprog.push_back(srcSmTokenMap.first);
+            }
+        }
+    }
+}
+
+
+//Provides info about migration state and token availability
 std::string MigrationMgr::getStateInfo() {
     Json::Value unavailableTokens;
     Json::Value availableTokens;
@@ -1810,6 +1823,15 @@ std::string MigrationMgr::getStateInfo() {
         }
     }
 
+    Json::Value edone, epending, einprog;
+    std::vector<fds_token_id> execs_done, execs_pending, execs_inprog;
+
+    getMigExecStateInfo(execs_done, execs_pending, execs_inprog);
+
+    for (const auto &token: execs_done) { edone.append(token); }
+    for (const auto &token: execs_pending) { epending.append(token); }
+    for (const auto &token: execs_inprog) { einprog.append(token); }
+
     /* Return the available and unavailable token counts as well as the unavailable token list */
     Json::Value state;
     state["dlt_version"] = static_cast<Json::Value::Int64>(dlt->getVersion());
@@ -1818,6 +1840,9 @@ std::string MigrationMgr::getStateInfo() {
     state["unavailable"] = unavailableTokens;
     state["rebal_inprog"] = (isMigrationInProgress() ? (isResync() ? false: true) : false);
     state["resync_inprog"] = (isMigrationInProgress() ? (isResync() ? true: false) : false);
+    state["mig_done"] = edone;
+    state["mig_pending"] = epending;
+    state["mig_in_prog"] = einprog;
     state["num_execs"] = static_cast<Json::Value::Int64>(migrExecutors.size());
     state["num_clients"] = static_cast<Json::Value::Int64>(migrClients.size());
     std::stringstream ss;
