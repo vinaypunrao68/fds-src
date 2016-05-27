@@ -89,8 +89,7 @@ AmDispatcher::ProtectedVGH::open(fds_volid_t const vol_id,
                                  ErrorHandler* handler,
                                  Cb callback) {
     close(vol_id, []{});
-    auto quorum = std::max(modProvider->getSvcMgr()->getCurrentDMT()->getDepth() - 1,
-                           static_cast<uint32_t>(1));
+    auto quorum = (modProvider->getSvcMgr()->getCurrentDMT()->getDepth() / 2) + 1;
     vgh_ptr new_vgh = std::make_shared<VolumeGroupHandle>(modProvider, vol_id, quorum);
     new_vgh->setListener(handler);
     new_vgh->open(msg,
