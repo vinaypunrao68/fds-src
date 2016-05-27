@@ -195,6 +195,12 @@ class DiskTest (unittest.TestCase):
         d = disk_format.Disk (DiskTest.TEST_PATH, True, True, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
         self.assertFalse (d.partition (1, 1))
 
+    def testDiskVerifyPartitionExists (self):
+         d = disk_format.Disk (DiskTest.TEST_PATH, True, True, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
+         with self.assertRaises (SystemExit) as cm:
+             d.verifyPartitionExists('1', 1)
+         self.assertEqual (cm.exception.code, 8)
+
     @mock.patch ('disk_format.Disk.call_subproc')
     def testDiskPartitionDataDisk (self, mock_call_subproc):
         d = disk_format.Disk (DiskTest.TEST_PATH, False, False, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
@@ -338,10 +344,11 @@ class DiskTest (unittest.TestCase):
             d.verifySystemDiskPartitionSize()
         self.assertEqual (cm.exception.code, 8)
 
+    @mock.patch ('disk_format.Disk.verifyPartitionExists')
     @mock.patch ('__builtin__.open', mock.mock_open (read_data=disk_format.DISK_MARKER), create=True)
     @mock.patch ('disk_format.Disk.call_subproc')
     @mock.patch ('disk_format.subprocess.Popen')
-    def testDiskFormatOSDrive (self, mock_popen, mock_call_subproc):
+    def testDiskFormatOSDrive (self, mock_popen, mock_call_subproc, mock_verify_partition_exists):
         process_mock = mock.Mock ()
         attrs = {'returncode': 0}
         process_mock.stdout.read.return_value = '33333'
@@ -359,9 +366,10 @@ class DiskTest (unittest.TestCase):
         assert 0 == mock_call_subproc.call_count
         self.assertFalse (d.format ())
 
+    @mock.patch ('disk_format.Disk.verifyPartitionExists')
     @mock.patch ('__builtin__.open', mock.mock_open (read_data=disk_format.DISK_MARKER), create=True)
     @mock.patch ('disk_format.subprocess.Popen')
-    def testDiskFormatDataDrive (self, mock_popen):
+    def testDiskFormatDataDrive (self, mock_popen, mock_verify_partition_exists):
         process_mock = mock.Mock ()
         attrs = {'returncode': 0}
         process_mock.stdout.read.return_value = '33333'
@@ -379,9 +387,10 @@ class DiskTest (unittest.TestCase):
         assert 2 == mock_popen.call_count # format + mkfs
 
 
+    @mock.patch ('disk_format.Disk.verifyPartitionExists')
     @mock.patch ('__builtin__.open', mock.mock_open (read_data=disk_format.DISK_MARKER), create=True)
     @mock.patch ('disk_format.subprocess.Popen')
-    def testDiskFormatIndexAndDataDrive (self, mock_popen):
+    def testDiskFormatIndexAndDataDrive (self, mock_popen, mock_verify_partition_exists):
         process_mock = mock.Mock ()
         attrs = {'returncode': 0}
         process_mock.stdout.read.return_value = '33333'
@@ -765,7 +774,20 @@ class testDiskManager (unittest.TestCase):
            self.manager.partition_and_format_disks()
         self.assertEqual (cm.exception.code, 8)
 
+    @mock.patch ('__builtin__.open', mock.mock_open (read_data="44444"),   create=True)
+    def testDiskManagerIgnoreOS (self):
+ 
+       d = disk_format.Disk (DiskTest.TEST_PATH, True, False, disk_format.Disk.DISK_TYPE_HDD, 'NA', DiskTest.TEST_CAPACITY)
+       self.manager.disk_list.append(d)
 
+       with self.assertRaises (SystemExit) as cm:
+          self.manager.partition_and_format_disks()
+       self.assertEqual (cm.exception.code, 8)
+
+       # now try ignoring the os disk and expect the function to succeed
+       self.manager.process_command_line(['--ignore-os-disk'])
+       self.manager.partition_and_format_disks()
+    
 #    @mock.patch ('disk_format.RaidDevice.get_uuid')
 #    @mock.patch ('disk_format.RaidDevice.create_index_raid')
 #    def testDiskManagerAddSmMountPointWithRaid (self, mock_create_index, mock_uuid):

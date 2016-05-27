@@ -369,6 +369,13 @@ class Disk (Base):
         self.marker = bytearray (foo)
         file_handle.close()
 
+    def verifyPartitionExists(self, partition, retries):
+         tries = 0
+         while not os.path.exists(self.path + partition):
+             time.sleep(1)
+             tries += 1
+             if tries >= retries:
+                 self.system_exit('Partition ' + partition + ' does not exist.')
 
     def format (self):
         ''' TODO(donavan) This needs to change to format parition 1 on OS disks
@@ -378,8 +385,11 @@ class Disk (Base):
 
         self.dbg_print ("Formatting:  %s" % (self.path))
 
+        partition = '1'
+        self.verifyPartitionExists(partition, 5) # handle an OS race condition (RHEL specific?) where partition may not exist yet (5 retries)
+
         # Write the FDS disk marker and Zero out the FDS superblock partition
-        superblock_partition = self.path + '1'
+        superblock_partition = self.path + partition 
 
         call_list = ['blockdev', '--getsize64', superblock_partition]
         output = subprocess.Popen (call_list, stdout=subprocess.PIPE).stdout
@@ -405,6 +415,7 @@ class Disk (Base):
         proc_list = []
 
         for partition in partition_list:
+            self.verifyPartitionExists(partition, 5) # handle an OS race condition (RHEL specific?) where partition may not exist yet (5 retries)
             call_list =  Disk.MKFS_PART_1 + (self.path + partition).split() + Disk.MKFS_PART_2
             self.dbg_print_list (call_list)
             proc_list.append(subprocess.Popen(call_list))
@@ -593,6 +604,7 @@ class DiskManager (Base):
 #        self.raid_manager = None
         self.disk_utils = DiskUtils()
 
+        self.ignore_os_disk = False
 
     def process_command_line (self, opts = None):
         parser = optparse.OptionParser ("usage: %prog [options]")
@@ -606,6 +618,8 @@ class DiskManager (Base):
         parser.add_option ('-r', '--reset', dest = 'reset', action = 'store_true', help = 'Reset all storage space, requires FDS to be stopped.')
         parser.add_option ('-p', '--print', dest = 'print_disk', action = 'store_true', help = 'Print disk information')
         parser.add_option ('-D', '--debug', dest = 'debug', action = 'store_true', help = 'Turn on debugging')
+        # The following option is added for environments where the OS disk size should not be verified
+        parser.add_option ('--ignore-os-disk', dest = 'ignore_os_disk', action = 'store_true', help = 'Ignore the OS disk when verifying and formatting disks') 
 
         # This is mailny to facilitate unit testing
         if opts is None:
@@ -650,6 +664,8 @@ class DiskManager (Base):
         logger.addHandler(handler)
         logger.setLevel(logging.DEBUG) # log everything
         logger.info("=============disk_format.py started")
+
+        self.ignore_os_disk = self.options.ignore_os_disk
 
     def load_disk_config_file (self):
         ''' Loads the disk information stored in the disk-config.conf file (or CLI argument). '''
@@ -799,6 +815,9 @@ class DiskManager (Base):
                 self.dbg_print("Skipping formatted disk %s" % disk.path)
                 continue
             if disk.get_os_usage():
+                if self.ignore_os_disk:
+                     self.log("Skipping os disk %s" % disk.path)
+                     continue
                 disk.verifySystemDiskPartitionSize()
                 if not self.options.reset:
                     continue

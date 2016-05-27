@@ -19,6 +19,8 @@
 
 #include "platform/flap_detector.h"
 
+#include "file_system_table.h"
+
 namespace fds
 {
     namespace pm
@@ -167,6 +169,7 @@ namespace fds
                 void startService(fpi::FDSP_MgrIdType svc_type);
                 void updateService (fpi::FDSP_MgrIdType svc_type, fpi::pmServiceStateTypeId state);
                 fpi::pmServiceStateTypeId getServiceState (fpi::FDSP_MgrIdType svc_type);
+                void addMtabEntry(std::string& realDeviceName, const fds::FileSystemTable::TabEntry *tabEntry);
 
         };
     }  // namespace pm
