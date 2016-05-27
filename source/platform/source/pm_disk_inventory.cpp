@@ -227,6 +227,8 @@ namespace fds
             LOGDEBUG << e.what();
         }
 
+// don't enable simulation in release mode by default
+#ifdef DEBUG
         /* Remove ssd disks */
         hdd_count = dsk_count - DISK_ALPHA_COUNT_SSD;
 
@@ -242,6 +244,8 @@ namespace fds
         }
 
         return true;
+#endif
+        return false;
     }
 
     // disk_do_partition
