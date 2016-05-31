@@ -91,7 +91,13 @@ class Disk:
             print >>dest, '%-11s%-8s%-11s%-6s%-6s%-d' % (self.dsk_path, self.dsk_os_use, self.dsk_index_use, self.dsk_typ, self.dsk_bus, self.dsk_cap)
 
 ## ----------------------------------------------------------------
-
+    # get the device /sys/block path (e.g. /sys/block/sdb for /dev/sdb)
+    @staticmethod
+    def get_sysblock_path (path):
+        dev = re.split('/', path)
+        assert len(dev) == 3
+        return '/sys/block/' + dev[2]
+ 
     # get all Disk objects in the system, including the boot device(s)
     @staticmethod
     def sys_disks (virtualized, os_device_list):
@@ -146,9 +152,8 @@ class Disk:
             print 'WARNING: Size not detected for " ', path, '", will ignore this device'
 
         # match type
-        dev = re.split('/', path)
-        assert len(dev) == 3
-        fp = open('/sys/block/' + dev[2] + '/queue/rotational', 'r')
+        sysblock_path = Disk.get_sysblock_path(path)
+        fp = open(sysblock_path + '/queue/rotational', 'r')
         rotation = int (fp.read().strip())
         fp.close()
 
@@ -202,6 +207,17 @@ def get_device_list(fs) :
                 device=items[6].rstrip('0123456789')
                 if device not in device_list:
                     device_list.append (device)
+    elif "/dev/dm" in real_fs: #lvm device
+        sysblock_path = Disk.get_sysblock_path(real_fs)
+        call_list = ['ls', sysblock_path + '/slaves']
+        output = subprocess.Popen (call_list, stdout=subprocess.PIPE).stdout
+        for line in output:
+            if "sd" in line:
+                items = line.strip ('\r\n').split()
+                device=items[0].rstrip('0123456789')
+                device = '/dev/' + device
+                if device not in device_list:
+                    device_list.append (device) 
     else:
         device = real_fs.rstrip('0123456789')
         if device not in device_list:
