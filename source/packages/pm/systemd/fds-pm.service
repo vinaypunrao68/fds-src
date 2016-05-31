@@ -10,6 +10,7 @@ WorkingDirectory=/opt/fds/formation_one/bin
 ExecStart=/opt/fds/formation_one/bin/platformd --fds-root=${FDS_ROOT} --foreground&  2>&1 >> ${FDS_ROOT}/bin/pm.out
 ExecReload=/bin/kill -USR2 $MAINPID
 Restart=always
+LimitNOFILE=400000
 
 [Install]
 WantedBy=multi-user.target
