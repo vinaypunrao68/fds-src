@@ -371,11 +371,14 @@ class Disk (Base):
 
     def verifyPartitionExists(self, partition, retries):
          tries = 0
-         while not os.path.exists(self.path + partition):
-             time.sleep(1)
-             tries += 1
+         call_list = ['ls', self.path + partition]
+         ret = subprocess.call(call_list)
+         while (ret != 0): 
              if tries >= retries:
                  self.system_exit('Partition ' + partition + ' does not exist.')
+             time.sleep(1)
+             tries += 1
+             ret = subprocess.call(call_list) 
 
     def format (self):
         ''' TODO(donavan) This needs to change to format parition 1 on OS disks
