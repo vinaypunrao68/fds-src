@@ -39,6 +39,13 @@ struct GetVolumeDescriptorResp {
 struct CtrlTokenMigrationAbort {
 }
 
+/*
+ * Sent by PM when node capacity changes (disks added or removed) 
+ */
+struct NotifyNodeCapacityChange {
+  1: svc_types.SvcInfo svcInfo;
+}
+
 /* ------------------------------------------------------------
    Operations on Node Events
    ------------------------------------------------------------*/

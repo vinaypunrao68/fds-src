@@ -35,14 +35,16 @@ namespace fds
             Error removeFromPMsMap(PmMap::iterator iter);
 
         protected:
-            bool fShutdown;
+            bool         fShutdown;
             std::thread* runner;
-            PmMap wellKnownPMsMap;
-            PmMap removedPMsMap;
+            PmMap        wellKnownPMsMap;
+            PmMap        removedPMsMap;
+            fds_rwlock   pmMapLock;
+            fds_mutex    dbLock;
+            fds_mutex    genMapLock;
+            double       prevThrdStartTime;
+            bool         domainShutdown;
             std::map<int64_t, int32_t> retryMap;
-            fds_rwlock pmMapLock;
-            fds_mutex dbLock;
-            fds_mutex genMapLock;
 
             void run();
             void  shutdown();

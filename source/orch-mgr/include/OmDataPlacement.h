@@ -486,6 +486,7 @@ namespace fds {
         */
 
        fds_uint32_t numOfMigrationFailures;
+       fds_uint32_t resyncErrCount;
 
        fds_uint32_t rebalanceFailures;
 
@@ -676,6 +677,16 @@ namespace fds {
             return numOfMigrationFailures;
         }
 
+
+        /*
+         * Functions related to SM resync status
+         */
+
+        fds_uint32_t smResyncErrCount();
+
+        void markResyncErr();
+
+        void clearResyncErrCounts();
 
         /*
          * Functions related to re-balance failures

@@ -23,7 +23,8 @@ OmExtUtilApi* OmExtUtilApi::m_instance = NULL;
 //      REMOVED              |  - (non-PM svcs transition to this state post which
 //                           |     the svc is deleted from the DB, so no incoming
 //                           |     state is valid) But for PMs discovered is valid
-//      INACTIVE_FAILED      |  ACTIVE, STOPPING
+//                           |  DISCOVERED
+//      INACTIVE_FAILED      |  ACTIVE, STOPPING, STARTED
 //+--------------------------+----------------------------------------------------+
 
 const std::vector<std::vector<fpi::ServiceStatus>> OmExtUtilApi::allowedStateTransitions =
@@ -54,7 +55,7 @@ const std::vector<std::vector<fpi::ServiceStatus>> OmExtUtilApi::allowedStateTra
         // valid incoming for state: REMOVED(8)
         { fpi::SVC_STATUS_DISCOVERED },
         // valid incoming for state: INACTIVE_FAILED(9)
-        { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_STOPPING }
+        { fpi::SVC_STATUS_ACTIVE, fpi::SVC_STATUS_STOPPING, fpi::SVC_STATUS_STARTED }
 };
 
 OmExtUtilApi::OmExtUtilApi()

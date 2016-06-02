@@ -791,6 +791,7 @@ DltDplyFSM::DACT_Close::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST &
     dp->persistCommitedTargetDlt();
     dp->markMigrSuccess();
     dp->clearRebalanceFailures();
+    dp->clearResyncErrCounts();
 
     // set all added DMs to ACTIVE state
     NodeUuidSet addedNodes = cm->getAddedServices(fpi::FDSP_STOR_MGR);
@@ -1060,6 +1061,7 @@ DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
     OM_Module *om     = OM_Module::om_singleton();
     DataPlacement *dp = om->om_dataplace_mod();
 
+    bool resyncError = false;
     // since we failed to re-deploy DLT, retry again later (on some errors)
     if ( (src.errFound == ERR_SM_TOK_MIGRATION_INPROGRESS) ||
          (src.errFound == ERR_SM_TOK_MIGRATION_SRC_SVC_REQUEST) ||
@@ -1067,12 +1069,13 @@ DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
          (src.errFound == ERR_SVC_REQUEST_TIMEOUT) ||
          (src.errFound == ERR_SM_TOK_MIGRATION_ABORTED) )
     {
-        if (src.errFound == ERR_SM_TOK_MIGRATION_INPROGRESS) {
-            LOGDEBUG << "We tried to re-deploy DLT while another migration is "
-                     << "still in progress (most likely resync due to restart)."
-                     << " Will retry in couple of minutes";
-        } else {
-            LOGDEBUG << "Will retry to re-deploy DLT in few minutes";
+        fds_uint32_t currentErrCount = 0;
+        if (src.errFound == ERR_SM_TOK_MIGRATION_INPROGRESS)
+        {
+            resyncError = true;
+            currentErrCount = dp->smResyncErrCount();
+            dp->markResyncErr();
+
         }
 
         // Only increment failure count if the error is because of a failed
@@ -1095,10 +1098,27 @@ DltDplyFSM::DACT_EndError::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtS
                 LOGERROR << "Migration has failed too many times. Manually inspect and"
                          << " remove node with failed SM and re-add to initiate another migration";
             }
-        } else { // For the other errors, simply retry
+        } else {
+
+            fds_uint32_t retryInSeconds;
+
+            if (resyncError)
+            {
+                // Use the # of resync error counts to determine when we retry with the logic
+                // more resync errors, back off for longer
+                // Range of wait : 1 - 10 minutes, then re-set back to 1
+                retryInSeconds = ((currentErrCount % 10) + 1) * 60;
+                LOGNOTIFY << "Another migration is in progress (most likely resync due to restart)."
+                          << " Will retry migration in: " << retryInSeconds/60 << " minutes"
+                          << " resync-error retries is at:" << currentErrCount;
+
+            } else {
+                retryInSeconds = 3 * 60;
+            }
 
             if (!dst.tryAgainTimer->schedule(dst.tryAgainTimerTask,
-                                             std::chrono::seconds(3*60))) {
+                                             std::chrono::seconds(retryInSeconds)))
+            {
                 LOGWARN << "Failed to start try againtimer!!!"
                         << " SM additions/deletions may be pending for long time!";
             }

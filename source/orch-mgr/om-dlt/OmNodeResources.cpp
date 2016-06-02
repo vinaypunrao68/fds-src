@@ -1464,7 +1464,8 @@ OM_PmAgent::send_add_service_resp ( fpi::SvcUuid pmSvcUuid,
 {
     LOGNOTIFY << "Add service response received from PM: "
               << std::hex << pmSvcUuid.svc_uuid << std::dec
-              << " for request id:" << static_cast<SvcRequestId>(req->getRequestId());
+              << " for request id:" << static_cast<SvcRequestId>(req->getRequestId())
+              << " error:" << error;
     {
         std::lock_guard<std::mutex> lock(addRespMutex);
         respReceived = true;
@@ -1747,7 +1748,6 @@ OM_PmAgent::send_stop_service
         set_node_state(FDS_ProtocolInterface::FDS_Node_Down);
         return Error(ERR_OK);
     }
-
 
     fpi::SvcUuid smSvcId, dmSvcId, amSvcId;
     fpi::SvcUuid pmSvcUuid;
@@ -4176,9 +4176,10 @@ void OM_NodeContainer::om_bcast_svcmap()
         fpi::SvcUuid(),
         DLT_VER_INVALID, 0, 0 );
 
-    // TODO(Rao): add the filter so that we don't send the broad cast to om
     svcMgr->broadcastAsyncSvcReqMessage(header, buf,
-                                        [](const fpi::SvcInfo& info) {return true;});
+                                        [svcMgr](const fpi::SvcInfo& info) {
+                                                 return info.svc_id.svc_uuid != svcMgr->getOmSvcUuid();
+                                                 });
 }
 
 }  // namespace fds

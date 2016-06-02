@@ -37,6 +37,7 @@ namespace fds {
       virtual ~OmSvcHandler();
 
       int mod_init(SysParams const *const param) override;
+
       /**
        * Stub Overrides from OMSvcIf
        */
@@ -94,6 +95,9 @@ namespace fds {
       void AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                boost::shared_ptr<fpi::CtrlTokenMigrationAbort> &msg);
 
+      void updateNodeCapacity(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                                     boost::shared_ptr<fpi::NotifyNodeCapacityChange> &msg);
+
       void setConfigDB(DataStoreT* configDB);
 
       void notifyServiceRestart(boost::shared_ptr<fpi::AsyncHdr> &hdr,
@@ -119,6 +123,8 @@ namespace fds {
        */
       virtual fpi::OMSvcClientPtr createOMSvcClient(const std::string& strIPAddress,
         const int32_t& port);
+
+      virtual void initVersionTable();
 
     private:
       void init_svc_event_handlers();

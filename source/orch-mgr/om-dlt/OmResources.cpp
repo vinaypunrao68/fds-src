@@ -4080,4 +4080,44 @@ OM_NodeDomainMod::isNodeShuttingDown(int64_t uuid)
     return nodeIsShuttingDown;
 }
 
+void
+OM_NodeDomainMod::updateNodeCapacity(fpi::SvcInfo &svcInfo)
+{
+    LOGDEBUG << "svcInfo: " << fds::logDetailedString(svcInfo);
+    fpi::SvcInfo savedSvcInfo;
+    bool ret = configDB->getSvcInfo(svcInfo.svc_id.svc_uuid.svc_uuid, savedSvcInfo);
+    if (!ret)
+    {
+        LOGERROR << "Could not find service " << svcInfo.svc_id.svc_uuid;
+        return;
+    }
+    if (savedSvcInfo.svc_type != fpi::FDSP_PLATFORM)
+    {
+        LOGERROR << "Unexpected service type " << savedSvcInfo.svc_type << " for service " << svcInfo.svc_id.svc_uuid << ". Expecting PM";
+        return;
+    }
+
+    OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
+
+    fpi::SvcUuid smSvcUuid;
+    fds::retrieveSvcId(svcInfo.svc_id.svc_uuid.svc_uuid, smSvcUuid, fpi::FDSP_STOR_MGR);
+    NodeUuid smNodeUuid(smSvcUuid);
+    NodeAgent::pointer smAgent = local->dc_find_node_agent(smNodeUuid);
+
+    if (smAgent != NULL)
+    {
+        util::Properties props = util::Properties(&svcInfo.props);
+        fds_uint64_t updatedCapacity = props.getDouble("disk_capacity") + props.getDouble("ssd_capacity");
+
+        smAgent->node_set_weight(updatedCapacity);
+    } else {
+        LOGERROR << "No node agent retrieved, unable to update capacity in node object for svc:"
+                 << std::hex << smSvcUuid.svc_uuid << std::dec;
+    }
+
+    savedSvcInfo.props = svcInfo.props;
+    // We have to call configDB directly, since we are only updating the props, not the state and/or incarnation number
+    ret = configDB->updateSvcMap(savedSvcInfo);
+}
+
 } // namespace fds
