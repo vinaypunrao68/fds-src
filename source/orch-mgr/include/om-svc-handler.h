@@ -124,8 +124,6 @@ namespace fds {
       virtual fpi::OMSvcClientPtr createOMSvcClient(const std::string& strIPAddress,
         const int32_t& port);
 
-      virtual void initVersionTable();
-
     private:
       void init_svc_event_handlers();
       void healthReportUnreachable( fpi::FDSP_MgrIdType &svc_type,
