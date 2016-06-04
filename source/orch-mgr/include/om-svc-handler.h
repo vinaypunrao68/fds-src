@@ -37,6 +37,7 @@ namespace fds {
       virtual ~OmSvcHandler();
 
       int mod_init(SysParams const *const param) override;
+
       /**
        * Stub Overrides from OMSvcIf
        */
@@ -93,6 +94,9 @@ namespace fds {
 
       void AbortTokenMigration(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                                boost::shared_ptr<fpi::CtrlTokenMigrationAbort> &msg);
+
+      void updateNodeCapacity(boost::shared_ptr<fpi::AsyncHdr> &hdr,
+                                     boost::shared_ptr<fpi::NotifyNodeCapacityChange> &msg);
 
       void setConfigDB(DataStoreT* configDB);
 

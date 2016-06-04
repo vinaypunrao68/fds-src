@@ -1151,6 +1151,7 @@ class OM_NodeDomainMod : public Module
     bool isScheduled(FdsTimerTaskPtr&, int64_t id);
     void addToTaskMap(FdsTimerTaskPtr task, int64_t id);
     void removeFromTaskMap(int64_t id);
+    void updateNodeCapacity(fpi::SvcInfo &svcInfo);
 
   protected:
     bool isPlatformSvc(fpi::SvcInfo svcInfo);

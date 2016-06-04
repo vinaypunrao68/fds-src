@@ -103,17 +103,29 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                   )
 {
     fpi::SvcUuid    uuid;
-    fpi::SvcInfo    svcLayerInfoUpdate;
-    fpi::SvcInfo    dbInfoUpdate;
     fpi::SvcInfoPtr svcLayerInfoPtr;
     fpi::SvcInfoPtr dbInfoPtr;
 
     uuid.svc_uuid = svc_uuid;
 
     bool ret = false;
+    bool forceUpdate = false;
 
     if (handlerUpdate || registration)
     {
+        fpi::SvcInfo    svcLayerInfo;
+        fpi::SvcInfo    dbInfo;
+
+        if (svcType == fpi::FDSP_CONSOLE)
+        {
+            // not going to care about checks etc related to this svc.
+            // Simply update and return
+            fpi::SvcInfoPtr incomingSvcInfoPtr = boost::make_shared<fpi::SvcInfo>(incomingSvcInfo);
+
+            configDB->changeStateSvcMap( incomingSvcInfoPtr );
+            svcMgr->updateSvcMap( {incomingSvcInfo} );
+            return;
+        }
         /*
          * ======================================================
          *  Setting up svcInfo objects from configDB and svcLayer
@@ -123,9 +135,10 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
         LOGNORMAL << "Incoming svcInfo from either OM handler or registration, svc:"
                  << std::hex << incomingSvcInfo.svc_id.svc_uuid.svc_uuid << std::dec;
-        bool validUpdate = false;
+
+        bool validUpdate         = false;
         bool svcLayerRecordFound = false;
-        bool dbRecordFound = false;
+        bool dbRecordFound       = false;
 
 
         //if (incomingSvcInfo.incarnationNo == 0) // Can only be the case if a service is being added
@@ -138,17 +151,13 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
          *  Retrieve svcLayer record
          * ======================================================
          * */
-        ret = svcMgr->getSvcInfo(uuid, svcLayerInfoUpdate);
+        ret = svcMgr->getSvcInfo(uuid, svcLayerInfo);
         if ( ret )
         {
             svcLayerRecordFound = true;
         } else {
 
-            //LOGDEBUG << "Could not find svcInfo for uuid:"
-            //          << std::hex << svc_uuid << std::dec
-            //          << " in the svcMap";
-
-            svcLayerInfoUpdate = incomingSvcInfo;
+            svcLayerInfo = incomingSvcInfo;
         }
 
         /*
@@ -156,32 +165,26 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
          *  Retrieve DB record
          * ======================================================
          * */
-        ret = configDB->getSvcInfo(svc_uuid, dbInfoUpdate);
+        ret = configDB->getSvcInfo(svc_uuid, dbInfo);
 
         if (ret)
         {
             dbRecordFound = true;
-            dbInfoPtr = boost::make_shared<fpi::SvcInfo>(dbInfoUpdate);
+            dbInfoPtr = boost::make_shared<fpi::SvcInfo>(dbInfo);
         } else {
-            //LOGDEBUG << "Could not find SvcInfo for uuid:"
-            //        << std::hex << svc_uuid << std::dec
-            //        << " in the OM's configDB";
 
-            dbInfoUpdate    = incomingSvcInfo;
-            dbInfoPtr = boost::make_shared<fpi::SvcInfo>(dbInfoUpdate);
+            dbInfo    = incomingSvcInfo;
+            dbInfoPtr = boost::make_shared<fpi::SvcInfo>(dbInfo);
         }
 
 
-        // The only time both incarnationNos can be zero is when a service is getting added
-        // into the cluster for the very first time. The ADDED, STARTED status is set prior to even
-        // sending the start to PM, so the service processes aren't running yet. In these cases
-        // the svcInfo is not fully populated yet so if this condition is true we will NOT
+        // The only time both incarnationNos can be zero is when a service is getting added/started
+        // in the cluster for the very first time. In these cases we will NOT
         // update the svcLayer svcMap because that can end up with broken pipes because of
-        // invalid port numbers. SvcLayer svcmap will get updated as always when the svc
-        // registers.
+        // incomplete svcInfos
         bool svcAddition = false;
 
-        if ( (svcLayerInfoUpdate.incarnationNo == 0 && dbInfoUpdate.incarnationNo == 0) )
+        if ( (svcLayerInfo.incarnationNo == 0 && dbInfo.incarnationNo == 0) )
         {
             if ( !(svc_status == fpi::SVC_STATUS_ADDED || svc_status == fpi::SVC_STATUS_STARTED) )
             {
@@ -202,8 +205,13 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
         /*
          * ========================================================
          *  Depending on which records were retrieved, take action
-         *  Note: In the table below, >, <, == are used to indicate
-         *  results after comparison of incarnation numbers
+         *  incoming > current
+         *  Implies: incoming either has a greater inc.# or
+         *           incoming has same inc.#, diff & valid state
+         *  incoming < current
+         *  Implies: incoming had lower inc.# than current or
+         *           incoming had state that was a bad transition
+         *           from current
          * ========================================================
          * */
 
@@ -211,123 +219,112 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 //| dbRecordFound  | svcLayer  | Incoming VS found Record |  Apply incoming? |              Action                 |
 //|                |RecordFound|                          |                  |                                     |
 //+----------------+-------------- -------+--------------------------+------------------+--------------------------+
-//     True        |   False   |   incoming >= current    |      Yes         | Update DB, svcLayer with incoming   |
+//     True        |   False   |   incoming > current     |      Yes         | Update DB, svcLayer with incoming   |
 //                 |           |   incoming < current     |      No          | Only update svcLayer with DB record |
-//                 |           |   incoming = 0           |      Yes         | Update DB, svcLayer with incoming   |
-//                 |           |                          |                  | (after updating 0 incarnationNo)    |
+//                 |           |   incoming = 0           |yes(if ADD/START) | Update DB alone with incoming, ONLY |
+//                 |           |                          |else No           | for new rec. no update to 0 incNo   |
 //+----------------+-----------+--------------------------+--------------------------------------------------------+
 //     False       |   True    |   incoming > current     |      Yes         | Update svcLayer, DB with incoming   |
 //                 |           |   incoming = current     | Diff states? Yes | Apply incoming to svcLyr, update db |
 //                 |           |                          |   : No           | with svcLayer : No update           |
 //                 |           |   incoming < current     |      No          | Only update DB with svcLayer record |
-//                 |           |   incoming = 0           |      Yes         | Update svcLayer, DB with incoming   |
-//                 |           |                          |                  | (after updating 0 incarnationNo)    |
+//                 |           |   incoming = 0           |      No          | Ignore incoming                     |
+//                 |           |                          |                  |                                     |
 //+----------------+-----------+--------------------------+--------------------------------------------------------+
-//     False       |   False   |   only incoming is valid |      Yes         | Check incoming incarnationNo, if    |
-//                 |           |                          |                  | 0, update, then update DB & svcLayer|
+//     False       |   False   |   only incoming is valid |      Yes         | Update DB and svcLayer(if not svcAdd|
+//                 |           |                          |                  |  with incoming                      |
 //+----------------+-----------+--------------------------+--------------------------------------------------------+
-//     True        |   True    |   incoming >= svcLayer   |      Yes         | Update svcLayer, DB with incoming   |
+//     True        |   True    |   incoming > svcLayer    |      Yes         | Update svcLayer, DB with incoming   |
 //                 |           |   svcLayer > configDB    |                  |                                     |
 //                 |           |                          |                  |                                     |
-//                 |           |   incoming < svcLayer    |      No          | DB has most current, update svcLayer|
-//                 |           |   svcLayer < configDB    |                  | with DB record, ignore incoming     |
+//                 |           |   incoming < svcLayer    |                  | Ignore incoming update              |
+//                 |           |   svcLayer != configDB   |      No          |                                     |
 //                 |           |                          |                  |                                     |
 //                 |           |   incoming < svcLayer    |      No          | svcLayer & DB have most current     |
 //                 |           |   svcLayer == configDB   |                  | No updates are necessary            |
 //                 |           |                          |                  |                                     |
-//                 |           |   incoming >= svcLayer   |incoming >        |                                     |
-//                 |           |   svcLayer < configDB    |configDB? Yes : No| Update with incoming : DB has most  |
-//                 |           |                          |                  | current, update svcLayer with DB    |
-//                                                                             record ignore incoming              |
+//                 |           |   incoming > svcLayer    |incoming >        |                                     |
+//                 |           |   svcLayer < configDB    |configDB? Yes : No| Update with incoming :              |
+//                 |           |                          |                  |     ignore incoming                 |
+//                             |                          |                  |                                     |
 //                 |           |                          |                  |                                     |
 //                 |           |   incoming > svcLayer    |      Yes         | Incoming has the most current       |
 //                 |           |   svcLayer == configDB   |                  |                                     |
 //                 |           |                          |                  |                                     |
-//                 |           |   incoming == svcLayer   | Diff. states? Yes| Update with incoming :              |
-//                 |           |   svcLayer == configDB   | : No             | Nothing to update                   |
+//                 |           |   incoming == svcLayer   |                  |                                     |
+//                 |           |   svcLayer == configDB   |   No             | Nothing to update                   |
 //                 |           |                          |                  |                                     |
 //                 |           |   incoming < svcLayer    |      No          | SvcLayer has most current, update DB|
 //                 |           |   svcLayer > configDB    |                  | with svcLyr record, ignore incoming |
 //                 |           |                          |                  |                                     |
-//                 |           |   incoming = 0           |      Yes         | Update svcLayer, DB with incoming   |
+//                 |           |   incoming = 0           |      No          | Ignore incoming (not a new svc)     |
 //+----------------+-----------+--------------------------+------------------+-------------------------------------+
 
 
         if (!svcLayerRecordFound && !dbRecordFound)
         {
-            // 1. Update DB to incoming
-            // 2. Update svcLayer to incoming
-
-            configDB->changeStateSvcMap( dbInfoPtr );
 
             if ( !svcAddition )
             {
                 LOGNORMAL << "Case: No svcLayer or DB record found, updating both with incoming"
                           << ", svc:" << std::hex << svc_uuid << std::dec;
-                svcMgr->updateSvcMap( {svcLayerInfoUpdate} );
+
+                configDB->changeStateSvcMap( dbInfoPtr );
+                svcMgr->updateSvcMap( {svcLayerInfo} );
+
             } else {
                 LOGNORMAL << "Case: No svcLayer or DB record found, updating only DB with incoming";
+
+                configDB->changeStateSvcMap( dbInfoPtr );
             }
 
         } else if ( !svcLayerRecordFound && dbRecordFound ) {
 
             // DB has a record, check if it is more current than incoming
-            validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, dbInfoUpdate, "ConfigDB");
+            validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, dbInfo, "ConfigDB");
 
             if (validUpdate)
             {
-                LOGNORMAL << "Case: No svcLayer record, found DB record, updating both with incoming"
-                          << ", svc:" << std::hex << svc_uuid << std::dec;
-
-                // 1. Update DB to incoming
-                // 2. Update svcLayer to incoming
-
                 fpi::SvcInfoPtr incomingSvcInfoPtr = boost::make_shared<fpi::SvcInfo>(incomingSvcInfo);
-                configDB->changeStateSvcMap( incomingSvcInfoPtr );
 
                 if ( !svcAddition )
                 {
+                    LOGNORMAL << "Case: No svcLayer record, found DB record, updating both with incoming"
+                              << ", svc:" << std::hex << svc_uuid << std::dec;
+
+                    configDB->changeStateSvcMap( incomingSvcInfoPtr );
                     svcMgr->updateSvcMap( {incomingSvcInfo} );
+                } else {
+
+                    LOGNORMAL << "Case: No svcLayer record, found DB record, updating DB with incoming"
+                              << ", svc:" << std::hex << svc_uuid << std::dec;
+                    configDB->changeStateSvcMap( incomingSvcInfoPtr );
                 }
 
             } else {
 
-                // 1. No update to DB
-                // 2. Update svcLayer to DB (ONLY if the current state in DB is not
-                //    started or added). If incoming is ACTIVE, update svcLayer alone
+                // If incoming is ACTIVE, and configDB is already ACTIVE make an exception and update
 
-                if ( !svcAddition &&
-                     (dbInfoUpdate.svc_status != fpi::SVC_STATUS_STARTED ||
-                      dbInfoUpdate.svc_status != fpi::SVC_STATUS_ADDED) )
+                if ( incomingSvcInfo.svc_status == fpi::SVC_STATUS_ACTIVE &&
+                     dbInfo.svc_status == fpi::SVC_STATUS_ACTIVE )
                 {
-                    LOGNORMAL << "Case: No svcLayer record, found DB record, updating svcLayer with DB record"
-                              << ", svc:" << std::hex << svc_uuid << std::dec;
-                    svcMgr->updateSvcMap( {dbInfoUpdate} );
-                } else {
-
-                    if ( incomingSvcInfo.svc_status == fpi::SVC_STATUS_ACTIVE)
-                    {
-                        LOGNORMAL << "Case: No svcLayer record,updating svcLayer with incoming, "
-                                  << " no update to DB, svc:" << std::hex << svc_uuid << std::dec;
-                        svcMgr->updateSvcMap( {incomingSvcInfo} );
-                    } else {
-                    LOGWARN << "Case: No svcLayer record, incoming is NOT valid so no updates"
-                              << ", svc:" << std::hex << svc_uuid << std::dec;
-                    }
+                    LOGNORMAL << "Case: Adding new svcLayer record for ACTIVE svc:"
+                              << std::hex << svc_uuid << std::dec;
+                    svcMgr->updateSvcMap( {incomingSvcInfo} );
                 }
             }
 
         } else if ( svcLayerRecordFound && !dbRecordFound ) {
 
-            // Only svcLayer has a record, check if it is more current than incoming
-            validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, svcLayerInfoUpdate, "SvcMgr");
+            // This should *never* be the case - log a warning, and handle it
+            LOGWARN << "No DB record, but svcLayer record present for svc:"
+                    << std::hex << svc_uuid << std::dec << " should NEVER be the case!";
+            validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, svcLayerInfo, "SvcMgr");
 
             if (validUpdate)
             {
                 LOGNORMAL << "Case: No DB record, found svcLayer record, updating both with incoming"
                           << ", svc:" << std::hex << svc_uuid << std::dec;
-                // 1. Update DB to incoming
-                // 2. Update svcLayer to incoming
 
                 configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(incomingSvcInfo) );
                 svcMgr->updateSvcMap( {incomingSvcInfo} );
@@ -335,17 +332,15 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
             } else {
                 LOGNORMAL << "Case: No DB record, found svcLayer record, updating DB with svcLayer"
                           << ", svc:" << std::hex << svc_uuid << std::dec;
-                // svcLayer has most current info, update the DB since it has no record of this svc
-                // 1. Update DB to svcLayer
-                // 2. No update to svcLayer
-                configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(svcLayerInfoUpdate) );
+
+                configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(svcLayerInfo) );
             }
         } else if ( svcLayerRecordFound && dbRecordFound ) {
 
-            svcLayerInfoPtr = boost::make_shared<fpi::SvcInfo>(svcLayerInfoUpdate);
-            dbInfoPtr       = boost::make_shared<fpi::SvcInfo>(dbInfoUpdate);
+            svcLayerInfoPtr = boost::make_shared<fpi::SvcInfo>(svcLayerInfo);
+            dbInfoPtr       = boost::make_shared<fpi::SvcInfo>(dbInfo);
 
-            validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, svcLayerInfoUpdate, "SvcMgr");
+            validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, svcLayerInfo, "SvcMgr");
 
             // What we are trying to determine with the below two values is the relationship
             // between the svcLayer and DB record.
@@ -355,27 +350,26 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
             // The sameRecords computation helps us determine with certainty which case it is
             // and take action accordingly. Which is also why you will see sameRecords being checked
             // only when this dbHasOlderRecord value is false.
-            bool dbHasOlderRecord = dbRecordNeedsUpdate(svcLayerInfoUpdate, dbInfoUpdate);
-            bool sameRecords = areRecordsSame(svcLayerInfoUpdate, dbInfoUpdate);
+            bool dbHasOlderRecord = dbRecordNeedsUpdate(svcLayerInfo, dbInfo);
+            bool sameRecords = areRecordsSame(svcLayerInfo, dbInfo);
 
             if ( validUpdate && dbHasOlderRecord )
             {
+                // incoming > svcLayer
+                // svcLayer > configDB
+
                 LOGNORMAL << "Case: Both svcLayer & DB record found, updating both with incoming"
                           << ", svc:" << std::hex << svc_uuid << std::dec;
-                // incoming >= svcLayer
-                // svcLayer > configDB
-                // 1. Update DB to incoming
-                // 2. Update svcLayer to incoming
 
                 configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(incomingSvcInfo) );
                 svcMgr->updateSvcMap( {incomingSvcInfo} );
 
             }  else if ( validUpdate && !dbHasOlderRecord && !sameRecords ) {
-                // incoming >= svcLayer
-                // svcLayer < configDB
+                // incoming > svcLayer
+                // svcLayer != configDB
 
                 // Need to establish now that incoming > configDB
-                validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, dbInfoUpdate, "ConfigDB");
+                validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, dbInfo, "ConfigDB");
 
                 if ( validUpdate )
                 {
@@ -386,22 +380,19 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
                 } else {
 
-                    // 1. No update to DB
-                    // 2. Update svcLayer to DB
-
-                    LOGNORMAL << "Case: Both svcLayer & DB record found, updating svcLayer with DB record"
-                              << ", svc:" << std::hex << svc_uuid << std::dec;
-                    svcMgr->updateSvcMap( {dbInfoUpdate} );
+                    LOGWARN << "Record mismatch! SvcLayer update is valid but configDB"
+                              << " update is not, svc:" << std::hex << svc_uuid << std::dec
+                              << " ignore incoming update";
+                    forceUpdate = true;
+                    svcMgr->updateSvcMap( {dbInfo}, forceUpdate);
                 }
 
             } else if ( validUpdate && !dbHasOlderRecord && sameRecords ) {
 
                 LOGNORMAL << "Case: Both svcLayer & DB record found, updating both to incoming"
                           << ", svc:" << std::hex << svc_uuid << std::dec;
-                // incoming >= svcLayer
+                // incoming > svcLayer
                 // svcLayer == configDB
-                // 1. Update DB to incoming
-                // 2. Update svcLayer to incoming
 
                 configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(incomingSvcInfo) );
                 svcMgr->updateSvcMap( {incomingSvcInfo} );
@@ -412,34 +403,43 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                           << ", svc:" << std::hex << svc_uuid << std::dec;
                 // incoming < svcLayer
                 // svcLayer > configDB
-                // 1. Update DB to svcLayer
-                // 2. No update to svcLayer
 
-                configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(svcLayerInfoUpdate) );
+                configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(svcLayerInfo) );
 
             }  else if ( !validUpdate && !dbHasOlderRecord && sameRecords ) {
 
-                LOGNORMAL << "Case: Both svcLayer & DB record found, no updates necessary"
-                          << ", svc:" << std::hex << svc_uuid << std::dec;
+                LOGNORMAL << "Case: Both svcLayer & DB record found, incoming update not valid"
+                          << "nothing to do, svc:" << std::hex << svc_uuid << std::dec;
+
+                // incoming < svcLayer
+                // svcLayer == configDB
 
                 // Reuse the svcAddition flag simply to prevent the broadcasting of the map
                 svcAddition = true;
-                // incoming < svcLayer
-                // svcLayer == configDB
-                // 1. No update to DB
-                // 2. No update to svcLayer
 
-                //svcMgr->updateSvcMap( {dbInfoUpdate} );
             }   else if ( !validUpdate && !dbHasOlderRecord && !sameRecords ) {
-
-                LOGNORMAL << "Case: Both svcLayer & DB record found, updating svcLayer with DB record"
-                          << ", svc:" << std::hex << svc_uuid << std::dec;
                 // incoming < svcLayer
-                // svcLayer < configDB
-                // 1. No update to DB
-                // 2. Update svcLayer to DB
+                // svcLayer != configDB (could be states or incarnation is different)
 
-                svcMgr->updateSvcMap( {dbInfoUpdate} );
+                // Determine configDB > incoming
+                validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, dbInfo, "ConfigDB");
+                if (validUpdate) {
+                    LOGWARN << "Record mismatch! ConfigDB update is valid but svcLayer"
+                              << " update is not, svc:" << std::hex << svc_uuid << std::dec
+                              << " force update";
+
+                    forceUpdate = true;
+                    // Force svcMgr to update to the db record
+                    svcMgr->updateSvcMap( {dbInfo}, forceUpdate );
+
+                    // Apply incoming update to both now
+                    configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(incomingSvcInfo) );
+                    svcMgr->updateSvcMap( {incomingSvcInfo} );
+                } else {
+                    // Get svcLayer record in line with db, since records aren't the same
+                    forceUpdate = true;
+                    svcMgr->updateSvcMap( {dbInfo}, forceUpdate );
+                }
             }
         }
 
@@ -467,24 +467,24 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
         bool ret                 = false;
         bool svcLayerRecordFound = false;
         bool dbRecordFound       = false;
+        fpi::SvcInfo    svcLayerInfoUpdate;
+        fpi::SvcInfo    dbInfoUpdate;
+        fpi::SvcInfo    initialSvcLayerInfo;
+        fpi::SvcInfo    initialDbInfo;
+        fpi::SvcInfo    newRecord;
 
         // Do configDB related work first so the window
         // for svcLayer getting updated while we potentially
         // wait on locks is minimized
 
-        ret = configDB->getSvcInfo(svc_uuid, dbInfoUpdate);
-
-        fpi::ServiceStatus initialDbStatus = fpi::SVC_STATUS_INVALID;
+        ret = configDB->getSvcInfo(svc_uuid, initialDbInfo);
         if (ret)
         {
             dbRecordFound           = true;
-            initialDbStatus         = dbInfoUpdate.svc_status;
+            dbInfoUpdate            = initialDbInfo;
             dbInfoUpdate.svc_status = svc_status;
 
         } else {
-            //LOGWARN << "Could not find SvcInfo for uuid:"
-            //        << std::hex << svc_uuid << std::dec
-            //        << " in the OM's configDB";
 
             dbInfoUpdate.svc_id.svc_uuid.svc_uuid = svc_uuid;
             dbInfoUpdate.svc_status    = svc_status;
@@ -499,23 +499,15 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
          * ==========================================
          * */
 
-
-        fpi::SvcInfo initialSvcLayerInfo;
-        ret = svcMgr->getSvcInfo(uuid, svcLayerInfoUpdate);
+        ret = svcMgr->getSvcInfo(uuid, initialSvcLayerInfo);
 
         if (ret)
         {
             svcLayerRecordFound = true;
-            initialSvcLayerInfo = svcLayerInfoUpdate;
-
-            // update the status to what we need to update to, since
-            // this svcInfoPtr will be treated as "incoming" record
+            svcLayerInfoUpdate = initialSvcLayerInfo;
             svcLayerInfoUpdate.svc_status = svc_status;
 
         } else {
-            //LOGWARN << "Could not find svcInfo for uuid:"
-            //          << std::hex << svc_uuid << std::dec
-            //          << " in the svcMap, generating new";
 
             svcLayerInfoUpdate.svc_id.svc_uuid.svc_uuid = uuid.svc_uuid;
             svcLayerInfoUpdate.svc_status    = svc_status;
@@ -535,7 +527,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
         {
             if ( !(svc_status == fpi::SVC_STATUS_ADDED || svc_status == fpi::SVC_STATUS_STARTED) )
             {
-                if ( !(initialDbStatus == fpi::SVC_STATUS_ADDED && svc_status == fpi::SVC_STATUS_REMOVED) )
+                if ( !(initialDbInfo.svc_status == fpi::SVC_STATUS_ADDED && svc_status == fpi::SVC_STATUS_REMOVED) )
                 {
                     LOGWARN << "No record for svc found in SvcLayer or ConfigDB!! Will not "
                         << "make any updates, returning..";
@@ -564,45 +556,36 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
          * ======================================================
          * */
 
-        bool dbHasOlderRecord = dbRecordNeedsUpdate(svcLayerInfoUpdate, dbInfoUpdate);
-        bool sameRecords = areRecordsSame(svcLayerInfoUpdate, dbInfoUpdate);
+        bool dbHasOlderRecord = dbRecordNeedsUpdate(initialSvcLayerInfo, initialDbInfo);
+        bool sameRecords = areRecordsSame(initialSvcLayerInfo, initialDbInfo);
 
         if ( dbHasOlderRecord )
         {
-            LOGNORMAL << "ConfigDB has older record, updating it with svcLayer record"
+            LOGNORMAL << "ConfigDB has older record, updating it with svcLayer record(new state)"
                       << ", svc:" << std::hex << svc_uuid << std::dec;
 
+            newRecord = *svcLayerInfoPtr;
             // If the flag is true implies that svcLayer has a more recent
             // record of the service in question, so first update the record
             // in configDB. First check if the transition from the state in svcLayer
             // is one that is allowed
             if ( OmExtUtilApi::isTransitionAllowed( svc_status,
-                                                    svcLayerInfoUpdate.svc_status,
+                                                    initialSvcLayerInfo.svc_status,
                                                     true,
                                                     false,
                                                     false,
                                                     svcType) )
             {
                 configDB->changeStateSvcMap( svcLayerInfoPtr );
-
-                // Update the dbInfoUpdate record that is being managed by the dbInfoPtr to the
-                // latest (from the update above)
-                // we will use this record now to update svcLayer
-                ret = configDB->getSvcInfo(svc_uuid, dbInfoUpdate);
-
-                if (!ret)
-                {
-                    LOGWARN << "Could not retrieve updated svc record from configDB"
-                            << ", svc:" << std::hex << svc_uuid << std::dec
-                            << " potentially making outdated updates ";
-
-                } else {
-                    dbInfoUpdate.svc_status = svc_status;
-                }
             } else {
 
-                LOGWARN << "Svc state transition check failed for svc:"
-                        << std::hex << svc_uuid << std::dec << " will return without update";
+                LOGWARN << "Svc state transition check(SvcMgr) failed for svc:"
+                        << std::hex << svc_uuid << std::dec << " update DB to svcLayer record"
+                        << ", return without applying incoming update";
+
+                // DB has older record ==> either incarnationNo is 0 or is lesser than
+                // what svcLayer has, update DB to svcLayer record
+                configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(initialSvcLayerInfo) );
 
                 return;
             }
@@ -612,10 +595,11 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
             // given that the statuses are different.
             // This record will be used to update svcLayer
 
-            if ( initialDbStatus != fpi::SVC_STATUS_INVALID )
+            newRecord = *dbInfoPtr;
+            if ( initialDbInfo.svc_status != fpi::SVC_STATUS_INVALID )
             {
                 if ( OmExtUtilApi::isTransitionAllowed( svc_status,
-                                                        initialDbStatus,
+                                                        initialDbInfo.svc_status,
                                                         true,
                                                         false,
                                                         false,
@@ -623,10 +607,17 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                 {
                     configDB->changeStateSvcMap( dbInfoPtr );
 
-                } else {
-                    LOGWARN << "Svc state transition check failed, will return without update"
-                            << ", svc:" << std::hex << svc_uuid << std::dec;
 
+                } else {
+                    LOGWARN << "Svc state transition check(DB) failed, for Svc:"
+                            << std::hex << svc_uuid << std::dec << ", return without update";
+
+                    // State transition failed for incoming, but let's update svcLayer to DB
+                    // anyway to keep consistent.
+                    if (!sameRecords) {
+                        forceUpdate = true;
+                        svcMgr->updateSvcMap( {initialDbInfo}, forceUpdate );
+                    }
                     return;
                 }
             } else {
@@ -637,11 +628,9 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
         /*
          * ======================================================
-         *  Determine whether:
-         *  (1) a change has taken place for this
+         *  Determine whether a change has taken place for this
          *  svc in svc layer while we were doing above checks.
          *  Initiate new update if that is the case
-         *  (2) whether svcLayer svcMap requires an update at all
          * ======================================================
          * */
 
@@ -650,16 +639,12 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
         if ( ret )
         {
-            // If we had a valid initialSvcLayerInfo object &&
-            // we retrieved a valid record &&
-            // The service status in svcLayer has changed from when we began this update &&
-            // newer info has a bigger incarnationNo than incoming update
             if ( initialSvcLayerInfo.incarnationNo != 0 &&
                  svcLayerNewerInfo.incarnationNo != 0 &&
                  svcLayerNewerInfo.svc_status != initialSvcLayerInfo.svc_status &&
                  svcLayerNewerInfo.incarnationNo > svcLayerInfoUpdate.incarnationNo )
             {
-                LOGNOTIFY << "Svc:" << std::hex << uuid.svc_uuid << std::dec
+                LOGWARN   << "Svc:" << std::hex << uuid.svc_uuid << std::dec
                           << " has already changed in service layer from incoming [incarnation:"
                           << svcLayerInfoUpdate.incarnationNo << ", status:"
                           << OmExtUtilApi::printSvcStatus(svcLayerInfoUpdate.svc_status)
@@ -667,32 +652,11 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                           << OmExtUtilApi::printSvcStatus(svcLayerNewerInfo.svc_status)
                           << "]. Initiating new update";
 
-                // Something has already changed in the svc layer, so the current update of
-                // status we are proceeding with is already out-dated
-                // Call a new update of configDB, and return from the current cycle
-
-                // If the incarnationNo has changed, must take the first path to perform
-                // correct comparisons, set handler flag to true
+                // Something has already changed in the svc layer, current update is out-dated
+                // Must take the first path to perform correct comparisons of incarnation numbers
                 updateSvcMaps( configDB, MODULEPROVIDER()->getSvcMgr(),
                                uuid.svc_uuid, svcLayerNewerInfo.svc_status,
                                svcLayerNewerInfo.svc_type, true, false, svcLayerNewerInfo );
-
-                return;
-            }
-
-            // If svcLayer already had the latest status &&
-            // the status has not changed since &&
-            // the incarnation number is the same as the DB, we can afford not to do an update and
-            // re-broadcast
-            if ( (initialSvcLayerInfo.svc_status == svc_status) &&
-                 (initialSvcLayerInfo.svc_status == svcLayerNewerInfo.svc_status) &&
-                 (svcLayerNewerInfo.incarnationNo == dbInfoPtr->incarnationNo) )
-            {
-                LOGNOTIFY << "SvcLayer already has the latest [incarnation:"
-                          << svcLayerNewerInfo.incarnationNo << ", status:"
-                          << OmExtUtilApi::printSvcStatus(svcLayerNewerInfo.svc_status)
-                          << "] for service:" << std::hex << uuid.svc_uuid << std::dec
-                          << " , no need to update & broadcast";
 
                 return;
             }
@@ -713,18 +677,27 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                       << " in SvcMgr, will skip update!";
 
         } else {
-            LOGNOTIFY << "Updating SvcMgr svcMap now for uuid:" << std::hex << uuid.svc_uuid  << std::dec;
 
-            // The only reason why an update to svcLayer svcMap will be rejected is if
-            // in between us updating configDB, svcLayer received an update about this
-            // same service and now has a newer incarnation number
-            // In this case, we are still OK. A newer incarnation number implies a newer
-            // svc process. So OM will definitely receive registration of the svc.
-            // The associated update to configDB using this same method should pick up
-            // the latest record svcLayer has and perform updates for both
-            // (which will be applied under the condition incarnationNo is equal, but status is different)
-            // Assumption is that EVERY change to service state of configDB comes through here
-            svcMgr->updateSvcMap( {*dbInfoPtr} );
+            LOGNOTIFY << "Updating SvcMgr svcMap now for uuid:" << std::hex << uuid.svc_uuid  << std::dec;
+            // If we got this far it implies the OM update was valid and successful
+            // Verify that the update is going to go through
+            if ( !OmExtUtilApi::isTransitionAllowed( svc_status,
+                                                     initialSvcLayerInfo.svc_status,
+                                                     true,
+                                                     false,
+                                                     false,
+                                                     svcType) )
+            {
+                // Force update to configDB inital state
+                bool forceUpdate = true;
+                svcMgr->updateSvcMap( {initialDbInfo}, true );
+
+                // Update to incoming
+                svcMgr->updateSvcMap( {newRecord} );
+
+            }
+
+            svcMgr->updateSvcMap( {newRecord} );
         }
     }
 }

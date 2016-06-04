@@ -200,7 +200,7 @@ struct SvcMgr : HasModuleProvider, Module, StateProvider {
     *
     * @param entries
     */
-    void updateSvcMap(const std::vector<fpi::SvcInfo> &entries);
+    void updateSvcMap(const std::vector<fpi::SvcInfo> &entries, bool forceUpdate = false);
 
     /**
     * @brief Returns the cached service info entries
@@ -659,7 +659,9 @@ struct SvcHandle : HasModuleProvider {
     *
     * @param newInfo
     */
-    void updateSvcHandle(const fpi::SvcInfo &newInfo);
+    void updateSvcHandle(const fpi::SvcInfo &newInfo,
+                         bool forceUpdate = false,
+                         const fpi::PlatNetSvcClientPtr &client = nullptr);
 
     /**
     * @brief 

@@ -640,10 +640,19 @@ VolumePlacement::validateDmtOnDomainActivate(const NodeUuidSet& dm_services) {
             }
         }
     } else {
-        // there must be no DM services
-        if (dm_services.size() > 0) {
-            LOGERROR << "No DMT but " << dm_services.size() << " known DM services";
+        auto dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
+                                        get<uint32_t>("fds.feature_toggle.common.volumegrouping_dm_cluster_size"));
+        bool volumeGroupMode =  bool(MODULEPROVIDER()->get_fds_config()->
+                                        get<bool>("fds.feature_toggle.common.enable_volumegrouping", false));
+
+        if ( (volumeGroupMode && dm_services.size() >= dmClusterSize) ||
+             (!volumeGroupMode && dm_services.size() > 0) ) {
+            LOGERROR << "No DMT but " << dm_services.size() << " known DM services, for a"
+                     << " configured cluster size of:" << dmClusterSize;
             return ERR_PERSIST_STATE_MISMATCH;
+        } else {
+            LOGNOTIFY << dm_services.size() << " known DMs, no DMT yet(OK). Will be computed"
+                      << " when there are at least:" << dmClusterSize << " DMs in the domain";
         }
     }
 
@@ -668,8 +677,14 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
         return err;
     }
 
+    auto dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
+                                    get<uint32_t>("fds.feature_toggle.common.volumegrouping_dm_cluster_size"));
+    bool volumeGroupMode =  bool(MODULEPROVIDER()->get_fds_config()->
+                                    get<bool>("fds.feature_toggle.common.enable_volumegrouping", false));
+
     fds_uint64_t committedVersion = configDB->getDmtVersionForType("committed");
-    if (committedVersion > 0) {
+    if (committedVersion > 0)
+    {
         DMT* dmt = new DMT(0, 0, 0, false);
         if (!configDB->getDmt(*dmt, committedVersion)) {
             LOGCRITICAL << "unable to load (committed) dmt version "
@@ -693,18 +708,22 @@ Error VolumePlacement::loadDmtsFromConfigDB(const NodeUuidSet& dm_services,
             delete dmt;
             return err;
         }
-    } else {
-        // ok if there are no deployed DMs
-        if (deployed_dm_services.size() == 0) {
+    } else if (deployed_dm_services.size() == 0) {
+            // ok if there are no deployed DMs
             LOGNOTIFY << "There is no persisted DMT and no deployed DMs -- OK";
             return ERR_OK;
-        }
-        // we got > 0 deployed DMs from configDB but there is no DMT
+    } else if ( (volumeGroupMode && dm_services.size() >= dmClusterSize) ||
+                (!volumeGroupMode && dm_services.size() > 0) ) {
+        // we got > cluster size deployed DMs from configDB but there is no DMT
         // going to throw away persistent state, because there is a mismatch
         LOGWARN << "No current DMT even though we persisted "
                 << dm_services.size() << " DMs, "
                 << deployed_dm_services.size() << " deployed DMs";
         return Error(ERR_PERSIST_STATE_MISMATCH);
+    } else {
+        LOGNOTIFY << dm_services.size() << " known DMs, no DMT yet(OK). Will be computed"
+                  << " when there are at least:" << dmClusterSize << " DMs in the domain";
+        return ERR_OK;
     }
 
 

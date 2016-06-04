@@ -26,6 +26,7 @@
 #include <fds_dmt.h>
 #include <fiu-control.h>
 #include <util/fiu_util.h>
+#include <util/always_call.h>
 #include <json/json.h>
 #include <OmExtUtilApi.h>
 
@@ -350,7 +351,7 @@ void SvcMgr::stopServer()
     svcServer_->stop();
 }
 
-void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries)
+void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries, bool forceUpdate)
 {
     fds_scoped_lock lock(svcHandleMapLock_);
     for (auto &e : entries) {
@@ -365,7 +366,7 @@ void SvcMgr::updateSvcMap(const std::vector<fpi::SvcInfo> &entries)
                 << mapToSvcUuidAndName(e.svc_id.svc_uuid)
                 << " is new.  Incarnation: " << e.incarnationNo;
         } else {
-            svcHandleItr->second->updateSvcHandle(e);
+            svcHandleItr->second->updateSvcHandle(e, forceUpdate);
         }
     }
 }
@@ -948,7 +949,9 @@ SvcHandle::shouldUpdateSvcHandle(const fpi::SvcInfoPtr &current, const fpi::SvcI
     return (ret);
 }
 
-void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
+void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo, 
+                                bool forceUpdate, 
+                                const fpi::PlatNetSvcClientPtr &client )
 {
     fds_scoped_lock lock(lock_);
     auto currentPtr = boost::make_shared<fpi::SvcInfo>(svcInfo_);
@@ -956,12 +959,21 @@ void SvcHandle::updateSvcHandle(const fpi::SvcInfo &newInfo)
     GLOGDEBUG << "Incoming update: " << fds::logString(*newPtr) << " vs current status: "
             << fds::logString(*currentPtr);
 
-    if (OmExtUtilApi::isIncomingUpdateValid(*newPtr, *currentPtr, "SvcMgr")) {
-        svcInfo_ = newInfo;
-        svcClient_.reset();
-        GLOGDEBUG << "Operation Applied.";
+    if (forceUpdate) {
+      svcInfo_ = newInfo;
+      svcClient_.reset( );
+      if (client) {
+        svcClient_ = client;
+      }
+      GLOGNORMAL << "Operation Applied (Forced update!).";
     } else {
-        GLOGDEBUG << "Operation not Applied.";
+      if (OmExtUtilApi::isIncomingUpdateValid(*newPtr, *currentPtr, "SvcMgr")) {
+         svcInfo_ = newInfo;
+         svcClient_.reset();
+         GLOGDEBUG << "Operation Applied.";
+      } else {
+         GLOGDEBUG << "Operation not Applied.";
+      }
     }
 }
 
@@ -986,24 +998,49 @@ bool SvcHandle::isSvcDown_() const
 void SvcHandle::markSvcDown_()
 {
     auto svcMgr = MODULEPROVIDER()->getSvcMgr();
+    bool isOMSvc = false;
 
-    // If OM isn't up yet, and OM is the one getting
-    // the allocRpcClient exceptions, don't send this health report
-    if ( svcMgr->getSelfSvcUuid().svc_uuid == svcMgr->getOmSvcUuid().svc_uuid &&
-         !svcMgr->getSvcRequestHandler()->canAcceptRequests() )
-    {
-        LOGWARN << "OM is not up yet, will not accept any health report messages from itself!";
-        return;
+    if ( svcMgr->getSelfSvcUuid().svc_uuid == svcMgr->getOmSvcUuid().svc_uuid ) {
+      isOMSvc = true;
     }
 
-    /* NOTE: Assumes this function is invoked under lock */
-    svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE_FAILED;
-    svcClient_.reset();
-    GLOGDEBUG << logString();
+    if (isOMSvc)
+    {
+      // If OM isn't up yet, don't send this health report
+      if ( !svcMgr->getSvcRequestHandler()->canAcceptRequests() )
+      {
+        LOGWARN << "OM is not up yet, will not accept any health report messages from itself!";
+        return;
+      }
 
-    // Don't report OM to itself.
-    if (svcMgr->getOmSvcUuid() != svcInfo_.svc_id.svc_uuid) {
-        svcMgr->notifyOMSvcIsDown(svcInfo_);
+      if ( OmExtUtilApi::isTransitionAllowed( fpi::SVC_STATUS_INACTIVE_FAILED,
+                                              svcInfo_.svc_status,
+                                              true,
+                                              false,
+                                              false,
+                                              svcInfo_.svc_type) ) {
+        /* NOTE: Assumes this function is invoked under lock */
+        svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE_FAILED;
+        svcClient_.reset();
+        GLOGDEBUG  << logString();
+
+        // Don't report ON to it self.
+        if (svcMgr->getOmSvcUuid() != svcInfo_.svc_id.svc_uuid) {
+          svcMgr->notifyOMSvcIsDown( svcInfo_);
+        }
+      } else {
+        LOGWARN << logString() 
+                << " cannot transition to FAILED state, no report sent to OM";
+      }
+    } else {
+        svcInfo_.svc_status = fpi::SVC_STATUS_INACTIVE_FAILED;
+        svcClient_.reset();
+        GLOGDEBUG << logString();
+
+        // Don't report ON to it self.
+        if (svcMgr->getOmSvcUuid() != svcInfo_.svc_id.svc_uuid) {
+          svcMgr->notifyOMSvcIsDown( svcInfo_);
+        }
     }
 }
 

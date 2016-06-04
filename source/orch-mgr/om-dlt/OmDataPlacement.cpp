@@ -18,6 +18,7 @@
 #include <net/SvcRequestPool.h>
 #include <list>
 #include <ostream>
+#include <limits.h>
 
 namespace fds {
 
@@ -591,6 +592,7 @@ DataPlacement::beginRebalance()
                     }
                 }
             } else {
+
                 // This means this column of tokens has all new SMs.
                 // This is possible if 3(going by tgt col length =3) new SMs
                 // were added at once. All we need to verify is that a source
@@ -1024,10 +1026,20 @@ DataPlacement::validateDltOnDomainActivate(const NodeUuidSet& sm_services) {
             }
         }
     } else {
-        // there must be no SM services
-        if (sm_services.size() > 0) {
+
+        bool fEnforceMinimumReplicas = MODULEPROVIDER()->get_fds_config()->get<bool>
+                                         ("fds.feature_toggle.om.enforce_minimum_replicas", true);
+
+        if ((fEnforceMinimumReplicas && sm_services.size() >= curDltDepth) ||
+            (!fEnforceMinimumReplicas && sm_services.size() > 0))
+        {
             LOGERROR << "No DLT but " << sm_services.size() << " known SM services";
             return ERR_PERSIST_STATE_MISMATCH;
+        } else {
+            LOGNOTIFY << "Only " << sm_services.size() << " known SMs"
+                      << " in the domain. No committed DLT(OK)."
+                      << " Will be computed when at least " << curDltDepth
+                      << " SMs are present in the domain";
         }
     }
 
@@ -1093,20 +1105,25 @@ Error DataPlacement::loadDltsFromConfigDB(const NodeUuidSet& sm_services,
         }
     } else {
 
-        if ( deployed_sm_services.size() < curDltDepth )
+        bool fEnforceMinimumReplicas = MODULEPROVIDER()->get_fds_config()->get<bool>
+                                         ("fds.feature_toggle.om.enforce_minimum_replicas", true);
+
+        if ( (fEnforceMinimumReplicas && deployed_sm_services.size() >= curDltDepth) ||
+             (!fEnforceMinimumReplicas && deployed_sm_services.size() > 0))
         {
+            // Valid # of SMs present but no committed DLT
+            // going to throw away persistent state, because there is a mismatch
+            LOGWARN << "No current DLT even though we persisted "
+                    << sm_services.size() << " nodes";
+            return Error(ERR_PERSIST_STATE_MISMATCH);
+
+        } else {
+
             LOGNOTIFY << "Only " << deployed_sm_services.size() << " known SMs"
                       << " in the domain. No committed DLT yet which is expected."
                       << " DLT will be committed only when at least " << curDltDepth
                       << " SMs are present in the domain";
             return Error(ERR_OK);
-
-        } else {
-            // we got >= curDltDepth(replica_factor) nodes from configDB but there is no DLT
-            // going to throw away persistent state, because there is a mismatch
-            LOGWARN << "No current DLT even though we persisted "
-                    << sm_services.size() << " nodes";
-            return Error(ERR_PERSIST_STATE_MISMATCH);
         }
     }
 
@@ -1166,6 +1183,27 @@ fds_bool_t DataPlacement::canRetryMigration()
     }
 
     return ret;
+}
+
+fds_uint32_t DataPlacement::smResyncErrCount()
+{
+    return resyncErrCount;
+}
+
+void DataPlacement::markResyncErr()
+{
+    if (resyncErrCount < UINT_MAX)
+    {
+        ++resyncErrCount;
+    } else {
+        resyncErrCount = 0;
+        ++resyncErrCount;
+    }
+}
+
+void DataPlacement::clearResyncErrCounts()
+{
+    resyncErrCount = 0;
 }
 
 }  // namespace fds
