@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <algorithm>
 #include <map>
 #include <boost/msm/front/state_machine_def.hpp>
 #include <boost/msm/front/functor_row.hpp>
@@ -22,7 +23,7 @@
 
 #include "util/process.h"
 
-#define OM_WAIT_NODES_UP_SECONDS   (5*60)
+#define OM_WAIT_NODES_UP_SECONDS   (10*60)
 #define OM_WAIT_START_SECONDS      1
 
 // temp for testing
@@ -200,10 +201,10 @@ struct NodeDomainFSM: public msm::front::state_machine_def<NodeDomainFSM>
         void operator()(Evt const &, Fsm &, State &) {}
 
         template <class Event, class FSM> void on_entry(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_DomainUp. Evt: " << e.logString();
+            LOGNOTIFY << "DST_DomainUp. Evt: " << e.logString();
         }
         template <class Event, class FSM> void on_exit(Event const &e, FSM &f) {
-            LOGDEBUG << "DST_DomainUp. Evt: " << e.logString();
+            LOGNOTIFY << "DST_DomainUp. Evt: " << e.logString();
         }
     };
     struct DST_DomainShutdown : public msm::front::state<>
@@ -540,6 +541,10 @@ NodeDomainFSM::DACT_SendDltDmt::operator()(Evt const &evt, Fsm &fsm, SrcST &src,
             LOGWARN << "Not sending DMT to new node, because no "
                     << " committed DMT yet";
         }
+
+        // Domain is going to get set to "up", clear out spoof flag
+        fds::spoofPathActive = false;
+
     } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                     << "processing FSM DACT_SendDltDmt :: " << e.what();
@@ -640,6 +645,10 @@ NodeDomainFSM::DACT_LoadVols::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
         // also send all known stream registrations
         OM_NodeContainer *local = OM_NodeDomainMod::om_loc_domain_ctrl();
         local->om_bcast_stream_register_cmd(0, true);
+
+        // Domain is going to get set to "up", clear out spoof flag
+        fds::spoofPathActive = false;
+
     } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                     << "processing FSM DACT_LoadVols :: " << e.what();
@@ -790,6 +799,9 @@ NodeDomainFSM::DACT_WaitDone::operator()(Evt const &evt, Fsm &fsm, SrcST &src, T
             // Start DMT recompute/rebalance
             domain->om_dmt_update_cluster();
         }
+
+        // Domain is going to get set to "up", clear out spoof flag
+        fds::spoofPathActive = false;
 
     } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
@@ -1316,6 +1328,9 @@ NodeDomainFSM::DACT_SvcActive::operator()(Evt const &evt, Fsm &fsm, SrcST &src, 
         // broadcast DMT to DMs so they can start resync
         local->om_bcast_dmt(fpi::FDSP_DATA_MGR, vp->getCommittedDMT());
 
+        // Domain is going to get set to "up", clear out spoof flag
+        fds::spoofPathActive = false;
+
     } catch(std::exception& e) {
         LOGERROR << "Orch Manager encountered exception while "
                  << "processing FSM DACT_SvcActive :: " << e.what();
@@ -1461,6 +1476,80 @@ void OM_NodeDomainMod::local_domain_event(ShutAckEvt const &evt) {
 void OM_NodeDomainMod::local_domain_event(DeactAckEvt const &evt) {
     fds_mutex::scoped_lock l(fsm_lock);
     domain_fsm->process_event(evt);
+}
+
+/*
+ * This function will ping services one at a time.
+ * We will first explicitly set the service state to down. If the ping
+ * is successful, then the service will get set to back up (or whichever
+ * most current state the service returned) . Otherwise
+ * the expectation will be that a service registration comes in which
+ * will then set the service to ACTIVE
+ *
+ * @param : vector of svcInfos of a specific service type, including
+ * services in ACTIVE, FAILED or STARTED state
+ *
+ * @return: a vector of svcInfos of services whose service processes
+ * are not running
+ */
+std::vector<fpi::SvcInfo>
+OM_NodeDomainMod::pingServices(std::vector<fpi::SvcInfo>& svcVector)
+{
+    std::vector<fpi::SvcInfo>::iterator iter;
+    std::vector<fpi::SvcInfo> failedSvcs;
+    std::vector<fpi::SvcInfo> svcsToRemove;
+
+    auto configDB = gl_orch_mgr->getConfigDB();
+
+    for (iter = svcVector.begin(); iter != svcVector.end(); ++iter)
+    {
+        fpi::SvcUuid svcUuid = (*iter).svc_id.svc_uuid;
+
+        // Mark the svc down so that the ping will get sent out successfully by the
+        // checkPartition method
+        updateSvcMaps<kvstore::ConfigDB>( configDB,  MODULEPROVIDER()->getSvcMgr(),
+                                   svcUuid.svc_uuid,
+                                   fpi::SVC_STATUS_INACTIVE_FAILED, (*iter).svc_type );
+
+        LOGNOTIFY << "Svc:" << std::hex << svcUuid.svc_uuid << std::dec
+           << " marked failed, pinging to check if process is running";
+        fpi::SvcInfo newInfo = MODULEPROVIDER()->getSvcMgr()->pingService(svcUuid);
+
+        if (newInfo.incarnationNo == 0)
+        {
+            LOGWARN << "Svc:" << std::hex << svcUuid.svc_uuid << std::dec
+                 << " does not appear to be up!! Will expect a re-registration for this service";
+
+            svcsToRemove.push_back(*iter);
+            failedSvcs.push_back(*iter);
+
+        } else {
+            // Mark the svc back up
+            LOGNOTIFY << "Successful ping! Svc:" << std::hex << svcUuid.svc_uuid << std::dec
+                   << " will be marked as ACTIVE";
+
+            bool registration = false;
+            bool handler      = true; // do this so we do a 3-way update with incarnation checks
+            bool pingUpdate   = true;
+
+            updateSvcMaps<kvstore::ConfigDB>( configDB,  MODULEPROVIDER()->getSvcMgr(),
+                                           svcUuid.svc_uuid,
+                                           newInfo.svc_status , newInfo.svc_type,
+                                           handler, registration, newInfo, pingUpdate);
+        }
+    }
+
+    for (auto svc : svcsToRemove)
+    {
+        auto svcIter = std::find(svcVector.begin(), svcVector.end(), svc);
+
+        if (svcIter != svcVector.end())
+        {
+            svcVector.erase(svcIter);
+        }
+    }
+
+    return failedSvcs;
 }
 
 // om_load_state
@@ -1630,7 +1719,8 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         unsetTarget = !(OmExtUtilApi::getInstance()->isDMAbortAfterRestartTrue());
         vp->commitDMT( unsetTarget );
 
-        if ( isAnyNonePlatformSvcActive( &pmSvcs, &amSvcs, &smSvcs, &dmSvcs ) ) {
+        if ( isAnyNonePlatformSvcActive( &pmSvcs, &amSvcs, &smSvcs, &dmSvcs ) )
+        {
             LOGNOTIFY << "OM Restart, Found ( returned ) "
                       << pmSvcs.size() << " PMs. "
                       << amSvcs.size() << " AMs. "
@@ -1640,6 +1730,8 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
             // This should contain currently just the OM. Broadcast here first
             // so that any PMs trying to send heartbeats to the OM will succeed
             om_locDomain->om_bcast_svcmap();
+
+            fds::spoofPathActive = true; // This flag will get reset once domain comes up
 
             spoofRegisterSvcs(pmSvcs);
 
@@ -1660,11 +1752,60 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                 spoofRegisterSvcs(dmSvcs);
                 spoofRegisterSvcs(amSvcs);
 
+                /*
+                * Determine whether the services with last known good state of
+                * ACTIVE, FAILED, STARTED are running or not. We do this after the spoof
+                * to keep cluster map happy and prevent DLT/DMT propagation
+                */
+
+                std::vector<fpi::SvcInfo> failedSmSvcs, failedDmSvcs, failedAmSvcs;
+                std::vector<fpi::SvcInfo> tmpVec;
+
+                failedSmSvcs = pingServices(smSvcs);
+                failedDmSvcs = pingServices(dmSvcs);
+                failedAmSvcs = pingServices(amSvcs);
+
+
                 om_load_volumes();
-                local_domain_event(NoPersistEvt());
-            }
-            else
-            {
+
+                if (failedSmSvcs.size() == 0 && failedDmSvcs.size() == 0)
+                {
+                    // All SM, DM services are ACTIVE, and running
+                    // so the domain can come up. Failed AMs should
+                    // not prevent this from happening
+                    local_domain_event(NoPersistEvt());
+                } else {
+
+                    LOGNOTIFY << "Will wait for the following " << failedSmSvcs.size()
+                              << " SMs and " << failedDmSvcs.size()
+                              << " DMs to come up within next few minutes:";
+
+                    NodeUuidSet failedSMSet;
+                    NodeUuidSet failedDMSet;
+
+                    for (auto svc : failedSmSvcs)
+                    {
+                        LOGNOTIFY << "Failed SM:"  << std::hex << svc.svc_id.svc_uuid.svc_uuid
+                                  << std::dec;
+
+                        NodeUuid uuid;
+                        uuid.uuid_set_type(svc.svc_id.svc_uuid.svc_uuid, fpi::FDSP_STOR_MGR);
+                        failedSMSet.insert(uuid);
+                    }
+
+                    for (auto svc : failedDmSvcs)
+                    {
+                        LOGNOTIFY << "Failed DM:"  << std::hex << svc.svc_id.svc_uuid.svc_uuid
+                                  << std::dec;
+
+                        NodeUuid uuid;
+                        uuid.uuid_set_type(svc.svc_id.svc_uuid.svc_uuid, fpi::FDSP_DATA_MGR);
+                        failedDMSet.insert(uuid);
+                    }
+
+                    local_domain_event( WaitNdsEvt( failedSMSet, failedDMSet ) );
+                }
+            } else {
                 LOGNOTIFY << "Will wait for " << deployed_sm_services.size()
                           << " SMs and " << deployed_dm_services.size()
                           << " DMs to come up within next few minutes";
@@ -1677,9 +1818,7 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
             // That's because we don't want to spam the system with updates for every single svc state
             // change. So do it for all svcs that have been spoofed
             om_locDomain->om_bcast_svcmap();
-        }
-        else
-        {
+        } else {
             LOGNOTIFY << "Will wait for " << deployed_sm_services.size()
                       << " SMs and " << deployed_dm_services.size()
                       << " DMs to come up within next few minutes";

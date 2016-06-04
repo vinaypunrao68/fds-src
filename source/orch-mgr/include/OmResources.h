@@ -1153,6 +1153,10 @@ class OM_NodeDomainMod : public Module
     void removeFromTaskMap(int64_t id);
     void updateNodeCapacity(fpi::SvcInfo &svcInfo);
 
+
+
+    std::vector<fpi::SvcInfo> pingServices(std::vector<fpi::SvcInfo>& svcVector);
+
   protected:
     bool isPlatformSvc(fpi::SvcInfo svcInfo);
     bool isAccessMgrSvc( fpi::SvcInfo svcInfo );

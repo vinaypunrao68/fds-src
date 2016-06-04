@@ -50,13 +50,14 @@ namespace fds
          * the OM as well as other components such as svcMgr
          */
         static bool  isIncomingUpdateValid(fpi::SvcInfo& incomingSvcInfo, fpi::SvcInfo currentInfo,
-                                           std::string source);
+                                           std::string source, bool pingUpdate = false);
         static bool  isTransitionAllowed( fpi::ServiceStatus incoming,
                                           fpi::ServiceStatus current,
                                           bool sameIncNo,
                                           bool greaterIncNo,
                                           bool zeroIncNo,
-                                          fpi::FDSP_MgrIdType type);
+                                          fpi::FDSP_MgrIdType type,
+                                          bool pingUpdate = false);
 
         static std::vector<std::vector<fpi::ServiceStatus>> getAllowedTransitions();
         static std::string  printSvcStatus(fpi::ServiceStatus svcStatus);

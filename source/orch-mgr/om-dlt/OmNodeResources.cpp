@@ -170,6 +170,17 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
 {
     TRACEFUNC;
 
+    if (gl_orch_mgr->getConfigDB()->getStateSvcMap(get_uuid().uuid_get_val()) == fpi::SVC_STATUS_INACTIVE_FAILED &&
+             cmd_type == fpi::CtrlNotifyVolAddTypeId )
+    {
+        LOGNOTIFY << "Svc:" << std::hex << get_uuid().uuid_get_val() << std::dec
+               << " is in a failed state, will not send VolumeAdd command";
+
+        // Returning this will prevent the count of acks from being increased by this
+        // failed service
+        return ERR_NOT_READY;
+    }
+
     if (node_state() == fpi::FDS_Node_Down) {
         LOGNORMAL << "Will not send vol command to service we know is down "
                   << get_node_name();
@@ -1505,9 +1516,10 @@ OM_PmAgent::send_start_service
     // If the domain is down, check if the domainRestart flag is set.
     // This flag will be set when we come through the om_startup_domain
     // code; implying that we are trying to start up a previously down
-    // domain. Only in this case, we will allow services to be started
+    // domain. Also check if a start is coming in while in the spoof path while
+    // the OM is in process of coming up. Only in these 2 cases, we will allow services to be started
     // All other requests to start svc when domain is down is rejected
-    if (domain->om_local_domain_down() && !domainRestart) {
+    if (domain->om_local_domain_down() && !domainRestart && !fds::spoofPathActive) {
         LOGERROR << "Cannot start any service when domain is down";
         return ERR_INVALID_ARG;
     }
@@ -1677,6 +1689,7 @@ void OM_PmAgent::send_start_service_resp
         // causing the state change, and setting to active here could
         // mess things up
 
+        OM_NodeDomainMod *domain = OM_NodeDomainMod::om_local_domain();
         fpi::SvcUuid svcUuid;
         // Retrieve the specific service id
         fds::retrieveSvcId(pmSvcUuid.svc_uuid, svcUuid, item.svcType);
@@ -1697,6 +1710,16 @@ void OM_PmAgent::send_start_service_resp
                                svcUuid.svc_uuid,
                                fpi::SVC_STATUS_ACTIVE,
                                item.svcType);
+
+                // If the domain is not up, it could potentially be waiting on a register
+                // event. Since we know not to expect a register for this svc, raise a RegEvt
+                // so the domain state machine can move forward
+                if (!domain->om_local_domain_up())
+                {
+                    NodeUuid uuid(svcUuid.svc_uuid);
+                    LOGNOTIFY << "OM local domain not up, raising RegNodeEvt";
+                    domain->local_domain_event(RegNodeEvt(uuid, item.svcType));
+                }
             } else {
                 LOGDEBUG <<"PM started new processes, service registrations to follow";
             }

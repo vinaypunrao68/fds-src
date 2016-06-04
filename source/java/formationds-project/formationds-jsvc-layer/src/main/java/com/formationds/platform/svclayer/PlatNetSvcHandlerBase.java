@@ -160,6 +160,13 @@ public abstract class PlatNetSvcHandlerBase<S extends PlatNetSvc.Iface> implemen
         return omNativePlatformClientFactory.getClient().getSvcMap( nullarg );
     }
 
+
+    @Override
+    public SvcInfo getSvcInfo() throws TException {
+        logger.trace( "getSvcInfo" );
+        return omNativePlatformClientFactory.getClient().getSvcInfo();
+    }
+
     @Override
     public void notifyNodeActive( FDSP_ActivateNodeType info ) throws TException {
         logger.trace( "notifyNodeActive: {}", info );

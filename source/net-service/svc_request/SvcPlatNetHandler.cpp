@@ -297,6 +297,16 @@ void PlatNetSvcHandler::getSvcMap(std::vector<fpi::SvcInfo> & _return,
     MODULEPROVIDER()->getSvcMgr()->getSvcMap(_return);
 }
 
+void PlatNetSvcHandler::getSvcInfo( ::FDS_ProtocolInterface::SvcInfo& _return)
+{
+    if (handlerState_ != ACCEPT_REQUESTS) {
+        fpi::ApiException ex;
+        ex.__set_message("service not ready");
+        throw ex;
+    }
+    _return = MODULEPROVIDER()->getSvcMgr()->getSelfSvcInfo();
+}
+
 void PlatNetSvcHandler::getDLT(fpi::CtrlNotifyDLTUpdate& dlt, SHPTR<int64_t>& nullarg)
 {
     auto dtp = MODULEPROVIDER()->getSvcMgr()->getCurrentDLT();

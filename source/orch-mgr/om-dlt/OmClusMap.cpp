@@ -347,12 +347,23 @@ ClusterMap::rmSvcPendingAdd(fpi::FDSP_MgrIdType svc_type,
     fds_mutex::scoped_lock l(mapMutex);
     switch (svc_type) {
         case fpi::FDSP_STOR_MGR:
-            fds_verify(addedSMs.count(svc_uuid) != 0)
-            addedSMs.erase(svc_uuid);
+            if (addedSMs.count(svc_uuid) != 0) {
+                addedSMs.erase(svc_uuid);
+            } else {
+                LOGNOTIFY << "Svc uuid:"
+                          << std::hex << svc_uuid.uuid_get_val() << std::dec
+                          << " not present in added list";
+            }
             break;
         case fpi::FDSP_DATA_MGR:
-            fds_verify(addedDMs.count(svc_uuid) != 0);
-            addedDMs.erase(svc_uuid);
+            if (addedDMs.count(svc_uuid) != 0) {
+                addedDMs.erase(svc_uuid);
+            } else {
+                LOGNOTIFY << "Svc uuid:"
+                          << std::hex << svc_uuid.uuid_get_val() << std::dec
+                          << " not present in added list";
+            }
+
             break;
         default:
             fds_panic("Unknown MgrIdType %u", svc_type);

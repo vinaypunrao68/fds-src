@@ -111,6 +111,13 @@ struct PlatNetSvcHandler : HasModuleProvider,
                            boost::shared_ptr<int64_t>& nullarg) override;
     void getSvcMap(boost::shared_ptr<fpi::AsyncHdr> &hdr,
                            boost::shared_ptr<fpi::GetSvcMapMsg> &msg);
+    /**
+    * @brief Returns SvcInfo structure describing the service information
+    *
+    * @return
+    */
+    void getSvcInfo( ::FDS_ProtocolInterface::SvcInfo& _return) override;
+
     void getDLT( fpi::CtrlNotifyDLTUpdate& _return, const int64_t nullarg) override {
         // Don't do anything here. This stub is just to keep cpp compiler happy
     }

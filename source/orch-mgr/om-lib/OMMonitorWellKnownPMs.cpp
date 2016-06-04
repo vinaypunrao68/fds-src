@@ -411,7 +411,7 @@ namespace fds
                     << elapsedTime
                     << " (thread ran:" << timeSinceThreadRan << " min ago)";
 
-            if (elapsedTime > 1.5  && !lateRunOfThread && !domainShutdown)
+            if (elapsedTime > 1.5  && !lateRunOfThread && !domainShutdown && !spoofPathActive)
             {
                 // It has been more than a minute since we heard from the PM,
                 // treat it as a stale map entry

@@ -16,6 +16,7 @@ namespace fds
 {
     namespace fpi = FDS_ProtocolInterface;
 
+    extern bool spoofPathActive;
     /**
      * This is case insensitive
      */
@@ -53,7 +54,8 @@ namespace fds
                                            fpi::FDSP_MgrIdType      svcType,
                                            bool                     handlerUpdate = false,
                                            bool                     registering = false,
-                                           fpi::SvcInfo             registeringSvcInfo = fpi::SvcInfo());
+                                           fpi::SvcInfo             registeringSvcInfo = fpi::SvcInfo(),
+                                           bool                     pingUpdate = false);
 
     bool                    dbRecordNeedsUpdate(fpi::SvcInfo svcLayerInfo, fpi::SvcInfo dbInfo);
     bool                    areRecordsSame(fpi::SvcInfo svcLayerInfo, fpi::SvcInfo dbInfo );
@@ -99,7 +101,8 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                          fpi::FDSP_MgrIdType      svcType,
                          bool                     handlerUpdate,   // false by default
                          bool                     registration,   // false by default
-                         fpi::SvcInfo             incomingSvcInfo // new, empty object by default
+                         fpi::SvcInfo             incomingSvcInfo, // new, empty object by default
+                         bool                     pingUpdate
                   )
 {
     fpi::SvcUuid    uuid;
@@ -281,7 +284,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
         } else if ( !svcLayerRecordFound && dbRecordFound ) {
 
             // DB has a record, check if it is more current than incoming
-            validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, dbInfo, "ConfigDB");
+            validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, dbInfo, "ConfigDB", pingUpdate);
 
             if (validUpdate)
             {
@@ -319,7 +322,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
             // This should *never* be the case - log a warning, and handle it
             LOGWARN << "No DB record, but svcLayer record present for svc:"
                     << std::hex << svc_uuid << std::dec << " should NEVER be the case!";
-            validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, svcLayerInfo, "SvcMgr");
+            validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, svcLayerInfo, "SvcMgr", pingUpdate);
 
             if (validUpdate)
             {
@@ -340,7 +343,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
             svcLayerInfoPtr = boost::make_shared<fpi::SvcInfo>(svcLayerInfo);
             dbInfoPtr       = boost::make_shared<fpi::SvcInfo>(dbInfo);
 
-            validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, svcLayerInfo, "SvcMgr");
+            validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, svcLayerInfo, "SvcMgr", pingUpdate);
 
             // What we are trying to determine with the below two values is the relationship
             // between the svcLayer and DB record.
@@ -369,7 +372,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                 // svcLayer != configDB
 
                 // Need to establish now that incoming > configDB
-                validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, dbInfo, "ConfigDB");
+                validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, dbInfo, "ConfigDB", pingUpdate);
 
                 if ( validUpdate )
                 {
@@ -395,7 +398,13 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                 // svcLayer == configDB
 
                 configDB->changeStateSvcMap( boost::make_shared<fpi::SvcInfo>(incomingSvcInfo) );
-                svcMgr->updateSvcMap( {incomingSvcInfo} );
+
+                bool forceUpdate = false;
+                // If this is an update from a ping, force the update, since it's a
+                // INACTIVE -> ACTIVE transition for the same incarnation #
+                if (pingUpdate) { forceUpdate = true; }
+
+                svcMgr->updateSvcMap( {incomingSvcInfo}, forceUpdate );
 
             } else if ( !validUpdate && dbHasOlderRecord ) {
 
@@ -422,7 +431,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                 // svcLayer != configDB (could be states or incarnation is different)
 
                 // Determine configDB > incoming
-                validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, dbInfo, "ConfigDB");
+                validUpdate = OmExtUtilApi::isIncomingUpdateValid(incomingSvcInfo, dbInfo, "ConfigDB", pingUpdate);
                 if (validUpdate) {
                     LOGWARN << "Record mismatch! ConfigDB update is valid but svcLayer"
                               << " update is not, svc:" << std::hex << svc_uuid << std::dec
@@ -445,7 +454,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
         if ( !svcAddition )
         {
-           broadcast();
+            broadcast();
         }
 
     } else {
@@ -574,7 +583,8 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                                                     true,
                                                     false,
                                                     false,
-                                                    svcType) )
+                                                    svcType,
+                                                    pingUpdate) )
             {
                 configDB->changeStateSvcMap( svcLayerInfoPtr );
             } else {
@@ -603,7 +613,8 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                                                         true,
                                                         false,
                                                         false,
-                                                        svcType) )
+                                                        svcType,
+                                                        pingUpdate) )
                 {
                     configDB->changeStateSvcMap( dbInfoPtr );
 
@@ -686,7 +697,8 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
                                                      true,
                                                      false,
                                                      false,
-                                                     svcType) )
+                                                     svcType,
+                                                     pingUpdate) )
             {
                 // Force update to configDB inital state
                 bool forceUpdate = true;

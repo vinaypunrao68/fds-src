@@ -255,7 +255,8 @@ bool OmExtUtilApi::isTransitionAllowed( fpi::ServiceStatus incoming,
                                         bool sameIncNo,
                                         bool greaterIncNo,
                                         bool zeroIncNo,
-                                        fpi::FDSP_MgrIdType type )
+                                        fpi::FDSP_MgrIdType type,
+                                        bool pingUpdate )
 {
 
     // The only situation when this would be, if incarnationNo is newer
@@ -278,6 +279,9 @@ bool OmExtUtilApi::isTransitionAllowed( fpi::ServiceStatus incoming,
     if ( incoming == fpi::SVC_STATUS_ACTIVE && current == fpi::SVC_STATUS_INACTIVE_FAILED)
     {
         if (greaterIncNo) {
+            return true;
+        } else if ( pingUpdate ) {
+            LOGNOTIFY << "Svc is being marked ACTIVE after successful ping, will allow";
             return true;
         } else if (type == fpi::FDSP_ORCH_MGR) {
             LOGWARN << "Warning: Performing update FAILED to ACTIVE for OM svc for"
@@ -326,7 +330,8 @@ bool OmExtUtilApi::isTransitionAllowed( fpi::ServiceStatus incoming,
  */
 bool OmExtUtilApi::isIncomingUpdateValid( fpi::SvcInfo& incomingSvcInfo,
                                           fpi::SvcInfo currentInfo,
-                                          std::string source)
+                                          std::string source,
+                                          bool pingUpdate )
 {
     bool ret          = false;
     bool sameIncNo    = false;
@@ -384,7 +389,8 @@ bool OmExtUtilApi::isIncomingUpdateValid( fpi::SvcInfo& incomingSvcInfo,
                                                 sameIncNo,
                                                 greaterIncNo,
                                                 zeroIncNo,
-                                                incomingSvcInfo.svc_type) )
+                                                incomingSvcInfo.svc_type,
+                                                pingUpdate) )
         {
             ret = false;
         }

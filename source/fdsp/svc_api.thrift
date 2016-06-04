@@ -160,6 +160,13 @@ service PlatNetSvc {
     list<svc_types.SvcInfo> getSvcMap(1: i64 nullarg);
 
     /**
+     * @brief Returns SvcInfo structure describing the service information
+     *
+     * @return 
+     */
+    svc_types.SvcInfo getSvcInfo() throws (1: common.ApiException e);
+ 
+    /**
     * @brief Called by other managers to pull the DMT
     *
     * @param NULL
