@@ -553,6 +553,11 @@ struct SvcMgr : HasModuleProvider, Module, StateProvider {
     void setUnreachableInjection(float frequency);
 
     /**
+     * Ping service using synchronous call
+     */
+    fpi::SvcInfo pingService(const fpi::SvcUuid& svcUuid);
+
+    /**
     * @brief Minimum connection retries
     */
     static const int32_t MIN_CONN_RETRIES;

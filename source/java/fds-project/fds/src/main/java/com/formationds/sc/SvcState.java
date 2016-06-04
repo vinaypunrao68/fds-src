@@ -68,7 +68,7 @@ public class SvcState implements AutoCloseable, PlatNetSvc.Iface {
         txIds = new AtomicLong(1L);
     }
 
-    private SvcInfo getSvcInfo() {
+    private SvcInfo getMySvcInfo() {
         SvcInfo myInfo = new SvcInfo();
         myInfo.setSvc_id(new SvcID(new SvcUuid(uuid), "java-sc"));
         myInfo.setSvc_port(listenerAddress.getPort());
@@ -102,7 +102,7 @@ public class SvcState implements AutoCloseable, PlatNetSvc.Iface {
 
         while(true) {
             if(svcInfo == null) {
-                svcInfo = getSvcInfo();
+                svcInfo = getMySvcInfo();
             } else {
                 svcInfo.setIncarnationNo(svcInfo.getIncarnationNo() + 1);
                 svcInfo.setSvc_status(ServiceStatus.SVC_STATUS_ACTIVE);
@@ -251,6 +251,11 @@ public class SvcState implements AutoCloseable, PlatNetSvc.Iface {
 
     @Override
     public List<SvcInfo> getSvcMap(long nullarg) throws TException {
+        return null;
+    }
+
+    @Override
+    public SvcInfo getSvcInfo() throws TException {
         return null;
     }
 

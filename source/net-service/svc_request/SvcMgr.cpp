@@ -784,6 +784,52 @@ void SvcMgr::setUnreachableInjection(float frequency) {
     LOGNOTIFY << "Enabling unreachable fault injections at a probability of " << frequency;
 }
 
+fpi::SvcInfo SvcMgr::pingService(const fpi::SvcUuid &svcUuid)
+{
+    fpi::SvcInfo info;
+
+    SvcHandlePtr svcHandle;
+    {
+        fds_scoped_lock lock(svcHandleMapLock_);
+        if (!getSvcHandle_(svcUuid, svcHandle)) {
+         GLOGWARN << "Svc handle for svcuuid: " << svcUuid.svc_uuid << " not found";
+         return info;
+        }
+    }
+
+    /* Nothing needs to be done if svcHandle doesn't exist anymore */
+    if (!svcHandle) {
+        return info;
+    }
+
+    /* Ping down service for SvcInfo */
+    fpi::PlatNetSvcClientPtr client;
+    fpi::SvcInfo oldInfo;
+    svcHandle->getSvcInfo(oldInfo);
+    fpi::SvcInfo newInfo;
+    try {
+        client = allocRpcClient<fpi::PlatNetSvcClient>(oldInfo.ip,
+                                                    oldInfo.svc_port,
+                                                    SvcMgr::MIN_CONN_RETRIES,
+                                                    fpi::commonConstants().PLATNET_SERVICE_NAME,
+                                                    MODULEPROVIDER()->get_fds_config());
+        client->getSvcInfo(newInfo);
+        info = newInfo;
+    } catch (std::exception &e) {
+        GLOGDEBUG << "partition_recovery_check:allocRpcClient failed.  Exception: "
+                  << e.what() << " SvcInfo ( " << fds::logString(oldInfo) << " )";
+        return info;
+    } catch (...) {
+        GLOGDEBUG << "partition_recovery_check:allocRpcClient failed.  Unknown exception. "
+                  << " SvcInfo ( " << fds::logString(oldInfo) << " )";
+        return info;
+    }
+
+    LOGDEBUG << "Ping succeeded to svc, latest SvcInfo(" << fds::logString(newInfo) << ")";
+
+    return info;
+}
+
 std::string SvcMgr::getStateProviderId() {
     return stateProviderId;
 }

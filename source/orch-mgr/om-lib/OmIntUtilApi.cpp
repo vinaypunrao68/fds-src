@@ -28,6 +28,8 @@ namespace fds
         return fds_get_uuid64(name);
     }
 
+    bool spoofPathActive = false;
+
 
     /***********************************************************************************
      *                              Converter functions
