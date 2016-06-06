@@ -614,7 +614,7 @@ void fds::updateSvcMaps( DataStoreT*              configDB,
 
                     // State transition failed for incoming, but let's update svcLayer to DB
                     // anyway to keep consistent.
-                    if (!sameRecords) {
+                    if (!sameRecords && !svcAddition) {
                         forceUpdate = true;
                         svcMgr->updateSvcMap( {initialDbInfo}, forceUpdate );
                     }
