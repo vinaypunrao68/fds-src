@@ -43,7 +43,7 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
           targetDltVersion(targetDltVer),
           migrationType(migrType),
           onePhaseMigration(resync),
-          seqNumDeltaSet(timeoutTimer, timeoutDuration, std::bind(&MigrationExecutor::handleTimeout, this)),
+          seqNumDeltaSet(timeoutTimer, timeoutDuration, std::bind(&MigrationExecutor::handleTimeout, this), executorId),
           abortMigrationCb(abortCallback),
           uniqueId(uid),
           instanceNum(iNum)
@@ -66,6 +66,12 @@ MigrationExecutor::getMigrationMsgsTimeout() const {
 }
 
 void MigrationExecutor::handleTimeout() {
+    LOGERROR << "Migration timeout for"
+             << " executor: " << std::hex << executorId
+             << " state: " << getState()
+             << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+             << " sm token: " << smTokenId
+             << " target DLT: " << targetDltVersion;
     this->timeoutCb(this->executorId, this->smTokenId,
                     this->dltTokens, migrationRound(),
                     ERR_SM_TOK_MIGRATION_TIMEOUT);
@@ -692,8 +698,8 @@ MigrationExecutor::applyRebalanceDeltaSet(const fpi::CtrlObjectRebalanceDeltaSet
 
     // if objectToPropagate set is large, break down into smaller QoS work items
     // TODO(Anna) make configurable?, dynamic?, etc
-    fds_uint32_t maxSize = 10;
-    fds_uint32_t totalCnt = deltaSet->objectToPropagate.size() / maxSize + 1;
+    fds_uint32_t maxSize = deltaSet->objectToPropagate.size();
+    fds_uint32_t totalCnt = deltaSet->objectToPropagate.size() / maxSize;
     fds_uint32_t qosSeqNum = 0;
 
     std::vector<fpi::CtrlObjectMetaDataPropagate>::iterator itFirst, itLast;
@@ -755,6 +761,14 @@ void
 MigrationExecutor::objDeltaAppliedCb(const Error& error,
                                      SmIoApplyObjRebalDeltaSet* req) {
     fds_verify(req != NULL);
+
+    LOGNOTIFY << " executor: " << std::hex << executorId << std::dec
+              << "req info:: seqNum: " << req->seqNum << " lastSet: " << req->lastSet
+              << " qosSeqNum: " << req->qosSeqNum << " qosLastSet: " << req->qosLastSet
+              << " state: " << getState() << std::hex
+              << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+              << " sm token: " << smTokenId
+              << " target DLT: " << targetDltVersion;
 
     // if we are in error state, do not do anything anymore...
     MigrationExecutorState curState = atomic_load(&state);
