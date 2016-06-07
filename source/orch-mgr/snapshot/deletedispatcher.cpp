@@ -60,7 +60,8 @@ uint64_t DeleteDispatcher::process(const DeleteTask& task) {
                 fNeedsDeleteCheck= true;
                 break;
             case fpi::ResourceState::Syncing:
-                // Fall through
+                fNeedsTimeCheck = true;
+                break;
             default:
                 fds_assert(!"Not handled");
         }
@@ -70,8 +71,8 @@ uint64_t DeleteDispatcher::process(const DeleteTask& task) {
         }
 
         if (fNeedsDeleteCheck && (deleteTime <= currentTime)) {
-            LOGDEBUG << "snapshot will be deleted : "
-                     << snapshot.snapshotId << ":" << snapshot.snapshotName;
+            LOGDEBUG << ATTR_SNAP(snapshot.snapshotId)
+                     << ATTR_NAME(snapshot.snapshotName) << "will be deleted";
             atc::Synchronized s(monitor);
             snapshotQ.push(snapshot);
             fAdded = true;
@@ -80,6 +81,10 @@ uint64_t DeleteDispatcher::process(const DeleteTask& task) {
     if (fAdded) {
         atc::Synchronized s(monitor);
         monitor.notifyAll();
+    } else {
+        if (nextTime == task.runAtTime) {
+            LOGWARN << "no snaps ready to be deleted.. reschedule should be delayed";
+        }
     }
     return nextTime;
 }
