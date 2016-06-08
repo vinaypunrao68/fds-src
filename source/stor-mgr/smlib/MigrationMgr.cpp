@@ -91,6 +91,9 @@ MigrationMgr::startMigration(const fpi::CtrlNotifySMStartMigrationPtr& migration
                << migrationMsg->DLT_version << "."
                << " It is a resync? " << (migrationType == SMMigrType::MIGR_SM_RESYNC);
 
+    //reset last execution outcome to false.
+    lastExecutionOutcome = false;
+
     fiu_do_on("abort.sm.migration",\
               LOGDEBUG << "abort.sm.migration fault point enabled";\
               sleep(1); if (cb) { cb(ERR_NOT_READY); } return ERR_NOT_READY;);
@@ -1011,6 +1014,7 @@ MigrationMgr::reportMigrationCompleted(fds_bool_t isResync) {
     // Reset resync indicator flag in Migration Manager.
     targetDltVersion = DLT_VER_INVALID;
     resyncOnRestart = false;
+    lastExecutionOutcome = true;
 
     bool resyncPending = false;
     resyncPending = std::atomic_exchange(&isResyncPending, resyncPending);
@@ -1244,6 +1248,16 @@ MigrationMgr::handleDltClose(const DLT* dlt,
 
     markUnownedTokensUnavailable(tokSet);
 
+    cleanUpClientsAndExecutors();
+
+    // set last migration execution outcome to successfull
+    lastExecutionOutcome = true;
+    return err;
+}
+
+void
+MigrationMgr::cleanUpClientsAndExecutors()
+{
     // for now, to make sure we can handle another migration...
     MigrationState expectState = MIGR_IN_PROGRESS;
     if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IDLE)) {
@@ -1836,6 +1850,10 @@ std::string MigrationMgr::getStateInfo() {
     Json::Value state;
     state["dlt_version"] = static_cast<Json::Value::Int64>(dlt->getVersion());
     state["owned"] = static_cast<Json::Value::Int64>(myTokens.size());
+    std::string outcome;
+    (lastExecutionOutcome) ? outcome = "(completed successfully)" : outcome = "(completed with errors)";
+    state["was_dst_at"] = wasDstAtTime.append(outcome);
+    state["was_src_at"] = wasSrcAtTime;
     state["available"] = availableTokens;
     state["unavailable"] = unavailableTokens;
     state["rebal_inprog"] = (isMigrationInProgress() ? (isResync() ? false: true) : false);

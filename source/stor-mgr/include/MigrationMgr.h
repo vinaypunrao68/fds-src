@@ -634,6 +634,16 @@ class MigrationMgr : StateProvider{
      std::string stateProviderId;
 
      /**
+      * Timestamps capturing when was the last time this SM was a
+      * source or destination for Migration.
+      */
+     std::string wasSrcAtTime = {""};
+     std::string wasDstAtTime = {""};
+     bool lastExecutionOutcome = {"false"};
+     std::string setWasSrcTimestamp();
+     std::string setWasDstTimestamp();
+
+     /**
       * These values are used by the fault point resend.dlt.token.filter.set
       */
      uint16_t resendFilterSetRetries = 0;
