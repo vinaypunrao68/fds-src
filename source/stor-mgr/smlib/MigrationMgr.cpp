@@ -1852,7 +1852,9 @@ std::string MigrationMgr::getStateInfo() {
     state["owned"] = static_cast<Json::Value::Int64>(myTokens.size());
     std::string outcome;
     (lastExecutionOutcome) ? outcome = "(completed successfully)" : outcome = "(completed with errors)";
-    state["was_dst_at"] = wasDstAtTime.append(outcome);
+    auto wasDstAtInfo = wasDstAtTime;
+    if (!wasDstAtInfo.empty()) { wasDstAtInfo.append(outcome); }
+    state["was_dst_at"] = wasDstAtInfo;
     state["was_src_at"] = wasSrcAtTime;
     state["available"] = availableTokens;
     state["unavailable"] = unavailableTokens;
