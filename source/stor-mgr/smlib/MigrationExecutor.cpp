@@ -670,10 +670,8 @@ MigrationExecutor::applyRebalanceDeltaSet(const fpi::CtrlObjectRebalanceDeltaSet
     // if the obj data+meta list is empty, and lastDeltaSet == true,
     // nothing to apply, but have to check if we are done with migration
     if (deltaSet->objectToPropagate.size() == 0) {
-        bool completeDeltaSetReceived = seqNumDeltaSet.setDoubleSeqNum(deltaSet->seqNum,
-                                                                       deltaSet->lastDeltaSet,
-                                                                       0,
-                                                                       true);
+        bool completeDeltaSetReceived = seqNumDeltaSet.setSeqNum(deltaSet->seqNum,
+                                                                 deltaSet->lastDeltaSet);
         fds_assert(deltaSet->lastDeltaSet);
         if (!deltaSet->lastDeltaSet) {
             LOGNORMAL << "Executor " << std::hex << executorId << " has no tokens to migrate";
@@ -696,6 +694,14 @@ MigrationExecutor::applyRebalanceDeltaSet(const fpi::CtrlObjectRebalanceDeltaSet
         return ERR_OK;
     }
 
+
+    /**
+     * TODO VERY SOON(Gurpreet): Clean up the code below. Remove unnecessary
+     * code, change SmIoApplyObjRebalDeltaSet request to remove qos sequencing
+     * because now, whatever the delta set sized request migration source sent
+     * it will be served as is. Currently max delta set request size is 16. So
+     * the qos apply delta set request size will also be 16.
+     */
     // if objectToPropagate set is large, break down into smaller QoS work items
     // TODO(Anna) make configurable?, dynamic?, etc
     fds_uint32_t maxSize = deltaSet->objectToPropagate.size();
@@ -762,14 +768,6 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
                                      SmIoApplyObjRebalDeltaSet* req) {
     fds_verify(req != NULL);
 
-    LOGNOTIFY << " executor: " << std::hex << executorId << std::dec
-              << "req info:: seqNum: " << req->seqNum << " lastSet: " << req->lastSet
-              << " qosSeqNum: " << req->qosSeqNum << " qosLastSet: " << req->qosLastSet
-              << " state: " << getState() << std::hex
-              << " source: " << sourceSmUuid.uuid_get_val() << std::dec
-              << " sm token: " << smTokenId
-              << " target DLT: " << targetDltVersion;
-
     // if we are in error state, do not do anything anymore...
     MigrationExecutorState curState = atomic_load(&state);
     if (inErrorState() || isAbortPending()) {
@@ -781,10 +779,8 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
                   << " target DLT: " << targetDltVersion;
         abortMigrationCb(executorId, smTokenId);
         trackIOReqs.finishTrackIOReqs();
-        seqNumDeltaSet.setDoubleSeqNum(req->seqNum,
-                                       req->lastSet,
-                                       req->qosSeqNum,
-                                       req->qosLastSet);
+        seqNumDeltaSet.setSeqNum(req->seqNum,
+                                 req->lastSet);
         return;
     }
 
@@ -793,10 +789,8 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
         LOGERROR << "Failed to apply a set of objects " << error;
         // Stop tracking this IO.
         trackIOReqs.finishTrackIOReqs();
-        seqNumDeltaSet.setDoubleSeqNum(req->seqNum,
-                                       req->lastSet,
-                                       req->qosSeqNum,
-                                       req->qosLastSet);
+        seqNumDeltaSet.setSeqNum(req->seqNum,
+                                 req->lastSet);
         handleMigrationRoundDone(error);
         return;
     }
@@ -806,11 +800,17 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
     fds_verify((curState == ME_FIRST_PHASE_APPLYING_DELTA) ||
                (curState == ME_SECOND_PHASE_APPLYING_DELTA));
 
-    bool completeDeltaSetReceived = seqNumDeltaSet.setDoubleSeqNum(req->seqNum,
-                                                                   req->lastSet,
-                                                                   req->qosSeqNum,
-                                                                   req->qosLastSet);
+    bool completeDeltaSetReceived = seqNumDeltaSet.setSeqNum(req->seqNum,
+                                                             req->lastSet);
     if (completeDeltaSetReceived) {
+        LOGDEBUG << " executor: " << std::hex << executorId << std::dec
+                 << " req info:: seqNum: " << req->seqNum << " lastSet: " << req->lastSet
+                 << " qosSeqNum: " << req->qosSeqNum << " qosLastSet: " << req->qosLastSet
+                 << " state: " << getState() << std::hex
+                 << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                 << " sm token: " << smTokenId
+                 << " target DLT: " << targetDltVersion;
+
         // this executor finished the first or second round of migration, based on state
         LOGNORMAL << "All DeltaSet and QoS requests accounted for executor "
                   << std::hex << req->executorId << std::dec;
@@ -853,7 +853,7 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
                << " SM token " << smTokenId;
 
     // Reset sequence number for the second phase delta set.
-    seqNumDeltaSet.resetDoubleSeqNum();
+    seqNumDeltaSet.resetSeqNum();
 
     // move to the next state before sending the message, in case we get the reply
     // while still in this method

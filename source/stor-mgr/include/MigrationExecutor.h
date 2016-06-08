@@ -314,7 +314,7 @@ class MigrationExecutor {
      * Maintain messages from the source SM, so we don't lose it.  Each async message
      * from source SM has a unique sequence number.
      */
-    MigrationDoubleSeqNum seqNumDeltaSet;
+    MigrationSeqNum seqNumDeltaSet;
 
     /**
      * Callback for the seqNumDeltaSet timeout
