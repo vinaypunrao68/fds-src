@@ -26,7 +26,8 @@ class MigrationSeqNum {
      */
     MigrationSeqNum(FdsTimerPtr& timer,
                     uint32_t interval,  // in sec
-                    const std::function<void()> &func);
+                    const std::function<void()> &func,
+                    fds_uint64_t parentId=0);
 
     ~MigrationSeqNum();
 
@@ -57,6 +58,12 @@ class MigrationSeqNum {
                                                 const MigrationSeqNum& seqNumRecv);
 
   private:
+    /**
+     * Id(if provided) of the object(for ex: migration executor or client)
+     * who has created this sequencing instance.
+     */
+    fds_uint64_t parentId = {0};
+
     /**
      * update to sequence and previously handled sequence numbers.
      */
@@ -134,7 +141,7 @@ class MigrationSeqNum {
 
     /* Stop the progress check on the sequence.
      */
-    bool stopProgressCheck(bool isLastNum);
+    bool stopProgressCheck();
 
 };  // class MigrationSeqNum
 

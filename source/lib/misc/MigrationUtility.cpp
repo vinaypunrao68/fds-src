@@ -30,12 +30,14 @@ MigrationSeqNum::MigrationSeqNum()
 
 MigrationSeqNum::MigrationSeqNum(FdsTimerPtr& timer,
                                  uint32_t intervalTimer,
-                                 const std::function<void()> &timeoutHandler)
+                                 const std::function<void()> &timeoutHandler,
+                                 fds_uint64_t pId)
     : seqNumTimerInterval(intervalTimer),
       seqNumTimer(timer),
       seqNumTimeoutHandler(timeoutHandler),
       seqNumTimerEnabled(true),
-      seqNumTimerStarted(false)
+      seqNumTimerStarted(false),
+      parentId(pId)
 {
     curSeqNum = 0;
     lastSeqNum = std::numeric_limits<uint64_t>::max();
@@ -49,7 +51,7 @@ MigrationSeqNum::~MigrationSeqNum()
     if (seqNumTimerEnabled) {
         fds_assert(nullptr != seqNumTimer);
         if (nullptr != seqNumTimerTask) {
-            bool timerCancelled = stopProgressCheck(true);
+            bool timerCancelled = stopProgressCheck();
             seqNumTimerTask.reset();
         }
         fds_assert(false == seqNumTimerStarted);
@@ -73,7 +75,7 @@ MigrationSeqNum::resetSeqNum()
     if (seqNumTimerEnabled) {
         fds_assert(nullptr != seqNumTimer);
         if (nullptr != seqNumTimerTask) {
-            bool timerCancelled = stopProgressCheck(true);
+            bool timerCancelled = stopProgressCheck();
             seqNumTimerTask.reset();
         }
         fds_assert(false == seqNumTimerStarted);
@@ -99,7 +101,11 @@ MigrationSeqNum::setSeqNum(uint64_t latestSeqNum, bool isLastSeqNum)
     if (latestSeqNum == curSeqNum) {
         if (curSeqNum == lastSeqNum) {
             seqComplete = true;
-            bool cancelled = stopProgressCheck(isLastSeqNum);
+            LOGDEBUG << " Last sequence recvd. Handling in order receipt. "
+                     << " parent(uuid): " << std::hex << parentId << std::dec
+                     << " curSeqNum: " << curSeqNum << " lastSeqNum: " << lastSeqNum
+                     << " latestSeqNum: " << latestSeqNum << " isLastSeqNum: " << isLastSeqNum;
+            bool cancelled = stopProgressCheck();
             return true;
         }
         ++curSeqNum;
@@ -108,7 +114,11 @@ MigrationSeqNum::setSeqNum(uint64_t latestSeqNum, bool isLastSeqNum)
                 seqNumList.erase(cit);
                 if (curSeqNum == lastSeqNum) {
                     seqComplete = true;
-                    bool cancelled = stopProgressCheck(isLastSeqNum);
+                    LOGDEBUG << " Last sequence recvd. Handling out of order receipt. "
+                             << " parent(uuid): " << std::hex << parentId << std::dec
+                             << " curSeqNum: " << curSeqNum << " lastSeqNum: " << lastSeqNum
+                             << " latestSeqNum: " << latestSeqNum << " isLastSeqNum: " << isLastSeqNum;
+                    bool cancelled = stopProgressCheck();
                     return true;
                 }
                 ++curSeqNum;
@@ -130,7 +140,8 @@ MigrationSeqNum::startProgressCheck()
 {
     if (seqNumTimerEnabled) {
         if (!seqNumTimerStarted) {
-            LOGNOTIFY << " started ";
+            LOGDEBUG << "starting migration sequence check for parent(uuid): "
+                     << std::hex << parentId << std::dec;
             seqNumTimerTask = FdsTimerTaskPtr(new FdsTimerFunctionTask(std::bind(&MigrationSeqNum::checkProgress,
                                                                        this)));
             // Before the timer is set, just set the set time to curren time.
@@ -143,22 +154,21 @@ MigrationSeqNum::startProgressCheck()
                                                  std::chrono::seconds(seqNumTimerInterval));
         }
     }
-    LOGNOTIFY << " start failed";
     return false;
 }
 
 bool
-MigrationSeqNum::stopProgressCheck(bool isLastNum)
+MigrationSeqNum::stopProgressCheck()
 {
     if (seqNumTimerEnabled) {
-        if (seqNumTimerStarted && isLastNum) {
-            LOGNOTIFY << " stopped";
+        if (seqNumTimerStarted) {
+            LOGDEBUG << "stopping migration sequence check for parent(uuid): "
+                     << std::hex << parentId << std::dec;
             bool cancelled = seqNumTimer->cancel(seqNumTimerTask);
             seqNumTimerStarted = false;
             return cancelled;
         }
     }
-    LOGNOTIFY << " stop failed";
     return false;
 }
 
@@ -173,7 +183,7 @@ MigrationSeqNum::checkProgress()
 
     if (time_span.count() >= static_cast<double>(seqNumTimerInterval)) {
         fds_assert(seqNumTimeoutHandler);
-        stopProgressCheck(true);
+        stopProgressCheck();
         if (seqNumTimeoutHandler) { seqNumTimeoutHandler(); }
     }
 
@@ -323,11 +333,11 @@ MigrationDoubleSeqNum::setDoubleSeqNum(uint64_t seqNum1, bool isLastSeqNum1,
             mapSeqNum2.erase(curSeqNum1);
             completeSeqNum1 = true;
             // std::cout << std::endl;
-            LOGNOTIFY << " (seqNum1 == lastSeqNum1) : "
-                      << " executor: " << std::hex << parentId << std::dec
-                      << " curSeqNum1: " << curSeqNum1 << " lastSeqNum1: " << lastSeqNum1
-                      << " seqNum1: " << seqNum1 << " seqNum2: " << seqNum2
-                      << " isLastSeqNum1: " << isLastSeqNum1 << " isLastSeqNum2: " << isLastSeqNum2;
+            LOGDEBUG << " (seqNum1 == lastSeqNum1) : "
+                     << " executor: " << std::hex << parentId << std::dec
+                     << " curSeqNum1: " << curSeqNum1 << " lastSeqNum1: " << lastSeqNum1
+                     << " seqNum1: " << seqNum1 << " seqNum2: " << seqNum2
+                     << " isLastSeqNum1: " << isLastSeqNum1 << " isLastSeqNum2: " << isLastSeqNum2;
             bool cancelled = stopProgressCheck(isLastSeqNum1, isLastSeqNum2);
             return true;
         }
@@ -342,11 +352,11 @@ MigrationDoubleSeqNum::setDoubleSeqNum(uint64_t seqNum1, bool isLastSeqNum1,
             if (curSeqNum1 == lastSeqNum1) {
                 // std::cout << " " << __LINE__ << "Last sequence" << std::endl;
                 completeSeqNum1 = true;
-                LOGNOTIFY << "(curSeqNum1 == lastSeqNum1) : "
-                          << " executor: " << std::hex << parentId << std::dec
-                          << " curSeqNum1: " << curSeqNum1 << " lastSeqNum1: " << lastSeqNum1
-                          << " seqNum1: " << seqNum1 << " seqNum2: " << seqNum2
-                          << " isLastSeqNum1: " << isLastSeqNum1 << " isLastSeqNum2: " << isLastSeqNum2;
+                LOGDEBUG << "(curSeqNum1 == lastSeqNum1) : "
+                         << " executor: " << std::hex << parentId << std::dec
+                         << " curSeqNum1: " << curSeqNum1 << " lastSeqNum1: " << lastSeqNum1
+                         << " seqNum1: " << seqNum1 << " seqNum2: " << seqNum2
+                         << " isLastSeqNum1: " << isLastSeqNum1 << " isLastSeqNum2: " << isLastSeqNum2;
                 bool cancelled = stopProgressCheck(isLastSeqNum1, isLastSeqNum2);
                 return true;
             }
@@ -366,8 +376,8 @@ MigrationDoubleSeqNum::startProgressCheck(bool isNum1Last, bool isNum2Last)
     // "true & true" combo.
     if (seqNumTimerEnabled) {
         if (!seqNumTimerStarted && (!isNum1Last && !isNum2Last)) {
-            LOGNOTIFY << " started sequencing for "
-                      << " executor: " << std::hex << parentId << std::dec;
+            LOGDEBUG << "starting double sequence check for parent(uuid): "
+                     << std::hex << parentId << std::dec;
             fds_assert(nullptr == seqNumTimerTask);
             seqNumTimerTask =
                 FdsTimerTaskPtr(new FdsTimerFunctionTask(std::bind(&MigrationDoubleSeqNum::checkProgress,
@@ -377,7 +387,6 @@ MigrationDoubleSeqNum::startProgressCheck(bool isNum1Last, bool isNum2Last)
                                                  std::chrono::seconds(seqNumTimerInterval));
         }
     }
-    LOGNOTIFY << " start failed for executor: " << std::hex << parentId << std::dec;
     return false;
 }
 
@@ -385,22 +394,17 @@ MigrationDoubleSeqNum::startProgressCheck(bool isNum1Last, bool isNum2Last)
 bool
 MigrationDoubleSeqNum::stopProgressCheck(bool isNum1Last, bool isNum2Last)
 {
-    LOGNOTIFY << " executor: " << std::hex << parentId << std::dec
-              << "seqNumTimerEnabled: " << seqNumTimerEnabled
-              << " seqNumTimerStarted: " << seqNumTimerStarted
-              << " isNum1Last: " << isNum1Last
-              << " isNum2Last: " << isNum2Last;
     if (seqNumTimerEnabled) {
        if (seqNumTimerStarted && (isNum1Last && isNum2Last)) {
             fds_assert(nullptr != seqNumTimerTask);
-            LOGNOTIFY << " stopped " << " executor: " << std::hex << parentId << std::dec;
+            LOGDEBUG << "stopped double sequence check for parent(uuid): "
+                     << std::hex << parentId << std::dec;
             bool cancelled = seqNumTimer->cancel(seqNumTimerTask);
             seqNumTimerStarted = false;
             return cancelled;
         }
     }
 
-   LOGNOTIFY << " stop failed " << " executor: " << std::hex << parentId << std::dec;
    return false;
 }
 
