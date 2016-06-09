@@ -286,8 +286,9 @@ TEST(DltCalculation, compute_2prim) {
             }
             cmap->updateMap(fpi::FDSP_STOR_MGR, addNodes, rmNodes);
 
-            // verify number of failed SMs in the cluster map
-            EXPECT_EQ(numSMs - numFailedSms, cmap->getNumNonfailedMembers(fpi::FDSP_STOR_MGR));
+            // verify number of "up" SMs in the cluster map (should include failed SMs)
+            // Refer FS-4550|PR 3220
+            EXPECT_EQ(numSMs, cmap->getNumNonfailedMembers(fpi::FDSP_STOR_MGR));
             EXPECT_EQ(numSMs, cmap->getNumMembers(fpi::FDSP_STOR_MGR));
 
             // calculate DLT

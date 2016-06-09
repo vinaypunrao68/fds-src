@@ -305,8 +305,9 @@ TEST(DmtCalculation, compute_2prim) {
             }
             cmap->updateMap(fpi::FDSP_DATA_MGR, addNodes, rmNodes);
 
-            // verify number of failed DMs in the cluster map
-            EXPECT_EQ(numDMs - numFailedDms, cmap->getNumNonfailedMembers(fpi::FDSP_DATA_MGR));
+            // verify number of "up" DMs in the cluster map(should include failed DMs)
+            // Refer FS-4550|PR 3220
+            EXPECT_EQ(numDMs, cmap->getNumNonfailedMembers(fpi::FDSP_DATA_MGR));
             EXPECT_EQ(numDMs, cmap->getNumMembers(fpi::FDSP_DATA_MGR));
 
             // calculate DMT
