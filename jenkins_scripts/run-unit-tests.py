@@ -19,6 +19,8 @@ import subprocess
 import re
 from multiprocessing import Process, Array
 import time
+import glob
+import shutil
 
 def about_to_quit(start_time):
     '''
@@ -56,7 +58,10 @@ if __name__ == "__main__":
         retcode = subprocess.call(bin_name, shell=True)
         if retcode != 0:
             failure_count += 1
-            print "C++ Unit test ERROR returned a non-zero return {}, test: {}.".format(retcode, bin_name)
+            # destination is source/cit directory
+            for file in glob.glob('./*.log'):
+                shutil.copy(file, files_path)
+            print "IIIII C++ Unit test ERROR returned a non-zero return {}, test: {}.".format(retcode, bin_name)
 
     if failure_count > 0:
         print "C++ Unit test failure count:  %d" %(failure_count)
