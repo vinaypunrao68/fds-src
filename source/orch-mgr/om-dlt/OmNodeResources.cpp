@@ -181,6 +181,7 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
         return ERR_NOT_READY;
     }
 
+
     const char       *log;
     const VolumeDesc *desc;
 
