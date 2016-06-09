@@ -174,17 +174,11 @@ OM_NodeAgent::om_send_vol_cmd(VolumeInfo::pointer     vol,
              cmd_type == fpi::CtrlNotifyVolAddTypeId )
     {
         LOGNOTIFY << "Svc:" << std::hex << get_uuid().uuid_get_val() << std::dec
-               << " is in a failed state, will not send VolumeAdd command";
+               << " is in a failed state, will not send volume  command [ " << cmd_type << " ]";
 
         // Returning this will prevent the count of acks from being increased by this
         // failed service
         return ERR_NOT_READY;
-    }
-
-    if (node_state() == fpi::FDS_Node_Down) {
-        LOGNORMAL << "Will not send vol command to service we know is down "
-                  << get_node_name();
-        return ERR_OK;
     }
 
     const char       *log;
