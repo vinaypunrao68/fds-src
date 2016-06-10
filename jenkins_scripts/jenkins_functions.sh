@@ -16,7 +16,7 @@ HARDWARE_ENVIRONMENT=false
 INVENTORY=''
 
 # Runsuites.cfg runs 1.Snapshottest 2. RestartDataPersistance 3.Expunge 4.Amfailover on same set of volumes to reduce jenkins runtime.
-SYSTEM_TEST_SCENARIO_LIST="Runsuites ActiveIORestartTest ActiveIORndKillTest MultiAMVolOpsTest BuildSmokeTest_onpr"
+SYSTEM_TEST_SCENARIO_LIST="ActiveIORestartTest ActiveIORndKillTest MultiAMVolOpsTest BuildSmokeTest_onpr"
 
 
 # For long system test, disable only DmMigrationFailover
