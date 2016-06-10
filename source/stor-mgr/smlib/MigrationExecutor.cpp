@@ -31,7 +31,8 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
                                      TimeoutCb timeoutCb,
                                      MigrationAbortCb abortCallback,
                                      fds_uint32_t uid,
-                                     fds_uint16_t iNum)
+                                     fds_uint16_t iNum,
+                                     fds_uint16_t rcNum)
         : timeoutCb(timeoutCb),
           executorId(executorID),
           migrDoneHandler(doneHandler),
@@ -114,19 +115,6 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
 
-    /**
-     * Take a scoped lock for retryDltTokens map as it's accessed several
-     * times in the method.
-     */
-    fds_mutex::scoped_lock l(retryDltTokensLock);
-
-    /**
-     * Return if no dlt tokens to retry migration for from the same source SM.
-     */
-    if (retryDltTokens.empty()) {
-        return err;
-    }
-
     // Track IO request for startObjectRebalance.
     // If we can successfully start tracking IO request, then proceed with tracking it.
     // If we can't start tracking IO request, then terminate this request.
@@ -203,10 +191,6 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
         ObjectID id(it->key().ToString());
         // send objects that belong to DLT tokens that need to be migrated from src SM
         fds_token_id dltTokId = DLT::getToken(id, bitsPerDltToken);
-        if (retryDltTokens.find(dltTokId) == retryDltTokens.end()) {
-            // ignore this object
-            continue;
-        }
 
         // add object id to the thrift paired set of object ids and ref count
         omd.deserializeFrom(it->value());
@@ -240,7 +224,7 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
                << " to source SM "
                << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
     try {
-        auto asyncRebalSetReq =  svcMgr->getSvcRequestMgr()->newEPSvcRequest(sourceSmUuid.toSvcUuid());
+        auto asyncRebalSetReq =  gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
         asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceFilterSet),
                                perTokenMsgs[smToken]);
         asyncRebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(

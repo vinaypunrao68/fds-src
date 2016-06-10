@@ -314,7 +314,7 @@ SMSvcHandler::initiateFirstRound(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                              asyncHdr,
                                              std::placeholders::_1);
 
-    if (objStorMgr_->objectStore->isUnavailable()) {
+    if (objStorMgr->objectStore->isUnavailable()) {
         // object store failed to validate superblock or pass initial
         // integrity check
         err = ERR_NODE_NOT_ACTIVE;
@@ -327,10 +327,10 @@ SMSvcHandler::initiateFirstRound(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                   << " for token: " << filterObjSet->tokenId << std::hex
                   << " executor: " << filterObjSet->executorID;
         if (fault_enabled) {
-            objStorMgr_->migrationMgr->incrResendFilterSetRetries();
+            objStorMgr->migrationMgr->incrResendFilterSetRetries();
         }
-        if (objStorMgr_->migrationMgr->getResendFilterSetRetries() >
-            objStorMgr_->migrationMgr->getResendFilterSetMaxRetries()) {
+        if (objStorMgr->migrationMgr->getResendFilterSetRetries() >
+            objStorMgr->migrationMgr->getResendFilterSetMaxRetries()) {
             fiu_disable("resend.dlt.token.filter.set");
         }
     } else {

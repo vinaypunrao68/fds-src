@@ -234,6 +234,12 @@ class MigrationMgr : StateProvider{
      */
     Error handleDltClose(const DLT* dlt,
                          const NodeUuid& mySvcUuid);
+    /**
+     * The actual act of cleaning up migration executors, clients,
+     * and resetting the migration states. Used by regular
+     * SM-add path as well as tokensChecker rescue mode
+     */
+    void cleanUpClientsAndExecutors();
 
     fds_bool_t isDltTokenReady(const ObjectID& objId);
 

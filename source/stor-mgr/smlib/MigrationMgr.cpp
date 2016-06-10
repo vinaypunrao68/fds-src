@@ -1255,8 +1255,8 @@ MigrationMgr::cleanUpClientsAndExecutors()
     // for now, to make sure we can handle another migration...
     MigrationState expectState = MIGR_IN_PROGRESS;
     if (!std::atomic_compare_exchange_strong(&migrState, &expectState, MIGR_IDLE)) {
-        LOGNOTIFY << "DLT Close called in non- in progress state " << migrState;
-        return ERR_OK;  // this is ok
+        LOGNOTIFY << "cleanUpClientsAndExecutors() called in non- in progress state " << migrState;
+        return;
     }
 
     // Cancel retryTokenMigration Timer Task since we are done with migration.
@@ -1287,8 +1287,6 @@ MigrationMgr::cleanUpClientsAndExecutors()
      * to start a fresh resync.
      */
     reportMigrationCompleted(false);
-
-    return err;
 }
 
 void
