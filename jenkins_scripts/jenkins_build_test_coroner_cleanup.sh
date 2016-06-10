@@ -1,34 +1,11 @@
-#!/bin/bash -l
-
-. jenkins_scripts/jenkins_system_test.lib
-
-
-# For long system test, disable only DmMigrationFailover
-DISABLED_SYSTEM_TEST_SCENARIO_LIST="DmMigrationFailover ActiveMigration"
-
-if [[ "${1}" == "smoke_test_only" ]]
-then
-    SYSTEM_TEST_SCENARIO_LIST="BuildSmokeTest_onpr"
-elif [[ "${1}" == "jenkins_build_on_master_commit" ]]
-then
-    # ActiveMigration is disabled for master merge because scenarios are not supported with VG enabled
-    # As of 03/03/2016 only ActiveIORestartTest runs for master merges
-    # For master mergess, disable some tests
-    DISABLED_SYSTEM_TEST_SCENARIO_LIST="ExpungeTest RestartDataPersistence ActiveIORndKillTest MultiAMVolOpsTest RestartClusterKillServices BuildSmokeTest_onpr QosTest ActiveMigration DmMigrationFailover SnapshotTest VolumeChecker"
-fi
-
-for test_case in ${DISABLED_SYSTEM_TEST_SCENARIO_LIST}
-do
-    SYSTEM_TEST_SCENARIO_LIST=${SYSTEM_TEST_SCENARIO_LIST/${test_case}/}
-done
-
-error_trap_enabled
-
-auto_locate
+#!/bin/bash -lxe
 
 # Now we are sure to find our "includes".
 . ./jenkins_scripts/message.sh
 . ./jenkins_scripts/core_hunter.sh
+. ./jenkins_scripts/jenkins_functions.sh
+
+auto_locate
 
 error_trap_disabled
 
@@ -55,7 +32,6 @@ cache_report
 
 if [[ "${1}" != "compile_only" ]]
 then
-
     configure_console_access      # Must be complted after the build
 
     run_python_unit_tests
@@ -63,4 +39,5 @@ then
     run_system_test_scenarios
 fi
 
+error_trap_enabled
 run_node_cleanup 0            # Completed successfully, cleanup and exit with a 0

@@ -17,6 +17,7 @@ parser = OptionParser()
 parser.add_option("-r", "--release-build-enable", dest = "release_build_enable", action = "store_true", default = False, help = "Enable build release")
 parser.add_option("-c", "--coverage", dest = "coverage", action = "store_true", default = False, help = "Enable code coverage reporting.")
 parser.add_option("-q", "--quiet", dest = "quiet", action = "store_true", default = False, help = "Hide compilation command-lines.")
+parser.add_option("-e", "--enhanced-debug", dest = "enhancedDebug", action = "store_true", default = False, help = "Builds (much) more debuggable binaries. Cores will be useful.")
 (options, args) = parser.parse_args()
 
 os.environ["JAVA_HOME"] = "/usr/lib/jvm/java-8-oracle"
@@ -33,6 +34,8 @@ if options.coverage:
     cmd += ' COVERAGE=1'
 if not options.quiet:
     cmd += ' VERBOSE=1'
+if options.enhancedDebug:
+    cmd += ' REALLY_NO_OPTIMIZATION=1'
 
 can_build = False
 
