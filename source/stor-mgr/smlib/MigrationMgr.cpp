@@ -23,7 +23,6 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
           targetDltVersion(DLT_VER_INVALID),
           numBitsPerDltToken(0),
           maxRetriesWithDifferentSources(3),
-          maxRetryCyclesWithDifferentSources(4),
           abortError(ERR_OK),
           nextExecutor(migrExecutors),
           migrationTimeoutTimer(new FdsTimer())
@@ -311,7 +310,7 @@ void MigrationMgr::removeTokensFromRetryMap(std::vector<fds_token_id>& tokens)
 {
     fds_mutex::scoped_lock l(migrSmTokenLock);
     for (auto token: tokens) {
-        retryMigrSmTokenSet.erase(token);
+        retryMigrSmTokenMap.erase(token);
     }
 }
 
@@ -414,13 +413,6 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& snapErr,
     } else if (curState == MIGR_IDLE) {
         LOGNOTIFY << "Migration is in idle state, probably was aborted, ignoring";
         err = ERR_SM_TOK_MIGRATION_ABORTED;
-    }
-    if (!err.ok()) {
-        // we are done, if snapshot was taken successfully, release it
-        if (error.ok()) {
-            db->ReleaseSnapshot(options.snapshot);
-        }
-        return;
     }
 
     if (retryMigrFailedTokens) {
@@ -857,7 +849,6 @@ MigrationMgr::migrationExecutorDoneCb(fds_uint64_t executorId,
 
     fds_verify(round > 0);
 
-    // beta2: stop the whole migration process on any error
     if (!error.ok()) {
         retryWithNewSMs(executorId, smToken, dltTokens, round, error);
     }
@@ -995,7 +986,6 @@ MigrationMgr::startNextSMTokenMigration(fds_token_id &smToken,
                 LOGMIGRATE << "ResyncOnRestart: coalesced executors";
                 migrExecutorLock.upgrade();
                 migrExecutors.clear();
-                failedSMsAsSource.clear();
                 LOGMIGRATE << "ResyncOnRestart: cleared executors";
                 // see if clients are also done so we can cleanup
                 checkMigrationDoneAndCleanup(true);
@@ -1281,7 +1271,6 @@ MigrationMgr::cleanUpClientsAndExecutors()
     {
         SCOPEDWRITE(migrExecutorLock);
         migrExecutors.clear();
-        failedSMsAsSource.clear();
     }
 
     {
@@ -1583,14 +1572,13 @@ MigrationMgr::tryAbortingMigration() {
     {
         SCOPEDWRITE(migrExecutorLock);
         migrExecutors.clear();
-        failedSMsAsSource.clear();
     }
     smTokenInProgressMutex.lock();
     smTokenInProgress.clear();
     smTokenInProgressMutex.unlock();
 
     // Clear all retry SM token set.
-    retryMigrSmTokenSet.clear();
+    retryMigrSmTokenMap.clear();
     targetDltVersion = DLT_VER_INVALID;
 
     resyncOnRestart = false;
@@ -1614,10 +1602,10 @@ MigrationMgr::setAbortPendingForExecutors() {
 }
 
 void
-MigrationMgr::dltTokenMigrationFailedCb(fds_token_id &smToken)
+MigrationMgr::dltTokenMigrationFailedCb(fds_token_id &smToken, uint64_t seqId)
 {
     fds_mutex::scoped_lock l(migrSmTokenLock);
-    retryMigrSmTokenSet.insert(smToken);
+    retryMigrSmTokenMap.insert(std::make_pair(smToken, seqId));
 }
 
 fds_uint64_t
@@ -1665,6 +1653,9 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
     NodeUuid sourceSmUuid;   // source SM for executor with id executorId
     MigrationExecutor::shared_ptr migrExecutor;   // executor that failed to sync
     fds_uint32_t uniqueId = getUniqueRestartId();
+    fds_uint16_t curRetryCycleNum;
+    fds_uint16_t curInstanceNum;
+
     {
         SCOPEDREAD(migrExecutorLock);
         for (SrcSmExecutorMap::const_iterator cit = migrExecutors[smToken].cbegin();
@@ -1679,13 +1670,22 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
         }
     }
 
-    if (migrExecutor->getInstanceNum() >= maxRetriesWithDifferentSources) {
+    curRetryCycleNum = migrExecutor->getRetryCycleNum();
+    curInstanceNum = migrExecutor->getInstanceNum();
+
+    if (curInstanceNum >= maxRetriesWithDifferentSources) {
+        if (curInstanceNum % maxRetriesWithDifferentSources == 0) {
+            curRetryCycleNum= 1;
+        }
+    }
+
+    if (curRetryCycleNum > maxRetryCyclesWithDifferentSources) {
         LOGCRITICAL << "Executor " << std::hex << executorId
                     << " failed to sync DLT tokens from source SM "
                     << sourceSmUuid.uuid_get_val()
-                    << " and exhausted number of retries. ";
+                    << " and exhausted number of retries. "
+                    << "curRetryCycleNum :" << curRetryCycleNum;
         migrExecutor->setDoneWithError();
-        migrExecutor->clearRetryDltTokenSet();
         // Retries exhausted, still make token available so that it can serve
         // existing data and accept new writes.
         changeTokenState(smToken, true);
@@ -1697,12 +1697,7 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
 
     // it only makes sense to retry if error happened on source SM side
     // or we could't reach SM
-    if ((error == ERR_SVC_REQUEST_TIMEOUT) ||
-        (error == ERR_SVC_REQUEST_INVOCATION) ||
-        (error == ERR_SM_TOK_MIGRATION_SRC_SVC_REQUEST) ||
-        (error == ERR_SM_TOK_MIGRATION_TIMEOUT) ||
-        /// we get this error from source SM which failed to start
-        (error == ERR_NODE_NOT_ACTIVE)) {
+    if (retryWithNewSmErrors(error)) {
         LOGNOTIFY << "Executor " << std::hex << executorId
                   << " failed to sync DLT tokens from source SM "
                   << sourceSmUuid.uuid_get_val() << std::dec
@@ -1713,7 +1708,7 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
         NodeTokenMap newTokenGroups = dlt->getNewSourceSMs(sourceSmUuid,
                                                            dltTokens,
                                                            migrExecutor->getInstanceNum(),
-                                                           failedSMsAsSource);
+                                                           objStoreMgrUuid);
 
         for (auto const& tokenGroup : newTokenGroups) {
             NodeUuid srcSmUuid(tokenGroup.first);
@@ -1729,21 +1724,24 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
                 LOGMIGRATE << "Source SM " << std::hex << srcSmUuid.uuid_get_val() << std::dec
                            << " DLT token " << dltToken << " SM token " << smToken;
                 SCOPEDWRITE(migrExecutorLock);
-                if ((migrExecutors.count(smToken) == 0) ||
-                    (migrExecutors.count(smToken) > 0 && migrExecutors[smToken].count(srcSmUuid) == 0)) {
-                    fds_uint8_t curInstanceNum = migrExecutor->getInstanceNum() + 1;
-                    MigrationType migrType = MIGR_SM_RESYNC;
-                    migrExecutors[smToken][srcSmUuid] = createMigrationExecutor(srcSmUuid,
-                                                                                objStoreMgrUuid,
-                                                                                numBitsPerDltToken,
-                                                                                smToken,
-                                                                                targetDltVersion,
-                                                                                migrType,
-                                                                                true, //one phase migration
-                                                                                uniqueId,
-                                                                                curInstanceNum);
-                    createdAtLeastOneExecutor = true;
-                }
+
+                curInstanceNum += 1;
+
+                // If all the sources have been tried once, create new executor and retry with
+                // a previously failed source SM until all sources have been tried
+                // maxRetryCyclesWithDifferentSources times.
+
+                MigrationType migrType = MIGR_SM_RESYNC;
+                migrExecutors[smToken][srcSmUuid] = createMigrationExecutor(srcSmUuid,
+                                                                            objStoreMgrUuid,
+                                                                            numBitsPerDltToken,
+                                                                            smToken,
+                                                                            targetDltVersion,
+                                                                            migrType,
+                                                                            true, //one phase migration
+                                                                            uniqueId,
+                                                                            curInstanceNum,
+                                                                            curRetryCycleNum);
 
                 if (migrExecutors[smToken][srcSmUuid]->getUniqueId() == uniqueId) {
                     // tell migration executor that it is responsible for this DLT token
@@ -1757,7 +1755,6 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
     // set "done with error" state for the failed executor, we will clean it
     // when the whole resync/migration is finished
     migrExecutor->setDoneWithError();
-    migrExecutor->clearRetryDltTokenSet();
 
     /**
      * Now we are going to actually start migration only for these newly created
@@ -1766,14 +1763,7 @@ void MigrationMgr::retryWithNewSMs(fds_uint64_t executorId,
      * will be checked when snapshot callback tries to handover the newly taken
      * smToken snapshot to the relevant migration executors.
      */
-    if (createdAtLeastOneExecutor) {
-        startSmTokenMigration(smToken, uniqueId);
-    } else {
-        LOGCRITICAL << "Executor " << std::hex << executorId
-                    << " failed to sync DLT tokens from source SM "
-                    << sourceSmUuid.uuid_get_val()
-                    << " and couldn't find any other SMs to sync from. ";
-    }
+    startSmTokenMigration(smToken, uniqueId);
 }
 
 void
