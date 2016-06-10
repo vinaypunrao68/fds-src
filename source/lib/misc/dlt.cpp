@@ -284,7 +284,7 @@ void DLT::getSourceForAllNodeTokens(const NodeUuid &nodeUuid,
 NodeTokenMap DLT::getNewSourceSMs(const NodeUuid&  curSrcSM,
                                   const std::set<fds_token_id>& dltTokens,
                                   const uint8_t& retryCount,
-                                  std::map<NodeUuid, bool>& failedSMs) const {
+                                  const NodeUuid&  curDestSM) const {
     NodeTokenMap newTokenGroups;
     /**
      * Go over the table column for the token in DLT table and figure
@@ -297,9 +297,10 @@ NodeTokenMap DLT::getNewSourceSMs(const NodeUuid&  curSrcSM,
         uint8_t curSrcIdx = getIndex(*tokenIter, curSrcSM);
         uint8_t newSrcIdx = (curSrcIdx + retryCount) % getDepth();
 
-        while (!foundSrcSM && newSrcIdx != curSrcIdx) {
+        while (!foundSrcSM) {
             NodeUuid newSrcSmId = getNode(*tokenIter, newSrcIdx);
-            if (failedSMs.find(newSrcSmId) == failedSMs.end()) {
+            if (newSrcIdx != curSrcIdx && newSrcSmId != curDestSM) {
+                LOGMIGRATE << "New sm found";
                 // Found a healthy source for migration of this dlt token.
                 newTokenGroups[newSrcSmId].push_back(*tokenIter);
                 foundSrcSM = true;
@@ -313,6 +314,7 @@ NodeTokenMap DLT::getNewSourceSMs(const NodeUuid&  curSrcSM,
          * as failed.
          */
         if (!foundSrcSM) {
+            LOGMIGRATE << "New SM not found";
             newTokenGroups[INVALID_RESOURCE_UUID].push_back(*tokenIter);
         }
     }

@@ -530,6 +530,7 @@ MigrationTrackIOReqs::finishTrackIOReqs()
         LOGMIGRATE << "Migration IO Finish Notify";
         trackReqsCondVar.notify_all();
     }
+    trackingStarted = false;
 }
 
 void

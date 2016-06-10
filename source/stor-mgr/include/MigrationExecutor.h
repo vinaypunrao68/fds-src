@@ -31,7 +31,7 @@ typedef std::function<void (fds_uint64_t executorId,
                             fds_uint32_t round,
                             const Error& error)> MigrationExecutorDoneHandler;
 
-typedef std::function<void (fds_token_id &dltToken)> MigrationDltFailedCb;
+typedef std::function<void (fds_token_id &dltToken, uint64_t seqId)> MigrationDltFailedCb;
 
 typedef std::function<void(fds_uint64_t,
                            fds_uint32_t,
@@ -59,7 +59,8 @@ class MigrationExecutor {
                       TimeoutCb timeoutCb,
                       MigrationAbortCb abortMigrationCb,
                       fds_uint32_t uniqId = 0,
-                      fds_uint16_t instanceNum = 1);
+                      fds_uint16_t instanceNum = 1,
+                      fds_uint16_t retryCycleNum = 1);
     ~MigrationExecutor();
 
     typedef std::unique_ptr<MigrationExecutor> unique_ptr;
@@ -86,6 +87,9 @@ class MigrationExecutor {
     }
     inline fds_uint16_t getInstanceNum() const {
         return instanceNum;
+    }
+    inline fds_uint16_t getRetryCycleNum() const {
+        return retryCycleNum;
     }
     inline fds_uint32_t getUniqueId() const {
         return uniqueId;
@@ -242,6 +246,14 @@ class MigrationExecutor {
      */
     fds_uint16_t instanceNum;
 
+    /**
+     * For a given SM token, number of times migration is tried
+     * with different sources. In each retry cycle, retry with same
+     * source 2 times and retry with (DLT column depth - 1)
+     * different sources.
+     */
+    fds_uint16_t retryCycleNum;
+
     /// state of this migration executor
     std::atomic<MigrationExecutorState> state;
 
@@ -306,9 +318,9 @@ class MigrationExecutor {
      * because the source was not ready.
      * And the lock protecting the DLT tokens map
      */
-    std::unordered_map<fds_token_id, uint64_t> retryDltTokens;
-    std::unordered_map<fds_token_id, uint32_t> dltTokRetryCount;
-    fds_mutex retryDltTokensLock;
+    //std::unordered_map<fds_token_id, uint64_t> retryDltTokens;
+    std::unordered_map<fds_token_id, uint32_t> smTokRetryCount;
+    fds_mutex retrySmTokensLock;
 
     /**
      * Maintain messages from the source SM, so we don't lose it.  Each async message

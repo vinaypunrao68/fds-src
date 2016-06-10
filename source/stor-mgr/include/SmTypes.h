@@ -29,7 +29,7 @@ typedef std::multiset<fds_token_id> SmTokenMultiSet;
 
 /// Migration types
 #define SM_INVALID_EXECUTOR_ID     0
-#define SM_MAX_NUM_RETRIES_SAME_SM 4
+#define SM_MAX_NUM_RETRIES_SAME_SM 2
 
 typedef fds_uint16_t DiskId;
 typedef std::set<fds_uint16_t> DiskIdSet;

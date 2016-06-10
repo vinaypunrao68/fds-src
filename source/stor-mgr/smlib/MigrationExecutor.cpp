@@ -46,13 +46,13 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
           seqNumDeltaSet(timeoutTimer, timeoutDuration, std::bind(&MigrationExecutor::handleTimeout, this), executorId),
           abortMigrationCb(abortCallback),
           uniqueId(uid),
-          instanceNum(iNum)
+          instanceNum(iNum),
+          retryCycleNum(rcNum)
 {
     state = ATOMIC_VAR_INIT(ME_INIT);
     abortPending = false;
     dltTokens.clear();
-    retryDltTokens.clear();
-    dltTokRetryCount.clear();
+    smTokRetryCount.clear();
 }
 
 MigrationExecutor::~MigrationExecutor()
@@ -233,13 +233,12 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
     }
     delete it;
 
-    for (auto &dltTok : retryDltTokens) {
-        LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
-                   << " sending rebalance initial set for DLT token "
-                   << dltTok.first << " set size "
-                   << perTokenMsgs[dltTok.first]->objectsToFilter.size()
-                   << " to source SM "
-                   << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+    LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
+               << " sending rebalance initial set for sm token "
+               << smToken << " set size "
+               << perTokenMsgs[smToken]->objectsToFilter.size()
+               << " to source SM "
+               << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
     try {
         auto asyncRebalSetReq =  svcMgr->getSvcRequestMgr()->newEPSvcRequest(sourceSmUuid.toSvcUuid());
         asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceFilterSet),
@@ -575,29 +574,29 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
                 {
                     uint32_t numRetries = 0;
                     {
-                        fds_mutex::scoped_lock l(retryDltTokensLock);
-                        if (dltTokRetryCount.find(dltToken) != dltTokRetryCount.end()) {
-                            numRetries = dltTokRetryCount[dltToken];
+                        fds_mutex::scoped_lock l(retrySmTokensLock);
+                        if (smTokRetryCount.find(dltToken) != smTokRetryCount.end()) {
+                            numRetries = smTokRetryCount[dltToken];
                         }
                     }
                     LOGMIGRATE << "CtrlObjectRebalanceFilterSet declined for dlt token " << dltToken
                                << std::hex << " source SM " << sourceSmUuid
                                << std::dec << " not ready/ not up"
-                               << " retry num: " << numRetries << " max: " << SM_MAX_NUM_RETRIES_SAME_SM;;
+                               << " retry num: " << numRetries << " max: " << SM_MAX_NUM_RETRIES_SAME_SM;
                     // we are doing read/modify/write of number of retries under two locks
                     // which means that we may read same value two times and retry more
                     // times then max, but that's ok, we don't need to be precise here
                     // we just need to make sure we are not retrying forever
                     if (numRetries < SM_MAX_NUM_RETRIES_SAME_SM) {
-                        migrFailedRetryHandler(smTokenId);
+                        migrFailedRetryHandler(smTokenId, seqId);
                         {
-                            fds_mutex::scoped_lock l(retryDltTokensLock);
-                            retryDltTokens[dltToken] = seqId;
-                            dltTokRetryCount[dltToken] = numRetries + 1;
-                            break;
+                            fds_mutex::scoped_lock l(retrySmTokensLock);
+                            smTokRetryCount[dltToken] = numRetries + 1;
                         }
+                    } else {
+                        handleMigrationRoundDone(error);
                     }
-                    // else fall through
+                    break;
                 }
             default:
                 LOGERROR << "CtrlObjectRebalanceFilterSet for token " << dltToken
@@ -1043,13 +1042,6 @@ MigrationExecutor::waitForIOReqsCompletion(fds_token_id tok, NodeUuid nodeUuid)
 void
 MigrationExecutor::abortMigration(const Error &err) {
     setDoneWithError();
-}
-
-void
-MigrationExecutor::clearRetryDltTokenSet()
-{
-    fds_mutex::scoped_lock l(retryDltTokensLock);
-    retryDltTokens.clear();
 }
 
 }  // namespace fds

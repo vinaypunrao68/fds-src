@@ -56,7 +56,7 @@ class MigrationMgr : StateProvider{
     /// executorId -> migrationClient
     typedef std::unordered_map<fds_uint64_t, MigrationClient::shared_ptr> MigrClientMap;
 
-    typedef std::set<fds_token_id> RetrySmTokenSet;
+    typedef std::unordered_map<fds_token_id, uint64_t> RetrySmTokenMap;
     /**
      * Matches OM state, just for sanity checks that we are getting
      * messages from OM/SMs in the correct state...
@@ -291,7 +291,22 @@ class MigrationMgr : StateProvider{
      * Check if all the Migration Executors for a given sm token
      * are is error state.
      */
-     bool allExecutorsInErrorState(const fds_token_id &sm_token);
+    bool allExecutorsInErrorState(const fds_token_id &sm_token);
+
+    /**
+     * These values are used by the fault point resend.dlt.token.filter.set
+     */
+    inline uint16_t getResendFilterSetRetries() {
+        return resendFilterSetRetries;
+    }
+
+    inline uint16_t getResendFilterSetMaxRetries() {
+        return resendFilterSetMaxRetries;
+    }
+
+    inline void incrResendFilterSetRetries() {
+        resendFilterSetRetries++;
+    }
 
   private:
 
@@ -306,7 +321,8 @@ class MigrationMgr : StateProvider{
                                                          MigrationType& migrationType,
                                                          bool onePhaseMigration,
                                                          fds_uint32_t uniqueId = 0,
-                                                         fds_uint16_t instanceNum = 1);
+                                                         fds_uint16_t instanceNum = 1,
+                                                         fds_uint16_t retryCycleNum = 1);
     /**
      * Callback function from the metadata snapshot request for a particular SM token
      */
@@ -349,7 +365,7 @@ class MigrationMgr : StateProvider{
      * This callback basically inserts the dlt token to the
      * retry migration set.
      */
-    void dltTokenMigrationFailedCb(fds_token_id &smToken);
+    void dltTokenMigrationFailedCb(fds_token_id &smToken, uint64_t sed);
 
     void checkAndRetryMigration();
 
@@ -490,6 +506,9 @@ class MigrationMgr : StateProvider{
     /// max number of times we will retry to sync DLT token
     fds_uint8_t maxRetriesWithDifferentSources;
 
+    /// max number of retry cycles with all the sources;
+    fds_uint8_t maxRetryCyclesWithDifferentSources;
+
     /// callback to svc handler to ack back to OM for Start Migration
     OmStartMigrationCbType omStartMigrCb = [](const Error&){};
 
@@ -586,9 +605,10 @@ class MigrationMgr : StateProvider{
 
     /**
      * SM tokens for which token migration of atleast 1 dlt token failed
-     * because the source SM was not ready.
+     * because the source SM was not ready. Retry with same source or
+     * a different source.
      */
-     RetrySmTokenSet retryMigrSmTokenSet;
+    RetrySmTokenMap retryMigrSmTokenMap;
 
     /**
      * Pending resync

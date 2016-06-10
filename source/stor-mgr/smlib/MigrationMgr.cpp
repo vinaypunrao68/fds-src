@@ -23,6 +23,7 @@ MigrationMgr::MigrationMgr(SmIoReqHandler *dataStore)
           targetDltVersion(DLT_VER_INVALID),
           numBitsPerDltToken(0),
           maxRetriesWithDifferentSources(3),
+          maxRetryCyclesWithDifferentSources(4),
           abortError(ERR_OK),
           nextExecutor(migrExecutors),
           migrationTimeoutTimer(new FdsTimer())
@@ -171,7 +172,6 @@ MigrationMgr::startMigration(const fpi::CtrlNotifySMStartMigrationPtr& migration
                        << " DLT token " << dltTok << " SM token " << smTok;
             // if we don't know about this SM token and source SM, create migration executor
             SCOPEDWRITE(migrExecutorLock);
-            failedSMsAsSource[mySvcUuid] = false;
             if ((migrExecutors.count(smTok) == 0) ||
                 (migrExecutors.count(smTok) > 0 && migrExecutors[smTok].count(srcSmUuid) == 0)) {
                 migrExecutors[smTok][srcSmUuid] = createMigrationExecutor(srcSmUuid,
@@ -229,14 +229,17 @@ MigrationMgr::createMigrationExecutor(NodeUuid& srcSmUuid,
                                       MigrationType& migrationType,
                                       bool onePhaseMigration,
                                       fds_uint32_t uniqueId,
-                                      fds_uint16_t instanceNum) {
+                                      fds_uint16_t instanceNum,
+                                      fds_uint16_t retryCycleNum) {
     fds_uint32_t localExecId = std::atomic_fetch_add(&nextLocalExecutorId,
                                                      (fds_uint32_t)instanceNum);
     fds_uint64_t globalExecId = getExecutorId(localExecId, mySvcUuid);
     LOGNOTIFY << "Creating executor: " << std::hex << globalExecId
               << " for sm token: " << std::dec << smTok
               << std::hex << " source sm(uuid): "
-              << srcSmUuid.uuid_get_val() << std::dec;
+              << srcSmUuid.uuid_get_val() << std::dec
+              << srcSmUuid.uuid_get_val() << std::dec << " instanceNum: "
+              << instanceNum << " retryCycleNum: " << retryCycleNum;
     return MigrationExecutor::unique_ptr(
             new MigrationExecutor(smReqHandler,
                                   bitsPerDltToken,
@@ -245,7 +248,8 @@ MigrationMgr::createMigrationExecutor(NodeUuid& srcSmUuid,
                                   migrationType, onePhaseMigration,
                                   std::bind(&MigrationMgr::dltTokenMigrationFailedCb,
                                             this,
-                                            std::placeholders::_1),
+                                            std::placeholders::_1,
+                                            std::placeholders::_2),
                                   std::bind(&MigrationMgr::migrationExecutorDoneCb,
                                             this,
                                             std::placeholders::_1,
@@ -261,7 +265,7 @@ MigrationMgr::createMigrationExecutor(NodeUuid& srcSmUuid,
                                             this,
                                             std::placeholders::_1,
                                             std::placeholders::_2),
-                                  uniqueId, instanceNum));
+                                  uniqueId, instanceNum, retryCycleNum));
 }
 
 void
