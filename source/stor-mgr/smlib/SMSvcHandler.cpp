@@ -354,6 +354,9 @@ SMSvcHandler::initiateFirstRound(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
             LOGWARN << "err:" << err << " unable to enqueue message";
         }
     }
+    if (!err.ok()) {
+        resp_cb(err);
+    }
 }
 
 void
@@ -361,6 +364,7 @@ SMSvcHandler::initiateFirstRoundCb(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                                    const Error &err) {
     // respond with error code
     asyncHdr->msg_code = err.GetErrno();
+    LOGDEBUG << "In initiateFirstRoundCb: error: " << err;
     sendAsyncResp(*asyncHdr, FDSP_MSG_TYPEID(fpi::EmptyMsg), fpi::EmptyMsg());
 }
 
@@ -405,6 +409,7 @@ SMSvcHandler::initiateSecondRound(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
     Error errEnq = objStorMgr->enqueueMsg(FdsSysTaskQueueId, genericRequest);
     if (!errEnq.ok()) {
         LOGWARN << "err:" << err << " unable to enqueue message";
+        initiateSecondRoundCb(asyncHdr, errEnq);
     }
 }
 
