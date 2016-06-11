@@ -11,6 +11,7 @@ ExecStart=/opt/fds/formation_one/bin/platformd --fds-root=${FDS_ROOT} --foregrou
 ExecReload=/bin/kill -USR2 $MAINPID
 Restart=always
 LimitNOFILE=400000
+LimitCORE=infinity
 
 [Install]
 WantedBy=multi-user.target
