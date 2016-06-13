@@ -310,9 +310,9 @@ SMSvcHandler::initiateFirstRound(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
                   LOGNOTIFY << "resend.dlt.token.filter.set fault point enabled"; \
                   fault_enabled = true;});
     auto resp_cb = std::bind(&SMSvcHandler::initiateFirstRoundCb,
-                                             this,
-                                             asyncHdr,
-                                             std::placeholders::_1);
+                             this,
+                             asyncHdr,
+                             std::placeholders::_1);
 
     if (objStorMgr->objectStore->isUnavailable()) {
         // object store failed to validate superblock or pass initial
@@ -335,10 +335,6 @@ SMSvcHandler::initiateFirstRound(boost::shared_ptr<fpi::AsyncHdr>& asyncHdr,
         }
     } else {
         fds_verify(dlt != NULL);
-        auto resp_cb = std::bind(&SMSvcHandler::initiateFirstRoundCb,
-                                 this,
-                                 asyncHdr,
-                                 std::placeholders::_1);
         auto lambda = [=] () {
             objStorMgr->migrationMgr->initiateClientForMigration(filterObjSet,
                                                                   asyncHdr->msg_src_uuid,

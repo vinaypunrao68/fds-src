@@ -100,9 +100,9 @@ class SMDebugContext(Context):
     @clidebugcmd
     @arg('--full', help= "show full info including available/unavailable tokens", default=False)
     @arg('smuuid', help= "Uuid of the SM to send the command to", type=str)
-    def tokenstate(self, smuuid, full=False):
+    def migrationstate(self, smuuid, full=False):
         """
-        Check the state of SM tokens (Available or Unavailable) in migration manager
+        SM Migration related information
         """
         for uuid in self.config.getServiceApi().getServiceIds(smuuid):
             self.printServiceHeader(uuid)
@@ -128,8 +128,6 @@ class SMDebugContext(Context):
 
                     tbl = [('dlt_version', state["dlt_version"]),
                            ('owned', state["owned"]),
-                           ('was_src_at', state["was_src_at"]),
-                           ('was_dst_at', state["was_dst_at"]),
                            ('available', availableCnt),
                            ('unavailable', unavailableCnt),
                            ('rebalance_inprog', rebalance),
