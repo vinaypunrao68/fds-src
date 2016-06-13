@@ -622,14 +622,6 @@ class MigrationMgr : StateProvider{
     std::atomic<bool> isResyncPending = {false};
     ResyncDoneOrPendingCb cachedResyncDoneOrPendingCb = [](fds_bool_t, fds_bool_t){};
 
-    /**
-     * Source SMs which are marked as failed for some executors during migration.
-     * We also keep uuid of this SM (destination) in the list with flag false, so that
-     * we don't pick this SM as a source as well.
-     * Protected by migrExecutorLock
-     */
-    std::map<NodeUuid, bool> failedSMsAsSource;
-
     // For synchronization between the timer thread and token migration thread.
      fds_mutex migrSmTokenLock;
 
