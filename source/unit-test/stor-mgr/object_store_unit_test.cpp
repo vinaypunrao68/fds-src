@@ -663,10 +663,11 @@ TEST_F(SmObjectStoreTest, findNewSrcSMRetryTest) {
     unsigned curSrcSm = 1;
     unsigned newSrcSm = 2; // expected source SM id to be assinged for resync
     unsigned retryCount = 1;
+    unsigned destSm = 10000;
     NodeTokenMap nodeGroups = dlt->getNewSourceSMs(NodeUuid(curSrcSm),
                                                    dltTokens,
                                                    retryCount,
-                                                   failedSMs);
+                                                   NodeUuid(destSm));
     for (auto obj : nodeGroups) {
          ASSERT_EQ(obj.first, NodeUuid(newSrcSm));
     }
@@ -693,10 +694,11 @@ TEST_F(SmObjectStoreTest, findNewSrcSMRetryTwoTest) {
     unsigned curSrcSm = 3;
     unsigned newSrcSm = 2; // expected source SM id to be assinged for resync
     unsigned retryCount = 3;
+    unsigned destSm = 10000;
     NodeTokenMap nodeGroups = dlt->getNewSourceSMs(NodeUuid(curSrcSm),
                                                    dltTokens,
                                                    retryCount,
-                                                   failedSMs);
+                                                   NodeUuid(destSm));
     for (auto obj : nodeGroups) {
          ASSERT_EQ(obj.first, NodeUuid(newSrcSm));
     }
@@ -725,10 +727,11 @@ TEST_F(SmObjectStoreTest, findNewSrcSMRetryFailedSrcTest) {
     unsigned curSrcSm = 3;
     unsigned newSrcSm = 2; // expected source SM id to be assinged for resync
     unsigned retryCount = 1;
+    unsigned destSm = 10000;
     NodeTokenMap nodeGroups = dlt->getNewSourceSMs(NodeUuid(curSrcSm),
                                                    dltTokens,
                                                    retryCount,
-                                                   failedSMs);
+                                                   NodeUuid(destSm));
     for (auto obj : nodeGroups) {
          ASSERT_EQ(obj.first, NodeUuid(newSrcSm));
     }
@@ -758,10 +761,11 @@ TEST_F(SmObjectStoreTest, findNewSrcSMAllInvalidTest) {
 
     unsigned curSrcSm = 2;
     unsigned retryCount = 1;
+    unsigned destSm = 10000;
     NodeTokenMap nodeGroups = dlt->getNewSourceSMs(NodeUuid(curSrcSm),
                                                    dltTokens,
                                                    retryCount,
-                                                   failedSMs);
+                                                   NodeUuid(destSm));
     for (auto obj : nodeGroups) {
          ASSERT_EQ(obj.first, INVALID_RESOURCE_UUID);
     }
