@@ -1578,26 +1578,25 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
     // directly to domain up state if no SMs were running...
     NodeUuidSet sm_services, deployed_sm_services;
     NodeUuidSet dm_services, deployed_dm_services;
-    if (configDB) {
+    if (configDB)
+    {
         NodeUuidSet nodes;  // actual nodes (platform)
         configDB->getNodeIds(nodes);
 
         // get set of SMs and DMs that were running on those nodes
         NodeUuidSet::const_iterator cit;
-        for (cit = nodes.cbegin(); cit != nodes.cend(); ++cit) {
+        for (cit = nodes.cbegin(); cit != nodes.cend(); ++cit)
+        {
             NodeServices services;
-            if (configDB->getNodeServices(*cit, services)) {
-                if (services.sm.uuid_get_val() != 0) {
+            if (configDB->getNodeServices(*cit, services))
+            {
+                if (services.sm.uuid_get_val() != 0)
+                {
                     sm_services.insert(services.sm);
-                    LOGDEBUG << "Found SM on node "
-                             << std::hex << (*cit).uuid_get_val() << " (SM "
-                             << services.sm.uuid_get_val() << std::dec << ")";
                 }
-                if (services.dm.uuid_get_val() != 0) {
+                if (services.dm.uuid_get_val() != 0)
+                {
                     dm_services.insert(services.dm);
-                    LOGDEBUG << "Found DM on node "
-                             << std::hex << (*cit).uuid_get_val() << " (DM "
-                             << services.dm.uuid_get_val() << std::dec << ")";
                 }
             }
         }
@@ -1622,32 +1621,40 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
 
             // build the list of sm and dm services that we found that
             // are not in 'discovered' state
-            for ( const auto svc : svcinfos ) {
-                if ( svc.svc_status != fpi::SVC_STATUS_DISCOVERED ) {
-
+            for ( const auto svc : svcinfos )
+            {
+                if ( svc.svc_status != fpi::SVC_STATUS_DISCOVERED )
+                {
                     if ( svc.svc_status != fpi::SVC_STATUS_REMOVED )
                     {
                         NodeUuid svcUuid;
-                        if ( isStorageMgrSvc( svc ) ) {
+                        if ( isStorageMgrSvc( svc ) )
+                        {
                             // SM in not 'discovered' state
                             svcUuid.uuid_set_type(svc.svc_id.svc_uuid.svc_uuid,
                                                   fpi::FDSP_STOR_MGR);
-                            if (sm_services.count(svcUuid)) {
-                                deployed_sm_services.insert(svcUuid);
-                                LOGDEBUG << "SM service "
-                                         << std::hex << svcUuid.uuid_get_val() << std::dec
-                                         << " was deployed";
+                            deployed_sm_services.insert(svcUuid);
+
+                            if (sm_services.count(svcUuid) == 0)
+                            {
+                                populateNodeServices( true, false, false, svc,
+                                                      svcUuid.uuid_get_base_val());
+                                sm_services.insert(svcUuid);
                             }
                         } else if ( isDataMgrSvc( svc ) ) {
                             // DM in not 'discovered' state
                             svcUuid.uuid_set_type(svc.svc_id.svc_uuid.svc_uuid,
                                                   fpi::FDSP_DATA_MGR);
-                            if (dm_services.count(svcUuid)) {
-                                deployed_dm_services.insert(svcUuid);
-                                LOGDEBUG << "DM service "
-                                         << std::hex << svcUuid.uuid_get_val() << std::dec
-                                         << " was deployed";
+
+                            deployed_dm_services.insert(svcUuid);
+
+                            if (dm_services.count(svcUuid) == 0)
+                            {
+                                populateNodeServices( false, true, false, svc,
+                                                      svcUuid.uuid_get_base_val());
+                                dm_services.insert(svcUuid);
                             }
+
                         }
                     } else {
                             LOGDEBUG << "Adding to the remove list";
@@ -1655,6 +1662,31 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
                         }
                 }
             }
+        }
+
+
+        LOGNOTIFY << "Persisted SM node services:";
+        for (auto smNodeSvc : sm_services)
+        {
+            LOGNORMAL << "  " << std::hex << smNodeSvc.uuid_get_val() << std::dec;
+        }
+
+        LOGNOTIFY << "SM svcMap services:";
+        for (auto sm : deployed_sm_services)
+        {
+            LOGNORMAL << "  " << std::hex << sm.uuid_get_val() << std::dec;
+        }
+
+        LOGNOTIFY << "Persisted DM node services:";
+        for (auto dmNodeSvc : dm_services)
+        {
+            LOGNORMAL << "  " << std::hex << dmNodeSvc.uuid_get_val() << std::dec;
+        }
+
+        LOGNOTIFY << "DM svcMap services:";
+        for (auto dm : deployed_sm_services)
+        {
+            LOGNORMAL << "  " << std::hex << dm.uuid_get_val() << std::dec;
         }
 	
         // load DLT (and save as not committed) from config DB and
@@ -1677,8 +1709,19 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         }
     }
 
+    std::vector<fpi::SvcInfo> pmSvcs;
+    if ( isAnyPlatformSvcActive( &pmSvcs ) )
+    {
+        LOGNOTIFY << "OM Restart, Found "
+                  << pmSvcs.size() << " PMs. ";
+        // This should contain currently just the OM. Broadcast here first
+        // so that any PMs trying to send heartbeats to the OM will succeed
+        om_locDomain->om_bcast_svcmap();
+
+        spoofRegisterSvcs(pmSvcs);
+    }
+
     if (( sm_services.size() > 0) || (dm_services.size() > 0)) {
-        std::vector<fpi::SvcInfo> pmSvcs;
         std::vector<fpi::SvcInfo> amSvcs;
         std::vector<fpi::SvcInfo> smSvcs;
         std::vector<fpi::SvcInfo> dmSvcs;
@@ -1710,30 +1753,26 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         // At the end of error handling we will explicitly clear "next" version
         // and newDlt out as a part of clearSMAbortParams()
         bool unsetTarget = !(OmExtUtilApi::getInstance()->isSMAbortAfterRestartTrue());
-        bool committed = dp->commitDlt( unsetTarget );
-
-        LOGNOTIFY << "OM has persisted "
-                  << deployed_sm_services.size() << " SM nodes, committedDlt? " << committed;
+        bool committedDlt = dp->commitDlt( unsetTarget );
 
         // Same reasoning as above
         unsetTarget = !(OmExtUtilApi::getInstance()->isDMAbortAfterRestartTrue());
         vp->commitDMT( unsetTarget );
 
-        if ( isAnyNonePlatformSvcActive( &pmSvcs, &amSvcs, &smSvcs, &dmSvcs ) )
+        bool committedDmt = vp->hasCommittedDMT();
+        LOGNOTIFY << "OM has committedDlt? " << committedDlt << " version:"
+                  << dp->getCommitedDltVersion()
+                  << " has committedDmt?" << committedDmt << " version:"
+                  << vp->getCommittedDMTVersion();
+
+        if ( isAnyNonPlatformSvcActive(  &amSvcs, &smSvcs, &dmSvcs ) )
         {
             LOGNOTIFY << "OM Restart, Found ( returned ) "
-                      << pmSvcs.size() << " PMs. "
                       << amSvcs.size() << " AMs. "
                       << dmSvcs.size() << " DMs. "
                       << smSvcs.size() << " SMs.";
 
-            // This should contain currently just the OM. Broadcast here first
-            // so that any PMs trying to send heartbeats to the OM will succeed
-            om_locDomain->om_bcast_svcmap();
-
             fds::spoofPathActive = true; // This flag will get reset once domain comes up
-
-            spoofRegisterSvcs(pmSvcs);
 
             handlePendingSvcRemoval(removedSvcs);
 
@@ -1839,6 +1878,58 @@ OM_NodeDomainMod::om_load_state(kvstore::ConfigDB* _configDB)
         dmClusterPresent_ = true;
     }
     return err;
+}
+
+/*
+ * Populate the svcInfo for one of the services (sm, dm or am) in the
+ * persisted node services list
+ * The function currently only updates one service at a time. The bool
+ * flags indicate which svc svcInfo has been passed in. If this function
+ * is to be used to update multiple svc types at once, it probably needs
+ * more parameters and has to be modified.
+ */
+
+void OM_NodeDomainMod::populateNodeServices( bool sm, bool dm, bool am,
+                                             fpi::SvcInfo svcInfo,
+                                             uint64_t nodeUuid )
+{
+    NodeServices services;
+    NodeUuid uuid(nodeUuid);
+    if (configDB && configDB->getNodeServices(uuid, services))
+    {
+        if (sm) {
+            int64_t svcId = svcInfo.svc_id.svc_uuid.svc_uuid;
+            LOGNOTIFY << "Updating SM node service information uuid:"
+                      << std::hex << svcId << std::dec;
+
+            NodeUuid smUuid(svcId);
+            services.sm = smUuid;
+
+        } else if (dm) {
+            int64_t svcId = svcInfo.svc_id.svc_uuid.svc_uuid;
+            LOGNOTIFY << "Updating DM node service information uuid:"
+                      << std::hex << svcId << std::dec;
+
+            NodeUuid dmUuid(svcId);
+            services.dm = dmUuid;
+        } else if (am) {
+            int64_t svcId = svcInfo.svc_id.svc_uuid.svc_uuid;
+            LOGNOTIFY << "Updating AM node service information uuid:"
+                      << std::hex << svcId << std::dec;
+            NodeUuid amUuid(svcId);
+            services.am = amUuid;
+        }
+
+        configDB->setNodeServices(uuid, services);
+
+        services.reset();
+        configDB->getNodeServices(uuid, services);
+
+        LOGDEBUG << "SM:" << std::hex << services.sm.uuid_get_val() << std::dec;
+        LOGDEBUG << "DM:" << std::hex << services.dm.uuid_get_val() << std::dec;
+        LOGDEBUG << "AM:" << std::hex << services.am.uuid_get_val() << std::dec;
+
+    }
 }
 
 Error
@@ -2652,77 +2743,88 @@ void OM_NodeDomainMod::isAnySvcPendingRemoval(std::vector<fpi::SvcInfo>* removed
     }
 }
 
-bool OM_NodeDomainMod::isAnyNonePlatformSvcActive( 
-    std::vector<fpi::SvcInfo>* pmSvcs,
+bool OM_NodeDomainMod::isAnyPlatformSvcActive(std::vector<fpi::SvcInfo>* pmSvcs)
+{
+    if (configDB == nullptr) {
+        LOGWARN << "Invalid configDB object!";
+        return false;
+    }
+    std::vector<fpi::SvcInfo> svcs;
+    configDB->getSvcMap( svcs );
+
+    for ( const auto svc : svcs )
+    {
+        if ( isPlatformSvc (svc) )
+        {
+            if ( svc.svc_status == fpi::SVC_STATUS_ACTIVE ||
+                 svc.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED ||
+                 svc.svc_status == fpi::SVC_STATUS_DISCOVERED ||
+                 svc.svc_status == fpi::SVC_STATUS_STOPPING ||
+                 svc.svc_status == fpi::SVC_STATUS_INACTIVE_STOPPED ||
+                 svc.svc_status == fpi::SVC_STATUS_STANDBY )
+            {
+                pmSvcs->push_back(svc);
+            } else {
+                // Svc states: ADDED, STARTED, INVALID, REMOVED not valid
+                // for PM and will not be handled here
+                LOGWARN << "PM svc:" << std::hex << svc.svc_id.svc_uuid.svc_uuid
+                        << std::dec << " in unexpected state:"
+                        << OmExtUtilApi::printSvcStatus(svc.svc_status)
+                        << " will NOT spoof!";
+            }
+        }
+    }
+
+    return (pmSvcs->size() > 0 ? true : false);
+
+}
+
+bool OM_NodeDomainMod::isAnyNonPlatformSvcActive(
     std::vector<fpi::SvcInfo>* amSvcs,
     std::vector<fpi::SvcInfo>* smSvcs,
     std::vector<fpi::SvcInfo>* dmSvcs )
 {
+    if (configDB == nullptr) {
+        LOGWARN << "Invalid configDB object!";
+        return false;
+    }
+
     std::vector<fpi::SvcInfo> svcs;
     configDB->getSvcMap( svcs );
     
-    std::vector<fpi::SvcInfo> entries;
-    MODULEPROVIDER()->getSvcMgr()->getSvcMap( entries );
-    LOGDEBUG << "SERVICE MAP SIZE:: " << entries.size();
-    
-    LOGDEBUG << "OM Restart, Found " << svcs.size() << " persisted services.";
-    if ( svcs.size() > 0 )
+    std::vector<fpi::SvcInfo> removedSvcs;
+    isAnySvcPendingRemoval(&removedSvcs);
+
+    for ( const auto svc : svcs )
     {
-
-        std::vector<fpi::SvcInfo> removedSvcs;
-        isAnySvcPendingRemoval(&removedSvcs);
-
-        for ( const auto svc : svcs )
+        if (isPlatformSvc(svc))
         {
-            // The service statuses that must be spoofed must be
-            // the same as those that are allowed to be started in
-            // om_activate_known_services. Otherwise we risk not
-            // cleaning up the cluster map and causing a DLT/DMT propagation
-            if ( svc.svc_status == fpi::SVC_STATUS_ACTIVE ||
-                 svc.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED ||
-                 svc.svc_status == fpi::SVC_STATUS_STARTED )
+            continue;
+        }
+        // The service statuses that must be spoofed must be
+        // the same as those that are allowed to be started in
+        // om_activate_known_services. Otherwise we risk not
+        // cleaning up the cluster map and causing a DLT/DMT propagation
+        if ( svc.svc_status == fpi::SVC_STATUS_ACTIVE ||
+             svc.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED ||
+             svc.svc_status == fpi::SVC_STATUS_STARTED )
+        {
+            if ( isStorageMgrSvc( svc ) )
             {
-                if ( isStorageMgrSvc( svc ) )
-                {
-                    smSvcs->push_back( svc );
-                }
-                else if ( isDataMgrSvc( svc ) )
-                {
-                    dmSvcs->push_back( svc );                
-                }
-                else if ( isAccessMgrSvc( svc ) )
-                {
-                    amSvcs->push_back( svc );                
-                }
+                smSvcs->push_back( svc );
             }
-
-            if ( isPlatformSvc (svc) )
+            else if ( isDataMgrSvc( svc ) )
             {
-                if ( svc.svc_status == fpi::SVC_STATUS_ACTIVE ||
-                     svc.svc_status == fpi::SVC_STATUS_INACTIVE_FAILED ||
-                     svc.svc_status == fpi::SVC_STATUS_DISCOVERED ||
-                     svc.svc_status == fpi::SVC_STATUS_STOPPING ||
-                     svc.svc_status == fpi::SVC_STATUS_INACTIVE_STOPPED ||
-                     svc.svc_status == fpi::SVC_STATUS_STANDBY )
-                {
-                    pmSvcs->push_back(svc);
-                } else {
-                    // Svc states: ADDED, STARTED, INVALID, REMOVED not valid
-                    // for PM and will not be handled here
-                    LOGWARN << "PM svc:" << std::hex << svc.svc_id.svc_uuid.svc_uuid
-                            << std::dec << " in unexpected state:"
-                            << OmExtUtilApi::printSvcStatus(svc.svc_status)
-                            << " will NOT spoof!";
-                }
+                dmSvcs->push_back( svc );
+            }
+            else if ( isAccessMgrSvc( svc ) )
+            {
+                amSvcs->push_back( svc );
             }
         }
     }
-    
-    /**
-     * ignore any PMs that are running. They are expected.
-     */
-    return ( ( pmSvcs->size() > 0 ) ||
-             ( amSvcs->size() > 0 ) ||
+
+    return ( ( amSvcs->size() > 0 ) ||
              ( smSvcs->size() > 0 ) ||
              ( dmSvcs->size() > 0 ) )
             ? true

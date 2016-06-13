@@ -1170,14 +1170,16 @@ class OM_NodeDomainMod : public Module
     void fromSvcInfoToFDSP_RegisterNodeTypePtr( 
         boost::shared_ptr<fpi::SvcInfo>& svcInfo,
         fpi::FDSP_RegisterNodeTypePtr& reg_node_req );
-    bool isAnyNonePlatformSvcActive( std::vector<fpi::SvcInfo>* pmSvcs,
-                                     std::vector<fpi::SvcInfo>* amSvcs,
-                                     std::vector<fpi::SvcInfo>* smSvcs,
-                                     std::vector<fpi::SvcInfo>* dmSvcs );
+    bool isAnyPlatformSvcActive(std::vector<fpi::SvcInfo>* pmSvcs);
+    bool isAnyNonPlatformSvcActive( std::vector<fpi::SvcInfo>* amSvcs,
+                                    std::vector<fpi::SvcInfo>* smSvcs,
+                                    std::vector<fpi::SvcInfo>* dmSvcs );
     void spoofRegisterSvcs( const std::vector<fpi::SvcInfo> svcs );
     void isAnySvcPendingRemoval( std::vector<fpi::SvcInfo>* removedSvcs );
     void handlePendingSvcRemoval( std::vector<fpi::SvcInfo> removedSvcs );
-    
+    void populateNodeServices( bool sm, bool dm, bool am,
+                               fpi::SvcInfo svcInfo,
+                               uint64_t nodeUuid );
 
     fds_bool_t                    om_test_mode;
     OM_NodeContainer              *om_locDomain;
