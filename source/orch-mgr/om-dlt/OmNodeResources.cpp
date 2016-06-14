@@ -372,17 +372,25 @@ OM_NodeAgent::om_send_abort_dm_migration_resp(fpi::CtrlNotifyDMAbortMigrationPtr
 
 
 Error
-OM_NodeAgent::om_send_dlt(const DLT *curDlt) {
+OM_NodeAgent::om_send_dlt(const DLT *curDlt)
+{
     TRACEFUNC;
+
     Error err(ERR_OK);
+
     if (curDlt == NULL) {
         LOGNORMAL << "No current DLT to send to " << get_node_name();
         return Error(ERR_NOT_FOUND);
     }
-    if (node_state() == fpi::FDS_Node_Down) {
-        LOGNORMAL << "Will not send dlt to node we know is down... "
-                  << get_node_name();
-        return ERR_NOT_FOUND;
+
+    if (gl_orch_mgr->getConfigDB()->getStateSvcMap(get_uuid().uuid_get_val()) == fpi::SVC_STATUS_INACTIVE_FAILED )
+    {
+        LOGNOTIFY << "Svc:" << std::hex << get_uuid().uuid_get_val() << std::dec
+                  << " is in a failed state, will attempt to send DLT, but will not wait for ACK";
+
+        // Returning this will prevent the count of acks from being increased by this
+        // failed service
+        err = ERR_NOT_READY;
     }
 
     auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
@@ -414,10 +422,15 @@ Error
 OM_NodeAgent::om_send_dlt_close(fds_uint64_t cur_dlt_version) {
     TRACEFUNC;
     Error err(ERR_OK);
-    if (node_state() == fpi::FDS_Node_Down) {
-        LOGNORMAL << "Will not send dlt close to service we know is down... "
-                  << get_node_name();
-        return ERR_NOT_FOUND;
+
+    if (gl_orch_mgr->getConfigDB()->getStateSvcMap(get_uuid().uuid_get_val()) == fpi::SVC_STATUS_INACTIVE_FAILED )
+    {
+        LOGNOTIFY << "Svc:" << std::hex << get_uuid().uuid_get_val() << std::dec
+                  << " is in a failed state, will attempt to send DLT close, but will not wait for ACK";
+
+        // Returning this will prevent the count of acks from being increased by this
+        // failed service
+        err = ERR_NOT_READY;
     }
 
     auto om_req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
@@ -476,10 +489,15 @@ OM_NodeAgent::om_send_dmt(const DMTPtr& curDmt) {
     Error err(ERR_OK);
 
     fds_verify(curDmt->getVersion() != DMT_VER_INVALID);
-    if (node_state() == fpi::FDS_Node_Down) {
-        LOGNORMAL << "Will not send DMT to node we know is down... "
-                  << get_node_name();
-        return ERR_NOT_FOUND;
+
+    if (gl_orch_mgr->getConfigDB()->getStateSvcMap(get_uuid().uuid_get_val()) == fpi::SVC_STATUS_INACTIVE_FAILED )
+    {
+        LOGNOTIFY << "Svc:" << std::hex << get_uuid().uuid_get_val() << std::dec
+                  << " is in a failed state, will attempt to send DMT, but will not wait for ACK";
+
+        // Returning this will prevent the count of acks from being increased by this
+        // failed service
+        err = ERR_NOT_READY;
     }
 
     auto om_req =  gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
@@ -720,10 +738,15 @@ OM_NodeAgent::om_pullmeta_resp(EPSvcRequest* req,
 Error
 OM_NodeAgent::om_send_dmt_close(fds_uint64_t cur_dmt_version) {
     Error err(ERR_OK);
-    if (node_state() == fpi::FDS_Node_Down) {
-        LOGNORMAL << "Will not send DMT close to service we know is down... "
-                  << get_node_name();
-        return ERR_NOT_FOUND;
+
+    if (gl_orch_mgr->getConfigDB()->getStateSvcMap(get_uuid().uuid_get_val()) == fpi::SVC_STATUS_INACTIVE_FAILED )
+    {
+        LOGNOTIFY << "Svc:" << std::hex << get_uuid().uuid_get_val() << std::dec
+                  << " is in a failed state, will attempt to send DMT close, but will not wait for ACK";
+
+        // Returning this will prevent the count of acks from being increased by this
+        // failed service
+        err = ERR_NOT_READY;
     }
 
     auto om_req = gSvcRequestPool->newEPSvcRequest(rs_get_uuid().toSvcUuid());
