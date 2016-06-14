@@ -115,25 +115,28 @@ void DeleteScheduler::run() {
             } else {
                 // to be executed now
                 uint64_t nextTime = taskProcessor->process(*task);
-                LOGDEBUG << "processed volumeid:"
-                         << task->volumeId
+                LOGDEBUG << "vol:" << task->volumeId
                          << " next @ " << fds::util::getLocalTimeString(nextTime)
                          << ":" << nextTime;
                 // now check the next time & reschedule the task
                 auto handleptr = handleMap.find(task->volumeId);
                 if (handleptr == handleMap.end()) {
-                    LOGERROR << "major error . volumeid is missing from the map : "
-                             << task->volumeId;
+                    LOGERROR << "vol:" << task->volumeId << " major error . volumeid is missing from the map : ";
                     continue;
                 }
 
                 if (nextTime != 0) {
-                    task->runAtTime = nextTime;
-                    LOGDEBUG << "rescheduling volume:" << task->volumeId
+                    if (nextTime == task->runAtTime) {
+                        LOGDEBUG << "vol:" << task->volumeId << " delaying schedule by 1 minute. probably snaps are loading";
+                        task->runAtTime = currentTime + 60;
+                    } else {
+                        task->runAtTime = nextTime;
+                    }
+                    LOGDEBUG << "vol:" << task->volumeId
                              << " @ " << fds::util::getLocalTimeString(task->runAtTime);
                     pq.update(handleptr->second);
                 } else {
-                    LOGWARN << "no more snapshots to be monitored for volume: " << task->volumeId;
+                    LOGWARN << "vol:" << task->volumeId << " no more snapshots to be monitored for volume";
                     pq.pop();
                     handleMap.erase(handleptr);
                 }
