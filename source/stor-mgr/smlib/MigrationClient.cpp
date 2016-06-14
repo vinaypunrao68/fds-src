@@ -25,14 +25,16 @@ MigrationClient::MigrationClient(SmIoReqHandler *_dataStore,
                                  NodeUuid& _destSMNodeID,
                                  fds_uint64_t& _targetDltVersion,
                                  fds_uint32_t bitsPerToken,
-                                 bool resync)
+                                 bool resync,
+                                 std::function<void(fds_uint64_t)> cdCb)
     : dataStore(_dataStore),
       destSMNodeID(_destSMNodeID),
       targetDltVersion(_targetDltVersion),
       bitsPerDltToken(bitsPerToken),
       maxDeltaSetSize(16),
       forwardingIO(false),
-      onePhaseMigration(resync)
+      onePhaseMigration(resync),
+      doneCb(cdCb)
 {
 
     migClientState = ATOMIC_VAR_INIT(MC_INIT);
@@ -109,7 +111,7 @@ MigrationClient::forwardIfNeeded(fds_token_id dltToken,
      * Tracking will be stopped in the callback of the forwared IO request.
      */
     if (!trackIOReqs.startTrackIOReqs()) {
-        handleMigrationError(ERR_SM_TOK_MIGRATION_ABORTED);
+        handleMigrationDone(ERR_SM_TOK_MIGRATION_ABORTED);
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
 
@@ -178,7 +180,7 @@ MigrationClient::fwdPutObjectCb(SmIoPutObjectReq* putReq,
 
     // on error, set error state
     if (!error.ok()) {
-        handleMigrationError(error);
+        handleMigrationDone(error);
     }
 }
 
@@ -195,7 +197,7 @@ MigrationClient::fwdDelObjectCb(SmIoDeleteObjectReq* delReq,
 
     // on error, set error state
     if (!error.ok()) {
-        handleMigrationError(error);
+        handleMigrationDone(error);
     }
 }
 
@@ -215,7 +217,7 @@ MigrationClient::migClientSnapshotMetaData()
     // If the snapshot is unsuccessful, then IO request tracking will be finished in the
     // error check.
     if (!trackIOReqs.startTrackIOReqs()) {
-        handleMigrationError(ERR_SM_TOK_MIGRATION_ABORTED);
+        handleMigrationDone(ERR_SM_TOK_MIGRATION_ABORTED);
         return ERR_SM_TOK_MIGRATION_ABORTED;
     }
 
@@ -286,7 +288,7 @@ MigrationClient::migClientReadObjDeltaSetCb(const Error& error,
 
     // on error, set error state (abort migration)
     if (!error.ok()) {
-        handleMigrationError(error);
+        handleMigrationDone(error);
     }
 
     // Fire the code to execute the next delta set builder
@@ -304,7 +306,7 @@ MigrationClient::migClientAddMetaData(std::shared_ptr<ObjMetaDataSet> objMetaDat
     Error err(ERR_OK);
 
     if (!trackIOReqs.startTrackIOReqs()) {
-        handleMigrationError(ERR_SM_TOK_MIGRATION_ABORTED);
+        handleMigrationDone(ERR_SM_TOK_MIGRATION_ABORTED);
         return;
     }
     SmIoReadObjDeltaSetReq *readDeltaSetReq =
@@ -315,6 +317,9 @@ MigrationClient::migClientAddMetaData(std::shared_ptr<ObjMetaDataSet> objMetaDat
     if (!readDeltaSetReq) {
         err = ERR_OUT_OF_MEMORY;
         LOGERROR << "Memory allocation failed for readDeltaSet request with " << err;
+        // Finish tracking IO request.
+        trackIOReqs.finishTrackIOReqs();
+        handleMigrationDone(err);
         return;
     }
 
@@ -367,18 +372,20 @@ void MigrationClient::buildDeltaSetWorkerFirstPhase(leveldb::Iterator *iterDB,
          delete iterDB;
          delete dbFromFirstSnap;
 
-        /* If this is a one phase migration(For ex: SM resync)
-         * We no longer need this snapshot.
-         * Delete the snapshot directory and files.
-         */
-        if (onePhaseMigration && env) {
-            env->DeleteDir(firstPhaseSnapshotDir);
-        }
-
         setMigClientState(MC_FIRST_PHASE_DELTA_SET_COMPLETE);
 
         // Finish tracking IO request.
         trackIOReqs.finishTrackIOReqs();
+
+        /**
+         * If this is a one phase migration(For ex: SM resync)
+         * We no longer need this snapshot.
+         * Delete the snapshot directory and files.
+         */
+        if (onePhaseMigration) {
+            if (env) { env->DeleteDir(firstPhaseSnapshotDir); }
+            handleMigrationDone(ERR_OK);
+        }
         return;
     }
 
@@ -536,8 +543,10 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
 
     // on error, set error state (abort migration)
     if (!error.ok()) {
-        // This will set the ClientState to MC_ERROR
-        handleMigrationError(error);
+        LOGERROR << "Failed to take snapshot for token: " << SMTokenID;
+        // Finish tracking IO request.
+        trackIOReqs.finishTrackIOReqs();
+        handleMigrationDone(error);
     }
 
     if (getMigClientState() == MC_ERROR) {
@@ -548,7 +557,7 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
         }
         // Finish tracking IO request.
         trackIOReqs.finishTrackIOReqs();
-
+        // whoever set this client to error state will do the migration client cleanup.
         return;
     }
 
@@ -567,7 +576,7 @@ MigrationClient::migClientSnapshotFirstPhaseCb(const Error& error,
         }
         // Finish tracking IO request.
         trackIOReqs.finishTrackIOReqs();
-
+        handleMigrationDone(ERR_SM_SNAPSHOT_OP_FAILED);
         return;
     }
 
@@ -586,18 +595,19 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
                                                std::string &snapDir,
                                                leveldb::CopyEnv *env)
 {
-    // on error, set error state
     if (!error.ok()) {
-        // This will set the ClientState to MC_ERROR
-        handleMigrationError(error);
-        // the remaining of the error is handled in the next
-        // if statement, where cleanup snapshots and finish tracking req
+        handleMigrationDone(error);
     }
 
     // If the state is already set to error, then do nothing.
-    if (getMigClientState() == MC_ERROR) {
+    if (getMigClientState() != MC_SECOND_PHASE_DELTA_SET) {
         // already in error state, don't do anything
-        LOGMIGRATE << "Migration Client in error state, not processing snapshot";
+        LOGERROR << "Invalid client state: " << getMigClientState()
+                 << " for sm token: " << SMTokenID
+                 << " destination: " << destSMNodeID
+                 << " executorId: " << std::hex << executorID
+                 << " dlt: " << targetDltVersion
+                 << " resync: " << onePhaseMigration;
 
         // since we already took snapshot, cleanup dir
         if (env) {
@@ -618,8 +628,6 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
      *                 metadata may be stale.
      */
     std::vector<std::pair<ObjMetaData::ptr, fpi::ObjectMetaDataReconcileFlags>> objMetaDataSet;
-
-    fds_verify(MC_SECOND_PHASE_DELTA_SET == getMigClientState());
 
     /* Second phase snapshot directory
      */
@@ -664,6 +672,7 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
         delete dbFromFirstSnap;
         delete dbFromSecondSnap;
 
+        handleMigrationDone(ERR_SM_SNAPSHOT_OP_FAILED);
         return;
     }
 
@@ -685,6 +694,7 @@ MigrationClient::migClientSnapshotSecondPhaseCb(const Error& error,
         delete dbFromFirstSnap;
         delete dbFromSecondSnap;
 
+        handleMigrationDone(ERR_SM_SNAPSHOT_OP_FAILED);
         return;
     }
 
@@ -743,7 +753,7 @@ MigrationClient::buildDeltaSetWorkerSecondPhase(metadata::metadata_diff_type::it
 
         // Finish tracking IO request.
         trackIOReqs.finishTrackIOReqs();
-
+        handleMigrationDone(ERR_OK);
         return;
     }
 
@@ -1033,14 +1043,8 @@ MigrationClient::setMigClientState(MigrationClientState newState)
 }
 
 void
-MigrationClient::handleMigrationError(const Error& error) {
-    if (getMigClientState() != MC_ERROR) {
-        // first time we see error
-        // do not abort migration; destination will see the error
-        // or timeout, and either will retry with another client or
-        // report to OM.
-        setMigClientState(MC_ERROR);
-    }
+MigrationClient::handleMigrationDone(const Error& error) {
+    doneCb(executorID);
 }
 
 // Wait for IO completion for the MigrationClient.  This interface blocks
@@ -1048,10 +1052,10 @@ MigrationClient::handleMigrationError(const Error& error) {
 void
 MigrationClient::waitForIOReqsCompletion(fds_uint64_t executorId)
 {
-    LOGMIGRATE << "Waiting for pending IO requests to complete: "
-               << "ExecutorID=" << std::hex << executorId << std::dec;
+    LOGMIGRATE << "Waiting for pending IO requests to complete for executor id: "
+               << std::hex << executorId << std::dec;
     trackIOReqs.waitForTrackIOReqs();
-    LOGMIGRATE << "No more pending IO requests: "
-               << "ExecutorID=" << std::hex << executorId << std::dec;
+    LOGMIGRATE << "No more pending IO requests for executor: "
+               << std::hex << executorId << std::dec;
 }
 }  // namespace fds

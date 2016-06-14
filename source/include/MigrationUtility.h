@@ -11,6 +11,7 @@
 #include <set>
 #include <iostream>
 
+#include <fds_types.h>
 #include <fds_timer.h>
 
 namespace fds {
@@ -25,7 +26,8 @@ class MigrationSeqNum {
      */
     MigrationSeqNum(FdsTimerPtr& timer,
                     uint32_t interval,  // in sec
-                    const std::function<void()> &func);
+                    const std::function<void()> &func,
+                    fds_uint64_t parentId=0);
 
     ~MigrationSeqNum();
 
@@ -56,6 +58,12 @@ class MigrationSeqNum {
                                                 const MigrationSeqNum& seqNumRecv);
 
   private:
+    /**
+     * Id(if provided) of the object(for ex: migration executor or client)
+     * who has created this sequencing instance.
+     */
+    fds_uint64_t parentId = {0};
+
     /**
      * update to sequence and previously handled sequence numbers.
      */
@@ -129,11 +137,11 @@ class MigrationSeqNum {
 
     /* Start the progress check on the sequence
      */
-    bool startProgressCheck(bool isLastNum);
+    bool startProgressCheck();
 
     /* Stop the progress check on the sequence.
      */
-    bool stopProgressCheck(bool isLastNum);
+    bool stopProgressCheck();
 
 };  // class MigrationSeqNum
 
@@ -145,7 +153,8 @@ class MigrationDoubleSeqNum {
     MigrationDoubleSeqNum();
     MigrationDoubleSeqNum(FdsTimerPtr& timer,
                           uint32_t interval,  // in sec
-                          const std::function<void()> &func);
+                          const std::function<void()> &func,
+                          fds_uint64_t id=0);
     ~MigrationDoubleSeqNum();
 
     /* interface to set the sequence number.
@@ -170,6 +179,8 @@ class MigrationDoubleSeqNum {
     friend
     boost::log::formatting_ostream& operator<< (boost::log::formatting_ostream& out,
                                                 const MigrationDoubleSeqNum& seqNumRecv);
+
+    fds_uint64_t parentId = {0};
 
   private:
     std::mutex seqNumLock;

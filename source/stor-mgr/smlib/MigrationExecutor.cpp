@@ -31,7 +31,8 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
                                      TimeoutCb timeoutCb,
                                      MigrationAbortCb abortCallback,
                                      fds_uint32_t uid,
-                                     fds_uint16_t iNum)
+                                     fds_uint16_t iNum,
+                                     fds_uint16_t rcNum)
         : timeoutCb(timeoutCb),
           executorId(executorID),
           migrDoneHandler(doneHandler),
@@ -43,16 +44,16 @@ MigrationExecutor::MigrationExecutor(SmIoReqHandler *_dataStore,
           targetDltVersion(targetDltVer),
           migrationType(migrType),
           onePhaseMigration(resync),
-          seqNumDeltaSet(timeoutTimer, timeoutDuration, std::bind(&MigrationExecutor::handleTimeout, this)),
+          seqNumDeltaSet(timeoutTimer, timeoutDuration, std::bind(&MigrationExecutor::handleTimeout, this), executorId),
           abortMigrationCb(abortCallback),
           uniqueId(uid),
-          instanceNum(iNum)
+          instanceNum(iNum),
+          retryCycleNum(rcNum)
 {
     state = ATOMIC_VAR_INIT(ME_INIT);
     abortPending = false;
     dltTokens.clear();
-    retryDltTokens.clear();
-    dltTokRetryCount.clear();
+    smTokRetryCount.clear();
 }
 
 MigrationExecutor::~MigrationExecutor()
@@ -66,6 +67,12 @@ MigrationExecutor::getMigrationMsgsTimeout() const {
 }
 
 void MigrationExecutor::handleTimeout() {
+    LOGERROR << "Migration timeout for"
+             << " executor: " << std::hex << executorId
+             << " state: " << getState()
+             << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+             << " sm token: " << smTokenId
+             << " target DLT: " << targetDltVersion;
     this->timeoutCb(this->executorId, this->smTokenId,
                     this->dltTokens, migrationRound(),
                     ERR_SM_TOK_MIGRATION_TIMEOUT);
@@ -87,8 +94,10 @@ MigrationExecutor::responsibleForDltToken(fds_token_id dltTok) const {
 // migration executors
 Error
 MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
-                                             std::shared_ptr<leveldb::DB> db)
-{
+                                             std::shared_ptr<leveldb::DB> db,
+                                             fds_token_id smToken,
+                                             uint64_t seqId,
+                                             std::function<void(void)> eraseRetryTokenCb) {
     Error err(ERR_OK);
     ObjMetaData omd;
 
@@ -104,19 +113,6 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
                   << " target DLT: " << targetDltVersion;
         abortMigrationCb(executorId, smTokenId);
         return ERR_SM_TOK_MIGRATION_ABORTED;
-    }
-
-    /**
-     * Take a scoped lock for retryDltTokens map as it's accessed several
-     * times in the method.
-     */
-    fds_mutex::scoped_lock l(retryDltTokensLock);
-
-    /**
-     * Return if no dlt tokens to retry migration for from the same source SM.
-     */
-    if (retryDltTokens.empty()) {
-        return err;
     }
 
     // Track IO request for startObjectRebalance.
@@ -174,20 +170,18 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
     // DLT token
     leveldb::Iterator* it = db->NewIterator(options);
     std::map<fds_token_id, fpi::CtrlObjectRebalanceFilterSetPtr> perTokenMsgs;
-    for (auto &dltTok : retryDltTokens) {
-        // for now packing all objects per one DLT token into one message
-        fpi::CtrlObjectRebalanceFilterSetPtr msg(new fpi::CtrlObjectRebalanceFilterSet());
-        msg->targetDltVersion = targetDltVersion;
-        msg->tokenId = dltTok.first;
-        msg->executorID = executorId;
-        msg->seqNum = dltTok.second;
-        msg->lastFilterSet = ((dltTok.second + 1) < dltTokens.size()) ? false : true;
-        msg->onePhaseMigration = onePhaseMigration;
-        LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
-                   << "Filter Set Msg: token=" << msg->tokenId << ", seqNum="
-                   << msg->seqNum << ", last=" << msg->lastFilterSet;
-        perTokenMsgs[dltTok.first] = msg;
-    }
+
+    fpi::CtrlObjectRebalanceFilterSetPtr msg(new fpi::CtrlObjectRebalanceFilterSet());
+    msg->targetDltVersion = targetDltVersion;
+    msg->tokenId = smToken;
+    msg->executorID = executorId;
+    msg->seqNum = seqId;
+    msg->lastFilterSet = ((seqId + 1) < dltTokens.size()) ? false : true;
+    msg->onePhaseMigration = onePhaseMigration;
+    LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
+    << " filter set msg: token:" << msg->tokenId << " seqNum: "
+    << msg->seqNum << " last: " << msg->lastFilterSet;
+    perTokenMsgs[smToken] = msg;
 
     /**
      * Iterate through the level db and add to set of objects to rebalance.
@@ -197,10 +191,6 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
         ObjectID id(it->key().ToString());
         // send objects that belong to DLT tokens that need to be migrated from src SM
         fds_token_id dltTokId = DLT::getToken(id, bitsPerDltToken);
-        if (retryDltTokens.find(dltTokId) == retryDltTokens.end()) {
-            // ignore this object
-            continue;
-        }
 
         // add object id to the thrift paired set of object ids and ref count
         omd.deserializeFrom(it->value());
@@ -227,47 +217,44 @@ MigrationExecutor::startObjectRebalanceAgain(leveldb::ReadOptions& options,
     }
     delete it;
 
-    for (auto &dltTok : retryDltTokens) {
-        LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
-                   << " sending rebalance initial set for DLT token "
-                   << dltTok.first << " set size "
-                   << perTokenMsgs[dltTok.first]->objectsToFilter.size()
-                   << " to source SM "
-                   << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
-        try {
-            auto asyncRebalSetReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
-            asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceFilterSet),
-                                   perTokenMsgs[dltTok.first]);
-            asyncRebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
-                MigrationExecutor::objectRebalanceFilterSetResp,
-                dltTok.first,
-                dltTok.second));
-            asyncRebalSetReq->setTimeoutMs(getMigrationMsgsTimeout());
-            asyncRebalSetReq->invoke();
-
-            // Per request tracking starts here and is stopped in response callback.
-            if (!trackIOReqs.startTrackIOReqs()) {
-                LOGERROR << "Tracking failed: aborting migration for"
-                         << " executor: " << std::hex << executorId
-                         << " state: " << getState()
-                         << " source: " << sourceSmUuid.uuid_get_val() << std::dec
-                         << " sm token: " << smTokenId
-                         << " target DLT: " << targetDltVersion;
-                return ERR_SM_TOK_MIGRATION_ABORTED;
-            }
-        }
-        catch (...) {
-            trackIOReqs.finishTrackIOReqs();
-            LOGERROR << "Sending filter set request failed: "
-                     << "aborting migration for executor: " << std::hex << executorId
+    LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
+               << " sending rebalance initial set for sm token "
+               << smToken << " set size "
+               << perTokenMsgs[smToken]->objectsToFilter.size()
+               << " to source SM "
+               << std::hex << sourceSmUuid.uuid_get_val() << std::dec;
+    try {
+        auto asyncRebalSetReq =  gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
+        asyncRebalSetReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlObjectRebalanceFilterSet),
+                               perTokenMsgs[smToken]);
+        asyncRebalSetReq->onResponseCb(RESPONSE_MSG_HANDLER(
+            MigrationExecutor::objectRebalanceFilterSetResp,
+            smToken,
+            seqId));
+        asyncRebalSetReq->setTimeoutMs(getMigrationMsgsTimeout());
+        asyncRebalSetReq->invoke();
+        eraseRetryTokenCb();
+        // Per request tracking starts here and is stopped in response callback.
+        if (!trackIOReqs.startTrackIOReqs()) {
+            LOGERROR << "Tracking failed: aborting migration for"
+                     << " executor: " << std::hex << executorId
+                     << " state: " << getState()
                      << " source: " << sourceSmUuid.uuid_get_val() << std::dec
                      << " sm token: " << smTokenId
                      << " target DLT: " << targetDltVersion;
             return ERR_SM_TOK_MIGRATION_ABORTED;
         }
     }
-
-    retryDltTokens.clear();
+    catch (...) {
+        trackIOReqs.finishTrackIOReqs();
+        LOGERROR << "Sending filter set request failed: "
+                 << "aborting migration for executor: " << std::hex << executorId
+                 << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                 << " sm token: " << smTokenId
+                 << " target DLT: " << targetDltVersion;
+        eraseRetryTokenCb();
+        return ERR_SM_TOK_MIGRATION_ABORTED;
+    }
 
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
                << " sent rebalance initial set msgs to source SM "
@@ -345,7 +332,16 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
     leveldb::Iterator* it = db->NewIterator(options);
     std::map<fds_token_id, fpi::CtrlObjectRebalanceFilterSetPtr> perTokenMsgs;
     uint64_t seqId = 0UL;
-    fds_verify(dltTokens.size() > 0);   // we must have at least one token
+
+    fds_assert(dltTokens.size() > 0);
+    if (dltTokens.size() <= 0) {
+        LOGERROR << "Executor " << std::hex << executorId << " has no tokens to migrate";
+        trackIOReqs.finishTrackIOReqs();
+        err = ERR_SM_TOK_MIGRATION_NO_TOKENS_TO_MIGRATE;
+        handleMigrationRoundDone(err);
+        return err;
+    }
+
     for (auto dltTok : dltTokens) {
         // for now packing all objects per one DLT token into one message
         fpi::CtrlObjectRebalanceFilterSetPtr msg(new fpi::CtrlObjectRebalanceFilterSet());
@@ -462,9 +458,10 @@ MigrationExecutor::startObjectRebalance(leveldb::ReadOptions& options,
         }
 
         fiu_do_on("fail.sm.migration.sending.filter.set",
-                  LOGNOTIFY << "fault fail.sm.migration.sending.filter.set enabled"; \
-                  if (executorId % 20 == 0) { trackIOReqs.finishTrackIOReqs(); \
-                                              return ERR_SM_TOK_MIGRATION_ABORTED;});
+                  if (executorId % 20 == 0) { \
+                      LOGNOTIFY << "fault fail.sm.migration.sending.filter.set enabled"; \
+                      trackIOReqs.finishTrackIOReqs(); \
+                      return ERR_SM_TOK_MIGRATION_ABORTED;});
     }
 
     LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
@@ -559,29 +556,31 @@ MigrationExecutor::objectRebalanceFilterSetResp(fds_token_id dltToken,
             case ERR_SM_NOT_READY_AS_MIGR_SRC:
             case ERR_SVC_REQUEST_INVOCATION:
                 {
-                    LOGMIGRATE << "CtrlObjectRebalanceFilterSet declined for dlt token " << dltToken
-                               << " source SM " << sourceSmUuid << " not ready/ not up";
                     uint32_t numRetries = 0;
                     {
-                        fds_mutex::scoped_lock l(retryDltTokensLock);
-                        if (dltTokRetryCount.find(dltToken) != dltTokRetryCount.end()) {
-                            numRetries = dltTokRetryCount[dltToken];
+                        fds_mutex::scoped_lock l(retrySmTokensLock);
+                        if (smTokRetryCount.find(dltToken) != smTokRetryCount.end()) {
+                            numRetries = smTokRetryCount[dltToken];
                         }
                     }
+                    LOGMIGRATE << "CtrlObjectRebalanceFilterSet declined for dlt token " << dltToken
+                               << std::hex << " source SM " << sourceSmUuid
+                               << std::dec << " not ready/ not up"
+                               << " retry num: " << numRetries << " max: " << SM_MAX_NUM_RETRIES_SAME_SM;
                     // we are doing read/modify/write of number of retries under two locks
                     // which means that we may read same value two times and retry more
                     // times then max, but that's ok, we don't need to be precise here
                     // we just need to make sure we are not retrying forever
                     if (numRetries < SM_MAX_NUM_RETRIES_SAME_SM) {
-                        migrFailedRetryHandler(smTokenId);
+                        migrFailedRetryHandler(smTokenId, seqId);
                         {
-                            fds_mutex::scoped_lock l(retryDltTokensLock);
-                            retryDltTokens[dltToken] = seqId;
-                            dltTokRetryCount[dltToken] = numRetries + 1;
-                            break;
+                            fds_mutex::scoped_lock l(retrySmTokensLock);
+                            smTokRetryCount[dltToken] = numRetries + 1;
                         }
+                    } else {
+                        handleMigrationRoundDone(error);
                     }
-                    // else fall through
+                    break;
                 }
             default:
                 LOGERROR << "CtrlObjectRebalanceFilterSet for token " << dltToken
@@ -654,12 +653,15 @@ MigrationExecutor::applyRebalanceDeltaSet(const fpi::CtrlObjectRebalanceDeltaSet
     // if the obj data+meta list is empty, and lastDeltaSet == true,
     // nothing to apply, but have to check if we are done with migration
     if (deltaSet->objectToPropagate.size() == 0) {
-        // we should't receive empty set if that's not the last message
-        fds_verify(deltaSet->lastDeltaSet);
-        bool completeDeltaSetReceived = seqNumDeltaSet.setDoubleSeqNum(deltaSet->seqNum,
-                                                                       deltaSet->lastDeltaSet,
-                                                                       0,
-                                                                       true);
+        bool completeDeltaSetReceived = seqNumDeltaSet.setSeqNum(deltaSet->seqNum,
+                                                                 deltaSet->lastDeltaSet);
+        fds_assert(deltaSet->lastDeltaSet);
+        if (!deltaSet->lastDeltaSet) {
+            LOGNORMAL << "Executor " << std::hex << executorId << " has no tokens to migrate";
+            trackIOReqs.finishTrackIOReqs();
+            return ERR_SM_TOK_MIGRATION_NO_TOKENS_TO_MIGRATE;
+        }
+
         if (completeDeltaSetReceived) {
             LOGNORMAL << "All DeltaSet and QoS requests accounted for executor "
                       << std::hex << executorId << std::dec;
@@ -675,10 +677,18 @@ MigrationExecutor::applyRebalanceDeltaSet(const fpi::CtrlObjectRebalanceDeltaSet
         return ERR_OK;
     }
 
+
+    /**
+     * TODO VERY SOON(Gurpreet): Clean up the code below. Remove unnecessary
+     * code, change SmIoApplyObjRebalDeltaSet request to remove qos sequencing
+     * because now, whatever the delta set sized request migration source sent
+     * it will be served as is. Currently max delta set request size is 16. So
+     * the qos apply delta set request size will also be 16.
+     */
     // if objectToPropagate set is large, break down into smaller QoS work items
     // TODO(Anna) make configurable?, dynamic?, etc
-    fds_uint32_t maxSize = 10;
-    fds_uint32_t totalCnt = deltaSet->objectToPropagate.size() / maxSize + 1;
+    fds_uint32_t maxSize = deltaSet->objectToPropagate.size();
+    fds_uint32_t totalCnt = deltaSet->objectToPropagate.size() / maxSize;
     fds_uint32_t qosSeqNum = 0;
 
     std::vector<fpi::CtrlObjectMetaDataPropagate>::iterator itFirst, itLast;
@@ -752,10 +762,8 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
                   << " target DLT: " << targetDltVersion;
         abortMigrationCb(executorId, smTokenId);
         trackIOReqs.finishTrackIOReqs();
-        seqNumDeltaSet.setDoubleSeqNum(req->seqNum,
-                                       req->lastSet,
-                                       req->qosSeqNum,
-                                       req->qosLastSet);
+        seqNumDeltaSet.setSeqNum(req->seqNum,
+                                 req->lastSet);
         return;
     }
 
@@ -764,10 +772,8 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
         LOGERROR << "Failed to apply a set of objects " << error;
         // Stop tracking this IO.
         trackIOReqs.finishTrackIOReqs();
-        seqNumDeltaSet.setDoubleSeqNum(req->seqNum,
-                                       req->lastSet,
-                                       req->qosSeqNum,
-                                       req->qosLastSet);
+        seqNumDeltaSet.setSeqNum(req->seqNum,
+                                 req->lastSet);
         handleMigrationRoundDone(error);
         return;
     }
@@ -777,11 +783,17 @@ MigrationExecutor::objDeltaAppliedCb(const Error& error,
     fds_verify((curState == ME_FIRST_PHASE_APPLYING_DELTA) ||
                (curState == ME_SECOND_PHASE_APPLYING_DELTA));
 
-    bool completeDeltaSetReceived = seqNumDeltaSet.setDoubleSeqNum(req->seqNum,
-                                                                   req->lastSet,
-                                                                   req->qosSeqNum,
-                                                                   req->qosLastSet);
+    bool completeDeltaSetReceived = seqNumDeltaSet.setSeqNum(req->seqNum,
+                                                             req->lastSet);
     if (completeDeltaSetReceived) {
+        LOGDEBUG << " executor: " << std::hex << executorId << std::dec
+                 << " req info:: seqNum: " << req->seqNum << " lastSet: " << req->lastSet
+                 << " qosSeqNum: " << req->qosSeqNum << " qosLastSet: " << req->qosLastSet
+                 << " state: " << getState() << std::hex
+                 << " source: " << sourceSmUuid.uuid_get_val() << std::dec
+                 << " sm token: " << smTokenId
+                 << " target DLT: " << targetDltVersion;
+
         // this executor finished the first or second round of migration, based on state
         LOGNORMAL << "All DeltaSet and QoS requests accounted for executor "
                   << std::hex << req->executorId << std::dec;
@@ -824,7 +836,7 @@ MigrationExecutor::startSecondObjectRebalanceRound() {
                << " SM token " << smTokenId;
 
     // Reset sequence number for the second phase delta set.
-    seqNumDeltaSet.resetDoubleSeqNum();
+    seqNumDeltaSet.resetSeqNum();
 
     // move to the next state before sending the message, in case we get the reply
     // while still in this method
@@ -931,7 +943,7 @@ void
 MigrationExecutor::handleMigrationRoundDone(const Error& error) {
     fds_uint32_t roundNum = 2;
     LOGMIGRATE << "handleMigrationRoundDone for executor " << std::hex << executorId
-               << std::hex << " (SM token " << smTokenId << ") " << error;
+               << " (SM token " << std::dec << smTokenId << ") " << error;
     // check and set the state
     if (error.ok()) {
         // if no error, we must be in one of the apply delta states
@@ -949,14 +961,14 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
                 // check if we are in done with error state for a sm resync
                 if (!((migrationType == SMMigrType::MIGR_SM_RESYNC) &&
                     (curState == ME_DONE_WITH_ERROR))) {
-                    // must be a bug somewhere...
-                    fds_panic("Unexpected migration executor state!");
-                }            
-            }
-            // we finished second phase of migration. If this is resync after restart
-            // send finish client resync message to the source.
-            if (migrationType == SMMigrType::MIGR_SM_RESYNC) {
-                sendFinishResyncToClient();
+                    LOGERROR << "Unexpected migration state for executor " << std::hex << executorId
+                             << " state: " << state << " src SM: " << sourceSmUuid.uuid_get_val()
+                             << std::dec << " instanceNum: " << instanceNum << " uniqueId: " << uniqueId
+                             << " SM token: " << smTokenId << " round: " << roundNum
+                             << " isResync? " << onePhaseMigration;
+                    MigrationExecutorState newState = ME_ERROR;
+                    std::atomic_exchange(&state, newState);
+                }
             }
         } else {
             LOGMIGRATE << "we just finished first round and started second round";
@@ -975,20 +987,13 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
              */
             return;
         }
-
-        if (migrationType == SMMigrType::MIGR_SM_RESYNC) {
-            // in case the source started forwarding, we don't want it to continue
-            // on error; so just send stop client resync message to source SM so
-            // it can cleanup and stop forwarding
-            sendFinishResyncToClient();
-        }
     }
 
-    LOGMIGRATE << "Migration finished for executor " << std::hex << executorId 
-               << " src SM " << sourceSmUuid.uuid_get_val() << std::dec
-               << " instanceNum = " << instanceNum << " uniqueId = " << uniqueId
-               << ", SM token " << smTokenId
-               << " Round " << roundNum
+    LOGMIGRATE << "Migration finished for executor: " << std::hex << executorId
+               << " src SM: " << sourceSmUuid.uuid_get_val() << std::dec
+               << " instanceNum: " << instanceNum << " uniqueId: " << uniqueId
+               << " SM token: " << smTokenId
+               << " round: " << roundNum
                << " isResync? " << onePhaseMigration;
 
     // notify the requester that this executor done with migration
@@ -997,55 +1002,6 @@ MigrationExecutor::handleMigrationRoundDone(const Error& error) {
         migrDoneHandler(executorId, smTokenId, dltTokens, roundNum, error);
     }
 }
-
-void
-MigrationExecutor::sendFinishResyncToClient()
-{
-    LOGMIGRATE << "Executor " << std::hex << executorId << std::dec
-               << " sending finish resync msg to Client";
-
-    // send message to source SM to finish resync for this executor
-    fpi::CtrlFinishClientTokenResyncMsgPtr msg(new fpi::CtrlFinishClientTokenResyncMsg());
-    msg->executorID = executorId;
-
-    auto asyncFinishClientReq = gSvcRequestPool->newEPSvcRequest(sourceSmUuid.toSvcUuid());
-    asyncFinishClientReq->setPayload(FDSP_MSG_TYPEID(fpi::CtrlFinishClientTokenResyncMsg), msg);
-    asyncFinishClientReq->onResponseCb(RESPONSE_MSG_HANDLER(MigrationExecutor::finishResyncResp));
-    asyncFinishClientReq->setTimeoutMs(getMigrationMsgsTimeout());
-
-    if (!trackIOReqs.startTrackIOReqs()) {
-        // For now, just return an error that migration is aborted.
-        LOGERROR << "Tracking failed: aborting migration for"
-                 << " executor: " << std::hex << executorId
-                 << " state: " << getState()
-                 << " source: " << sourceSmUuid.uuid_get_val() << std::dec
-                 << " sm token: " << smTokenId
-                 << " target DLT: " << targetDltVersion;
-        return;
-    }
-    asyncFinishClientReq->invoke();
-}
-
-void
-MigrationExecutor::finishResyncResp(EPSvcRequest* req,
-                                    const Error& error,
-                                    boost::shared_ptr<std::string> payload)
-{
-    LOGMIGRATE << "Received finish resync response from client for executor: " << std::hex
-               << executorId << std::dec << " SM token " << smTokenId << " " << error;
-
-    trackIOReqs.finishTrackIOReqs();
-
-    // here we just print an error if that happened... but nothing
-    // we can do on destination since we already either finished sync or
-    // aborted with error
-    if (!error.ok()) {
-        LOGWARN << "Received error for finish resync from client for executor: "  << std::hex
-                << executorId << std::dec << " SM token " << smTokenId << " " << error
-                << ", not changing any state, source should be able to deal with it";
-    }
-}
-
 
 /**
  * We will wait for all pending IOs to complete before cleaning up executor.
@@ -1070,16 +1026,6 @@ MigrationExecutor::waitForIOReqsCompletion(fds_token_id tok, NodeUuid nodeUuid)
 void
 MigrationExecutor::abortMigration(const Error &err) {
     setDoneWithError();
-    if (migrationType == SMMigrType::MIGR_SM_RESYNC) {
-        sendFinishResyncToClient();
-    }
-}
-
-void
-MigrationExecutor::clearRetryDltTokenSet()
-{
-    fds_mutex::scoped_lock l(retryDltTokensLock);
-    retryDltTokens.clear();
 }
 
 }  // namespace fds

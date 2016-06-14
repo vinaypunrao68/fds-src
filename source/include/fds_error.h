@@ -157,6 +157,7 @@ namespace fds {
     ADD(ERR_SM_TOK_MIGRATION_TIMEOUT, ,"  "), \
     ADD(ERR_SM_TOK_MIGRATION_INPROGRESS, ,"  "), \
     ADD(ERR_SM_TOK_MIGRATION_SRC_SVC_REQUEST, ,"  "), \
+    ADD(ERR_SM_TOK_MIGRATION_NO_TOKENS_TO_MIGRATE, ," "),\
     ADD(ERR_SM_TIER_WRITEBACK_NOT_DONE, ,"  "), \
     ADD(ERR_SM_TIER_HYBRIDMOVE_ON_FLASH_VOLUME, ,"  "), \
     ADD(ERR_SM_NOERR_GAINED_SM_TOKENS, ,"  "), \
@@ -171,6 +172,8 @@ namespace fds {
     ADD(ERR_SM_TC_INVALID_STATE, ,"Token compactor in invalid state. "), \
     ADD(ERR_META_DISK_WRITE_FAILED, ,"Unable to write metadata to disk"), \
     ADD(ERR_META_DISK_READ_FAILED, ,"Unable to read metadata from disk"), \
+    ADD(ERR_SM_SNAPSHOT_OP_FAILED, ,"SM metadata snapshot operation failed"), \
+    ADD(ERR_SM_FAULT_ENABLED, ,"fiu fault point enabled in SM"), \
     \
     /* Network errors */    \
     ADD(ERR_NETWORK_TRANSPORT,= 3000," "), \

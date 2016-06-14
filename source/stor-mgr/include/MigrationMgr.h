@@ -56,7 +56,7 @@ class MigrationMgr : StateProvider{
     /// executorId -> migrationClient
     typedef std::unordered_map<fds_uint64_t, MigrationClient::shared_ptr> MigrClientMap;
 
-    typedef std::set<fds_token_id> RetrySmTokenSet;
+    typedef std::unordered_map<fds_token_id, uint64_t> RetrySmTokenMap;
     /**
      * Matches OM state, just for sanity checks that we are getting
      * messages from OM/SMs in the correct state...
@@ -86,6 +86,11 @@ class MigrationMgr : StateProvider{
     }
 
     std::string getStateProviderId() override;
+
+    void getMigExecStateInfo(std::vector<fds_token_id>& done,
+                             std::vector<fds_token_id>& pending,
+                             std::vector<fds_token_id>& inprog);
+
     std::string getStateInfo() override;
 
     fds_uint32_t getMigrationMsgsTimeout() const;
@@ -192,13 +197,6 @@ class MigrationMgr : StateProvider{
     Error rebalanceDeltaSetResp();
 
     /**
-     * Handle message from destination SM to finish token resync.
-     * Migration client corresponding to given executorId will stop forwarding IO
-     * and migration manager will remove the corresponding migration client
-     */
-    Error finishClientResync(fds_uint64_t executorId);
-
-    /**
      * Forwards object to destination SM if needed
      * Forwarding will happen if the following conditions are true:
      *    - migration is in progress
@@ -236,6 +234,12 @@ class MigrationMgr : StateProvider{
      */
     Error handleDltClose(const DLT* dlt,
                          const NodeUuid& mySvcUuid);
+    /**
+     * The actual act of cleaning up migration executors, clients,
+     * and resetting the migration states. Used by regular
+     * SM-add path as well as tokensChecker rescue mode
+     */
+    void cleanUpClientsAndExecutors();
 
     fds_bool_t isDltTokenReady(const ObjectID& objId);
 
@@ -293,7 +297,22 @@ class MigrationMgr : StateProvider{
      * Check if all the Migration Executors for a given sm token
      * are is error state.
      */
-     bool allExecutorsInErrorState(const fds_token_id &sm_token);
+    bool allExecutorsInErrorState(const fds_token_id &sm_token);
+
+    /**
+     * These values are used by the fault point resend.dlt.token.filter.set
+     */
+    inline uint16_t getResendFilterSetRetries() {
+        return resendFilterSetRetries;
+    }
+
+    inline uint16_t getResendFilterSetMaxRetries() {
+        return resendFilterSetMaxRetries;
+    }
+
+    inline void incrResendFilterSetRetries() {
+        resendFilterSetRetries++;
+    }
 
   private:
 
@@ -308,7 +327,8 @@ class MigrationMgr : StateProvider{
                                                          MigrationType& migrationType,
                                                          bool onePhaseMigration,
                                                          fds_uint32_t uniqueId = 0,
-                                                         fds_uint16_t instanceNum = 1);
+                                                         fds_uint16_t instanceNum = 1,
+                                                         fds_uint16_t retryCycleNum = 1);
     /**
      * Callback function from the metadata snapshot request for a particular SM token
      */
@@ -317,6 +337,21 @@ class MigrationMgr : StateProvider{
                                    leveldb::ReadOptions& options,
                                    std::shared_ptr<leveldb::DB> db, bool retry,
                                    fds_uint32_t uniqueId);
+
+    void smTokenMetadataSnapshotCbErrorHandler(const Error& srcErr,
+                                               const Error& destErr,
+                                               fds_token_id& smTokenId,
+                                               leveldb::ReadOptions& options,
+                                               std::shared_ptr<leveldb::DB> db,
+                                               bool retryMigrFailedTokens);
+
+    void snapshotCleanupAndErrorHandler(const Error& srcErr,
+                                        const Error& destErr,
+                                        fds_token_id& smTokenId,
+                                        leveldb::ReadOptions& options,
+                                        std::shared_ptr<leveldb::DB> db);
+
+    void removeTokenFromRetryMap(fds_token_id &tokenId);
 
     /**
      * Callback for a migration executor that it finished migration
@@ -336,13 +371,13 @@ class MigrationMgr : StateProvider{
      * This callback basically inserts the dlt token to the
      * retry migration set.
      */
-    void dltTokenMigrationFailedCb(fds_token_id &smToken);
+    void dltTokenMigrationFailedCb(fds_token_id &smToken, uint64_t sed);
 
     void checkAndRetryMigration();
 
     void retryTokenMigrForFailedDltTokens();
 
-    void removeTokensFromRetrySet(std::vector<fds_token_id>& tokens);
+    void removeTokensFromRetryMap(std::vector<fds_token_id>& tokens);
 
     /// enqueues snapshot message to qos
     void startSmTokenMigration(fds_token_id smToken, fds_uint32_t uid=0);
@@ -418,13 +453,16 @@ class MigrationMgr : StateProvider{
     // Change token state for a single sm token
     void changeTokenState(fds_token_id& token, bool availability);
 
+    // handle migration client done
+    void handleClientDone(fds_uint64_t executorId);
+
     /**
      * If all executors and clients are done, moves migration to IDLE state
      * and resets the state
      * @param checkedExecutorsDone true if executors already checked and they are done
      *        so only check clients, and if they are also done, move to IDLE state
      */
-    void checkResyncDoneAndCleanup(fds_bool_t checkedExecutorsDone);
+    void checkMigrationDoneAndCleanup(fds_bool_t checkedExecutorsDone);
 
     /// state of migration manager
     std::atomic<MigrationState> migrState;
@@ -473,6 +511,9 @@ class MigrationMgr : StateProvider{
 
     /// max number of times we will retry to sync DLT token
     fds_uint8_t maxRetriesWithDifferentSources;
+
+    /// max number of retry cycles with all the sources;
+    fds_uint8_t maxRetryCyclesWithDifferentSources;
 
     /// callback to svc handler to ack back to OM for Start Migration
     OmStartMigrationCbType omStartMigrCb = [](const Error&){};
@@ -570,23 +611,16 @@ class MigrationMgr : StateProvider{
 
     /**
      * SM tokens for which token migration of atleast 1 dlt token failed
-     * because the source SM was not ready.
+     * because the source SM was not ready. Retry with same source or
+     * a different source.
      */
-     RetrySmTokenSet retryMigrSmTokenSet;
+    RetrySmTokenMap retryMigrSmTokenMap;
 
     /**
      * Pending resync
      */
     std::atomic<bool> isResyncPending = {false};
     ResyncDoneOrPendingCb cachedResyncDoneOrPendingCb = [](fds_bool_t, fds_bool_t){};
-
-    /**
-     * Source SMs which are marked as failed for some executors during migration.
-     * We also keep uuid of this SM (destination) in the list with flag false, so that
-     * we don't pick this SM as a source as well.
-     * Protected by migrExecutorLock
-     */
-    std::map<NodeUuid, bool> failedSMsAsSource;
 
     // For synchronization between the timer thread and token migration thread.
      fds_mutex migrSmTokenLock;
@@ -616,6 +650,36 @@ class MigrationMgr : StateProvider{
 
      /* Debug states for state provider */
      std::string stateProviderId;
+
+     /**
+      * Timestamps capturing when was the last time this SM was a
+      * source or destination for Migration.
+      */
+     std::string wasSrcAtTime = {""};
+     std::string wasDstAtTime = {""};
+     bool lastExecutionOutcome = {"false"};
+     std::string setWasSrcTimestamp();
+     std::string setWasDstTimestamp();
+
+     /**
+      * These values are used by the fault point resend.dlt.token.filter.set
+      */
+     uint16_t resendFilterSetRetries = 0;
+     uint16_t resendFilterSetMaxRetries = 300;
+
+     inline fds_bool_t retryWithNewSmErrors(Error error) {
+        if ((error == ERR_SVC_REQUEST_TIMEOUT) ||
+            (error == ERR_SVC_REQUEST_INVOCATION) ||
+            (error == ERR_SM_TOK_MIGRATION_SRC_SVC_REQUEST) ||
+            (error == ERR_SM_TOK_MIGRATION_TIMEOUT) ||
+            /// we get this error from source SM which failed to start
+            (error == ERR_NODE_NOT_ACTIVE) ||
+            (error == ERR_SM_NOT_READY_AS_MIGR_SRC) ||
+            (error == ERR_SM_TOK_MIGRATION_NO_DATA_RECVD)) {
+                return true;
+        }
+        return false;
+     }
 };
 
 typedef MigrationMgr::MigrationType SMMigrType;

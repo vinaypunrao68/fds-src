@@ -38,7 +38,8 @@ class MigrationClient {
                              NodeUuid& _destinationSMNodeID,
                              fds_uint64_t& targetDltVersion,
                              fds_uint32_t bitsPerToken,
-                             bool onePhaseMigration);
+                             bool onePhaseMigration,
+                             std::function<void(fds_uint64_t)> cdCb);
     ~MigrationClient();
 
      enum MigrationClientState {
@@ -185,7 +186,7 @@ class MigrationClient {
     /**
      * In error, sets error state and report error to OM
      */
-    void handleMigrationError(const Error& error);
+    void handleMigrationDone(const Error& error);
 
     /**
      * Return sequence number for delta set message from source SM to
@@ -336,6 +337,8 @@ class MigrationClient {
      * Will this migration have single phase only?
      */
     bool onePhaseMigration;
+
+    std::function<void(fds_uint64_t)> doneCb;
 };  // class MigrationClient
 
 }  // namespace fds

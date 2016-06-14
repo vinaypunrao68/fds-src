@@ -44,22 +44,25 @@ class SMDebugContext(Context):
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
-    @arg('sm', help="-Uuid of the SM to send the command to", type=long)
+    @arg('smuuid', help="-Uuid of the SM to send the command to", type=str)
     @arg('tokens', help="-List of tokens to check", nargs=argparse.REMAINDER)
-    def startSmchk(self, sm, tokens):
+    def startsmcheck(self, smuuid, tokens):
         """
         Start the online smchk for the specified sm node
         """
-        try:
-            if len(tokens) :
-                l=[n for n in map(helpers.expandIntRange,tokens)]
-                tokens = list(itertools.chain.from_iterable(l))
-            checkMsg = FdspUtils.newStartSmchkMsg(tokens)
-            self.smClient().sendAsyncSvcReq(sm, checkMsg, None)
-        except Exception as e:
-            log.exception(e)
-            print e.message
-            return 'Start online smchk failed'
+        for uuid in self.config.getServiceApi().getServiceIds(smuuid):
+            self.printServiceHeader(uuid)
+            try:
+                if len(tokens) :
+                    l=[n for n in map(helpers.expandIntRange,tokens)]
+                    tokens = list(itertools.chain.from_iterable(l))
+                checkMsg = FdspUtils.newStartSmchkMsg(tokens)
+                self.smClient().sendAsyncSvcReq(uuid, checkMsg, None)
+                print "started sm check on sm: " + str(uuid)
+            except Exception as e:
+                log.exception(e)
+                print e.message
+                return 'Start online smchk failed'
 
     #--------------------------------------------------------------------------------------
     @clidebugcmd
@@ -97,9 +100,9 @@ class SMDebugContext(Context):
     @clidebugcmd
     @arg('--full', help= "show full info including available/unavailable tokens", default=False)
     @arg('smuuid', help= "Uuid of the SM to send the command to", type=str)
-    def tokenstate(self, smuuid, full=False):
+    def migrationstate(self, smuuid, full=False):
         """
-        Check the state of SM tokens (Available or Unavailable) in migration manager
+        SM Migration related information
         """
         for uuid in self.config.getServiceApi().getServiceIds(smuuid):
             self.printServiceHeader(uuid)
@@ -111,6 +114,9 @@ class SMDebugContext(Context):
                 else:
                     availableCnt = len(state["available"]) if state["available"] else 0
                     unavailableCnt = len(state["unavailable"]) if state["unavailable"] else 0
+                    execsDone = len(state["mig_done"]) if state["mig_done"] else 0
+                    execsPending = len(state["mig_pending"]) if state["mig_pending"] else 0
+                    execsInprog = len(state["mig_in_prog"]) if state["mig_in_prog"] else 0
                     rebalance = "no"
                     if state["rebal_inprog"]:
                         rebalance = "yes"
@@ -126,8 +132,13 @@ class SMDebugContext(Context):
                            ('unavailable', unavailableCnt),
                            ('rebalance_inprog', rebalance),
                            ('resync_inprog', resync),
-                           ('num_execs', execs),
-                           ('num_clients', clients)]
+                           ('e_pending', execsPending),
+                           ('e_done', execsDone),
+                           ('e_inprog', execsInprog),
+                           ('was_src_at', state["was_src_at"]),
+                           ('was_dst_at', state["was_dst_at"]),
+                           ('num_clients', clients),
+                           ('num_execs', execs)]
                     print tabulate(tbl)
             except Exception, e:
                 log.exception(e)
