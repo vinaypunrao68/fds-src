@@ -71,8 +71,8 @@ uint64_t DeleteDispatcher::process(const DeleteTask& task) {
         }
 
         if (fNeedsDeleteCheck && (deleteTime <= currentTime)) {
-            LOGDEBUG << ATTR_SNAP(snapshot.snapshotId)
-                     << ATTR_NAME(snapshot.snapshotName) << "will be deleted";
+            LOGDEBUG << "snap:" << snapshot.snapshotId
+                     << "name:" << snapshot.snapshotName << " will be deleted";
             atc::Synchronized s(monitor);
             snapshotQ.push(snapshot);
             fAdded = true;
