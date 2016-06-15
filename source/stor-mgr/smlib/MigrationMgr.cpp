@@ -452,13 +452,14 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& snapErr,
         if (snapRequest->token_id != curSmTokenInProgress) {
             LOGERROR << "Migration snap token id does not match current SM token in progress --"
                      << "SnapToken: " << snapRequest->token_id << " curSmTokenInProgress:" << curSmTokenInProgress;
-            abortMigrationForSMToken(curSmTokenInProgress, ERR_SM_TOK_MIGRATION_ABORTED);
+            abortMigrationForSMToken(snapRequest->token_id, ERR_SM_TOK_MIGRATION_ABORTED);
             return;
         }
 
         // If there are no executors for current SM token, abort migration - something went wrong
-        if (migrExecutors.count(curSmTokenInProgress) < 1) {
-            LOGERROR << "Migration did not have any executors for current SM token: " << curSmTokenInProgress;
+        if (migrExecutors.count(snapRequest->token_id) < 1) {
+            LOGERROR << "Migration did not have any executors for current SM token: " << curSmTokenInProgress
+                     << " SnapToken: " << snapRequest->token_id;
             abortMigrationForSMToken(curSmTokenInProgress, ERR_SM_TOK_MIGRATION_ABORTED);
             return;
         }
