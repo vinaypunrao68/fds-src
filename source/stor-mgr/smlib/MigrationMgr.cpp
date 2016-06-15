@@ -403,12 +403,13 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& snapErr,
                                         bool retryMigrFailedTokens,
                                         fds_uint32_t uniqueId)
 {
+    SCOPEDATTR("Context","Migration");
     Error err(ERR_OK);
     fds_token_id curSmTokenInProgress;
 
     MigrationState curState = atomic_load(&migrState);
     if (curState == MIGR_ABORTED) {
-        LOGMIGRATE << "Migration was aborted, ignoring migration task";
+        LOGDEBUG << "Migration was aborted, ignoring migration task";
         err = ERR_SM_TOK_MIGRATION_ABORTED;
     } else if (curState == MIGR_IDLE) {
         LOGNOTIFY << "Migration is in idle state, probably was aborted, ignoring";
@@ -436,9 +437,20 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& snapErr,
 
     {
         SCOPEDREAD(migrExecutorLock);
-        // must be currently in progress
-        fds_verify(snapRequest->token_id == curSmTokenInProgress);
-        fds_verify(migrExecutors.count(curSmTokenInProgress) > 0);
+        // must be currently in progress, otherwise abort gracefully
+        if (snapRequest->token_id != curSmTokenInProgress) {
+            LOGERROR << "Migration snap token id does not match current SM token in progress --"
+                     << "SnapToken: " << snapRequest->token_id << " curSmTokenInProgress:" << curSmTokenInProgress;
+            abortMigrationForSMToken(curSmTokenInProgress, ERR_SM_TOK_MIGRATION_ABORTED);
+            return;
+        }
+
+        // If there are no executors for current SM token, abort migration - something went wrong
+        if (migrExecutors.count(curSmTokenInProgress) < 1) {
+            LOGERROR << "Migration did not have any executors for current SM token: " << curSmTokenInProgress;
+            abortMigrationForSMToken(curSmTokenInProgress, ERR_SM_TOK_MIGRATION_ABORTED);
+            return;
+        }
 
         // pass this snapshot to all migration executors that are responsible for
         // migrating DLT tokens that belong to this SM token
