@@ -407,6 +407,17 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& snapErr,
     Error err(ERR_OK);
     fds_token_id curSmTokenInProgress;
 
+    //Quickly check to see if there are any migration executors
+    {
+        SCOPEDREAD(migrExecutorLock);
+        // Check the map to see if there are any migration executors
+        if (migrExecutors.size() == 0) {
+            LOGERROR << "There are no migration executors, aborting migration";
+            abortMigrationForSMToken(curSmTokenInProgress, ERR_SM_TOK_MIGRATION_ABORTED);
+            return;
+        }
+    }
+
     MigrationState curState = atomic_load(&migrState);
     if (curState == MIGR_ABORTED) {
         LOGDEBUG << "Migration was aborted, ignoring migration task";
