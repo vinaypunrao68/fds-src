@@ -403,7 +403,6 @@ MigrationMgr::smTokenMetadataSnapshotCb(const Error& snapErr,
                                         bool retryMigrFailedTokens,
                                         fds_uint32_t uniqueId)
 {
-    SCOPEDATTR("Context","Migration");
     Error err(ERR_OK);
     fds_token_id curSmTokenInProgress;
 
