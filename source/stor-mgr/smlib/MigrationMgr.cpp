@@ -1816,7 +1816,6 @@ MigrationMgr::abortMigrationCb(fds_uint64_t& executorId,
 void MigrationMgr::getMigExecStateInfo(std::vector<fds_token_id>&done,
                                        std::vector<fds_token_id>& pending,
                                        std::vector<fds_token_id>& inprog) {
-
     SCOPEDREAD(migrExecutorLock);
     for (auto srcSmTokenMap : migrExecutors) {
         for (auto executor : srcSmTokenMap.second) {
@@ -1836,27 +1835,35 @@ void MigrationMgr::getMigExecStateInfo(std::vector<fds_token_id>&done,
 std::string MigrationMgr::getStateInfo() {
     Json::Value unavailableTokens;
     Json::Value availableTokens;
+    Json::Value state;
+    fds_uint64_t dltV = getTargetDltVersion();
 
     const DLT* dlt = MODULEPROVIDER()->getSvcMgr()->getDltManager()->getDLT();
     if (getTargetDltVersion() != DLT_VER_INVALID) {
         dlt = MODULEPROVIDER()->getSvcMgr()->getDltManager()->getDLT(getTargetDltVersion());
     }
-    if (dlt == nullptr) {
-        LOGWARN << "Failed to get token state as there is no dlt present";
-        return "";
+    if (dlt) {
+        dltV = dlt->getVersion();
+    } else {
+        LOGWARN << "Target dlt: " << dltV << " copy not present with sm";
     }
 
-    auto myTokens = dlt->getTokens(objStoreMgrUuid);
-    std::sort(myTokens.begin(), myTokens.end());
     /* Lock dltTokenStates to make sure there is no change in dlt while checking*/
-    synchronized(dltTokenStatesMutex) {
-        for (const auto &tok : myTokens) {
-            if (dltTokenStates[tok]) {
-                availableTokens.append(tok);
-            } else {
-                unavailableTokens.append(tok);
+    if (dlt && !dltTokenStatesEmpty()) {
+        auto myTokens = dlt->getTokens(objStoreMgrUuid);
+        std::sort(myTokens.begin(), myTokens.end());
+        synchronized(dltTokenStatesMutex) {
+            for (const auto &tok : myTokens) {
+                if (dltTokenStates[tok]) {
+                    availableTokens.append(tok);
+                } else {
+                    unavailableTokens.append(tok);
+                }
             }
         }
+        state["owned"] = static_cast<Json::Value::Int64>(myTokens.size());
+        state["available"] = availableTokens;
+        state["unavailable"] = unavailableTokens;
     }
 
     Json::Value edone, epending, einprog;
@@ -1869,17 +1876,13 @@ std::string MigrationMgr::getStateInfo() {
     for (const auto &token: execs_inprog) { einprog.append(token); }
 
     /* Return the available and unavailable token counts as well as the unavailable token list */
-    Json::Value state;
-    state["dlt_version"] = static_cast<Json::Value::Int64>(dlt->getVersion());
-    state["owned"] = static_cast<Json::Value::Int64>(myTokens.size());
+    state["dlt_version"] = static_cast<Json::Value::Int64>(dltV);
     std::string outcome;
     (lastExecutionOutcome) ? outcome = "(completed successfully)" : outcome = "(completed with errors)";
     auto wasDstAtInfo = wasDstAtTime;
     if (!wasDstAtInfo.empty()) { wasDstAtInfo.append(outcome); }
     state["was_dst_at"] = wasDstAtInfo;
     state["was_src_at"] = wasSrcAtTime;
-    state["available"] = availableTokens;
-    state["unavailable"] = unavailableTokens;
     state["rebal_inprog"] = (isMigrationInProgress() ? (isResync() ? false: true) : false);
     state["resync_inprog"] = (isMigrationInProgress() ? (isResync() ? true: false) : false);
     state["mig_done"] = edone;

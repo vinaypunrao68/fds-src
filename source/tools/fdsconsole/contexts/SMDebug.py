@@ -99,8 +99,9 @@ class SMDebugContext(Context):
     #--------------------------------------------------------------------------------------
     @clidebugcmd
     @arg('--full', help= "show full info including available/unavailable tokens", default=False)
+    @arg('--tokens', help= "show token ownership of SM(s)", default=False)
     @arg('smuuid', help= "Uuid of the SM to send the command to", type=str)
-    def migrationstate(self, smuuid, full=False):
+    def migrationstate(self, smuuid, full=False, tokens=False):
         """
         SM Migration related information
         """
@@ -108,38 +109,51 @@ class SMDebugContext(Context):
             self.printServiceHeader(uuid)
             try:
                 state = ServiceMap.client(uuid).getStateInfo('migrationmgr')
+                if state == "":
+                    state = "{}"
+                    return
                 state = json.loads(state)
                 if full:
                     print (json.dumps(state, indent=1, sort_keys=True)) 
                 else:
-                    availableCnt = len(state["available"]) if state["available"] else 0
-                    unavailableCnt = len(state["unavailable"]) if state["unavailable"] else 0
-                    execsDone = len(state["mig_done"]) if state["mig_done"] else 0
-                    execsPending = len(state["mig_pending"]) if state["mig_pending"] else 0
-                    execsInprog = len(state["mig_in_prog"]) if state["mig_in_prog"] else 0
-                    rebalance = "no"
-                    if state["rebal_inprog"]:
-                        rebalance = "yes"
-                    resync = "no"
-                    if state["resync_inprog"]:
-                        resync = "yes"
-                    execs = state["num_execs"]
-                    clients = state["num_clients"]
+                    if tokens:
+                        availableCnt = len(state["available"]) if state["available"] else 0
+                        unavailableCnt = len(state["unavailable"]) if state["unavailable"] else 0
+                        tokentbl = [('dlt_version', state["dlt_version"]),
+                                    ('owned', state["owned"]),
+                                    ('available', availableCnt),
+                                    ('unavailable', unavailableCnt)]
+                        print tabulate(tokentbl)
+                    else:
+                        execsDone = len(state["mig_done"]) if state["mig_done"] else 0
+                        execsPending = len(state["mig_pending"]) if state["mig_pending"] else 0
+                        execsInprog = len(state["mig_in_prog"]) if state["mig_in_prog"] else 0
+                        completed = 100
+                        totalExecs = execsDone + execsPending + execsInprog
+                        if (totalExecs):
+                            completed = (execsDone * 100)/totalExecs
 
-                    tbl = [('dlt_version', state["dlt_version"]),
-                           ('owned', state["owned"]),
-                           ('available', availableCnt),
-                           ('unavailable', unavailableCnt),
-                           ('rebalance_inprog', rebalance),
-                           ('resync_inprog', resync),
-                           ('e_pending', execsPending),
-                           ('e_done', execsDone),
-                           ('e_inprog', execsInprog),
-                           ('was_src_at', state["was_src_at"]),
-                           ('was_dst_at', state["was_dst_at"]),
-                           ('num_clients', clients),
-                           ('num_execs', execs)]
-                    print tabulate(tbl)
+                        rebalance = "no"
+                        if state["rebal_inprog"]:
+                            rebalance = "yes"
+                        resync = "no"
+                        if state["resync_inprog"]:
+                            resync = "yes"
+                        execs = state["num_execs"]
+                        clients = state["num_clients"]
+
+                        tbl = [('dlt_version', state["dlt_version"]),
+                               ('completed(%)', completed),
+                               ('rebalance_inprog', rebalance),
+                               ('resync_inprog', resync),
+                               ('e_pending', execsPending),
+                               ('e_done', execsDone),
+                               ('e_inprog', execsInprog),
+                               ('was_src_at', state["was_src_at"]),
+                               ('was_dst_at', state["was_dst_at"]),
+                               ('num_clients', clients),
+                               ('num_execs', execs)]
+                        print tabulate(tbl)
             except Exception, e:
                 log.exception(e)
                 print e.message
