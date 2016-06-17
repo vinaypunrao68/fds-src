@@ -28,6 +28,13 @@ function message
    echo "================================================================================"
 }
 
+function source_jdk
+{
+    message "source ansible/file/jdk.sh to set correct JAVA_HOME"
+
+    . asible/files/jdk.sh
+}
+
 function startup
 {
    message "LOGGING ENV SETTINGS"
@@ -115,6 +122,7 @@ function cache_report
    ccache -s
 }
 
+source_jdk
 startup
 configure_cache
 clean_up_environment

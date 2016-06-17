@@ -72,6 +72,7 @@ source/java/admin-webapp/npm-debug.log
 source/java/gen-java
 source/java/null
 source/java/out/.DS_Store
+source/makeenv
 source/net-proxies/*_clnt.c
 source/net-proxies/*_serv.c
 source/net-proxies/*_server.c

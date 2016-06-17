@@ -19,7 +19,7 @@ compile:
 	@echo "-------- Building Java Components ----------"
 	@echo "============================================"
 
-	@mvn clean install -f pom.xml -Dosdep.target=$(osdep_target)
+	@mvn clean install -e -f pom.xml -Dosdep.target=$(osdep_target)
 
 	@rm -rf $(comm_dir_lib)/java
 	@mkdir -p $(comm_dir_lib)/java/

@@ -65,8 +65,8 @@
       command: rm -f /etc/sudoers.tmp
       sudo: yes
 
-    - name: add JRE ppa
-      apt_repository: repo=ppa:webupd8team/java state=present
+    - name: remove JRE ppa
+      apt_repository: repo=ppa:webupd8team/java state=absent
       sudo: yes
 
     - name: add artifactory repo key
@@ -90,10 +90,6 @@
       with_items:
         - redis-server
         - redis-tools
-      sudo: yes
-
-    - name: purge redis init script (just to be safe)
-      file: path=/etc/init.d/redis-server state=absent
       sudo: yes
 
     - name: purge libboost 1.54 packages
@@ -143,8 +139,16 @@
       apt: name=fds-stats-util=1.0.0 force=yes state=present update_cache=yes cache_valid_time=600
       sudo: yes
 
-    - name: install latest java package
-      apt: name=oracle-java8-installer force=yes state=latest update_cache=yes cache_valid_time=600
+#    - name: remove latest java package
+#      apt: name=oracle-java8-installer force=yes state=latest update_cache=yes cache_valid_time=600
+#      sudo: yes
+
+    - name: download java JDK
+      get_url: url=http://bld-artifactory.formationds.com:8081/artifactory/list/external_packages/server-jre-8u60-linux-x64.tar.gz dest=/tmp
+      sudo: yes
+
+    - name: unarchive java JDK
+      unarchive: copy=no src=/tmp/server-jre-8u60-linux-x64.tar.gz dest=/opt
       sudo: yes
 
 #    - name: install versioned os packages
@@ -299,8 +303,11 @@
       copy: src=../files/jdk.sh dest=/etc/profile.d/jdk.sh owner=root group=root mode=0755
       sudo: yes
 
+    - name: source java home
+      shell: . /etc/profile.d/jdk.sh
+
     - name: update_java_alternatives
-      alternatives: name=java path=/usr/lib/jvm/java-8-oracle/jre/bin/java
+      alternatives: name=java path=/opt/jdk1.8.0_60/bin/java
       sudo: yes
 
     - name: create omnibus install directory for fds-platform

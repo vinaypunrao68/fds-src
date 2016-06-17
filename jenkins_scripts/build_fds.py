@@ -20,7 +20,6 @@ parser.add_option("-q", "--quiet", dest = "quiet", action = "store_true", defaul
 parser.add_option("-e", "--enhanced-debug", dest = "enhancedDebug", action = "store_true", default = False, help = "Builds (much) more debuggable binaries. Cores will be useful.")
 (options, args) = parser.parse_args()
 
-os.environ["JAVA_HOME"] = "/usr/lib/jvm/java-8-oracle"
 os.environ["npm_config_loglevel"] = "error"
 os.environ["JENKINS_URL"] = "true"
 

@@ -37,6 +37,9 @@ ifdef DEFER_TESTS
                       unit-test
 endif
 
+IGNORE := $(shell bash -c "source /etc/profile.d/jdk.sh: env | sed 's/=/:=/' | sed 's/^/export /' > makeenv")
+include makeenv
+
 # Bail out early if we don't have a JAVA_HOME
 # This needs to go here, including it later causes make devsetup fail.
 ifeq ($(JAVA_HOME),)
