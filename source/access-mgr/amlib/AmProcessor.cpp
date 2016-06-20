@@ -274,7 +274,7 @@ AmProcessor_impl::haveTables(AmRequest* request) {
         table_lock.cond_write_unlock();
     }
     if (have_dlt && have_dmt) {
-        getNextInChain()->unknownTypeResume(request);
+        unknownTypeResume(request);
     } else {
         respond(request, ERR_NOT_READY);
     }
