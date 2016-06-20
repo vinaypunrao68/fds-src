@@ -134,7 +134,7 @@ AmDispatcher::readFromSM(ReqPtr request, MsgPtr message, CbMeth cb_func, uint32_
     // get DLT and add refcnt to account for in-flight IO sent with
     // this DLT version; when DLT version changes, we don't ack to OM
     // until all in-flight IO for the previous version complete
-    auto const dlt = dltMgr->getAndLockCurrentVersion();
+    auto const dlt = dltMgr->getDLT();
     auto dlt_version = dlt->getVersion();
     request->dlt_version = dlt_version;
     auto const& objId = *request->obj_id;
@@ -182,7 +182,7 @@ AmDispatcher::writeToSM(ReqPtr request, MsgPtr payload, CbMeth cb_func, uint32_t
     // get DLT and add refcnt to account for in-flight IO sent with
     // this DLT version; when DLT version changes, we don't ack to OM
     // until all in-flight IO for the previous version complete
-    auto const dlt = dltMgr->getAndLockCurrentVersion();
+    auto const dlt = dltMgr->getDLT();
     auto dlt_version = dlt->getVersion();
     request->dlt_version = dlt_version;
 

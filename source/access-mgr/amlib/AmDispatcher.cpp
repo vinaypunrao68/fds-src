@@ -1154,10 +1154,16 @@ AmDispatcher::putObjectCb(PutObjectReq* amReq,
                           QuorumSvcRequest* svcReq,
                           const Error& error,
                           shared_str payload) {
-    // notify DLT manager that request completed, so we can decrement refcnt
-    dltMgr->releaseVersion(amReq->dlt_version);
     PerfTracer::tracePointEnd(amReq->sm_perf_ctx);
-
+    if (ERR_IO_DLT_MISMATCH == error) {
+        (void) MODULEPROVIDER()->getSvcMgr()->getDLT();
+        if (amReq->dlt_version != dltMgr->getDLT()->getVersion()) {
+            // We need to retry this operation, as the DLT seems to have changed
+            LOGNOTIFY << "updated dlt...retrying:" << amReq->io_req_id;
+            putObject(amReq);
+            return;
+        }
+    }
     AmDataProvider::putObjectCb(amReq, error);
 }
 
@@ -1189,12 +1195,18 @@ AmDispatcher::getObjectCb(AmRequest* amReq,
 {
     PerfTracer::tracePointEnd(amReq->sm_perf_ctx);
 
-    // notify DLT manager that request completed, so we can decrement refcnt
-    dltMgr->releaseVersion(amReq->dlt_version);
-
     auto getObjRsp = deserializeFdspMsg<fpi::GetObjectResp>(const_cast<Error&>(error), payload);
 
-    if (error == ERR_OK) {
+    if (ERR_IO_DLT_MISMATCH == error) {
+        // If we can get a new DLT, and the version has changed...
+        (void) MODULEPROVIDER()->getSvcMgr()->getDLT();
+        if (amReq->dlt_version != dltMgr->getDLT()->getVersion()) {
+            // We need to retry this operation, as the DLT seems to have changed
+            LOGNOTIFY << "updated dlt...retrying:" << amReq->io_req_id;
+            getObject(amReq);
+            return;
+        }
+    } else if (error == ERR_OK) {
         auto blobReq = static_cast<GetObjectReq*>(amReq);
         LOGTRACE << "objid:" << *blobReq->obj_id;
         blobReq->obj_data = boost::make_shared<std::string>(std::move(getObjRsp->data_obj));
