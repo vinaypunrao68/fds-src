@@ -56,25 +56,7 @@ AccessMgr::mod_shutdown() {
     stop_signal.notify_one();
 }
 
-void AccessMgr::mod_enable_service()
-{
-    /**
-     * Before being able to serve I/O requests, must first pull DMT
-     * and DLT information. At this time, we've already done the registration
-     * with the OM so anything here is post-registration.
-     */
-    if (!asyncServer) {
-        // Pretty useless till we have the tables, just keep retrying I guess.
-        while (!amProcessor->haveTables()) {
-            LOGDEBUG << "failed to get the distribution tables, will try again";
-            std::this_thread::sleep_for(std::chrono::seconds(2));
-        }
-        LOGNOTIFY << "enabling services";
-        initilizeConnectors();
-    }
-}
-
-void AccessMgr::initilizeConnectors() {
+void AccessMgr::mod_enable_service() {
     auto weakProcessor = std::weak_ptr<AmProcessor>(amProcessor);
 
     fds_uint32_t pmPort = g_fdsprocess->get_fds_config()->get<int>(

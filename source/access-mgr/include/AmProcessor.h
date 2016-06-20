@@ -87,11 +87,6 @@ class AmProcessor : public std::enable_shared_from_this<AmProcessor>
     Error updateDmt(bool dmt_type, std::string& dmt_data, std::function<void (const Error&)> const& cb);
 
     /**
-     * True when DLT and DMT have been received
-     */
-    bool haveTables();
-
-    /**
      * Update QoS' rate and throttle
      */
     Error updateQoS(long int const* rate, float const* throttle);

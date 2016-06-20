@@ -74,8 +74,6 @@ class AccessMgr : public Module, public boost::noncopyable {
      */
     bool nbd_enabled {true};
     bool scst_enabled {false};
-
-    void initilizeConnectors();
 };
 
 }  // namespace fds
