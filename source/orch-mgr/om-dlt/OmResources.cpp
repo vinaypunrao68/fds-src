@@ -3774,7 +3774,9 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
         dmtMod->dmt_deploy_event(DmtDeployEvt(dmPrevRegistered));
         // in case there are no volume acknowledge to wait
         dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
-    } else {
+    }
+    else
+    {
         auto dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
                                         get<uint32_t>("fds.feature_toggle.common.volumegrouping_dm_cluster_size"));
 

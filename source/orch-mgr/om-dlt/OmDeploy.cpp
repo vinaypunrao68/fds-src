@@ -754,7 +754,9 @@ DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
         } else {
             dst.acks_to_wait = count;
         }
-    } else {
+    }
+    else
+    {
         LOGNOTIFY << "No target DLT, so nothing to commit/broadcast, moving to next state";
 
         if (isDBEvt) {
