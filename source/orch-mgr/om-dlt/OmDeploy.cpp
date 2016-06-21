@@ -746,14 +746,17 @@ DltDplyFSM::DACT_Commit::operator()(Evt const &evt, Fsm &fsm, SrcST &src, TgtST 
         }
         // Send new DLT to each node in the cluster map
         // the new DLT now is committed DLT
-        fds_uint32_t count = dom_ctrl->om_bcast_dlt(dp->getCommitedDlt());
+        // don't wait for AMs; commit the DLT as soon as we hear back from all SMs and DMs.
+        fds_uint32_t count = dom_ctrl->om_bcast_dlt(dp->getCommitedDlt( ), true, true, false );
         if (count < 1) {
             dst.acks_to_wait = 1;
             fsm.process_event(DltCommitOkEvt(dp->getCommitedDltVersion(), NodeUuid()));
         } else {
             dst.acks_to_wait = count;
         }
-    } else {
+    }
+    else
+    {
         LOGNOTIFY << "No target DLT, so nothing to commit/broadcast, moving to next state";
 
         if (isDBEvt) {
