@@ -68,6 +68,7 @@
     - name: remove JRE ppa
       apt_repository: repo=ppa:webupd8team/java state=absent
       sudo: yes
+      ignore_errors: yes
 
     - name: add artifactory repo key
       apt_key: url="http://builder:h7qgA3fYr0P3@artifacts.artifactoryonline.com/artifacts/api/gpg/key/public"
@@ -139,9 +140,10 @@
       apt: name=fds-stats-util=1.0.0 force=yes state=present update_cache=yes cache_valid_time=600
       sudo: yes
 
-#    - name: remove latest java package
-#      apt: name=oracle-java8-installer force=yes state=latest update_cache=yes cache_valid_time=600
-#      sudo: yes
+    - name: remove latest java package
+      apt: name=oracle-java8-installer force=yes state=latest update_cache=yes cache_valid_time=600
+      sudo: yes
+      ignore_errors: yes
 
     - name: download java JDK
       get_url: url=http://bld-artifactory.formationds.com:8081/artifactory/list/external_packages/server-jre-8u60-linux-x64.tar.gz dest=/tmp
