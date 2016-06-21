@@ -3777,6 +3777,11 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
     } else {
         auto dmClusterSize = uint32_t(MODULEPROVIDER()->get_fds_config()->
                                         get<uint32_t>("fds.feature_toggle.common.volumegrouping_dm_cluster_size"));
+
+        LOGNORMAL << "Should volumegroup fire? " << dmClusterPresent()
+                  << " DM waiting size: " << awaitingDMs
+                  << " DM cluster size: " << dmClusterSize;
+
         if ((!dmClusterPresent()) && (awaitingDMs == dmClusterSize)) {
             LOGNOTIFY << "Volume Group Mode has reached quorum with " << dmClusterSize
                     << " DMs. Calculating DMT now.";
@@ -3784,12 +3789,7 @@ OM_NodeDomainMod::om_dmt_update_cluster(bool dmPrevRegistered) {
             // in case there are no volume acknowledge to wait
             dmtMod->dmt_deploy_event(DmtVolAckEvt(NodeUuid()));
             dmClusterPresent_ = true;
-            LOGDEBUG << "Volumegroup fired ? " << dmClusterPresent()
-                    << " size: " << awaitingDMs << "/" << dmClusterSize;
             dmtMod->clearWaitingDMs();
-        } else {
-            LOGDEBUG << "Volumegroup fired ? " << dmClusterPresent()
-                    << " size: " << awaitingDMs << "/" << dmClusterSize;
         }
     }
 }
