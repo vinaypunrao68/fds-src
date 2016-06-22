@@ -104,6 +104,7 @@ function capture_process_list
 function startup
 {
     message "LOGGING env settings"
+    source_jdk
     env
     capture_process_list ${FUNCNAME}
 }
@@ -154,6 +155,13 @@ function configure_limits
     message "CURRENT ulimit settings"
 
     ulimit -a
+}
+
+function source_jdk
+{
+    message "source ansible/files/jdk.sh to set correct JAVA_HOME"
+
+    . ansible/files/jdk.sh
 }
 
 function jenkins_workspace_cleanup
