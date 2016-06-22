@@ -32,7 +32,7 @@ function source_jdk
 {
     message "source ansible/file/jdk.sh to set correct JAVA_HOME"
 
-    . asible/files/jdk.sh
+    . ansible/files/jdk.sh
 }
 
 function startup
