@@ -1,0 +1,2 @@
+var SYS_MGMT = 'SYS_MGMT';
+var TENANT_MGMT = 'TENANT_MGMT';

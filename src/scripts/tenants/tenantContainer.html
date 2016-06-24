@@ -1,0 +1,10 @@
+<div ng-controller="tenantContainerController">
+    <slide-window-stack global-vars="tenantVars">
+        <slide-window-slide name="viewtenants" breadcrumb-name="View Tenants">
+            <div ng-include="'scripts/tenants/tenants.html'"></div>
+        </slide-window-slide>
+        <slide-window-slide name="createtenant" breadcrumb-name="Create Tenant">
+            <div ng-include="'scripts/tenants/create/createTenant.html'"></div>
+        </slide-window-slide>
+    </slide-window-stack>
+</div>

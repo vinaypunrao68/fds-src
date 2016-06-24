@@ -1,0 +1,9 @@
+<div class="linkbutton-parent">
+
+    <div class="pull-left linkbutton-item" ng-repeat="item in items" ng-click="item.callback();">
+        <span ng-class="{selected: item.selected}">{{item.label}}</span>
+        <span ng-show="item.notifications && item.notifications > 0">({{item.notifications}})</span>
+        <span class="linkbutton-bar" ng-show="!$last">|</span>
+    </div>
+
+</div>

@@ -1,0 +1,11 @@
+.snapshot-policy-row {
+    @include display-flex();
+
+    color: black;
+    margin-bottom: 4px;
+
+    .use-box {
+        margin-top: 6px;
+        margin-right: 4px;
+    }
+}

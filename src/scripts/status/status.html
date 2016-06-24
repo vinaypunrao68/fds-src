@@ -1,0 +1,61 @@
+<div ng-controller="statusController" style="position: relative;">
+    
+    <div class="tile-container">
+        <div class="tile-pair">
+            <div class="tile-parent" style="padding-left: 0px;">
+                
+                <status-tile tile-title="{{ 'status.l_health' | translate }}" calculated-data="healthStatus">
+                    <health-tile data="health"></health-tile>
+                </status-tile>
+
+            </div>
+            <div class="tile-parent">
+                <status-tile tile-title="{{ 'status.l_capacity' | translate }}" calculated-data="capacityItems">
+                    <line-chart data="capacityStats" colors="fakeCapColors" y-axis-label-function="capacityLabelFx" axis-color="#A0A0A0" line-stipples="capacityLineStipples" line-colors="capacityLineColors" tooltip="setCapacityTooltipText" domain-labels="capacityLabels" background-color="#f7f7f7" limit="capacityLimit" minimum-value="capacityMinTime" maximum-value="capacityMaxTime"></line-chart>
+                </status-tile>
+            </div>
+        </div>
+        <div class="tile-pair">
+            <div class="tile-parent">
+<!--                <div class="performance-tile tile"></div>-->
+                <status-tile tile-title="{{ 'status.l_performance' | translate }}" calculated-data="performanceBreakdownItems">
+                    <stacked-line-chart data="performanceBreakdownStats" colors="performanceColors" line-colors="performanceLine" suffix="IOPs" axis-color="#A0A0A0" domain-labels="performanceLabels" background-color="#f7f7f7" tooltip="setPerformanceTooltip"></stacked-line-chart>
+                </status-tile>
+            </div>
+            <div class="tile-parent">
+<!--                <div class="firebreak-tile tile"></div>-->
+                <status-tile tile-title="{{ 'status.l_firebreak' | translate }}" calculated-data="firebreakItems">
+                    <treemap data="firebreakStats" tooltip="setFirebreakToolipText" color-property="secondsSinceLastFirebreak"
+                        domain="firebreakDomain" range="firebreakRange" transform-value-function="transformFirebreakTime" min-area="minArea"></treemap>
+                </status-tile>
+            </div>
+        </div>
+    </div>
+
+    <div class="page-vertical-spacer"></div>
+    <div class="page-vertical-spacer"></div>
+
+    <div class="header top-label">
+        <span class="sub-header" style="margin-bottom: 12px;" translate>status.activity</span>
+
+        <table class="default">
+            <tbody>
+                <tr ng-repeat="activity in activities">
+                    <td style="text-align: left;">
+                        <span class="{{ getActivityClass( activity.category )}}"></span>
+                        <span>{{getActivityCategoryString(activity.category)}}</span>
+                    </td>
+                    <td>{{activity.defaultMessage}}</td>
+                    <td style="text-align: right;">{{ getTimeAgo( activity.initialTimestamp ) }}</td>
+                </tr>
+                <tr ng-show="activities.length === 0">
+                    <td colspan="3" translate>activities.desc_no_activities</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <div style="height: 25px;color: white;" ng-click="goToDebug();" ng-show="isAllowed( 'SYS_MGMT' );">Debug</div>
+    <div style="height: 25px;color: white;"></div>
+
+</div>

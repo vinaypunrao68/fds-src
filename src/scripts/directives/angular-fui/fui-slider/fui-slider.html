@@ -1,0 +1,10 @@
+<div class="ui-slider ui-slider-horizontal ui-widget ui-widget-content ui-corner-all" ng-click="adjustSlider( getClickX( $event ) )">
+    <div class="ui-slider-segment" ng-repeat="segment in segments" ng-style="{'margin-left': segment.px + 'px'}"></div>
+    <div class="ui-slider-range ui-widget-header ui-corner-all ui-slider-range-min" ng-style="{width: position + 'px'}"></div>
+    <a class="ui-slider-handle ui-state-default ui-corner-all"
+       ng-mousedown="grabbed = true;" ng-style="{left: position + 'px'}"></a>
+    <div class="ui-slider-labels">
+        <span class="pull-left light-print">{{minLabel}}</span>
+        <span class="pull-right light-print">{{maxLabel}}</span>
+    </div>
+</div>

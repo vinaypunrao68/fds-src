@@ -1,0 +1,34 @@
+<div ng-controller="userController" style="width: 100%;left: 0;top:0;">
+
+    <div class="">
+
+        <div style="clear: both;">
+            <span class="header pull-left" style="margin-right: 24px;" translate>users.title</span>
+            <fui-input style="width: 350px;" class="skinny pull-left" placeholder="{{ 'common.l_search' | translate }}" icon-class="icon-search" ng-model="userQuery"></fui-input>
+            <a ng-click="createNewUser()" class="add-user-link pull-right btn btn-primary skinny" translate>users.l_create_user</a>
+        </div>
+
+        <table class="default">
+            <thead>
+<!--                <th><input type="checkbox" /></th>-->
+                <th><div translate>common.th_name</div></th>
+                <th><div translate>users.th_tenant</div></th>
+                <th></th>
+            </thead>
+            <tboday>
+                <tr class="user-row" ng-repeat="user in users | filter:userQuery">
+<!--                    <td><input type="checkbox" /></td>-->
+                    <td class="user-identifier">{{user.name}}</td>
+                    <td class="tenant-name">
+                        <span ng-if="user.tenant && user.tenant.name">{{ user.tenant.name }}</span>
+                    </td>
+                    <td>
+                        <div class="flex">
+                            <span class="icon icon-edit" ng-click="editUser( user )"></span>
+                        </div>
+                    </td>
+                </tr>
+            </tboday>
+        </table>
+    </div>
+</div>

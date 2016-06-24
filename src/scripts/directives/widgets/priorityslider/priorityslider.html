@@ -1,0 +1,20 @@
+<div class="slider base">
+
+    <div class="slider strikethrough"></div>
+
+    <div class="slider container">
+        <div class="slider item" ng-repeat="p in priorities" ng-style="{width: widthPer}" ng-class="{last: $last}" ng-click="setPriority( p )">
+            <div class="slider bubble" ng-class="{current: p == priority}">
+                <span>{{p}}</span>
+            </div>
+        </div>
+    </div>
+    <div class="pull-left clearfix" style="width: 100%;">
+        <label class="slider pull-left low">
+            Lowest
+        </label>
+        <label class="slider pull-right high">
+            Highest
+        </label>
+    </div>
+</div>

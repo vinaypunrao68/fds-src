@@ -1,0 +1,7 @@
+<div class="fds-text-list">
+    <div ng-repeat="item in items track by $index" class="fds-text-list-item">
+        <fui-input style="display: inline-block" ng-model="items[$index]" type="text" placeholder="{{ placeholder }}"></fui-input>
+        <span style="font-size: 20px" ng-click="deleteRow( $index, item )" class="text-list-input icon icon-delete inline light-print" translate></span>
+    </div>
+    <a ng-click="addRow()" class="btn btn-primary skinny">{{ addLabel }}</a>
+</div>

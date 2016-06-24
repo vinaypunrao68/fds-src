@@ -1,0 +1,74 @@
+svg text {
+  font-family: "Helvetica Neue", Arial, Helvetica, Sans-Serif;
+}
+
+.nv-axis.nv-x {
+  .tick line {
+    opacity: 0!important;
+  }
+}
+
+.chart.volumes {
+  height: 33%;
+  .nv-y text {
+    display: none;
+  }
+  // y-axis side bar; this matches x-asis lines
+  .nv-axis path {
+    stroke: #e5e5e5;
+  }
+  rect.nv-bar-limit {
+//    fill: #999;
+//    fill: url(#diagonalHatch);
+  }
+
+  .nv-groups rect.nv-bar:hover {
+    cursor: pointer;
+  }
+}
+$sparkline_color: #0080fd;
+.nv-sparkline {
+  .nv-point  {
+    stroke: $sparkline_color!important;
+    fill: $sparkline_color!important;
+    opacity: .6;
+  }
+//  stroke: #0080FD;
+}
+
+
+.nvd3 .nv-point-paths path {
+
+}
+
+
+.chart.capacity {
+  width: 385px;
+  float: left;
+  .nv-axis.nv-y {
+    text {
+      display: none;
+    }
+    path {
+      stroke: #e5e5e5;
+    }
+  }
+}
+
+.chart.consumption {
+  width: 140px;
+  float: left;
+  margin-left: 15px;
+
+  .nv-center-percent {
+    font-size: 2.4em;
+    font-weight: bold;
+  }
+  .nv-center-percent-sign {
+    font-weight: bold;
+  }
+  .nv-bottom-label {
+    font-size: .7em;
+    color: #777;
+  }
+}

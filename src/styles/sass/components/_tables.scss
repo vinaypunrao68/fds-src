@@ -1,0 +1,97 @@
+.table-container {
+//  padding: 0 10px;
+  background: white;
+}
+
+$side_padding: .0em;
+
+table.default {
+    width: 100%;
+    border-style: hidden;
+    border-collapse: collapse;
+    border-spacing: 8px;
+    background: #fff;
+    font-size: 0.9em;
+//    border-top: 1px solid $text_very_light_color;
+
+    thead {
+        
+        th > div {
+            background-color: $sub_header_color;
+            padding: 4px;
+            padding-right: 10px;
+            padding-left: 10px;
+            border-radius: 6px;
+            margin: 4px;
+        }
+        
+        th {
+            vertical-align: bottom;
+//            border-bottom: 1px solid $text_very_light_color;
+//            border-top: 1px solid $text_very_light_color;
+            text-align: left;
+            font-size: 13px;
+            font-weight: normal;
+            color: $table_header_color;
+            line-height: 19px !important;
+            
+            input[type="checkbox"] {
+                vertical-align: middle;
+            }
+
+            &.center {
+                text-align: center;
+            }
+            
+            &.no-top-padding {
+                padding-top: 2px;
+            }
+            
+            &.selected {
+                div {
+                    background-color: #657D95;
+                    color: #ffffff;
+                }
+            }
+        }
+    }
+
+    td {
+//        padding: .7em $side_padding;
+        vertical-align: middle;
+        padding: 12px;
+        padding-left: 16px;
+        padding-right: 16px;
+        color: $text_light_color;
+        font-size: 14px;
+        line-height: 16px;
+        
+        &.pad {
+            padding-left: 12px;
+            padding-right: 12px;
+        }
+    }
+
+    tr {
+        
+        &.odd-row {
+            background-color: #ECECEC;
+        }
+//        border-bottom: 1px solid $text_very_light_color;
+        
+//        &.no-border {
+//            border-bottom: 0px;
+//        }
+    }
+}
+
+table.clickable {
+    tbody {
+        tr:hover {
+            cursor: pointer;
+            td {
+                background-color: #f6f6f6;
+            }
+        }
+    }
+}

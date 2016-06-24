@@ -1,0 +1,196 @@
+.volumes {
+    clear: both;
+}
+
+.volumeparent {
+    position: relative;
+    @include transition( left, 600ms );
+}
+
+.volumecontainer {
+    width: 100%;
+//    position: absolute;
+    left: 0px;
+    top: 0px;
+    
+    .new_volume {
+        margin-right: 5px;
+    }
+    
+    .legend-box {
+        width: 16px;
+        height: 16px;
+        border-width: 2px;
+        border-style: solid;
+        margin: 4px;
+    }
+    
+    .legend-data {
+        margin-top: 4px;
+        line-height: 1.2;
+        color: $text_very_light_color;
+    }
+    
+    .chart-title {
+        color: $default_text_color;
+    }
+    
+    .space-out-center {
+        @include display-flex();
+        @include justify-content( space-around );
+    }
+}
+
+.create-panel.volumes {
+}
+
+.clone-details-div {
+    margin: 8px;
+    line-height: 1.2;
+}
+
+.volume-edit-container {
+    height: 0px;
+    overflow: auto;
+    @include transition( linear, 200ms );
+    padding: 10px;
+
+    &.open {
+        height: 250px;
+        overflow: hidden;
+    }
+
+    span {
+//        color: $default_text_color;
+    }
+}
+
+.volume-data-type-panel {
+    height: 0px;
+    overflow: auto;
+    @include transition( linear, 200ms );
+//    padding: 10px;
+
+    &.open {
+        height: 210px;
+        overflow: visible;
+    }
+}
+
+.volume-data-type-summary {
+//     margin-left: 10px;
+
+    div {
+        padding-right: 8px;
+
+        &.icon-container {
+            color: $text_light_color;
+        }
+
+        span {
+
+            &.value {
+                font-size: 1.2em;
+                font-weight: bold;
+            }
+        }
+    }
+}
+
+.volume-edit-row {
+
+    section {
+        padding-bottom: 26px;
+
+        div {
+            margin-bottom: 8px;
+        }
+    }
+
+    .volume-edit-label {
+        font-weight: bold;
+        font-size: 1.2em;
+        color: black;
+    }
+}
+
+table.volumes {
+
+  .priority {
+    text-align: center;
+    padding: 0px;
+  }
+    
+  td.volume_time {
+      width: 88px;
+
+      div {
+          width: 88px;
+          height: 36px;
+          background-size: 88px 36px;
+          background-image: url(../images/sample_capacity_time.png);
+      }
+  }
+
+  td.name {
+    font-weight: bold;
+    color: $button_primary;
+//    padding-left: 5px;
+  }
+  td.consume {
+    span {
+      color: $text_light_color;
+      margin: 0 15px;
+    }
+  }
+    
+  td.firebreak {
+      text-align: center;
+      padding: 0px;
+  }
+
+  td.usage {
+    width: 8em;
+    svg {
+      vertical-align: middle;
+      display: inline;
+      width: 50px;
+      height: 30px;
+    }
+    span {
+      vertical-align: middle;
+      display: inline;
+      margin-left: .5em;
+    }
+  }
+  td.priority {
+    em {
+      display: inline-block;
+      border: 1px solid $text_light_color;
+      background-color: #ffffff;
+      border-radius: 20px;
+      width: 30px; height: 30px;
+      padding-top: 6px;
+      color: $text_light_color;
+      font-style: normal;
+      font-weight: bold;
+    }
+  }
+  td.action i {
+    margin-top: 2px;
+  }
+
+  td.checkmark {
+    padding-right: 5px;
+    text-align: right;
+  }
+
+  td.button-group {
+
+      span {
+          cursor: pointer;
+          color: $text_light_color;
+          padding-right: 4px;
+      }
+  }
+}

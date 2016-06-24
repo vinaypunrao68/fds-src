@@ -1,0 +1,120 @@
+.login {
+    width: 100%;
+    height: 100vh;
+    background-color: #333333; // Old browsers
+    //@include filter-gradient(#050a0e, #90adcd, vertical); // IE6-9
+    //  @include background-image(linear-gradient(top,  #050a0e 0%,#305c87 45%,#90adcd 100%));
+}
+
+.logo {
+    background: no-repeat center center;
+    background-image: url('../../images/formation_logo_white_no_tag-01.png');
+    background-size: 100%;
+//    @include image-2x('../../images/formation_logo_4login', 'png', 366px, 94px );
+    width: 100%;
+    height: 60px;
+    margin-left: 3px;
+}
+
+
+.icon-at:before {
+    content: '@';
+}
+
+.login-container {
+    width: 390px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-top: 100px;
+
+    form {
+        background-color: rgb(237,239,241);
+        border-radius: 6px;
+        padding: 30px;
+        width: 380px;
+        margin-left: 5px;
+        margin-top: 22px;
+    }
+
+    button {
+        width: 100%;
+    }
+
+    .btn-group.select {
+        width: 100%;
+
+        .btn {
+            width: 100%;
+        }
+    }
+
+    .lost-password {
+        width: 100%;
+        text-align: center;
+        color: #74757B;
+        cursor: pointer;
+    }
+
+    .form-group {
+        margin-bottom: 8px;
+    }
+
+    .form-actions {
+        margin-bottom: 1em;
+    }
+
+    div.alert.alert-info {
+        border-radius: 4px;
+    }
+
+    .alert-info {
+        border-color: #ff9999;
+        color: #c10000;
+        background-color: #fecccc;
+    }
+//
+//  .form-group {
+//    position: relative;
+//    margin-bottom: 0px;
+//
+//    input {
+//      padding-left: 30px;
+//    }
+//  }
+//
+//  .form-actions {
+//    margin: 1em 0;
+//  }
+//
+//  [class^="icon-"] {
+//    position: absolute;
+//    font-size: 1.3em;
+//    padding-top: 0.6em;
+//    margin-left: 0.3em;
+//    pointer-events: none;
+//    color: #B5C1D2;
+//  }
+//
+//  input {
+//    height: 2em;
+//    font-size: 1.25em;
+//    width: 100%;
+//    font-family: inherit;
+//    font-weight: lighter;
+//    outline: none;
+//    color: white;
+//    -webkit-appearance: none;
+//    border-radius: 0;
+//  }
+//
+//  input[type="text"], input[type="password"] {
+//    background-color: #5A779B;
+//    border: 1px solid #768EAD;
+//  }
+//
+//  input[type="submit"] {
+//    background-color: #213F64;
+//    border: none;
+//    margin-bottom: 0;
+//  }
+}

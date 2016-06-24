@@ -1,0 +1,27 @@
+<div ng-controller="tenantController">
+
+    <div class="front-page">
+        <div style="clear: both;">
+            <div>
+                <div>
+                    <span class="pull-left header" translate>tenants.title</span>
+                    <a ng-click="createNewTenant()" class="pull-right create-tenant-link btn btn-primary skinny" translate>tenants.l_create_tenant</a>
+                </div>
+            </div>
+        </div>
+
+        <table class="default tenant-table">
+            <thead>
+                <th><div translate>tenants.l_tenant_name</div></th>
+                <th></th>
+            </thead>
+            <tboday>
+                <tr class="tenant-row" ng-repeat="tenant in tenants | filter:tenantQuery">
+                    <td class="tenant-name">{{tenant.name}}</td>
+                    <td></td>
+                </tr>
+            </tboday>
+        </table>
+    </div>
+
+</div>

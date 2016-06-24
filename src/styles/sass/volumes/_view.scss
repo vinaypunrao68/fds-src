@@ -1,0 +1,37 @@
+.view-volume-screen{
+    
+    section {
+        margin-bottom: 30px;
+    }
+    
+    .gutter {
+        
+        width: 270px;
+        padding: 12px;
+        padding-top: 26px;
+        position: relative;
+    }
+    
+    .bottom-stack {
+        position: absolute;
+        bottom: 50px;
+    }
+    
+    .legend-box {
+        width: 16px;
+        height: 16px;
+        border-width: 2px;
+        border-style: solid;
+        margin: 4px;
+        
+        &.dotted {
+            border-style: dotted;
+        }
+    }
+    
+    .legend-data {
+        margin-top: 4px;
+        line-height: 1.2;
+        color: $text_very_light_color;
+    }
+}

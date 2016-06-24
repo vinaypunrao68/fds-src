@@ -1,0 +1,48 @@
+<div class="add-node-dialog-page" ng-controller="addNodeController">
+    
+    <div class="header" style="height: 52px;">
+        <span translate class="create-volume-create-title">system.l_nodes</span>
+        <div class="pull-right flex">
+            <button class="btn btn-primary skinny add-node-button" style="display: inline-block;margin-right: 8px;" ng-click="addNodes()">
+                <span translate>system.l_add_node</span>
+            </button>
+            <button class="btn btn-secondary cancel-creation skinny" style="display: inline-block;" ng-click="cancel()" translate>common.l_cancel</button>
+        </div>
+    </div>
+
+    <table class="default clickable">
+        <thead>
+            <th tool-tip text="{{ 'system.tt_node_name' | translate }}">
+                <div class="flex">
+                    <tri-state-check check-state="addAllNodes" style="top: 3px;"></tri-state-check>
+                    <div style="margin-left: 4px;" translate>
+                        system.th_node_name
+                    </div>
+                </div>
+            </th>
+            <th tool-tip text="{{ 'system.tt_ip_address' | translate }}">
+                <div translate>system.th_ip_address</div>
+            </th>
+
+        </thead>
+        <tbody>
+            <tr class="no-border detached-nodes" ng-repeat="detachedNode in detachedNodes">
+                <td>
+                    <div class="flex">
+                        <tri-state-check check-state="detachedNode.addAll" ng-click="nodeStateChanged( detachedNode )" style="top: 3px;"></tri-state-check>
+                        <div style="margin-left: 4px;" class="node-name">{{ detachedNode.name }}</div>
+                    </div>
+                </td>
+                <td>
+                    {{ detachedNode.ipV4address }}
+                </td>
+                
+            </tr>
+            <tr class="disabled" ng-show="!detachedNodes.length || detachedNodes.length === 0">
+                <td colspan="100%">
+                    No detached nodes were discovered.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>

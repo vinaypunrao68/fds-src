@@ -1,0 +1,11 @@
+<div class="status-timeline" style="position: relative;">
+    <div class="flex" style="position: relative;">
+        <div class="event {{iconClass}}" ng-repeat="event in data" ng-style="{ left: event.pos }" ng-show="event.pos"></div>
+        <div ng-repeat="box in boxes" class="color-box" ng-style="{ 'background-color': box.color}"></div>
+    </div>
+    <div style="position: relative;" ng-style="{ width: 22*divisions}">
+        <div class="time-label left">{{ leftLabel }}</div>
+        <div class="time-label middle">{{ middleLabel }}</div>
+        <div class="time-label right">{{ rightLabel }}</div>    
+    </div>
+</div>

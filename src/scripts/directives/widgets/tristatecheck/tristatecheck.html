@@ -1,0 +1,5 @@
+<div class="tristatecheck" ng-class="{'disabled': !enabled}">
+    <div class="fui-check checked" ng-show="checkState === true" ng-click="uncheck()"></div>
+    <div class="partial" ng-show="checkState === 'partial'" ng-click="uncheck()"></div>
+    <div class="unchecked" ng-click="check()" ng-show="checkState === false || !checkState"></div>
+</div>

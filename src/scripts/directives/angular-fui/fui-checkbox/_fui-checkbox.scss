@@ -1,0 +1,15 @@
+.checkbox.checked {
+    color: $fds_dark_green;
+
+    .icon-checked {
+        color: $fds_dark_green !important;
+    }
+}
+
+.checkbox {
+    @include transition( linear, 200ms );
+}
+
+.checkbox.unchecked {
+    color: #74757B;
+}

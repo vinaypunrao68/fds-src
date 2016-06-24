@@ -1,0 +1,15 @@
+<div class="fds-pager">
+    
+    <button class="btn btn-primary skinny">{{ backLabel }}</button>
+    <div class="button-row" style="">
+    
+        <div class="button-parent">
+            <div class="btn btn-primary skinny left-end" ng-click="goto( 0 )">&lt;&lt;</div>
+            <div class="btn btn-primary page-button skinny" ng-class="{ selected: page.page === currentPage }" ng-repeat="page in pages" ng-click="goto( page.page )">{{ page.page + 1 }}</div>
+            <div class="btn btn-primary skinny right-end" ng-click="goto( totalPages - 1 )">&gt;&gt;</div>
+        </div>
+        
+    </div>
+    <button class="btn btn-primary skinny">{{ nextLabel }}</button>
+    
+</div>    

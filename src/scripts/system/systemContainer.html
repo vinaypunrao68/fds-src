@@ -1,0 +1,10 @@
+<div ng-controller="systemContainerController">
+    <slide-window-stack global-vars="systemVars">
+        <slide-window-slide name="listNodes" breadcrumb-name="View Nodes">
+            <div ng-include="'scripts/system/system.html'"></div>
+        </slide-window-slide>
+        <slide-window-slide name="addNode" breadcrumb-name="Add Node">
+            <div ng-include="'scripts/system/addnode/addnode.html'"></div>
+        </slide-window-slide>
+    </slide-window-stack>
+</div>

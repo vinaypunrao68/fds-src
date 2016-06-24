@@ -1,0 +1,20 @@
+<div class="date-picker">
+
+    <div class="month-bar">
+        <button class="back-year day selectable nav-button" ng-click="backYear()">&lt;&lt;</button>
+        <button class="back-month day selectable nav-button" ng-click="backMonth()">&lt;</button>
+        <div class="month-label">{{ monthLabel( refDate.getMonth() ) }} {{ refDate.getFullYear() }}</div>
+        <button class="ahead-year day selectable nav-button" ng-click="aheadMonth()">&gt;</button>
+        <button class="ahead-month day selectable nav-button" ng-click="aheadYear()">&gt;&gt;</button>        
+    </div>
+    
+    <div class="calendar-container">
+        <div class="day-labels">
+            <div ng-repeat="label in dayLabels" class="day">{{label}}</div>
+        </div>
+    
+        <div class="day-container">
+            <button class="day" ng-repeat="day in days" ng-class="{ selectable : day.enabled, today: matchDay( day.date ), 'items-exist': day.items.length > 0, 'selected' : matchDay( date, day.date ) }" ng-click="selectMe( day )">{{day.date.getDate()}}</button>
+        </div>
+    </div>
+</div>

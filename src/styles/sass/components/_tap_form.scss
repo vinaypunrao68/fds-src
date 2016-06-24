@@ -1,0 +1,76 @@
+.widget.tapper {
+  ol {
+    list-style-type: none;
+    margin-top: 30px;
+    padding: 0;
+    border-top: 1px solid $gray_border;
+    text-align: justify;
+
+    /* Thanks http://code.jelmerdemaat.nl/2012/perfectly-justified-css-grid-technique-using-inline-block/ */
+    &:after {
+      content: "";
+      width: 100%;
+      display: inline-block;
+    }
+    height: 15px;
+  }
+  li {
+    display: inline-block;
+    margin-top: -18px;
+    vertical-align: top;
+    border: 1px solid $gray_border;
+    padding: 5px;
+    height: 36px;
+    text-align: center;
+    border-radius: 5px;
+    font-size: 1.2em;
+    background: #fff;
+    cursor: pointer;
+    color: $text_link_color;
+    margin-left: 16px;
+
+    &.first {
+        margin-left: 0px;
+    }
+
+    &.wide {
+      font-size: 1em;
+      padding-top: 6px;
+    }
+    &.current {
+      background: $text_link_color;
+      color: #fff;
+      font-weight: bold;
+    }
+  }
+
+  &.sla, &.priority {
+    width: 585px;
+
+    li {
+      width: 36px;
+    }
+  }
+
+  &.sla, &.limit {
+    li:first-child, li:last-child {
+      width: 70px;
+    }
+  }
+  &.priority {
+    li {
+      border-radius: 20px;
+    }
+  }
+
+  label {
+    color: $text_light_color;
+    font-weight: normal;
+    &.high {
+      float: right;
+    }
+    &.low {
+      float: left;
+    }
+  }
+}

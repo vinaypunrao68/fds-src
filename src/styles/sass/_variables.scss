@@ -1,0 +1,52 @@
+$base_bg_color: #FFFFFF;
+
+$header_color: #333333;
+$table_header_color: #717171;
+$sub_header_color: #EBEBEB;
+$widget_color: #4C4C4C;
+$default_text_color: black;
+$text_light_color: #3A3A3A;
+$text_very_light_color: #A0A0A0;
+$text_link_color: #0079FF;
+$placeholder_color: #CCCCCC;
+$light_background_color: #FCFCFC;
+
+$gray_border: #CCCCCC;
+$dark_border: #444444;
+
+$highlight_color: #2486F8;
+$highlight_text_color: white;
+
+$button_primary: #428BCA;
+$button_primary_hover: #006FCF;
+$button_primary_border: #357EBD;
+$button_primary_border_hover: #0064BA;
+$button_secondary: #878787;
+$button_secondary_hover: #aaaaaa;
+$button_secondary_active: #bababa;
+
+$fds_dark_green: #2486F8;
+$fds_light_green: #9BC9FF;
+$fds_extra_light_green: #59A6FF;
+$fds_dark_gray: #999999;
+
+/* Alert colors */
+$green: #68C000;
+$yellow_green: #C0DF00;
+$yellow: #F5D200;
+$orange: #FD8D00;
+
+/* Dimensions
+================= */
+$nav_width: 115px;
+$nav_left_padding: 28px;
+$header_height: 48px;
+$stage_width: 768px - $nav_width;
+
+$main_margin: 20px;
+$half_margin: 10px;
+
+$volume_modal_height: 700px;
+$volume_nav_width: 200px;
+$volume_create_min_height: 300px;
+$volume_nav_min_width: 200px;

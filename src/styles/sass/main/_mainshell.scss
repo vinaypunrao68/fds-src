@@ -1,0 +1,155 @@
+.header-parent {
+    float: left;
+    clear: both;
+    width: 100%;
+    height: $header_height;
+    background-color: $header_color;
+}
+
+.tab-page-header {
+    padding-left: 15px;
+    padding-right: 15px;
+    color: $text_very_light_color;
+}
+
+.header-image {
+    background: no-repeat left center;
+    background-image: url('../../images/formation_logo_white_no_tag-01.png');
+    background-size: 201px 34px;
+    width: 200px;
+    height: $header_height;
+    float: left;
+    margin-left: 12px;
+}
+
+.nav-container {
+    width: 100%;
+    height: 100%;
+    background-color: $sub_header_color;
+    clear: both;
+    position: relative;
+    @include display-flex();
+}
+
+.main-container {
+    padding: 24px;
+    padding-top: 8px;
+    position: absolute;
+    top: 0px;
+    bottom: 0px;
+}
+
+nav#nav {
+  //position: fixed;
+  top: 0;
+  left: -115px;
+  bottom: 0;
+  display: block;
+  float: left;
+  width: $nav_width;
+  height: 100%;
+  max-width: $nav_width;
+//  height: 100%;
+  @include transition(all, 300ms);
+  padding-top: 6px;
+
+  a#logo {
+    display: block;
+    color: #333333;
+    text-transform: uppercase;
+    font-size: .85em;
+    padding: 1em 0 0 $nav_left_padding;
+  }
+
+  ul {
+    display: block;
+    padding: 0;
+    opacity: 0.5;
+
+    @include transition(all, 300ms);
+
+    &#logout {
+      width: 115px;
+      position: absolute;
+      bottom: 0;
+    }
+
+    li {
+      display: inline;
+      a {
+        display: block;
+        position: relative;
+        padding: .6em 1em .6em $nav_left_padding;
+        cursor: pointer;
+        font-size: 1.2em;
+        font-weight: 500;
+        color: #dfe5eb;
+
+        span {
+          position: absolute;
+          right: .5em;
+          opacity: .6;
+        }
+        &:hover, &.current {
+          background-color: #0080FD;
+          color: #fff;
+        }
+      }
+    }
+  }
+}
+
+.nav-parent {
+//    position: absolute;
+    top: 0px;
+    height: 100%;
+    width: 38px;
+    @include transition( linear, 200ms );
+    background-color: $sub_header_color;
+    overflow: hidden;
+
+    &:hover {
+//        width: 115px;
+    }
+
+}
+
+nav.volume-nav {
+  background: #fff;
+  float: left;
+  min-width: $volume_nav_min_width;
+  min-height: $volume_create_min_height;
+  height: 100%;
+
+  .header {
+    margin-left: 13px;
+    margin-bottom: 0px;
+    padding: 0.2em 0;
+    font-size: 0.8em;
+    text-transform: uppercase;
+  }
+
+  ul {
+    display: block;
+    padding: 0;
+    margin: 0;
+
+    li {
+      display: inline;
+      a {
+        display: block;
+        position: relative;
+        cursor: pointer;
+        padding: .6em 1em .6em;
+        color: $default_text_color;
+        border-bottom: 1px solid $gray_border;
+
+        &:hover, &.current {
+          background-color: #0080FD;
+          color: #fff;
+        }
+      }
+    }
+  }
+}
+

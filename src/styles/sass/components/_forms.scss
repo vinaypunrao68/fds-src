@@ -1,0 +1,39 @@
+form {
+    
+    .side-by-side {
+        @include display-flex();
+    }
+
+    .required {
+        color: red;
+        border-color: red;
+    }
+
+    span.required {
+        height: 100%;
+        margin-left: 4px;
+    }
+
+    input.required {
+        border-color: red;
+    }
+    
+    label {
+        color: $default_text_color;
+        padding-right: 8px;
+        padding-left: 8px;
+        line-height: 2;
+        
+        &.right-align {
+            text-align: right;
+        }
+    }
+
+    .error {
+        width: 300px;
+        border: 1px solid red;
+        color: red;
+        background-color: rgba( 255, 0, 0, 0.1 );
+        padding: 4px;
+    }
+}

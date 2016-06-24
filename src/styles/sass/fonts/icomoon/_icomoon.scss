@@ -1,0 +1,128 @@
+@font-face {
+    font-family: 'icomoon';
+    src:url('/fonts/icomoon.eot?-8plxcq');
+    src:url('/fonts/icomoon.eot?#iefix-8plxcq') format('embedded-opentype'),
+        url('/fonts/icomoon.woff?-8plxcq') format('woff'),
+        url('/fonts/icomoon.ttf?-8plxcq') format('truetype'),
+        url('/fonts/icomoon.svg?-8plxcq#icomoon') format('svg');
+    font-weight: normal;
+    font-style: normal;
+}
+ 
+[class^="icon-"], [class*=" icon-"] {
+    font-family: 'icomoon';
+    speak: none;
+    font-style: normal;
+    font-weight: normal;
+    font-variant: normal;
+    text-transform: none;
+    line-height: 1;
+ 
+    /* Better Font Rendering =========== */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+ 
+.icon-disk:before {
+    content: "\e618";
+}
+ 
+.icon-lightningbolt:before {
+    content: "\e619";
+}
+ 
+.icon-system:before {
+    content: "\e600";
+}
+ 
+.icon-inbox:before {
+    content: "\e603";
+}
+ 
+.icon-volumes:before {
+    content: "\e602";
+}
+ 
+.icon-nodes:before {
+    content: "\e606";
+}
+ 
+.icon-users:before {
+    content: "\e601";
+}
+ 
+.icon-admin:before {
+    content: "\e605";
+}
+ 
+.icon-search:before {
+    content: "\e616";
+}
+ 
+.icon-star:before {
+    content: "\e617";
+}
+ 
+.icon-excellent:before {
+    content: "\e607";
+}
+ 
+.icon-issues:before {
+    content: "\e610";
+}
+ 
+.icon-nothing:before {
+    content: "\e611";
+}
+ 
+.icon-warning:before {
+    content: "\e612";
+}
+ 
+.icon-storage:before {
+    content: "\e608";
+}
+ 
+.icon-volume:before {
+    content: "\e60b";
+}
+ 
+.icon-firebreak:before {
+    content: "\e60a";
+}
+ 
+.icon-performance:before {
+    content: "\e60e";
+}
+ 
+.icon-presets:before {
+    content: "\e60c";
+}
+ 
+.icon-clone:before {
+    content: "\e60d";
+}
+ 
+.icon-edit:before {
+    content: "\e60f";
+}
+ 
+.icon-snapshot:before {
+    content: "\e614";
+}
+ 
+.icon-duplicate:before {
+    content: "\e615";
+}
+ 
+.icon-delete:before {
+    content: "\e613";
+}
+ 
+.icon-activity:before {
+    content: "\e604";
+}
+ 
+.icon-tenant:before {
+    content: "\e609";
+}

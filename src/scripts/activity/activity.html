@@ -1,0 +1,35 @@
+<div ng-controller="activityController">
+
+    <!-- this spacer is to align the top of this page with all the pages that are decks -->
+    <div style="height: 30px;"></div>
+    
+    <div class="top-label" style="clear: both;height: 42px;">
+        <span class="header pull-left" style="margin-right: 24px;" translate>activities.header</span>
+        <fui-input style="width: 350px;" class="skinny pull-left" placeholder="{{ 'common.l_search' | translate }}" ng-model="searchQuery" icon-class="icon-search">
+    </div>
+
+    <div class="page-vertical-spacer"></div>
+
+    <div class="header top-label">
+        <div>
+            <table class="default" style="margin-top: 8px;">
+                <tbody>
+                    <tr ng-repeat="activity in activities | filter:searchQuery">
+                        <td style="text-align: left;">
+                            <span class="{{getActivityClass( activity.category )}}"></span>
+                            <span>{{ getActivityCategoryString( activity.category ) }}</span>
+                        </td>
+                        <td>{{activity.defaultMessage}}</td>
+                        <td style="text-align: right;">{{ getTimeAgo( activity.initialTimestamp )}}</td>
+                    </tr>
+                    <tr ng-show="activities.length === 0">
+                        <td colspan="3" translate>activities.desc_no_activities</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+<!--        <pager ng-model="activities" filter="filter" call="getActivities" back-label="{{ 'common.l_back' | translate }}" next-label="{{ 'common.l_next' | translate }}"></pager>-->
+    </div>
+        
+    <div style="height: 25px;"></div>
+</div>

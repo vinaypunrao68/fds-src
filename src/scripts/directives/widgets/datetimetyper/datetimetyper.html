@@ -1,0 +1,4 @@
+<div class="date-time-typer" ng-class="{ editing: editing === true }">
+    <input size="{{ size }}" maxlength="{{ size }}" ng-model="rawvalue" ng-keydown="preventBadValues( $event )" ng-keyup="keyUp( $event )" ng-click="fieldClicked( $event )" ) ng-blur="apply()">
+    <span class="icon-excellent icon" ng-show="editing === true" ng-click="apply()"></span>
+</div>

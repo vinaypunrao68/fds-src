@@ -1,0 +1,71 @@
+.switch-widget {
+    
+    @include no-select();
+    
+    border-radius: 13px;
+    height: 24px;
+    border: 1px solid $button_primary;
+    color: $button_primary;
+    position: relative;
+    cursor: pointer;
+    
+    .veil {
+        position: absolute;
+        top: -1px;
+        left: -1px;
+        background-color: rgba( 255, 255, 255, 0.8 );
+        width: calc( 100% + 2px );
+        height: calc( 100% + 2px );
+        z-index: 2;
+    }
+    
+    &.on {
+        background-color: $button_primary;
+        color: white;
+    }    
+    
+    &.disabled {
+        border: 1px solid $button_secondary;
+        
+        &.on {
+            background-color: $button_secondary;
+        }
+    }
+    
+    .switch-text-parent{
+    
+        @include display-flex();
+        padding-right: 4px;
+        padding-left: 4px;
+        font-weight: bold;
+        
+        .on-text {
+            margin-right: 16px;
+            color: white;
+        }
+
+        .off-text{
+            margin-left: 16px;
+        }
+    }
+    
+    .switch-button {
+        
+        @include transition( linear, 200 );
+        
+        position: absolute;
+        border-radius: 8;
+        width: 16px;
+        height: 16px;
+        top: 3px;
+        border: inherit;
+        background-color: white;
+        left: 2px;
+        z-index: 1;
+        
+        &.on {
+            right: 2px;
+            left: auto;
+        }
+    }
+}

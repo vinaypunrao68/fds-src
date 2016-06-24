@@ -1,0 +1,12 @@
+{
+    "name": "FormationUI",
+    "version": "1.0.0",
+    "dependencies": {
+        "angular": "",
+        "angular-translate": "",
+        "angular-ui-router": "",
+        "bootstrap": "",
+        "compass-mixins": "",
+        "d3": "3.4.11"
+    }
+}

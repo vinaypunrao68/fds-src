@@ -1,0 +1,242 @@
+body {
+  font: 13px/1.5 "Helvetica Neue", Arial, Helvetica, Sans-Serif;
+  background-color: #444;
+  color: $default_text_color;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  margin: 0px;
+  font-size: 1.4em;
+}
+
+::-webkit-input-placeholder { 
+    color: $placeholder_color; 
+}
+
+::-moz-placeholder { 
+    color: $placeholder_color;
+} /* firefox 19+ */
+
+:-ms-input-placeholder { 
+    color: $placeholder_color;
+} /* ie */
+
+input:-moz-placeholder { 
+    color: $placeholder_color;
+}
+
+/* Thanks, Paul. */
+* { -moz-box-sizing: border-box; -webkit-box-sizing: border-box; box-sizing: border-box; }
+
+.active-text {
+    color: $text_link_color !important;
+}
+
+a {
+  text-decoration: none;
+  cursor: pointer;
+  color: $button_primary;
+
+  &:hover, &.current {
+    text-decoration: none;
+    color: $button_primary_hover;
+  }
+}
+
+.delete {
+    color: #D0021B;
+    
+    &:hover {
+        color: #D0021B;
+    }
+}
+
+h1, h2 {
+  font-weight: normal;
+  color: $header_color;
+  margin: 0;
+}
+
+h3 {
+  display: inline-block;
+  color: $default_text_color;
+  font-weight: normal;
+  margin: 0;
+}
+
+li:active, li:focus, a:active, a:focus {
+  outline: none !important;
+}
+
+.muted {
+  color: grey;
+  font-weight: lighter;
+}
+
+.title-case {
+    color: black;
+}
+
+.alert {
+  text-align: center;
+  border-radius: 0px;
+}
+
+.add-bottom-space {
+    margin-bottom: 20px;
+}
+
+.bottom-border {
+    border-bottom: 1px solid $text_very_light_color;
+}
+
+.error-color {
+    color: red;
+}
+
+.primary-color {
+    color: $fds_dark_green;
+}
+
+.light-print {
+    color: $text_very_light_color;
+}
+
+.fine-print {
+  font-size: 0.7em;
+  color: $text_very_light_color;
+}
+
+.form-group {
+
+    color: $default_text_color;
+
+    input {
+        border: 0px;
+        color: black;
+    }
+}
+
+.form-control {
+    border: 1px solid #A9A9A9;
+
+    &:focus {
+        border-color: $fds_extra_light_green
+    }
+}
+
+input.form-control {
+    &.skinny {
+        height: 32px;
+    }
+}
+
+.inline {
+    display: inline-block;
+}
+
+.flex {
+    @include display-flex();
+}
+
+.text-centered {
+    text-align: center;
+}
+
+.text-right {
+    text-align: right !important;
+}
+
+.vertical-middle {
+    vertical-align: middle;
+    margin-top: auto;
+    margin-bottom: auto;
+}
+
+.underline {
+    text-decoration: underline;
+}
+
+.light-underline{
+    border-bottom: 1px solid $text_very_light_color;
+}
+
+.std-transition {
+    @include transition( linear, 200ms );
+}
+
+.clearfix:after {
+   content: " ";
+   display: block;
+   height: 0;
+   clear: both;
+}
+
+.btn {
+
+    color: white;
+    border-radius: 3px;
+
+    &.btn-primary {
+        background-color: $button_primary;
+    }
+
+    &.btn-primary:hover {
+        background-color: $button_primary_hover;
+    }
+
+    &.btn-secondary {
+        background-color: $button_secondary;
+    }
+
+    &.btn-secondary:hover {
+        background-color: $button_secondary_hover;
+    }
+
+    &.btn-secondary:active {
+        background-color: $button_secondary_active;
+    }
+
+    &.skinny {
+        padding-top: 5.5px;
+        padding-bottom: 5.5px;
+    }
+}
+
+.clear-icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    background: transparent url('../images/clear-icon.png') no-repeat center center;
+    opacity: 0.7;
+    cursor: pointer;
+
+    &:hover {
+        opacity: 1.0;
+    }
+}
+
+.icon {
+    opacity: 0.7;
+    cursor: pointer;
+
+    &:hover {
+        opacity: 1.0;
+    }
+}
+
+.disabled {
+  pointer-events: none !important;
+  cursor: default !important;
+
+  * {
+    pointer-events: none !important;
+    cursor: default;
+    color: $text_light_color;
+  }
+
+  &.button {
+    background-color: #999999;
+    cursor: disabled;
+  }
+
+}

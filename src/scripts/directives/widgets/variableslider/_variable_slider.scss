@@ -1,0 +1,17 @@
+.slider.variable {
+
+    &.items {
+        display: flex;
+        justify-content: space-around;
+        position: relative;
+    }
+
+    &.bubble {
+        border-radius: 5px;
+        width: auto;
+        padding: 4px;
+        padding-right: 8px;
+        padding-left: 8px;
+        flex-grow: 0;
+    }
+}

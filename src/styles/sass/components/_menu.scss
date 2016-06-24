@@ -1,0 +1,38 @@
+body.menu-active nav#nav { left: 0px; }
+body.menu-active nav#nav ul { left: 0px; opacity: 1; }
+
+div#wrap {
+//  position: fixed;
+//  top: $header_height;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: scroll;
+  background: $base_bg_color;
+
+  @include transition(all, 300ms);
+
+  a.menu-trigger {
+    display: inline-block;
+    width: 36px;
+    height: 36px;
+    text-align: center;
+    padding-top: 8px;
+    cursor: pointer;
+    border-radius: 5px;
+
+    @include transition(all, 300ms);
+    &:hover { background: #dfe5eb; }
+  }
+  #header {
+    max-width: $stage_width;
+    position: relative;
+    #connection {
+      position: absolute;
+      right: 1em;
+      top: 1em;
+    }
+  }
+}
+
+body.menu-active div#wrap { left: 20px; width: calc(100% - 40px);  }

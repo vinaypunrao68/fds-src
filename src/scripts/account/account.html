@@ -1,0 +1,84 @@
+<div ng-controller="accountController" class="account-page">
+
+    <div class="header top-label">
+        <span translate>account.title</span>
+    </div>
+
+    <div class="page-vertical-spacer"></div>
+
+    <section class="block-section">
+
+        <div class="section-header ">
+            <span class="header" translate>account.l_name</span>
+        </div>
+        <div>
+            <span class="main-value username">{{username}}</span>
+            <!--<a translate>common.l_edit</a>-->
+        </div>
+    </section>
+
+    <!--<div class="page-vertical-spacer"></div>-->
+
+    <!--<section class="block-section">
+
+        <div class="section-header">
+            <span class="header" translate>account.l_role</span>
+        </div>
+
+        <div>
+            <span class="main-value" translate>account.l_tenant_admin</span>
+            <a translate>account.l_change_role</a>
+        </div>
+
+        <div class="detail-value" translate>
+            account.desc_tenant_admin
+        </div>
+    </section>-->
+
+    <div class="page-vertical-spacer"></div>
+
+    <!--<section class="block-section">
+
+        <div class="section-header">
+            <span class="header" translate>account.l_email</span>
+        </div>
+
+        <div>
+            <input type="text" ng-model="tempEmailAddress" ng-show="email_changing" class="form-control std-transition skinny" placeholder="Email Address" size="32" style="width: 300px;"/>
+            <div style="display: flex;padding-top: 12px;" ng-show="email_changing" class="std-transition">
+                <button class="btn btn-primary" style="margin-right: 4px;" ng-click="emailAddress = tempEmailAddress;email_changing = false;">Save</button>
+                <button class="btn btn-secondary" ng-click="tempEmailAddress = emailAddress;email_changing = false;">Cancel</button>
+            </div>
+            <span class="detail-value" style="font-size: 1.4em;" ng-show="!email_changing">{{emailAddress}}</span>
+            <a ng-show="!email_changing" ng-click="email_changing = true;" translate>account.l_change_email</a>
+        </div>
+    </section>-->
+
+    <div class="page-vertical-spacer"></div>
+
+    <section class="block-section">
+
+        <div class="section-header">
+            <span class="header" translate>common.password</span>
+        </div>
+
+        <div ng-show="password_changing === false" class="change-password-summary">
+            <span class="detail-value">********************</span>
+            <a class="change-password" ng-click="changePasswordClicked()" translate>account.l_change_password</a>
+        </div>
+
+        <div ng-show="password_changing === true">
+<!--            <input type="password" class="form-control skinny" ng-model="password" size="32" placeholder="Old Password" style="margin-bottom: 8px;width: 300px;"/>-->
+            <input type="password" class="form-control skinny" ng-model="newPassword" size="32" placeholder="New Password" style="margin-bottom: 8px;width: 300px;"/>
+            <input type="password" class="form-control skinny" ng-model="confirmPassword" size="32" placeholder="Confirm Password" style="margin-bottom: 8px;width: 300px;"/>
+            <div class="error" ng-show="changePasswordError !== false">
+                {{ changePasswordError }}
+            </div>
+            <div style="display: flex;padding-top: 12px;" ng-show="password_changing" class="std-transition">
+                <button class="btn btn-primary save-password" style="margin-right: 4px;" ng-click="changePassword()" translate>common.l_save</button>
+                <button class="btn btn-secondary cancel-password-change" ng-click="stopChangingPassword()" translate>common.l_cancel</button>
+            </div>
+        </div>
+
+    </section>
+</div>

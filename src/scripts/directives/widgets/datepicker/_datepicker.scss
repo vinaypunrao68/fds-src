@@ -1,0 +1,81 @@
+.date-picker {
+    
+    color: black;
+    @include no-select();
+    width: 175px;
+    
+    .calendar-container {
+        
+    }
+    
+    .month-bar {
+        @include display-flex();
+        
+        color: black;
+        background-color: white;
+        font-size: 12px;
+        
+        .nav-button {
+            width: 18px;
+            @include flex-grow( 1 );
+        }
+        
+        .month-label {
+            @include flex-grow( 2 );
+            margin-left: auto;
+            margin-right: auto;
+            
+        }
+    }
+    
+    button.day {
+        border: 1px solid transparent;
+        
+        &:focus {
+            outline: 0;
+        }
+    }
+    
+    .day-labels{
+        @include display-flex();
+
+        .day {
+            background-color: white;
+            color: black;
+            padding-left: 8px;
+        }
+    }
+    
+    .day {
+        padding: 2px;
+        width: 25px;
+        height: 18px;
+        font-size: 10px;
+        color: #A0A0A0;
+        background-color: #EDEFF1;
+        pointer-events: none;
+        @include no-select();
+        
+        &.today {
+            color: black;
+        }
+        
+        &.selectable {
+            background-color: white;
+            pointer-events: auto;
+            
+            &:hover {
+                border: 1px solid $text_very_light_color;
+            }
+        }
+        
+        &.items-exist {
+            color: $button_primary;
+        }
+        
+        &.selected {
+            color: white;
+            background-color: $button_primary;
+        }
+    }
+}

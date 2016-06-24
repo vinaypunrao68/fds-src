@@ -1,0 +1,66 @@
+<section class="form-section" ng-controller="profileController">
+    <div class="header">
+        <span>Profile</span>
+    </div>
+    <div class="collapse-form-edit" ng-class="{open: !editing}">
+        <div class="form-group inline">
+            <span>User:</span>
+            <span class="value">{{user.name}}</span>
+        </div>
+        <div class="inline icon-container">
+            <span class="icon fui-new" ng-click="edit();" title="Edit settings"></span>
+        </div>
+        <a ng-click="changepassword = true;">Change Password</a>
+    </div>
+
+    <!-- change password form -->
+    <div class="collapse-form-edit" ng-class="{open: changepassword}">
+        <div class="header">
+            <span>Current Password</span>
+        </div>
+        <div class="form-group">
+            <input type="password" class="form-control" size="32" placeholder="" ng-model="_password">
+        </div>
+        <div class="header">
+            <span>New Password</span>
+        </div>
+        <div class="form-group">
+            <input type="password" class="form-control" size="32" placeholder="" ng-model="_new_password">
+        </div>
+        <div class="header">
+            <span>Confirm Password</span>
+        </div>
+        <div class="form-group">
+            <input type="password" class="form-control" size="32" placeholder="" ng-model="_confirm_password">
+        </div>
+        <div class="pull-left">
+            <button class="btn btn-secondary" ng-click="changepassword = false;">Cancel</button>
+            <button class="btn btn-primary" ng-click="changePassword()">Save</button>
+        </div>
+    </div>
+
+    <!-- User info editing form -->
+    <div class="collapse-form-edit" ng-class="{open: editing}">
+        <section>
+            <div class="header">
+                <span>Name</span>
+            </div>
+            <div class="form-group">
+                <input type="text" class="form-control" size="32" placeholder="Full name" ng-model="_username">
+                <div class="clear-icon" ng-click="_username = ''">
+                </div>
+            </div>
+            <div class="header">
+                <span>Email Address</span>
+            </div>
+            <div class="form-group">
+                <input type="text" class="form-control" size="32" placeholder="Email address" ng-model="_email">
+                <div class="clear-icon" ng-click="_email = ''"></div>
+            </div>
+            <div class="pull-left">
+                <button class="btn btn-secondary" ng-click="editing = false;">Cancel</button>
+                <button class="btn btn-primary" ng-click="save()">Save</button>
+            </div>
+        </section>
+    </div>
+</section>

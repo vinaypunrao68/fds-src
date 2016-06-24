@@ -1,0 +1,84 @@
+nav.volume-nav {
+  .menu-item {
+    color: black;
+    font-weight: bold;
+
+    &.disabled {
+      color: $text_light_color;
+      font-weight: normal;
+    }
+  }
+}
+
+.create-panel {
+    
+    .settings-body {
+        
+        section {
+            margin-top: 12px;
+        }
+    }
+}
+
+.volume-gray-container {
+    padding: 12px;
+    background-color: $light_background_color;
+    border-radius: 6px;
+    border: 1px solid $sub_header_color;
+    margin-top: 12px;
+    margin-bottom: 12px;
+}
+
+.volume-settings-panel {
+    background: #fff;
+    //  padding-left: 10px;
+    padding-right: 10px;
+
+    .panel-header {
+        color: $header_color;
+        border-bottom: $header_color;
+    }
+
+    .volume-option {
+
+        font-size: 1.1em;
+
+        .backup-plan {
+            background: #fff image-url('backup_plan.png') no-repeat;
+            height: 140px;
+        }
+
+        .volume-name-input {
+            /*display: inline-block;
+            border: none;
+            width: auto;
+            outline: none;
+            color: black;
+            border: 1px solid $gray_border;*/
+        }
+
+        .pad-right {
+            padding-right: 7px;
+        }
+
+        .icon-clear {
+            padding-right: 26px;
+            margin-top: 8px;
+            cursor: pointer;
+        }
+
+        .icon-checked {
+            font-size: 1.0em;
+            vertical-align: 0px;
+        }
+    }
+
+    .volume-option + .volume-option {
+        border-top: 1px solid $gray_border;
+    }
+
+    .volume-option-edit {
+        background: #444;
+        text-align: center;
+    }
+}

@@ -1,0 +1,32 @@
+// FONT Awesome Icons are in ./styles/sass/fonts/font-awesome/_font-awesome.scss
+
+$icons-spacing: 20px;
+$retina-sprite-spacing: 20px;
+@include retina-sprite-add(icons, "sprites/icons/*.png", "sprites2x/icons/*.png");
+
+[class^="icons-"],
+[class*=" icons-"] {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+  vertical-align: text-top;
+}
+
+
+.icons-back {
+  @include retina-sprite(back, icons);
+}
+.icons-slide-menu {
+  @include retina-sprite(slide_menu, icons);
+}
+.icons-disclose {
+  @include retina-sprite(disclose, icons);
+}
+
+#connection i {
+  @include retina-sprite(status_connected, icons);
+}
+#connection.disconnected i {
+  @include retina-sprite(status_disconnected, icons);
+}

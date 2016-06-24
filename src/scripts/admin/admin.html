@@ -1,0 +1,89 @@
+<div ng-controller="adminController" style="padding-left: 15px" class="admin">
+
+    <div class="header light-print admin-header">
+        <span translate>admin.header</span>
+    </div>
+
+    <section class="form-section">
+        <div>
+            <span class="light-print" translate>admin.l_version</span>
+        </div>
+
+        <div class="version-text">
+            v1.05
+        </div>
+        <div class="upgrade-panel" ng-show="isAllowed( 'TENANT_MGMT' )">
+            <div>
+                <span>{{ 'admin.l_update_available' | translate }} v1.06</span>
+                <span class="primary-color" translate>admin.l_release_notes</span>
+            </div>
+            <div class="button-panel">
+                <span>
+                    <button class="btn btn-primary" translate>admin.l_update</button>
+                </span>
+                <span>or</span>
+                <span class="primary-color" translate>admin.l_rollback</span>
+            </div>
+        </div>
+
+        <div class="admin-header"></div>
+    </section>
+
+    <section class="form-section">
+        <div>
+            <span class="light-print" translate>admin.l_data_connectors</span>
+        </div>
+
+        <div class="volume-data-type-panel open">
+            <table class="default volumes">
+                <thead>
+                    <th><div translate>admin.th_data_type</div></th>
+                    <th><div translate>admin.th_api</div></th>
+                    <th><div translate>admin.th_default_capacity</div></th>
+                    <th></th>
+                </thead>
+                <tbody id="data-connectors">
+                    <tr ng-repeat="connector in connectors" ng-click="setSelected( connector );">
+                        <td>{{connector.type}}</td>
+                        <td>{{connector.api}}</td>
+                        <td>
+                            <span class="connector-attributes" ng-show="connector.attributes && connector.attributes.size">
+                                <button class="btn btn-primary skinny" ng-click="editConnector( connector )" ng-show="editingConnector != connector">
+                                    {{connector.attributes.size}}
+                                    {{connector.attributes.unit}}
+                                </button>
+                                <div ng-show="editingConnector == connector">
+                                    <div class="inline vertical-middle">
+                                        <spinner value="$parent._selectedSize" min="1" max="999" step="1" class="skinny"></spinner>
+                                    </div>
+                                    <div class="inline">
+                                        <fui-dropdown skinny="true" background-color="#2486F8" items="sizes" selected="$parent._selectedUnit"></fui-dropdown>
+                                    </div>
+                                    <button class="btn btn-primary skinny" ng-click="saveConnectorChanges( connector )" translate>common.l_save</button>
+                                    <button class="btn btn-secondary skinny" ng-click="stopEditing()" translate>common.l_cancel</button>
+                                </div>
+                            </span>
+                        </td>
+                        <td class="checkmark">
+                            <span class="fui-arrow-right light-print"></span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="form-section log-and-alert-panel" ng-show="isAllowed( 'TENANT_MGMT' )">
+        <div class="spacer">
+            <span class="light-print" translate>admin.l_log_alert</span>
+        </div>
+        <div>
+            <fui-dropdown skinny="true" items="levels" selected="alertLevel" color="black" background="none" border="gray"></fui-dropdown>
+        </div>
+    </section>
+
+
+    <!-- firebreak settings -->
+<!--    <div ng-include="'scripts/admin/firebreak/firebreak.html'"></div>-->
+
+</div>

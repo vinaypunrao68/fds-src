@@ -1,0 +1,137 @@
+<div class="volume-page" ng-controller="volumeController">
+    
+    <!-- Real stuff -->
+    <div class="volumecontainer">
+
+        <div class="space-out-center" ng-hide="volumes.length === 0">
+            <div>
+                <div class="chart-title" translate>volumes.title_volumes_by_size</div>
+                <div class="flex">
+                    <div style="width: 200px; height: 200px;">
+                        <pie-chart data="volumesBySize" pie-property="value" tooltip="sizeTooltip" colors="pieColors"></pie-chart>
+                    </div>
+                    <div style="margin-top: 18px">
+                        <div class="flex" ng-repeat="portion in volumesBySize">
+                            <div class="legend-box" ng-style="{ 'border-color': pieColors( portion ), 'background-color': pieColors( portion ) }"></div>
+                            <div class="legend-data">{{ sizeTooltip( portion ) }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div class="chart-title" translate>volumes.title_volumes_by_type</div>
+                <div class="flex">
+                    <div style="width: 200px; height: 200px;">
+                        <pie-chart data="volumesByType" pie-property="value" tooltip="countTooltip" colors="pieColors"></pie-chart>
+                    </div>
+                    <div style="margin-top: 18px">
+                        <div class="flex" ng-repeat="portion in volumesByType">
+                            <div class="legend-box" ng-style="{ 'border-color': pieColors( portion ), 'background-color': pieColors( portion ) }"></div>
+                            <div class="legend-data">{{ countTooltip( portion ) }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="volumes">
+            <span>{{::name}}</span>
+            <span class="header pull-left" style="margin-right: 24px;" translate>volumes.title</span>
+            <fui-input style="width: 350px;" class="skinny pull-left" ng-model="searchText" placeholder="{{ 'common.l_search' | translate }}" icon-class="icon-search"></fui-input>
+
+            <a ng-click="createNewVolume()" class="new_volume pull-right btn btn-primary skinny" translate>volumes.l_create_volume</a>
+        </div>
+        
+        <div class="">
+            <!-- actual table -->
+            <div class="table-container">
+                
+                <table class="default volumes clickable" style="margin-bottom: 48px;">
+                    <thead>
+<!--                        <th translate>volumes.th_performance</th>-->
+<!--                        <th><div translate>common.th_name</div></th>-->
+                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'name' ) !== -1 }" tool-tip text="{{ 'volumes.tt_volume_name' | translate }}">
+                            <sort-helper ng-model="sortPredicate" value="name">{{ 'common.th_name' | translate }}</sort-helper>
+                        </th>
+<!--
+                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'application' ) !== -1 }">
+                            <sort-helper ng-model="sortPredicate" value="application">{{ 'common.th_application' | translate }}</sort-helper>
+                        </th>
+-->
+                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'tenant_name' ) !== -1 }" tool-tip text="{{ 'volumes.tt_tenant_name' | translate }}" ng-show="isAllowed( 'TENANT_MGMT' )">
+                            <sort-helper ng-model="sortPredicate" value="tenant_name">{{ 'common.th_tenant' | translate }}</sort-helper>                                                                             
+                        </th>
+                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'data_connector.type' ) !== -1 }" tool-tip text="{{ 'volumes.tt_data_connector' | translate }}">
+                            <sort-helper ng-model="sortPredicate" value="data_connector.type">{{ 'common.th_data_type' | translate }}</sort-helper>
+                        </th>
+                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'size' ) !== -1 }" tool-tip text="{{ 'volumes.tt_size' | translate }}">
+                            <sort-helper ng-model="sortPredicate" value="size">{{ 'volumes.th_volume_usage' | translate }}</sort-helper>
+                        </th>
+                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'firebreak' ) !== -1 }" style="text-align: center;width: 52px;" tool-tip text="{{ 'volumes.tt_firebreak' | translate }}">
+                            <sort-helper ng-model="sortPredicate" value="firebreak">
+                                <span style="line-height: 19px;" class="icon icon-firebreak"></span>
+                            </sort-helper>
+                        </th>
+                        <th ng-class="{ 'selected' : sortPredicate.indexOf( 'priority' ) !== -1 }" style="text-align: center;width: 52px;" tool-tip text="{{ 'volumes.tt_priority' | translate }}">
+                            <sort-helper ng-model="sortPredicate" value="priority">
+                                <span style="line-height: 19px;" class="icon icon-star"></span>
+                            </sort-helper>
+                        </th>
+<!--                        <th></th>-->
+                    </thead>
+                    <tbody>
+                        <!-- row per volume -->
+                        <tr class="volume-row" ng-repeat="volume in volumes | filter:searchText | orderBy:customSorter:reverse" ng-click="clicked( volume )" ng-class="{ 'odd-row': $odd }">
+<!--
+                            <td class="volume_time">
+                                <div></div>
+                            </td>
+-->
+
+                            <td class="name primary-color">
+                                {{::volume.name}}
+                            </td>
+                            
+<!--                            <td class="application"></td>-->
+                            
+                            <td class="tenant" ng-show="isAllowed( 'TENANT_MGMT' )">
+                                <span ng-if="volume.tenant">{{ ::volume.tenant.name }}</span>
+                            </td>
+                            
+                            <td>
+                                {{::volume.settings.type}}
+                            </td>
+
+                            <td class="consume">
+                                {{getCapacityString( volume ) }}
+                            </td>
+                            
+                            <td class="firebreak">
+                                <span style="line-height: 19px;" class="icon icon-firebreak" ng-style="{ color: getFirebreakColor( volume ) }"></span>
+                            </td>
+
+                            <td class="priority">
+                                <em>
+                                    {{::volume.qosPolicy.priority}}
+                                </em>
+                            </td>
+<!--
+                            <td class="button-group">
+                                <div class="inline" style="position: relative;">
+                                    <span class="icon-snapshot" ng-click="takeSnapshot( $event, volume )" title="Take a snapshot">
+                                    </span>
+                                </div>
+                            </td>
+-->
+                        </tr>
+                        <tr class="disabled" ng-show="!volumes.length || volumes.length === 0">
+                            <td colspan="100%" translate>
+                                volumes.desc_no_volumes
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
