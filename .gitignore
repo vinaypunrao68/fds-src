@@ -1,3 +1,4 @@
 app/
-node_module/
+node_modules/
 bower_components/
+.sass-cache/

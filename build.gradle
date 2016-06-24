@@ -1,0 +1,119 @@
+buildscript {
+  repositories {
+    jcenter()
+  }
+}
+
+plugins {
+  id "nebula.ospackage" version "3.2.0"
+}
+
+version = '1.2.1'
+
+ospackage {
+  url = 'http://dist.schmorp.de/libev/'
+  version = '1.2.1'
+  packageName = 'fds-ui-' + version
+  packageDescription = 'The UI for FDS formation one'
+
+  from ('app'){
+    into '/opt/fds/formation_one/packages/' + packageName + '/lib.admin-webapp'
+    include '*'
+    user 'root'
+    permissionGroup 'root'
+  }
+}
+
+buildDeb {
+  arch = 'amd64'
+}
+
+buildRpm {
+  arch = 'X86_64'
+  os = LINUX
+}
+
+task cleanArtifacts(type:Exec){
+    commandLine 'rm', '-rf', 'app'
+}
+
+task prepareEnvironment(type:Exec){
+    commandLine 'npm', 'install'
+    commandLine 'npm', '-g', 'install', 'bower'
+    commandLine 'bower', 'install', '--allow-root'
+}
+
+task buildRelease( type:Exec ){
+    commandLine 'node_modules/grunt-cli/grunt', 'release'
+}
+
+task deployDeb( dependsOn: ['buildDeb' ] ) << {
+
+  if ( !project.hasProperty( 'username' ) || !project.hasProperty( 'password' ) ){
+    throw new GradleException( 'You must specify both a -Pusername and -Ppassword value.' )
+    return
+  }
+
+  def fullName = 'NONE'
+  new File( 'build/distributions' ).eachFile( { f ->
+
+    if ( f.name.startsWith( ospackage.packageName ) && f.name.endsWith( 'deb' ) ) {
+      fullName = f.name
+    }
+  })
+
+  if ( fullName == 'NONE' ){
+    return
+  }
+
+  def command = 'curl -v -X PUT http://' + username + ':' + password + '@bld-artifactory.formationds.com:8081/artifactory/formation-apt/pool/nightly/' + fullName + ';deb.distribution=platform;deb.component=nightly;deb.architecture=amd64 -T build/distributions/' + fullName
+
+  def proc = command.execute()
+
+  println command
+
+  proc.text.eachLine { line -> println line }
+
+  if ( proc.exitValue() ){
+    throw new GradleException( 'Artifact upload failed.' )
+  }
+}
+
+
+task deployRpm( dependsOn: ['buildRpm' ] ) << {
+
+  if ( !project.hasProperty( 'username' ) || !project.hasProperty( 'password' ) ){
+    throw new GradleException( 'You must specify both a -Pusername and -Ppassword value.' )
+    return
+  }
+
+  def fullName = 'NONE'
+  new File( 'build/distributions' ).eachFile( { f ->
+
+    if ( f.name.startsWith( ospackage.packageName ) && f.name.endsWith( 'rpm' ) ) {
+      fullName = f.name
+    }
+  })
+
+  if ( fullName == 'NONE' ){
+    return
+  }
+
+  def command = 'curl -v -X PUT http://' + username + ':' + password + '@bld-artifactory.formationds.com:8081/artifactory/formation-yum/' + fullName + ' -T build/distributions/' + fullName
+
+  def proc = command.execute()
+
+  println command
+
+  proc.text.eachLine { line -> println line }
+
+  if ( proc.exitValue() ){
+    throw new GradleException( 'Artifact upload failed.' )
+  }
+}
+
+buildRelease.dependsOn prepareEnvironment
+build.dependsOn buildRelease
+buildDeb.dependsOn build
+buildRpm.dependsOn build
+clean.dependsOn cleanArtifacts
