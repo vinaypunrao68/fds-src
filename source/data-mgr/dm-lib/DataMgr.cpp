@@ -564,9 +564,22 @@ Error DataMgr::addVolume(const std::string& vol_name,
                          VolumeDesc *vdesc) {
     // check if the volume already exists ..
     {
+        LOGDEBUG  << vol_uuid
+                  << " clone:" << vdesc->isClone()
+                  << " snap:" << vdesc->isSnapshot()
+                  << " state:" << vdesc->getState()
+                  << " createtime:" <<vdesc->createTime;
+
         FDSGUARD(vol_map_mtx);
         if (volExistsLocked(vol_uuid) == true) {
-            LOGDEBUG << "Received add request for existing vol uuid [" << vol_uuid << "]";
+            LOGDEBUG << ATTR_CTX("volcreate")
+                     << ATTR_VOL(vol_uuid)
+                     << "ignoring request for existing vol";
+            // if this is a snapshot, just update the original createtime from OM
+            auto iter = vol_meta_map.find(vol_uuid);
+            if (iter->second->vol_desc->isSnapshot() && vdesc->createTime > 0) {
+                iter->second->vol_desc->createTime = vdesc->createTime;
+            }
             return ERR_DUPLICATE;
         }
         // add a dummy vol meta [FS-3207]

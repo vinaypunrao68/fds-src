@@ -1051,6 +1051,7 @@ void VolumeInfo::initSnapshotVolInfo(VolumeInfo::pointer vol, const fpi::Snapsho
     vol->vol_properties->volUUID = snapshot.snapshotId;
     vol->vol_properties->fSnapshot = true;
     vol->vol_properties->timelineTime = snapshot.timelineTime;
+    vol->vol_properties->createTime   = snapshot.creationTimestamp;
 
     vol->volume_fsm->start();
 }
@@ -1358,7 +1359,7 @@ VolumeContainer::om_create_vol(const FdspMsgHdrPtr &hdr,
     }
 
     // set the create timestamp
-    vol->vol_get_properties()->createTime = util::getTimeStampSeconds();
+    vol->vol_get_properties()->createTime = creat_msg->vol_info.createTime;
 
     const VolumeDesc& volumeDesc=*(vol->vol_get_properties());
     // store it in config db..

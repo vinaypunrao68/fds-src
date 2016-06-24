@@ -202,8 +202,16 @@ Error TimelineManager::createClone(VolumeDesc *vdesc) {
         return err;
     }
 
-    fds_volid_t latestSnapshotId = invalid_vol_id;
-    timelineDB->getLatestSnapshotAt(srcVolumeId, createTime, latestSnapshotId);
+    // get the correct snapshot with the exact time of creation based of OM's vol creation time
+    fds_volid_t latestSnapshotId = getLatestSnapshotFromOMTime(srcVolumeId, vdesc->timelineTime);
+    // if no matching snap found, get the snapshot based on DM's creation time
+    if (invalid_vol_id == latestSnapshotId) {
+        LOGWARN << ATTR_TIME(vdesc->timelineTime) << "no snap matched at exact creation time";
+        timelineDB->getLatestSnapshotAt(srcVolumeId, createTime, latestSnapshotId);
+    } else {
+        LOGNORMAL << ATTR_SNAP(latestSnapshotId) << ATTR_TIME(vdesc->timelineTime) << "snap found at exact createtime";
+    }
+
     util::TimeStamp snapshotTime = 0;
     if (latestSnapshotId > invalid_vol_id) {
         LOGDEBUG << "clone vol:" << vdesc->volUUID
@@ -272,6 +280,31 @@ Error TimelineManager::createClone(VolumeDesc *vdesc) {
     }
 
     return err;
+}
+
+fds_volid_t TimelineManager::getLatestSnapshotFromOMTime(fds_volid_t srcVolId, TimeStamp omTime) {
+    FDSGUARD(dm->vol_map_mtx);
+    for (auto const& element : dm->vol_meta_map) {
+        if (element.second) {
+            auto descriptor = element.second->vol_desc;
+            LOGTRACE  << ATTR_VOL(descriptor->volUUID)
+                      << ATTR_SRC(descriptor->srcVolumeId)
+                      << ATTR_SNAP(descriptor->isSnapshot())
+                      << ATTR("createtime", descriptor->createTime)
+                      << ATTR("omtime", omTime);
+
+            if (descriptor->isSnapshot() &&
+                descriptor->srcVolumeId == srcVolId &&
+                descriptor->createTime == omTime) {
+                return descriptor->volUUID;
+            }
+        }
+    }
+    return invalid_vol_id;
+}
+
+const std::string TimelineManager::getCurrentJournalFile(fds_volid_t volId) {
+    return dmutil::getVolumeDir(dm->getModuleProvider()->proc_fdsroot(), volId) + "/catalog.journal";
 }
 
 }  // namespace timeline

@@ -121,6 +121,7 @@ void VolumeMeta::dmCopyVolumeDesc(VolumeDesc *v_desc, VolumeDesc *pVol) {
     v_desc->qosQueueId = pVol->qosQueueId;
     v_desc->contCommitlogRetention = pVol->contCommitlogRetention;
     v_desc->timelineTime = pVol->timelineTime;
+    v_desc->createTime = pVol->createTime;
     v_desc->coordinator = pVol->coordinator;
 }
 
