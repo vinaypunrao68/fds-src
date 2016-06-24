@@ -17,8 +17,8 @@ ospackage {
   packageDescription = 'The UI for FDS formation one'
 
   from ('app'){
-    into '/opt/fds/formation_one/packages/' + packageName + '/lib.admin-webapp'
-    include '*'
+    into '/opt/fds/formation_one/packages/' + packageName + '/lib/admin-webapp'
+    include '**/*'
     user 'root'
     permissionGroup 'root'
   }
@@ -44,7 +44,7 @@ task prepareEnvironment(type:Exec){
 }
 
 task buildRelease( type:Exec ){
-    commandLine 'node_modules/grunt-cli/grunt', 'release'
+    commandLine 'node_modules/grunt-cli/bin/grunt', 'release'
 }
 
 task deployDeb( dependsOn: ['buildDeb' ] ) << {
