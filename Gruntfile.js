@@ -6,6 +6,7 @@ var mountFolder = function (connect, dir) {
   return connect.static(require('path').resolve(dir));
 };
 var proxySnippet = require('grunt-connect-proxy/lib/utils').proxyRequest;
+var serveStatic = require('serve-static');
 
 module.exports = function( grunt ){
 
@@ -218,7 +219,8 @@ module.exports = function( grunt ){
                         var middlewares =  [
                             proxySnippet,
                             lrSnippet,
-                            mountFolder(connect, './' + distDir ),
+                            //mountFolder(connect, './' + distDir ),
+                            serveStatic( './' + distDir )
                         ];
                         return middlewares;
                     }

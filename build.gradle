@@ -37,10 +37,18 @@ task cleanArtifacts(type:Exec){
     commandLine 'rm', '-rf', 'app'
 }
 
-task prepareEnvironment(type:Exec){
-    commandLine 'npm', 'install'
-    commandLine 'npm', '-g', 'install', 'bower'
-    commandLine 'bower', 'install', '--allow-root'
+task prepareEnvironment(){
+    exec {
+      commandLine 'npm', 'install'
+    }
+
+    exec {
+      commandLine 'sudo', 'npm', '-g', 'install', 'bower'
+    }
+
+    exec {
+      commandLine 'bower', 'install', '--allow-root'
+    }
 }
 
 task buildRelease( type:Exec ){
