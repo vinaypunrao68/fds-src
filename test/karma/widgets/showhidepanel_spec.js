@@ -9,7 +9,7 @@ describe( 'Show/Hide panel functionality', function(){
     
     beforeEach(inject( function( $compile, $rootScope ) {
             
-            var html = '<show-hide-panel show-text="Show Advanced Options" hide-text="Hide Advanced Options"></show-hide-panel>';
+            var html = '<show-hide-panel show-text="Show Advanced Options" hide-text="Hide Advanced Options" content-height="30px"></show-hide-panel>';
             scope = $rootScope.$new();
             $panel = angular.element( html );
             $compile( $panel )( scope );
@@ -31,6 +31,5 @@ describe( 'Show/Hide panel functionality', function(){
         
         expect( $panel.children().scope().panelText ).toBe( 'Hide Advanced Options' );
         expect( $panel.children().scope().isOpen ).toBe( true );
-
     });
 });
