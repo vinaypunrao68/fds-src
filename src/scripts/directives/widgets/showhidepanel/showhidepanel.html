@@ -1,0 +1,7 @@
+<div class="show-hide-panel">
+    <div class="show-hide-content-parent" ng-style="{ height: isOpen ? contentHeight : '0px' }">
+        <div ng-transclude class="show-hide-content"></div>
+    </div>
+    <div class="show-hide-panel-divider"></di>
+    <div class="show-hide-panel-label" ng-click="togglePanel()">{{ panelText }}</div>
+</div>

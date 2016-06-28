@@ -23,7 +23,7 @@ describe( 'Summary number display functionality', function(){
                 {
                     numer: 0.005,
                     description: 'Chipmunks without songbooks',
-                    suffic: 'CKS'
+                    suffix: 'CKS'
                 }
             ]
             

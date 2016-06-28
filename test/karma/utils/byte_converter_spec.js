@@ -73,7 +73,7 @@ describe( 'Testing our byte converter utility', function(){
         expect( str ).toBe( '1.12 EB' );
     });
     
-    iit( 'should handle zeros', function(){
+    it( 'should handle zeros', function(){
         
         var str = byte_converter.convertBytesToString( 0.0 );
         expect( str ).toBe( '0 Bytes' );
