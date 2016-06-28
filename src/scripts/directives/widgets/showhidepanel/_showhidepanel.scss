@@ -1,0 +1,24 @@
+.show-hide-panel {
+    
+    .show-hide-panel-divider {
+        width: 100%;
+        border-top-width: 2px;
+        border-top-color: $fds_dark_gray;
+        border-top-style: solid;
+        height: 4px;
+    }
+    
+    .show-hide-panel-label {
+        color: $button_primary;
+        
+        :hover {
+            color: $button_primary_hover;
+        }
+    }
+    
+    .show-hide-content-parent {
+        overflow: hidden;
+        height: 0px;
+        @include transition(height, 200ms);
+    }
+}

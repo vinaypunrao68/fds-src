@@ -95,10 +95,10 @@ angular.module( 'display-widgets' ).directive( 'summaryNumberDisplay', function(
             });
             
             if ( $scope.autoChange === true || $scope.autoChange === 'true' ){
-                intervalId = $interval( function(){
+                $scope.intervalId = $interval( function(){
                     
                     if ( !angular.isDefined( $scope.data ) ){
-                        $interval.cancel( intervalId );
+                        $interval.cancel( $scope.intervalId );
                         return;
                     }
                     
@@ -110,8 +110,8 @@ angular.module( 'display-widgets' ).directive( 'summaryNumberDisplay', function(
             }
             
             $scope.$on( '$destroy', function(){
-                if ( intervalId !== -1 ){
-                    $interval.cancel( intervalId );
+                if ( $scope.intervalId !== -1 ){
+                    $interval.cancel( $scope.intervalId );
                 }
             });
         }

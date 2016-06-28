@@ -57,7 +57,7 @@ describe( 'Textlist functionality', function(){
         setTimeout( function(){
             expect( $scope.texts.length ).toBe( 1 );
             expect( $scope.texts[0] ).toBe( 'Fishes' );
-        }, 1000 );
+        }, 2000 );
     });
     
     it( 'should reflect a row being deleted in the ui', function(){
