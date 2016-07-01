@@ -463,7 +463,7 @@ namespace fds
 
            if (commandNameFile.fail())
            {
-               LOGWARN "Looking for pid " << pid << " and it is gone.";
+               LOGWARN << "Looking for pid " << pid << " and it is gone.";
                return false;
            }
 
@@ -485,7 +485,7 @@ namespace fds
 
                    if (commandLineFile.fail())
                    {
-                       LOGWARN "Looking for java pid " << pid << " and it is gone.";
+                       LOGWARN << "Looking for java pid " << pid << " and it is gone.";
                        return false;
                    }
 
@@ -500,13 +500,13 @@ namespace fds
                    if (std::string::npos == arg.find (procName))
                    {
                        // TODO (donavan) Need a decent way to test this...
-                       LOGWARN "Looking for java pid " << pid << " and it is no longer " << procName;
+                       LOGWARN << "Looking for java pid " << pid << " and it is no longer " << procName;
                        return false;
                    }
                }
                else
                {
-                   LOGWARN "Looking for process with pid " << pid << " and it is no longer " << procName;
+                   LOGWARN << "Looking for process with pid " << pid << " and it is no longer " << procName;
                    return false;
                }
            }

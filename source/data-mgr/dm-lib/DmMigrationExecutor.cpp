@@ -508,7 +508,7 @@ DmMigrationExecutor::processForwardedCommits(DmIoFwdCat* fwdCatReq) {
     		// Do nothing
     		break;
         case INIT:
-            LOGERROR "recieved migration forwarding request " << fwdCatReq << " while still in INIT state. dropping.";
+            LOGERROR << "recieved migration forwarding request " << fwdCatReq << " while still in INIT state. dropping.";
             break;
         default:
     		fds_panic("Unexpected state encountered");

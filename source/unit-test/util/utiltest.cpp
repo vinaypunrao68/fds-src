@@ -9,7 +9,7 @@
 #include <fds_defines.h>
 #include <util/timeutils.h>
 #include <util/path.h>
-
+#include <util/Log.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -118,6 +118,16 @@ TEST_F(UtilTest, dirlist) {
             EXPECT_TRUE(volDirs.size() > 0);
         }
     }
+}
+
+TEST_F(UtilTest, attributes) {
+    util::Attributes attr;
+    attr.set("name","fds");
+    attr.set("key","value");
+    attr.setInt("num", 3);
+    attr.setBool("value", true);
+    LOGWARN << attr;
+    std::cout<< attr << std::endl;
 }
 
 

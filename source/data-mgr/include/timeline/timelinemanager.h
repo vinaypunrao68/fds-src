@@ -22,6 +22,9 @@ struct TimelineManager {
     Error createClone(VolumeDesc *vdesc);
     Error removeVolume(fds_volid_t volid);
     Error getSnapshotsForVolume(fds_volid_t volId, std::vector<fds_volid_t>& vecVolIds);
+    const std::string getCurrentJournalFile(fds_volid_t volId);
+    fds_volid_t getLatestSnapshotFromOMTime(fds_volid_t srcVolId, TimeStamp omTime);
+
     SHPTR<TimelineDB> getDB();
 
   private:

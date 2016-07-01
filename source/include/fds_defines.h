@@ -41,4 +41,14 @@
 #define PH_ARG2 std::placeholders::_2
 #define PH_ARG3 std::placeholders::_3
 
+// Value is turned to a string literal so that concatenation in __LOC__ works
+#define INTSTR(x) #x
+#define INTSTRING(x) INTSTR(x)
+
+#ifndef DONTLOGLINE
+#define __LOC__ (" [" __FILE__ ":" INTSTRING(__LINE__) ":")
+#else
+#define __LOC__ " - "
+#endif
+
 #endif  // SOURCE_INCLUDE_FDS_DEFINES_H_

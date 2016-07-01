@@ -63,6 +63,7 @@ VolumeDesc::VolumeDesc(const VolumeDesc& vdesc) {
         GLOGTRACE << "volume id is invalid";
     }
 
+    createTime = vdesc.createTime;
     iscsiSettings = vdesc.iscsiSettings;
     nfsSettings = vdesc.nfsSettings;
 
@@ -258,6 +259,7 @@ VolumeDesc& VolumeDesc::operator=(const VolumeDesc& volinfo) {
         this->srcVolumeId = volinfo.srcVolumeId;
         this->contCommitlogRetention = volinfo.contCommitlogRetention;
         this->timelineTime = volinfo.timelineTime;
+        this->createTime = volinfo.createTime;
         this->state = volinfo.state;
         this->iscsiSettings = volinfo.iscsiSettings;
         this->nfsSettings = volinfo.nfsSettings;
