@@ -27,7 +27,9 @@ public class FdsAuthorizer implements Authorizer {
         if (user.isIsFdsAdmin()) {
             return 0;
         }
-        return config.tenantId(user.getId());
+
+        final Long tenantId = config.tenantId( user.getId() );
+        return tenantId != null ? tenantId : 0;
     }
 
   /**
