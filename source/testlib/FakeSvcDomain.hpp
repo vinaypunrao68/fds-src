@@ -499,8 +499,10 @@ FakeSvc::FakeSvc(FakeSvcDomain *domain,
             fpi::commonConstants().PLATNET_SERVICE_NAME, processor));
 
     setupSvcMgr_(handler, processors);
-    filetransfer = SHPTR<net::FileTransferService>(new net::FileTransferService(std::string("/tmp/ft-") + std::to_string(platformUuid),
-                                                                                getSvcMgr() ));
+    std::string ftdir = fdsRoot;
+    if (ftdir.empty()) ftdir = ".";
+    ftdir += "/filetransfer-" + std::to_string(platformUuid);
+    filetransfer = SHPTR<net::FileTransferService>(new net::FileTransferService(ftdir, getSvcMgr() ));
 }
 
 FakeSvc::~FakeSvc() {
