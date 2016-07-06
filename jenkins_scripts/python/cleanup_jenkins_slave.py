@@ -112,6 +112,7 @@ whitelist = [
         ['/bin/bash', '-lxe', 'jenkins_scripts/jenkins_build_test_coroner_cleanup.sh', 'jenkins_build_on_master_commit'],
         ['/bin/bash', '-lxe', 'jenkins_scripts/jenkins_build_test_coroner_cleanup.sh', 'compile_only'],
         ['dhclient', '-1', '-v', '-pf', '/run/dhclient.eth0.pid', '-lf', '/var/lib/dhcp/dhclient.eth0.leases', 'eth0'],
+        ['/usr/sbin/iscsid'],
         # children of daily cron job
         ['/bin/sh', '-c', 'test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.daily )'],
         ['run-parts', '--report', '/etc/cron.daily'],
