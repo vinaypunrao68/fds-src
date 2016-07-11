@@ -33,14 +33,14 @@ using ::testing::Return;
 using namespace fds;  // NOLINT
 
 struct SvcRequestMgrTest : BaseTestFixture {
-    static std::string confFile;
+    static std::string fdsRoot;
 
     static void SetUpTestCase() {
-        confFile = getArg<std::string>("fds-root") + std::string("/etc/platform.conf");
+        fdsRoot = getArg<std::string>("fds-root");
     }
 
 };
-std::string SvcRequestMgrTest::confFile;
+std::string SvcRequestMgrTest::fdsRoot;
 
 /**
 * @brief Tests svc map update in the domain.
@@ -48,7 +48,7 @@ std::string SvcRequestMgrTest::confFile;
 TEST_F(SvcRequestMgrTest, epsvcrequest)
 {
     int cnt = 3;
-    FakeSyncSvcDomain domain(cnt, confFile);
+    FakeSyncSvcDomain domain(cnt, fdsRoot);
 
     /* dest service is up...request should succeed */
     SvcRequestCbTask<EPSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter1;
@@ -85,7 +85,7 @@ TEST_F(SvcRequestMgrTest, epsvcrequest)
 TEST_F(SvcRequestMgrTest, epsvcrequest_invalidep)
 {
     int cnt = 3;
-    FakeSyncSvcDomain domain(cnt, confFile);
+    FakeSyncSvcDomain domain(cnt, fdsRoot);
 
     auto svcMgr1 = domain[1]->getSvcMgr();
 
@@ -106,7 +106,7 @@ TEST_F(SvcRequestMgrTest, epsvcrequest_invalidep)
 TEST_F(SvcRequestMgrTest, failoversvcrequest)
 {
     int cnt = 4;
-    FakeSyncSvcDomain domain(cnt, confFile);
+    FakeSyncSvcDomain domain(cnt, fdsRoot);
 
     /* all endpoints are up...request should succeed */
     SvcRequestCbTask<FailoverSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
@@ -149,7 +149,7 @@ TEST_F(SvcRequestMgrTest, failoversvcrequest)
 TEST_F(SvcRequestMgrTest, quorumsvcrequest)
 {
     int cnt = 4;
-    FakeSyncSvcDomain domain(cnt, confFile);
+    FakeSyncSvcDomain domain(cnt, fdsRoot);
 
     SvcRequestCbTask<QuorumSvcRequest, fpi::GetSvcStatusRespMsg> svcStatusWaiter;
     domain.sendGetStatusQuorumSvcRequest(1, {2,3}, svcStatusWaiter);
@@ -190,7 +190,7 @@ TEST_F(SvcRequestMgrTest, quorumsvcrequest)
 
 TEST_F(SvcRequestMgrTest, multiPrimarySvcRequest) {
     int cnt = 5;
-    FakeSyncSvcDomain domain(cnt, confFile);
+    FakeSyncSvcDomain domain(cnt, fdsRoot);
     MultiPrimarySvcRequestPtr req;
     /* Request with all services up should work */
     MultiPrimarySvcRequestCbTask svcStatusWaiter1;
@@ -233,7 +233,7 @@ TEST_F(SvcRequestMgrTest, multiPrimarySvcRequest) {
 struct FTCallback : concurrency::TaskStatus {
     void handle(fds::net::FileTransferService::Handle::ptr handle,
                 const Error &e) {
-        GLOGNORMAL << "in callback : " << handle->srcFile << " : " << e;
+        GLOGNORMAL << "in callback src: " << handle->srcFile << " dest:" << handle->destFile << " : " << e;
         error = e;
         done();
     }
@@ -241,19 +241,19 @@ struct FTCallback : concurrency::TaskStatus {
 
 TEST_F(SvcRequestMgrTest, filetransfer) {
     int cnt = 3;
-    FakeSyncSvcDomain domain(cnt, confFile);
+    FakeSyncSvcDomain domain(cnt, fdsRoot);
     FTCallback cb;
     fds::net::FileTransferService::OnTransferCallback ftcb = std::bind(&FTCallback::handle, &cb, std::placeholders::_1, std::placeholders::_2);
     util::Stats stats;
     auto bytes = util::getMemoryKB();
-
+    ulong ftTimeout = 30*1000; // in millis
     bytes = util::getMemoryKB();
     std::cout << "mem:" << bytes << " : init" << std::endl;
     domain[1]->filetransfer->setChunkSize(1024);
-    domain[1]->filetransfer->send(domain.getFakeSvcUuid(2), "/bin/bash", "bash", ftcb, false);
-    cb.await();
-    ASSERT_EQ(cb.error, ERR_OK);
-    cb.reset(1);
+    domain[1]->filetransfer->send(domain.getFakeSvcUuid(2), "/bin/ls", "ls-test", ftcb, false);
+    cb.await(ftTimeout);
+    ASSERT_EQ(ERR_OK, cb.error);
+    cb.reset(1); cb.error = ERR_PENDING_RESP;
 
     bytes = util::getMemoryKB();
     std::cout << "mem:" << bytes << " : after 1 file - small chunk " << std::endl;
@@ -262,9 +262,9 @@ TEST_F(SvcRequestMgrTest, filetransfer) {
     stats.add(bytes);
     for (uint i = 0 ; i < 100 ; i++) {
         domain[1]->filetransfer->send(domain.getFakeSvcUuid(2), "/bin/ls", "test.txt_" + std::to_string(i), ftcb, false);
-        cb.await();
-        ASSERT_EQ(cb.error, ERR_OK);
-        cb.reset(1);
+        cb.await(ftTimeout);
+        ASSERT_EQ(ERR_OK, cb.error);
+        cb.reset(1); cb.error = ERR_PENDING_RESP;
         usleep(1000);
         stats.add(util::getMemoryKB());
     }
@@ -273,70 +273,46 @@ TEST_F(SvcRequestMgrTest, filetransfer) {
     auto originalBytes = bytes;
     std::cout << "mem:" << bytes << " : after 100 /bin/ls xfers : " << stats <<std::endl;
 
-    stats.reset();
-    stats.add(bytes);
-    for (uint i = 0 ; i < 100 ; i++) {
-        domain[1]->filetransfer->send(domain.getFakeSvcUuid(2), "/bin/bash", "test.txt_" + std::to_string(i), ftcb, false);
-        cb.await();
-        ASSERT_EQ(cb.error, ERR_OK);
-        cb.reset(1);
-        stats.add(util::getMemoryKB());
-    }
-    stats.calculate();
     domain[1]->filetransfer->setChunkSize(2*MB);
-    bytes = util::getMemoryKB();
-    std::cout << "mem:" << bytes << " : after 100 /bin/bash xfers : " << stats << std::endl;
     stats.reset();
     stats.add(bytes);
     for (uint i = 0 ; i < 100 ; i++) {
-        domain[1]->filetransfer->send(domain.getFakeSvcUuid(2), "/bin/bash", "test.txt_" + std::to_string(i), ftcb, false);
-        cb.await();
-        ASSERT_EQ(cb.error, ERR_OK);
-        cb.reset(1);
-        stats.add(util::getMemoryKB());
-    }
-    stats.calculate();
-    bytes = util::getMemoryKB();
-    std::cout << "mem:" << bytes << " : after 100 /bin/bash re-xfers : " << stats << std::endl;
-    stats.reset();
-    std::vector<std::string> files;
-    util::getFiles("/bin", files);
-    if (files.size() > 100) files.resize(100);
-    for (const auto file : files) {
-        domain[1]->filetransfer->send(domain.getFakeSvcUuid(2), "/bin/"+file, file , ftcb, false);
-        cb.await();
-        ASSERT_EQ(cb.error, ERR_OK);
-        cb.reset(1);
+        domain[1]->filetransfer->send(domain.getFakeSvcUuid(2), "/bin/ls", "test.txt_" + std::to_string(i), ftcb, false);
+        cb.await(ftTimeout);
+        ASSERT_EQ(ERR_OK, cb.error);
+        cb.reset(1); cb.error = ERR_PENDING_RESP;
         usleep(1000);
         stats.add(util::getMemoryKB());
     }
     stats.calculate();
-    bytes = util::getMemoryKB();
-    std::cout << "mem:" << bytes << " : after " << files.size() << " /bin/* xfers : " << stats << std::endl;
 
-    stats.reset();
-    for (const auto file : files) {
-        domain[1]->filetransfer->send(domain.getFakeSvcUuid(2), "/bin/"+file, file , ftcb, false);
-        cb.await();
-        ASSERT_EQ(cb.error, ERR_OK);
-        cb.reset(1);
-        usleep(1000);
-        stats.add(util::getMemoryKB());
-    }
-    stats.calculate();
     bytes = util::getMemoryKB();
-    std::cout << "mem:" << bytes << " : after " << files.size() << " /bin/* re-xfers : " << stats << std::endl;
+    std::cout << "mem:" << bytes << " : after 100 /bin/ls re-xfers : " << stats << std::endl;
+
+
     std::cout << "original:" << originalBytes << " now:" << bytes << " diff:" << (bytes-originalBytes) << std::endl;
-    EXPECT_LT(bytes-originalBytes, 5*KB);
+    auto diffBytes = bytes-originalBytes;
+    if (diffBytes > 8*KB) {
+        GLOGWARN << "memory usage seems to have increased unusually : " << (diffBytes/KB) << " KB";
+    }
+    EXPECT_LT(bytes-originalBytes, 15*KB);
 }
 
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
+    std::string root;
     po::options_description opts("Allowed options");
     opts.add_options()
         ("help", "produce help message")
-        ("fds-root", po::value<std::string>()->default_value("/fds"), "root");
-    g_fdslog = new fds_log("SvcRequestMgrTest");
+        ("fds-root", po::value<std::string>(&root)->default_value("/fds"), "root");
+    po::variables_map vm;
+    po::store(po::command_line_parser(argc, argv)
+              .options(opts)
+              .allow_unregistered()
+              .run(), vm);
+    po::notify(vm);
+    FdsRootDir fdsroot(root+"/");
+    g_fdslog = new fds_log(fdsroot.dir_fds_logs() + "/SvcRequestMgrTest", fdsroot.dir_fds_logs());
     SvcRequestMgrTest::init(argc, argv, opts);
     return RUN_ALL_TESTS();
 }
