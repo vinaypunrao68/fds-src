@@ -3,7 +3,7 @@
  
 FormationOne is a hyper-scale software-defi ned storage platform, built from
 the ground up, for the modern enterprise data center. FormationOne virtualizes all elements of storing and managing data. The system dynamically supports
-fl ash, disk, and even IaaS storage as well as any new form of non-volatile storage
+flash, disk, and even IaaS storage as well as any new form of non-volatile storage
 media. It supports dynamic capacity changes and can dynamically scale-out to
 Exabyte-capacities. FormationOne also virtualizes storage resources across
 industry standard hardware elements as long as those elements meet certain
