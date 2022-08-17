@@ -30,6 +30,7 @@ We built FormationOne with three fundamental software layers
 The following table summarizes these functions:
 
 ACCESS MANAGER
+
 Entry point for all data into the Formation domain. AM chunks
 and secure hashes the DOs. Access Manager is the coordinator
 in a distributed transaction that produces DOs and catalog objects
@@ -37,15 +38,18 @@ and sends out the simulcast of these objects into the storage and
 data managers.
 
 STORAGE MANAGER
+
 Storage management layer that manages the data storage on the
 node. It keeps object-to-disk mapping, provides tiering between
 flash and disk, collects garbage, and de-duplicates data.
 
 DATA MANAGER
+
 Metadata manager for the volumes. It participates in the replication of data, time lining and cloning of volumes, and journaling
 of operations on a per-volume basis.
 
 ORCHESTRATION MANAGER
+
 The brain of the domain; it holds the map of active nodes that
 form the domain. It coordinates control path requests, such as
 creation and deletion of volumes or snapshots and clones, and
