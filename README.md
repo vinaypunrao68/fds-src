@@ -28,6 +28,7 @@ disruption during service, node and disk failures.
 We built FormationOne with three fundamental software layers
 
 The following table summarizes these functions:
+
 ACCESS MANAGER
 Entry point for all data into the Formation domain. AM chunks
 and secure hashes the DOs. Access Manager is the coordinator
